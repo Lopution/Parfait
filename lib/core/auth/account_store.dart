@@ -86,6 +86,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
     state = await AsyncValue.guard(() => build());
   }
 
+  /// Public snapshot accessor for collaborators outside riverpod internals
+  /// (e.g. the network client).
+  Future<AccountState> resolveState() => future;
+
   /// Adds an account (or refreshes credentials of an existing one) and makes
   /// it current, mirroring the beta56 add-then-select behaviour.
   Future<void> upsertAccount(Account account, Credential credential) async {
