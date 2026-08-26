@@ -24,8 +24,7 @@ class PixivFuncApp extends ConsumerWidget {
       ),
       data: (value) => _materialApp(
         settings: value,
-        // AccountStore will replace this temporary false when OAuth is wired.
-        home: StartupGate(settings: value, hasAccount: false),
+        home: StartupGate(settings: value),
       ),
     );
   }
