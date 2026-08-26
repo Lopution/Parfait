@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/icons/app_icons.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -18,39 +20,44 @@ class _HomePageState extends State<HomePage> {
     Center(child: Text('设置')),
   ];
 
+  static const icons = [
+    AppIcons.home,
+    AppIcons.ranking,
+    AppIcons.n,
+    AppIcons.search,
+    Icons.settings,
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: index, children: pages),
       bottomNavigationBar: BottomAppBar(
-        child: Row(
-          children: List.generate(5, (i) {
-            return Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => index = i),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 5,
-                    horizontal: 10,
-                  ),
-                  child: Icon(
-                    [
-                      Icons.home,
-                      Icons.emoji_events,
-                      Icons.new_releases,
-                      Icons.search,
-                      Icons.settings,
-                    ][i],
-                    size: 35,
-                    color: index == i
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            children: List.generate(icons.length, (i) {
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => index = i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 5,
+                      horizontal: 10,
+                    ),
+                    child: Icon(
+                      icons[i],
+                      size: 35,
+                      color: index == i
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         ),
       ),
     );
