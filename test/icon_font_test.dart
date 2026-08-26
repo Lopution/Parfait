@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
@@ -79,9 +80,19 @@ void main() {
 
   testWidgets('home bar renders four iconFont icons plus Icons.settings',
       (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: HomePage()));
+    await tester.pumpWidget(const ProviderScope(
+      child: MaterialApp(home: HomePage()),
+    ));
+    // The recommended tab starts its async load; settle the shell first.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    final iconWidgets = tester.widgetList<Icon>(find.byType(Icon)).toList();
+    final iconWidgets = tester
+        .widgetList<Icon>(find.descendant(
+          of: find.byType(BottomAppBar),
+          matching: find.byType(Icon),
+        ))
+        .toList();
     expect(iconWidgets, hasLength(5));
 
     for (var i = 0; i < 4; i++) {
@@ -100,7 +111,11 @@ void main() {
     final loader = FontLoader('iconFont')..addFont(Future.value(fontData));
     await loader.load();
 
-    await tester.pumpWidget(const MaterialApp(home: HomePage()));
+    await tester.pumpWidget(const ProviderScope(
+      child: MaterialApp(home: HomePage()),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     await expectLater(
       find.byType(BottomAppBar),
       matchesGoldenFile('goldens/home_bar.png'),
