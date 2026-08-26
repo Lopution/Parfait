@@ -6,8 +6,10 @@ abstract final class FuncTokens {
   static const Color darkBackground = Color(0xFF181818);
   static const Color darkSurface = Color(0xFF252628);
   static const Color darkText = Color(0xFFD5D5D5);
+  static const Color darkSubdued = Color(0xFF606163);
 
   static const Color lightBackground = Color(0xFFFFFFFF);
   static const Color lightSurface = Color(0xFFE9E9EA);
   static const Color lightText = Color(0xFF383838);
+  static const Color lightSubdued = Color(0x40383838);
 }
