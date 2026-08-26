@@ -5,8 +5,10 @@ import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
+import '../../core/auth/account_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/settings/settings_controller.dart';
+import 'login_webview_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({
@@ -29,6 +31,15 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   bool _useLocalReverseProxy = false;
   bool _help = false;
+
+  void _openLoginWebview({bool create = false}) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => LoginWebViewPage(
+        oauthService: ref.read(oauthServiceProvider),
+        create: create,
+      ),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +138,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     backgroundColor: Colors.white,
                                     foregroundColor: FuncTokens.primary,
                                     borderColor: FuncTokens.primary,
-                                    onPressed: widget.onRegister ?? () {},
+                                    onPressed: widget.onRegister ??
+                                    () => _openLoginWebview(create: true),
                                   ),
                                 ),
                                 const SizedBox(width: 20),
@@ -136,7 +148,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     label: text('login'),
                                     backgroundColor: FuncTokens.primary,
                                     foregroundColor: Colors.white,
-                                    onPressed: widget.onLogin ?? () {},
+                                    onPressed: widget.onLogin ??
+                                        () => _openLoginWebview(),
                                   ),
                                 ),
                               ],
