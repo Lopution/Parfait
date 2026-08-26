@@ -4,6 +4,7 @@ import 'account.dart';
 import 'account_repository.dart';
 import 'credential.dart';
 import 'credential_store.dart';
+import 'oauth_service.dart';
 
 /// Lifecycle status of the account domain.
 enum AccountStatus { ready, failure }
@@ -244,4 +245,6 @@ final credentialStoreProvider = Provider<CredentialStore>((ref) {
 
 final accountStoreProvider =
     AsyncNotifierProvider<AccountStore, AccountState>(AccountStore.new);
+
+final oauthServiceProvider = Provider<OAuthService>((ref) => OAuthService());
 
