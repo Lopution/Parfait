@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../app/pixiv_image.dart';
 import '../../../app/replica_page_route.dart';
@@ -67,34 +68,28 @@ class RecommendedIllustPage extends ConsumerWidget {
                 return false;
               },
               child: CustomScrollView(
+                // Beta56 RecommendedPage uses a two-column waterfall flow
+                // (SliverWaterfallFlowDelegateWithFixedCrossAxisCount,
+                // mainAxisSpacing 5, crossAxisSpacing 10); card previews keep
+                // the original aspect ratio instead of a fixed cropped tile.
                 slivers: [
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                            childAspectRatio: 0.72,
-                          ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          if (index >= entities.length) {
-                            return _FeedTail(
-                              feed: feed,
-                              onRetry: () => ref
-                                  .read(
-                                    recommendedIllustControllerProvider
-                                        .notifier,
-                                  )
-                                  .retryLoadMore(),
-                            );
-                          }
-                          return IllustCard(entity: entities[index]);
-                        },
-                        childCount: entities.length + (feed.exhausted ? 0 : 1),
-                      ),
+                    sliver: SliverMasonryGrid.count(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 5,
+                      crossAxisSpacing: 10,
+                      itemBuilder: (context, index) =>
+                          IllustCard(entity: entities[index]),
+                      childCount: entities.length,
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: _FeedTail(
+                      feed: feed,
+                      onRetry: () => ref
+                          .read(recommendedIllustControllerProvider.notifier)
+                          .retryLoadMore(),
                     ),
                   ),
                 ],
@@ -193,115 +188,140 @@ class IllustCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AspectRatio(
-          aspectRatio: entity.width > 0 && entity.height > 0
-              ? entity.width / entity.height
-              : 1.0,
-          child: GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              ReplicaPageRoute<void>(
-                builder: (_) => IllustDetailPage(illustId: entity.id),
+        // Beta56 IllustPreviewer semantics: the preview height follows the
+        // original aspect ratio (BoxFit.fitWidth) inside the waterfall flow,
+        // so works are never cropped in the feed.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final previewHeight = entity.width > 0
+                ? constraints.maxWidth / entity.width * entity.height
+                : constraints.maxWidth;
+            return GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                ReplicaPageRoute<void>(
+                  builder: (_) => IllustDetailPage(illustId: entity.id),
+                ),
               ),
-            ),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(12)),
-                  child: PixivImage(
-                    url: entity.imageUrls.medium,
-                    fit: BoxFit.cover,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.all(Radius.circular(12)),
+                child: Hero(
+                  tag: 'IllustHero-${entity.id}',
+                  child: SizedBox(
+                    width: constraints.maxWidth,
+                    height: previewHeight,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        PixivImage(
+                          url: entity.imageUrls.medium,
+                          fit: BoxFit.fitWidth,
+                        ),
+                        if (entity.isR18)
+                          Positioned(
+                            left: 7,
+                            top: 7,
+                            child: Card(
+                              color: colorScheme.primary,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                child: Text(
+                                  'R-18',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (entity.isUgoira)
+                          Positioned(
+                            left: 7,
+                            bottom: 7,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(5),
+                                color: const Color(0x99343838),
+                              ),
+                              child: const Icon(
+                                Icons.gif_box_outlined,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                            ),
+                          ),
+                        if (entity.pageCount > 1)
+                          Positioned(
+                            right: 7,
+                            top: 7,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(7.5),
+                                color: const Color(0x99343838),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                child: Text(
+                                  '${entity.pageCount}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (entity.isAi)
+                          Positioned(
+                            right: 7,
+                            bottom: 7,
+                            child: Card(
+                              color: colorScheme.error,
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                child: Text(
+                                  'AI',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-                if (entity.isR18)
-                  Positioned(
-                    left: 7,
-                    top: 7,
-                    child: Card(
-                      color: colorScheme.primary,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        child: Text(
-                          'R-18',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (entity.isUgoira)
-                  Positioned(
-                    left: 7,
-                    bottom: 7,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(5),
-                        color: const Color(0x99343838),
-                      ),
-                      child: const Icon(
-                        Icons.gif_box_outlined,
-                        color: Colors.white,
-                        size: 30,
-                      ),
-                    ),
-                  ),
-                if (entity.pageCount > 1)
-                  Positioned(
-                    right: 7,
-                    top: 7,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(7.5),
-                        color: const Color(0x99343838),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        child: Text(
-                          '${entity.pageCount}',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (entity.isAi)
-                  Positioned(
-                    right: 7,
-                    bottom: 7,
-                    child: Card(
-                      color: colorScheme.error,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        child: Text(
-                          'AI',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 4),
-        Text(
-          entity.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-        ),
-        Text(
-          entity.user.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12),
+        // Beta56 title row indents the title block by 10 (space reserved
+        // for the bookmark button added by the bookmark task).
+        Padding(
+          padding: const EdgeInsets.only(left: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                entity.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                entity.user.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
         ),
       ],
     );
