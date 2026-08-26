@@ -16,6 +16,27 @@ void main() {
       expect(request!.query['offset'], '30');
     });
 
+    test('real-device recommended next_url shape is accepted', () {
+      // Captured from a live /v1/illust/recommended response: indexed
+      // `viewed[n]` array params plus bookmark-recommend cursors must pass
+      // the allowlist, otherwise the whole feed errors out on page one.
+      const realNextUrl =
+          'https://app-api.pixiv.net/v1/illust/recommended'
+          '?content_type=illust&include_ranking_illusts=false'
+          '&filter=for_ios&min_bookmark_id_for_recent_illust=28598116435'
+          '&max_bookmark_id_for_recommend=22338680892&offset=0'
+          '&include_privacy_policy=false'
+          '&viewed%5B0%5D=99683300&viewed%5B1%5D=145047042'
+          '&viewed%5B2%5D=144816389';
+      final request = NextPageParser.parse(realNextUrl)!;
+      expect(request.uri.path, '/v1/illust/recommended');
+      expect(
+        request.uri.queryParameters['max_bookmark_id_for_recommend'],
+        '22338680892',
+      );
+      expect(request.uri.queryParameters['viewed[1]'], '145047042');
+    });
+
     test('firstPage builds a request for a registered endpoint', () {
       final request = NextPageParser.firstPage('/v2/illust/follow', {
         'restrict': 'public',
