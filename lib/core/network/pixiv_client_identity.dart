@@ -46,4 +46,11 @@ abstract final class PixivClientIdentity {
 
   /// Hosts allowed for OAuth operations.
   static const Set<String> oauthHosts = {oauthHost};
+
+  /// Hosts allowed for image/file downloads (illust pages, avatars,
+  /// ugoira archives). Referer for downloads stays the app API origin.
+  static const Set<String> downloadHosts = {'i.pximg.net', 's.pximg.net'};
+
+  /// Referer required by Pixiv image servers.
+  static final Uri downloadReferer = appApiBase;
 }
