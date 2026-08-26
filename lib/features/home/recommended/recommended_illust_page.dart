@@ -1,7 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/pixiv_image.dart';
+import '../../../app/replica_page_route.dart';
+import '../../illust/detail/illust_detail_page.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/paging/paged_feed_controller.dart';
@@ -42,7 +44,8 @@ class RecommendedIllustPage extends ConsumerWidget {
         }
         if (feed.showInitialSpinner) {
           return const Scaffold(
-              body: Center(child: CircularProgressIndicator()));
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
         if (feed.isEmptyAndReady) {
           return const Scaffold(body: Center(child: Text('暂无推荐内容')));
@@ -50,8 +53,9 @@ class RecommendedIllustPage extends ConsumerWidget {
         final entities = store.getAll(feed.ids);
         return Scaffold(
           body: RefreshIndicator(
-            onRefresh: () =>
-                ref.read(recommendedIllustControllerProvider.notifier).refresh(),
+            onRefresh: () => ref
+                .read(recommendedIllustControllerProvider.notifier)
+                .refresh(),
             child: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
                 if (notification is ScrollEndNotification &&
@@ -69,11 +73,11 @@ class RecommendedIllustPage extends ConsumerWidget {
                     sliver: SliverGrid(
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 0.72,
-                      ),
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                            childAspectRatio: 0.72,
+                          ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           if (index >= entities.length) {
@@ -81,7 +85,9 @@ class RecommendedIllustPage extends ConsumerWidget {
                               feed: feed,
                               onRetry: () => ref
                                   .read(
-                                      recommendedIllustControllerProvider.notifier)
+                                    recommendedIllustControllerProvider
+                                        .notifier,
+                                  )
                                   .retryLoadMore(),
                             );
                           }
@@ -112,7 +118,9 @@ class _FeedTail extends StatelessWidget {
     if (feed.showLoadMoreSpinner) {
       return const Center(
         child: Padding(
-            padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(),
+        ),
       );
     }
     if (feed.showLoadMoreError) {
@@ -123,8 +131,11 @@ class _FeedTail extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text('加载更多失败'),
-              Text('${feed.loadMoreError}',
-                  style: Theme.of(context).textTheme.bodySmall, maxLines: 2),
+              Text(
+                '${feed.loadMoreError}',
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 2,
+              ),
               TextButton(onPressed: onRetry, child: const Text('重试')),
             ],
           ),
@@ -153,9 +164,11 @@ class _InitialErrorView extends StatelessWidget {
             const SizedBox(height: 12),
             const Text('推荐内容加载失败'),
             const SizedBox(height: 8),
-            Text(error,
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center),
+            Text(
+              error,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 12),
             FilledButton(onPressed: onRetry, child: const Text('重试')),
           ],
@@ -184,78 +197,97 @@ class IllustCard extends StatelessWidget {
           aspectRatio: entity.width > 0 && entity.height > 0
               ? entity.width / entity.height
               : 1.0,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(12)),
-                child: CachedNetworkImage(
-                  imageUrl: entity.imageUrls.medium,
-                  fit: BoxFit.cover,
-                  placeholder: (_, _) =>
-                      const ColoredBox(color: Color(0x33343838)),
-                  errorWidget: (_, _, _) => const ColoredBox(
-                    color: Color(0x33343838),
-                    child: Icon(Icons.broken_image),
-                  ),
-                ),
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              ReplicaPageRoute<void>(
+                builder: (_) => IllustDetailPage(illustId: entity.id),
               ),
-              if (entity.isR18)
-                Positioned(
-                  left: 7,
-                  top: 7,
-                  child: Card(
-                    color: colorScheme.primary,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      child:
-                          Text('R-18', style: TextStyle(color: Colors.white)),
-                    ),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(12)),
+                  child: PixivImage(
+                    url: entity.imageUrls.medium,
+                    fit: BoxFit.cover,
                   ),
                 ),
-              if (entity.isUgoira)
-                Positioned(
-                  left: 7,
-                  bottom: 7,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(5),
-                      color: const Color(0x99343838),
-                    ),
-                    child: const Icon(Icons.gif_box_outlined,
-                        color: Colors.white, size: 30),
-                  ),
-                ),
-              if (entity.pageCount > 1)
-                Positioned(
-                  right: 7,
-                  top: 7,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(7.5),
-                      color: const Color(0x99343838),
-                    ),
-                    child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      child: Text('${entity.pageCount}',
-                          style: const TextStyle(color: Colors.white)),
+                if (entity.isR18)
+                  Positioned(
+                    left: 7,
+                    top: 7,
+                    child: Card(
+                      color: colorScheme.primary,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        child: Text(
+                          'R-18',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              if (entity.isAi)
-                Positioned(
-                  right: 7,
-                  bottom: 7,
-                  child: Card(
-                    color: colorScheme.error,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      child: Text('AI', style: TextStyle(color: Colors.white)),
+                if (entity.isUgoira)
+                  Positioned(
+                    left: 7,
+                    bottom: 7,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                        color: const Color(0x99343838),
+                      ),
+                      child: const Icon(
+                        Icons.gif_box_outlined,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
                   ),
-                ),
-            ],
+                if (entity.pageCount > 1)
+                  Positioned(
+                    right: 7,
+                    top: 7,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(7.5),
+                        color: const Color(0x99343838),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        child: Text(
+                          '${entity.pageCount}',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (entity.isAi)
+                  Positioned(
+                    right: 7,
+                    bottom: 7,
+                    child: Card(
+                      color: colorScheme.error,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        child: Text(
+                          'AI',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 4),

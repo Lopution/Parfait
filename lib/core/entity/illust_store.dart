@@ -19,8 +19,13 @@ class IllustStore {
 
   IllustEntity? get(int id) => _entities[id];
 
-  /// Merges entities: newer parse wins; [isBookmarked] is never regressed to
-  /// false by an older snapshot that simply has not observed a bookmark yet.
+  /// Merges entities: newer parse wins; `isBookmarked` is never regressed to
+  /// false by an older snapshot that simply has not observed a bookmark yet;
+  /// page-URL payloads (`metaPages`/`metaSinglePageOriginalUrl`) are kept
+  /// when only the older snapshot carries them (detail → feed refresh must
+  /// not strip viewer/download URLs); trimmed payloads with an empty
+  /// `caption`/`tags` never erase richer values already observed (detail
+  /// fields must not regress, parent AC); `visible: false` sticks once seen.
   void mergeAll(Iterable<IllustEntity> incoming) {
     for (final entity in incoming) {
       final existing = _entities[entity.id];
@@ -30,7 +35,21 @@ class IllustStore {
       }
       _entities[entity.id] = entity.copyWith(
         isBookmarked: entity.isBookmarked || existing.isBookmarked,
+        caption: entity.caption.isNotEmpty ? entity.caption : existing.caption,
+        tags: entity.tags.isNotEmpty ? entity.tags : existing.tags,
+        metaPages: entity.metaPages.isNotEmpty
+            ? entity.metaPages
+            : existing.metaPages,
+        metaSinglePageOriginalUrl:
+            entity.metaSinglePageOriginalUrl ?? existing.metaSinglePageOriginalUrl,
+        visible: entity.visible && existing.visible,
       );
+      // pageCount never shrinks: a feed snapshot with page_count=1 must not
+      // erase a detail payload's multi-page count (AC: merge 不倒退).
+      final merged = _entities[entity.id]!;
+      if (existing.pageCount > merged.pageCount) {
+        _entities[entity.id] = merged.copyWith(pageCount: existing.pageCount);
+      }
     }
   }
 

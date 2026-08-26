@@ -58,6 +58,10 @@ class IllustEntity {
     required this.totalView,
     required this.totalBookmarks,
     this.captionVisible = true,
+    this.metaPages = const [],
+    this.metaSinglePageOriginalUrl,
+    this.visible = true,
+    this.createDate,
   });
 
   final int id;
@@ -80,22 +84,66 @@ class IllustEntity {
 
   final bool captionVisible;
 
+  /// Per-page image URL sets for multi-page works (detail API payload).
+  final List<IllustImageUrls> metaPages;
+
+  /// `meta_single_page.original_image_url` for single-page works.
+  final String? metaSinglePageOriginalUrl;
+
+  /// false = deleted or restricted work (detail API).
+  final bool visible;
+
+  /// `create_date` raw ISO string (display uses y/m/d per beta56).
+  final String? createDate;
+
   bool get isR18 => xRestrict == 1;
 
   bool get isAi => aiType == 2;
 
   bool get isUgoira => type == IllustType.ugoira;
 
-  IllustEntity copyWith({bool? isBookmarked}) {
+  /// Original-size URL for [pageIndex] (downloads; beta56 downloader input).
+  String? originalUrlAt(int pageIndex) {
+    if (pageCount > 1) {
+      if (pageIndex < 0 || pageIndex >= metaPages.length) return null;
+      return metaPages[pageIndex].original ?? metaPages[pageIndex].large;
+    }
+    if (pageIndex != 0) return null;
+    return metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large;
+  }
+
+  /// Viewer URLs: original when available, else large (beta56 scaleQuality).
+  List<String> viewerUrls() {
+    if (pageCount > 1) {
+      return [
+        for (final page in metaPages) page.original ?? page.large,
+      ];
+    }
+    return [
+      metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large,
+    ];
+  }
+
+  IllustEntity copyWith({
+    bool? isBookmarked,
+    Object? caption = _sentinel,
+    Object? tags = _sentinel,
+    Object? metaPages = _sentinel,
+    Object? metaSinglePageOriginalUrl = _sentinel,
+    bool? visible,
+    int? pageCount,
+  }) {
     return IllustEntity(
       id: id,
       title: title,
       type: type,
       imageUrls: imageUrls,
-      caption: caption,
       user: user,
-      tags: tags,
-      pageCount: pageCount,
+      caption: identical(caption, _sentinel)
+          ? this.caption
+          : caption as String,
+      tags: identical(tags, _sentinel) ? this.tags : tags as List<IllustTag>,
+      pageCount: pageCount ?? this.pageCount,
       width: width,
       height: height,
       xRestrict: xRestrict,
@@ -104,8 +152,17 @@ class IllustEntity {
       totalView: totalView,
       totalBookmarks: totalBookmarks,
       captionVisible: captionVisible,
+      metaPages: identical(metaPages, _sentinel)
+          ? this.metaPages
+          : metaPages as List<IllustImageUrls>,
+      metaSinglePageOriginalUrl: identical(metaSinglePageOriginalUrl, _sentinel)
+          ? this.metaSinglePageOriginalUrl
+          : metaSinglePageOriginalUrl as String?,
+      visible: visible ?? this.visible,
     );
   }
+
+  static const _sentinel = Object();
 
   /// Parses one illust object. Unknown/optional fields degrade gracefully;
   /// structural violations (missing id/title/user/urls) throw
@@ -173,6 +230,18 @@ class IllustEntity {
       totalView: json['total_view'] is int ? json['total_view'] as int : 0,
       totalBookmarks:
           json['total_bookmarks'] is int ? json['total_bookmarks'] as int : 0,
+      metaPages: [
+        if (json['meta_pages'] is List)
+          for (final page in json['meta_pages'] as List)
+            if (page is Map<String, dynamic> &&
+                page['image_urls'] is Map<String, dynamic>)
+              _parseImageUrls(page['image_urls'] as Map<String, dynamic>),
+      ],
+      metaSinglePageOriginalUrl: _optionalString(
+        (json['meta_single_page'] as Map<String, dynamic>?)?['original_image_url'],
+      ),
+      visible: json['visible'] is! bool || (json['visible'] as bool),
+      createDate: _optionalString(json['create_date']),
     );
   }
 
@@ -198,6 +267,23 @@ class IllustEntity {
     return (
       illusts: illusts,
       nextUrl: nextUrl is String && nextUrl.isNotEmpty ? nextUrl : null,
+    );
+  }
+
+  static IllustImageUrls _parseImageUrls(Map<String, dynamic> json) {
+    String requiredUrl(String key) {
+      final value = json[key];
+      if (value is! String) {
+        throw FormatException('image_urls.$key is missing');
+      }
+      return value;
+    }
+
+    return IllustImageUrls(
+      squareMedium: requiredUrl('square_medium'),
+      medium: requiredUrl('medium'),
+      large: requiredUrl('large'),
+      original: _optionalString(json['original']),
     );
   }
 
