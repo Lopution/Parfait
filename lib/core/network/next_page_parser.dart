@@ -31,6 +31,8 @@ const Map<String, Set<String>> kNextPageEndpoints = {
     'include_ranking_illusts',
     'filter',
     'min_bookmark_id_for_recent_illust',
+    'max_bookmark_id_for_recommend',
+    'include_privacy_policy',
     'offset',
   },
   '/v2/illust/follow': {'restrict', 'offset'},
@@ -50,6 +52,14 @@ const Map<String, Set<String>> kNextPageEndpoints = {
 };
 
 abstract final class NextPageParser {
+  /// Per-endpoint parameter-name patterns (real next_url payloads carry
+  /// indexed array params like `viewed[0]..viewed[n]` that cannot be
+  /// enumerated; the name shape is still allowlisted, values are
+  /// server-echoed digits only).
+  static final Map<String, List<RegExp>> kNextPageParamPatterns = {
+    '/v1/illust/recommended': [RegExp(r'^viewed\[\d+\]$')],
+  };
+
   /// Parses [nextUrl]; `null` (no next page) passes through as `null`.
   ///
   /// Throws [NextPageParseError] for anything not explicitly allowlisted.
@@ -76,12 +86,13 @@ abstract final class NextPageParser {
       throw NextPageParseError('unknown next_url endpoint: ${uri.path}');
     }
     final allowedParams = kNextPageEndpoints[uri.path]!;
+    final patterns = kNextPageParamPatterns[uri.path] ?? const [];
     for (final name in uri.queryParameters.keys) {
-      if (!allowedParams.contains(name)) {
-        throw NextPageParseError(
-          'unknown query parameter "$name" for ${uri.path}',
-        );
-      }
+      if (allowedParams.contains(name)) continue;
+      if (patterns.any((pattern) => pattern.hasMatch(name))) continue;
+      throw NextPageParseError(
+        'unknown query parameter "$name" for ${uri.path}',
+      );
     }
     return NextPageRequest(uri: uri);
   }
