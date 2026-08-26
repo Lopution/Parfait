@@ -28,3 +28,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  fonts:
+    - family: iconFont
+      fonts:
+        - asset: assets/icon.ttf
