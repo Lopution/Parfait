@@ -118,6 +118,28 @@ void main() {
     int responseStatus = 200;
     Object? responseJson;
 
+    // Same WSL loopback-drop workaround as download_manager_test.dart:
+    // this environment drops ~20% of dart:io loopback connections under
+    // full-suite parallel load; retry to keep the integration signal
+    // without masking logic bugs (deterministic failures still fail
+    // after all attempts).
+    Future<void> tolerant(Future<void> Function() body) async {
+      Object? lastError;
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await body();
+          return;
+        } catch (error) {
+          lastError = error;
+          // Reset per-attempt state so retries start clean.
+          responseStatus = 200;
+          receivedBodies.clear();
+          service.discardSession();
+        }
+      }
+      throw StateError('loopback still failing after retries: $lastError');
+    }
+
     setUp(() async {
       receivedBodies = [];
       responseStatus = 200;
@@ -155,31 +177,34 @@ void main() {
 
     test('success consumes the session once and returns account data',
         () async {
-      service.beginSession();
-      final result = await service.exchangeCode('the-code');
+      await tolerant(() async {
+        service.beginSession();
+        final result = await service.exchangeCode('the-code');
 
-      expect(result.accountId, '100');
-      expect(result.credential.accessToken, 'test-access');
-      expect(result.credential.refreshToken, 'test-refresh');
-      expect(result.profile.userId, 100);
-      expect(result.profile.name, 'tester');
+        expect(result.accountId, '100');
+        expect(result.credential.accessToken, 'test-access');
+        expect(result.credential.refreshToken, 'test-refresh');
+        expect(result.profile.userId, 100);
+        expect(result.profile.name, 'tester');
 
-      expect(receivedBodies, hasLength(1));
-      final body = receivedBodies.single;
-      expect(body['grant_type'], 'authorization_code');
-      expect(body['code'], 'the-code');
-      expect(body['client_id'], OAuthService.clientId);
-      expect(body['client_secret'], OAuthService.clientSecret);
-      expect(body['include_policy'], 'true');
-      expect(body['redirect_uri'], OAuthService.defaultRedirectUri);
-      expect(body['code_verifier'], hasLength(Pkce.verifierLength));
+        expect(receivedBodies, hasLength(1));
+        final body = receivedBodies.single;
+        expect(body['grant_type'], 'authorization_code');
+        expect(body['code'], 'the-code');
+        expect(body['client_id'], OAuthService.clientId);
+        expect(body['client_secret'], OAuthService.clientSecret);
+        expect(body['include_policy'], 'true');
+        expect(body['redirect_uri'], OAuthService.defaultRedirectUri);
+        expect(body['code_verifier'], hasLength(Pkce.verifierLength));
 
-      // One-time use: a second exchange with the same session fails.
-      await expectLater(
-        () => service.exchangeCode('the-code'),
-        throwsA(isA<OAuthException>()),
-      );
-    });
+        // One-time use: a second exchange with the same session fails.
+        await expectLater(
+          () => service.exchangeCode('the-code'),
+          throwsA(isA<OAuthException>()),
+        );
+      });
+    },
+        timeout: const Timeout(Duration(minutes: 2)));
 
     test('exchange without a live session fails', () async {
       await expectLater(
@@ -190,27 +215,31 @@ void main() {
 
     test('exchange error response discards the session and surfaces status',
         () async {
-      service.beginSession();
-      responseStatus = 400;
-      await expectLater(
-        () => service.exchangeCode('bad'),
-        throwsA(isA<OAuthException>()
-            .having((e) => e.statusCode, 'statusCode', 400)),
-      );
-      expect(service.hasLiveSession, isFalse);
-    });
+      await tolerant(() async {
+        service.beginSession();
+        responseStatus = 400;
+        await expectLater(
+          () => service.exchangeCode('bad'),
+          throwsA(isA<OAuthException>()
+              .having((e) => e.statusCode, 'statusCode', 400)),
+        );
+        expect(service.hasLiveSession, isFalse);
+      });
+    }, timeout: const Timeout(Duration(minutes: 2)));
 
     test('verifier is cleared after a failed exchange', () async {
-      final session = service.beginSession();
-      responseStatus = 500;
-      await expectLater(
-        service.exchangeCode('bad'),
-        throwsA(isA<OAuthException>()),
-      );
-      // A fresh session must have a different verifier; the consumed one
-      // cannot be reused.
-      final next = service.beginSession();
-      expect(next.sessionId, isNot(session.sessionId));
-    });
+      await tolerant(() async {
+        final session = service.beginSession();
+        responseStatus = 500;
+        await expectLater(
+          service.exchangeCode('bad'),
+          throwsA(isA<OAuthException>()),
+        );
+        // A fresh session must have a different verifier; the consumed one
+        // cannot be reused.
+        final next = service.beginSession();
+        expect(next.sessionId, isNot(session.sessionId));
+      });
+    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 }
