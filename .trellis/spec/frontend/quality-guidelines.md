@@ -47,7 +47,41 @@ Questions to answer:
 
 <!-- What level of testing is expected -->
 
-(To be filled by the team)
+### dart:io Loopback Flakiness (WSL environment gotcha)
+
+**Problem**: this WSL/flutter-test VM drops ~20% of `dart:io` loopback connections under full-suite parallel load (verified with a raw HttpClient repro; see 08-26-download-manager-mediastore research). Any test that binds `127.0.0.1:0` or opens real sockets to loopback will intermittently fail or hang the whole-suite run even though single-file runs pass.
+
+**Required pattern**: wrap socket-dependent test bodies in a 3-attempt retry helper (`tolerant()`), reset per-attempt state between attempts, and raise the per-test timeout above worst-case retries:
+
+```dart
+// Canonical implementations: test/download_manager_test.dart,
+// test/oauth_service_test.dart ('token exchange' group).
+Future<void> tolerant(Future<void> Function() body) async {
+  Object? lastError;
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await body();
+      return;
+    } catch (error) {
+      lastError = error;
+      receivedBodies.clear();   // reset per-attempt state
+      responseStatus = 200;
+      service.discardSession();
+    }
+  }
+  throw StateError('loopback still failing after retries: $lastError');
+}
+```
+
+```dart
+test('...', () async {
+  await tolerant(() async { /* body */ });
+}, timeout: const Timeout(Duration(minutes: 2)));
+```
+
+**Why retries and not weaker assertions**: deterministic logic failures still fail after all attempts, so retrying only absorbs environment noise without masking bugs. Do NOT delete real-socket integration coverage for this reason.
+
+Symptoms to recognize: `TimeoutException after 0:00:30` from an unrelated-feeling test file while running `flutter test` (full suite); same test green when run alone. Default fix is this pattern, not rerolling the suite.
 
 ---
 
