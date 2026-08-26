@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -13,42 +15,45 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/features/home/recommended/recommended_illust_page.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_repository.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/illust_fixtures.dart';
+
 String _illustJson(int id, {bool bookmarked = false}) => jsonEncode({
-      'id': id,
-      'title': 'illust $id',
-      'type': 'illust',
-      'image_urls': {
-        'square_medium': 'https://i.pximg.net/$id/s.png',
-        'medium': 'https://i.pximg.net/$id/m.png',
-        'large': 'https://i.pximg.net/$id/l.png',
-      },
-      'caption': '',
-      'restrict': 0,
-      'user': {
-        'id': 99,
-        'name': 'author',
-        'account': 'author',
-        'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
-      },
-      'tags': [],
-      'page_count': 1,
-      'width': 100,
-      'height': 100,
-      'sanity_level': 2,
-      'x_restrict': 0,
-      'meta_single_page': {},
-      'meta_pages': [],
-      'total_view': 1,
-      'total_bookmarks': 1,
-      'is_bookmarked': bookmarked,
-      'visible': true,
-      'is_muted': false,
-      'illust_ai_type': 0,
-    });
+  'id': id,
+  'title': 'illust $id',
+  'type': 'illust',
+  'image_urls': {
+    'square_medium': 'https://i.pximg.net/$id/s.png',
+    'medium': 'https://i.pximg.net/$id/m.png',
+    'large': 'https://i.pximg.net/$id/l.png',
+  },
+  'caption': '',
+  'restrict': 0,
+  'user': {
+    'id': 99,
+    'name': 'author',
+    'account': 'author',
+    'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
+  },
+  'tags': [],
+  'page_count': 1,
+  'width': 100,
+  'height': 100,
+  'sanity_level': 2,
+  'x_restrict': 0,
+  'meta_single_page': {},
+  'meta_pages': [],
+  'total_view': 1,
+  'total_bookmarks': 1,
+  'is_bookmarked': bookmarked,
+  'visible': true,
+  'is_muted': false,
+  'illust_ai_type': 0,
+});
 
 class _FakeCredentialStore implements CredentialStore {
   final _secrets = <String, Credential>{};
@@ -70,9 +75,9 @@ class _FakeCredentialStore implements CredentialStore {
 class _FakeMetadataRepository implements AccountMetadataRepository {
   @override
   Future<AccountMetadataSnapshot> load() async => const AccountMetadataSnapshot(
-        accounts: [Account(id: '100', userId: 100, name: 'tester')],
-        currentId: '100',
-      );
+    accounts: [Account(id: '100', userId: 100, name: 'tester')],
+    currentId: '100',
+  );
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
@@ -99,7 +104,8 @@ class _ApiFixture {
       final first = request.url.queryParameters['offset'] == null;
       final start = first ? 1 : 8;
       final ids = [for (var i = start; i < start + 10; i++) i];
-      final nextUrl = nextUrlOverride ??
+      final nextUrl =
+          nextUrlOverride ??
           (first
               ? 'https://app-api.pixiv.net/v1/illust/recommended?offset=30'
               : null);
@@ -126,30 +132,35 @@ Future<(ProviderContainer, _ApiFixture)> makeWorld({
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
   final fixture = _ApiFixture(nextUrlOverride: nextUrlOverride);
-  final credentials = _FakeCredentialStore()..seed(
+  final credentials = _FakeCredentialStore()
+    ..seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
     );
 
   final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(overrides: [
-    credentialStoreProvider.overrideWithValue(credentials),
-    accountMetadataRepositoryProvider.overrideWithValue(
-      _FakeMetadataRepository(),
-    ),
-    oauthServiceProvider.overrideWithValue(
-      OAuthService(client: MockClient((request) async {
-        fail('refresh should not happen in this test');
-      })),
-    ),
-    pixivHttpClientProvider.overrideWith((ref) {
-      final client = clientRef[0];
-      if (client == null) {
-        throw StateError('client not wired yet');
-      }
-      return client;
-    }),
-  ]);
+  final container = ProviderContainer(
+    overrides: [
+      credentialStoreProvider.overrideWithValue(credentials),
+      accountMetadataRepositoryProvider.overrideWithValue(
+        _FakeMetadataRepository(),
+      ),
+      oauthServiceProvider.overrideWithValue(
+        OAuthService(
+          client: MockClient((request) async {
+            fail('refresh should not happen in this test');
+          }),
+        ),
+      ),
+      pixivHttpClientProvider.overrideWith((ref) {
+        final client = clientRef[0];
+        if (client == null) {
+          throw StateError('client not wired yet');
+        }
+        return client;
+      }),
+    ],
+  );
   final client = PixivHttpClient(
     client: failApi
         ? MockClient((request) async {
@@ -172,14 +183,16 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
   });
 
-  test('initial load fetches real-shaped pages and merges the store',
-      () async {
+  test('initial load fetches real-shaped pages and merges the store', () async {
     final (container, _) = await makeWorld();
     addTearDown(container.dispose);
 
-    final controller =
-        container.read(recommendedIllustControllerProvider.notifier);
-    final state = await container.read(recommendedIllustControllerProvider.future);
+    final controller = container.read(
+      recommendedIllustControllerProvider.notifier,
+    );
+    final state = await container.read(
+      recommendedIllustControllerProvider.future,
+    );
 
     expect(state.showInitialError, isFalse);
     expect(state.ids, hasLength(10));
@@ -192,12 +205,15 @@ void main() {
     final (container, fixture) = await makeWorld();
     addTearDown(container.dispose);
 
-    final controller =
-        container.read(recommendedIllustControllerProvider.notifier);
+    final controller = container.read(
+      recommendedIllustControllerProvider.notifier,
+    );
     await container.read(recommendedIllustControllerProvider.future);
     await controller.loadMore();
 
-    final state = container.read(recommendedIllustControllerProvider).requireValue;
+    final state = container
+        .read(recommendedIllustControllerProvider)
+        .requireValue;
     // Page 1: 1..10; page 2: 8..17 → three duplicates (8,9,10) collapse.
     expect(state.ids, hasLength(17));
     expect(state.ids.toSet().length, 17);
@@ -207,18 +223,25 @@ void main() {
 
   test('malicious next_url is rejected and surfaces an error', () async {
     final (container, _) = await makeWorld(
-      nextUrlOverride: 'https://evil.example.com/v1/illust/recommended?offset=1',
+      nextUrlOverride:
+          'https://evil.example.com/v1/illust/recommended?offset=1',
     );
     addTearDown(container.dispose);
 
-    final controller =
-        container.read(recommendedIllustControllerProvider.notifier);
+    final controller = container.read(
+      recommendedIllustControllerProvider.notifier,
+    );
     // Page 1 validates its cursor via the allowlist: a rejected cursor
     // surfaces an explicit error instead of navigating to a foreign host.
-    final state = await container.read(recommendedIllustControllerProvider.future);
+    final state = await container.read(
+      recommendedIllustControllerProvider.future,
+    );
 
-    expect(state.showInitialError, isTrue,
-        reason: 'a rejected malicious cursor must be an observable error');
+    expect(
+      state.showInitialError,
+      isTrue,
+      reason: 'a rejected malicious cursor must be an observable error',
+    );
     expect(state.initialError, isA<ApiParseError>());
     expect(controller.nextCursor, isNull);
     expect(state.ids, isEmpty);
@@ -228,14 +251,19 @@ void main() {
     final (container, _) = await makeWorld(failApi: true);
     addTearDown(container.dispose);
 
-    final state = await container.read(recommendedIllustControllerProvider.future);
+    final state = await container.read(
+      recommendedIllustControllerProvider.future,
+    );
     expect(state.showInitialError, isTrue);
     expect(state.initialError, isA<ApiError>());
 
-    final controller =
-        container.read(recommendedIllustControllerProvider.notifier);
+    final controller = container.read(
+      recommendedIllustControllerProvider.notifier,
+    );
     await controller.retryInitial();
-    final retried = container.read(recommendedIllustControllerProvider).requireValue;
+    final retried = container
+        .read(recommendedIllustControllerProvider)
+        .requireValue;
     expect(retried.showInitialError, isTrue);
   });
 
@@ -243,18 +271,56 @@ void main() {
     final (container, _) = await makeWorld();
     addTearDown(container.dispose);
 
-    final controller =
-        container.read(recommendedIllustControllerProvider.notifier);
-    final initial = await container.read(recommendedIllustControllerProvider.future);
+    final controller = container.read(
+      recommendedIllustControllerProvider.notifier,
+    );
+    final initial = await container.read(
+      recommendedIllustControllerProvider.future,
+    );
     expect(initial.ids, hasLength(10));
 
     // Force the next page fetch to fail by disposing the underlying transport
     // is not directly possible; instead verify refresh success path resets
     // cursor and dedupes from empty.
     await controller.refresh();
-    final refreshed =
-        container.read(recommendedIllustControllerProvider).requireValue;
+    final refreshed = container
+        .read(recommendedIllustControllerProvider)
+        .requireValue;
     expect(refreshed.showRefreshSpinner, isFalse);
     expect(refreshed.ids, hasLength(10));
   });
+  // Beta56 parity regression: the feed is a two-column waterfall flow and
+  // the card preview must render a tall portrait at its original aspect
+  // ratio (BoxFit.fitWidth) without overflow or cropping — the real-device
+  // fixed-tile crop looked broken (heads/subjects cut off).
+  testWidgets(
+    'IllustCard renders a tall portrait at full aspect ratio without overflow',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: SizedBox(
+                  width: 300,
+                  child: IllustCard(
+                    entity: parseIllust(
+                      illustJson(7, pageCount: 1, width: 800, height: 2000),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+      });
+      expect(tester.takeException(), isNull);
+      // 300-wide column with a 800x2000 work: preview height follows the
+      // original ratio (300 / 800 * 2000 = 750) instead of a cropped tile.
+      final image = tester.getSize(find.byType(IllustCard).first);
+      expect(image.width, 300);
+      expect(image.height, greaterThan(700));
+    },
+  );
 }

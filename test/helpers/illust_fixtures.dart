@@ -16,6 +16,8 @@ Map<String, dynamic> illustJson(
   String caption = '',
   int totalView = 10,
   int totalBookmarks = 5,
+  int width = 800,
+  int height = 600,
 }) =>
     {
       'id': id,
@@ -40,8 +42,8 @@ Map<String, dynamic> illustJson(
         {'name': '風景', 'translated_name': 'scenery'},
       ],
       'page_count': pageCount,
-      'width': 800,
-      'height': 600,
+      'width': width,
+      'height': height,
       'sanity_level': 2,
       'x_restrict': xRestrict,
       'illust_ai_type': aiType,
