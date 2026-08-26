@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimal FileProvider paths (R5): only the controlled share cache is
+     exposed; arbitrary internal directories are never readable. -->
+<paths>
+    <cache-path
+        name="shared_images"
+        path="shared_images/" />
+</paths>
