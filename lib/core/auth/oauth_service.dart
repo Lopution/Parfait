@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../network/pixiv_client_identity.dart';
+import '../network/pixiv_headers.dart';
 import 'credential.dart';
 import 'pkce.dart';
 
@@ -86,17 +88,11 @@ class OAuthService {
         _sessionTtl = sessionTtl,
         _exchangeTimeout = exchangeTimeout;
 
-  static final Uri defaultAuthorizeEndpoint =
-      Uri(scheme: 'https', host: 'app-api.pixiv.net', path: 'web/v1/login');
-  static final Uri defaultTokenEndpoint = Uri(
-      scheme: 'https',
-      host: 'oauth.secure.pixiv.net',
-      path: '/auth/token');
-  static const String defaultRedirectUri =
-      'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback';
-  static const String clientId = 'MOBrBDS8blbauoSck0ZfDbtuzpyT';
-  static const String clientSecret =
-      'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj';
+  static final Uri defaultAuthorizeEndpoint = PixivClientIdentity.webLoginEndpoint;
+  static final Uri defaultTokenEndpoint = PixivClientIdentity.oauthTokenEndpoint;
+  static const String defaultRedirectUri = PixivClientIdentity.oauthRedirectUri;
+  static const String clientId = PixivClientIdentity.clientId;
+  static const String clientSecret = PixivClientIdentity.clientSecret;
   static const Duration defaultSessionTtl = Duration(minutes: 10);
   static const Duration defaultExchangeTimeout = Duration(seconds: 15);
 
@@ -168,13 +164,7 @@ class OAuthService {
       final response = await _client
           .post(
             _tokenEndpoint,
-            headers: const {
-              'User-Agent': 'PixivAndroidApp/5.0.234 (Android 11; Pixel 5)',
-              'App-OS': 'android',
-              'App-OS-Version': '11.0',
-              'App-Version': '5.0.234',
-              'Accept-Language': 'zh-CN',
-            },
+            headers: PixivHeaders.oauth(),
             body: {
               'client_id': clientId,
               'client_secret': clientSecret,
@@ -210,6 +200,44 @@ class OAuthService {
   /// Clears any live session (user cancelled, page disposed, timeout).
   void discardSession() {
     _session = null;
+  }
+
+  /// Refreshes tokens with a refresh token (grant_type=refresh_token).
+  ///
+  /// Throws [OAuthException] with statusCode 400-class detail when the
+  /// refresh token is invalid or expired; callers translate that into the
+  /// re-auth flow.
+  Future<OAuthResult> refreshSession(String refreshToken) async {
+    try {
+      final response = await _client
+          .post(
+            _tokenEndpoint,
+            headers: PixivHeaders.oauth(),
+            body: {
+              'client_id': clientId,
+              'client_secret': clientSecret,
+              'include_policy': 'true',
+              'grant_type': 'refresh_token',
+              'refresh_token': refreshToken,
+            },
+          )
+          .timeout(_exchangeTimeout);
+      if (response.statusCode != 200) {
+        throw OAuthException(
+          'token refresh failed',
+          statusCode: response.statusCode,
+        );
+      }
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return _parseTokenResponse(json);
+    } on TimeoutException {
+      throw const OAuthException('token refresh timed out');
+    } on SocketException catch (error) {
+      throw OAuthException('token refresh network error', cause: error);
+    } on FormatException catch (error) {
+      throw OAuthException('token refresh response is not valid JSON',
+          cause: error);
+    }
   }
 
   OAuthResult _parseTokenResponse(Map<String, dynamic> json) {
