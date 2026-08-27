@@ -4,6 +4,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../app/pixiv_image.dart';
 import '../../../app/replica_page_route.dart';
+import '../../bookmark/bookmark_switch_button.dart';
 import '../../illust/detail/illust_detail_page.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
@@ -298,30 +299,35 @@ class IllustCard extends StatelessWidget {
           },
         ),
         const SizedBox(height: 4),
-        // Beta56 title row indents the title block by 10 (space reserved
-        // for the bookmark button added by the bookmark task).
-        Padding(
-          padding: const EdgeInsets.only(left: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entity.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+        // Beta56 title row: 10px indent, title/user block, bookmark heart
+        // on the right (BookmarkSwitchButton isButton variant).
+        Row(
+          children: [
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entity.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    entity.user.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
               ),
-              Text(
-                entity.user.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
+            ),
+            BookmarkSwitchButton(illustId: entity.id, title: entity.title),
+          ],
         ),
       ],
     );
