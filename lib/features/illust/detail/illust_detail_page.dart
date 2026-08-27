@@ -12,6 +12,7 @@ import '../../../core/download/download_task.dart' show DownloadEvent;
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/settings/blocked_tags.dart';
+import '../../../core/settings/settings_controller.dart';
 import '../../bookmark/bookmark_switch_button.dart';
 import '../../search/tag_search_page.dart';
 import '../viewer/image_viewer_page.dart';
@@ -50,8 +51,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         .listen((_) => setState(() {}));
   }
 
-  void _toggleDownloadMode() =>
-      setState(() => _downloadMode = !_downloadMode);
+  void _toggleDownloadMode() => setState(() => _downloadMode = !_downloadMode);
 
   @override
   Widget build(BuildContext context) {
@@ -241,6 +241,7 @@ class _PageImage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final download = ref.watch(illustDownloadControllerProvider);
+    final scaleQuality = ref.watch(scaleQualityProvider);
     final state = download.stateFor(entity.id, index);
     final previewUrl = entity.pageCount > 1
         ? (index < entity.metaPages.length
@@ -248,7 +249,7 @@ class _PageImage extends ConsumerWidget {
               : entity.imageUrls.medium)
         : entity.imageUrls.large;
     final image = GestureDetector(
-      onTap: () => _openViewer(context),
+      onTap: () => _openViewer(context, scaleQuality: scaleQuality),
       onLongPress: onLongPress,
       child: AspectRatio(
         aspectRatio: entity.width > 0 && entity.height > 0
@@ -288,16 +289,26 @@ class _PageImage extends ConsumerWidget {
     return Hero(tag: heroTag, child: image);
   }
 
-  void _openViewer(BuildContext context) {
+  void _openViewer(BuildContext context, {required bool scaleQuality}) {
     final urls = <String>[
       for (var i = 0; i < entity.pageCount; i++)
-        entity.originalUrlAt(i) ?? entity.viewerUrls().first,
+        _viewerUrlAt(i, highQuality: scaleQuality),
     ];
     Navigator.of(context).push(
       ReplicaPageRoute<void>(
         builder: (_) => ImageViewerPage(urls: urls, initialPage: index),
       ),
     );
+  }
+
+  String _viewerUrlAt(int pageIndex, {required bool highQuality}) {
+    if (highQuality) {
+      return entity.originalUrlAt(pageIndex) ?? entity.imageUrls.large;
+    }
+    if (entity.pageCount > 1 && pageIndex < entity.metaPages.length) {
+      return entity.metaPages[pageIndex].large;
+    }
+    return entity.imageUrls.large;
   }
 }
 

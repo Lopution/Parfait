@@ -97,6 +97,29 @@ entities cannot be rendered during account B's load.
 late-result suppression, cursor rejection, per-filter independence, and
 account-switch reset.
 
+### Versioned Settings Contract (`AppSettings`, `SettingsRepository`)
+
+**What**: ordinary preferences are represented by the immutable `AppSettings`
+aggregate and persisted as `replica.settings.v2`. `SettingsRepository` reads
+the complete allowlisted preference map once, validates each field against its
+own fallback, and migrates the old `replica.guide_completed`,
+`replica.language`, `replica.theme`, and beta56 `settings` JSON shapes without
+deleting the source data.
+
+**Mutation rules**:
+
+- `SettingsController` queues writes and awaits the selected operation before
+  publishing the new `AsyncData`; a failed write leaves the previous value
+  visible and returns `SettingsWriteException` for the UI to surface.
+- Theme, image source, quality, history, block, translation-provider and
+  download-cap consumers use typed providers. The download manager updates its
+  scheduler cap without replacing active jobs.
+- The normal image route is `i.pximg.net` over HTTPS/system DNS. The fixed IP
+  is an explicit legacy/emergency choice and is never a migration default.
+- Translation credentials are not fields in `AppSettings.toJson()`. A
+  `SecretSettingRef` may identify a secure-storage record, but the record's
+  secret stays in `CredentialStore`.
+
 ---
 
 ## Common Mistakes

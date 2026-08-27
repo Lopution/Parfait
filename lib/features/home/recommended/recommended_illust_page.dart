@@ -9,6 +9,7 @@ import '../../illust/detail/illust_detail_page.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/paging/paged_feed_controller.dart';
+import '../../../core/settings/settings_controller.dart';
 import 'recommended_repository.dart';
 
 /// Recommended Illust tab: real API feed with initial/refresh/load-more
@@ -177,14 +178,18 @@ class _InitialErrorView extends StatelessWidget {
 /// Illust preview card replicating beta56 IllustPreviewer semantics:
 /// R-18 top-left, ugoira gif bottom-left, page count top-right, AI
 /// bottom-right, title (14 bold) + user name (12) beneath the image.
-class IllustCard extends StatelessWidget {
+class IllustCard extends ConsumerWidget {
   const IllustCard({super.key, required this.entity});
 
   final IllustEntity entity;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final previewQuality = ref.watch(previewQualityProvider);
+    final previewUrl = previewQuality
+        ? entity.imageUrls.large
+        : entity.imageUrls.medium;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,10 +218,7 @@ class IllustCard extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        PixivImage(
-                          url: entity.imageUrls.medium,
-                          fit: BoxFit.fitWidth,
-                        ),
+                        PixivImage(url: previewUrl, fit: BoxFit.fitWidth),
                         if (entity.isR18)
                           Positioned(
                             left: 7,
