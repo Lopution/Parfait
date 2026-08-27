@@ -16,6 +16,9 @@ class SearchFeedController extends PagedFeedController {
   final SearchQuery query;
 
   @override
+  String get feedKey => 'search:${query.cacheKey}';
+
+  @override
   Future<PagedFeedState> build() {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
     return super.build();
@@ -33,82 +36,121 @@ class SearchFeedController extends PagedFeedController {
   ) async {
     final repository = ref.read(searchRepositoryProvider);
     return switch (query) {
-      final IllustSearchQuery value => _fetchIllust(
+      final IllustSearchQuery value => () async {
+        final page = await repository.searchIllust(
+          value,
+          cursor: cursor,
+          cancelToken: cancelToken,
+        );
+        return (
+          ids: [for (final item in page.illusts) item.id],
+          nextCursor: page.nextUrl,
+        );
+      }(),
+      final NovelSearchQuery value => () async {
+        final page = await repository.searchNovel(
+          value,
+          cursor: cursor,
+          cancelToken: cancelToken,
+        );
+        return (
+          ids: [for (final item in page.novels) item.id],
+          nextCursor: page.nextUrl,
+        );
+      }(),
+      final UserSearchQuery value => () async {
+        final page = await repository.searchUsers(
+          value,
+          cursor: cursor,
+          cancelToken: cancelToken,
+        );
+        return (
+          ids: [for (final item in page.users) item.id],
+          nextCursor: page.nextUrl,
+        );
+      }(),
+    };
+  }
+
+  @override
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) {
+    final repository = ref.read(searchRepositoryProvider);
+    return switch (query) {
+      final IllustSearchQuery value => _fetchIllustForContext(
         repository,
         value,
-        cursor,
-        cancelToken,
+        context,
       ),
-      final NovelSearchQuery value => _fetchNovel(
+      final NovelSearchQuery value => _fetchNovelForContext(
         repository,
         value,
-        cursor,
-        cancelToken,
+        context,
       ),
-      final UserSearchQuery value => _fetchUsers(
+      final UserSearchQuery value => _fetchUsersForContext(
         repository,
         value,
-        cursor,
-        cancelToken,
+        context,
       ),
     };
   }
 
-  Future<({List<int> ids, String? nextCursor})> _fetchIllust(
+  Future<FeedPage> _fetchIllustForContext(
     SearchRepository repository,
     IllustSearchQuery query,
-    String? cursor,
-    CancelToken cancelToken,
+    FeedRequestContext context,
   ) async {
     final store = ref.read(illustStoreProvider);
     final bookmarkRevision = store.bookmarkRevisionNow();
     final page = await repository.searchIllust(
       query,
-      cursor: cursor,
-      cancelToken: cancelToken,
+      cursor: context.cursor,
+      cancelToken: context.cancelToken,
     );
-    store.mergeAll(page.illusts, bookmarkSnapshotRevision: bookmarkRevision);
-    return (
+    return FeedPage(
       ids: [for (final item in page.illusts) item.id],
       nextCursor: page.nextUrl,
+      commit: (_) => store.mergeAll(
+        page.illusts,
+        bookmarkSnapshotRevision: bookmarkRevision,
+      ),
     );
   }
 
-  Future<({List<int> ids, String? nextCursor})> _fetchNovel(
+  Future<FeedPage> _fetchNovelForContext(
     SearchRepository repository,
     NovelSearchQuery query,
-    String? cursor,
-    CancelToken cancelToken,
+    FeedRequestContext context,
   ) async {
     final page = await repository.searchNovel(
       query,
-      cursor: cursor,
-      cancelToken: cancelToken,
+      cursor: context.cursor,
+      cancelToken: context.cancelToken,
     );
-    ref.read(novelStoreProvider.notifier).mergeAll(page.novels);
-    return (
+    final store = ref.read(novelStoreProvider.notifier);
+    return FeedPage(
       ids: [for (final item in page.novels) item.id],
       nextCursor: page.nextUrl,
+      commit: (_) => store.mergeAll(page.novels),
     );
   }
 
-  Future<({List<int> ids, String? nextCursor})> _fetchUsers(
+  Future<FeedPage> _fetchUsersForContext(
     SearchRepository repository,
     UserSearchQuery query,
-    String? cursor,
-    CancelToken cancelToken,
+    FeedRequestContext context,
   ) async {
     final store = ref.read(userStoreProvider.notifier);
     final followRevision = store.followRevisionNow();
     final page = await repository.searchUsers(
       query,
-      cursor: cursor,
-      cancelToken: cancelToken,
+      cursor: context.cursor,
+      cancelToken: context.cancelToken,
     );
-    store.mergeAll(page.users, followSnapshotRevision: followRevision);
-    return (
+    return FeedPage(
       ids: [for (final item in page.users) item.id],
       nextCursor: page.nextUrl,
+      commit: (_) =>
+          store.mergeAll(page.users, followSnapshotRevision: followRevision),
     );
   }
 

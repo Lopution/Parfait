@@ -8,16 +8,29 @@ import '../../../core/network/pixiv_client_identity.dart';
 import '../../../core/network/pixiv_http_client.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 
-/// Fetches Recommended Illust pages and merges entities into [IllustStore].
+class RecommendedIllustPage {
+  const RecommendedIllustPage({required this.illusts, required this.nextUrl});
+
+  final List<IllustEntity> illusts;
+  final String? nextUrl;
+}
+
+/// Fetches and normalizes Recommended Illust pages.
+///
+/// Entity writes belong to the feed controller's generation commit, not this
+/// repository, so a late response cannot mutate shared state before the gate
+/// checks its context.
 class RecommendedIllustRepository {
-  RecommendedIllustRepository(this._client, this._store);
+  RecommendedIllustRepository(this._client);
 
   final PixivHttpClient _client;
-  final IllustStore _store;
 
   /// Fetches one page. [cursor] is the validated next_url or `null` for the
   /// first page.
-  Future<({List<int> ids, String? nextUrl})> fetchPage(String? cursor) async {
+  Future<RecommendedIllustPage> fetchPage(
+    String? cursor, {
+    CancelToken? cancelToken,
+  }) async {
     final NextPageRequest request;
     try {
       request = cursor == null
@@ -39,14 +52,12 @@ class RecommendedIllustRepository {
             query: request.uri.query,
           );
     try {
-      // Capture the bookmark revision BEFORE the request so the response's
-      // remote snapshots are staleness-gated against local mutations that
-      // happen while the request is in flight (R2).
-      final bookmarkRevision = _store.bookmarkRevisionNow();
-      final json = await _client.getJson(target);
+      final json = await _client.getJson(target, cancelToken: cancelToken);
       final page = IllustEntity.parsePage(json);
-      _store.mergeAll(page.illusts, bookmarkSnapshotRevision: bookmarkRevision);
-      return (ids: page.illusts.map((e) => e.id).toList(), nextUrl: page.nextUrl);
+      return RecommendedIllustPage(
+        illusts: page.illusts,
+        nextUrl: page.nextUrl,
+      );
     } on FormatException catch (error) {
       throw ApiParseError(error);
     }
@@ -55,20 +66,42 @@ class RecommendedIllustRepository {
 
 final recommendedIllustRepositoryProvider =
     Provider<RecommendedIllustRepository>((ref) {
-  return RecommendedIllustRepository(
-    ref.watch(pixivHttpClientProvider),
-    ref.watch(illustStoreProvider),
-  );
-});
+      return RecommendedIllustRepository(ref.watch(pixivHttpClientProvider));
+    });
 
 /// Controller for the Recommended Illust tab.
 class RecommendedIllustController extends PagedFeedController {
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) {
-    return ref
+  String get feedKey => 'recommended:illust';
+
+  @override
+  Future<({List<int> ids, String? nextCursor})> fetchPage(
+    String? cursor,
+  ) async {
+    final page = await ref
         .read(recommendedIllustRepositoryProvider)
-        .fetchPage(cursor)
-        .then((page) => (ids: page.ids, nextCursor: page.nextUrl));
+        .fetchPage(cursor);
+    return (
+      ids: [for (final illust in page.illusts) illust.id],
+      nextCursor: page.nextUrl,
+    );
+  }
+
+  @override
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
+    final store = ref.read(illustStoreProvider);
+    final bookmarkRevision = store.bookmarkRevisionNow();
+    final page = await ref
+        .read(recommendedIllustRepositoryProvider)
+        .fetchPage(context.cursor, cancelToken: context.cancelToken);
+    return FeedPage(
+      ids: [for (final illust in page.illusts) illust.id],
+      nextCursor: page.nextUrl,
+      commit: (_) => store.mergeAll(
+        page.illusts,
+        bookmarkSnapshotRevision: bookmarkRevision,
+      ),
+    );
   }
 
   @override
@@ -86,5 +119,5 @@ class RecommendedIllustController extends PagedFeedController {
 
 final recommendedIllustControllerProvider =
     AsyncNotifierProvider<RecommendedIllustController, PagedFeedState>(
-  RecommendedIllustController.new,
-);
+      RecommendedIllustController.new,
+    );

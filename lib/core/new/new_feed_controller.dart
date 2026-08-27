@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../auth/account_store.dart';
 import '../entity/illust_store.dart';
 import '../network/pixiv_http_client.dart';
 import '../novel/novel_store.dart';
@@ -15,6 +14,9 @@ class NewFeedController extends PagedFeedController {
   final NewFeedKey key;
 
   @override
+  String get feedKey => 'new:${key.scope.name}:${key.type.name}';
+
+  @override
   Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) {
     return fetchPageCancellable(cursor, CancelToken());
   }
@@ -24,19 +26,13 @@ class NewFeedController extends PagedFeedController {
     String? cursor,
     CancelToken cancelToken,
   ) async {
-    // This dependency is deliberately inside each family member: all six
-    // combinations reset at an account boundary without sharing cursors.
-    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
     final repository = ref.read(newFeedRepositoryProvider);
     if (key.type == NewFeedType.illust) {
-      final store = ref.read(illustStoreProvider);
-      final bookmarkRevision = store.bookmarkRevisionNow();
       final page = await repository.fetchIllust(
         key,
         cursor: cursor,
         cancelToken: cancelToken,
       );
-      store.mergeAll(page.illusts, bookmarkSnapshotRevision: bookmarkRevision);
       return (
         ids: [for (final item in page.illusts) item.id],
         nextCursor: page.nextUrl,
@@ -47,10 +43,42 @@ class NewFeedController extends PagedFeedController {
       cursor: cursor,
       cancelToken: cancelToken,
     );
-    ref.read(novelStoreProvider.notifier).mergeAll(page.novels);
     return (
       ids: [for (final item in page.novels) item.id],
       nextCursor: page.nextUrl,
+    );
+  }
+
+  @override
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
+    final repository = ref.read(newFeedRepositoryProvider);
+    if (key.type == NewFeedType.illust) {
+      final store = ref.read(illustStoreProvider);
+      final bookmarkRevision = store.bookmarkRevisionNow();
+      final page = await repository.fetchIllust(
+        key,
+        cursor: context.cursor,
+        cancelToken: context.cancelToken,
+      );
+      return FeedPage(
+        ids: [for (final item in page.illusts) item.id],
+        nextCursor: page.nextUrl,
+        commit: (_) => store.mergeAll(
+          page.illusts,
+          bookmarkSnapshotRevision: bookmarkRevision,
+        ),
+      );
+    }
+    final store = ref.read(novelStoreProvider.notifier);
+    final page = await repository.fetchNovel(
+      key,
+      cursor: context.cursor,
+      cancelToken: context.cancelToken,
+    );
+    return FeedPage(
+      ids: [for (final item in page.novels) item.id],
+      nextCursor: page.nextUrl,
+      commit: (_) => store.mergeAll(page.novels),
     );
   }
 
