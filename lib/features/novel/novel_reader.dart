@@ -10,6 +10,127 @@ import 'novel_layout.dart';
 
 enum NovelTapZone { previous, center, next }
 
+@immutable
+class NovelReaderLayoutContext {
+  const NovelReaderLayoutContext({
+    required this.generation,
+    required this.contentVersion,
+    required this.chapterId,
+    required this.pageIndex,
+    required this.cancelToken,
+  });
+
+  final int generation;
+  final String contentVersion;
+  final String? chapterId;
+  final int pageIndex;
+  final CancelToken cancelToken;
+
+  bool get isCancelled => cancelToken.isCancelled;
+}
+
+enum NovelReaderDiscardReason {
+  cancelled,
+  stale,
+  contentChanged,
+  chapterChanged,
+  disposed,
+}
+
+/// Generation gate for the parse/layout/commit pipeline. Page selection is
+/// carried in the context so a late layout can restore the user's current
+/// page deliberately; content and chapter identity still fence the commit.
+class NovelReaderCommitGate {
+  NovelReaderCommitGate({this.maxDiscardEvents = 32})
+    : assert(maxDiscardEvents > 0);
+
+  final int maxDiscardEvents;
+  final List<NovelReaderDiscardReason> _discardEvents = [];
+  NovelReaderLayoutContext? _active;
+  int _generation = 0;
+  bool _disposed = false;
+
+  int get generation => _generation;
+
+  List<NovelReaderDiscardReason> get discardEvents =>
+      List.unmodifiable(_discardEvents);
+
+  NovelReaderLayoutContext beginLayout({
+    required String contentVersion,
+    required String? chapterId,
+    required int pageIndex,
+    CancelToken? cancelToken,
+  }) {
+    if (_disposed) throw StateError('reader gate is disposed');
+    _active?.cancelToken.cancel();
+    final context = NovelReaderLayoutContext(
+      generation: ++_generation,
+      contentVersion: contentVersion,
+      chapterId: chapterId,
+      pageIndex: pageIndex,
+      cancelToken: cancelToken ?? CancelToken(),
+    );
+    _active = context;
+    return context;
+  }
+
+  bool commit(
+    NovelReaderLayoutContext context, {
+    required String contentVersion,
+    required String? chapterId,
+    required void Function() action,
+    bool disposed = false,
+  }) {
+    final reason = _reason(
+      context,
+      contentVersion: contentVersion,
+      chapterId: chapterId,
+      disposed: disposed,
+    );
+    if (reason != null) {
+      _record(reason);
+      return false;
+    }
+    action();
+    return true;
+  }
+
+  bool isCurrent(NovelReaderLayoutContext context) =>
+      !_disposed &&
+      context.generation == _generation &&
+      identical(_active, context);
+
+  void dispose() {
+    _disposed = true;
+    _active?.cancelToken.cancel();
+    _active = null;
+    _generation++;
+  }
+
+  NovelReaderDiscardReason? _reason(
+    NovelReaderLayoutContext context, {
+    required String contentVersion,
+    required String? chapterId,
+    required bool disposed,
+  }) {
+    if (disposed || _disposed) return NovelReaderDiscardReason.disposed;
+    if (context.isCancelled) return NovelReaderDiscardReason.cancelled;
+    if (!isCurrent(context)) return NovelReaderDiscardReason.stale;
+    if (context.contentVersion != contentVersion) {
+      return NovelReaderDiscardReason.contentChanged;
+    }
+    if (context.chapterId != chapterId) {
+      return NovelReaderDiscardReason.chapterChanged;
+    }
+    return null;
+  }
+
+  void _record(NovelReaderDiscardReason reason) {
+    if (_discardEvents.length == maxDiscardEvents) _discardEvents.removeAt(0);
+    _discardEvents.add(reason);
+  }
+}
+
 /// Page state that is independent from a particular viewport layout.
 class NovelReaderController extends ChangeNotifier {
   NovelReaderController({required int pageCount, int initialPage = 0})
@@ -95,7 +216,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   late final NovelReaderController _reader;
   late final PageController _pageController;
   final NovelLayoutEngine _layoutEngine = NovelLayoutEngine();
-  CancelToken? _layoutToken;
+  final NovelReaderCommitGate _commitGate = NovelReaderCommitGate();
 
   NovelLayout? _layout;
   Size? _requestedViewport;
@@ -103,7 +224,6 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   TextDirection? _requestedDirection;
   double _fontSize = 17;
   final double _lineHeight = 1.7;
-  int _layoutGeneration = 0;
   bool _layoutScheduled = false;
 
   @override
@@ -142,7 +262,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _layoutToken?.cancel();
+    _commitGate.dispose();
     _reader
       ..removeListener(_onReaderChanged)
       ..dispose();
@@ -240,38 +360,52 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         : oldLayout
               .pages[oldPage.clamp(0, oldLayout.pages.length - 1)]
               .startAnchor;
-    final token = CancelToken();
-    _layoutToken?.cancel();
-    _layoutToken = token;
-    final generation = ++_layoutGeneration;
+    final document =
+        widget.novel.markup ??
+        NovelMarkupDocument.fromParagraphs(widget.novel.paragraphs);
+    final layoutContext = _commitGate.beginLayout(
+      contentVersion: widget.novel.contentVersion,
+      chapterId: null,
+      pageIndex: oldPage,
+    );
     try {
-      final result = await _layoutEngine.layoutCancellable(
-        paragraphs: widget.novel.paragraphs,
+      final result = await _layoutEngine.layoutDocumentCancellable(
+        document: document,
         contentVersion: widget.novel.contentVersion,
         viewport: viewport,
         style: _style,
         textColor: Theme.of(context).colorScheme.onSurface,
         brightness: brightness,
         textDirection: direction,
-        cancelToken: token,
+        cancelToken: layoutContext.cancelToken,
       );
-      if (!mounted || token.isCancelled || generation != _layoutGeneration) {
-        return;
-      }
-      final restoredPage = oldAnchor == null
-          ? oldPage.clamp(0, result.pages.length - 1)
-          : result.pageIndexForAnchor(oldAnchor);
-      _reader.updatePageCount(result.pages.length, page: restoredPage);
-      setState(() => _layout = result);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_pageController.hasClients) return;
-        _pageController.jumpToPage(restoredPage);
-        _notifyAnchor();
-      });
+      _commitGate.commit(
+        layoutContext,
+        contentVersion: widget.novel.contentVersion,
+        chapterId: null,
+        disposed: !mounted,
+        action: () {
+          // A page swipe that happened while layout was running is a user
+          // choice and wins over the old anchor. Otherwise restore the
+          // stable paragraph/UTF-16 anchor captured before relayout.
+          final pageWasChanged = _reader.currentPage != layoutContext.pageIndex;
+          final restoredPage = pageWasChanged
+              ? _reader.currentPage.clamp(0, result.pages.length - 1)
+              : oldAnchor == null
+              ? layoutContext.pageIndex.clamp(0, result.pages.length - 1)
+              : result.pageIndexForAnchor(oldAnchor);
+          _reader.updatePageCount(result.pages.length, page: restoredPage);
+          setState(() => _layout = result);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !_pageController.hasClients) return;
+            if (!_commitGate.isCurrent(layoutContext)) return;
+            _pageController.jumpToPage(restoredPage);
+            _notifyAnchor();
+          });
+        },
+      );
     } on ApiCancelled {
       // A newer viewport/style calculation owns the reader now.
-    } finally {
-      if (identical(_layoutToken, token)) _layoutToken = null;
     }
   }
 
