@@ -66,6 +66,31 @@ Questions to answer:
 
 **Network contract (pixiv_http_client)**: token-expiry triggers the single-flight refresh on **401 OR 400 whose body contains `invalid_grant`** — observed live: `/v1/illust/recommended` surfaces an expired token as 400 invalid_grant, not 401. A plain 400 (parameter error) must NOT refresh. Diagnostics: non-2xx responses attach a clamped body snippet to `ApiHttpError.detail` (never contains credentials).
 
+### Canonical User and Follow Protocol (`UserStore`, `FollowStore`, lib/core/user/)
+
+**What**: `UserStore` is the account-scoped canonical map for user previews and
+detail entities; `FollowStore` owns confirmed/pending/error relationship state
+keyed by `(account, userId)`. Profile, relation cards and future Search/
+Comments/Live surfaces read these stores rather than keeping page-local user
+objects or follow booleans.
+
+**Mutation and merge rules**:
+
+- Follow mutations are non-optimistic: `beginAdd`/`beginDelete` records a
+  revision and pending operation, the repository call is awaited, and only
+  `commit` changes the confirmed value. `fail` releases pending and keeps the
+  previous confirmed value visible. Late completions and remote snapshots older
+  than the confirmed revision are ignored.
+- A fetch site captures `FollowStore.revisionNow()` before its request and
+  passes it to `UserStore.mergeAll`. A detail/preview merge can enrich identity
+  and profile fields, but the follow store's confirmed value is authoritative.
+- A detail controller that writes into `UserStore` must `ref.read` the initial
+  entity snapshot and watch only the current-account boundary. Watching the
+  entire store from that controller makes its own merge invalidate the request
+  and can create an unbounded detail-request loop.
+- Account changes recreate/reset both stores before the new account's response
+  is rendered; user IDs are not globally portable relationship keys.
+
 ### Cancellable Paged Feed Contract (`PagedFeedController`, `lib/core/paging/`)
 
 **What**: every feed keeps only ordered entity IDs and owns an independent

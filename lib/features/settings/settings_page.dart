@@ -15,6 +15,7 @@ import '../../core/settings/app_settings.dart';
 import '../../core/settings/blocked_tags.dart';
 import '../../core/settings/settings_controller.dart';
 import '../login/login_page.dart';
+import '../profile/user_page.dart' as profile;
 
 String _settingsText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -193,7 +194,7 @@ class _AccountCard extends StatelessWidget {
         trailing: value == null ? null : const Icon(Icons.chevron_right),
         onTap: value == null
             ? null
-            : () => _openSettingsPage(context, const MePage()),
+            : () => _openSettingsPage(context, const profile.MePage()),
       ),
     );
   }

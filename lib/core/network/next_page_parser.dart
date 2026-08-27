@@ -14,7 +14,7 @@ class NextPageRequest {
 }
 
 class NextPageParseError implements Exception {
-  NextPageParseError(this.reason);
+  const NextPageParseError(this.reason);
 
   final String reason;
 
@@ -49,6 +49,12 @@ const Map<String, Set<String>> kNextPageEndpoints = {
   },
   '/v1/mypixiv/all': {'offset'},
   '/v1/user/bookmarks/illust': {'user_id', 'restrict', 'offset'},
+  '/v1/user/bookmarks/novel': {'user_id', 'restrict', 'offset'},
+  '/v1/user/illusts': {'filter', 'user_id', 'type', 'offset'},
+  '/v1/user/novels': {'filter', 'user_id', 'offset'},
+  '/v1/user/following': {'filter', 'user_id', 'restrict', 'offset'},
+  '/v1/user/follower': {'filter', 'user_id', 'offset'},
+  '/v1/user/mypixiv': {'filter', 'user_id', 'offset'},
 };
 
 abstract final class NextPageParser {
