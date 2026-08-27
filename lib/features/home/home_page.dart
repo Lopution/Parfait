@@ -4,6 +4,7 @@ import 'recommended/recommended_illust_page.dart';
 
 import '../../app/icons/app_icons.dart';
 import '../ranking/ranking_page.dart';
+import '../settings/settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,7 +21,7 @@ class _HomePageState extends State<HomePage> {
     RankingPage(),
     Center(child: Text('新作')),
     Center(child: Text('搜索')),
-    Center(child: Text('设置')),
+    SettingsPage(),
   ];
 
   static const icons = [
