@@ -60,6 +60,7 @@ class _Fixture {
     this.rejectStaleSeed = false,
     this.refreshStatus = 200,
     this.apiDelay = Duration.zero,
+    this.plain400 = false,
   });
 
   /// When true only the stale seeded token is rejected with 401.
@@ -67,6 +68,14 @@ class _Fixture {
 
   /// When true every request gets a 401 regardless of the token.
   bool rejectAll;
+
+  /// Status code used to reject the stale token (401 or 400).
+  int staleRejectionStatus = 401;
+
+  /// When true a non-stale 400 carries an unrelated body (genuine
+  /// parameter error) and must never trigger refresh.
+  final bool plain400;
+
   int refreshStatus;
   Duration refreshDelay = Duration.zero;
   Duration apiDelay;
@@ -84,7 +93,10 @@ class _Fixture {
       final rejected = rejectAll ||
           (rejectStaleSeed && authorized == 'Bearer old-access');
       if (rejected) {
-        return http.Response('{"error":"invalid_grant"}', 401);
+        final body = plain400
+            ? '{"error":{"message":"Illust not found"}}'
+            : '{"error":"invalid_grant"}';
+        return http.Response(body, staleRejectionStatus);
       }
       return http.Response('{"ok":true}', 200);
     });
@@ -234,6 +246,39 @@ void main() {
       throwsA(isA<ApiUnauthorized>()),
     );
     expect(fixture.refreshCalls, 1);
+  });
+
+  test('400 invalid_grant triggers refresh and retries (live-device shape)',
+      () async {
+    // The recommended endpoint surfaces an expired token as a 400 with an
+    // OAuth invalid_grant body instead of 401.
+    final fixture = _Fixture(rejectStaleSeed: true)
+      ..staleRejectionStatus = 400;
+    final (container, client, _, fixtureF) = await _makeWorld(fixture: fixture);
+    addTearDown(container.dispose);
+
+    final body = await client.getJson(Uri.parse(_api));
+    expect(body['ok'], isTrue);
+    expect(fixtureF.apiRequests, hasLength(2));
+    expect(fixtureF.refreshCalls, 1);
+    expect(
+      fixtureF.apiRequests.last.headers['Authorization'],
+      'Bearer new-access',
+    );
+  });
+
+  test('plain 400 without invalid_grant never triggers refresh', () async {
+    final fixture = _Fixture(rejectStaleSeed: true, plain400: true)
+      ..staleRejectionStatus = 400;
+    final (container, client, _, fixtureF) = await _makeWorld(fixture: fixture);
+    addTearDown(container.dispose);
+
+    await expectLater(
+      client.getJson(Uri.parse(_api)),
+      throwsA(isA<ApiHttpError>()),
+    );
+    expect(fixtureF.apiRequests, hasLength(1));
+    expect(fixtureF.refreshCalls, 0);
   });
 
   test('429 maps to rate limited with the retry-after hint', () async {

@@ -112,7 +112,12 @@ class PixivHttpClient {
     );
 
     var retries = 0;
-    while (response.statusCode == 401 && retries < maxRetries) {
+    // Pixiv app-api answers an EXPIRED access token with 401 on most
+    // endpoints, but some (observed live: /v1/illust/recommended) surface
+    // the OAuth "invalid_grant" as 400 instead. Both must trigger the
+    // single-flight refresh/retry protocol; other 400 bodies are genuine
+    // parameter errors and must not refresh.
+    while (_isAuthFailure(response) && retries < maxRetries) {
       final accountId = await _requireCurrentAccountId();
       final storedToken = (await _credentialStore.read(accountId))?.accessToken;
       final outcome = await _refreshGate.refresh(
@@ -144,13 +149,43 @@ class PixivHttpClient {
     if (response.statusCode == 401) {
       throw const ApiUnauthorized('authentication failed after retry');
     }
+    if (_isAuthFailure(response)) {
+      // 400 invalid_grant that survived the refresh attempt.
+      throw const ApiUnauthorized('oauth invalid_grant after retry');
+    }
     if (response.statusCode == 429) {
       throw ApiRateLimited(_parseRetryAfter(response.headers));
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiHttpError(response.statusCode);
+      throw ApiHttpError(response.statusCode, _errorBodyDetail(response));
     }
     return response;
+  }
+
+  /// Short response-body snippet for non-2xx diagnostics. The API error body
+  /// is a JSON message (never contains credentials), but it is clamped and
+  /// sanitized of control characters before surfacing.
+  static String? _errorBodyDetail(http.Response response) {
+    try {
+      final body = utf8.decode(response.bodyBytes);
+      if (body.isEmpty) return null;
+      final sanitized = body.replaceAll(RegExp(r'[\x00-\x1f]'), ' ').trim();
+      return sanitized.length <= 200 ? sanitized : '${sanitized.substring(0, 200)}…';
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// 401 always; 400 only when the OAuth error body says invalid_grant
+  /// (expired token surfaced as 400 by some endpoints).
+  static bool _isAuthFailure(http.Response response) {
+    if (response.statusCode == 401) return true;
+    if (response.statusCode != 400) return false;
+    try {
+      return utf8.decode(response.bodyBytes).contains('invalid_grant');
+    } on FormatException {
+      return false;
+    }
   }
 
   Future<http.Response> _issue(
