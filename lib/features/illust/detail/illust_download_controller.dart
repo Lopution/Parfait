@@ -27,8 +27,7 @@ class IllustDownloadController {
     return switch (task.status) {
       DownloadStatus.queued ||
       DownloadStatus.running ||
-      DownloadStatus.canceling =>
-        IllustPageSaveState.downloading,
+      DownloadStatus.canceling => IllustPageSaveState.downloading,
       DownloadStatus.failed => IllustPageSaveState.error,
       DownloadStatus.succeeded => IllustPageSaveState.exist,
       DownloadStatus.canceled => IllustPageSaveState.none,
@@ -52,7 +51,9 @@ class IllustDownloadController {
       final retried = _manager.retry(existing.id);
       if (retried != null) return retried;
     }
-    return _ref.watch(illustDownloadCoordinatorProvider).downloadPage(
+    return _ref
+        .watch(illustDownloadCoordinatorProvider)
+        .downloadPage(
           illustId: entity.id,
           pageIndex: pageIndex,
           url: Uri.parse(url),
@@ -62,8 +63,7 @@ class IllustDownloadController {
   /// Download All (beta56 downloadAll): every page, deduped by the manager.
   List<DownloadTaskSnapshot> downloadAll(IllustEntity entity) {
     final urls = <String>[
-      for (var i = 0; i < entity.pageCount; i++)
-        ?entity.originalUrlAt(i),
+      for (var i = 0; i < entity.pageCount; i++) ?entity.originalUrlAt(i),
     ];
     if (urls.isEmpty) {
       throw const FormatException('work has no original image URL');
@@ -86,5 +86,6 @@ class IllustDownloadController {
   }
 }
 
-final illustDownloadControllerProvider =
-    Provider<IllustDownloadController>(IllustDownloadController.new);
+final illustDownloadControllerProvider = Provider<IllustDownloadController>(
+  IllustDownloadController.new,
+);
