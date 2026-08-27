@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import 'follow_models.dart';
 
@@ -9,9 +10,10 @@ abstract interface class FollowRepository {
   Future<void> add(
     int userId, {
     FollowRestrict restrict = FollowRestrict.public,
+    CancelToken? cancelToken,
   });
 
-  Future<void> delete(int userId);
+  Future<void> delete(int userId, {CancelToken? cancelToken});
 }
 
 /// Pixiv follow mutations. The shared HTTP client owns authentication,
@@ -25,26 +27,23 @@ class PixivFollowRepository implements FollowRepository {
   Future<void> add(
     int userId, {
     FollowRestrict restrict = FollowRestrict.public,
+    CancelToken? cancelToken,
   }) async {
     await _client.post(
-      Uri(
-        scheme: 'https',
-        host: 'app-api.pixiv.net',
-        path: '/v1/user/follow/add',
-      ),
+      PixivClientIdentity.appApiBase.replace(path: '/v1/user/follow/add'),
       body: {'user_id': '$userId', 'restrict': followRestrictWire(restrict)},
+      cancelToken: cancelToken,
+      allowAuthReplay: false,
     );
   }
 
   @override
-  Future<void> delete(int userId) async {
+  Future<void> delete(int userId, {CancelToken? cancelToken}) async {
     await _client.post(
-      Uri(
-        scheme: 'https',
-        host: 'app-api.pixiv.net',
-        path: '/v1/user/follow/delete',
-      ),
+      PixivClientIdentity.appApiBase.replace(path: '/v1/user/follow/delete'),
       body: {'user_id': '$userId'},
+      cancelToken: cancelToken,
+      allowAuthReplay: false,
     );
   }
 }

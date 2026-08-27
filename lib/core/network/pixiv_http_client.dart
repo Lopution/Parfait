@@ -93,13 +93,24 @@ class PixivHttpClient {
     Uri uri, {
     Map<String, String> body = const {},
     CancelToken? cancelToken,
-  }) => _send(uri, method: 'POST', body: body, cancelToken: cancelToken);
+
+    /// A non-idempotent mutation may refresh the shared credential, but its
+    /// request body must never be replayed automatically.
+    bool allowAuthReplay = true,
+  }) => _send(
+    uri,
+    method: 'POST',
+    body: body,
+    cancelToken: cancelToken,
+    allowAuthReplay: allowAuthReplay,
+  );
 
   Future<http.Response> _send(
     Uri uri, {
     required String method,
     Map<String, String> body = const {},
     CancelToken? cancelToken,
+    bool allowAuthReplay = true,
   }) async {
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
     var usedToken = await _requireAccessToken();
@@ -137,6 +148,11 @@ class PixivHttpClient {
           throw const ApiUnauthorized('token refresh failed');
       }
       retries += 1;
+      if (!allowAuthReplay) {
+        throw const ApiUnauthorized(
+          'authentication refreshed; mutation replay suppressed',
+        );
+      }
       response = await _issue(
         uri,
         method,

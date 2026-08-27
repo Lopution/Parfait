@@ -105,6 +105,7 @@ class PixivCommentRepository implements CommentRepository {
       PixivClientIdentity.appApiBase.replace(path: _addPath),
       body: body,
       cancelToken: cancelToken,
+      allowAuthReplay: false,
     );
     final json = _successObject(response);
     final rawComment = json['comment'];
@@ -132,6 +133,7 @@ class PixivCommentRepository implements CommentRepository {
       PixivClientIdentity.appApiBase.replace(path: _deletePath),
       body: {'comment_id': '$commentId'},
       cancelToken: cancelToken,
+      allowAuthReplay: false,
     );
     _successObject(response, allowEmpty: true);
   }

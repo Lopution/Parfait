@@ -43,9 +43,13 @@ class BookmarkActions {
     try {
       switch (op.kind) {
         case BookmarkOpKind.add:
-          await repository.addIllust(op.key.id, op.restrict);
+          await repository.addIllust(
+            op.key.id,
+            op.restrict,
+            cancelToken: op.cancelToken,
+          );
         case BookmarkOpKind.delete:
-          await repository.deleteIllust(op.key.id);
+          await repository.deleteIllust(op.key.id, cancelToken: op.cancelToken);
       }
       store.commit(op);
     } on ApiCancelled {

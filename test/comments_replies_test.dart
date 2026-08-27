@@ -352,46 +352,50 @@ void main() {
     );
   });
 
-  test('store deduplicates shared comments and updates the correct thread', () {
-    final container = ProviderContainer(
-      overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
-    );
-    addTearDown(container.dispose);
-    final store = container.read(commentStoreProvider.notifier);
-    final rootQuery = const CommentFeedQuery.root(illustId: 1);
-    final replyQuery = const CommentFeedQuery.replies(
-      illustId: 1,
-      rootCommentId: 10,
-    );
-    final root = _comment(10, replyCount: 0);
-    final reply = _comment(11, parentCommentId: 10, rootCommentId: 10);
-    store.mergePage(rootQuery, [root, root]);
-    store.mergePage(replyQuery, [reply, reply]);
+  test(
+    'store deduplicates shared comments and updates the correct thread',
+    () async {
+      final container = ProviderContainer(
+        overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+      );
+      addTearDown(container.dispose);
+      await container.read(accountStoreProvider.future);
+      final store = container.read(commentStoreProvider.notifier);
+      final rootQuery = const CommentFeedQuery.root(illustId: 1);
+      final replyQuery = const CommentFeedQuery.replies(
+        illustId: 1,
+        rootCommentId: 10,
+      );
+      final root = _comment(10, replyCount: 0);
+      final reply = _comment(11, parentCommentId: 10, rootCommentId: 10);
+      store.mergePage(rootQuery, [root, root]);
+      store.mergePage(replyQuery, [reply, reply]);
 
-    expect(store.idsFor(rootQuery), [10]);
-    expect(store.idsFor(replyQuery), [11]);
-    expect(store.get(10)!.id, root.id);
-    expect(store.get(11)!.rootCommentId, 10);
+      expect(store.idsFor(rootQuery), [10]);
+      expect(store.idsFor(replyQuery), [11]);
+      expect(store.get(10)!.id, root.id);
+      expect(store.get(11)!.rootCommentId, 10);
 
-    final op = store.beginSend(
-      illustId: 1,
-      parentCommentId: 10,
-      rootCommentId: 10,
-    )!;
-    expect(
-      store.beginSend(illustId: 1, parentCommentId: 10, rootCommentId: 10),
-      isNull,
-    );
-    final newReply = _comment(12, parentCommentId: 10, rootCommentId: 10);
-    store.commitSend(op, newReply);
-    expect(store.idsFor(replyQuery), [12, 11]);
-    expect(store.get(10)!.replyCount, 1);
+      final op = store.beginSend(
+        illustId: 1,
+        parentCommentId: 10,
+        rootCommentId: 10,
+      )!;
+      expect(
+        store.beginSend(illustId: 1, parentCommentId: 10, rootCommentId: 10),
+        isNull,
+      );
+      final newReply = _comment(12, parentCommentId: 10, rootCommentId: 10);
+      store.commitSend(op, newReply);
+      expect(store.idsFor(replyQuery), [12, 11]);
+      expect(store.get(10)!.replyCount, 1);
 
-    final delete = store.beginDelete(12)!;
-    store.commitDelete(delete);
-    expect(store.idsFor(replyQuery), [11]);
-    expect(store.get(10)!.replyCount, 0);
-  });
+      final delete = store.beginDelete(12)!;
+      store.commitDelete(delete);
+      expect(store.idsFor(replyQuery), [11]);
+      expect(store.get(10)!.replyCount, 0);
+    },
+  );
 
   test(
     'comment feed keeps root and reply page IDs in the shared store',
@@ -424,11 +428,12 @@ void main() {
 
   test(
     'late send completion is dropped and root delete clears descendants',
-    () {
+    () async {
       final container = ProviderContainer(
         overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
       );
       addTearDown(container.dispose);
+      await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
       final rootQuery = const CommentFeedQuery.root(illustId: 1);
       final repliesQuery = const CommentFeedQuery.replies(
@@ -585,9 +590,7 @@ void main() {
       ProviderScope(
         overrides: [
           accountStoreProvider.overrideWith(_StubAccountStore.new),
-          commentRepositoryProvider.overrideWithValue(
-            _FakeCommentRepository(),
-          ),
+          commentRepositoryProvider.overrideWithValue(_FakeCommentRepository()),
         ],
         child: MaterialApp(
           locale: const Locale('zh', 'CN'),

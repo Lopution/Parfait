@@ -33,9 +33,16 @@ class FollowActions {
       final repository = _ref.read(followRepositoryProvider);
       switch (operation.kind) {
         case FollowOperationKind.add:
-          await repository.add(operation.userId, restrict: operation.restrict);
+          await repository.add(
+            operation.userId,
+            restrict: operation.restrict,
+            cancelToken: operation.cancelToken,
+          );
         case FollowOperationKind.delete:
-          await repository.delete(operation.userId);
+          await repository.delete(
+            operation.userId,
+            cancelToken: operation.cancelToken,
+          );
       }
       store.commit(operation);
     } on Object catch (error) {
