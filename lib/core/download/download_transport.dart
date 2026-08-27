@@ -1,12 +1,16 @@
 import 'dart:async';
 
+import '../network/compat/network_contracts.dart';
+
 /// Cooperative cancellation handle. `cancel()` is idempotent.
-class DownloadCancelToken {
+class DownloadCancelToken implements NetworkCancelSignal {
   final _completer = Completer<void>();
   bool _cancelled = false;
 
+  @override
   bool get isCancelled => _cancelled;
 
+  @override
   Future<void> get whenCancel => _completer.future;
 
   void cancel() {
@@ -38,4 +42,10 @@ abstract class DownloadTransport {
     required Map<String, String> headers,
     required DownloadCancelToken cancelToken,
   });
+}
+
+/// Optional lifecycle contract for transports that own sockets or other
+/// native resources. Fakes do not need to implement it.
+abstract interface class DisposableDownloadTransport {
+  Future<void> dispose();
 }

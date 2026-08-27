@@ -252,8 +252,8 @@ class DownloadManager {
     }
     await _events.close();
     final transport = _transport;
-    if (transport is HttpDownloadTransport) {
-      await transport.dispose();
+    if (transport is DisposableDownloadTransport) {
+      await (transport as DisposableDownloadTransport).dispose();
     }
   }
 }

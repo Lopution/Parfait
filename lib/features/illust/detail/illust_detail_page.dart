@@ -15,6 +15,7 @@ import '../../../core/history/history_models.dart';
 import '../../../core/history/history_repository.dart';
 import '../../../core/history/history_snapshot.dart';
 import '../../../core/history/history_visibility.dart';
+import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/settings/blocked_tags.dart';
 import '../../bookmark/bookmark_switch_button.dart';
@@ -424,6 +425,9 @@ class _InfoBlock extends ConsumerWidget {
                     : CachedNetworkImageProvider(
                         entity.user.profileImageUrl!,
                         headers: PixivImage.headers,
+                        cacheManager: ref
+                            .watch(pixivNetworkFactoryProvider)
+                            .imageCacheManager,
                       ),
               ),
               const SizedBox(width: 20),

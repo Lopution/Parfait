@@ -538,14 +538,6 @@ class BrowseSettingsPage extends ConsumerWidget {
         AppSettings.normalImageSource,
         _settingsText(context, 'imageSourceNormal'),
       ),
-      (
-        AppSettings.legacyImageSource,
-        _settingsText(context, 'imageSourceLegacy'),
-      ),
-      (
-        AppSettings.mirrorImageSource,
-        _settingsText(context, 'imageSourceMirror'),
-      ),
     ];
     return Scaffold(
       appBar: AppBar(title: Text(_settingsText(context, 'browseSettings'))),
@@ -566,14 +558,6 @@ class BrowseSettingsPage extends ConsumerWidget {
                 () => ref
                     .read(settingsProvider.notifier)
                     .selectImageSource(source.$1),
-              ),
-            ),
-          if (settings.isLegacyImageSource)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Text(
-                _settingsText(context, 'legacyImageSourceWarning'),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
           const Divider(),

@@ -5,6 +5,8 @@ import 'account_repository.dart';
 import 'credential.dart';
 import 'credential_store.dart';
 import 'oauth_service.dart';
+import '../network/compat/network_contracts.dart';
+import '../network/compat/network_providers.dart';
 
 /// Lifecycle status of the account domain.
 enum AccountStatus { ready, failure }
@@ -117,6 +119,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
         accounts: accounts,
         currentId: account.id,
       ));
+      if (current.currentId != account.id) _resetNetworkSession();
     } on Object catch (error) {
       // Metadata failed to commit: roll the secret back so no half-added
       // account lingers in secure storage.
@@ -162,6 +165,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
     }
     await repository.save(current.accounts, accountId);
     state = AsyncData(current.copyWith(currentId: accountId));
+    if (current.currentId != accountId) _resetNetworkSession();
   }
 
   /// Marks an account as needing a fresh login.
@@ -175,6 +179,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
         .toList();
     await repository.save(accounts, current.currentId);
     state = AsyncData(current.copyWith(accounts: accounts));
+    if (current.currentId == accountId) _resetNetworkSession();
   }
 
   /// Removes an account entirely (beta56 logout removes the account).
@@ -194,6 +199,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
       accounts: accounts,
       currentId: nextCurrentId,
     ));
+    if (current.currentId == accountId) _resetNetworkSession();
     // The metadata no longer references the secret; cleanup failures are
     // surfaced but do not roll the removal back.
     await credentials.delete(accountId);
@@ -229,6 +235,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
         ? currentId
         : null;
   }
+
+  void _resetNetworkSession() {
+    ref.read(networkAccessPolicyProvider).advanceNetworkRevision();
+  }
 }
 
 Account? _byId(List<Account> accounts, String id) {
@@ -250,5 +260,10 @@ final credentialStoreProvider = Provider<CredentialStore>((ref) {
 final accountStoreProvider =
     AsyncNotifierProvider<AccountStore, AccountState>(AccountStore.new);
 
-final oauthServiceProvider = Provider<OAuthService>((ref) => OAuthService());
-
+final oauthServiceProvider = Provider<OAuthService>((ref) {
+  return OAuthService(
+    client: ref
+        .watch(pixivNetworkFactoryProvider)
+        .client(PixivDestinationPurpose.oauth),
+  );
+});

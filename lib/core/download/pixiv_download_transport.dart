@@ -30,7 +30,8 @@ abstract class RawHop {
 /// are followed manually so every hop is validated against the download
 /// host allowlist (R7). TLS failures propagate; there is no certificate
 /// bypass anywhere.
-class HttpDownloadTransport implements DownloadTransport {
+class HttpDownloadTransport
+    implements DownloadTransport, DisposableDownloadTransport {
   /// [allowedHosts]/[requireHttps] default to the production security
   /// policy; tests inject loopback values. Nothing at runtime may widen
   /// them.
@@ -70,7 +71,7 @@ class HttpDownloadTransport implements DownloadTransport {
         if (cancelToken.isCancelled) {
           throw const DownloadCancelledException();
         }
-        throw DownloadTransportException('request failed: $error');
+        throw DownloadTransportException('request failed', cause: error);
       }
       if (cancelToken.isCancelled) {
         hopResponse.abort();
@@ -108,7 +109,15 @@ class HttpDownloadTransport implements DownloadTransport {
     Map<String, String> headers,
     DownloadCancelToken cancelToken,
   ) async {
-    final request = await client.getUrl(url);
+    final HttpClientRequest request;
+    try {
+      request = await client.getUrl(url);
+    } on Object catch (error) {
+      if (cancelToken.isCancelled) {
+        throw const DownloadCancelledException();
+      }
+      throw DownloadTransportException('request setup failed', cause: error);
+    }
     request.followRedirects = false;
     request.maxRedirects = 0;
     headers.forEach(request.headers.set);
@@ -129,11 +138,11 @@ class HttpDownloadTransport implements DownloadTransport {
     final HttpClientResponse response;
     try {
       response = await request.close();
-    } on HttpException catch (error) {
+    } on Object catch (error) {
       if (cancelToken.isCancelled) {
         throw const DownloadCancelledException();
       }
-      throw DownloadTransportException('request failed: $error');
+      throw DownloadTransportException('request failed', cause: error);
     }
     final lengthHeader = response.contentLength;
     return _IoHop(
@@ -163,8 +172,12 @@ class HttpDownloadTransport implements DownloadTransport {
     if (url.userInfo.isNotEmpty) {
       throw const DownloadTransportException('userinfo in download URL');
     }
+    if (url.hasFragment) {
+      throw const DownloadTransportException('fragment in download URL');
+    }
   }
 
+  @override
   Future<void> dispose() async {
     if (_ownsClient) {
       client.close(force: true);
@@ -267,9 +280,10 @@ class DownloadCancelledException implements Exception {
 }
 
 class DownloadTransportException implements Exception {
-  const DownloadTransportException(this.message);
+  const DownloadTransportException(this.message, {this.cause});
 
   final String message;
+  final Object? cause;
 
   @override
   String toString() => 'DownloadTransportException: $message';

@@ -2,16 +2,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../platform/media_store_channel.dart';
 import '../settings/settings_controller.dart';
+import '../network/compat/network_providers.dart';
+import '../network/compat/policy_download_transport.dart';
 import 'download_manager.dart';
 import 'download_sink.dart';
 import 'download_transport.dart';
-import 'pixiv_download_transport.dart';
 
 /// One app-scoped strict Pixiv media transport shared by downloads, Ugoira
 /// metadata consumers and future compatibility routing.
 final pixivMediaTransportProvider = Provider<DownloadTransport>((ref) {
-  final transport = HttpDownloadTransport();
-  ref.onDispose(transport.dispose);
+  final transport = PolicyDownloadTransport(
+    policy: ref.watch(networkAccessPolicyProvider),
+  );
+  ref.onDispose(() async => transport.dispose());
   return transport;
 });
 

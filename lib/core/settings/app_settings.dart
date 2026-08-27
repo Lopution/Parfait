@@ -2,15 +2,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-/// Image hosts understood by the settings contract.
-///
-/// The normal route is the only default. The IP route is retained solely as
-/// an explicit emergency compatibility choice; it must never be selected by
-/// migration or by an invalid value.
+/// Image source exposed by settings. Network compatibility belongs to the
+/// exact-host policy and cannot be selected by rewriting a CDN URL.
 enum ImageSourceMode {
-  normal('i.pximg.net'),
-  legacyIp('210.140.92.148'),
-  pixivRe('i.pixiv.re');
+  normal('i.pximg.net');
 
   const ImageSourceMode(this.host);
 
@@ -83,8 +78,6 @@ class AppSettings {
   static const int lightTheme = 1;
   static const int defaultMaxDownloadCount = 3;
   static const String normalImageSource = 'i.pximg.net';
-  static const String legacyImageSource = '210.140.92.148';
-  static const String mirrorImageSource = 'i.pixiv.re';
   static const SecretSettingRef translationCredentialRef = SecretSettingRef(
     'replica.settings.translate.v1',
   );
@@ -212,8 +205,6 @@ class AppSettings {
   ImageSourceMode get imageSourceMode =>
       ImageSourceMode.fromHost(imageSource) ?? ImageSourceMode.normal;
 
-  bool get isLegacyImageSource => imageSourceMode == ImageSourceMode.legacyIp;
-
   TranslationProvider get translationProvider =>
       TranslationProvider.fromCode(translateIndex) ??
       TranslationProvider.google;
@@ -226,16 +217,9 @@ class AppSettings {
   bool get blockAI => enableLocalBlockAI;
   int get maxDownloads => maxDownloadCount;
 
-  /// Rewrites only the official CDN host. Normal mode returns the original
-  /// HTTPS URL byte-for-byte; the legacy route is opt-in and visible in UI.
-  String rewriteImageUrl(String url) {
-    if (imageSourceMode == ImageSourceMode.normal) return url;
-    final uri = Uri.tryParse(url);
-    if (uri == null || uri.scheme != 'https' || uri.host != normalImageSource) {
-      return url;
-    }
-    return uri.replace(host: imageSource).toString();
-  }
+  /// Retained as a source-compatible no-rewrite helper. Image routing is now
+  /// owned by the exact-host network policy, so settings never alter a URL.
+  String rewriteImageUrl(String url) => url;
 
   static const _unset = Object();
 

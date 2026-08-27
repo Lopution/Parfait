@@ -7,7 +7,11 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
+import 'package:pixiv_func/core/network/compat/network_contracts.dart';
+import 'package:pixiv_func/core/network/compat/network_policy.dart';
+import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/app/widgets/replica_button.dart';
+import 'package:pixiv_func/app/widgets/replica_switch_tile.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
 import 'package:pixiv_func/features/login/login_webview_page.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -19,20 +23,17 @@ class _FakeWebViewPlatform extends WebViewPlatform {
   @override
   PlatformWebViewController createPlatformWebViewController(
     PlatformWebViewControllerCreationParams params,
-  ) =>
-      _FakeWebViewController(params);
+  ) => _FakeWebViewController(params);
 
   @override
   PlatformNavigationDelegate createPlatformNavigationDelegate(
     PlatformNavigationDelegateCreationParams params,
-  ) =>
-      _FakeNavigationDelegate(params);
+  ) => _FakeNavigationDelegate(params);
 
   @override
   PlatformWebViewWidget createPlatformWebViewWidget(
     PlatformWebViewWidgetCreationParams params,
-  ) =>
-      _FakeWebViewWidget(params);
+  ) => _FakeWebViewWidget(params);
 }
 
 class _FakeWebViewController extends PlatformWebViewController {
@@ -145,8 +146,9 @@ void main() {
         accountMetadataRepositoryProvider.overrideWithValue(
           const _EmptyMetadataRepository(),
         ),
-        oauthServiceProvider
-            .overrideWithValue(OAuthService(exchangeTimeout: Duration.zero)),
+        oauthServiceProvider.overrideWithValue(
+          OAuthService(exchangeTimeout: Duration.zero),
+        ),
       ],
       child: const MaterialApp(home: LoginPage()),
     );
@@ -170,5 +172,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginWebViewPage), findsOneWidget);
+  });
+
+  testWidgets('login compatibility switch changes the real network policy', (
+    tester,
+  ) async {
+    final policy = NetworkAccessPolicy();
+    addTearDown(policy.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          networkAccessPolicyProvider.overrideWithValue(policy),
+          credentialStoreProvider.overrideWithValue(const _NoCredentialStore()),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            const _EmptyMetadataRepository(),
+          ),
+          oauthServiceProvider.overrideWithValue(
+            OAuthService(exchangeTimeout: Duration.zero),
+          ),
+        ],
+        child: const MaterialApp(home: LoginPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(policy.mode, NetworkMode.automatic);
+    await tester.tap(find.byType(ReplicaSwitchTile));
+    expect(policy.mode, NetworkMode.directOnly);
   });
 }

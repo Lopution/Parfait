@@ -351,11 +351,109 @@ deleting the source data.
 - Theme, image source, quality, history, block, translation-provider and
   download-cap consumers use typed providers. The download manager updates its
   scheduler cap without replacing active jobs.
-- The normal image route is `i.pximg.net` over HTTPS/system DNS. The fixed IP
-  is an explicit legacy/emergency choice and is never a migration default.
+- The normal image route is `i.pximg.net` over HTTPS/system DNS. Image URLs are
+  never rewritten to a fixed IP or mirror; compatibility routing belongs to the
+  exact-host network policy.
 - Translation credentials are not fields in `AppSettings.toJson()`. A
   `SecretSettingRef` may identify a secure-storage record, but the record's
   secret stays in `CredentialStore`.
+
+### Restricted Pixiv Network Policy Contract (`NetworkAccessPolicy`)
+
+#### 1. Scope / Trigger
+
+This contract applies when a native Pixiv API, OAuth, image-cache or media
+download request needs the mainland compatibility path. The policy is
+app-scoped and must not become a generic proxy or a URL-rewriting service.
+
+#### 2. Signatures
+
+```dart
+http.Client clientFor(PixivDestinationPurpose purpose, NetworkRoute route);
+Future<ResolvedHost> resolve(
+  PixivDestination destination, {
+  NetworkCancelSignal? cancelSignal,
+});
+void setMode(NetworkMode mode);
+NetworkRevision advanceNetworkRevision({String? networkIdentity});
+```
+
+`PixivPolicyHttpClient` and `PolicyDownloadTransport` are the shared native
+consumers. `WebViewRoutePolicy` validates direct navigation and only reports a
+loopback route when its AndroidX capability gate is proven.
+
+#### 3. Contracts
+
+- The default mode is `NetworkMode.automatic`: direct HTTPS with system DNS is
+  attempted first. `NetworkMode.directOnly` closes compatibility route pools
+  and prevents resolver fallback.
+- `PixivDestinationRegistry` matches exact ASCII HTTPS hosts by purpose:
+  `app-api.pixiv.net`, `oauth.secure.pixiv.net`, `accounts.pixiv.net`,
+  `www.pixiv.net`, `i.pximg.net` and `s.pximg.net` as applicable. Userinfo,
+  fragments, IP literals, trailing dots, IDN input and non-443 ports are
+  rejected.
+- System DNS and the optional fixed-endpoint DoH resolver return public A/AAAA
+  candidates with source, TTL and `NetworkRevision`. A secure-DNS connector
+  changes only the TCP destination; the original URI remains responsible for
+  TLS SNI, certificate hostname verification and the HTTP `Host` header.
+- Only DNS, connect, timeout and reset failures may try another strict route.
+  Empty GET/HEAD requests may be cloned for replay; POST, token exchange and
+  every request with a possible body send never replay automatically.
+- Diagnostics contain canonical host, purpose, route, DNS source, IP family,
+  failure, latency, capability and network revision only. They do not contain
+  query strings, cookies, tokens, bodies or full addresses.
+- Account changes, network revision changes, mode changes and disposal close
+  old pools and clear health state. WebView loopback remains fail-closed until
+  AndroidX reverse-bypass capability and lifecycle evidence exist.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| Non-Pixiv, suffix, IDN, IP, trailing-dot, userinfo, fragment or non-443 URI | Reject before a request or route is created |
+| Direct eligible transport failure in `Automatic` mode | Resolve public candidates for the exact canonical host and try strict candidates |
+| HTTP, auth, rate-limit, parse, cancellation, TLS or certificate failure | Surface the failure; never use compatibility fallback |
+| POST, token exchange, or body possibly sent | Do not replay across routes |
+| Resolver result has wrong host/revision or no public address | Reject as a secure-resolution failure |
+| ECH/WebView capability evidence incomplete | Keep the optional route unavailable; do not bind a listener or add a dependency |
+| Account/network/mode boundary | Advance/replace revision, close pools and clear health |
+
+#### 5. Good / Base / Bad Cases
+
+- Good: an empty `GET` to `app-api.pixiv.net` tries direct first, then a
+  public resolver candidate while preserving `app-api.pixiv.net` for TLS and
+  `Host`; diagnostics record only route metadata.
+- Base: an API `429` or certificate mismatch is returned immediately, while
+  `DirectOnly` uses the original strict HTTPS client without resolver work.
+- Bad: rewriting an image URL to an IP/mirror, accepting
+  `evil.pixiv.net`, logging the request body, or retrying a bookmark `POST`
+  after the socket may have sent its body.
+
+#### 6. Tests Required
+
+- Registry tests cover purpose separation and all canonicalization rejection
+  cases.
+- Resolver tests cover public A/AAAA filtering, answer-name/type matching,
+  TTL bounds, response-size limits, cancellation and revision binding.
+- Policy tests cover direct-first selection, eligible-only fallback,
+  original-host requests, no POST replay, pool/health invalidation and
+  diagnostics redaction.
+- Factory tests prove API, OAuth, image cache and downloads share the policy;
+  source audits prove translation, updater and reverse-image paths do not enter
+  the Pixiv compatibility connector.
+- WebView/ECH tests prove incomplete capability evidence is explicit and
+  listener-free. Device evidence must distinguish API 35 MuMu emulator
+  coverage from an unavailable API 36 matrix and physical-device coverage.
+
+#### 7. Wrong vs Correct
+
+**Wrong**: set `badCertificateCallback` to accept every certificate, replace
+the SNI/`Host` with a candidate IP, or use a third-party proxy for every URL.
+
+**Correct**: allowlist the exact Pixiv destination and purpose, try direct
+HTTPS first, optionally steer a strict connector to a validated public
+candidate while retaining the original hostname, and fail closed when the
+capability or failure class is not approved.
 
 ---
 

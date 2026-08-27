@@ -7,6 +7,8 @@ import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/i18n/replica_strings.dart';
+import '../../core/network/compat/network_contracts.dart';
+import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/settings_controller.dart';
 import 'login_webview_page.dart';
 
@@ -29,23 +31,34 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  bool _useLocalReverseProxy = false;
+  NetworkMode _networkMode = NetworkMode.automatic;
   bool _help = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _networkMode = ref.read(networkAccessPolicyProvider).mode;
+  }
+
   void _openLoginWebview({bool create = false}) {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => LoginWebViewPage(
-        oauthService: ref.read(oauthServiceProvider),
-        create: create,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LoginWebViewPage(
+          oauthService: ref.read(oauthServiceProvider),
+          create: create,
+        ),
       ),
-    ));
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return ref.watch(settingsProvider).when(
+    return ref
+        .watch(settingsProvider)
+        .when(
           loading: () => const ReplicaScaffold(child: SizedBox.shrink()),
-          error: (error, stackTrace) => const ReplicaScaffold(child: SizedBox.shrink()),
+          error: (error, stackTrace) =>
+              const ReplicaScaffold(child: SizedBox.shrink()),
           data: (settings) {
             final language = ReplicaLanguage.fromTag(settings.languageTag);
             String text(String key) => ReplicaStrings.text(language, key);
@@ -57,7 +70,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             return ReplicaScaffold(
               title: widget.isFirst ? null : title,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: MediaQuery.sizeOf(context).width * .1),
+                padding: EdgeInsets.symmetric(
+                  horizontal: MediaQuery.sizeOf(context).width * .1,
+                ),
                 child: Column(
                   children: [
                     const Spacer(),
@@ -68,14 +83,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: Column(
                         children: [
                           ReplicaSwitchTile(
-                            contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                            value: _useLocalReverseProxy,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 6,
+                            ),
+                            value: _networkMode == NetworkMode.automatic,
                             title: Row(
                               children: [
                                 Flexible(
                                   child: Text(
-                                    text('localReverseProxy'),
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    text('networkCompatibility'),
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -84,14 +104,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   onTap: () => setState(() => _help = !_help),
                                   child: Icon(
                                     Icons.info_outline,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                 ),
                               ],
                             ),
-                            onTap: () => setState(
-                              () => _useLocalReverseProxy = !_useLocalReverseProxy,
-                            ),
+                            onTap: () {
+                              setState(() {
+                                _networkMode =
+                                    _networkMode == NetworkMode.automatic
+                                    ? NetworkMode.directOnly
+                                    : NetworkMode.automatic;
+                              });
+                              ref
+                                  .read(networkAccessPolicyProvider)
+                                  .setMode(_networkMode);
+                            },
                           ),
                           const Divider(),
                           if (_help)
@@ -99,14 +129,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               text: TextSpan(
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Theme.of(context).colorScheme.onSecondary,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSecondary,
                                 ),
                                 children: [
-                                  TextSpan(text: text('reverseProxyHint')),
+                                  TextSpan(
+                                    text: text('networkCompatibilityHint'),
+                                  ),
                                   TextSpan(
                                     text: text('getMoreHelp'),
                                     style: TextStyle(
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                   ),
                                 ],
@@ -114,21 +150,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             ),
                           const Spacer(),
                           if (_help) ...[
-                            Text(
-                              text('useLoginWithClipboardHint'),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ReplicaButton(
-                                label: text('useLoginWithClipboard'),
-                                backgroundColor: FuncTokens.primary,
-                                foregroundColor: Colors.white,
-                                onPressed: widget.onClipboardLogin ?? () {},
+                            if (widget.onClipboardLogin != null) ...[
+                              Text(
+                                text('useLoginWithClipboardHint'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ReplicaButton(
+                                  label: text('useLoginWithClipboard'),
+                                  backgroundColor: FuncTokens.primary,
+                                  foregroundColor: Colors.white,
+                                  onPressed: widget.onClipboardLogin!,
+                                ),
+                              ),
+                            ],
                           ] else
                             Row(
                               children: [
@@ -138,8 +179,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     backgroundColor: Colors.white,
                                     foregroundColor: FuncTokens.primary,
                                     borderColor: FuncTokens.primary,
-                                    onPressed: widget.onRegister ??
-                                    () => _openLoginWebview(create: true),
+                                    onPressed:
+                                        widget.onRegister ??
+                                        () => _openLoginWebview(create: true),
                                   ),
                                 ),
                                 const SizedBox(width: 20),
@@ -148,7 +190,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     label: text('login'),
                                     backgroundColor: FuncTokens.primary,
                                     foregroundColor: Colors.white,
-                                    onPressed: widget.onLogin ??
+                                    onPressed:
+                                        widget.onLogin ??
                                         () => _openLoginWebview(),
                                   ),
                                 ),
@@ -158,10 +201,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     const Spacer(),
-                    Text(text('loginAgree'), style: const TextStyle(fontSize: 14)),
+                    Text(
+                      text('loginAgree'),
+                      style: const TextStyle(fontSize: 14),
+                    ),
                     Text(
                       text('userAgreement'),
-                      style: const TextStyle(fontSize: 14, color: FuncTokens.primary),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: FuncTokens.primary,
+                      ),
                     ),
                     const Spacer(),
                   ],
