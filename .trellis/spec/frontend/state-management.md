@@ -670,6 +670,123 @@ diagnostics, expose only allowlisted image/jump targets, run bounded
 cancel/yield-aware layout, and let `NovelReaderCommitGate` authorize the one
 complete current-generation commit.
 
+### Account-Owned Mutation Contract (`MutationEnvelope`, `MutationLedger`)
+
+#### 1. Scope / Trigger
+
+This contract applies to every authenticated write that can outlive a widget
+callback, including Bookmark, Follow, Comments and the future Profile edit
+adapter. It is required when a request can overlap a duplicate tap, reverse
+operation, account/credential change, network revision change or provider
+disposal. It does not create a durable offline queue.
+
+#### 2. Signatures
+
+```dart
+class MutationEnvelope {
+  final String accountId;
+  final int credentialRevision;
+  final String entityType;
+  final String entityId;
+  final String operation;
+  final String clientMutationId;
+  final DateTime createdAt;
+  final NetworkRevision networkRevision;
+  final MutationOwner owner;
+  final int revision;
+}
+
+MutationEnvelope? MutationLedger.begin({
+  required MutationBoundary boundary,
+  required String entityType,
+  required String entityId,
+  required String operation,
+  String? ownerId,
+});
+void commit(MutationEnvelope envelope);
+void fail(MutationEnvelope envelope, Object error);
+bool cancel(MutationEnvelope envelope);
+```
+
+Feature stores wrap the envelope in their typed operation and expose only the
+cancel signal to their repository adapter. `MutationLedger` owns active
+identity, dedupe, supersede, cancellation and bounded metadata-only discard
+events; it never persists request bodies or credentials.
+
+#### 3. Contracts
+
+- A begin is allowed only with the current usable account, credential
+  revision and network policy revision. The exact dedupe key is
+  `(accountId, entityType, entityId, operation)`; an active exact duplicate is
+  suppressed, while another operation on the same target cancels and records
+  the old owner as `superseded` before registering the new revision.
+- Feature stores keep the last server-confirmed value separate from pending
+  presentation state. Only a still-active envelope can commit; a late result
+  cannot update the confirmed value, another account, an old credential
+  boundary or a disposed provider.
+- Terminal status is observable as `idle`, `pending`, `confirmed`, `failed`,
+  `cancelled` or `superseded`. Cancellation clears the pending marker without
+  manufacturing a server-confirmed change; ordinary failures preserve the
+  previous confirmed value and retain the classified error.
+- Account switch, logout, credential-refresh invalidation, network revision
+  change and owner disposal cancel active owners. A provider rebuild may
+  reopen an empty ledger to retain bounded discard telemetry, but it never
+  resurrects a pending request.
+- Bookmark, Follow and Comment repository calls pass the envelope's
+  `CancelToken` and set `allowAuthReplay: false`. A token refresh may run once
+  through the shared account policy, but an operation whose body may have been
+  sent is never silently replayed.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| no usable account or invalid entity ID | reject before registering a mutation; surface the normal typed error |
+| exact active duplicate | return `null`; keep the original request and pending state |
+| opposite operation on the same target | cancel old owner, record `superseded`, and accept only the new envelope's result |
+| account/credential/network boundary changed | cancel and discard the old envelope; never write the new account's store |
+| provider/page disposed | cancel owner; late completion is discarded and does not publish an API error |
+| 401 or invalid refresh | use shared auth policy; invalid refresh becomes observable `ApiUnauthorized` and no mutation replay |
+| 403/404/429/network/5xx | preserve classified error (`ApiRateLimited.retryAfter` included), clear pending, retain confirmed state |
+
+#### 5. Good / Base / Bad Cases
+
+- Good: a delayed bookmark add carries account A's envelope, a reverse delete
+  supersedes it, and only the delete's server confirmation updates the shared
+  bookmark/entity stores.
+- Base: a 401 refreshes the credential once, then a non-idempotent Comment
+  POST terminates with an observable auth error rather than sending its body a
+  second time.
+- Bad: mark a bookmark true when the request starts, retry a possibly-sent
+  comment body after refreshing, or keep an unscoped pending map that becomes
+  visible after switching from account A to B.
+
+#### 6. Tests Required
+
+- Envelope tests assert all identity fields, owner cancellation, no secret in
+  diagnostics, exact dedupe, reverse supersede and bounded discard telemetry.
+- Store/action tests use delayed fakes to assert non-optimistic pending,
+  server-confirmed commit, failed/429/401 state, cancellation, disposal,
+  account switch, late response suppression, cancel-token forwarding and
+  cross-page synchronization for Bookmark, Follow and Comments.
+- HTTP client tests assert one shared refresh and that a POST with a possible
+  body does not replay after refresh; error tests retain `Retry-After` and
+  classified 403/404/5xx/network outcomes.
+- Full test, analyze, task validation and `git diff --check` are required;
+  Android evidence must state `MuMu emulator-tested, not physical-device-tested`
+  and distinguish API 35 coverage from any unavailable API 36 coverage.
+
+#### 7. Wrong vs Correct
+
+**Wrong**: use a widget-local boolean as server truth, retry every failed
+mutation through a generic queue, or let a late future call `commit` after the
+account boundary changed.
+
+**Correct**: create one immutable account/revision envelope, pass its cancel
+signal to the existing adapter, gate every terminal transition against the
+active owner, publish only server-confirmed data, and keep classified failure
+or discard telemetry visible without persisting a pending write.
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

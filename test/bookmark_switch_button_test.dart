@@ -7,6 +7,7 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_repository.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
+import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/features/bookmark/bookmark_switch_button.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -26,14 +27,18 @@ class _RecordingRepository implements BookmarkRepository {
   Object? addError;
 
   @override
-  Future<void> addIllust(int id, BookmarkRestrict restrict) async {
+  Future<void> addIllust(
+    int id,
+    BookmarkRestrict restrict, {
+    CancelToken? cancelToken,
+  }) async {
     final error = addError;
     if (error != null) throw error;
     adds.add((id, restrict.name));
   }
 
   @override
-  Future<void> deleteIllust(int id) async {
+  Future<void> deleteIllust(int id, {CancelToken? cancelToken}) async {
     deletes.add(id);
   }
 }
@@ -66,7 +71,11 @@ Future<(ProviderContainer, _RecordingRepository)> _pump(
       ),
     ),
   );
-  await tester.pump();
+  // Mutation envelopes require a resolved authenticated boundary.  Wait for
+  // the async account fixture before exercising the button; a single frame
+  // only starts AccountStore.build().
+  await container.read(accountStoreProvider.future);
+  await tester.pumpAndSettle();
   return (container, repository);
 }
 

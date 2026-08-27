@@ -37,7 +37,7 @@ class CommentActions {
     try {
       final comment = await _ref
           .read(commentRepositoryProvider)
-          .addComment(request);
+          .addComment(request, cancelToken: operation.cancelToken);
       store.commitSend(operation, comment);
       return comment;
     } on Object catch (error) {
@@ -54,7 +54,9 @@ class CommentActions {
     final operation = store.beginDelete(comment.id);
     if (operation == null) return false;
     try {
-      await _ref.read(commentRepositoryProvider).deleteComment(comment.id);
+      await _ref
+          .read(commentRepositoryProvider)
+          .deleteComment(comment.id, cancelToken: operation.cancelToken);
       store.commitDelete(operation);
       return true;
     } on Object catch (error) {

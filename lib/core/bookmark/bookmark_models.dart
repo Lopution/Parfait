@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../mutation/mutation_models.dart';
+import '../network/pixiv_http_client.dart';
+
 /// Entity types that support bookmarks. Novel is reserved for the Novel
 /// surfaces; this task only validates the Illust path (design §Compatibility).
 enum BookmarkEntityType { illust, novel }
@@ -39,15 +42,23 @@ enum BookmarkOpKind { add, delete }
 class BookmarkOp {
   const BookmarkOp({
     required this.key,
-    required this.revision,
+    required this.envelope,
     required this.kind,
     required this.restrict,
   });
 
   final BookmarkKey key;
-  final int revision;
+  final MutationEnvelope envelope;
   final BookmarkOpKind kind;
   final BookmarkRestrict restrict;
+
+  int get revision => envelope.revision;
+
+  String get accountId => envelope.accountId;
+
+  CancelToken get cancelToken => envelope.cancelToken;
+
+  bool get isCancelled => envelope.isCancelled;
 
   @override
   String toString() =>
@@ -63,6 +74,7 @@ class BookmarkEntry {
     this.pending,
     this.error,
     this.confirmedRevision,
+    this.status = MutationStatus.idle,
   });
 
   /// Last confirmed value. Never flipped before its operation commits
@@ -82,7 +94,11 @@ class BookmarkEntry {
   /// captured before this revision are stale and ignored (R2).
   final int? confirmedRevision;
 
-  bool get isPending => pending != null;
+  /// Observable mutation lifecycle. The confirmed bookmark value remains the
+  /// source of truth while [status] is pending, failed, cancelled or stale.
+  final MutationStatus status;
+
+  bool get isPending => status == MutationStatus.pending && pending != null;
 
   BookmarkEntry copyWith({
     bool? bookmarked,
@@ -90,6 +106,7 @@ class BookmarkEntry {
     BookmarkOp? pending,
     Object? error,
     int? confirmedRevision,
+    MutationStatus? status,
     bool clearRestrict = false,
     bool clearPending = false,
     bool clearError = false,
@@ -100,11 +117,13 @@ class BookmarkEntry {
       pending: clearPending ? null : (pending ?? this.pending),
       error: clearError ? null : (error ?? this.error),
       confirmedRevision: confirmedRevision ?? this.confirmedRevision,
+      status: status ?? this.status,
     );
   }
 
   @override
   String toString() =>
       'BookmarkEntry(bookmarked: $bookmarked, restrict: $restrict, '
-      'pending: $pending, error: $error, confirmed: $confirmedRevision)';
+      'pending: $pending, status: $status, error: $error, '
+      'confirmed: $confirmedRevision)';
 }

@@ -28,11 +28,12 @@ AccountState _stateFor(String currentId) => AccountState(
 void main() {
   late ProviderContainer container;
 
-  setUp(() {
+  setUp(() async {
     container = ProviderContainer(
       overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
     );
     addTearDown(container.dispose);
+    await container.read(accountStoreProvider.future);
   });
 
   BookmarkStore store() => container.read(bookmarkStoreProvider.notifier);
@@ -43,7 +44,7 @@ void main() {
       () {
         const key = BookmarkKey(BookmarkEntityType.illust, 1);
 
-        final op = store().beginAdd(key, BookmarkRestrict.public);
+        final op = store().beginAdd(key, BookmarkRestrict.public)!;
         expect(op, isNotNull);
         expect(
           store().entryOf(key)!.bookmarked,
@@ -57,7 +58,13 @@ void main() {
           isNull,
           reason: 'pending entry suppresses a second begin',
         );
-        expect(store().beginDelete(key), isNull);
+        final reversed = store().beginDelete(key);
+        expect(
+          reversed,
+          isNotNull,
+          reason: 'an opposite operation supersedes the old pending add',
+        );
+        expect(op.envelope.owner.isCancelled, isTrue);
       },
     );
 

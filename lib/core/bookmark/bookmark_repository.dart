@@ -18,20 +18,28 @@ class BookmarkRepository {
 
   final PixivHttpClient _client;
 
-  Future<void> addIllust(int id, BookmarkRestrict restrict) async {
+  Future<void> addIllust(
+    int id,
+    BookmarkRestrict restrict, {
+    CancelToken? cancelToken,
+  }) async {
     final response = await _client.post(
       PixivClientIdentity.appApiBase.replace(path: '/v2/illust/bookmark/add'),
       body: {'illust_id': '$id', 'restrict': bookmarkRestrictWire(restrict)},
+      cancelToken: cancelToken,
+      allowAuthReplay: false,
     );
     _ensureSuccess(response);
   }
 
-  Future<void> deleteIllust(int id) async {
+  Future<void> deleteIllust(int id, {CancelToken? cancelToken}) async {
     final response = await _client.post(
       PixivClientIdentity.appApiBase.replace(
         path: '/v1/illust/bookmark/delete',
       ),
       body: {'illust_id': '$id'},
+      cancelToken: cancelToken,
+      allowAuthReplay: false,
     );
     _ensureSuccess(response);
   }

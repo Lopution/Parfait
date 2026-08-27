@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../entity/comment_entity.dart';
+import '../mutation/mutation_boundary.dart';
+import '../mutation/mutation_models.dart';
+import '../network/api_error.dart';
 import 'comment_models.dart';
 
 /// Canonical comment state. Feeds contain only IDs; the entity payload and
@@ -46,18 +49,44 @@ class CommentStoreState {
 }
 
 /// Account-scoped canonical store for comment entities, thread indexes and
-/// mutation revisions.
+/// mutation ownership.
 class CommentStore extends Notifier<CommentStoreState> {
-  int _revision = 0;
+  final MutationLedger _ledger = MutationLedger();
+  MutationBoundary? _boundary;
+  bool _built = false;
+  bool _disposeRegistered = false;
 
   @override
   CommentStoreState build() {
-    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
-    _revision = 0;
+    if (_ledger.isDisposed) {
+      _ledger.reopen();
+      _disposeRegistered = false;
+    }
+    ref.watch(
+      accountStoreProvider.select((async) {
+        final account = async.value;
+        return (account?.usableCurrent?.id, account?.credentialRevision ?? 0);
+      }),
+    );
+    final current = readMutationBoundary(ref);
+    if (_boundary != null && !sameMutationBoundary(_boundary, current)) {
+      _invalidateBoundary(current, settleState: false);
+    }
+    _boundary = current;
+    if (!_disposeRegistered) {
+      _disposeRegistered = true;
+      ref.onDispose(() {
+        _ledger.dispose();
+        _built = false;
+      });
+    }
+    _built = true;
     return CommentStoreState();
   }
 
-  int revisionNow() => _revision;
+  int revisionNow() => _ledger.revisionNow;
+
+  List<MutationDiscardEvent> get discardEvents => _ledger.discardEvents;
 
   CommentEntity? get(int commentId) => state.get(commentId);
 
@@ -124,33 +153,34 @@ class CommentStore extends Notifier<CommentStoreState> {
     if (rootCommentId == null && parentCommentId != null) {
       throw const FormatException('root send cannot have a parent id');
     }
-    final key = 'send:$illustId:${parentCommentId ?? 'root'}';
-    if (state.mutations[key]?.pending == true) return null;
+    final boundary = _requireBoundary();
+    final envelope = _ledger.begin(
+      boundary: boundary,
+      entityType: 'comment',
+      entityId: 'illust:$illustId:${parentCommentId ?? 'root'}',
+      operation: 'comment.send',
+      ownerId: 'comment-send:$illustId:${parentCommentId ?? 'root'}',
+    );
+    if (envelope == null) return null;
     final operation = CommentSendOperation(
       illustId: illustId,
       parentCommentId: parentCommentId,
       rootCommentId: rootCommentId,
-      revision: ++_revision,
+      envelope: envelope,
     );
-    state = CommentStoreState(
-      entities: state.entities,
-      rootIdsByIllust: state.rootIdsByIllust,
-      replyIdsByRoot: state.replyIdsByRoot,
-      mutations: {
-        ...state.mutations,
-        operation.key: CommentMutation(
-          kind: CommentMutationKind.send,
-          revision: operation.revision,
-        ),
-      },
+    _setMutation(
+      operation.key,
+      CommentMutation(kind: CommentMutationKind.send, envelope: envelope),
     );
     return operation;
   }
 
   void commitSend(CommentSendOperation operation, CommentEntity comment) {
-    final mutation = state.mutations[operation.key];
-    if (mutation?.revision != operation.revision ||
-        mutation?.kind != CommentMutationKind.send) {
+    if (!_owns(
+      operation.envelope,
+      key: operation.key,
+      kind: CommentMutationKind.send,
+    )) {
       return;
     }
     final normalized = comment.copyWith(
@@ -158,13 +188,14 @@ class CommentStore extends Notifier<CommentStoreState> {
       parentCommentId: operation.parentCommentId,
       rootCommentId: operation.rootCommentId ?? comment.id,
     );
-    final nextMutations = Map<String, CommentMutation>.of(state.mutations)
-      ..remove(operation.key);
-    state = CommentStoreState(
-      entities: state.entities,
-      rootIdsByIllust: state.rootIdsByIllust,
-      replyIdsByRoot: state.replyIdsByRoot,
-      mutations: nextMutations,
+    _ledger.finish(operation.envelope);
+    _setMutation(
+      operation.key,
+      CommentMutation(
+        kind: CommentMutationKind.send,
+        envelope: operation.envelope,
+        status: MutationStatus.confirmed,
+      ),
     );
     final query = operation.rootCommentId == null
         ? CommentFeedQuery.root(illustId: operation.illustId)
@@ -179,88 +210,140 @@ class CommentStore extends Notifier<CommentStoreState> {
   }
 
   void failSend(CommentSendOperation operation, Object error) {
-    final mutation = state.mutations[operation.key];
-    if (mutation?.revision != operation.revision ||
-        mutation?.kind != CommentMutationKind.send) {
+    if (!_owns(
+      operation.envelope,
+      key: operation.key,
+      kind: CommentMutationKind.send,
+    )) {
       return;
     }
-    state = CommentStoreState(
-      entities: state.entities,
-      rootIdsByIllust: state.rootIdsByIllust,
-      replyIdsByRoot: state.replyIdsByRoot,
-      mutations: _withMutation(
-        operation.key,
-        CommentMutation(
-          kind: CommentMutationKind.send,
-          revision: operation.revision,
-          error: error,
-        ),
+    final cancelled =
+        error is ApiCancelled || operation.cancelToken.isCancelled;
+    if (cancelled) {
+      _ledger.discard(operation.envelope, MutationDiscardReason.cancelled);
+    } else {
+      _ledger.finish(operation.envelope);
+    }
+    _setMutation(
+      operation.key,
+      CommentMutation(
+        kind: CommentMutationKind.send,
+        envelope: operation.envelope,
+        status: cancelled ? MutationStatus.cancelled : MutationStatus.failed,
+        error: cancelled ? null : error,
       ),
     );
+  }
+
+  bool cancelSend(CommentSendOperation operation) {
+    if (!_owns(
+      operation.envelope,
+      key: operation.key,
+      kind: CommentMutationKind.send,
+    )) {
+      return false;
+    }
+    _ledger.discard(operation.envelope, MutationDiscardReason.cancelled);
+    _setMutation(
+      operation.key,
+      CommentMutation(
+        kind: CommentMutationKind.send,
+        envelope: operation.envelope,
+        status: MutationStatus.cancelled,
+      ),
+    );
+    return true;
   }
 
   /// Starts a delete operation keyed by the server comment ID.
   CommentDeleteOperation? beginDelete(int commentId) {
     _requirePositive(commentId, 'commentId');
-    final key = 'delete:$commentId';
-    if (state.mutations[key]?.pending == true) return null;
+    final boundary = _requireBoundary();
+    final envelope = _ledger.begin(
+      boundary: boundary,
+      entityType: 'comment',
+      entityId: '$commentId',
+      operation: 'comment.delete',
+      ownerId: 'comment-delete:$commentId',
+    );
+    if (envelope == null) return null;
     final operation = CommentDeleteOperation(
       commentId: commentId,
-      revision: ++_revision,
+      envelope: envelope,
     );
-    state = CommentStoreState(
-      entities: state.entities,
-      rootIdsByIllust: state.rootIdsByIllust,
-      replyIdsByRoot: state.replyIdsByRoot,
-      mutations: _withMutation(
-        operation.key,
-        CommentMutation(
-          kind: CommentMutationKind.delete,
-          revision: operation.revision,
-        ),
-      ),
+    _setMutation(
+      operation.key,
+      CommentMutation(kind: CommentMutationKind.delete, envelope: envelope),
     );
     return operation;
   }
 
   void commitDelete(CommentDeleteOperation operation) {
-    final mutation = state.mutations[operation.key];
-    if (mutation?.revision != operation.revision ||
-        mutation?.kind != CommentMutationKind.delete) {
+    if (!_owns(
+      operation.envelope,
+      key: operation.key,
+      kind: CommentMutationKind.delete,
+    )) {
       return;
     }
     final target = state.entities[operation.commentId];
-    final nextMutations = Map<String, CommentMutation>.of(state.mutations)
-      ..remove(operation.key);
-    state = CommentStoreState(
-      entities: state.entities,
-      rootIdsByIllust: state.rootIdsByIllust,
-      replyIdsByRoot: state.replyIdsByRoot,
-      mutations: nextMutations,
+    _ledger.finish(operation.envelope);
+    _setMutation(
+      operation.key,
+      CommentMutation(
+        kind: CommentMutationKind.delete,
+        envelope: operation.envelope,
+        status: MutationStatus.confirmed,
+      ),
     );
     if (target == null) return;
     _removeEntity(target);
   }
 
   void failDelete(CommentDeleteOperation operation, Object error) {
-    final mutation = state.mutations[operation.key];
-    if (mutation?.revision != operation.revision ||
-        mutation?.kind != CommentMutationKind.delete) {
+    if (!_owns(
+      operation.envelope,
+      key: operation.key,
+      kind: CommentMutationKind.delete,
+    )) {
       return;
     }
-    state = CommentStoreState(
-      entities: state.entities,
-      rootIdsByIllust: state.rootIdsByIllust,
-      replyIdsByRoot: state.replyIdsByRoot,
-      mutations: _withMutation(
-        operation.key,
-        CommentMutation(
-          kind: CommentMutationKind.delete,
-          revision: operation.revision,
-          error: error,
-        ),
+    final cancelled =
+        error is ApiCancelled || operation.cancelToken.isCancelled;
+    if (cancelled) {
+      _ledger.discard(operation.envelope, MutationDiscardReason.cancelled);
+    } else {
+      _ledger.finish(operation.envelope);
+    }
+    _setMutation(
+      operation.key,
+      CommentMutation(
+        kind: CommentMutationKind.delete,
+        envelope: operation.envelope,
+        status: cancelled ? MutationStatus.cancelled : MutationStatus.failed,
+        error: cancelled ? null : error,
       ),
     );
+  }
+
+  bool cancelDelete(CommentDeleteOperation operation) {
+    if (!_owns(
+      operation.envelope,
+      key: operation.key,
+      kind: CommentMutationKind.delete,
+    )) {
+      return false;
+    }
+    _ledger.discard(operation.envelope, MutationDiscardReason.cancelled);
+    _setMutation(
+      operation.key,
+      CommentMutation(
+        kind: CommentMutationKind.delete,
+        envelope: operation.envelope,
+        status: MutationStatus.cancelled,
+      ),
+    );
+    return true;
   }
 
   /// Removes a confirmed entity and, for a root, every reply in the same
@@ -285,10 +368,100 @@ class CommentStore extends Notifier<CommentStoreState> {
     );
   }
 
-  Map<String, CommentMutation> _withMutation(
+  bool _owns(
+    MutationEnvelope envelope, {
+    required String key,
+    required CommentMutationKind kind,
+  }) {
+    if (!_ledger.isActive(envelope)) return false;
+    final current = readMutationBoundary(ref);
+    _boundary = current;
+    final reason = mutationBoundaryReason(envelope, current);
+    if (reason != null) {
+      _ledger.discard(envelope, reason);
+      _setCancelledEnvelope(key, envelope, kind);
+      return false;
+    }
+    final mutation = state.mutations[key];
+    if (mutation == null ||
+        mutation.envelope != envelope ||
+        mutation.kind != kind ||
+        !mutation.pending) {
+      _ledger.discard(envelope, MutationDiscardReason.stale);
+      return false;
+    }
+    return true;
+  }
+
+  MutationBoundary _requireBoundary() {
+    final current = readMutationBoundary(ref);
+    if (current == null) {
+      throw const ApiUnauthorized('no signed-in account');
+    }
+    if (_boundary != null && !sameMutationBoundary(_boundary, current)) {
+      _invalidateBoundary(current, settleState: _built);
+    }
+    _boundary = current;
+    return current;
+  }
+
+  void _invalidateBoundary(
+    MutationBoundary? current, {
+    required bool settleState,
+  }) {
+    final reason = _boundary == null || current == null
+        ? MutationDiscardReason.accountChanged
+        : _boundary!.accountId != current.accountId
+        ? MutationDiscardReason.accountChanged
+        : _boundary!.credentialRevision != current.credentialRevision
+        ? MutationDiscardReason.credentialChanged
+        : MutationDiscardReason.networkChanged;
+    _ledger.cancelAll(reason);
+    if (!settleState) return;
+    final next = <String, CommentMutation>{};
+    for (final entry in state.mutations.entries) {
+      final mutation = entry.value;
+      next[entry.key] = mutation.pending
+          ? CommentMutation(
+              kind: mutation.kind,
+              envelope: mutation.envelope,
+              status: MutationStatus.cancelled,
+            )
+          : mutation;
+    }
+    state = CommentStoreState(
+      entities: state.entities,
+      rootIdsByIllust: state.rootIdsByIllust,
+      replyIdsByRoot: state.replyIdsByRoot,
+      mutations: next,
+    );
+  }
+
+  void _setCancelledEnvelope(
     String key,
-    CommentMutation mutation,
-  ) => {...state.mutations, key: mutation};
+    MutationEnvelope envelope,
+    CommentMutationKind kind,
+  ) {
+    final mutation = state.mutations[key];
+    if (mutation?.envelope != envelope) return;
+    _setMutation(
+      key,
+      CommentMutation(
+        kind: kind,
+        envelope: envelope,
+        status: MutationStatus.cancelled,
+      ),
+    );
+  }
+
+  void _setMutation(String key, CommentMutation mutation) {
+    state = CommentStoreState(
+      entities: state.entities,
+      rootIdsByIllust: state.rootIdsByIllust,
+      replyIdsByRoot: state.replyIdsByRoot,
+      mutations: {...state.mutations, key: mutation},
+    );
+  }
 
   void _removeEntity(CommentEntity target) {
     final removeIds = <int>{target.id};

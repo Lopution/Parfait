@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
 import '../entity/comment_entity.dart';
+import '../mutation/mutation_models.dart';
+import '../network/pixiv_http_client.dart';
 
 /// Identifies either the root comment feed of a work or one reply thread.
 @immutable
@@ -94,13 +96,17 @@ class CommentSendOperation {
     required this.illustId,
     required this.parentCommentId,
     required this.rootCommentId,
-    required this.revision,
+    required this.envelope,
   });
 
   final int illustId;
   final int? parentCommentId;
   final int? rootCommentId;
-  final int revision;
+  final MutationEnvelope envelope;
+
+  int get revision => envelope.revision;
+
+  CancelToken get cancelToken => envelope.cancelToken;
 
   String get key => 'send:$illustId:${parentCommentId ?? 'root'}';
 
@@ -112,11 +118,15 @@ class CommentSendOperation {
 class CommentDeleteOperation {
   const CommentDeleteOperation({
     required this.commentId,
-    required this.revision,
+    required this.envelope,
   });
 
   final int commentId;
-  final int revision;
+  final MutationEnvelope envelope;
+
+  int get revision => envelope.revision;
+
+  CancelToken get cancelToken => envelope.cancelToken;
 
   String get key => 'delete:$commentId';
 
@@ -128,13 +138,17 @@ class CommentDeleteOperation {
 class CommentMutation {
   const CommentMutation({
     required this.kind,
-    required this.revision,
+    required this.envelope,
+    this.status = MutationStatus.pending,
     this.error,
   });
 
   final CommentMutationKind kind;
-  final int revision;
+  final MutationEnvelope envelope;
+  final MutationStatus status;
   final Object? error;
 
-  bool get pending => error == null;
+  int get revision => envelope.revision;
+
+  bool get pending => status == MutationStatus.pending;
 }

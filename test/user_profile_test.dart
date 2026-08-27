@@ -63,6 +63,7 @@ class _FakeFollowRepository implements FollowRepository {
   Future<void> add(
     int userId, {
     FollowRestrict restrict = FollowRestrict.public,
+    CancelToken? cancelToken,
   }) async {
     requests.add('add:$userId:${restrict.name}');
     final activeGate = gate;
@@ -72,7 +73,7 @@ class _FakeFollowRepository implements FollowRepository {
   }
 
   @override
-  Future<void> delete(int userId) async {
+  Future<void> delete(int userId, {CancelToken? cancelToken}) async {
     requests.add('delete:$userId');
     final activeGate = gate;
     if (activeGate != null) await activeGate.future;

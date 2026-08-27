@@ -90,8 +90,8 @@ class _Fixture {
         await Future<void>.delayed(apiDelay);
       }
       final authorized = request.headers['Authorization'];
-      final rejected = rejectAll ||
-          (rejectStaleSeed && authorized == 'Bearer old-access');
+      final rejected =
+          rejectAll || (rejectStaleSeed && authorized == 'Bearer old-access');
       if (rejected) {
         final body = plain400
             ? '{"error":{"message":"Illust not found"}}'
@@ -124,7 +124,7 @@ class _Fixture {
 }
 
 Future<(ProviderContainer, PixivHttpClient, _CredentialStore, _Fixture)>
-    _makeWorld({
+_makeWorld({
   _Fixture? fixture,
   List<Account> accounts = const [
     Account(id: '100', userId: 100, name: 'user100'),
@@ -142,15 +142,17 @@ Future<(ProviderContainer, PixivHttpClient, _CredentialStore, _Fixture)>
     const Credential(accessToken: 'old-access', refreshToken: 'old-refresh'),
   );
 
-  final container = ProviderContainer(overrides: [
-    credentialStoreProvider.overrideWithValue(credentials),
-    accountMetadataRepositoryProvider.overrideWithValue(
-      _MetadataRepository(accounts, currentId),
-    ),
-    oauthServiceProvider.overrideWithValue(
-      OAuthService(client: f.buildOauthTransport()),
-    ),
-  ]);
+  final container = ProviderContainer(
+    overrides: [
+      credentialStoreProvider.overrideWithValue(credentials),
+      accountMetadataRepositoryProvider.overrideWithValue(
+        _MetadataRepository(accounts, currentId),
+      ),
+      oauthServiceProvider.overrideWithValue(
+        OAuthService(client: f.buildOauthTransport()),
+      ),
+    ],
+  );
   final store = container.read(accountStoreProvider.notifier);
   await container.read(accountStoreProvider.future);
 
@@ -170,41 +172,45 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
   });
 
-  test('requests carry centralized identity headers and bearer token',
-      () async {
-    final (container, client, _, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
+  test(
+    'requests carry centralized identity headers and bearer token',
+    () async {
+      final (container, client, _, fixture) = await _makeWorld();
+      addTearDown(container.dispose);
 
-    await client.getJson(Uri.parse(_api));
+      await client.getJson(Uri.parse(_api));
 
-    final request = fixture.apiRequests.single;
-    expect(request.headers['Authorization'], 'Bearer old-access');
-    expect(request.headers['App-OS'], 'android');
-    expect(request.headers['User-Agent'], PixivClientIdentity.userAgent);
-    expect(request.headers['Accept-Language'], 'zh-CN');
-  });
+      final request = fixture.apiRequests.single;
+      expect(request.headers['Authorization'], 'Bearer old-access');
+      expect(request.headers['App-OS'], 'android');
+      expect(request.headers['User-Agent'], PixivClientIdentity.userAgent);
+      expect(request.headers['Accept-Language'], 'zh-CN');
+    },
+  );
 
-  test('20 concurrent requests with a stale token trigger one refresh',
-      () async {
-    final fixture = _Fixture();
-    final (container, client, credentials, _) = await _makeWorld(
-      fixture: fixture..rejectStaleSeed = true,
-    );
-    addTearDown(container.dispose);
+  test(
+    '20 concurrent requests with a stale token trigger one refresh',
+    () async {
+      final fixture = _Fixture();
+      final (container, client, credentials, _) = await _makeWorld(
+        fixture: fixture..rejectStaleSeed = true,
+      );
+      addTearDown(container.dispose);
 
-    final results = await Future.wait([
-      for (var i = 0; i < 20; i++)
-        client
-            .getJson(Uri.parse(_api))
-            .then((_) => 'ok')
-            .onError((_, _) => 'error'),
-    ]);
+      final results = await Future.wait([
+        for (var i = 0; i < 20; i++)
+          client
+              .getJson(Uri.parse(_api))
+              .then((_) => 'ok')
+              .onError((_, _) => 'error'),
+      ]);
 
-    expect(results, everyElement('ok'));
-    expect(fixture.refreshCalls, 1);
-    expect(credentials.seeded('100')!.accessToken, 'new-access');
-    expect(credentials.seeded('100')!.refreshToken, 'new-refresh');
-  });
+      expect(results, everyElement('ok'));
+      expect(fixture.refreshCalls, 1);
+      expect(credentials.seeded('100')!.accessToken, 'new-access');
+      expect(credentials.seeded('100')!.refreshToken, 'new-refresh');
+    },
+  );
 
   test('a single request retries at most once on 401', () async {
     // Everything is rejected, even the refreshed token.
@@ -225,47 +231,77 @@ void main() {
     );
   });
 
-  test('invalid refresh marks the account re-auth and terminates the queue',
-      () async {
-    final fixture = _Fixture(refreshStatus: 400, rejectStaleSeed: true);
-    final (container, client, _, _) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
+  test(
+    'invalid refresh marks the account re-auth and terminates the queue',
+    () async {
+      final fixture = _Fixture(refreshStatus: 400, rejectStaleSeed: true);
+      final (container, client, _, _) = await _makeWorld(fixture: fixture);
+      addTearDown(container.dispose);
 
-    await expectLater(
-      client.getJson(Uri.parse(_api)),
-      throwsA(isA<ApiUnauthorized>()),
-    );
+      await expectLater(
+        client.getJson(Uri.parse(_api)),
+        throwsA(isA<ApiUnauthorized>()),
+      );
 
-    final state = container.read(accountStoreProvider).requireValue;
-    expect(state.current!.authState, AccountAuthState.reauthRequired);
+      final state = container.read(accountStoreProvider).requireValue;
+      expect(state.current!.authState, AccountAuthState.reauthRequired);
 
-    // The next request fails with the same unified error class: no usable
-    // session, no infinite loop, no second refresh attempt.
-    await expectLater(
-      client.getJson(Uri.parse(_api)),
-      throwsA(isA<ApiUnauthorized>()),
-    );
-    expect(fixture.refreshCalls, 1);
-  });
+      // The next request fails with the same unified error class: no usable
+      // session, no infinite loop, no second refresh attempt.
+      await expectLater(
+        client.getJson(Uri.parse(_api)),
+        throwsA(isA<ApiUnauthorized>()),
+      );
+      expect(fixture.refreshCalls, 1);
+    },
+  );
 
-  test('400 invalid_grant triggers refresh and retries (live-device shape)',
-      () async {
-    // The recommended endpoint surfaces an expired token as a 400 with an
-    // OAuth invalid_grant body instead of 401.
-    final fixture = _Fixture(rejectStaleSeed: true)
-      ..staleRejectionStatus = 400;
-    final (container, client, _, fixtureF) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
+  test(
+    '400 invalid_grant triggers refresh and retries (live-device shape)',
+    () async {
+      // The recommended endpoint surfaces an expired token as a 400 with an
+      // OAuth invalid_grant body instead of 401.
+      final fixture = _Fixture(rejectStaleSeed: true)
+        ..staleRejectionStatus = 400;
+      final (container, client, _, fixtureF) = await _makeWorld(
+        fixture: fixture,
+      );
+      addTearDown(container.dispose);
 
-    final body = await client.getJson(Uri.parse(_api));
-    expect(body['ok'], isTrue);
-    expect(fixtureF.apiRequests, hasLength(2));
-    expect(fixtureF.refreshCalls, 1);
-    expect(
-      fixtureF.apiRequests.last.headers['Authorization'],
-      'Bearer new-access',
-    );
-  });
+      final body = await client.getJson(Uri.parse(_api));
+      expect(body['ok'], isTrue);
+      expect(fixtureF.apiRequests, hasLength(2));
+      expect(fixtureF.refreshCalls, 1);
+      expect(
+        fixtureF.apiRequests.last.headers['Authorization'],
+        'Bearer new-access',
+      );
+    },
+  );
+
+  test(
+    'non-idempotent POST refreshes once but never replays its body',
+    () async {
+      final fixture = _Fixture(rejectStaleSeed: true);
+      final (container, client, _, fixtureF) = await _makeWorld(
+        fixture: fixture,
+      );
+      addTearDown(container.dispose);
+
+      await expectLater(
+        client.post(
+          Uri.parse('https://$_apiHost/v1/illust/comment/add'),
+          body: {'illust_id': '42', 'comment': 'one-shot'},
+          allowAuthReplay: false,
+        ),
+        throwsA(isA<ApiUnauthorized>()),
+      );
+
+      expect(fixtureF.apiRequests, hasLength(1));
+      expect(fixtureF.apiRequests.single.method, 'POST');
+      expect(fixtureF.refreshCalls, 1);
+    },
+  );
 
   test('plain 400 without invalid_grant never triggers refresh', () async {
     final fixture = _Fixture(rejectStaleSeed: true, plain400: true)
@@ -296,8 +332,13 @@ void main() {
 
     await expectLater(
       rateLimited.getJson(Uri.parse(_api)),
-      throwsA(isA<ApiRateLimited>()
-          .having((e) => e.retryAfter, 'retryAfter', const Duration(seconds: 7))),
+      throwsA(
+        isA<ApiRateLimited>().having(
+          (e) => e.retryAfter,
+          'retryAfter',
+          const Duration(seconds: 7),
+        ),
+      ),
     );
   });
 
@@ -313,8 +354,9 @@ void main() {
 
     await expectLater(
       failing.getJson(Uri.parse(_api)),
-      throwsA(isA<ApiHttpError>()
-          .having((e) => e.statusCode, 'statusCode', 500)),
+      throwsA(
+        isA<ApiHttpError>().having((e) => e.statusCode, 'statusCode', 500),
+      ),
     );
   });
 
@@ -379,23 +421,24 @@ void main() {
     );
   });
 
-  test('cancellation during an in-flight request surfaces ApiCancelled',
-      () async {
-    final (container, client, _, _) = await _makeWorld(
-      fixture: _Fixture(apiDelay: const Duration(milliseconds: 500)),
-    );
-    addTearDown(container.dispose);
-    final token = CancelToken();
+  test(
+    'cancellation during an in-flight request surfaces ApiCancelled',
+    () async {
+      final (container, client, _, _) = await _makeWorld(
+        fixture: _Fixture(apiDelay: const Duration(milliseconds: 500)),
+      );
+      addTearDown(container.dispose);
+      final token = CancelToken();
 
-    final request = client.getJson(Uri.parse(_api), cancelToken: token);
-    await Future<void>.delayed(Duration.zero);
-    token.cancel();
+      final request = client.getJson(Uri.parse(_api), cancelToken: token);
+      await Future<void>.delayed(Duration.zero);
+      token.cancel();
 
-    await expectLater(request, throwsA(isA<ApiCancelled>()));
-  });
+      await expectLater(request, throwsA(isA<ApiCancelled>()));
+    },
+  );
 
-  test('error objects never embed tokens or authorization material',
-      () async {
+  test('error objects never embed tokens or authorization material', () async {
     final fixture = _Fixture(refreshStatus: 400, rejectStaleSeed: true);
     final (container, client, _, _) = await _makeWorld(fixture: fixture);
     addTearDown(container.dispose);

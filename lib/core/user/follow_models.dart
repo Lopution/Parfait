@@ -1,5 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../mutation/mutation_models.dart';
+import '../network/pixiv_http_client.dart';
+
 /// Visibility used when adding a Pixiv follow relationship.
 enum FollowRestrict { public, private }
 
@@ -13,15 +16,19 @@ enum FollowOperationKind { add, delete }
 class FollowOperation {
   const FollowOperation({
     required this.userId,
-    required this.revision,
+    required this.envelope,
     required this.kind,
     required this.restrict,
   });
 
   final int userId;
-  final int revision;
+  final MutationEnvelope envelope;
   final FollowOperationKind kind;
   final FollowRestrict restrict;
+
+  int get revision => envelope.revision;
+
+  CancelToken get cancelToken => envelope.cancelToken;
 
   @override
   String toString() =>
@@ -37,6 +44,7 @@ class FollowEntry {
     this.pending,
     this.error,
     this.confirmedRevision,
+    this.status = MutationStatus.idle,
   });
 
   /// The last confirmed server value. It does not change while an operation
@@ -47,7 +55,9 @@ class FollowEntry {
   final Object? error;
   final int? confirmedRevision;
 
-  bool get isPending => pending != null;
+  final MutationStatus status;
+
+  bool get isPending => status == MutationStatus.pending && pending != null;
 
   FollowEntry copyWith({
     bool? followed,
@@ -55,6 +65,7 @@ class FollowEntry {
     FollowOperation? pending,
     Object? error,
     int? confirmedRevision,
+    MutationStatus? status,
     bool clearRestrict = false,
     bool clearPending = false,
     bool clearError = false,
@@ -65,11 +76,13 @@ class FollowEntry {
       pending: clearPending ? null : (pending ?? this.pending),
       error: clearError ? null : (error ?? this.error),
       confirmedRevision: confirmedRevision ?? this.confirmedRevision,
+      status: status ?? this.status,
     );
   }
 
   @override
   String toString() =>
       'FollowEntry(followed: $followed, restrict: $restrict, '
-      'pending: $pending, error: $error, confirmed: $confirmedRevision)';
+      'pending: $pending, status: $status, error: $error, '
+      'confirmed: $confirmedRevision)';
 }
