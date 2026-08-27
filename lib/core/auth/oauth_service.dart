@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_headers.dart';
+import '../network/compat/network_contracts.dart';
 import 'credential.dart';
 import 'pkce.dart';
 
@@ -25,7 +26,7 @@ class OAuthException implements Exception {
 /// A single in-flight login attempt.
 class PkceSession {
   PkceSession._(this.id, String verifier, this.challenge, this.expiresAt)
-      : _verifier = verifier;
+    : _verifier = verifier;
 
   final String id;
   final String challenge;
@@ -60,7 +61,11 @@ class OAuthUserProfile {
 
 /// Result of a completed OAuth login.
 class OAuthResult {
-  const OAuthResult({required this.accountId, required this.credential, required this.profile});
+  const OAuthResult({
+    required this.accountId,
+    required this.credential,
+    required this.profile,
+  });
 
   final String accountId;
   final Credential credential;
@@ -82,14 +87,27 @@ class OAuthService {
     Uri? authorizeEndpoint,
     Duration sessionTtl = defaultSessionTtl,
     Duration exchangeTimeout = defaultExchangeTimeout,
-  })  : _client = client ?? http.Client(),
-        _tokenEndpoint = tokenEndpoint ?? defaultTokenEndpoint,
-        _authorizeEndpoint = authorizeEndpoint ?? defaultAuthorizeEndpoint,
-        _sessionTtl = sessionTtl,
-        _exchangeTimeout = exchangeTimeout;
+  }) : _client = client ?? http.Client(),
+       _tokenEndpoint = tokenEndpoint ?? defaultTokenEndpoint,
+       _authorizeEndpoint = authorizeEndpoint ?? defaultAuthorizeEndpoint,
+       _sessionTtl = sessionTtl,
+       _exchangeTimeout = exchangeTimeout {
+    // Tests may inject a local scripted endpoint/client. The production
+    // default is still checked against the same exact destination registry
+    // used by the shared policy provider.
+    final registry = PixivDestinationRegistry();
+    if (tokenEndpoint == null) {
+      registry.require(_tokenEndpoint, PixivDestinationPurpose.oauth);
+    }
+    if (authorizeEndpoint == null) {
+      registry.require(_authorizeEndpoint, PixivDestinationPurpose.accountsWeb);
+    }
+  }
 
-  static final Uri defaultAuthorizeEndpoint = PixivClientIdentity.webLoginEndpoint;
-  static final Uri defaultTokenEndpoint = PixivClientIdentity.oauthTokenEndpoint;
+  static final Uri defaultAuthorizeEndpoint =
+      PixivClientIdentity.webLoginEndpoint;
+  static final Uri defaultTokenEndpoint =
+      PixivClientIdentity.oauthTokenEndpoint;
   static const String defaultRedirectUri = PixivClientIdentity.oauthRedirectUri;
   static const String clientId = PixivClientIdentity.clientId;
   static const String clientSecret = PixivClientIdentity.clientSecret;
@@ -126,12 +144,14 @@ class OAuthService {
       DateTime.now().add(_sessionTtl),
     );
     _session = session;
-    final url = _authorizeEndpoint.replace(queryParameters: {
-      ..._authorizeEndpoint.queryParameters,
-      'code_challenge': challenge,
-      'code_challenge_method': 'S256',
-      'client': 'pixiv-android',
-    });
+    final url = _authorizeEndpoint.replace(
+      queryParameters: {
+        ..._authorizeEndpoint.queryParameters,
+        'code_challenge': challenge,
+        'code_challenge_method': 'S256',
+        'client': 'pixiv-android',
+      },
+    );
     return (authorizeUrl: url, sessionId: session.id);
   }
 
@@ -199,6 +219,7 @@ class OAuthService {
 
   /// Clears any live session (user cancelled, page disposed, timeout).
   void discardSession() {
+    _session?.clearSecrets();
     _session = null;
   }
 
@@ -235,8 +256,10 @@ class OAuthService {
     } on SocketException catch (error) {
       throw OAuthException('token refresh network error', cause: error);
     } on FormatException catch (error) {
-      throw OAuthException('token refresh response is not valid JSON',
-          cause: error);
+      throw OAuthException(
+        'token refresh response is not valid JSON',
+        cause: error,
+      );
     }
   }
 
@@ -254,8 +277,8 @@ class OAuthService {
     final userId = userIdRaw is int
         ? userIdRaw
         : userIdRaw is String
-            ? int.tryParse(userIdRaw)
-            : null;
+        ? int.tryParse(userIdRaw)
+        : null;
     final name = user['name'];
     if (userId == null || name is! String) {
       throw const OAuthException('token response user is incomplete');

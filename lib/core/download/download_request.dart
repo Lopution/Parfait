@@ -1,6 +1,6 @@
 import 'package:meta/meta.dart';
 
-import '../network/pixiv_client_identity.dart';
+import '../network/compat/network_contracts.dart';
 
 /// What a download produces. `illustPage` names files by page index inside
 /// the detail flow; `ugoiraZip` is reserved for the later ugoira export task.
@@ -116,16 +116,9 @@ void validateDisplayName(String name) {
 
 /// Throws when the URL is not an allowed download host (R7).
 void validateDownloadUrl(Uri url) {
-  if (url.scheme != 'https') {
-    throw FormatException('download URL must be https: $url');
-  }
-  if (!PixivClientIdentity.downloadHosts.contains(url.host.toLowerCase())) {
-    throw FormatException('download host not allowed: ${url.host}');
-  }
-  if (url.hasPort && url.port != 443) {
-    throw FormatException('download URL with explicit port rejected: $url');
-  }
-  if (url.userInfo.isNotEmpty) {
-    throw FormatException('download URL with userinfo rejected: $url');
+  try {
+    PixivDestinationRegistry().require(url, PixivDestinationPurpose.image);
+  } on PixivDestinationException catch (error) {
+    throw FormatException('download URL rejected: $error');
   }
 }

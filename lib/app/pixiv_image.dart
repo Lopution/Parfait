@@ -1,9 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../core/network/pixiv_client_identity.dart';
-import '../core/settings/settings_controller.dart';
+import '../core/network/compat/network_providers.dart';
 
 /// Shared Pixiv CDN image widget: every i.pximg.net request must carry the
 /// app-API Referer or the CDN answers 403 (beta56 PixivImage semantics).
@@ -36,7 +37,8 @@ class PixivImage extends ConsumerWidget {
     // PixivImage is also used by the standalone viewer tests and by embedders
     // that do not install Riverpod. Keep the original URL in that context;
     // the application shell always provides the settings scope.
-    var imageUrl = url;
+    final imageUrl = url;
+    BaseCacheManager? cacheManager;
     var hasProviderScope = true;
     try {
       ProviderScope.containerOf(context, listen: false);
@@ -44,15 +46,12 @@ class PixivImage extends ConsumerWidget {
       hasProviderScope = false;
     }
     if (hasProviderScope) {
-      imageUrl = ref.watch(
-        settingsProvider.select(
-          (async) => async.value?.rewriteImageUrl(url) ?? url,
-        ),
-      );
+      cacheManager = ref.watch(pixivNetworkFactoryProvider).imageCacheManager;
     }
     final image = CachedNetworkImage(
       imageUrl: imageUrl,
       httpHeaders: headers,
+      cacheManager: cacheManager,
       width: width,
       height: height,
       fit: fit,

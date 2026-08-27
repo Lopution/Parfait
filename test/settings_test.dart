@@ -85,7 +85,6 @@ void main() {
     expect(settings.enableLocalBlockAI, isFalse);
     expect(settings.translateIndex, 0);
     expect(settings.maxDownloadCount, 3);
-    expect(settings.isLegacyImageSource, isFalse);
   });
 
   test('corrupt fields fall back independently and valid fields survive', () {
@@ -93,7 +92,7 @@ void main() {
       'guideCompleted': true,
       'languageTag': 'ja_JP',
       'themeCode': 99,
-      'imageSource': '210.140.92.148',
+      'imageSource': 'unapproved-image-host.example',
       'previewQuality': false,
       'scaleQuality': 'broken',
       'enableHistory': false,
@@ -105,7 +104,7 @@ void main() {
     expect(settings.guideCompleted, isTrue);
     expect(settings.languageTag, 'ja-JP');
     expect(settings.themeCode, AppSettings.lightTheme);
-    expect(settings.imageSource, AppSettings.legacyImageSource);
+    expect(settings.imageSource, AppSettings.normalImageSource);
     expect(settings.previewQuality, isFalse);
     expect(settings.scaleQuality, isTrue);
     expect(settings.enableHistory, isFalse);
@@ -222,7 +221,6 @@ void main() {
       'downloaderSettings',
       'aboutSettings',
       'imageSourceNormal',
-      'imageSourceLegacy',
       'previewQuality',
       'scaleQuality',
       'localHistory',

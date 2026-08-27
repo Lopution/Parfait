@@ -10,18 +10,22 @@ import '../auth/credential_store.dart';
 import '../auth/oauth_service.dart';
 import '../auth/token_refresh_gate.dart';
 import 'api_error.dart';
+import 'compat/network_contracts.dart';
+import 'compat/network_providers.dart';
 import 'pixiv_headers.dart';
 
 /// Cooperative cancellation signal for Pixiv requests.
 ///
 /// Checked before sending, before each retry and while awaiting responses.
 /// Cancelling never aborts a token refresh shared with other requests.
-class CancelToken {
+class CancelToken implements NetworkCancelSignal {
   final Completer<void> _cancelled = Completer<void>();
   bool _isCancelled = false;
 
+  @override
   bool get isCancelled => _isCancelled;
 
+  @override
   Future<void> get whenCancel => _cancelled.future;
 
   void cancel() {
@@ -49,11 +53,11 @@ class PixivHttpClient {
     TokenRefreshGate? refreshGate,
     this.languageTag = 'zh-CN',
     this.requestTimeout = defaultRequestTimeout,
-  })  : _client = client ?? http.Client(),
-        _accountStore = accountStore,
-        _credentialStore = credentialStore,
-        _oauthService = oauthService,
-        _refreshGate = refreshGate ?? TokenRefreshGate();
+  }) : _client = client ?? http.Client(),
+       _accountStore = accountStore,
+       _credentialStore = credentialStore,
+       _oauthService = oauthService,
+       _refreshGate = refreshGate ?? TokenRefreshGate();
 
   static const Duration defaultRequestTimeout = Duration(seconds: 20);
   static const int maxRetries = 1;
@@ -82,18 +86,14 @@ class PixivHttpClient {
     }
   }
 
-  Future<http.Response> get(
-    Uri uri, {
-    CancelToken? cancelToken,
-  }) =>
+  Future<http.Response> get(Uri uri, {CancelToken? cancelToken}) =>
       _send(uri, method: 'GET', cancelToken: cancelToken);
 
   Future<http.Response> post(
     Uri uri, {
     Map<String, String> body = const {},
     CancelToken? cancelToken,
-  }) =>
-      _send(uri, method: 'POST', body: body, cancelToken: cancelToken);
+  }) => _send(uri, method: 'POST', body: body, cancelToken: cancelToken);
 
   Future<http.Response> _send(
     Uri uri, {
@@ -170,7 +170,9 @@ class PixivHttpClient {
       final body = utf8.decode(response.bodyBytes);
       if (body.isEmpty) return null;
       final sanitized = body.replaceAll(RegExp(r'[\x00-\x1f]'), ' ').trim();
-      return sanitized.length <= 200 ? sanitized : '${sanitized.substring(0, 200)}…';
+      return sanitized.length <= 200
+          ? sanitized
+          : '${sanitized.substring(0, 200)}…';
     } on FormatException {
       return null;
     }
@@ -195,11 +197,18 @@ class PixivHttpClient {
     String accessToken, {
     CancelToken? cancelToken,
   }) async {
-    final request = http.Request(method, uri)
-      ..headers.addAll(PixivHeaders.api(
-        languageTag: languageTag,
-        accessToken: accessToken,
-      ));
+    final request =
+        http.AbortableRequest(
+            method,
+            uri,
+            abortTrigger: cancelToken?.whenCancel,
+          )
+          ..headers.addAll(
+            PixivHeaders.api(
+              languageTag: languageTag,
+              accessToken: accessToken,
+            ),
+          );
     if (method == 'POST') {
       request.bodyFields = body;
     }
@@ -225,8 +234,9 @@ class PixivHttpClient {
       final winner = await Future.any<dynamic>([
         raced,
         if (cancelToken != null)
-          cancelToken.whenCancel
-              .then<dynamic>((_) => throw const ApiCancelled()),
+          cancelToken.whenCancel.then<dynamic>(
+            (_) => throw const ApiCancelled(),
+          ),
       ]);
       return winner as http.Response;
     } on ApiError {
@@ -300,7 +310,9 @@ class PixivHttpClient {
 }
 
 final pixivHttpClientProvider = Provider<PixivHttpClient>((ref) {
+  final network = ref.watch(pixivNetworkFactoryProvider);
   return PixivHttpClient(
+    client: network.client(PixivDestinationPurpose.appApi),
     accountStore: ref.watch(accountStoreProvider.notifier),
     credentialStore: ref.watch(credentialStoreProvider),
     oauthService: ref.watch(oauthServiceProvider),

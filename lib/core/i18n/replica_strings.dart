@@ -32,8 +32,9 @@ class ReplicaStrings {
       'loginTitle': '注册 或 登录',
       'register': '注册',
       'login': '登录',
-      'localReverseProxy': '本地反向代理',
-      'reverseProxyHint': 'Pixiv官方页面无法注册或登陆时 建议开启本地反向代理',
+      'networkCompatibility': '自动兼容网络',
+      'networkCompatibilityHint':
+          '默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。',
       'getMoreHelp': '获取更多帮助 >>',
       'useLoginWithClipboardHint': '或使用\n长按头像复制账号数据',
       'useLoginWithClipboard': '使用剪贴板数据登录',
@@ -70,9 +71,6 @@ class ReplicaStrings {
       'profileReadOnly': '这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。',
       'imageSource': '图片源',
       'imageSourceNormal': '官方 CDN（系统 DNS / HTTPS）',
-      'imageSourceLegacy': '旧版 IP（兼容/应急）',
-      'imageSourceMirror': 'i.pixiv.re 镜像',
-      'legacyImageSourceWarning': '旧版 IP 可能无法通过 HTTPS 证书校验，仅在明确的兼容/应急场景使用。',
       'previewQuality': '预览质量（大图）',
       'scaleQuality': '查看质量（原图）',
       'localHistory': '本地浏览历史',
@@ -265,9 +263,9 @@ class ReplicaStrings {
       'loginTitle': 'Register or Login',
       'register': 'Register',
       'login': 'Log in',
-      'localReverseProxy': 'Local reverse proxy',
-      'reverseProxyHint':
-          'When the official page of Pixiv cannot be registered or logged in, it is recommended to open a local reverse proxy.',
+      'networkCompatibility': 'Automatic compatibility network',
+      'networkCompatibilityHint':
+          'Direct HTTPS is tried first; only official Pixiv destinations may try a strict HTTPS candidate after an explicit transport failure. Other traffic is never proxied and certificate checks stay enabled.',
       'getMoreHelp': 'Get more help >>',
       'useLoginWithClipboardHint':
           'Or use\nlong press on the avatar to copy account data',
@@ -306,10 +304,6 @@ class ReplicaStrings {
           'This screen shows saved account metadata. Full profile editing belongs to the profile module.',
       'imageSource': 'Image source',
       'imageSourceNormal': 'Official CDN (system DNS / HTTPS)',
-      'imageSourceLegacy': 'Legacy IP (compatibility/emergency)',
-      'imageSourceMirror': 'i.pixiv.re mirror',
-      'legacyImageSourceWarning':
-          'The legacy IP may fail HTTPS certificate validation. Use it only for an explicit compatibility or emergency case.',
       'previewQuality': 'Preview quality (large)',
       'scaleQuality': 'Viewer quality (original)',
       'localHistory': 'Local browsing history',
@@ -510,8 +504,9 @@ class ReplicaStrings {
       'loginTitle': '登録･ログイン',
       'register': '登録',
       'login': 'ログイン',
-      'localReverseProxy': 'リバースプロキシ',
-      'reverseProxyHint': 'Pixivに登録･ログインできない場合はリバースプロキシを利用することをオススメします',
+      'networkCompatibility': '自動互換ネットワーク',
+      'networkCompatibilityHint':
+          'まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。',
       'getMoreHelp': '詳細なヘルプ >>',
       'useLoginWithClipboardHint': 'もしくは\nプロフィール画像を長押ししてアカウントデータをコピー',
       'useLoginWithClipboard': 'クリップボードに保存されたデータでログイン',
@@ -548,10 +543,6 @@ class ReplicaStrings {
       'profileReadOnly': '保存されたアカウント情報を表示しています。プロフィール編集はプロフィール機能で提供します。',
       'imageSource': '画像ソース',
       'imageSourceNormal': '公式 CDN（システム DNS / HTTPS）',
-      'imageSourceLegacy': '旧 IP（互換/緊急用）',
-      'imageSourceMirror': 'i.pixiv.re ミラー',
-      'legacyImageSourceWarning':
-          '旧 IP は HTTPS 証明書の検証に失敗する可能性があります。明確な互換・緊急時のみ使用してください。',
       'previewQuality': 'プレビュー画質（大きい画像）',
       'scaleQuality': 'ビューア画質（オリジナル）',
       'localHistory': 'ローカル閲覧履歴',
@@ -745,9 +736,9 @@ class ReplicaStrings {
       'loginTitle': 'Вход или Регистрация',
       'register': 'Регистрация',
       'login': 'Вход',
-      'localReverseProxy': 'Локальный прокси',
-      'reverseProxyHint':
-          'Если официальная страница Pixiv не может быть зарегистрирована или авторизована, рекомендуется включить прокси.',
+      'networkCompatibility': 'Автоматическая совместимость сети',
+      'networkCompatibilityHint':
+          'Сначала используется прямой HTTPS; только официальные адреса Pixiv могут попробовать строгий HTTPS-маршрут после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификата не отключается.',
       'getMoreHelp': 'Получить дополнительную помощь >>',
       'useLoginWithClipboardHint':
           'Или используйте длинное нажатие на аватаре,\n чтобы скопировать данные аккаунта',
@@ -786,10 +777,6 @@ class ReplicaStrings {
           'Здесь показаны сохранённые данные аккаунта. Полное редактирование профиля предоставляет модуль профиля.',
       'imageSource': 'Источник изображений',
       'imageSourceNormal': 'Официальный CDN (системный DNS / HTTPS)',
-      'imageSourceLegacy': 'Старый IP (совместимость/экстренный режим)',
-      'imageSourceMirror': 'Зеркало i.pixiv.re',
-      'legacyImageSourceWarning':
-          'Старый IP может не пройти проверку сертификата HTTPS. Используйте его только явно для совместимости или в экстренной ситуации.',
       'previewQuality': 'Качество предпросмотра (большое)',
       'scaleQuality': 'Качество просмотра (оригинал)',
       'localHistory': 'Локальная история просмотров',

@@ -6,6 +6,8 @@ import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
 import '../../core/auth/pkce.dart';
+import '../../core/network/compat/network_contracts.dart';
+import '../../core/network/compat/network_providers.dart';
 
 /// OAuth login WebView.
 ///
@@ -42,6 +44,11 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage> {
     super.initState();
     if (widget.create) {
       // Direct signup; login with PKCE happens afterwards.
+      final signupUrl = Uri.parse('https://accounts.pixiv.net/signup');
+      ref.read(webViewRoutePolicyProvider).validateDirect(
+            signupUrl,
+            purpose: PixivDestinationPurpose.accountsWeb,
+          );
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(NavigationDelegate(
@@ -49,10 +56,14 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage> {
           onWebResourceError: (error) =>
               _fail('页面加载失败 (${error.errorType ?? error.errorCode})'),
         ))
-        ..loadRequest(Uri.parse('https://accounts.pixiv.net/signup'));
+        ..loadRequest(signupUrl);
       return;
     }
     final session = widget.oauthService.beginSession();
+    ref.read(webViewRoutePolicyProvider).validateDirect(
+          session.authorizeUrl,
+          purpose: PixivDestinationPurpose.accountsWeb,
+        );
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
