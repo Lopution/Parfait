@@ -5,6 +5,7 @@ import 'recommended/recommended_illust_page.dart';
 import '../../app/icons/app_icons.dart';
 import '../new/new_page.dart';
 import '../ranking/ranking_page.dart';
+import '../search/search_page.dart';
 import '../settings/settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,7 +22,7 @@ class _HomePageState extends State<HomePage> {
     RecommendedIllustPage(),
     RankingPage(),
     NewPage(),
-    Center(child: Text('搜索')),
+    SearchHomePage(),
     SettingsPage(),
   ];
 
