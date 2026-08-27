@@ -37,14 +37,20 @@ enum RankingMode {
   }
 }
 
-/// Fetches one ranking mode and merges its entities into the shared store.
+class RankingIllustPage {
+  const RankingIllustPage({required this.illusts, required this.nextUrl});
+
+  final List<IllustEntity> illusts;
+  final String? nextUrl;
+}
+
+/// Fetches and normalizes one ranking mode without mutating shared state.
 class RankingRepository {
-  RankingRepository(this._client, this._store);
+  RankingRepository(this._client);
 
   final PixivHttpClient _client;
-  final IllustStore _store;
 
-  Future<({List<int> ids, String? nextUrl})> fetchPage(
+  Future<RankingIllustPage> fetchPage(
     RankingMode mode,
     String? cursor, {
     CancelToken? cancelToken,
@@ -69,16 +75,9 @@ class RankingRepository {
             query: request.uri.query,
           );
     try {
-      // The revision must be captured before the request so a bookmark tap
-      // that completes while this page is in flight cannot be regressed.
-      final bookmarkRevision = _store.bookmarkRevisionNow();
       final json = await _client.getJson(target, cancelToken: cancelToken);
       final page = IllustEntity.parsePage(json);
-      _store.mergeAll(page.illusts, bookmarkSnapshotRevision: bookmarkRevision);
-      return (
-        ids: [for (final illust in page.illusts) illust.id],
-        nextUrl: page.nextUrl,
-      );
+      return RankingIllustPage(illusts: page.illusts, nextUrl: page.nextUrl);
     } on FormatException catch (error) {
       throw ApiParseError(error);
     }
@@ -106,10 +105,7 @@ class RankingRepository {
 }
 
 final rankingRepositoryProvider = Provider<RankingRepository>((ref) {
-  return RankingRepository(
-    ref.watch(pixivHttpClientProvider),
-    ref.watch(illustStoreProvider),
-  );
+  return RankingRepository(ref.watch(pixivHttpClientProvider));
 });
 
 /// One independent cursor/state machine per ranking mode.
@@ -117,6 +113,9 @@ class RankingFeedController extends PagedFeedController {
   RankingFeedController(this.mode);
 
   final RankingMode mode;
+
+  @override
+  String get feedKey => 'ranking:${mode.apiValue}';
 
   @override
   Future<PagedFeedState> build() {
@@ -127,22 +126,47 @@ class RankingFeedController extends PagedFeedController {
   }
 
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) {
-    return ref
+  Future<({List<int> ids, String? nextCursor})> fetchPage(
+    String? cursor,
+  ) async {
+    final page = await ref
         .read(rankingRepositoryProvider)
-        .fetchPage(mode, cursor)
-        .then((page) => (ids: page.ids, nextCursor: page.nextUrl));
+        .fetchPage(mode, cursor);
+    return (
+      ids: [for (final illust in page.illusts) illust.id],
+      nextCursor: page.nextUrl,
+    );
   }
 
   @override
   Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
     String? cursor,
     CancelToken cancelToken,
-  ) {
-    return ref
+  ) async {
+    final page = await ref
         .read(rankingRepositoryProvider)
-        .fetchPage(mode, cursor, cancelToken: cancelToken)
-        .then((page) => (ids: page.ids, nextCursor: page.nextUrl));
+        .fetchPage(mode, cursor, cancelToken: cancelToken);
+    return (
+      ids: [for (final illust in page.illusts) illust.id],
+      nextCursor: page.nextUrl,
+    );
+  }
+
+  @override
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
+    final store = ref.read(illustStoreProvider);
+    final bookmarkRevision = store.bookmarkRevisionNow();
+    final page = await ref
+        .read(rankingRepositoryProvider)
+        .fetchPage(mode, context.cursor, cancelToken: context.cancelToken);
+    return FeedPage(
+      ids: [for (final illust in page.illusts) illust.id],
+      nextCursor: page.nextUrl,
+      commit: (_) => store.mergeAll(
+        page.illusts,
+        bookmarkSnapshotRevision: bookmarkRevision,
+      ),
+    );
   }
 
   @override

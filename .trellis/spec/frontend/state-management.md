@@ -122,6 +122,109 @@ entities cannot be rendered during account B's load.
 late-result suppression, cursor rejection, per-filter independence, and
 account-switch reset.
 
+### Generation-Scoped Feed Commit Contract (`FeedRequestContext`, `FeedCommitGate`)
+
+#### 1. Scope / Trigger
+
+This contract applies when a paged feed fetches shared entities and can overlap
+refresh, append, account, credential, network, selector, or lifecycle changes.
+It is the required boundary for Recommended, Ranking, New, Search, and Profile
+feeds.
+
+#### 2. Signatures
+
+```dart
+class FeedRequestContext {
+  final String feedKey;
+  final String? accountId;
+  final int credentialRevision;
+  final int generation;
+  final int page;
+  final String? cursor;
+  final CancelToken cancelToken;
+  final NetworkRevision networkRevision;
+}
+
+Future<FeedPage> fetchPageForContext(FeedRequestContext context);
+bool FeedCommitGate.commit(
+  FeedRequestContext context, {
+  required String? accountId,
+  required int credentialRevision,
+  required NetworkRevision networkRevision,
+  required void Function() action,
+});
+```
+
+`FeedPage` contains ordered IDs, a nullable validated candidate cursor, and an
+optional commit callback. The callback is the only place a repository page may
+merge into `IllustStore`, `NovelStore`, or `UserStore`.
+
+#### 3. Contracts
+
+- A controller creates the immutable context before issuing the request. Its
+  `feedKey` includes every family selector (mode, query, filter, sort, or
+  profile key); account ID, credential revision, and network revision are
+  captured from the same boundary snapshot.
+- A repository parses/normalizes into `FeedPage` and performs no shared-store
+  write. The controller validates `next_url` before invoking the callback, then
+  commits entity merge, stable ID dedupe, cursor, page, and phase from the same
+  active context without an intervening await.
+- Refresh increments generation, clears the prior generation's committed
+  cursor set, and cancels old append work. A repeated current or previously
+  committed cursor is an `ApiParseError`; its page cannot merge or advance the
+  cursor.
+- Account or credential boundary changes are watched synchronously by the
+  provider, so a family instance rebuilds and old entity ownership/list/cursor
+  state is not reused. Disposal invalidates the gate even when transport
+  cancellation cannot physically stop the response.
+- A rejected active response leaves existing list/cursor/entity data intact and
+  surfaces the appropriate initial, refresh, or load-more error. A stale or
+  cancelled response records bounded metadata-only telemetry and cannot alter
+  UI state or shared stores.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| Feed key, generation, account, credential, or network revision is inactive | Reject commit; record stale/boundary telemetry; do not merge or update cursor/state |
+| Cancellation or provider disposal | Reject commit; record cancellation/disposed telemetry; do not publish a network error or entity |
+| Unknown/foreign/invalid cursor | Raise `ApiParseError` before the page callback; preserve current list and cursor |
+| Current or previously committed cursor repeats | Raise `ApiParseError` before entity merge or cursor advance |
+| Same ID appears on a page | Merge the last server-ordered entity snapshot and keep one stable list ID |
+| Refresh response reorders/deletes IDs | Replace the generation's ordered list; removed IDs are not retained as feed ghosts |
+| Load-more response overlaps existing IDs | Append only unseen IDs in server order; keep the prior IDs and valid cursor |
+
+#### 5. Good / Base / Bad Cases
+
+- Good: page 2 for the active query updates an existing ID, adds new IDs in
+  server order, and advances exactly one validated cursor.
+- Base: refresh completes while a non-cancellable append is in flight; refresh
+  owns the final list and the late append is visible only in discard telemetry.
+- Bad: a repository calls `store.mergeAll` immediately after parsing and only
+  later asks whether the request is current; a stale account response then
+  contaminates the shared store even if the visible ID list is protected.
+
+#### 6. Tests Required
+
+- Fake delayed responses must assert refresh-before-append, account switch,
+  cancellation, and disposal against list IDs, shared entities, cursor, and
+  discard telemetry.
+- Same-ID update, duplicate-ID, disjoint-page, refresh reorder/delete, and
+  repeated-cursor tests must assert exact ordering and no ghost IDs.
+- Each migrated feed keeps its endpoint/selector cursor allowlist tests;
+  `flutter analyze` and focused feed tests are required before commit.
+- Device evidence must distinguish feed unit/build validation from MuMu
+  emulator validation; no physical-device result may be inferred.
+
+#### 7. Wrong vs Correct
+
+**Wrong**: `fetchPage` parses a response and calls `store.mergeAll(page.items)`
+before checking whether refresh, account, or disposal replaced its request.
+
+**Correct**: return a `FeedPage` with a deferred callback, validate its cursor,
+then call `FeedCommitGate.commit(context, action: ...)`; only the accepted
+transaction may merge entities and let the controller publish IDs/cursor/phase.
+
 ### Media Resource Ownership Contract (`UgoiraAsset`, `lib/core/ugoira/`)
 
 An animated-media load owns exactly one disk temporary archive, one random-access

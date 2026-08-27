@@ -17,6 +17,7 @@ class AccountState {
     required this.status,
     this.accounts = const [],
     this.currentId,
+    this.credentialRevision = 0,
     this.error,
   });
 
@@ -25,6 +26,11 @@ class AccountState {
   /// All known accounts, including ones pending re-authentication.
   final List<Account> accounts;
   final String? currentId;
+
+  /// Monotonic account/credential boundary used to fence in-flight readers.
+  /// It changes whenever account metadata or the current account's
+  /// credential ownership changes, but never contains secret material.
+  final int credentialRevision;
   final Object? error;
 
   bool get hasAccounts => accounts.isNotEmpty;
@@ -47,12 +53,14 @@ class AccountState {
     AccountStatus? status,
     List<Account>? accounts,
     String? currentId,
+    int? credentialRevision,
     Object? error,
   }) {
     return AccountState(
       status: status ?? this.status,
       accounts: accounts ?? this.accounts,
       currentId: currentId ?? this.currentId,
+      credentialRevision: credentialRevision ?? this.credentialRevision,
       error: error,
     );
   }
@@ -65,6 +73,8 @@ class AccountState {
 ///   rolls the credential back so no half-added account is visible.
 /// - remove: metadata reference first, secret cleanup second.
 class AccountStore extends AsyncNotifier<AccountState> {
+  int _credentialRevision = 0;
+
   @override
   Future<AccountState> build() async {
     final repository = ref.watch(accountMetadataRepositoryProvider);
@@ -76,6 +86,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
         status: AccountStatus.ready,
         accounts: accounts,
         currentId: _validCurrentId(snapshot.currentId, accounts),
+        credentialRevision: _credentialRevision,
       );
     } on AccountDataException catch (error) {
       return AccountState(status: AccountStatus.failure, error: error);
@@ -102,10 +113,9 @@ class AccountStore extends AsyncNotifier<AccountState> {
     try {
       await credentials.write(account.id, credential);
     } on Object catch (error) {
-      state = AsyncData(current.copyWith(
-        status: AccountStatus.failure,
-        error: error,
-      ));
+      state = AsyncData(
+        current.copyWith(status: AccountStatus.failure, error: error),
+      );
       return;
     }
     try {
@@ -114,28 +124,29 @@ class AccountStore extends AsyncNotifier<AccountState> {
         account.copyWith(authState: AccountAuthState.authenticated),
       ];
       await repository.save(accounts, account.id);
-      state = AsyncData(AccountState(
-        status: AccountStatus.ready,
-        accounts: accounts,
-        currentId: account.id,
-      ));
-      if (current.currentId != account.id) _resetNetworkSession();
+      state = AsyncData(
+        AccountState(
+          status: AccountStatus.ready,
+          accounts: accounts,
+          currentId: account.id,
+          credentialRevision: _nextCredentialRevision(),
+        ),
+      );
+      _resetNetworkSession();
     } on Object catch (error) {
       // Metadata failed to commit: roll the secret back so no half-added
       // account lingers in secure storage.
       try {
         await credentials.delete(account.id);
       } on Object catch (rollbackError) {
-        state = AsyncData(current.copyWith(
-          status: AccountStatus.failure,
-          error: rollbackError,
-        ));
+        state = AsyncData(
+          current.copyWith(status: AccountStatus.failure, error: rollbackError),
+        );
         return;
       }
-      state = AsyncData(current.copyWith(
-        status: AccountStatus.failure,
-        error: error,
-      ));
+      state = AsyncData(
+        current.copyWith(status: AccountStatus.failure, error: error),
+      );
       return;
     }
   }
@@ -149,11 +160,14 @@ class AccountStore extends AsyncNotifier<AccountState> {
         .toList();
     final currentId = current.currentId;
     await repository.save(accounts, currentId);
-    state = AsyncData(AccountState(
-      status: AccountStatus.ready,
-      accounts: accounts,
-      currentId: currentId,
-    ));
+    state = AsyncData(
+      AccountState(
+        status: AccountStatus.ready,
+        accounts: accounts,
+        currentId: currentId,
+        credentialRevision: _nextCredentialRevision(),
+      ),
+    );
   }
 
   /// Switches the current account to [accountId].
@@ -164,7 +178,12 @@ class AccountStore extends AsyncNotifier<AccountState> {
       throw AccountDataException('cannot switch to unknown account $accountId');
     }
     await repository.save(current.accounts, accountId);
-    state = AsyncData(current.copyWith(currentId: accountId));
+    state = AsyncData(
+      current.copyWith(
+        currentId: accountId,
+        credentialRevision: _nextCredentialRevision(),
+      ),
+    );
     if (current.currentId != accountId) _resetNetworkSession();
   }
 
@@ -173,12 +192,19 @@ class AccountStore extends AsyncNotifier<AccountState> {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final current = state.requireValue;
     final accounts = current.accounts
-        .map((account) => account.id == accountId
-            ? account.copyWith(authState: AccountAuthState.reauthRequired)
-            : account)
+        .map(
+          (account) => account.id == accountId
+              ? account.copyWith(authState: AccountAuthState.reauthRequired)
+              : account,
+        )
         .toList();
     await repository.save(accounts, current.currentId);
-    state = AsyncData(current.copyWith(accounts: accounts));
+    state = AsyncData(
+      current.copyWith(
+        accounts: accounts,
+        credentialRevision: _nextCredentialRevision(),
+      ),
+    );
     if (current.currentId == accountId) _resetNetworkSession();
   }
 
@@ -188,17 +214,21 @@ class AccountStore extends AsyncNotifier<AccountState> {
     final credentials = ref.read(credentialStoreProvider);
     final current = state.requireValue;
 
-    final accounts =
-        current.accounts.where((account) => account.id != accountId).toList();
+    final accounts = current.accounts
+        .where((account) => account.id != accountId)
+        .toList();
     final nextCurrentId = current.currentId == accountId
         ? (accounts.isNotEmpty ? accounts.first.id : null)
         : current.currentId;
     await repository.save(accounts, nextCurrentId);
-    state = AsyncData(AccountState(
-      status: AccountStatus.ready,
-      accounts: accounts,
-      currentId: nextCurrentId,
-    ));
+    state = AsyncData(
+      AccountState(
+        status: AccountStatus.ready,
+        accounts: accounts,
+        currentId: nextCurrentId,
+        credentialRevision: _nextCredentialRevision(),
+      ),
+    );
     if (current.currentId == accountId) _resetNetworkSession();
     // The metadata no longer references the secret; cleanup failures are
     // surfaced but do not roll the removal back.
@@ -217,13 +247,15 @@ class AccountStore extends AsyncNotifier<AccountState> {
       }
       try {
         final credential = await credentials.read(account.id);
-        resolved.add(credential == null
-            ? account.copyWith(authState: AccountAuthState.reauthRequired)
-            : account);
+        resolved.add(
+          credential == null
+              ? account.copyWith(authState: AccountAuthState.reauthRequired)
+              : account,
+        );
       } on CredentialStoreException {
-        resolved.add(account.copyWith(
-          authState: AccountAuthState.reauthRequired,
-        ));
+        resolved.add(
+          account.copyWith(authState: AccountAuthState.reauthRequired),
+        );
       }
     }
     return resolved;
@@ -235,6 +267,8 @@ class AccountStore extends AsyncNotifier<AccountState> {
         ? currentId
         : null;
   }
+
+  int _nextCredentialRevision() => ++_credentialRevision;
 
   void _resetNetworkSession() {
     ref.read(networkAccessPolicyProvider).advanceNetworkRevision();
@@ -248,8 +282,9 @@ Account? _byId(List<Account> accounts, String id) {
   return null;
 }
 
-final accountMetadataRepositoryProvider =
-    Provider<AccountMetadataRepository>((ref) {
+final accountMetadataRepositoryProvider = Provider<AccountMetadataRepository>((
+  ref,
+) {
   return PreferencesAccountMetadataRepository();
 });
 
@@ -257,8 +292,9 @@ final credentialStoreProvider = Provider<CredentialStore>((ref) {
   return SecureCredentialStore();
 });
 
-final accountStoreProvider =
-    AsyncNotifierProvider<AccountStore, AccountState>(AccountStore.new);
+final accountStoreProvider = AsyncNotifierProvider<AccountStore, AccountState>(
+  AccountStore.new,
+);
 
 final oauthServiceProvider = Provider<OAuthService>((ref) {
   return OAuthService(
