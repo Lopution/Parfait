@@ -39,6 +39,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  assets:
+    - assets/emojis/
+    - assets/stamps/
+
   fonts:
     - family: iconFont
       fonts:
