@@ -560,6 +560,116 @@ capability or failure class is not approved.
 
 ---
 
+### Novel Typed Markup and Reader Commit Contract
+
+#### 1. Scope / Trigger
+
+This contract applies to Pixiv Novel body parsing, long-text layout and the
+horizontal reader. It is triggered by any change to `NovelContentMapper`,
+`NovelMarkupParser`, `NovelLayoutEngine` or reader relayout/restore logic.
+The parser is a JSON-body adapter, not an HTML/CSS execution environment.
+
+#### 2. Signatures
+
+```dart
+NovelMarkupDocument NovelMarkupParser.parse(
+  String source, {
+  CancelToken? cancelToken,
+  NovelMarkupProgressCallback? onProgress,
+});
+Future<NovelMarkupParseResult> NovelMarkupParser.parseCancellable(
+  String source, {
+  CancelToken? cancelToken,
+  NovelMarkupProgressCallback? onProgress,
+});
+Future<NovelLayout> NovelLayoutEngine.layoutDocumentCancellable({
+  required NovelMarkupDocument document,
+  required String contentVersion,
+  required Size viewport,
+  required NovelLayoutStyle style,
+  required Color textColor,
+  required Brightness brightness,
+  CancelToken? cancelToken,
+  NovelLayoutBudget budget,
+  NovelLayoutProgressCallback? onProgress,
+});
+NovelReaderLayoutContext NovelReaderCommitGate.beginLayout({
+  required String contentVersion,
+  required String? chapterId,
+  required int pageIndex,
+  CancelToken? cancelToken,
+});
+```
+
+#### 3. Contracts
+
+- `NovelMarkupToken` is a sealed typed AST family: text, `newpage`, chapter,
+  ruby, page/URI jump, Pixiv image, uploaded image, unknown and explicit
+  budget-exceeded fallback. Every marker keeps `rawText`, `rawName`, source
+  offset and an unmodifiable raw-attribute map.
+- `NovelMarkupDocument.blocks` preserves paragraph, page-break and chapter
+  boundaries. `NovelParagraph.tokens` and `inlineMarks` expose compatibility
+  spans; valid image tokens expose only a validated identifier through
+  `NovelImageLoadRequest`, never a URL or file path.
+- URI jumps use `PixivDestinationRegistry` with `pixivWeb` purpose. Page jumps
+  require a positive decimal page. Image identifiers are allowlisted before a
+  shared image/network consumer can resolve them.
+- `NovelMarkupBudget` bounds source UTF-16 units, token count, marker size and
+  diagnostics. `NovelLayoutBudget` bounds paragraphs, text units, measured
+  lines, pages and chunk size. Async work yields at chunk boundaries and
+  reports monotonic progress.
+- `NovelReaderCommitGate` carries content version, chapter ID, selected page,
+  generation and cancellation from the layout request to the commit. A late
+  result may not update `_layout`, page count, `PageController` or history
+  anchor after a newer generation, content/chapter change or disposal.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| `[[newpage]]` | Emit a page-break token/block; it has no payload or navigation side effect |
+| `[[chapter:title]]` | Emit a chapter token/block; layout starts its heading at a page boundary |
+| malformed ruby/marker or unknown name | Emit a typed invalid/unknown token, preserve the raw marker and record a bounded diagnostic |
+| foreign/non-HTTPS jump URI | Emit an invalid `NovelJumpToken`, show raw fallback, and never navigate |
+| non-positive Pixiv ID or path/URL uploaded-image identifier | Emit an invalid typed image token and no load request |
+| source/token/layout budget exceeded | Emit/throw explicit budget state; never return a silently truncated successful body |
+| cancel, superseded generation, changed content/chapter or disposed reader | Discard result without UI/store/history commit |
+
+#### 5. Good / Base / Bad Cases
+
+- Good: parse `[[rb:漢字 > かんじ]]`, a positive page jump and an exact
+  `https://www.pixiv.net/...` jump into typed tokens while preserving Unicode
+  display text and raw attributes.
+- Base: a long body is measured in finite chunks; progress reaches complete,
+  the layout cache is keyed by content/style/viewport, and a new font size
+  cancels the old calculation before its commit.
+- Bad: regex-replace every marker, execute body HTML, turn a foreign URI into
+  a WebView route, resolve an image token into an arbitrary file/URL, or catch
+  cancellation and publish the partial old-generation pages as new content.
+
+#### 6. Tests Required
+
+- Parser fixtures assert every typed token, raw attributes, Unicode, empty
+  paragraphs, nested/unterminated markers and invalid jump/image fallbacks.
+- Budget tests assert finite token/source/diagnostic counts, explicit overflow,
+  chunk yields and progress; layout tests assert page/chapter boundaries,
+  cache identity, max limits and cancellation.
+- Gate tests assert old content/chapter/disposed results do not run their
+  action, while a current result commits and preserves a changed page choice.
+- Existing reader widget tests retain horizontal `PageView`, 30% tap zones,
+  stable anchors and percentage behavior.
+
+#### 7. Wrong vs Correct
+
+**Wrong**: let `NovelContentMapper` remove any `[[...]]` substring, pass its
+payload to an HTML/WebView or arbitrary URL loader, and call `setState` after
+an async layout without checking content/chapter generation.
+
+**Correct**: scan into immutable typed tokens with visible fallback and raw
+diagnostics, expose only allowlisted image/jump targets, run bounded
+cancel/yield-aware layout, and let `NovelReaderCommitGate` authorize the one
+complete current-generation commit.
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

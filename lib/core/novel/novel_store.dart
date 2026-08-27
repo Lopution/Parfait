@@ -33,6 +33,7 @@ class NovelStore extends Notifier<Map<int, NovelEntity>> {
         paragraphs: entity.contentAvailable
             ? entity.paragraphs
             : existing.paragraphs,
+        markup: entity.contentAvailable ? entity.markup : existing.markup,
         contentVersion: entity.contentAvailable
             ? entity.contentVersion
             : existing.contentVersion,
