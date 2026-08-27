@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'recommended/recommended_illust_page.dart';
 
 import '../../app/icons/app_icons.dart';
+import '../new/new_page.dart';
 import '../ranking/ranking_page.dart';
 import '../settings/settings_page.dart';
 
@@ -19,7 +20,7 @@ class _HomePageState extends State<HomePage> {
   static const pages = [
     RecommendedIllustPage(),
     RankingPage(),
-    Center(child: Text('新作')),
+    NewPage(),
     Center(child: Text('搜索')),
     SettingsPage(),
   ];
