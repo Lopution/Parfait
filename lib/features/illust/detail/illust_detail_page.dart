@@ -14,7 +14,9 @@ import '../../../core/entity/illust_store.dart';
 import '../../../core/settings/blocked_tags.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../bookmark/bookmark_switch_button.dart';
+import '../../comments/comments_page.dart';
 import '../../search/tag_search_page.dart';
+import '../../../core/i18n/replica_strings.dart';
 import '../viewer/image_viewer_page.dart';
 import 'illust_detail_controller.dart';
 import 'illust_download_controller.dart';
@@ -540,6 +542,17 @@ class _InfoBlock extends ConsumerWidget {
                   onLongPress: onToggleBlockMode,
                 ),
             ],
+          ),
+          const SizedBox(height: 18),
+          OutlinedButton.icon(
+            onPressed: () => showIllustComments(context, entity.id),
+            icon: const Icon(Icons.comment_outlined),
+            label: Text(
+              ReplicaStrings.fromTag(
+                Localizations.localeOf(context).toLanguageTag(),
+                'commentTitle',
+              ),
+            ),
           ),
         ],
       ),

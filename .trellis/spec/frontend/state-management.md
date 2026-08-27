@@ -122,6 +122,97 @@ entities cannot be rendered during account B's load.
 late-result suppression, cursor rejection, per-filter independence, and
 account-switch reset.
 
+### Comments and Replies Contract (`CommentStore`, `lib/core/comments/`)
+
+#### 1. Scope / Trigger
+
+This contract applies to the comments feature because it crosses the Pixiv
+HTTP API, shared entity state, paged feed state, composer actions and the
+account boundary. A comment must have one canonical entity copy; a feed may
+store only ordered IDs.
+
+#### 2. Signatures
+
+```dart
+Future<CommentPage> fetchComments(int illustId, {String? cursor});
+Future<CommentPage> fetchReplies(
+  int rootCommentId, {
+  required int illustId,
+  String? cursor,
+});
+Future<CommentEntity> addComment(CommentAddRequest request);
+Future<void> deleteComment(int commentId);
+```
+
+`CommentEntity` keeps `id`, `illustId`, `parentCommentId` and
+`rootCommentId` as separate positive IDs. `parentCommentId == null` means a
+root comment; a root's `rootCommentId` is its own `id`.
+
+#### 3. Contracts
+
+- Root list: `GET /v3/illust/comments?illust_id=<id>`.
+- Reply list: `GET /v2/illust/comment/replies?comment_id=<root-id>`.
+- Add: `POST /v1/illust/comment/add` form fields `illust_id`, optional
+  `comment`, optional `stamp_id`, and optional `parent_comment_id`.
+- Delete: `POST /v1/illust/comment/delete` form field `comment_id`.
+- List responses contain `comments` and nullable `next_url`; entries contain
+  `id`, `comment`, `date`, `user`, `has_replies`, and optional `stamp`.
+  The replies endpoint may omit a parent field, so the repository supplies
+  the active root context without confusing it with the direct parent.
+- `CommentStore` indexes roots by `illustId`, replies by `rootCommentId`, and
+  mutation state by an operation key plus monotonically increasing revision.
+  Send/delete state is pending until the API succeeds; no optimistic entity
+  is published.
+- Only `assets/emojis/` (10 columns) and `assets/stamps/` (5 columns) are
+  used by the composer. Translation is a transient overlay and never
+  replaces or persists the original comment text.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| Non-positive illust/comment/root ID | Throw a parse/argument error before request |
+| Reply request without `parentCommentId` | Reject; never send a root-shaped reply |
+| Empty text and no stamp | Reject locally; keep composer content |
+| Unknown endpoint/identity in `next_url` | Reject cursor as `ApiParseError`; never request it |
+| Duplicate pending send/delete for the same operation key | Suppress the second request without consuming a revision |
+| API/transport/parse failure | End pending state, keep confirmed data, surface a retry/error state |
+| Late completion from an older revision or account | Drop it without changing the current thread |
+| Delete for a non-owner | Throw `CommentPermissionException` before API call |
+
+#### 5. Good / Base / Bad Cases
+
+- Good: a reply to root `100` sends `parent_comment_id=100`, is inserted in
+  the `rootCommentId=100` index only, and increments root `100`'s count after
+  success.
+- Base: a comment list page with `next_url == null` renders the loaded IDs or
+  the explicit empty state; refresh failure preserves existing IDs.
+- Bad: using a visible list index, `rootCommentId` or another comment's ID as
+  the delete/send key, or adding a local comment before the server response.
+
+#### 6. Tests Required
+
+- Entity parsing asserts root/reply/stamp fields and rejects invalid IDs/date.
+- Repository tests assert exact paths, query/form fields, response parsing and
+  cursor endpoint/identity allowlists.
+- Store tests assert dedupe, root/reply index isolation, reply count changes,
+  root descendant removal, duplicate suppression and late revision drops.
+- Action tests assert no entity appears before API success and non-owner delete
+  makes zero repository calls.
+- Widget tests assert explicit reply/translate/delete actions, 10/5 grids and
+  the initial/load-more retry states. A device check must distinguish API
+  read success from unperformed real-account mutations.
+
+#### 7. Wrong vs Correct
+
+**Wrong**: `replies[comment.id] = localComments` and then mutate the item at
+the same list index after a delayed add response. A reordered page can update
+the wrong thread.
+
+**Correct**: normalize each response to `CommentEntity`, merge it into the
+canonical store by `comment.id`, and route the confirmed result through the
+operation's explicit `(illustId, parentCommentId, rootCommentId)` context.
+
 ### Versioned Settings Contract (`AppSettings`, `SettingsRepository`)
 
 **What**: ordinary preferences are represented by the immutable `AppSettings`
