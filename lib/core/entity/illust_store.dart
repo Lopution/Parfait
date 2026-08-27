@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/account_store.dart';
 import '../bookmark/bookmark_models.dart';
 import '../bookmark/bookmark_store.dart';
 import 'illust_entity.dart';
@@ -129,6 +130,9 @@ class IllustStore {
 }
 
 final illustStoreProvider = Provider<IllustStore>((ref) {
+  // Recreate the entity store on account changes so a feed from account A
+  // cannot be rendered while account B is loading its own snapshot.
+  ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
   final store = IllustStore();
   final bookmarks = ref.watch(bookmarkStoreProvider.notifier);
   store.bindBookmarks(
@@ -144,7 +148,7 @@ final illustStoreProvider = Provider<IllustStore>((ref) {
         ?.bookmarked,
     revisionNow: bookmarks.revisionNow,
   );
-  bookmarks.onConfirmed =
-      (key, bookmarked) => store.updateBookmark(key.id, bookmarked);
+  bookmarks.onConfirmed = (key, bookmarked) =>
+      store.updateBookmark(key.id, bookmarked);
   return store;
 });

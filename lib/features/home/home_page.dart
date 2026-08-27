@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'recommended/recommended_illust_page.dart';
 
 import '../../app/icons/app_icons.dart';
+import '../ranking/ranking_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,7 +17,7 @@ class _HomePageState extends State<HomePage> {
 
   static const pages = [
     RecommendedIllustPage(),
-    Center(child: Text('排行榜')),
+    RankingPage(),
     Center(child: Text('新作')),
     Center(child: Text('搜索')),
     Center(child: Text('设置')),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../network/api_error.dart';
+import '../network/pixiv_http_client.dart';
 
 /// Independent states for the three load phases of a paginated feed.
 enum FeedPhase { idle, loading, error }
@@ -49,13 +50,15 @@ class PagedFeedState {
   bool get isEmptyAndReady =>
       initialPhase == FeedPhase.idle && ids.isEmpty && !showInitialError;
 
+  static const _unset = Object();
+
   PagedFeedState copyWith({
     List<int>? ids,
     FeedPhase? initialPhase,
     FeedPhase? refreshPhase,
     FeedPhase? loadMorePhase,
-    ApiError? initialError,
-    ApiError? loadMoreError,
+    Object? initialError = _unset,
+    Object? loadMoreError = _unset,
     bool? exhausted,
   }) {
     return PagedFeedState(
@@ -63,16 +66,20 @@ class PagedFeedState {
       initialPhase: initialPhase ?? this.initialPhase,
       refreshPhase: refreshPhase ?? this.refreshPhase,
       loadMorePhase: loadMorePhase ?? this.loadMorePhase,
-      initialError: initialError,
-      loadMoreError: loadMoreError,
+      initialError: identical(initialError, _unset)
+          ? this.initialError
+          : initialError as ApiError?,
+      loadMoreError: identical(loadMoreError, _unset)
+          ? this.loadMoreError
+          : loadMoreError as ApiError?,
       exhausted: exhausted ?? this.exhausted,
     );
   }
 }
 
 /// Contract for one page of results.
-typedef PageFetcher<T> = Future<({List<int> ids, String? nextCursor})>
-    Function(String? cursor);
+typedef PageFetcher<T> =
+    Future<({List<int> ids, String? nextCursor})> Function(String? cursor);
 
 /// Base controller for ID-based paginated feeds.
 ///
@@ -87,11 +94,19 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// Fetches one page. [cursor] is `null` for the first page.
   Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor);
 
+  /// Cancellable fetch hook. Existing feeds can keep using [fetchPage]; feeds
+  /// backed by a transport that supports cancellation override this method.
+  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
+    String? cursor,
+    CancelToken cancelToken,
+  ) => fetchPage(cursor);
+
   /// Validates a server-provided cursor (e.g. the next_url allowlist).
   /// Throw to reject; the feed surfaces the error instead of requesting.
   String? validateCursor(String? rawCursor) => rawCursor;
 
   String? _nextCursor;
+  CancelToken? _requestToken;
 
   /// Current valid cursor (visible for subclass/tests).
   String? get nextCursor => _nextCursor;
@@ -99,21 +114,27 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   @override
   Future<PagedFeedState> build() async {
     _nextCursor = null;
+    // Disposal callbacks run inside Riverpod's lifecycle guard; only cancel
+    // the transport there and leave state transitions to the public method.
+    ref.onDispose(() => _requestToken?.cancel());
+    final token = _beginRequest();
     try {
-      final page = await fetchPage(null);
-      final cursor = validateCursor(page.nextCursor);
-      if (page.nextCursor != null && cursor == null && page.nextCursor!.isNotEmpty) {
-        // validateCursor returning null for a non-null cursor is a reject.
-        throw const ApiParseError('cursor rejected by allowlist');
+      final page = await fetchPageCancellable(null, token);
+      if (!_isCurrentRequest(token)) {
+        return const PagedFeedState(initialPhase: FeedPhase.idle);
       }
-      _nextCursor = page.nextCursor == null ? null : cursor;
+      _nextCursor = _validateCursor(page.nextCursor);
       return PagedFeedState(
         ids: _dedupe(page.ids, const []),
         initialPhase: FeedPhase.idle,
         exhausted: _nextCursor == null,
       );
+    } on ApiCancelled {
+      return const PagedFeedState(initialPhase: FeedPhase.idle);
     } on ApiError catch (error) {
       return PagedFeedState(initialPhase: FeedPhase.error, initialError: error);
+    } finally {
+      _finishRequest(token);
     }
   }
 
@@ -122,27 +143,32 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     final current = state.requireValue;
     if (current.showRefreshSpinner) return;
     state = AsyncData(current.copyWith(refreshPhase: FeedPhase.loading));
+    final token = _beginRequest();
     try {
-      final page = await fetchPage(null);
-      final nextCursor = validateCursor(page.nextCursor);
-      if (page.nextCursor != null && page.nextCursor!.isNotEmpty && nextCursor == null) {
-        throw const ApiParseError('cursor rejected by allowlist');
-      }
-      _nextCursor = page.nextCursor == null ? null : nextCursor;
+      final page = await fetchPageCancellable(null, token);
+      if (!_isCurrentRequest(token)) return;
+      _nextCursor = _validateCursor(page.nextCursor);
       final ids = _dedupe(page.ids, const []);
-      state = AsyncData(PagedFeedState(
-        ids: ids,
-        initialPhase: FeedPhase.idle,
-        refreshPhase: FeedPhase.idle,
-        exhausted: _nextCursor == null,
-      ));
+      state = AsyncData(
+        PagedFeedState(
+          ids: ids,
+          initialPhase: FeedPhase.idle,
+          refreshPhase: FeedPhase.idle,
+          exhausted: _nextCursor == null,
+        ),
+      );
+    } on ApiCancelled {
+      if (_isCurrentRequest(token)) {
+        state = AsyncData(current.copyWith(refreshPhase: FeedPhase.idle));
+      }
     } on ApiError catch (error) {
+      if (!_isCurrentRequest(token)) return;
       // Refresh failure keeps existing content and cursor; the spinner stops
       // and the phase signals the failure to the UI.
       _stateError = error;
-      state = AsyncData(
-        current.copyWith(refreshPhase: FeedPhase.error),
-      );
+      state = AsyncData(current.copyWith(refreshPhase: FeedPhase.error));
+    } finally {
+      _finishRequest(token);
     }
   }
 
@@ -168,29 +194,34 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       state = AsyncData(current.copyWith(exhausted: true));
       return;
     }
-    state = AsyncData(current.copyWith(
-      loadMorePhase: FeedPhase.loading,
-      loadMoreError: null,
-    ));
+    state = AsyncData(
+      current.copyWith(loadMorePhase: FeedPhase.loading, loadMoreError: null),
+    );
+    final token = _beginRequest();
     try {
-      final page = await fetchPage(_nextCursor);
-      final cursor = validateCursor(page.nextCursor);
-      if (page.nextCursor != null && page.nextCursor!.isNotEmpty && cursor == null) {
-        throw const ApiParseError('cursor rejected by allowlist');
-      }
-      _nextCursor = page.nextCursor == null ? null : cursor;
+      final page = await fetchPageCancellable(_nextCursor, token);
+      if (!_isCurrentRequest(token)) return;
+      _nextCursor = _validateCursor(page.nextCursor);
       final merged = _dedupe(page.ids, current.ids);
-      state = AsyncData(PagedFeedState(
-        ids: merged,
-        initialPhase: FeedPhase.idle,
-        loadMorePhase: FeedPhase.idle,
-        exhausted: _nextCursor == null,
-      ));
+      state = AsyncData(
+        PagedFeedState(
+          ids: merged,
+          initialPhase: FeedPhase.idle,
+          loadMorePhase: FeedPhase.idle,
+          exhausted: _nextCursor == null,
+        ),
+      );
+    } on ApiCancelled {
+      if (_isCurrentRequest(token)) {
+        state = AsyncData(current.copyWith(loadMorePhase: FeedPhase.idle));
+      }
     } on ApiError catch (error) {
-      state = AsyncData(current.copyWith(
-        loadMorePhase: FeedPhase.error,
-        loadMoreError: error,
-      ));
+      if (!_isCurrentRequest(token)) return;
+      state = AsyncData(
+        current.copyWith(loadMorePhase: FeedPhase.error, loadMoreError: error),
+      );
+    } finally {
+      _finishRequest(token);
     }
   }
 
@@ -202,6 +233,52 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
 
   /// Retry the failed load-more.
   Future<void> retryLoadMore() => loadMore();
+
+  /// Cancels the active request and returns a loading phase to idle without
+  /// discarding already loaded IDs or the last valid cursor.
+  void cancel() {
+    _requestToken?.cancel();
+    _requestToken = null;
+    final current = state.asData?.value;
+    if (current == null) return;
+    state = AsyncData(
+      current.copyWith(
+        initialPhase: current.showInitialSpinner
+            ? FeedPhase.idle
+            : current.initialPhase,
+        refreshPhase: current.showRefreshSpinner
+            ? FeedPhase.idle
+            : current.refreshPhase,
+        loadMorePhase: current.showLoadMoreSpinner
+            ? FeedPhase.idle
+            : current.loadMorePhase,
+      ),
+    );
+  }
+
+  CancelToken _beginRequest() {
+    _requestToken?.cancel();
+    final token = CancelToken();
+    _requestToken = token;
+    return token;
+  }
+
+  bool _isCurrentRequest(CancelToken token) =>
+      identical(_requestToken, token) && !token.isCancelled;
+
+  void _finishRequest(CancelToken token) {
+    if (identical(_requestToken, token)) _requestToken = null;
+  }
+
+  String? _validateCursor(String? rawCursor) {
+    if (rawCursor == null || rawCursor.isEmpty) return null;
+    final cursor = validateCursor(rawCursor);
+    if (cursor == null) {
+      // validateCursor returning null for a non-empty cursor is a reject.
+      throw const ApiParseError('cursor rejected by allowlist');
+    }
+    return cursor;
+  }
 
   List<int> _dedupe(List<int> incoming, List<int> existing) {
     final seen = existing.toSet();
