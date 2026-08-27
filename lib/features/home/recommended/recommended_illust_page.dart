@@ -210,90 +210,97 @@ class IllustCard extends ConsumerWidget {
               ),
               child: ClipRRect(
                 borderRadius: const BorderRadius.all(Radius.circular(12)),
-                child: Hero(
-                  tag: 'IllustHero-${entity.id}',
-                  child: SizedBox(
-                    width: constraints.maxWidth,
-                    height: previewHeight,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        PixivImage(url: previewUrl, fit: BoxFit.fitWidth),
-                        if (entity.isR18)
-                          Positioned(
-                            left: 7,
-                            top: 7,
-                            child: Card(
-                              color: colorScheme.primary,
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                child: Text(
-                                  'R-18',
-                                  style: TextStyle(color: Colors.white),
-                                ),
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  height: previewHeight,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Only the image participates in the detail Hero
+                      // flight. Badges belong to the feed viewport; when the
+                      // whole Stack was the Hero, the page-count badge was
+                      // scaled and left as a large ghost during pop.
+                      Hero(
+                        tag: 'IllustHero-${entity.id}',
+                        child: PixivImage(
+                          url: previewUrl,
+                          fit: BoxFit.fitWidth,
+                        ),
+                      ),
+                      if (entity.isR18)
+                        Positioned(
+                          left: 7,
+                          top: 7,
+                          child: Card(
+                            color: colorScheme.primary,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              child: Text(
+                                'R-18',
+                                style: TextStyle(color: Colors.white),
                               ),
                             ),
                           ),
-                        if (entity.isUgoira)
-                          Positioned(
-                            left: 7,
-                            bottom: 7,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(5),
-                                color: const Color(0x99343838),
+                        ),
+                      if (entity.isUgoira)
+                        Positioned(
+                          left: 7,
+                          bottom: 7,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(5),
+                              color: const Color(0x99343838),
+                            ),
+                            child: const Icon(
+                              Icons.gif_box_outlined,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+                      if (entity.pageCount > 1)
+                        Positioned(
+                          right: 7,
+                          top: 7,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(7.5),
+                              color: const Color(0x99343838),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
                               ),
-                              child: const Icon(
-                                Icons.gif_box_outlined,
-                                color: Colors.white,
-                                size: 30,
+                              child: Text(
+                                '${entity.pageCount}',
+                                style: const TextStyle(color: Colors.white),
                               ),
                             ),
                           ),
-                        if (entity.pageCount > 1)
-                          Positioned(
-                            right: 7,
-                            top: 7,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(7.5),
-                                color: const Color(0x99343838),
+                        ),
+                      if (entity.isAi)
+                        Positioned(
+                          right: 7,
+                          bottom: 7,
+                          child: Card(
+                            color: colorScheme.error,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                child: Text(
-                                  '${entity.pageCount}',
-                                  style: const TextStyle(color: Colors.white),
-                                ),
+                              child: Text(
+                                'AI',
+                                style: TextStyle(color: Colors.white),
                               ),
                             ),
                           ),
-                        if (entity.isAi)
-                          Positioned(
-                            right: 7,
-                            bottom: 7,
-                            child: Card(
-                              color: colorScheme.error,
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                child: Text(
-                                  'AI',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                 ),
               ),

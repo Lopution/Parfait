@@ -258,12 +258,18 @@ class _PageImage extends ConsumerWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            PixivImage(
-              url: previewUrl,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              filterColor: downloadMode ? Colors.white24 : null,
-              filterBlendMode: downloadMode ? BlendMode.srcOver : null,
+            // Keep download controls out of the Hero flight. The matching
+            // feed Hero contains only this image, so a page-count badge can
+            // never be scaled or retained by a detail pop transition.
+            Hero(
+              tag: heroTag,
+              child: PixivImage(
+                url: previewUrl,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                filterColor: downloadMode ? Colors.white24 : null,
+                filterBlendMode: downloadMode ? BlendMode.srcOver : null,
+              ),
             ),
             if (downloadMode)
               Positioned(
@@ -286,7 +292,7 @@ class _PageImage extends ConsumerWidget {
         ),
       ),
     );
-    return Hero(tag: heroTag, child: image);
+    return image;
   }
 
   void _openViewer(BuildContext context, {required bool scaleQuality}) {
