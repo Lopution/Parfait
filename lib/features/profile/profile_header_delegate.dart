@@ -156,7 +156,11 @@ class _ExpandedProfile extends StatelessWidget {
               : PixivImage(url: user.backgroundImageUrl!, fit: BoxFit.cover),
         ),
         Positioned(
-          top: backgroundHeight - 72,
+          // Keep a visible gap between the avatar and the name row. The old
+          // position put the avatar's bottom edge into the text column at the
+          // default header height, which is especially visible on high-density
+          // displays.
+          top: backgroundHeight - 120,
           left: 0,
           right: 0,
           child: Center(child: _Avatar(user: user, radius: 72)),
@@ -167,25 +171,37 @@ class _ExpandedProfile extends StatelessWidget {
           bottom: 14,
           child: Column(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      user.name,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+              SizedBox(
+                height: 48,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 56),
+                      child: Center(
+                        child: Text(
+                          user.name,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    tooltip: 'Share',
-                    onPressed: onShare,
-                    icon: const Icon(Icons.share_outlined),
-                  ),
-                ],
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: IconButton(
+                        tooltip: 'Share',
+                        onPressed: onShare,
+                        icon: const Icon(Icons.share_outlined),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               if (user.account.isNotEmpty)
                 Text(
@@ -260,56 +276,75 @@ class _CollapsedProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        if (canPop)
-          IconButton(
-            tooltip: 'Back',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_ios_new),
-          )
-        else
-          const SizedBox(width: 16),
-        _Avatar(user: user, radius: 20),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            user.name,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: EdgeInsets.only(left: canPop ? 8 : 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (canPop)
+                  IconButton(
+                    tooltip: 'Back',
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_ios_new),
+                  ),
+                _Avatar(user: user, radius: 20),
+              ],
+            ),
           ),
         ),
-        if (isMe && showRestrictSelector)
-          PopupMenuButton<UserRestrict>(
-            tooltip: _text(context, 'restrictSelector'),
-            initialValue: restrict,
-            onSelected: onRestrictChanged,
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: UserRestrict.public,
-                child: Text(_text(context, 'restrictPublic')),
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 96),
+            child: Center(
+              child: Text(
+                user.name,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              PopupMenuItem(
-                value: UserRestrict.private,
-                child: Text(_text(context, 'restrictPrivate')),
-              ),
-            ],
-            icon: const Icon(Icons.filter_alt_outlined),
-          )
-        else if (isMe)
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: onSettings,
-            icon: const Icon(Icons.settings_outlined),
-          )
-        else
-          IconButton(
-            tooltip: 'Share',
-            onPressed: onShare,
-            icon: const Icon(Icons.share_outlined),
+            ),
           ),
-        const SizedBox(width: 8),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: isMe && showRestrictSelector
+                ? PopupMenuButton<UserRestrict>(
+                    tooltip: _text(context, 'restrictSelector'),
+                    initialValue: restrict,
+                    onSelected: onRestrictChanged,
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: UserRestrict.public,
+                        child: Text(_text(context, 'restrictPublic')),
+                      ),
+                      PopupMenuItem(
+                        value: UserRestrict.private,
+                        child: Text(_text(context, 'restrictPrivate')),
+                      ),
+                    ],
+                    icon: const Icon(Icons.filter_alt_outlined),
+                  )
+                : isMe
+                ? IconButton(
+                    tooltip: 'Settings',
+                    onPressed: onSettings,
+                    icon: const Icon(Icons.settings_outlined),
+                  )
+                : IconButton(
+                    tooltip: 'Share',
+                    onPressed: onShare,
+                    icon: const Icon(Icons.share_outlined),
+                  ),
+          ),
+        ),
       ],
     );
   }

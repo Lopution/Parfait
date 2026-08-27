@@ -9,11 +9,14 @@ import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/network/api_error.dart';
+import '../../core/novel/novel_feed_controller.dart';
+import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../home/recommended/recommended_illust_page.dart';
+import '../novel/novel_page.dart';
 import '../settings/settings_page.dart';
 import 'follow_switch_button.dart';
 import 'profile_feed_controller.dart';
@@ -327,6 +330,7 @@ class _UserPageState extends ConsumerState<UserPage>
                     isMe: widget.isMe,
                     tabIndex: index,
                     feedKey: _feedKeyFor(index),
+                    active: index == _selectedIndex,
                   ),
               ],
             ),
@@ -345,6 +349,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.isMe,
     required this.tabIndex,
     required this.feedKey,
+    required this.active,
   });
 
   final UserEntity user;
@@ -352,6 +357,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   final bool isMe;
   final int tabIndex;
   final ProfileFeedKey? feedKey;
+  final bool active;
 
   @override
   ConsumerState<_ProfileTabBody> createState() => _ProfileTabBodyState();
@@ -368,7 +374,9 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
     final feedKey = widget.feedKey;
     if (feedKey == null) return _ProfileAbout(user: widget.user);
     if (feedKey.workType == UserWorkType.novel) {
-      return _ProfileNovelPending();
+      return widget.active
+          ? _ProfileNovelFeed(userId: feedKey.userId)
+          : const SizedBox.shrink();
     }
     if (feedKey.kind == ProfileFeedKind.following ||
         feedKey.kind == ProfileFeedKind.fans ||
@@ -639,15 +647,76 @@ class _ProfileAbout extends StatelessWidget {
   }
 }
 
-class _ProfileNovelPending extends StatelessWidget {
+class _ProfileNovelFeed extends ConsumerWidget {
+  const _ProfileNovelFeed({required this.userId});
+
+  final int userId;
+
   @override
-  Widget build(BuildContext context) {
-    return ListView(
-      key: const PageStorageKey('profile-novel'),
-      children: [
-        const SizedBox(height: 180),
-        Center(child: Text(_profileText(context, 'profileNovelPending'))),
-      ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(userNovelFeedProvider(userId));
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => _ProfileFeedError(
+        error: error,
+        onRetry: () =>
+            ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
+      ),
+      data: (feed) {
+        if (feed.showInitialError) {
+          return _ProfileFeedError(
+            error: feed.initialError ?? const ApiParseError('unknown error'),
+            onRetry: () =>
+                ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
+          );
+        }
+        if (feed.showInitialSpinner) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final storedNovels = ref.watch(novelStoreProvider);
+        final novels = [
+          for (final id in feed.ids)
+            if (storedNovels[id] != null) storedNovels[id]!,
+        ];
+        return RefreshIndicator(
+          onRefresh: () =>
+              ref.read(userNovelFeedProvider(userId).notifier).refresh(),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification.metrics.axis == Axis.vertical &&
+                  notification is ScrollEndNotification &&
+                  notification.metrics.extentAfter < 400) {
+                ref.read(userNovelFeedProvider(userId).notifier).loadMore();
+              }
+              return false;
+            },
+            child: ListView.builder(
+              key: PageStorageKey('profile-novel-$userId'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: novels.isEmpty ? 1 : novels.length + 1,
+              itemBuilder: (context, index) {
+                if (novels.isEmpty) {
+                  return SizedBox(
+                    height: 240,
+                    child: Center(
+                      child: Text(_profileText(context, 'profileItemsEmpty')),
+                    ),
+                  );
+                }
+                if (index == novels.length) {
+                  return _ProfileFeedTail(
+                    feed: feed,
+                    onRetry: () => ref
+                        .read(userNovelFeedProvider(userId).notifier)
+                        .retryLoadMore(),
+                  );
+                }
+                return NovelCard(entity: novels[index]);
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

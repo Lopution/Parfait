@@ -52,6 +52,7 @@ const Map<String, Set<String>> kNextPageEndpoints = {
   '/v1/user/bookmarks/novel': {'user_id', 'restrict', 'offset'},
   '/v1/user/illusts': {'filter', 'user_id', 'type', 'offset'},
   '/v1/user/novels': {'filter', 'user_id', 'offset'},
+  '/v2/novel/series': {'filter', 'series_id', 'last_order'},
   '/v1/user/following': {'filter', 'user_id', 'restrict', 'offset'},
   '/v1/user/follower': {'filter', 'user_id', 'offset'},
   '/v1/user/mypixiv': {'filter', 'user_id', 'offset'},
