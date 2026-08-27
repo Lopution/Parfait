@@ -41,9 +41,14 @@ class TagSearchController extends PagedFeedController {
             query: request.uri.query,
           );
     try {
+      final bookmarkRevision = ref
+          .read(illustStoreProvider)
+          .bookmarkRevisionNow();
       final json = await client.getJson(target);
       final page = IllustEntity.parsePage(json);
-      ref.read(illustStoreProvider).mergeAll(page.illusts);
+      ref
+          .read(illustStoreProvider)
+          .mergeAll(page.illusts, bookmarkSnapshotRevision: bookmarkRevision);
       return (
         ids: [for (final illust in page.illusts) illust.id],
         nextCursor: page.nextUrl,
@@ -54,7 +59,7 @@ class TagSearchController extends PagedFeedController {
   }
 }
 
-final tagSearchControllerProvider = AsyncNotifierProvider.family<
-    TagSearchController, PagedFeedState, String>(
-  TagSearchController.new,
-);
+final tagSearchControllerProvider =
+    AsyncNotifierProvider.family<TagSearchController, PagedFeedState, String>(
+      TagSearchController.new,
+    );

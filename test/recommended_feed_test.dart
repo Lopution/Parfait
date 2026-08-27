@@ -296,16 +296,20 @@ void main() {
   testWidgets(
     'IllustCard renders a tall portrait at full aspect ratio without overflow',
     (tester) async {
+      final (container, _) = await makeWorld();
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: SizedBox(
-                  width: 300,
-                  child: IllustCard(
-                    entity: parseIllust(
-                      illustJson(7, pageCount: 1, width: 800, height: 2000),
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: SizedBox(
+                    width: 300,
+                    child: IllustCard(
+                      entity: parseIllust(
+                        illustJson(7, pageCount: 1, width: 800, height: 2000),
+                      ),
                     ),
                   ),
                 ),

@@ -62,8 +62,11 @@ class IllustDetailController extends AsyncNotifier<IllustDetailState> {
       return IllustDetailRestricted(snapshot);
     }
     try {
+      // Snapshot revision captured before the fetch gates stale bookmark
+      // payloads against locally confirmed changes (R2).
+      final bookmarkRevision = store.bookmarkRevisionNow();
       final fresh = await ref.read(illustDetailRepositoryProvider).fetch(id);
-      store.mergeAll([fresh]);
+      store.mergeAll([fresh], bookmarkSnapshotRevision: bookmarkRevision);
       final merged = store.get(id)!;
       if (!merged.visible) {
         return IllustDetailRestricted(merged);
@@ -93,7 +96,9 @@ final illustDetailRepositoryProvider = Provider<IllustDetailRepository>(
   (ref) => IllustDetailRepository(ref.watch(pixivHttpClientProvider)),
 );
 
-final illustDetailControllerProvider = AsyncNotifierProvider.family<
-    IllustDetailController, IllustDetailState, int>(
-  IllustDetailController.new,
-);
+final illustDetailControllerProvider =
+    AsyncNotifierProvider.family<
+      IllustDetailController,
+      IllustDetailState,
+      int
+    >(IllustDetailController.new);

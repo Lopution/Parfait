@@ -12,6 +12,7 @@ import '../../../core/download/download_task.dart' show DownloadEvent;
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/settings/blocked_tags.dart';
+import '../../bookmark/bookmark_switch_button.dart';
 import '../../search/tag_search_page.dart';
 import '../viewer/image_viewer_page.dart';
 import 'illust_detail_controller.dart';
@@ -128,6 +129,20 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               }
             },
             icon: const Icon(Icons.file_download_outlined),
+          ),
+        // Beta56 keeps the bookmark heart in the app bar actions at all
+        // times (isButton: false variant, tap toggles / long-press sheet
+        // only while unbookmarked).
+        if (entity != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Center(
+              child: BookmarkSwitchButton(
+                illustId: entity.id,
+                title: entity.title,
+                isButton: false,
+              ),
+            ),
           ),
       ],
     );

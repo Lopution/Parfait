@@ -39,9 +39,13 @@ class RecommendedIllustRepository {
             query: request.uri.query,
           );
     try {
+      // Capture the bookmark revision BEFORE the request so the response's
+      // remote snapshots are staleness-gated against local mutations that
+      // happen while the request is in flight (R2).
+      final bookmarkRevision = _store.bookmarkRevisionNow();
       final json = await _client.getJson(target);
       final page = IllustEntity.parsePage(json);
-      _store.mergeAll(page.illusts);
+      _store.mergeAll(page.illusts, bookmarkSnapshotRevision: bookmarkRevision);
       return (ids: page.illusts.map((e) => e.id).toList(), nextUrl: page.nextUrl);
     } on FormatException catch (error) {
       throw ApiParseError(error);
