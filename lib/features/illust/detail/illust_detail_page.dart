@@ -24,6 +24,7 @@ import '../../../core/i18n/replica_strings.dart';
 import '../viewer/image_viewer_page.dart';
 import 'illust_detail_controller.dart';
 import 'illust_download_controller.dart';
+import 'ugoira_viewer.dart';
 
 /// Detail page replicating beta56 illust.dart: images with download mode,
 /// author block, meta row, caption, tag chips (R2/R4/R5).
@@ -178,8 +179,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         slivers: [
           if (entity.isUgoira)
             SliverToBoxAdapter(
-              child: _UgoiraCover(
-                entity: entity,
+              child: UgoiraViewer(
+                illustId: entity.id,
+                previewUrl: entity.imageUrls.large,
+                width: entity.width,
+                height: entity.height,
+                downloadMode: _downloadMode,
                 onLongPress: _toggleDownloadMode,
               ),
             )
@@ -377,47 +382,6 @@ class _DownloadBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(30),
         ),
         child: child,
-      ),
-    );
-  }
-}
-
-class _UgoiraCover extends StatelessWidget {
-  const _UgoiraCover({required this.entity, required this.onLongPress});
-
-  final IllustEntity entity;
-  final VoidCallback onLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    // R7: badge + cover only; the typed route to the player lands with the
-    // ugoira task. No fake playback affordance.
-    return GestureDetector(
-      onLongPress: onLongPress,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          PixivImage(
-            url: entity.imageUrls.large,
-            fit: BoxFit.fitWidth,
-            width: double.infinity,
-          ),
-          Positioned(
-            left: 7,
-            bottom: 7,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(5),
-                color: const Color(0x99343838),
-              ),
-              child: const Icon(
-                Icons.gif_box_outlined,
-                color: Colors.white,
-                size: 30,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

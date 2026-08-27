@@ -4,7 +4,7 @@ import '../network/pixiv_client_identity.dart';
 
 /// What a download produces. `illustPage` names files by page index inside
 /// the detail flow; `ugoiraZip` is reserved for the later ugoira export task.
-enum DownloadTarget { illustPage, ugoiraZip }
+enum DownloadTarget { illustPage, ugoiraZip, ugoiraGif }
 
 /// Typed download request submitted by feature code (detail page, ugoira
 /// export). Carries everything normalization needs; consumers never touch
@@ -39,7 +39,8 @@ class DownloadRequest {
   /// Throws [FormatException] for URLs without a usable image extension.
   String get displayName {
     final ext = _safeExtension(extension);
-    return '$illustId' '_p$pageIndex.$ext';
+    return '$illustId'
+        '_p$pageIndex.$ext';
   }
 
   String get mimeType => mimeTypeForExtension(extension);
@@ -119,9 +120,7 @@ void validateDownloadUrl(Uri url) {
     throw FormatException('download URL must be https: $url');
   }
   if (!PixivClientIdentity.downloadHosts.contains(url.host.toLowerCase())) {
-    throw FormatException(
-      'download host not allowed: ${url.host}',
-    );
+    throw FormatException('download host not allowed: ${url.host}');
   }
   if (url.hasPort && url.port != 443) {
     throw FormatException('download URL with explicit port rejected: $url');
