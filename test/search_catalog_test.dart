@@ -285,6 +285,30 @@ void main() {
     },
   );
 
+  test('repository uses the current autocomplete endpoint and query', () async {
+    final container = await _apiContainer((request) async {
+      expect(request.url.path, '/v2/search/autocomplete');
+      expect(request.url.queryParameters, {
+        'merge_plain_keyword_results': 'true',
+        'word': 'cat',
+      });
+      return _json({
+        'tags': [
+          {'name': 'cat', 'translated_name': '猫'},
+        ],
+      });
+    });
+    addTearDown(container.dispose);
+
+    final suggestions = await container
+        .read(searchRepositoryProvider)
+        .autocomplete('  cat  ');
+
+    expect(suggestions, hasLength(1));
+    expect(suggestions.single.keyword, 'cat');
+    expect(suggestions.single.translatedName, '猫');
+  });
+
   test(
     'search feed merges typed illust results into the shared store',
     () async {

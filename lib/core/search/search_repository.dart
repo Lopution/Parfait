@@ -153,8 +153,11 @@ class PixivSearchRepository implements SearchRepository {
     if (normalized.isEmpty) return const [];
     final json = await _client.getJson(
       PixivClientIdentity.appApiBase.replace(
-        path: '/v1/search/autocomplete',
-        queryParameters: {'word': normalized, 'filter': 'for_android'},
+        path: '/v2/search/autocomplete',
+        queryParameters: {
+          'merge_plain_keyword_results': 'true',
+          'word': normalized,
+        },
       ),
       cancelToken: cancelToken,
     );
