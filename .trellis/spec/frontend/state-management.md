@@ -66,6 +66,37 @@ Questions to answer:
 
 **Network contract (pixiv_http_client)**: token-expiry triggers the single-flight refresh on **401 OR 400 whose body contains `invalid_grant`** — observed live: `/v1/illust/recommended` surfaces an expired token as 400 invalid_grant, not 401. A plain 400 (parameter error) must NOT refresh. Diagnostics: non-2xx responses attach a clamped body snippet to `ApiHttpError.detail` (never contains credentials).
 
+### Cancellable Paged Feed Contract (`PagedFeedController`, `lib/core/paging/`)
+
+**What**: every feed keeps only ordered entity IDs and owns an independent
+cursor/state machine. A transport-aware feed may override
+`fetchPageCancellable(String? cursor, CancelToken cancelToken)`; the default
+delegates to `fetchPage` for feeds whose transport has no cancellation hook.
+
+**State rules**:
+
+- Initial, refresh, and load-more phases are independent. A cancelled
+  request returns its active phase to `idle`, preserves loaded IDs and the
+  last valid cursor, and does not become an error state.
+- A new request supersedes an older one. Late results from a superseded
+  request must not overwrite the current phase or cursor.
+- `PagedFeedState.copyWith(initialError: null)` and
+  `copyWith(loadMoreError: null)` explicitly clear an error; omitted error
+  arguments preserve the prior value. This requires a sentinel rather than
+  `??` for nullable error fields.
+- A non-empty server cursor must pass the feed's `validateCursor` allowlist
+  before it is stored. A rejected cursor is an observable `ApiParseError` and
+  must never be requested.
+
+**Account boundary**: a feed family keyed by a mode/filter must watch the
+current account ID and reset on account change. Shared entity providers
+must likewise be recreated or cleared at that boundary so account A's
+entities cannot be rendered during account B's load.
+
+**Tests**: each cancellable feed covers cancellation without an error,
+late-result suppression, cursor rejection, per-filter independence, and
+account-switch reset.
+
 ---
 
 ## Common Mistakes

@@ -36,7 +36,7 @@ const Map<String, Set<String>> kNextPageEndpoints = {
     'offset',
   },
   '/v2/illust/follow': {'restrict', 'offset'},
-  '/v1/illust/ranking': {'mode', 'date', 'offset'},
+  '/v1/illust/ranking': {'filter', 'mode', 'date', 'offset'},
   '/v1/search/illust': {
     'word',
     'search_target',
@@ -77,10 +77,10 @@ abstract final class NextPageParser {
     if (uri.host != 'app-api.pixiv.net') {
       throw NextPageParseError('unknown next_url host: ${uri.host}');
     }
-    if (uri.userInfo.isNotEmpty ||
-        (uri.hasPort && uri.port != 443)) {
+    if (uri.userInfo.isNotEmpty || (uri.hasPort && uri.port != 443)) {
       throw NextPageParseError(
-          'next_url must use the default port without userinfo');
+        'next_url must use the default port without userinfo',
+      );
     }
     if (!kNextPageEndpoints.containsKey(uri.path)) {
       throw NextPageParseError('unknown next_url endpoint: ${uri.path}');
@@ -98,10 +98,7 @@ abstract final class NextPageParser {
   }
 
   /// Builds the first-page request for an endpoint with typed query values.
-  static NextPageRequest firstPage(
-    String path,
-    Map<String, String> query,
-  ) {
+  static NextPageRequest firstPage(String path, Map<String, String> query) {
     if (!kNextPageEndpoints.containsKey(path)) {
       throw NextPageParseError('unknown endpoint: $path');
     }
@@ -111,6 +108,8 @@ abstract final class NextPageParser {
         throw NextPageParseError('unknown query parameter "$name" for $path');
       }
     }
-    return NextPageRequest(uri: Uri(path: path, queryParameters: query));
+    return NextPageRequest(
+      uri: Uri(path: path, queryParameters: query),
+    );
   }
 }
