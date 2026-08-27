@@ -35,7 +35,9 @@ const Map<String, Set<String>> kNextPageEndpoints = {
     'include_privacy_policy',
     'offset',
   },
-  '/v2/illust/follow': {'restrict', 'offset'},
+  '/v2/illust/follow': {'filter', 'restrict', 'offset'},
+  '/v2/illust/mypixiv': {'filter', 'offset'},
+  '/v1/illust/new': {'filter', 'content_type', 'offset'},
   '/v1/illust/ranking': {'filter', 'mode', 'date', 'offset'},
   '/v1/search/illust': {
     'word',
@@ -56,6 +58,9 @@ const Map<String, Set<String>> kNextPageEndpoints = {
   '/v1/user/following': {'filter', 'user_id', 'restrict', 'offset'},
   '/v1/user/follower': {'filter', 'user_id', 'offset'},
   '/v1/user/mypixiv': {'filter', 'user_id', 'offset'},
+  '/v1/novel/follow': {'filter', 'restrict', 'offset'},
+  '/v1/novel/mypixiv': {'filter', 'offset'},
+  '/v1/novel/new': {'filter', 'offset'},
 };
 
 abstract final class NextPageParser {
