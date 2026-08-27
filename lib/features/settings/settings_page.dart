@@ -16,6 +16,7 @@ import '../../core/settings/blocked_tags.dart';
 import '../../core/settings/settings_controller.dart';
 import '../login/login_page.dart';
 import '../profile/user_page.dart' as profile;
+import '../history/history_page.dart';
 
 String _settingsText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -759,6 +760,12 @@ class HistorySettingsPage extends ConsumerWidget {
                   .read(settingsProvider.notifier)
                   .setPixivHistoryEnabled(value),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.history_outlined),
+            title: Text(_settingsText(context, 'historyView')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => showHistoryPage(context),
           ),
           Padding(
             padding: const EdgeInsets.all(16),

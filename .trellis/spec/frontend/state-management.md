@@ -213,6 +213,112 @@ the wrong thread.
 canonical store by `comment.id`, and route the confirmed result through the
 operation's explicit `(illustId, parentCommentId, rootCommentId)` context.
 
+### Browsing History Contract (`HistoryRepository`, `HistoryTracker`)
+
+#### 1. Scope / Trigger
+
+This contract applies to local and Pixiv browsing history. Detail and Novel
+routes wrap their loaded, viewable content in `HistoryVisibility`; the wrapper
+starts and pauses a `HistoryTracker` from route visibility and
+`AppLifecycleState`. History is account-scoped and does not run for a signed-out
+route.
+
+#### 2. Signatures
+
+```dart
+Future<void> HistoryRepository.upsert(HistoryRecord record);
+Future<HistoryPageResult> HistoryRepository.page({
+  required String accountId,
+  int offset = 0,
+  int limit = 30,
+});
+Future<void> HistoryRepository.commitView({
+  required HistoryRecord record,
+  required bool writeLocal,
+  required bool enqueuePixiv,
+  required Duration unsubmittedPixivDuration,
+});
+Future<void> HistoryRepository.flushOutbox({
+  required String accountId,
+  required PixivHistoryRemote remote,
+});
+```
+
+`HistoryRecord` stores typed content kind/ID, UTC `lastViewedAt`, account ID,
+visible duration and the fields in `HistorySnapshot` only. Novel progress is a
+paragraph ID plus offset; it is not a copy of the novel body or API JSON.
+
+#### 3. Contracts
+
+- `HistoryDatabase` owns one lazy-opened `history.db` connection per Riverpod
+  container and closes it when the container is disposed. Every operation goes
+  through `HistoryRepository`; writes combining a local row and an outbox row
+  use one SQLite transaction.
+- `history_records` has a unique `(account_id, content_type, content_id)`
+  index and a recent-access index. Upsert updates the same logical row and
+  history pages order by `last_viewed_at DESC, id DESC`.
+- `pixiv_history_outbox` is keyed by account/content and merges duration. A
+  successful `/v2/user/browsing-history/illust/add` call deletes that row;
+  failures retain it with bounded exponential/hourly backoff. Flushes are
+  serialized and never report success after a failed request.
+- Local history reads `localHistoryEnabledProvider`; Pixiv sync reads
+  `pixivHistoryEnabledProvider`. Disabling either switch stops new writes for
+  that channel and does not delete existing local rows automatically.
+- `HistoryTracker` uses production `StopwatchHistoryClock`; it accumulates
+  only route-visible foreground segments. It has no periodic timer. Pixiv
+  enqueueing starts at 10 seconds and only the newly unsubmitted duration is
+  merged into the outbox.
+- The history page reads the indexed rows, uses `IllustStore`/`NovelStore` when
+  a richer entity is already present, and renders the stored snapshot when an
+  entity was deleted or is unavailable. Delete and clear are account-scoped.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| Empty account or non-positive content ID | Reject before SQLite work |
+| Invalid/corrupt row or unsupported content type | Surface a format error; do not fabricate an entity |
+| Migration/open failure | Keep the error visible to the caller; do not silently replace the database |
+| Local history disabled | Do not write a new local row and do not auto-delete old rows |
+| Pixiv request offline/rate-limited | Keep outbox work, schedule bounded retry, surface sync failure |
+| Account changes during flush | Stop before submitting under the new account; retain old-account outbox |
+| Route covered/backgrounded | Pause the stopwatch and commit the accumulated segment |
+| Concurrent first open/flush | Share the connection/flush tail; never open per operation or double-submit a row |
+
+#### 5. Good / Base / Bad Cases
+
+- Good: reopening illust `42` under account `a` updates one row to the top;
+  reopening it under account `b` creates an independent row.
+- Base: a short view is present in local history but remains below Pixiv's
+  minimum duration threshold; a later visible segment can cross the threshold
+  and enqueue the merged duration once.
+- Bad: storing `illust.toJson()` or novel text in the database, counting
+  background time with `Timer.periodic`, or flushing an account-A row after the
+  active account changed to B.
+
+#### 6. Tests Required
+
+- Repository tests cover schema v1→v2 migration, version/index presence,
+  upsert/order/page/count/delete/clear, account isolation and transaction
+  outbox merging.
+- Tracker tests use an injected clock to cover pause/resume, threshold
+  crossing, repeated leave events and the absence of periodic timing.
+- Outbox tests cover success deletion, failure backoff, serialized flush and
+  account-change retention.
+- Widget/detail/novel tests cover snapshot hydration fallback and explicit
+  settings/history entry points. Device checks must distinguish local DB
+  persistence from real-account Pixiv submission; no mutation is performed
+  without an explicit test account action.
+
+#### 7. Wrong vs Correct
+
+**Wrong**: open `history.db` inside every `count`, `query` and `delete`, store a
+full API object, and increment browsing time from a one-second periodic timer.
+
+**Correct**: let the keep-alive repository own one connection, write only the
+typed compact snapshot in a transaction, and commit Stopwatch elapsed time at
+visibility/lifecycle boundaries through the account-scoped outbox.
+
 ### Versioned Settings Contract (`AppSettings`, `SettingsRepository`)
 
 **What**: ordinary preferences are represented by the immutable `AppSettings`

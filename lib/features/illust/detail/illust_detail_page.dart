@@ -11,8 +11,12 @@ import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart' show DownloadEvent;
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
-import '../../../core/settings/blocked_tags.dart';
+import '../../../core/history/history_models.dart';
+import '../../../core/history/history_repository.dart';
+import '../../../core/history/history_snapshot.dart';
+import '../../../core/history/history_visibility.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../core/settings/blocked_tags.dart';
 import '../../bookmark/bookmark_switch_button.dart';
 import '../../comments/comments_page.dart';
 import '../../search/tag_search_page.dart';
@@ -165,7 +169,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     WidgetRef ref,
     IllustEntity entity,
   ) {
-    return GestureDetector(
+    final content = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
         if (_downloadMode) _toggleDownloadMode();
@@ -221,6 +225,21 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
           ),
         ],
       ),
+    );
+    final accountId = ref.watch(historyAccountIdProvider);
+    if (accountId == null) return content;
+    final pixivEnabled = ref.watch(pixivHistoryEnabledProvider);
+    return HistoryVisibility(
+      accountId: accountId,
+      contentType: HistoryContentType.illust,
+      contentId: entity.id,
+      snapshot: snapshotFromIllust(entity),
+      localHistoryEnabled: ref.watch(localHistoryEnabledProvider),
+      pixivHistoryEnabled: pixivEnabled,
+      repository: ref.watch(historyRepositoryProvider),
+      remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
+      isAccountCurrent: () => ref.read(historyAccountIdProvider) == accountId,
+      child: content,
     );
   }
 }
