@@ -122,6 +122,21 @@ entities cannot be rendered during account B's load.
 late-result suppression, cursor rejection, per-filter independence, and
 account-switch reset.
 
+### Media Resource Ownership Contract (`UgoiraAsset`, `lib/core/ugoira/`)
+
+An animated-media load owns exactly one disk temporary archive, one random-access
+index, one bounded decoded-frame cache and one playback scheduler. The asset
+closes the index and deletes its temporary file; the cache owns every resident
+`ui.Image` and disposes it on replacement, eviction or clear. A viewer may
+retain only the current bounded window, and must stop the scheduler before
+route/lifecycle teardown.
+
+GIF post-processing is a user-visible job with one owned pending MediaStore
+item and one worker isolate. It must check cancellation between frames and
+before finalize, abort on failure/cancellation, dispose the worker, and emit
+exactly one terminal snapshot. Quantization must not run synchronously on the
+UI isolate or retain the complete decoded-frame list.
+
 ### Comments and Replies Contract (`CommentStore`, `lib/core/comments/`)
 
 #### 1. Scope / Trigger

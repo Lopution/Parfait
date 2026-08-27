@@ -47,17 +47,24 @@ class _MediaStoreSink implements DownloadSink {
 
   final MediaStoreHandle _handle;
   bool _finished = false;
+  bool _finalizing = false;
 
   @override
   Future<void> write(List<int> bytes) => _handle.write(bytes);
 
   @override
   Future<String> finalize() async {
-    if (_finished) {
+    if (_finished || _finalizing) {
       throw StateError('sink already finalized or aborted');
     }
-    _finished = true;
-    return _handle.finalize().then((uri) => uri.toString());
+    _finalizing = true;
+    try {
+      final uri = await _handle.finalize();
+      _finished = true;
+      return uri.toString();
+    } finally {
+      _finalizing = false;
+    }
   }
 
   @override
