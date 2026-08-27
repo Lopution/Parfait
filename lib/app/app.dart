@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/i18n/replica_strings.dart';
+import '../core/navigation/route_observer.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
 import '../features/onboarding/startup_gate.dart';
@@ -53,6 +54,7 @@ class PixivFuncApp extends ConsumerWidget {
       theme: replicaTheme(Brightness.light),
       darkTheme: replicaTheme(Brightness.dark),
       themeMode: themeMode,
+      navigatorObservers: [replicaRouteObserver],
       home: home,
     );
   }

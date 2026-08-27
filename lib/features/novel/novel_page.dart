@@ -4,13 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/i18n/replica_strings.dart';
+import '../../core/history/history_models.dart';
+import '../../core/history/history_repository.dart';
+import '../../core/history/history_snapshot.dart';
+import '../../core/history/history_visibility.dart';
 import '../../core/network/api_error.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart';
 import '../../core/novel/novel_store.dart';
+import '../../core/settings/settings_controller.dart';
 import '../profile/user_page.dart';
 import 'novel_reader.dart';
+import 'novel_layout.dart';
 
 /// Opens the JSON Novel detail route. Save/share are intentionally absent:
 /// this task does not claim those operations without a real API contract.
@@ -173,14 +179,22 @@ class _NovelCover extends StatelessWidget {
   }
 }
 
-class _NovelDetailBody extends StatelessWidget {
+class _NovelDetailBody extends ConsumerStatefulWidget {
   const _NovelDetailBody({required this.novel});
 
   final NovelEntity novel;
 
   @override
+  ConsumerState<_NovelDetailBody> createState() => _NovelDetailBodyState();
+}
+
+class _NovelDetailBodyState extends ConsumerState<_NovelDetailBody> {
+  NovelAnchor? _anchor;
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
+    final novel = widget.novel;
+    final content = Column(
       children: [
         _NovelMetadata(novel: novel),
         if (novel.seriesId != null)
@@ -189,12 +203,31 @@ class _NovelDetailBody extends StatelessWidget {
           child: NovelReader(
             novel: novel,
             onAnchorChanged: (anchor) {
-              // This is the typed history/marker boundary. Persistence is
-              // owned by the history task; the reader only emits anchors.
+              if (_anchor == anchor) return;
+              setState(() => _anchor = anchor);
             },
           ),
         ),
       ],
+    );
+    final accountId = ref.watch(historyAccountIdProvider);
+    if (accountId == null) return content;
+    final pixivEnabled = ref.watch(pixivHistoryEnabledProvider);
+    return HistoryVisibility(
+      accountId: accountId,
+      contentType: HistoryContentType.novel,
+      contentId: novel.id,
+      snapshot: snapshotFromNovel(
+        novel,
+        anchorParagraphId: _anchor?.paragraphId,
+        anchorOffset: _anchor?.offset,
+      ),
+      localHistoryEnabled: ref.watch(localHistoryEnabledProvider),
+      pixivHistoryEnabled: pixivEnabled,
+      repository: ref.watch(historyRepositoryProvider),
+      remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
+      isAccountCurrent: () => ref.read(historyAccountIdProvider) == accountId,
+      child: content,
     );
   }
 }
