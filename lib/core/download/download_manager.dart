@@ -32,6 +32,7 @@ class DownloadManager {
     DownloadSubmissionContextProvider? submissionContext,
     DownloadRecoveryStore? recoveryStore,
     this.requireOwnedSubmissions = false,
+    this.enforceDefaultDestination = true,
     DateTime Function()? now,
   }) : _transport = transport,
        _sinkFactory = sinkFactory,
@@ -46,6 +47,11 @@ class DownloadManager {
   final DownloadSubmissionContextProvider? _submissionContext;
   final DownloadRecoveryStore _recoveryStore;
   final bool requireOwnedSubmissions;
+
+  /// MediaStore-backed app downloads keep the public destination contract.
+  /// Internal app-private jobs (such as a signed updater APK) may opt out
+  /// while retaining the same owner/revision checks.
+  final bool enforceDefaultDestination;
   final DateTime Function() _now;
 
   int _maxConcurrent;
@@ -109,7 +115,7 @@ class DownloadManager {
     DownloadSubmissionContext? context,
   }) {
     _checkUsable();
-    validateDownloadUrl(request.url);
+    validateDownloadUrl(request.url, target: request.target);
     final name = request.displayName;
     validateDisplayName(name);
 
@@ -121,7 +127,8 @@ class DownloadManager {
     }
     if (ownerContext != null &&
         (ownerContext.accountId.isEmpty ||
-            ownerContext.destination != kDownloadDestination)) {
+            (enforceDefaultDestination &&
+                ownerContext.destination != kDownloadDestination))) {
       throw const DownloadOwnershipException(
         'submission destination or account owner is invalid',
       );
@@ -339,7 +346,7 @@ class DownloadManager {
       if (context == null) continue;
       final request = record.snapshot.request;
       try {
-        validateDownloadUrl(request.url);
+        validateDownloadUrl(request.url, target: request.target);
         validateDisplayName(request.displayName);
       } on Object catch (error) {
         final job = _recoveredJob(
