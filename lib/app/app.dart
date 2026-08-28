@@ -6,14 +6,28 @@ import '../core/i18n/replica_strings.dart';
 import '../core/navigation/route_observer.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
+import '../core/widget/widget_coordinator.dart';
 import '../features/onboarding/startup_gate.dart';
 import 'theme/replica_theme.dart';
 
-class PixivFuncApp extends ConsumerWidget {
+class PixivFuncApp extends ConsumerStatefulWidget {
   const PixivFuncApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PixivFuncApp> createState() => _PixivFuncAppState();
+}
+
+class _PixivFuncAppState extends ConsumerState<PixivFuncApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Widget maintenance runs for the app lifetime; the coordinator keeps
+    // render state in sync with account changes (PRD R6).
+    ref.read(widgetCoordinatorProvider).start();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final themeMode = ref.watch(themeModeProvider);
     return settings.when(

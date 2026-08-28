@@ -12,6 +12,7 @@ import '../../core/platform/android_intent_channel.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../core/reverse_image/image_input.dart';
+import '../illust/detail/illust_detail_page.dart';
 import '../new/new_page.dart';
 import '../ranking/ranking_page.dart';
 import '../search/search_page.dart';
@@ -128,7 +129,20 @@ class _HomePageState extends State<HomePage>
         );
       case RejectedAndroidIntent():
         _showExternalIntentFailure();
-      case RoutedAndroidIntent():
+      case RoutedAndroidIntent(:final route):
+        // Widget/home-screen deep links: pixivfunc://illusts/<id> opens the
+        // illust detail (beta56 behaviour; PRD 08-26-android-home-widgets
+        // R3). Unknown or unsupported routes keep the app on the current
+        // page instead of navigating somewhere unvalidated.
+        if (route is IllustRoute && mounted) {
+          unawaited(
+            Navigator.of(context).push<void>(
+              ReplicaPageRoute<void>(
+                builder: (_) => IllustDetailPage(illustId: route.illustId),
+              ),
+            ),
+          );
+        }
       case IgnoredAndroidIntent():
         break;
     }
