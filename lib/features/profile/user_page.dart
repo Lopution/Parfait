@@ -27,16 +27,26 @@ import 'user_detail_controller.dart';
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
 class UserPage extends ConsumerStatefulWidget {
-  const UserPage({super.key, int? id, int? userId, this.onSettings})
-    : userId = userId ?? id ?? 0,
-      isMe = false,
-      assert(userId != null || id != null);
+  const UserPage({
+    super.key,
+    int? id,
+    int? userId,
+    this.onSettings,
+    this.onEditProfile,
+  }) : userId = userId ?? id ?? 0,
+       isMe = false,
+       assert(userId != null || id != null);
 
-  const UserPage._me({required this.userId, this.onSettings}) : isMe = true;
+  const UserPage._me({
+    required this.userId,
+    this.onSettings,
+    this.onEditProfile,
+  }) : isMe = true;
 
   final int userId;
   final bool isMe;
   final VoidCallback? onSettings;
+  final VoidCallback? onEditProfile;
 
   @override
   ConsumerState<UserPage> createState() => _UserPageState();
@@ -45,9 +55,10 @@ class UserPage extends ConsumerStatefulWidget {
 /// Current-account profile. The account id is resolved at build time so an
 /// account switch cannot leave a stale UserPage mounted for the old account.
 class MePage extends ConsumerWidget {
-  const MePage({super.key, this.onSettings});
+  const MePage({super.key, this.onSettings, this.onEditProfile});
 
   final VoidCallback? onSettings;
+  final VoidCallback? onEditProfile;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,7 +81,11 @@ class MePage extends ConsumerWidget {
             detail: _profileText(context, 'noAccounts'),
           );
         }
-        return UserPage._me(userId: account.userId, onSettings: onSettings);
+        return UserPage._me(
+          userId: account.userId,
+          onSettings: onSettings,
+          onEditProfile: onEditProfile,
+        );
       },
     );
   }
@@ -90,9 +105,16 @@ void showUserPage(BuildContext context, int userId) {
   );
 }
 
-void showMePage(BuildContext context, {VoidCallback? onSettings}) {
+void showMePage(
+  BuildContext context, {
+  VoidCallback? onSettings,
+  VoidCallback? onEditProfile,
+}) {
   Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(builder: (_) => MePage(onSettings: onSettings)),
+    ReplicaPageRoute<void>(
+      builder: (_) =>
+          MePage(onSettings: onSettings, onEditProfile: onEditProfile),
+    ),
   );
 }
 
@@ -303,6 +325,7 @@ class _UserPageState extends ConsumerState<UserPage>
                               ),
                             ))
                       : null,
+                  onEditProfile: widget.isMe ? widget.onEditProfile : null,
                 ),
               ),
               SliverPersistentHeader(
