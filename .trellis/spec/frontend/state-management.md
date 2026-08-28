@@ -898,6 +898,35 @@ unknown MIME/size metadata and paths outside the owned cache. Cancellation,
 provider failure, route disposal and cleanup failure remain observable, and a
 new upload may not reuse a previous flow's temporary file.
 
+### Profile Edit Contract (`ProfileEditController`, `lib/core/profile/`)
+
+Profile editing is an account-scoped draft, not a second user cache. A draft
+captures the account id, credential revision, network revision, authoritative
+base values and the typed `ProfileCapabilities` returned by the selected
+official route. `ProfilePatch` contains only fields that differ from that base;
+unsupported dirty fields remain visible as field errors and are never sent.
+
+The controller checks the owner before loading, submitting and committing a
+response. Account, credential or network revision changes cancel the request,
+release owned image selections and discard late results. A confirmed response
+is committed persistence-first to `AccountStore`, then merged into the
+canonical `UserStore`; verification-pending, field-error, cancellation and
+failure outcomes never update confirmed metadata. Store commits must recheck
+that the current account owns the returned user.
+
+Current passwords are an ephemeral submit input. They must not be part of
+`ProfileDraft`, persistence, prefilled form values or failure diagnostics, and
+must be cleared in the submit request's `finally` path. Selected profile images
+are owned handles with bounded MIME/signature/dimension/size validation and
+exactly-once cleanup on replacement, cancel, dispose and every terminal
+response.
+
+If no reviewed App API or approved Web adapter exists for a profile mutation,
+the capability is an explicit unavailable outcome. The form may still show the
+beta56 fields and read-only values, but Save must remain disabled or fail with
+the typed unavailable reason; it must not scrape passwords, inject cookies,
+replay a body through another route or synthesize success.
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

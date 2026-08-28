@@ -15,6 +15,7 @@ import '../../core/settings/app_settings.dart';
 import '../../core/settings/blocked_tags.dart';
 import '../../core/settings/settings_controller.dart';
 import '../login/login_page.dart';
+import '../profile/profile_edit_page.dart' as profile_edit;
 import '../profile/user_page.dart' as profile;
 import '../history/history_page.dart';
 
@@ -195,7 +196,15 @@ class _AccountCard extends StatelessWidget {
         trailing: value == null ? null : const Icon(Icons.chevron_right),
         onTap: value == null
             ? null
-            : () => _openSettingsPage(context, const profile.MePage()),
+            : () => _openSettingsPage(
+                context,
+                profile.MePage(
+                  onEditProfile: () => _openSettingsPage(
+                    context,
+                    profile_edit.ProfileEditPage(userId: value.userId),
+                  ),
+                ),
+              ),
       ),
     );
   }

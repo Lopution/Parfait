@@ -50,6 +50,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onRestrictChanged,
     required this.onShare,
     this.onSettings,
+    this.onEditProfile,
     this.expandedExtent = 430,
   });
 
@@ -61,6 +62,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final ValueChanged<UserRestrict> onRestrictChanged;
   final VoidCallback onShare;
   final VoidCallback? onSettings;
+  final VoidCallback? onEditProfile;
   final double expandedExtent;
 
   @override
@@ -97,6 +99,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                 backgroundHeight: backgroundHeight,
                 onShare: onShare,
                 onSettings: onSettings,
+                onEditProfile: onEditProfile,
               ),
             ),
           if (geometry.isFullyCollapsed)
@@ -109,6 +112,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
               onRestrictChanged: onRestrictChanged,
               onShare: onShare,
               onSettings: onSettings,
+              onEditProfile: onEditProfile,
             ),
         ],
       ),
@@ -122,6 +126,8 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.selectedTabIndex != selectedTabIndex ||
         oldDelegate.showRestrictSelector != showRestrictSelector ||
         oldDelegate.restrict != restrict ||
+        oldDelegate.onSettings != onSettings ||
+        oldDelegate.onEditProfile != onEditProfile ||
         oldDelegate.expandedExtent != expandedExtent;
   }
 }
@@ -133,6 +139,7 @@ class _ExpandedProfile extends StatelessWidget {
     required this.backgroundHeight,
     required this.onShare,
     required this.onSettings,
+    required this.onEditProfile,
   });
 
   final UserEntity user;
@@ -140,6 +147,13 @@ class _ExpandedProfile extends StatelessWidget {
   final double backgroundHeight;
   final VoidCallback onShare;
   final VoidCallback? onSettings;
+  final VoidCallback? onEditProfile;
+
+  String _profileText(BuildContext context, String key) =>
+      ReplicaStrings.fromTag(
+        Localizations.localeOf(context).toLanguageTag(),
+        key,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -229,10 +243,21 @@ class _ExpandedProfile extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               if (isMe)
-                IconButton(
-                  tooltip: 'Settings',
-                  onPressed: onSettings,
-                  icon: const Icon(Icons.settings_outlined),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onEditProfile != null)
+                      IconButton(
+                        tooltip: _profileText(context, 'profileEditTitle'),
+                        onPressed: onEditProfile,
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                    IconButton(
+                      tooltip: 'Settings',
+                      onPressed: onSettings,
+                      icon: const Icon(Icons.settings_outlined),
+                    ),
+                  ],
                 )
               else
                 FollowSwitchButton(
@@ -258,6 +283,7 @@ class _CollapsedProfile extends StatelessWidget {
     required this.onRestrictChanged,
     required this.onShare,
     required this.onSettings,
+    required this.onEditProfile,
   });
 
   final UserEntity user;
@@ -268,6 +294,7 @@ class _CollapsedProfile extends StatelessWidget {
   final ValueChanged<UserRestrict> onRestrictChanged;
   final VoidCallback onShare;
   final VoidCallback? onSettings;
+  final VoidCallback? onEditProfile;
 
   String _text(BuildContext context, String key) => ReplicaStrings.fromTag(
     Localizations.localeOf(context).toLanguageTag(),
@@ -316,27 +343,49 @@ class _CollapsedProfile extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.only(right: 8),
             child: isMe && showRestrictSelector
-                ? PopupMenuButton<UserRestrict>(
-                    tooltip: _text(context, 'restrictSelector'),
-                    initialValue: restrict,
-                    onSelected: onRestrictChanged,
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: UserRestrict.public,
-                        child: Text(_text(context, 'restrictPublic')),
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PopupMenuButton<UserRestrict>(
+                        tooltip: _text(context, 'restrictSelector'),
+                        initialValue: restrict,
+                        onSelected: onRestrictChanged,
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: UserRestrict.public,
+                            child: Text(_text(context, 'restrictPublic')),
+                          ),
+                          PopupMenuItem(
+                            value: UserRestrict.private,
+                            child: Text(_text(context, 'restrictPrivate')),
+                          ),
+                        ],
+                        icon: const Icon(Icons.filter_alt_outlined),
                       ),
-                      PopupMenuItem(
-                        value: UserRestrict.private,
-                        child: Text(_text(context, 'restrictPrivate')),
-                      ),
+                      if (onEditProfile != null)
+                        IconButton(
+                          tooltip: _text(context, 'profileEditTitle'),
+                          onPressed: onEditProfile,
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
                     ],
-                    icon: const Icon(Icons.filter_alt_outlined),
                   )
                 : isMe
-                ? IconButton(
-                    tooltip: 'Settings',
-                    onPressed: onSettings,
-                    icon: const Icon(Icons.settings_outlined),
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onEditProfile != null)
+                        IconButton(
+                          tooltip: _text(context, 'profileEditTitle'),
+                          onPressed: onEditProfile,
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                      IconButton(
+                        tooltip: 'Settings',
+                        onPressed: onSettings,
+                        icon: const Icon(Icons.settings_outlined),
+                      ),
+                    ],
                   )
                 : IconButton(
                     tooltip: 'Share',
