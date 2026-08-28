@@ -35,10 +35,16 @@ class IllustDownloadCoordinator {
     required int illustId,
     required List<Uri> pageUrls,
   }) {
-    return [
+    final group = _manager.submitGroup([
       for (var i = 0; i < pageUrls.length; i++)
-        downloadPage(illustId: illustId, pageIndex: i, url: pageUrls[i]),
-    ];
+        DownloadRequest(
+          illustId: illustId,
+          pageIndex: i,
+          url: pageUrls[i],
+          target: DownloadTarget.illustPage,
+        ),
+    ]);
+    return [for (final id in group.jobIds) _manager.taskById(id)!];
   }
 
   DownloadTaskSnapshot? taskFor({

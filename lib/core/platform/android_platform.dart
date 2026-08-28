@@ -5,4 +5,10 @@
 library;
 
 export 'android_platform_interfaces.dart'
-    show MediaStoreHandle, MediaStoreSession, WebKitCapabilities;
+    show
+        MediaStoreHandle,
+        MediaStoreSession,
+        OwnedMediaStoreSession,
+        PendingMediaStoreItem,
+        RecoverableMediaStoreSession,
+        WebKitCapabilities;

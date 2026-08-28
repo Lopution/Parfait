@@ -1,13 +1,35 @@
 import 'package:meta/meta.dart';
 
-/// Task lifecycle. `canceling` is observable while a running task unwinds;
-/// the transition set below is irreversible per task attempt.
-enum DownloadStatus { queued, running, canceling, succeeded, failed, canceled }
+import 'download_recovery.dart';
 
-bool isTerminal(DownloadStatus status) =>
-    status == DownloadStatus.succeeded ||
-    status == DownloadStatus.failed ||
-    status == DownloadStatus.canceled;
+export 'download_recovery.dart'
+    show
+        DownloadFailureKind,
+        DownloadOutputOwner,
+        DownloadRecoveryDataException,
+        DownloadRecoveryRecord,
+        DownloadRecoveryReport,
+        DownloadRecoveryStore,
+        DownloadStatus,
+        DownloadSubmissionContext,
+        DownloadSubmissionSnapshot,
+        MemoryDownloadRecoveryStore,
+        PreferencesDownloadRecoveryStore;
+
+/// Terminal-state helper for the download lifecycle. `canceling` remains
+/// observable while a running task unwinds; `retryable` waits for user action
+/// and `orphaned` is terminal when ownership cannot be proven.
+bool isTerminal(DownloadStatus status) => switch (status) {
+  DownloadStatus.succeeded ||
+  DownloadStatus.failed ||
+  DownloadStatus.canceled ||
+  DownloadStatus.orphaned => true,
+  DownloadStatus.queued ||
+  DownloadStatus.running ||
+  DownloadStatus.finalizing ||
+  DownloadStatus.canceling ||
+  DownloadStatus.retryable => false,
+};
 
 /// Immutable snapshot handed to the UI (read-only view of one task).
 @immutable
@@ -23,6 +45,11 @@ class DownloadTaskSnapshot {
     this.receivedBytes = 0,
     this.totalBytes,
     this.error,
+    this.failureKind,
+    this.retryAfter,
+    this.finalUri,
+    this.submission,
+    this.outputOwner,
   });
 
   final String id;
@@ -37,6 +64,17 @@ class DownloadTaskSnapshot {
   /// Null when the server sent no content-length (R5 未知长度).
   final int? totalBytes;
   final String? error;
+  final DownloadFailureKind? failureKind;
+  final Duration? retryAfter;
+  final Uri? finalUri;
+
+  /// Immutable account/target/destination/policy boundary captured at submit.
+  final DownloadSubmissionSnapshot? submission;
+
+  /// Opaque owner for temporary output and pending MediaStore state.
+  final DownloadOutputOwner? outputOwner;
+
+  String? get groupId => submission?.groupId;
 
   /// 0..1 when the total length is known, otherwise null.
   double? get progress {
@@ -50,7 +88,12 @@ class DownloadTaskSnapshot {
     DownloadStatus? status,
     int? receivedBytes,
     Object? totalBytes = _sentinel,
-    String? error,
+    Object? error = _sentinel,
+    Object? failureKind = _sentinel,
+    Object? retryAfter = _sentinel,
+    Object? finalUri = _sentinel,
+    Object? submission = _sentinel,
+    Object? outputOwner = _sentinel,
   }) {
     return DownloadTaskSnapshot(
       id: id,
@@ -64,7 +107,22 @@ class DownloadTaskSnapshot {
       totalBytes: identical(totalBytes, _sentinel)
           ? this.totalBytes
           : totalBytes as int?,
-      error: error ?? this.error,
+      error: identical(error, _sentinel) ? this.error : error as String?,
+      failureKind: identical(failureKind, _sentinel)
+          ? this.failureKind
+          : failureKind as DownloadFailureKind?,
+      retryAfter: identical(retryAfter, _sentinel)
+          ? this.retryAfter
+          : retryAfter as Duration?,
+      finalUri: identical(finalUri, _sentinel)
+          ? this.finalUri
+          : finalUri as Uri?,
+      submission: identical(submission, _sentinel)
+          ? this.submission
+          : submission as DownloadSubmissionSnapshot?,
+      outputOwner: identical(outputOwner, _sentinel)
+          ? this.outputOwner
+          : outputOwner as DownloadOutputOwner?,
     );
   }
 
@@ -76,19 +134,49 @@ class DownloadTaskSnapshot {
 @immutable
 class DownloadEvent {
   const DownloadEvent.succeeded(this.snapshot)
-      : kind = DownloadEventKind.succeeded,
-        error = null;
+    : kind = DownloadEventKind.succeeded,
+      error = null;
 
   const DownloadEvent.failed(this.snapshot, this.error)
-      : kind = DownloadEventKind.failed;
+    : kind = DownloadEventKind.failed;
 
   const DownloadEvent.canceled(this.snapshot)
-      : kind = DownloadEventKind.canceled,
-        error = null;
+    : kind = DownloadEventKind.canceled,
+      error = null;
+
+  const DownloadEvent.orphaned(this.snapshot, this.error)
+    : kind = DownloadEventKind.orphaned;
 
   final DownloadEventKind kind;
   final DownloadTaskSnapshot snapshot;
   final String? error;
 }
 
-enum DownloadEventKind { succeeded, failed, canceled }
+enum DownloadEventKind { succeeded, failed, canceled, orphaned }
+
+enum DownloadGroupStatus {
+  queued,
+  running,
+  finalizing,
+  succeeded,
+  failed,
+  canceled,
+  retryable,
+  orphaned,
+}
+
+/// Read-only aggregate view for Download All/Ugoira-style submissions.
+@immutable
+class DownloadGroupSnapshot {
+  const DownloadGroupSnapshot({
+    required this.id,
+    required this.jobIds,
+    required this.submission,
+    required this.status,
+  });
+
+  final String id;
+  final List<String> jobIds;
+  final DownloadSubmissionSnapshot submission;
+  final DownloadGroupStatus status;
+}

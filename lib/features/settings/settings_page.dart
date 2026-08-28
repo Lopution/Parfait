@@ -852,20 +852,25 @@ class DownloadTasksPage extends ConsumerStatefulWidget {
 
 class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   late final DownloadManager _manager;
-  StreamSubscription<DownloadEvent>? _events;
+  StreamSubscription<void>? _changes;
 
   @override
   void initState() {
     super.initState();
     _manager = ref.read(downloadManagerProvider);
-    _events = _manager.events.listen((_) {
+    _changes = _manager.changes.listen((_) {
       if (mounted) setState(() {});
     });
+    unawaited(
+      _manager.recover().whenComplete(() {
+        if (mounted) setState(() {});
+      }),
+    );
   }
 
   @override
   void dispose() {
-    _events?.cancel();
+    _changes?.cancel();
     super.dispose();
   }
 
@@ -906,7 +911,8 @@ class _DownloadTaskTile extends StatelessWidget {
         task.status == DownloadStatus.canceling;
     final canRetry =
         task.status == DownloadStatus.failed ||
-        task.status == DownloadStatus.canceled;
+        task.status == DownloadStatus.canceled ||
+        task.status == DownloadStatus.retryable;
     return Card(
       child: ListTile(
         title: Text(task.displayName, overflow: TextOverflow.ellipsis),
@@ -943,10 +949,13 @@ class _DownloadTaskTile extends StatelessWidget {
     return switch (status) {
       DownloadStatus.queued => _settingsText(context, 'downloadQueued'),
       DownloadStatus.running => _settingsText(context, 'downloadRunning'),
+      DownloadStatus.finalizing => _settingsText(context, 'downloadRunning'),
       DownloadStatus.canceling => _settingsText(context, 'downloadCanceling'),
       DownloadStatus.succeeded => _settingsText(context, 'downloadSucceeded'),
       DownloadStatus.failed => _settingsText(context, 'downloadFailed'),
       DownloadStatus.canceled => _settingsText(context, 'downloadCanceled'),
+      DownloadStatus.retryable => _settingsText(context, 'downloadFailed'),
+      DownloadStatus.orphaned => _settingsText(context, 'downloadFailed'),
     };
   }
 }

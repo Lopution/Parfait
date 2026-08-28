@@ -240,6 +240,15 @@ before finalize, abort on failure/cancellation, dispose the worker, and emit
 exactly one terminal snapshot. Quantization must not run synchronously on the
 UI isolate or retain the complete decoded-frame list.
 
+The post-process record uses its own versioned recovery key and an explicit
+Ugoira owner prefix; its synthetic GIF URL must never enter the ordinary
+DownloadManager retry queue. Startup recovery loads that namespace before the
+normal media scan. Since a restart cannot reconstruct the in-memory
+`UgoiraAsset`, queued/running/finalizing/canceling/retryable records become
+`orphaned` with an explicit reload error, while failed/canceled/succeeded
+records remain observable. A pending row is cleaned only through the exact
+owner marker; unknown ordinary-download rows are left untouched.
+
 ### Comments and Replies Contract (`CommentStore`, `lib/core/comments/`)
 
 #### 1. Scope / Trigger
@@ -786,6 +795,50 @@ account boundary changed.
 signal to the existing adapter, gate every terminal transition against the
 active owner, publish only server-confirmed data, and keep classified failure
 or discard telemetry visible without persisting a pending write.
+
+### Download and Ugoira Job Recovery Contract (`DownloadManager`, `UgoiraExportJob`, `lib/core/download/`)
+
+Download work is an account- and policy-scoped job, not a widget-local future.
+Every submission captures an immutable `(account, credential revision, network
+revision, illust/page/frame, destination, format)` snapshot. A product
+submission must have a usable account and the fixed `Pictures/PixivFunc`
+destination; legacy in-memory test submissions may remain unowned only when
+the manager is explicitly configured for that test boundary.
+
+The manager exposes `queued`, `running`, `canceling`, `finalizing`,
+`succeeded`, `failed`, `canceled`, `retryable` and `orphaned`. Only the first
+three successful/failed/canceled outcomes plus `orphaned` are terminal;
+`retryable` requires an explicit user retry and is never opened automatically
+after recovery. Each
+job emits one terminal event. Groups capture one submission boundary and
+aggregate child states without replacing child ownership.
+
+Pending output is owned by an opaque owner record containing the job and
+account identity; it must not expose temporary filesystem paths or
+credentials. MediaStore writes use pending rows and become visible only after
+successful finalize. Abort, finalize and terminal cleanup are idempotent and
+must be guarded against duplicate callbacks. Owner checks run before output
+creation, before transport/write/finalize, and while streaming. A provider
+returning `null` after logout is a boundary change, not permission to fall
+back to the submission-time context.
+
+On process recovery, only a record whose job, owner, account, credential
+revision, network revision and destination exactly match the current context
+may be restored as `retryable`; recovery does not auto-start it. Mismatched,
+invalid or unknown records become observable `orphaned` records, and known
+pending MediaStore rows are cleaned only through their opaque owner. Cleanup
+failure remains visible in recovery diagnostics. A crash observed in
+`finalizing` is treated as `orphaned` rather than retried, because the output
+may already have become visible. Group membership is rebuilt from child
+snapshots before the recovered group status is exposed. HTTP `Retry-After` and the
+stable auth/rate/network/storage/permission/decode/resource failure classes
+are retained in the job snapshot without storing request headers or tokens.
+
+Ugoira export follows the same owner fence, bounded frame/pixel/output
+budgets, cancellation checks and one pending output. It emits `finalizing`
+before the sink finalize call and publishes success only after finalize
+returns. API 29+ pending-row behavior is verified through the Android bridge;
+API 35 MuMu evidence must remain separate from any unavailable API 36 run.
 
 ## Common Mistakes
 
