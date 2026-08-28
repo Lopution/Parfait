@@ -37,10 +37,14 @@ sealed class PixivCallback {
 }
 
 class PixivCallbackCode extends PixivCallback {
-  const PixivCallbackCode(this.code);
+  const PixivCallbackCode(this.code, {this.state});
 
   /// Exactly one non-empty authorization code.
   final String code;
+
+  /// The authorization state, when supplied by the callback. OAuthService
+  /// requires it to match the live PKCE session before accepting the code.
+  final String? state;
 }
 
 class PixivCallbackOther extends PixivCallback {
@@ -65,6 +69,16 @@ PixivCallback parsePixivAccountCallback(Uri uri) {
   if (uri.scheme != 'pixiv' || uri.host != 'account') {
     return PixivCallbackOther(uri);
   }
+  if (uri.path.isNotEmpty ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasFragment ||
+      uri.hasPort) {
+    return PixivCallbackInvalid(uri, 'invalid callback URI shape');
+  }
+  final keys = uri.queryParametersAll.keys.toSet();
+  if (!keys.every((key) => key == 'code' || key == 'state')) {
+    return PixivCallbackInvalid(uri, 'unexpected callback parameter');
+  }
   final codes = uri.queryParametersAll['code'];
   if (codes == null) {
     return PixivCallbackInvalid(uri, 'missing code');
@@ -76,5 +90,12 @@ PixivCallback parsePixivAccountCallback(Uri uri) {
   if (code.isEmpty) {
     return PixivCallbackInvalid(uri, 'empty code');
   }
-  return PixivCallbackCode(code);
+  final states = uri.queryParametersAll['state'];
+  if (states != null && states.length > 1) {
+    return PixivCallbackInvalid(uri, 'duplicate state');
+  }
+  if (states?.single.isEmpty ?? false) {
+    return PixivCallbackInvalid(uri, 'empty state');
+  }
+  return PixivCallbackCode(code, state: states?.single);
 }

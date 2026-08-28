@@ -67,6 +67,17 @@ void main() {
         expect(result, isA<PixivCallbackInvalid>(), reason: uri);
       }
     });
+
+    test('unknown callback parameters and fragments are invalid', () {
+      for (final uri in [
+        'pixiv://account?code=a&unexpected=1',
+        'pixiv://account?code=a#fragment',
+        'pixiv://account/path?code=a',
+      ]) {
+        final result = parsePixivAccountCallback(Uri.parse(uri));
+        expect(result, isA<PixivCallbackInvalid>(), reason: uri);
+      }
+    });
   });
 
   group('OAuthService session lifecycle', () {
@@ -84,6 +95,7 @@ void main() {
       expect(url.path, '/web/v1/login');
       expect(url.queryParameters['code_challenge_method'], 'S256');
       expect(url.queryParameters['client'], 'pixiv-android');
+      expect(url.queryParameters['state'], isNotEmpty);
       final challenge = url.queryParameters['code_challenge'];
       expect(challenge, isNotNull);
       expect(challenge!.length, 43); // base64url(sha256) without padding
@@ -106,6 +118,44 @@ void main() {
         () => service.exchangeCode('any'),
         throwsA(isA<OAuthException>()),
       );
+    });
+
+    test('callback must match the live session state and is single-use', () {
+      final service = OAuthService();
+      final session = service.beginSession();
+      final state = session.authorizeUrl.queryParameters['state'];
+      expect(state, isNotEmpty);
+
+      final accepted = service.validateRedirect(
+        Uri.parse('pixiv://account?code=abc&state=$state'),
+      );
+      expect(accepted, isA<PixivCallbackCode>());
+      expect(
+        service.validateRedirect(
+          Uri.parse('pixiv://account?code=def&state=$state'),
+        ),
+        isA<PixivCallbackInvalid>(),
+      );
+      expect(service.hasLiveSession, isFalse);
+    });
+
+    test('callback without or with a mismatched state clears the session', () {
+      final service = OAuthService();
+      service.beginSession();
+      expect(
+        service.validateRedirect(Uri.parse('pixiv://account?code=abc')),
+        isA<PixivCallbackInvalid>(),
+      );
+      expect(service.hasLiveSession, isFalse);
+
+      service.beginSession();
+      expect(
+        service.validateRedirect(
+          Uri.parse('pixiv://account?code=abc&state=wrong'),
+        ),
+        isA<PixivCallbackInvalid>(),
+      );
+      expect(service.hasLiveSession, isFalse);
     });
   });
 

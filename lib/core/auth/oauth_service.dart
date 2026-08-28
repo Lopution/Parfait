@@ -25,13 +25,20 @@ class OAuthException implements Exception {
 
 /// A single in-flight login attempt.
 class PkceSession {
-  PkceSession._(this.id, String verifier, this.challenge, this.expiresAt)
-    : _verifier = verifier;
+  PkceSession._(
+    this.id,
+    String verifier,
+    this.challenge,
+    this.expiresAt,
+    this.state,
+  ) : _verifier = verifier;
 
   final String id;
   final String challenge;
   final DateTime expiresAt;
+  final String state;
   bool consumed = false;
+  bool callbackConsumed = false;
   String? _verifier;
 
   /// The verifier is empty once the session has been consumed or cleared.
@@ -133,15 +140,17 @@ class OAuthService {
   }
 
   /// Creates the one-and-only PKCE session and the authorize URL to load.
-  ({Uri authorizeUrl, String sessionId}) beginSession() {
+  ({Uri authorizeUrl, String sessionId, String state}) beginSession() {
     discardSession();
     final verifier = Pkce.generateVerifier();
     final challenge = Pkce.computeChallenge(verifier);
+    final state = Pkce.generateVerifier();
     final session = PkceSession._(
       'pkce-${DateTime.now().microsecondsSinceEpoch}-${_sessionCounter++}',
       verifier,
       challenge,
       DateTime.now().add(_sessionTtl),
+      state,
     );
     _session = session;
     final url = _authorizeEndpoint.replace(
@@ -150,20 +159,34 @@ class OAuthService {
         'code_challenge': challenge,
         'code_challenge_method': 'S256',
         'client': 'pixiv-android',
+        'state': state,
       },
     );
-    return (authorizeUrl: url, sessionId: session.id);
+    return (authorizeUrl: url, sessionId: session.id, state: state);
   }
 
   /// Validates a WebView redirect. Returns the code only for a live session
   /// and a whitelisted `pixiv://account?code=...` URI.
   PixivCallback validateRedirect(Uri uri) {
     final parsed = parsePixivAccountCallback(uri);
-    if (parsed is! PixivCallbackCode) return parsed;
+    if (parsed is! PixivCallbackCode) {
+      if (parsed is PixivCallbackInvalid) discardSession();
+      return parsed;
+    }
     final session = _session;
     if (session == null || session.expired || session.consumed) {
+      discardSession();
       return PixivCallbackInvalid(uri, 'no live session');
     }
+    if (session.callbackConsumed) {
+      discardSession();
+      return PixivCallbackInvalid(uri, 'callback already consumed');
+    }
+    if (parsed.state == null || parsed.state != session.state) {
+      discardSession();
+      return PixivCallbackInvalid(uri, 'state mismatch');
+    }
+    session.callbackConsumed = true;
     return parsed;
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -8,6 +10,7 @@ import '../../core/auth/oauth_service.dart';
 import '../../core/auth/pkce.dart';
 import '../../core/network/compat/network_contracts.dart';
 import '../../core/network/compat/network_providers.dart';
+import '../../core/network/compat/webview_route.dart';
 
 /// OAuth login WebView.
 ///
@@ -33,8 +36,12 @@ class LoginWebViewPage extends ConsumerStatefulWidget {
   ConsumerState<LoginWebViewPage> createState() => _LoginWebViewPageState();
 }
 
-class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage> {
+class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
+    with WidgetsBindingObserver {
   late final WebViewController _controller;
+  WebViewRouteSession? _routeSession;
+  bool _routeInvalidated = false;
+  bool _disposed = false;
   bool _exchanging = false;
   double? _progress;
   String? _error;
@@ -42,52 +49,107 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.create) {
       // Direct signup; login with PKCE happens afterwards.
       final signupUrl = Uri.parse('https://accounts.pixiv.net/signup');
-      ref.read(webViewRoutePolicyProvider).validateDirect(
-            signupUrl,
-            purpose: PixivDestinationPurpose.accountsWeb,
-          );
+      _prepareRouteSession(signupUrl);
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setNavigationDelegate(NavigationDelegate(
-          onNavigationRequest: (request) => NavigationDecision.navigate,
-          onWebResourceError: (error) =>
-              _fail('页面加载失败 (${error.errorType ?? error.errorCode})'),
-        ))
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onNavigationRequest: _onSignupNavigationRequest,
+            onWebResourceError: (error) =>
+                _fail('页面加载失败 (${error.errorType ?? error.errorCode})'),
+          ),
+        )
         ..loadRequest(signupUrl);
       return;
     }
     final session = widget.oauthService.beginSession();
-    ref.read(webViewRoutePolicyProvider).validateDirect(
-          session.authorizeUrl,
-          purpose: PixivDestinationPurpose.accountsWeb,
-        );
+    _prepareRouteSession(session.authorizeUrl);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onNavigationRequest: _onNavigationRequest,
-        onProgress: (progress) {
-          if (mounted) setState(() => _progress = progress / 100.0);
-        },
-        onHttpError: (error) =>
-            _fail('网络错误 (HTTP ${error.response?.statusCode})'),
-        onWebResourceError: (error) =>
-            _fail('页面加载失败 (${error.errorType ?? error.errorCode})'),
-      ))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: _onNavigationRequest,
+          onProgress: (progress) {
+            if (mounted) setState(() => _progress = progress / 100.0);
+          },
+          onHttpError: (error) =>
+              _fail('网络错误 (HTTP ${error.response?.statusCode})'),
+          onWebResourceError: (error) =>
+              _fail('页面加载失败 (${error.errorType ?? error.errorCode})'),
+        ),
+      )
       ..loadRequest(session.authorizeUrl);
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     // Cancellation and page disposal must never leave a live verifier behind.
     widget.oauthService.discardSession();
+    unawaited(_closeRouteSession(WebViewRouteInvalidationReason.pageDisposed));
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) return;
+    _fail('页面已暂停，请重新打开');
+  }
+
+  void _prepareRouteSession(Uri uri) {
+    // Keep the synchronous direct validation in front of the asynchronous
+    // capability probe so malformed production URLs fail at construction.
+    ref
+        .read(webViewRoutePolicyProvider)
+        .validateDirect(uri, purpose: PixivDestinationPurpose.accountsWeb);
+    unawaited(_openRouteSession(uri));
+  }
+
+  Future<void> _openRouteSession(Uri uri) async {
+    try {
+      final session = await WebViewRouteSession.open(
+        policy: ref.read(webViewRoutePolicyProvider),
+        uri: uri,
+        purpose: PixivDestinationPurpose.accountsWeb,
+      );
+      if (!mounted || _disposed || _routeInvalidated) {
+        await session.close();
+        return;
+      }
+      _routeSession = session;
+    } on Object catch (error) {
+      if (mounted) _fail('WebView 路由不可用 (${error.runtimeType})');
+    }
+  }
+
+  Future<void> _closeRouteSession(WebViewRouteInvalidationReason reason) async {
+    _routeInvalidated = true;
+    final session = _routeSession;
+    _routeSession = null;
+    if (session != null) await session.invalidate(reason);
+  }
+
+  NavigationDecision _onSignupNavigationRequest(NavigationRequest request) {
+    final uri = _parseNavigationUri(request.url);
+    if (uri == null || !_isAllowedWebNavigation(uri)) {
+      _fail('已拒绝非 Pixiv WebView 导航');
+      return NavigationDecision.prevent;
+    }
+    return NavigationDecision.navigate;
+  }
+
   NavigationDecision _onNavigationRequest(NavigationRequest request) {
-    final parsed = widget.oauthService.validateRedirect(Uri.parse(request.url));
+    final uri = _parseNavigationUri(request.url);
+    if (uri == null) {
+      _fail('登录导航地址无效');
+      return NavigationDecision.prevent;
+    }
+    final parsed = widget.oauthService.validateRedirect(uri);
     switch (parsed) {
       case PixivCallbackCode(:final code):
         _exchange(code);
@@ -96,7 +158,40 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage> {
         _fail('登录回调无效: $reason');
         return NavigationDecision.prevent;
       case PixivCallbackOther():
+        if (uri.scheme != 'http' && uri.scheme != 'https') {
+          _fail('已拒绝非 HTTPS Pixiv 登录导航');
+          return NavigationDecision.prevent;
+        }
+        if (!_isAllowedWebNavigation(uri)) {
+          _fail('已拒绝非 Pixiv 登录导航');
+          return NavigationDecision.prevent;
+        }
         return NavigationDecision.navigate;
+    }
+  }
+
+  Uri? _parseNavigationUri(String raw) {
+    try {
+      return Uri.parse(raw);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  bool _isAllowedWebNavigation(Uri uri) {
+    try {
+      final session = _routeSession;
+      if (_routeInvalidated && session == null) return false;
+      if (session != null) {
+        session.validate(uri);
+      } else {
+        ref
+            .read(webViewRoutePolicyProvider)
+            .validateDirect(uri, purpose: PixivDestinationPurpose.accountsWeb);
+      }
+      return true;
+    } on Object {
+      return false;
     }
   }
 
@@ -109,7 +204,9 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage> {
     try {
       final result = await widget.oauthService.exchangeCode(code);
       if (!mounted) return;
-      await ref.read(accountStoreProvider.notifier).upsertAccount(
+      await ref
+          .read(accountStoreProvider.notifier)
+          .upsertAccount(
             Account(
               id: result.accountId,
               userId: result.profile.userId,
@@ -124,10 +221,14 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage> {
       Navigator.of(context).pop(true);
     } on OAuthException catch (error) {
       _fail('登录失败: $error');
+    } on Object catch (error) {
+      _fail('登录失败 (${error.runtimeType})');
     }
   }
 
   void _fail(String message) {
+    widget.oauthService.discardSession();
+    unawaited(_closeRouteSession(WebViewRouteInvalidationReason.authFailure));
     if (!mounted) return;
     setState(() {
       _exchanging = false;

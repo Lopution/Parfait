@@ -840,6 +840,39 @@ before the sink finalize call and publishes success only after finalize
 returns. API 29+ pending-row behavior is verified through the Android bridge;
 API 35 MuMu evidence must remain separate from any unavailable API 36 run.
 
+### Android Platform Boundary Contract (`IntentRouter`, `WebViewRouteSession`)
+
+Android platform messages are untrusted input. `AndroidIntentChannel` may
+forward only action, opaque URI, MIME, read-grant and bounded-size metadata;
+it must never forward cookies, credentials or file contents. `IntentRouter`
+then performs the final typed validation: VIEW accepts only the exact Pixiv
+schemes/hosts/paths, SEND requires the single `EXTRA_STREAM` content URI,
+explicit read permission, a concrete `image/*` subtype and a bounded positive
+size. Unknown actions, extras, URI shapes and malformed channel payloads are
+observable rejections, not empty routes.
+
+Each WebView navigation captures a `WebViewRouteSession` with an exact
+destination host set and `NetworkRevision`. A compatibility loopback can only
+be opened by an active session after all AndroidX capability gates and a
+concrete adapter are present; the default production provider is direct-only
+and fail-closed. Owners use idempotent leases, and page disposal, background,
+logout, authentication failure or a stale network revision closes the session
+and any listener. The route never disables TLS validation, changes SNI/Host,
+uses a fixed IP as a security decision or serves a non-Pixiv origin.
+
+OAuth WebView navigation must validate the exact `pixiv://account` callback
+against the live one-use PKCE session and matching state before exchange.
+Invalid callback parameters and non-Pixiv web navigation are rejected and
+discard the session. Root back handling is lifecycle-aware: the one-second
+double-back window is cleared when a child route is pushed or the app leaves
+the resumed state.
+
+Android evidence must identify the verified MuMu serial, state/API level,
+proxy/VPN state, WebView provider, route and failure scope. `MuMu
+emulator-tested, not physical-device-tested` is required wording; API 35
+results do not satisfy an API 36 criterion and must retain an explicit API 36
+blocker when no API 36 image is available.
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

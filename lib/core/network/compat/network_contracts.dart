@@ -17,34 +17,38 @@ abstract interface class NetworkCancelSignal {
 /// A destination purpose is part of the allowlist decision. A host being
 /// trusted for images must not implicitly make it trusted for OAuth or web
 /// navigation.
-enum PixivDestinationPurpose {
-  appApi,
-  oauth,
-  accountsWeb,
-  pixivWeb,
-  image,
-}
+enum PixivDestinationPurpose { appApi, oauth, accountsWeb, pixivWeb, image }
 
 /// The only origins the app may contact through its Pixiv compatibility
 /// policy. Host matching is exact after lowercase canonicalization; suffixes,
 /// IP literals, userinfo, fragments and non-443 ports are rejected.
 class PixivDestinationRegistry {
-  PixivDestination? resolve(
-    Uri uri,
-    PixivDestinationPurpose purpose,
-  ) {
+  PixivDestination? resolve(Uri uri, PixivDestinationPurpose purpose) {
     final host = _canonicalHost(uri);
     if (host == null || !_allows(host, purpose)) return null;
     return PixivDestination(uri: uri, canonicalHost: host, purpose: purpose);
   }
 
-  PixivDestination require(
-    Uri uri,
-    PixivDestinationPurpose purpose,
-  ) {
+  PixivDestination require(Uri uri, PixivDestinationPurpose purpose) {
     final destination = resolve(uri, purpose);
     if (destination != null) return destination;
     throw PixivDestinationException(purpose);
+  }
+
+  /// Returns the complete exact-host set for a purpose. Consumers such as a
+  /// WebView route session retain this set with the captured network revision
+  /// instead of reconstructing a broader suffix allowlist.
+  Set<String> allowedHosts(PixivDestinationPurpose purpose) {
+    return Set.unmodifiable(switch (purpose) {
+      PixivDestinationPurpose.appApi => {'app-api.pixiv.net'},
+      PixivDestinationPurpose.oauth => {'oauth.secure.pixiv.net'},
+      PixivDestinationPurpose.accountsWeb => {
+        'app-api.pixiv.net',
+        'accounts.pixiv.net',
+      },
+      PixivDestinationPurpose.pixivWeb => {'www.pixiv.net'},
+      PixivDestinationPurpose.image => {'i.pximg.net', 's.pximg.net'},
+    });
   }
 
   static String? _canonicalHost(Uri uri) {
@@ -92,7 +96,8 @@ class PixivDestinationException implements Exception {
   final PixivDestinationPurpose purpose;
 
   @override
-  String toString() => 'PixivDestinationException: destination not allowed for '
+  String toString() =>
+      'PixivDestinationException: destination not allowed for '
       '$purpose';
 }
 
@@ -141,24 +146,21 @@ class NetworkRoute {
     this.ttl,
   });
 
-  factory NetworkRoute.direct(NetworkRevision revision) => NetworkRoute._(
-        kind: NetworkRouteKind.direct,
-        revision: revision,
-      );
+  factory NetworkRoute.direct(NetworkRevision revision) =>
+      NetworkRoute._(kind: NetworkRouteKind.direct, revision: revision);
 
   factory NetworkRoute.secureDns(
     NetworkRevision revision,
     InternetAddress address, {
     DnsSource dnsSource = DnsSource.system,
     Duration? ttl,
-  }) =>
-      NetworkRoute._(
-        kind: NetworkRouteKind.secureDns,
-        revision: revision,
-        address: address,
-        dnsSource: dnsSource,
-        ttl: ttl,
-      );
+  }) => NetworkRoute._(
+    kind: NetworkRouteKind.secureDns,
+    revision: revision,
+    address: address,
+    dnsSource: dnsSource,
+    ttl: ttl,
+  );
 
   final NetworkRouteKind kind;
   final NetworkRevision revision;
@@ -173,13 +175,13 @@ class NetworkRoute {
   };
 
   String get key => [
-        revision.value,
-        revision.networkIdentity,
-        kind.name,
-        ipFamily.name,
-        dnsSource.name,
-        address?.address ?? '',
-      ].join('|');
+    revision.value,
+    revision.networkIdentity,
+    kind.name,
+    ipFamily.name,
+    dnsSource.name,
+    address?.address ?? '',
+  ].join('|');
 }
 
 class NetworkFailure {
@@ -243,7 +245,8 @@ abstract final class TransportFailureClassifier {
     }
     if (error is HandshakeException || error is TlsException) {
       final text = error.toString().toLowerCase();
-      final isCertificate = text.contains('cert') ||
+      final isCertificate =
+          text.contains('cert') ||
           text.contains('hostname') ||
           text.contains('verify') ||
           text.contains('peer');
@@ -340,17 +343,17 @@ class NetworkDiagnosticEvent {
   final String capability;
 
   Map<String, Object> toMap() => {
-        'host': host,
-        'purpose': purpose.name,
-        'route': route.name,
-        'ip_family': ipFamily.name,
-        'dns_source': dnsSource.name,
-        'failure': failure.name,
-        'latency_ms': latency.inMilliseconds,
-        'network_revision': revision.value,
-        'network_identity': revision.networkIdentity,
-        'capability': capability,
-      };
+    'host': host,
+    'purpose': purpose.name,
+    'route': route.name,
+    'ip_family': ipFamily.name,
+    'dns_source': dnsSource.name,
+    'failure': failure.name,
+    'latency_ms': latency.inMilliseconds,
+    'network_revision': revision.value,
+    'network_identity': revision.networkIdentity,
+    'capability': capability,
+  };
 }
 
 class NetworkDiagnostics {

@@ -12,3 +12,6 @@ export 'android_platform_interfaces.dart'
         PendingMediaStoreItem,
         RecoverableMediaStoreSession,
         WebKitCapabilities;
+export 'android_intent_channel.dart';
+export 'intent_router.dart';
+export 'webkit_capabilities_channel.dart';
