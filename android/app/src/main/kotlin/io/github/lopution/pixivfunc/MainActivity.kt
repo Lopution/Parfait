@@ -10,11 +10,19 @@ class MainActivity : FlutterActivity() {
         MediaStoreChannel.configure(this, flutterEngine)
         AndroidIntentChannel.configure(this, flutterEngine)
         WebKitCapabilityChannel.configure(this, flutterEngine)
+        ReverseImageInputChannel.configure(this, flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         AndroidIntentChannel.dispatch(this, intent)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (ReverseImageInputChannel.onActivityResult(this, requestCode, resultCode, data)) {
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
     }
 }
