@@ -45,6 +45,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   bool _exchanging = false;
   double? _progress;
   String? _error;
+  Uri? _mainFrameUri;
 
   @override
   void initState() {
@@ -53,33 +54,37 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     if (widget.create) {
       // Direct signup; login with PKCE happens afterwards.
       final signupUrl = Uri.parse('https://accounts.pixiv.net/signup');
+      _mainFrameUri = signupUrl;
       _prepareRouteSession(signupUrl);
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
           NavigationDelegate(
             onNavigationRequest: _onSignupNavigationRequest,
-            onWebResourceError: (error) =>
-                _fail('页面加载失败 (${error.errorType ?? error.errorCode})'),
+            onPageStarted: _onPageStarted,
+            onUrlChange: _onUrlChange,
+            onHttpError: _onHttpError,
+            onWebResourceError: _onWebResourceError,
           ),
         )
         ..loadRequest(signupUrl);
       return;
     }
     final session = widget.oauthService.beginSession();
+    _mainFrameUri = session.authorizeUrl;
     _prepareRouteSession(session.authorizeUrl);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: _onNavigationRequest,
+          onPageStarted: _onPageStarted,
+          onUrlChange: _onUrlChange,
           onProgress: (progress) {
             if (mounted) setState(() => _progress = progress / 100.0);
           },
-          onHttpError: (error) =>
-              _fail('网络错误 (HTTP ${error.response?.statusCode})'),
-          onWebResourceError: (error) =>
-              _fail('页面加载失败 (${error.errorType ?? error.errorCode})'),
+          onHttpError: _onHttpError,
+          onWebResourceError: _onWebResourceError,
         ),
       )
       ..loadRequest(session.authorizeUrl);
@@ -140,6 +145,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _fail('已拒绝非 Pixiv WebView 导航');
       return NavigationDecision.prevent;
     }
+    _mainFrameUri = uri;
     return NavigationDecision.navigate;
   }
 
@@ -166,8 +172,43 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
           _fail('已拒绝非 Pixiv 登录导航');
           return NavigationDecision.prevent;
         }
+        _mainFrameUri = uri;
         return NavigationDecision.navigate;
     }
+  }
+
+  void _onPageStarted(String rawUrl) {
+    final uri = _parseNavigationUri(rawUrl);
+    if (uri != null) _mainFrameUri = uri;
+  }
+
+  void _onUrlChange(UrlChange change) {
+    final rawUrl = change.url;
+    if (rawUrl == null) return;
+    final uri = _parseNavigationUri(rawUrl);
+    if (uri != null) _mainFrameUri = uri;
+  }
+
+  void _onHttpError(HttpResponseError error) {
+    // Android reports HTTP errors for every resource, not just the document.
+    // A failed tracker, stylesheet or captcha asset must not discard an
+    // otherwise usable PKCE session and make the next Pixiv navigation look
+    // foreign.
+    final requestUri = error.request?.uri;
+    final mainFrameUri = _mainFrameUri;
+    if (requestUri != null &&
+        mainFrameUri != null &&
+        requestUri != mainFrameUri) {
+      return;
+    }
+    _fail('网络错误 (HTTP ${error.response?.statusCode})');
+  }
+
+  void _onWebResourceError(WebResourceError error) {
+    // WebView surfaces subresource failures through this callback as well.
+    // Only a main-frame failure terminates the login attempt.
+    if (error.isForMainFrame == false) return;
+    _fail('页面加载失败 (${error.errorType ?? error.errorCode})');
   }
 
   Uri? _parseNavigationUri(String raw) {
