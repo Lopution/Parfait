@@ -927,6 +927,123 @@ beta56 fields and read-only values, but Save must remain disabled or fail with
 the typed unavailable reason; it must not scrape passwords, inject cookies,
 replay a body through another route or synthesize success.
 
+### Android Home Widget Snapshot and Background Contract
+
+#### 1. Scope / Trigger
+
+This contract applies to the Flutter-to-Android home-widget boundary. It is a
+cross-process render cache, not a second account or credential store. It covers
+Recommend/Refresh `RemoteViews`, cold-start background generation,
+account/credential/network ownership and widget click routing.
+
+#### 2. Signatures
+
+```dart
+Future<void> WidgetSnapshotStore.write(
+  WidgetSnapshot snapshot,
+  Map<String, List<int>> images,
+);
+Future<void> WidgetSnapshotStore.clear();
+Future<WidgetFeedResult> WidgetFeedLoader.load();
+```
+
+```kotlin
+fun WidgetUpdateCoordinator.ensurePeriodic(
+  context: Context,
+  accountRevision: Long = 0,
+)
+fun WidgetUpdateCoordinator.requestOneShotRefresh(context: Context): Boolean
+```
+
+The Dart background entrypoint is `widgetBackgroundMain`; native
+`WidgetBackgroundWorker` invokes it through a controlled Flutter engine and
+returns a typed outcome (`written`, `no_account`, `auth_required` or
+`transient`). Native widget code never creates an API, credential, DNS, proxy
+or TLS client.
+
+#### 3. Contracts
+
+- `active.json` is schema version `1` and contains only `schemaVersion`, a
+  truncated non-reversible `accountKey`, non-negative `accountRevision`,
+  `generatedAtMs`, and up to eight items. Each item contains positive
+  `illustId`/`userId`, bounded title/user name and a file name, never a URL,
+  cookie, token, credential or plaintext account identifier.
+- The snapshot directory contains `active.json`, `.write.lock` and `images/`.
+  Writers stage uniquely named image files and a temporary pointer, then flip
+  `active.json` last. Native reads only files below this directory and accepts
+  only the referenced image names.
+- A successful generation captures account id, credential revision and
+  `NetworkRevision` before the request and rechecks all three immediately
+  before publication. Account, credential or network changes make the result
+  `superseded`; they must not publish or clear the newer owner's state.
+- `no_account` and same-account `auth_required` clear the snapshot. A
+  transient network, parse, image or storage error retains the same-account
+  last-good snapshot and uses bounded WorkManager retry. No result is changed
+  into an empty success.
+- Periodic work uses one constrained unique name per widget family and account
+  revision with `KEEP`; refresh clicks use one-shot `KEEP`. Work is tagged for
+  cancellation when the last widget is removed. The minimum interval and
+  retry count remain bounded; no resident timer/service is introduced.
+- Pending intents are explicit, immutable, non-exported and data-unique per
+  widget slot. The accepted deep-link shape is exactly
+  `pixivfunc://illusts/<positive-id>`; extra query/fragment/authority forms
+  are rejected before navigation.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| Missing, malformed, unknown-version or oversize snapshot | Render the explicit open-app/empty state; never render partial fields |
+| Missing, unreferenced, unsafe or oversize image | Keep last-good generation on write failure; native render falls back to open-app state |
+| Account not ready or credential missing | Clear render state and report `no_account` only when absence is established; unreadable storage remains transient |
+| Account, credential or network revision changes in flight | Return `superseded`; do not clear or publish across the boundary |
+| HTTP/auth/rate/parse/network/image/storage failure | Preserve classified failure and same-account last-good; retry only through bounded WorkManager policy |
+| Widget resize/update storm | Coalesce unique work with `KEEP`; do not cancel an in-flight generation on every system update |
+| Last Recommend/Refresh widget deleted | Cancel the family schedule, and cancel all widget work only when both families are absent |
+| Unsupported click/deep-link or non-positive id | Reject without navigation and surface the existing failure state |
+
+#### 5. Good / Base / Bad Cases
+
+- Good: Flutter downloads covers through the shared exact-host image policy,
+  writes a secret-free generation, and native renders it after verifying the
+  account revision and bounded bitmap budget.
+- Base: a cover request times out while an older generation belongs to the
+  same account; the older generation remains visible and one bounded retry is
+  enqueued.
+- Bad: copying a refresh token into `SharedPreferences` or WorkData,
+  resolving a fixed IP in native code, deleting `active.json` before a new
+  generation is staged, or replaying a stale account's result after a network
+  revision change.
+
+#### 6. Tests Required
+
+- Snapshot tests assert schema/version, integer and text bounds, account-key
+  binding, age/corruption rejection, exact image references and no secret
+  fields.
+- Store tests inject a failed second-image stage and assert the previous
+  pointer and images remain readable, while temporary staged files are not
+  published.
+- Loader tests use delayed account/credential/network revisions to assert
+  `superseded`, same-account last-good retention, and account-invalid clear.
+- Android JVM tests assert integer-overflow-safe bitmap budgets, stale-time
+  overflow handling, provider export flags, unique family/revision work names,
+  `KEEP` policies and bounded retries.
+- MuMu evidence must identify the verified serial, API level, proxy/VPN and
+  NAT/route scope, and say `MuMu emulator-tested, not physical-device-tested`.
+  API 35 evidence does not satisfy an API 36 acceptance criterion; absent API
+  36 capability evidence remains an explicit blocker.
+
+#### 7. Wrong vs Correct
+
+**Wrong**: let native read the secure account database, keep a token in
+`RemoteViews`, clear the active pointer before downloading replacement images,
+or treat every background exception as an empty successful widget.
+
+**Correct**: publish a bounded, versioned, secret-free snapshot atomically
+from the shared Dart auth/network path, gate publication on account,
+credential and network revisions, preserve same-account last-good on transient
+failure, and make native rendering fail closed with unique bounded work.
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

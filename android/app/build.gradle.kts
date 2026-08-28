@@ -50,4 +50,8 @@ flutter {
 dependencies {
     implementation("androidx.core:core:1.15.0")
     implementation("androidx.webkit:webkit:1.15.0")
+    // Home widget background maintenance (08-26-android-home-widgets).
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
+    // Plain JVM tests for widget budget math.
+    testImplementation("junit:junit:4.13.2")
 }
