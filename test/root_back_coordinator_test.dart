@@ -1,5 +1,4 @@
-
-
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/platform/root_back_coordinator.dart';
 
@@ -79,6 +78,18 @@ void main() {
       coordinator.dispose();
       expect(coordinator.armed, isFalse);
       expect(coordinator.handleBackPress(), RootBackAction.showExitHint);
+      coordinator.dispose();
+    });
+
+    test('lifecycle and route transitions disarm an armed root exit', () {
+      final coordinator = RootBackCoordinator();
+      coordinator.handleBackPress();
+      coordinator.onLifecycleChange(AppLifecycleState.paused);
+      expect(coordinator.armed, isFalse);
+
+      coordinator.handleBackPress();
+      coordinator.onRoutePushed();
+      expect(coordinator.armed, isFalse);
       coordinator.dispose();
     });
   });

@@ -1,8 +1,8 @@
 // Platform interfaces for MediaStore streaming writes and AndroidX WebKit
 // capability queries (android-platform-parity R6/R7).
 //
-// Concrete MethodChannel implementations land with the download task; the
-// contracts here are final so consumers can be written against them now.
+// Concrete MethodChannel implementations stay behind these contracts so
+// consumers can remain independent of Android channel details.
 
 import '../download/download_recovery.dart';
 
@@ -74,6 +74,10 @@ abstract class WebKitCapabilities {
   /// Whether the current WebView supports the WebViewProxyController needed
   /// by the compatibility network mode.
   Future<bool> get supportsProxyController;
+
+  /// Whether the current WebView supports the reverse-bypass contract needed
+  /// to scope a proxy override to the approved Pixiv destinations.
+  Future<bool> get supportsProxyReverseBypass;
 
   /// Whether service-worker control APIs are available.
   Future<bool> get supportsServiceWorkerController;

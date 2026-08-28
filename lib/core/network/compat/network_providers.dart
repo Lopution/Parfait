@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'network_policy.dart';
+import '../../platform/webkit_capabilities_channel.dart';
 import 'webview_route.dart';
 
 /// App-scoped network policy. Every native Pixiv API/OAuth/image/download
@@ -23,8 +24,10 @@ final pixivNetworkFactoryProvider = Provider<PixivNetworkFactory>((ref) {
 /// validation. Compatibility loopback remains unavailable until a concrete
 /// AndroidX WebKit implementation and its capability evidence are present.
 final webViewRoutePolicyProvider = Provider<WebViewRoutePolicy>((ref) {
+  final policy = ref.watch(networkAccessPolicyProvider);
   return WebViewRoutePolicy(
-    registry: ref.watch(networkAccessPolicyProvider).registry,
-    capabilities: const UnsupportedWebKitCapabilities(),
+    registry: policy.registry,
+    capabilities: MethodChannelWebKitCapabilities(),
+    revisionProvider: () => policy.revision,
   );
 });

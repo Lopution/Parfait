@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 /// Coordinates the root double-back-to-exit behaviour (parent PRD R7).
 ///
@@ -10,7 +10,6 @@ import 'package:flutter/foundation.dart';
 /// it, so backgrounding the app or navigating deeper cannot cause a stale
 /// exit.
 class RootBackCoordinator {
-
   static const Duration exitWindow = Duration(seconds: 1);
 
   RootBackCoordinator({this.clock = DateTime.now});
@@ -31,8 +30,7 @@ class RootBackCoordinator {
   /// [RootBackAction.exit] when pressed again inside the window.
   RootBackAction handleBackPress() {
     final armedAt = _armedAt;
-    if (armedAt != null &&
-        clock().difference(armedAt) <= exitWindow) {
+    if (armedAt != null && clock().difference(armedAt) <= exitWindow) {
       disarm();
       return RootBackAction.exit;
     }
@@ -48,6 +46,17 @@ class RootBackCoordinator {
     _timer = null;
     _armedAt = null;
   }
+
+  /// A back gesture must not survive an Android lifecycle transition. This
+  /// keeps an interrupted predictive-back gesture or backgrounded activity
+  /// from turning a later, unrelated press into an exit.
+  void onLifecycleChange(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) disarm();
+  }
+
+  /// Nested navigation owns the next back result; clear root exit state when
+  /// a child route is pushed so it cannot leak across route boundaries.
+  void onRoutePushed() => disarm();
 
   void dispose() {
     disarm();

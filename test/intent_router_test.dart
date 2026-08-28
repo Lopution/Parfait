@@ -92,9 +92,7 @@ void main() {
     });
 
     test('unmapped pixiv.net paths are UnknownRoute, not ForeignUri', () {
-      final route = IntentRouter.route(
-        Uri.parse('https://www.pixiv.net/help'),
-      );
+      final route = IntentRouter.route(Uri.parse('https://www.pixiv.net/help'));
       expect(route, isA<UnknownRoute>());
     });
 
@@ -106,5 +104,21 @@ void main() {
         isA<UnknownRoute>(),
       );
     });
+
+    test(
+      'rejects extra path segments, fragments and ambiguous query routes',
+      () {
+        for (final uri in [
+          Uri.parse('pixiv://users/1/extra'),
+          Uri.parse('pixivfunc://illusts/1?unexpected=true'),
+          Uri.parse('https://www.pixiv.net/foo/u/1'),
+          Uri.parse('https://www.pixiv.net/u/1/extra'),
+          Uri.parse('https://www.pixiv.net/u/1#fragment'),
+          Uri.parse('https://www.pixiv.net/jump.php?illust_id=1&id=2'),
+        ]) {
+          expect(IntentRouter.route(uri), isA<UnknownRoute>(), reason: '$uri');
+        }
+      },
+    );
   });
 }
