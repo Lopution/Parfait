@@ -20,10 +20,7 @@ void main() {
       final verifiers = List.generate(20, (_) => Pkce.generateVerifier());
       for (final verifier in verifiers) {
         expect(verifier.length, Pkce.verifierLength);
-        expect(
-          verifier.split('').every(Pkce.verifierCharset.contains),
-          isTrue,
-        );
+        expect(verifier.split('').every(Pkce.verifierCharset.contains), isTrue);
       }
       // Randomness sanity: 20 draws never repeat.
       expect(verifiers.toSet().length, 20);
@@ -31,8 +28,10 @@ void main() {
 
     test('generateVerifier accepts an injected deterministic random', () {
       final verifier = Pkce.generateVerifier(random: Random(1));
-      expect(Pkce.computeChallenge(verifier),
-          Pkce.computeChallenge(Pkce.generateVerifier(random: Random(1))));
+      expect(
+        Pkce.computeChallenge(verifier),
+        Pkce.computeChallenge(Pkce.generateVerifier(random: Random(1))),
+      );
     });
   });
 
@@ -71,8 +70,7 @@ void main() {
   });
 
   group('OAuthService session lifecycle', () {
-    test('beginSession creates exactly one live session with S256 URL',
-        () {
+    test('beginSession creates exactly one live session with S256 URL', () {
       final service = OAuthService();
       final first = service.beginSession();
       expect(service.hasLiveSession, isTrue);
@@ -153,20 +151,20 @@ void main() {
           'profile_image_urls': {'main': 'https://img.example/main.jpg'},
         },
       };
-      server = await HttpServer.bind('127.0.0.1', 0);
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       server.listen((request) async {
         final body = await utf8.decoder.bind(request).join();
         receivedBodies.add(Uri.splitQueryString(body));
         request.response.statusCode = responseStatus;
         request.response.headers.contentType = ContentType.json;
-        request.response.write(responseJson is String
-            ? responseJson
-            : jsonEncode(responseJson));
+        request.response.write(
+          responseJson is String ? responseJson : jsonEncode(responseJson),
+        );
         await request.response.close();
       });
       service = OAuthService(
-        tokenEndpoint:
-            Uri.parse('http://127.0.0.1:${server.port}/auth/token'),
+        tokenEndpoint: Uri.parse('http://127.0.0.1:${server.port}/auth/token'),
+        exchangeTimeout: const Duration(seconds: 3),
       );
     });
 
@@ -175,57 +173,67 @@ void main() {
       service.discardSession();
     });
 
-    test('success consumes the session once and returns account data',
-        () async {
-      await tolerant(() async {
-        service.beginSession();
-        final result = await service.exchangeCode('the-code');
+    test(
+      'success consumes the session once and returns account data',
+      () async {
+        await tolerant(() async {
+          service.beginSession();
+          final result = await service.exchangeCode('the-code');
 
-        expect(result.accountId, '100');
-        expect(result.credential.accessToken, 'test-access');
-        expect(result.credential.refreshToken, 'test-refresh');
-        expect(result.profile.userId, 100);
-        expect(result.profile.name, 'tester');
+          expect(result.accountId, '100');
+          expect(result.credential.accessToken, 'test-access');
+          expect(result.credential.refreshToken, 'test-refresh');
+          expect(result.profile.userId, 100);
+          expect(result.profile.name, 'tester');
 
-        expect(receivedBodies, hasLength(1));
-        final body = receivedBodies.single;
-        expect(body['grant_type'], 'authorization_code');
-        expect(body['code'], 'the-code');
-        expect(body['client_id'], OAuthService.clientId);
-        expect(body['client_secret'], OAuthService.clientSecret);
-        expect(body['include_policy'], 'true');
-        expect(body['redirect_uri'], OAuthService.defaultRedirectUri);
-        expect(body['code_verifier'], hasLength(Pkce.verifierLength));
+          expect(receivedBodies, hasLength(1));
+          final body = receivedBodies.single;
+          expect(body['grant_type'], 'authorization_code');
+          expect(body['code'], 'the-code');
+          expect(body['client_id'], OAuthService.clientId);
+          expect(body['client_secret'], OAuthService.clientSecret);
+          expect(body['include_policy'], 'true');
+          expect(body['redirect_uri'], OAuthService.defaultRedirectUri);
+          expect(body['code_verifier'], hasLength(Pkce.verifierLength));
 
-        // One-time use: a second exchange with the same session fails.
-        await expectLater(
-          () => service.exchangeCode('the-code'),
-          throwsA(isA<OAuthException>()),
-        );
-      });
-    },
-        timeout: const Timeout(Duration(minutes: 2)));
+          // One-time use: a second exchange with the same session fails.
+          await expectLater(
+            () => service.exchangeCode('the-code'),
+            throwsA(isA<OAuthException>()),
+          );
+        });
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     test('exchange without a live session fails', () async {
       await expectLater(
-        () => service.exchangeCode('code'),
+        service.exchangeCode('code'),
         throwsA(isA<OAuthException>()),
       );
     });
 
-    test('exchange error response discards the session and surfaces status',
-        () async {
-      await tolerant(() async {
-        service.beginSession();
-        responseStatus = 400;
-        await expectLater(
-          () => service.exchangeCode('bad'),
-          throwsA(isA<OAuthException>()
-              .having((e) => e.statusCode, 'statusCode', 400)),
-        );
-        expect(service.hasLiveSession, isFalse);
-      });
-    }, timeout: const Timeout(Duration(minutes: 2)));
+    test(
+      'exchange error response discards the session and surfaces status',
+      () async {
+        await tolerant(() async {
+          service.beginSession();
+          responseStatus = 400;
+          await expectLater(
+            () => service.exchangeCode('bad'),
+            throwsA(
+              isA<OAuthException>().having(
+                (e) => e.statusCode,
+                'statusCode',
+                400,
+              ),
+            ),
+          );
+          expect(service.hasLiveSession, isFalse);
+        });
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     test('verifier is cleared after a failed exchange', () async {
       await tolerant(() async {

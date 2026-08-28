@@ -26,6 +26,10 @@ abstract class RawHop {
   void abort();
 }
 
+abstract interface class RawHopHeaders {
+  Map<String, String> get headers;
+}
+
 /// Production transport over a shared pooled `HttpClient` (R1). Redirects
 /// are followed manually so every hop is validated against the download
 /// host allowlist (R7). TLS failures propagate; there is no certificate
@@ -40,9 +44,9 @@ class HttpDownloadTransport
     this.maxRedirects = 5,
     Set<String>? allowedHosts,
     this.requireHttps = true,
-  })  : _ownsClient = client == null,
-        client = client ?? HttpClient(),
-        allowedHosts = allowedHosts ?? PixivClientIdentity.downloadHosts;
+  }) : _ownsClient = client == null,
+       client = client ?? HttpClient(),
+       allowedHosts = allowedHosts ?? PixivClientIdentity.downloadHosts;
 
   final HttpClient client;
   final int maxRedirects;
@@ -96,7 +100,11 @@ class HttpDownloadTransport
       }
       if (status < 200 || status >= 300) {
         await hopResponse.drain();
-        throw DownloadHttpStatusException(status, current);
+        throw DownloadHttpStatusException(
+          status,
+          current,
+          retryAfter: _retryAfter(hopResponse),
+        );
       }
       return HopDownloadResponse(hopResponse, cancelToken: cancelToken);
     }
@@ -122,15 +130,16 @@ class HttpDownloadTransport
     request.maxRedirects = 0;
     headers.forEach(request.headers.set);
     // Cancel before/while the request is in flight aborts the socket.
-    unawaited(cancelToken.whenCancel.then((_) {
-      try {
-        request.abort();
-      } on StateError {
-        // Already sent/response received; close() handles teardown.
-      } on HttpException {
-        // Socket already gone; nothing to abort.
-      }
-    }));
+    unawaited(
+      cancelToken.whenCancel.then((_) {
+        try {
+          request.abort();
+        } on Object {
+          // Already sent/response received or the socket is already gone;
+          // the response-side cancellation path still reports cancellation.
+        }
+      }),
+    );
     if (cancelToken.isCancelled) {
       request.abort();
       throw const DownloadCancelledException();
@@ -185,13 +194,13 @@ class HttpDownloadTransport
   }
 }
 
-class _IoHop implements RawHop {
+class _IoHop implements RawHop, RawHopHeaders {
   _IoHop(
     this._response, {
     required int? contentLength,
     required void Function() onAbort,
-  })  : _contentLength = contentLength,
-        _onAbort = onAbort;
+  }) : _contentLength = contentLength,
+       _onAbort = onAbort;
 
   final HttpClientResponse _response;
   final int? _contentLength;
@@ -203,6 +212,15 @@ class _IoHop implements RawHop {
   @override
   String? get locationHeader =>
       _response.headers.value(HttpHeaders.locationHeader);
+
+  @override
+  Map<String, String> get headers {
+    final result = <String, String>{};
+    _response.headers.forEach((name, values) {
+      result[name] = values.join(',');
+    });
+    return result;
+  }
 
   @override
   int? get contentLength => _contentLength;
@@ -220,18 +238,25 @@ class _IoHop implements RawHop {
 /// DownloadResponse over a RawHop with cancel injection: whenCancel produces
 /// an error event so consumers always terminate, even when the platform
 /// keeps the idle socket open.
-class HopDownloadResponse implements DownloadResponse {
+class HopDownloadResponse
+    implements DownloadResponse, DownloadResponseMetadata {
   HopDownloadResponse(this._hop, {required DownloadCancelToken cancelToken})
-      : _cancelToken = cancelToken {
-    unawaited(_cancelToken.whenCancel.then((_) {
-      _cancelled = true;
-      _hop.abort();
-    }));
+    : _cancelToken = cancelToken {
+    unawaited(
+      _cancelToken.whenCancel.then((_) {
+        _requestCancellation();
+      }),
+    );
   }
 
   final RawHop _hop;
   final DownloadCancelToken _cancelToken;
   bool _cancelled = false;
+  bool _sourceStopped = false;
+  bool _stopRequested = false;
+  StreamController<List<int>>? _controller;
+  StreamSubscription<List<int>>? _sourceSubscription;
+  Future<void>? _sourceCancellation;
 
   @override
   int? get contentLength => _hop.contentLength;
@@ -240,38 +265,108 @@ class HopDownloadResponse implements DownloadResponse {
   int get statusCode => _hop.statusCode;
 
   @override
+  Map<String, String> get headers =>
+      _hop is RawHopHeaders ? (_hop as RawHopHeaders).headers : const {};
+
+  @override
   Stream<List<int>> get stream {
     if (_cancelled) {
       throw const DownloadCancelledException();
     }
-    late StreamController<List<int>> controller;
-    StreamSubscription<List<int>>? sub;
+    late final StreamController<List<int>> controller;
     controller = StreamController<List<int>>(
       onListen: () {
-        sub = _hop.body.listen(
-          controller.add,
-          onError: controller.addError,
-          onDone: controller.close,
+        _controller = controller;
+        if (_cancelled) {
+          _requestCancellation();
+          return;
+        }
+        _sourceSubscription = _hop.body.listen(
+          _addSourceData,
+          onError: _addSourceError,
+          onDone: _closeFromSource,
         );
-        unawaited(_cancelToken.whenCancel.then((_) {
-          _hop.abort();
-          controller.addError(const DownloadCancelledException());
-          unawaited(sub?.cancel());
-          unawaited(controller.close());
-        }));
       },
-      onPause: () => sub?.pause(),
-      onResume: () => sub?.resume(),
-      onCancel: () => sub?.cancel(),
+      onPause: () => _sourceSubscription?.pause(),
+      onResume: () => _sourceSubscription?.resume(),
+      onCancel: () {
+        _sourceStopped = true;
+        return _cancelSource();
+      },
     );
+    _controller = controller;
     return controller.stream;
   }
 
   @override
   Future<void> close() {
     _cancelled = true;
-    _hop.abort();
+    _stopRequested = true;
+    _sourceStopped = true;
+    _abortHop();
+    unawaited(_cancelSource());
+    final controller = _controller;
+    if (controller != null && !controller.isClosed) {
+      unawaited(controller.close());
+    }
     return Future.value();
+  }
+
+  void _requestCancellation() {
+    if (_stopRequested) return;
+    _stopRequested = true;
+    _cancelled = true;
+    _sourceStopped = true;
+    _abortHop();
+    final controller = _controller;
+    if (controller != null && !controller.isClosed) {
+      controller.addError(const DownloadCancelledException());
+      unawaited(controller.close());
+    }
+    unawaited(_cancelSource());
+  }
+
+  void _addSourceData(List<int> data) {
+    final controller = _controller;
+    if (_sourceStopped || controller == null || controller.isClosed) return;
+    controller.add(data);
+  }
+
+  void _addSourceError(Object error, StackTrace stackTrace) {
+    final controller = _controller;
+    if (_sourceStopped || controller == null || controller.isClosed) return;
+    controller.addError(error, stackTrace);
+  }
+
+  void _closeFromSource() {
+    if (_sourceStopped) return;
+    _sourceStopped = true;
+    final controller = _controller;
+    if (controller != null && !controller.isClosed) {
+      unawaited(controller.close());
+    }
+  }
+
+  Future<void> _cancelSource() {
+    return _sourceCancellation ??= _cancelSourceOnce();
+  }
+
+  Future<void> _cancelSourceOnce() async {
+    try {
+      await _sourceSubscription?.cancel();
+    } on Object {
+      // The response/socket is already being torn down; cancellation remains
+      // observable through the downstream terminal event.
+    }
+  }
+
+  void _abortHop() {
+    try {
+      _hop.abort();
+    } on Object {
+      // Cancellation is best effort; never let a platform/socket abort error
+      // prevent the consumer from receiving its terminal cancellation event.
+    }
   }
 }
 
@@ -290,12 +385,32 @@ class DownloadTransportException implements Exception {
 }
 
 class DownloadHttpStatusException implements Exception {
-  const DownloadHttpStatusException(this.statusCode, this.url);
+  const DownloadHttpStatusException(
+    this.statusCode,
+    this.url, {
+    this.retryAfter,
+  });
 
   final int statusCode;
   final Uri url;
+  final Duration? retryAfter;
 
   @override
-  String toString() =>
-      'DownloadHttpStatusException: HTTP $statusCode for $url';
+  String toString() => 'DownloadHttpStatusException: HTTP $statusCode';
+}
+
+Duration? _retryAfter(RawHop hop) {
+  if (hop is! RawHopHeaders) return null;
+  String? value;
+  final headers = (hop as RawHopHeaders).headers;
+  for (final entry in headers.entries) {
+    if (entry.key.toLowerCase() == 'retry-after') {
+      value = entry.value.trim();
+      break;
+    }
+  }
+  if (value == null || value.isEmpty) return null;
+  final seconds = int.tryParse(value);
+  if (seconds == null || seconds < 0 || seconds > 86400) return null;
+  return Duration(seconds: seconds);
 }

@@ -4,6 +4,8 @@
 // Concrete MethodChannel implementations land with the download task; the
 // contracts here are final so consumers can be written against them now.
 
+import '../download/download_recovery.dart';
+
 /// A pending MediaStore insert. Writes go through [handle] and the item only
 /// becomes visible after [MediaStoreSession.finalize]; [abort] removes it.
 abstract class MediaStoreSession {
@@ -13,6 +15,40 @@ abstract class MediaStoreSession {
     required String displayName,
     required String mimeType,
   });
+}
+
+/// Optional owner-aware extension. Existing platform adapters can continue to
+/// implement [MediaStoreSession]; the download manager will retain its own
+/// metadata fence when this extension is unavailable.
+abstract interface class OwnedMediaStoreSession {
+  Future<MediaStoreHandle> beginOwned({
+    required String displayName,
+    required String mimeType,
+    required DownloadOutputOwner owner,
+  });
+}
+
+/// Metadata returned by a platform pending-row scan. It intentionally omits
+/// filesystem paths and content; only an opaque owner marker is exposed.
+class PendingMediaStoreItem {
+  const PendingMediaStoreItem({
+    required this.id,
+    required this.ownerId,
+    required this.displayName,
+  });
+
+  final int id;
+  final String? ownerId;
+  final String displayName;
+}
+
+/// Optional process-restart cleanup extension for API 29+ MediaStore.
+abstract interface class RecoverableMediaStoreSession {
+  Future<List<PendingMediaStoreItem>> listPending();
+
+  /// Deletes only the pending row carrying this exact opaque owner marker.
+  /// The platform must treat a missing or mismatched marker as a safe refusal.
+  Future<bool> abortPending(int id, {required String ownerId});
 }
 
 /// Streaming write handle for one pending MediaStore item.

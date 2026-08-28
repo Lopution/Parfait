@@ -6,12 +6,22 @@ import 'dart:ui' as ui;
 import 'package:image/image.dart' as img;
 
 import '../download/download_request.dart';
+import '../download/download_recovery.dart';
 import '../download/download_sink.dart';
 import '../download/download_transport.dart';
+import '../network/compat/network_contracts.dart';
 import 'ugoira_limits.dart';
 import 'ugoira_repository.dart';
+import 'ugoira_recovery.dart';
 
-enum UgoiraExportStatus { queued, running, succeeded, failed, canceled }
+enum UgoiraExportStatus {
+  queued,
+  running,
+  finalizing,
+  succeeded,
+  failed,
+  canceled,
+}
 
 class UgoiraExportSnapshot {
   const UgoiraExportSnapshot({
@@ -249,10 +259,7 @@ class _UgoiraGifWorker {
 
   void _handleWorkerExit() {
     if (_disposed) return;
-    _fail(
-      StateError('GIF worker exited unexpectedly'),
-      StackTrace.current,
-    );
+    _fail(StateError('GIF worker exited unexpectedly'), StackTrace.current);
   }
 
   void _fail(Object error, StackTrace stackTrace) {
@@ -370,25 +377,57 @@ class UgoiraExportJob {
     required UgoiraAsset asset,
     required DownloadSinkFactory sinkFactory,
     UgoiraGifEncoder Function(UgoiraLimits limits)? encoderFactory,
+    DownloadSubmissionContext? submissionContext,
+    DownloadSubmissionContext? Function()? submissionContextProvider,
+    DownloadRecoveryStore? recoveryStore,
+    String? jobId,
   }) : _asset = asset,
        _sinkFactory = sinkFactory,
        _encoderFactory =
            encoderFactory ??
            ((limits) => ImagePackageUgoiraGifEncoder(limits: limits)),
+       _submissionContext = submissionContext,
+       _submissionContextProvider = submissionContextProvider,
+       _recoveryStore = recoveryStore,
+       _jobId = jobId ?? 'ugoira_export_${asset.illustId}_${_nextExportId++}',
+       _submission = _makeSubmission(
+         asset,
+         jobId ?? 'ugoira_export_${asset.illustId}_${_nextExportId - 1}',
+         submissionContext,
+       ),
        _snapshot = UgoiraExportSnapshot.queued(asset.frameCount);
 
   final UgoiraAsset _asset;
   final DownloadSinkFactory _sinkFactory;
   final UgoiraGifEncoder Function(UgoiraLimits limits) _encoderFactory;
+  final DownloadSubmissionContext? _submissionContext;
+  final DownloadSubmissionContext? Function()? _submissionContextProvider;
+  final DownloadRecoveryStore? _recoveryStore;
+  final String _jobId;
+  final DownloadSubmissionSnapshot _submission;
   final _cancelToken = DownloadCancelToken();
   final _events = StreamController<UgoiraExportSnapshot>.broadcast();
   UgoiraExportSnapshot _snapshot;
   Future<UgoiraExportSnapshot>? _future;
   bool _terminal = false;
+  bool _cleanupStarted = false;
+  Object? _recoveryError;
+
+  DownloadSubmissionSnapshot get submission => _submission;
+
+  DownloadOutputOwner get outputOwner => DownloadOutputOwner(
+    ownerId: '$kUgoiraOutputOwnerPrefix$_jobId',
+    jobId: _jobId,
+    accountId: _submission.accountId,
+  );
 
   UgoiraExportSnapshot get snapshot => _snapshot;
 
   Stream<UgoiraExportSnapshot> get events => _events.stream;
+
+  /// Persistence failures remain inspectable without turning a successfully
+  /// finalized MediaStore item into a contradictory failed UI result.
+  Object? get recoveryError => _recoveryError;
 
   Future<UgoiraExportSnapshot> start() => _future ??= _run();
 
@@ -415,19 +454,15 @@ class UgoiraExportJob {
           totalFrames: _asset.frameCount,
         ),
       );
+      await _persistCurrent();
       _checkCanceled();
-      final request = DownloadRequest(
-        illustId: _asset.illustId,
-        pageIndex: 0,
-        url: Uri.parse(
-          'https://i.pximg.net/img-ugoira-export/${_asset.illustId}.gif',
-        ),
-        target: DownloadTarget.ugoiraGif,
-      );
-      sink = await _sinkFactory.begin(request, '${_asset.illustId}.gif');
+      _checkOwner();
+      sink = await _beginSink();
+      await _persistCurrent(pendingOutputId: _pendingOutputId(sink));
       encoder = _encoderFactory(_asset.limits);
       for (var index = 0; index < _asset.frameCount; index++) {
         _checkCanceled();
+        _checkOwner();
         ui.Image? image;
         try {
           image = await _asset.decodeFrame(index);
@@ -458,20 +493,31 @@ class UgoiraExportJob {
       }
       for (var offset = 0; offset < output.length; offset += 64 * 1024) {
         _checkCanceled();
+        _checkOwner();
         final end = (offset + 64 * 1024).clamp(0, output.length);
         await sink.write(output.sublist(offset, end));
       }
       _checkCanceled();
-      final uri = Uri.parse(await sink.finalize());
-      _emitTerminal(
+      _checkOwner();
+      _emit(
         UgoiraExportSnapshot(
-          status: UgoiraExportStatus.succeeded,
+          status: UgoiraExportStatus.finalizing,
           processedFrames: _asset.frameCount,
           totalFrames: _asset.frameCount,
-          uri: uri,
         ),
       );
+      await _persistCurrent(pendingOutputId: _pendingOutputId(sink));
+      final uri = Uri.parse(await sink.finalize());
+      final succeeded = UgoiraExportSnapshot(
+        status: UgoiraExportStatus.succeeded,
+        processedFrames: _asset.frameCount,
+        totalFrames: _asset.frameCount,
+        uri: uri,
+      );
+      _emitTerminal(succeeded);
+      await _persistBestEffort(value: succeeded, pendingOutputId: null);
     } on UgoiraExportCanceledException {
+      final pendingOutputId = _pendingOutputId(sink);
       await encoder?.dispose();
       await _abort(sink);
       _emitTerminal(
@@ -481,7 +527,9 @@ class UgoiraExportJob {
           totalFrames: _asset.frameCount,
         ),
       );
+      await _persistBestEffort(pendingOutputId: pendingOutputId);
     } catch (error) {
+      final pendingOutputId = _pendingOutputId(sink);
       await encoder?.dispose();
       await _abort(sink);
       _emitTerminal(
@@ -492,6 +540,7 @@ class UgoiraExportJob {
           error: error.toString(),
         ),
       );
+      await _persistBestEffort(pendingOutputId: pendingOutputId);
     }
     await encoder?.dispose();
     return _snapshot;
@@ -511,12 +560,89 @@ class UgoiraExportJob {
   }
 
   Future<void> _abort(DownloadSink? sink) async {
-    if (sink == null) return;
+    if (_cleanupStarted || sink == null) return;
+    _cleanupStarted = true;
     try {
       await sink.abort();
     } catch (_) {
       // Sink cleanup is isolated from the terminal failure. The sink contract
       // and platform bridge own their own pending-row recovery.
+    }
+  }
+
+  int? _pendingOutputId(DownloadSink? sink) {
+    if (sink == null || sink is! DownloadSinkOutputMetadata) return null;
+    return (sink as DownloadSinkOutputMetadata).pendingOutputId;
+  }
+
+  Future<void> _persistCurrent({int? pendingOutputId}) async {
+    final store = _recoveryStore;
+    if (store == null) return;
+    await store.upsert(
+      DownloadRecoveryRecord(
+        jobId: _jobId,
+        dedupeKey: 'ugoira/$_jobId',
+        snapshot: _submission,
+        owner: outputOwner,
+        status: _durableStatus(_snapshot.status),
+        pendingMediaStoreId: pendingOutputId,
+        finalUri: _snapshot.uri?.toString(),
+        error: _snapshot.error,
+      ),
+    );
+  }
+
+  Future<void> _persistBestEffort({
+    UgoiraExportSnapshot? value,
+    int? pendingOutputId,
+  }) async {
+    if (value != null) _snapshot = value;
+    try {
+      await _persistCurrent(pendingOutputId: pendingOutputId);
+    } on Object catch (error) {
+      _recoveryError ??= error;
+    }
+  }
+
+  static DownloadStatus _durableStatus(UgoiraExportStatus status) {
+    return switch (status) {
+      UgoiraExportStatus.queued => DownloadStatus.queued,
+      UgoiraExportStatus.running => DownloadStatus.running,
+      UgoiraExportStatus.finalizing => DownloadStatus.finalizing,
+      UgoiraExportStatus.succeeded => DownloadStatus.succeeded,
+      UgoiraExportStatus.failed => DownloadStatus.failed,
+      UgoiraExportStatus.canceled => DownloadStatus.canceled,
+    };
+  }
+
+  Future<DownloadSink> _beginSink() {
+    final request = _submission.request;
+    final factory = _sinkFactory;
+    if (factory is OwnedDownloadSinkFactory) {
+      return (factory as OwnedDownloadSinkFactory).beginOwned(
+        request,
+        _submission.displayName,
+        outputOwner,
+      );
+    }
+    return factory.begin(request, _submission.displayName);
+  }
+
+  void _checkOwner() {
+    if (!_submission.isOwned) return;
+    // A provider is authoritative once supplied. In particular, a provider
+    // returning null after logout must not fall back to the context captured
+    // when the export was submitted.
+    final provider = _submissionContextProvider;
+    final current = provider == null ? _submissionContext : provider();
+    if (current == null ||
+        current.accountId != _submission.accountId ||
+        current.credentialRevision != _submission.credentialRevision ||
+        current.networkRevision.value != _submission.networkRevision.value ||
+        current.networkRevision.networkIdentity !=
+            _submission.networkRevision.networkIdentity ||
+        current.destination != _submission.destination) {
+      throw const UgoiraExportOwnershipException();
     }
   }
 
@@ -536,4 +662,36 @@ class UgoiraExportJob {
 
 class UgoiraExportCanceledException implements Exception {
   const UgoiraExportCanceledException();
+}
+
+class UgoiraExportOwnershipException implements Exception {
+  const UgoiraExportOwnershipException();
+}
+
+var _nextExportId = 0;
+
+DownloadSubmissionSnapshot _makeSubmission(
+  UgoiraAsset asset,
+  String jobId,
+  DownloadSubmissionContext? context,
+) {
+  final request = DownloadRequest(
+    illustId: asset.illustId,
+    pageIndex: 0,
+    url: Uri.parse(
+      'https://i.pximg.net/img-ugoira-export/${asset.illustId}.gif',
+    ),
+    target: DownloadTarget.ugoiraGif,
+  );
+  return DownloadSubmissionSnapshot(
+    snapshotId: 'submission_$jobId',
+    jobId: jobId,
+    groupId: null,
+    request: request,
+    accountId: context?.accountId,
+    credentialRevision: context?.credentialRevision ?? 0,
+    networkRevision: context?.networkRevision ?? const NetworkRevision(0),
+    submittedAt: DateTime.now().toUtc(),
+    destination: context?.destination ?? kDownloadDestination,
+  );
 }

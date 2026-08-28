@@ -27,10 +27,13 @@ class IllustDownloadController {
     return switch (task.status) {
       DownloadStatus.queued ||
       DownloadStatus.running ||
+      DownloadStatus.finalizing ||
       DownloadStatus.canceling => IllustPageSaveState.downloading,
       DownloadStatus.failed => IllustPageSaveState.error,
       DownloadStatus.succeeded => IllustPageSaveState.exist,
-      DownloadStatus.canceled => IllustPageSaveState.none,
+      DownloadStatus.retryable ||
+      DownloadStatus.canceled ||
+      DownloadStatus.orphaned => IllustPageSaveState.none,
     };
   }
 

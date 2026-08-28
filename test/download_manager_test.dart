@@ -17,13 +17,12 @@ DownloadRequest request({
   int pageIndex = 0,
   String url = 'https://i.pximg.net/img-original/img/42_p0.jpg',
   DownloadTarget target = DownloadTarget.illustPage,
-}) =>
-    DownloadRequest(
-      illustId: illustId,
-      pageIndex: pageIndex,
-      url: Uri.parse(url),
-      target: target,
-    );
+}) => DownloadRequest(
+  illustId: illustId,
+  pageIndex: pageIndex,
+  url: Uri.parse(url),
+  target: target,
+);
 
 /// Scripted transport: each open() pops the next [ScriptedResponse].
 class FakeTransport implements DownloadTransport {
@@ -131,14 +130,14 @@ void main() {
       expect(request().displayName, '42_p0.jpg');
       expect(request().mimeType, 'image/jpeg');
       expect(
-        request(
-          url: 'https://i.pximg.net/img/42_p0.png',
-        ).displayName,
+        request(url: 'https://i.pximg.net/img/42_p0.png').displayName,
         '42_p0.png',
       );
       expect(
-        request(url: 'https://i.pximg.net/a/ugoiras.zip', target: DownloadTarget.ugoiraZip)
-            .mimeType,
+        request(
+          url: 'https://i.pximg.net/a/ugoiras.zip',
+          target: DownloadTarget.ugoiraZip,
+        ).mimeType,
         'application/zip',
       );
     });
@@ -186,15 +185,11 @@ void main() {
         throwsA(isA<FormatException>()),
       );
       expect(
-        () => validateDownloadUrl(
-          Uri.parse('https://i.pximg.net:8443/a.jpg'),
-        ),
+        () => validateDownloadUrl(Uri.parse('https://i.pximg.net:8443/a.jpg')),
         throwsA(isA<FormatException>()),
       );
       expect(
-        () => validateDownloadUrl(
-          Uri.parse('https://user@i.pximg.net/a.jpg'),
-        ),
+        () => validateDownloadUrl(Uri.parse('https://user@i.pximg.net/a.jpg')),
         throwsA(isA<FormatException>()),
       );
     });
@@ -222,10 +217,7 @@ void main() {
           ),
         );
       }
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: sinks,
-      );
+      final manager = DownloadManager(transport: transport, sinkFactory: sinks);
       addTearDown(manager.dispose);
 
       for (var i = 0; i < 5; i++) {
@@ -254,9 +246,12 @@ void main() {
     test('same target never starts twice (R4 dedupe)', () async {
       final transport = FakeTransport();
       transport.responses.add(
-        ScriptedResponse(contentLength: 4, chunks: [
-          [1, 2, 3, 4]
-        ]),
+        ScriptedResponse(
+          contentLength: 4,
+          chunks: [
+            [1, 2, 3, 4],
+          ],
+        ),
       );
       final manager = DownloadManager(
         transport: transport,
@@ -294,10 +289,7 @@ void main() {
         ),
       );
       final sinks = MemorySinkFactory();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: sinks,
-      );
+      final manager = DownloadManager(transport: transport, sinkFactory: sinks);
       addTearDown(manager.dispose);
 
       manager.submit(request());
@@ -334,27 +326,20 @@ void main() {
 
     test('cancel queued: terminal immediately, no sink, one event', () async {
       final transport = FakeTransport();
-      final gates = [
-        Completer<void>(),
-        Completer<void>(),
-        Completer<void>(),
-      ];
+      final gates = [Completer<void>(), Completer<void>(), Completer<void>()];
       for (final gate in gates) {
         transport.responses.add(
           ScriptedResponse(
             contentLength: 1,
             chunks: [
-              [1]
+              [1],
             ],
             completers: [gate],
           ),
         );
       }
       final sinks = MemorySinkFactory();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: sinks,
-      );
+      final manager = DownloadManager(transport: transport, sinkFactory: sinks);
       addTearDown(manager.dispose);
 
       final events = <DownloadEvent>[];
@@ -366,14 +351,15 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       // cap is 3 so all three run; the fourth queues.
       manager.submit(request(pageIndex: 3));
-      final fourthId = manager.tasks
-          .firstWhere((t) => t.pageIndex == 3)
-          .id;
+      final fourthId = manager.tasks.firstWhere((t) => t.pageIndex == 3).id;
       expect(manager.taskById(fourthId)!.status, DownloadStatus.queued);
       await manager.cancel(fourthId);
       expect(manager.taskById(fourthId)!.status, DownloadStatus.canceled);
-      expect(sinks.sinks, hasLength(3),
-          reason: 'canceled-queued task never opened a sink');
+      expect(
+        sinks.sinks,
+        hasLength(3),
+        reason: 'canceled-queued task never opened a sink',
+      );
 
       // Cancel a running task: canceling → canceled, sink aborted.
       final first = manager.tasks.firstWhere(
@@ -387,10 +373,7 @@ void main() {
       gates[0].complete();
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
-      expect(
-        manager.taskById(first.id)!.status,
-        DownloadStatus.canceled,
-      );
+      expect(manager.taskById(first.id)!.status, DownloadStatus.canceled);
       expect(sinks.sinks[0].aborted, isTrue);
       expect(sinks.sinks[0].finalized, isFalse);
 
@@ -402,48 +385,53 @@ void main() {
       await sub.cancel();
     });
 
-    test('failure aborts the sink, surfaces error and retry re-enqueues',
-        () async {
-      final transport = FakeTransport();
-      transport.responses.add(ScriptedResponse(error: Exception('boom')));
-      transport.responses.add(
-        ScriptedResponse(
-          contentLength: 2,
-          chunks: [
-            [9, 9]
-          ],
-        ),
-      );
-      final sinks = MemorySinkFactory();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: sinks,
-      );
-      addTearDown(manager.dispose);
+    test(
+      'failure aborts the sink, surfaces error and retry re-enqueues',
+      () async {
+        final transport = FakeTransport();
+        transport.responses.add(ScriptedResponse(error: Exception('boom')));
+        transport.responses.add(
+          ScriptedResponse(
+            contentLength: 2,
+            chunks: [
+              [9, 9],
+            ],
+          ),
+        );
+        final sinks = MemorySinkFactory();
+        final manager = DownloadManager(
+          transport: transport,
+          sinkFactory: sinks,
+        );
+        addTearDown(manager.dispose);
 
-      final events = <DownloadEvent>[];
-      final sub = manager.events.listen(events.add);
+        final events = <DownloadEvent>[];
+        final sub = manager.events.listen(events.add);
 
-      final task = manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
-      final failed = manager.taskById(task.id)!;
-      expect(failed.status, DownloadStatus.failed);
-      expect(failed.error, isNotNull);
-      expect(sinks.sinks.single.aborted, isTrue);
+        final task = manager.submit(request());
+        await _Watcher(manager).pumpUntilTerminal();
+        final failed = manager.taskById(task.id)!;
+        expect(failed.status, DownloadStatus.failed);
+        expect(failed.error, isNotNull);
+        expect(sinks.sinks.single.aborted, isTrue);
 
-      final retried = manager.retry(failed.id);
-      expect(retried, isNotNull);
-      // retry resubmits; the scheduler may dispatch synchronously.
-      expect(retried!.status, anyOf(DownloadStatus.queued, DownloadStatus.running));
-      await _Watcher(manager).pumpUntilTerminal();
-      expect(manager.taskById(retried.id)!.status, DownloadStatus.succeeded);
+        final retried = manager.retry(failed.id);
+        expect(retried, isNotNull);
+        // retry resubmits; the scheduler may dispatch synchronously.
+        expect(
+          retried!.status,
+          anyOf(DownloadStatus.queued, DownloadStatus.running),
+        );
+        await _Watcher(manager).pumpUntilTerminal();
+        expect(manager.taskById(retried.id)!.status, DownloadStatus.succeeded);
 
-      await Future<void>.delayed(Duration.zero);
-      expect(events, hasLength(2));
-      expect(events[0].kind, DownloadEventKind.failed);
-      expect(events[1].kind, DownloadEventKind.succeeded);
-      await sub.cancel();
-    });
+        await Future<void>.delayed(Duration.zero);
+        expect(events, hasLength(2));
+        expect(events[0].kind, DownloadEventKind.failed);
+        expect(events[1].kind, DownloadEventKind.succeeded);
+        await sub.cancel();
+      },
+    );
 
     test('retry is a no-op for unknown or non-failed tasks (R5)', () {
       final transport = FakeTransport();
@@ -454,8 +442,11 @@ void main() {
       addTearDown(manager.dispose);
       expect(manager.retry('missing'), isNull);
       final task = manager.submit(request());
-      expect(manager.retry(task.id), isNull,
-          reason: 'queued tasks are not retryable');
+      expect(
+        manager.retry(task.id),
+        isNull,
+        reason: 'queued tasks are not retryable',
+      );
     });
 
     test('progress snapshots are throttled (R5)', () async {
@@ -492,7 +483,7 @@ void main() {
         ScriptedResponse(
           contentLength: 1,
           chunks: [
-            [1]
+            [1],
           ],
         ),
       );
@@ -520,7 +511,7 @@ void main() {
           ScriptedResponse(
             contentLength: 1,
             chunks: [
-              [i]
+              [i],
             ],
           ),
         );
@@ -580,30 +571,33 @@ void main() {
   });
 
   group('MediaStore sink lifecycle (R6)', () {
-    test('finalize makes visible exactly once; second finalize throws', () async {
-      final sinks = MemorySinkFactory();
-      final manager = DownloadManager(
-        transport: FakeTransport()
-          ..responses.add(
-            ScriptedResponse(
-              contentLength: 3,
-              chunks: [
-                [1, 2, 3]
-              ],
+    test(
+      'finalize makes visible exactly once; second finalize throws',
+      () async {
+        final sinks = MemorySinkFactory();
+        final manager = DownloadManager(
+          transport: FakeTransport()
+            ..responses.add(
+              ScriptedResponse(
+                contentLength: 3,
+                chunks: [
+                  [1, 2, 3],
+                ],
+              ),
             ),
-          ),
-        sinkFactory: sinks,
-      );
-      addTearDown(manager.dispose);
-      manager.submit(request());
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-      expect(sinks.sinks, hasLength(1));
-      final sink = sinks.sinks.single;
-      expect(sink.finalized, isTrue);
-      expect(sink.aborted, isFalse);
-      expect(() => sink.finalize(), throwsStateError);
-    });
+          sinkFactory: sinks,
+        );
+        addTearDown(manager.dispose);
+        manager.submit(request());
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(sinks.sinks, hasLength(1));
+        final sink = sinks.sinks.single;
+        expect(sink.finalized, isTrue);
+        expect(sink.aborted, isFalse);
+        expect(() => sink.finalize(), throwsStateError);
+      },
+    );
 
     test('sink failures abort the pending item, never finalize', () async {
       final failingSinkFactory = _FailingSinkFactory();
@@ -613,7 +607,7 @@ void main() {
             ScriptedResponse(
               contentLength: 3,
               chunks: [
-                [1, 2, 3]
+                [1, 2, 3],
               ],
             ),
           ),
@@ -630,10 +624,7 @@ void main() {
     test('MediaStoreSinkFactory drives the session contract', () async {
       final session = _FakeMediaStoreSession();
       final factory = MediaStoreSinkFactory(session);
-      final sink = await factory.begin(
-        request(),
-        '42_p0.jpg',
-      );
+      final sink = await factory.begin(request(), '42_p0.jpg');
       await sink.write([1]);
       await sink.write([2, 3]);
       final uri = await sink.finalize();
@@ -642,12 +633,15 @@ void main() {
       expect(session.begins.single.mimeType, 'image/jpeg');
       expect(session.written, [
         [1],
-        [2, 3]
+        [2, 3],
       ]);
       expect(session.finalized, [1]);
       await sink.abort();
-      expect(session.aborted, isEmpty,
-          reason: 'abort after finalize is an idempotent no-op');
+      expect(
+        session.aborted,
+        isEmpty,
+        reason: 'abort after finalize is an idempotent no-op',
+      );
     });
 
     test('abort is idempotent and never throws through cleanup', () async {
@@ -688,19 +682,21 @@ void main() {
     });
 
     test('follows allowlisted redirects and streams the body', () async {
-      final transport = _ScriptedTransport(hops: [
-        _ScriptedHop(
-          statusCode: 302,
-          location: 'https://i.pximg.net/real.jpg',
-        ),
-        _ScriptedHop(
-          statusCode: 200,
-          contentLength: 5,
-          bodyChunks: [
-            [73, 77, 65, 71, 69] // IMAGE
-          ],
-        ),
-      ]);
+      final transport = _ScriptedTransport(
+        hops: [
+          _ScriptedHop(
+            statusCode: 302,
+            location: 'https://i.pximg.net/real.jpg',
+          ),
+          _ScriptedHop(
+            statusCode: 200,
+            contentLength: 5,
+            bodyChunks: [
+              [73, 77, 65, 71, 69], // IMAGE
+            ],
+          ),
+        ],
+      );
       final response = await transport.open(
         Uri.parse('https://i.pximg.net/a.jpg'),
         headers: const {},
@@ -716,12 +712,14 @@ void main() {
     });
 
     test('refuses cross-host redirects', () async {
-      final transport = _ScriptedTransport(hops: [
-        _ScriptedHop(
-          statusCode: 302,
-          location: 'https://evil.example.com/pwned.jpg',
-        ),
-      ]);
+      final transport = _ScriptedTransport(
+        hops: [
+          _ScriptedHop(
+            statusCode: 302,
+            location: 'https://evil.example.com/pwned.jpg',
+          ),
+        ],
+      );
       await expectLater(
         transport.open(
           Uri.parse('https://i.pximg.net/a.jpg'),
@@ -739,12 +737,14 @@ void main() {
     });
 
     test('refuses http redirects when https is required', () async {
-      final transport = _ScriptedTransport(hops: [
-        _ScriptedHop(
-          statusCode: 302,
-          location: 'http://i.pximg.net/downgrade.jpg',
-        ),
-      ]);
+      final transport = _ScriptedTransport(
+        hops: [
+          _ScriptedHop(
+            statusCode: 302,
+            location: 'http://i.pximg.net/downgrade.jpg',
+          ),
+        ],
+      );
       await expectLater(
         transport.open(
           Uri.parse('https://i.pximg.net/a.jpg'),
@@ -777,14 +777,8 @@ void main() {
       final loop = _ScriptedTransport(
         maxRedirects: 1,
         hops: [
-          _ScriptedHop(
-            statusCode: 302,
-            location: 'https://i.pximg.net/b.jpg',
-          ),
-          _ScriptedHop(
-            statusCode: 302,
-            location: 'https://i.pximg.net/c.jpg',
-          ),
+          _ScriptedHop(statusCode: 302, location: 'https://i.pximg.net/b.jpg'),
+          _ScriptedHop(statusCode: 302, location: 'https://i.pximg.net/c.jpg'),
         ],
       );
       await expectLater(
@@ -804,9 +798,9 @@ void main() {
     });
 
     test('surfaces non-2xx statuses without following', () async {
-      final transport = _ScriptedTransport(hops: [
-        _ScriptedHop(statusCode: 404),
-      ]);
+      final transport = _ScriptedTransport(
+        hops: [_ScriptedHop(statusCode: 404)],
+      );
       await expectLater(
         transport.open(
           Uri.parse('https://i.pximg.net/missing.jpg'),
@@ -818,7 +812,9 @@ void main() {
     });
 
     test('cancel before open throws immediately', () async {
-      final transport = _ScriptedTransport(hops: [_ScriptedHop(statusCode: 200)]);
+      final transport = _ScriptedTransport(
+        hops: [_ScriptedHop(statusCode: 200)],
+      );
       final token = DownloadCancelToken()..cancel();
       await expectLater(
         transport.open(
@@ -828,8 +824,11 @@ void main() {
         ),
         throwsA(isA<DownloadCancelledException>()),
       );
-      expect(transport.opened, isEmpty,
-          reason: 'cancelled request must not touch the network');
+      expect(
+        transport.opened,
+        isEmpty,
+        reason: 'cancelled request must not touch the network',
+      );
     });
 
     test('cancel mid-stream terminates the consumer and aborts', () async {
@@ -868,8 +867,7 @@ void main() {
     });
   });
 
-  group('HttpDownloadTransport over real sockets (environment-flaky)',
-      () {
+  group('HttpDownloadTransport over real sockets (environment-flaky)', () {
     // This WSL/flutter-test VM drops ~20% of loopback connections at the
     // dart:io layer (verified with a raw HttpClient repro, see research);
     // retry to keep the integration signal without masking logic bugs.
@@ -886,8 +884,8 @@ void main() {
       throw StateError('loopback still failing after retries: $lastError');
     }
 
-    test('streams a real body through a real server', () {
-      tolerant(() async {
+    test('streams a real body through a real server', () async {
+      await tolerant(() async {
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
         server.listen((req) async {
           req.response.statusCode = 200;
@@ -898,51 +896,75 @@ void main() {
           requireHttps: false,
           allowedHosts: {'127.0.0.1'},
         );
-        addTearDown(transport.dispose);
-        addTearDown(server.close);
-        final response = await transport.open(
-          Uri.parse('http://127.0.0.1:${server.port}/a.jpg'),
-          headers: const {},
-          cancelToken: DownloadCancelToken(),
-        );
-        final bytes = await response.stream.expand((c) => c).toList();
-        expect(bytes, utf8.encode('IMAGE'));
+        transport.client.connectionTimeout = const Duration(seconds: 5);
+        try {
+          final response = await transport.open(
+            Uri.parse('http://127.0.0.1:${server.port}/a.jpg'),
+            headers: const {},
+            cancelToken: DownloadCancelToken(),
+          );
+          final bytes = await response.stream
+              .expand((c) => c)
+              .toList()
+              .timeout(const Duration(seconds: 5));
+          expect(bytes, utf8.encode('IMAGE'));
+        } finally {
+          await transport.dispose();
+          await server.close(force: true);
+        }
       });
     });
 
-    test('cancel terminates a real in-flight transfer', () {
-      tolerant(() async {
+    test('cancel terminates a real in-flight transfer', () async {
+      await tolerant(() async {
         final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final requestStarted = Completer<void>();
+        final releaseResponse = Completer<void>();
         server.listen((req) async {
-          req.response.bufferOutput = false;
-          req.response.add(utf8.encode('x' * 4096));
-          await req.response.flush();
-          await Future<void>.delayed(const Duration(seconds: 5));
-          await req.response.close();
+          if (!requestStarted.isCompleted) requestStarted.complete();
+          try {
+            req.response.bufferOutput = false;
+            req.response.add(utf8.encode('x' * 4096));
+            await req.response.flush();
+            await releaseResponse.future;
+            await req.response.close();
+          } on Object {
+            // The client is expected to abort this response on cancellation.
+          }
         });
         final transport = HttpDownloadTransport(
           requireHttps: false,
           allowedHosts: {'127.0.0.1'},
         );
-        addTearDown(transport.dispose);
-        addTearDown(server.close);
-        final token = DownloadCancelToken();
-        final response = await transport.open(
-          Uri.parse('http://127.0.0.1:${server.port}/big.jpg'),
-          headers: const {},
-          cancelToken: token,
-        );
-        final terminated = Completer<void>();
-        final subscription = response.stream.listen((_) {},
+        transport.client.connectionTimeout = const Duration(seconds: 5);
+        try {
+          final token = DownloadCancelToken();
+          final response = await transport
+              .open(
+                Uri.parse('http://127.0.0.1:${server.port}/big.jpg'),
+                headers: const {},
+                cancelToken: token,
+              )
+              .timeout(const Duration(seconds: 5));
+          await requestStarted.future.timeout(const Duration(seconds: 2));
+          final terminated = Completer<void>();
+          response.stream.listen(
+            (_) {},
             onError: (Object _) {
-          if (!terminated.isCompleted) terminated.complete();
-        }, onDone: () {
-          if (!terminated.isCompleted) terminated.complete();
-        });
-        unawaited(subscription.cancel()); // stream done handles termination
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-        token.cancel();
-        await terminated.future.timeout(const Duration(seconds: 2));
+              if (!terminated.isCompleted) terminated.complete();
+            },
+            onDone: () {
+              if (!terminated.isCompleted) terminated.complete();
+            },
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          token.cancel();
+          await terminated.future.timeout(const Duration(seconds: 2));
+        } finally {
+          if (!releaseResponse.isCompleted) releaseResponse.complete();
+          await transport.dispose();
+          await server.close(force: true);
+        }
       });
     });
   });
@@ -950,12 +972,12 @@ void main() {
 
 class _ScriptedTransport extends HttpDownloadTransport {
   _ScriptedTransport({required List<_ScriptedHop> hops, int? maxRedirects})
-      : _pending = List.of(hops),
-        super(
-          client: HttpClient(),
-          maxRedirects: maxRedirects ?? 5,
-          allowedHosts: {'i.pximg.net'},
-        ) {
+    : _pending = List.of(hops),
+      super(
+        client: HttpClient(),
+        maxRedirects: maxRedirects ?? 5,
+        allowedHosts: {'i.pximg.net'},
+      ) {
     // The inherited pooled client is never used by the override below.
     client.close(force: true);
   }
@@ -981,8 +1003,8 @@ class _ScriptedHop implements RawHop {
     this.contentLength,
     List<List<int>> bodyChunks = const [],
     this.gates,
-  })  : _location = location,
-        _bodyChunks = bodyChunks;
+  }) : _location = location,
+       _bodyChunks = bodyChunks;
 
   @override
   final int statusCode;
@@ -1128,10 +1150,12 @@ class _Watcher {
   Future<void> pumpUntilTerminal() async {
     for (var i = 0; i < 500; i++) {
       await Future<void>.delayed(Duration.zero);
-      if (manager.tasks.every((t) =>
-          t.status == DownloadStatus.succeeded ||
-          t.status == DownloadStatus.failed ||
-          t.status == DownloadStatus.canceled)) {
+      if (manager.tasks.every(
+        (t) =>
+            t.status == DownloadStatus.succeeded ||
+            t.status == DownloadStatus.failed ||
+            t.status == DownloadStatus.canceled,
+      )) {
         return;
       }
     }

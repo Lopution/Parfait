@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../platform/android_platform_interfaces.dart';
+import 'download_recovery.dart';
 import 'download_request.dart';
 
 /// One pending output item. Mirrors the MediaStore pending lifecycle:
@@ -22,15 +23,66 @@ abstract class DownloadSinkFactory {
   Future<DownloadSink> begin(DownloadRequest request, String displayName);
 }
 
+/// Optional extension for factories that can register the opaque owner with
+/// the platform output before the first byte is written. Legacy/unit
+/// factories remain valid and are still fenced by the manager's metadata.
+abstract interface class OwnedDownloadSinkFactory {
+  Future<DownloadSink> beginOwned(
+    DownloadRequest request,
+    String displayName,
+    DownloadOutputOwner owner,
+  );
+}
+
+/// Optional sink metadata used to persist/recover a pending platform row.
+abstract interface class DownloadSinkOutputMetadata {
+  int? get pendingOutputId;
+}
+
+/// Optional factory capability for process-restart orphan cleanup.
+abstract interface class RecoverableDownloadSinkFactory {
+  Future<List<PendingMediaStoreItem>> listPending();
+
+  /// Returns false when the platform safely refused because the row was
+  /// missing or carried a different owner marker.
+  Future<bool> cleanupPending(int id, {required DownloadOutputOwner owner});
+}
+
 /// MediaStore-backed sink factory writing into Pictures/PixivFunc via the
 /// platform session (android-platform-parity contract).
-class MediaStoreSinkFactory implements DownloadSinkFactory {
+class MediaStoreSinkFactory
+    implements
+        DownloadSinkFactory,
+        OwnedDownloadSinkFactory,
+        RecoverableDownloadSinkFactory {
   MediaStoreSinkFactory(this._session);
 
   final MediaStoreSession _session;
 
   @override
-  Future<DownloadSink> begin(
+  Future<DownloadSink> begin(DownloadRequest request, String displayName) =>
+      _begin(request, displayName);
+
+  @override
+  Future<DownloadSink> beginOwned(
+    DownloadRequest request,
+    String displayName,
+    DownloadOutputOwner owner,
+  ) async {
+    final handle = _session is OwnedMediaStoreSession
+        ? await (_session as OwnedMediaStoreSession).beginOwned(
+            displayName: displayName,
+            mimeType: request.mimeType,
+            owner: owner,
+          )
+        : await _session.begin(
+            displayName: displayName,
+            mimeType: request.mimeType,
+          );
+    return _MediaStoreSink(handle);
+  }
+
+  Future<DownloadSink> _begin(
     DownloadRequest request,
     String displayName,
   ) async {
@@ -40,14 +92,37 @@ class MediaStoreSinkFactory implements DownloadSinkFactory {
     );
     return _MediaStoreSink(handle);
   }
+
+  @override
+  Future<List<PendingMediaStoreItem>> listPending() async {
+    if (_session is! RecoverableMediaStoreSession) return const [];
+    return (_session as RecoverableMediaStoreSession).listPending();
+  }
+
+  @override
+  Future<bool> cleanupPending(
+    int id, {
+    required DownloadOutputOwner owner,
+  }) async {
+    if (_session is! RecoverableMediaStoreSession) {
+      throw StateError('pending output recovery is unsupported');
+    }
+    return (_session as RecoverableMediaStoreSession).abortPending(
+      id,
+      ownerId: owner.ownerId,
+    );
+  }
 }
 
-class _MediaStoreSink implements DownloadSink {
+class _MediaStoreSink implements DownloadSink, DownloadSinkOutputMetadata {
   _MediaStoreSink(this._handle);
 
   final MediaStoreHandle _handle;
   bool _finished = false;
   bool _finalizing = false;
+
+  @override
+  int? get pendingOutputId => _finished ? null : _handle.id;
 
   @override
   Future<void> write(List<int> bytes) => _handle.write(bytes);
@@ -113,7 +188,8 @@ class MemorySink implements DownloadSink {
 }
 
 /// Factory handing out fresh memory sinks; records every sink for assertions.
-class MemorySinkFactory implements DownloadSinkFactory {
+class MemorySinkFactory
+    implements DownloadSinkFactory, OwnedDownloadSinkFactory {
   final sinks = <MemorySink>[];
 
   @override
@@ -125,4 +201,11 @@ class MemorySinkFactory implements DownloadSinkFactory {
     sinks.add(sink);
     return sink;
   }
+
+  @override
+  Future<DownloadSink> beginOwned(
+    DownloadRequest request,
+    String displayName,
+    DownloadOutputOwner owner,
+  ) => begin(request, displayName);
 }

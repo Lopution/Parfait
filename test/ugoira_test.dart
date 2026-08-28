@@ -7,7 +7,9 @@ import 'dart:ui' as ui;
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:pixiv_func/core/download/download_recovery.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
+import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/ugoira/ugoira_cache.dart';
 import 'package:pixiv_func/core/ugoira/ugoira_decoder.dart';
 import 'package:pixiv_func/core/ugoira/ugoira_export.dart';
@@ -335,6 +337,44 @@ void main() {
       await asset.dispose();
     });
 
+    test('logout provider invalidates the captured export owner', () async {
+      final metadata = UgoiraMetadata.fromJson(
+        _metadataJson([
+          {'file': '000000.png', 'delay': 80},
+        ]),
+      );
+      final index = SafeZipIndex.fromBytes(
+        _zip({'000000.png': _validOnePixelPng()}),
+        metadata: metadata,
+      );
+      final asset = UgoiraAsset(
+        illustId: 44,
+        metadata: metadata,
+        index: index,
+        file: File('/tmp/pixiv-func-test-ugoira-owner.zip'),
+      );
+      final sinks = MemorySinkFactory();
+      final job = UgoiraExportJob(
+        asset: asset,
+        sinkFactory: sinks,
+        submissionContext: const DownloadSubmissionContext(
+          accountId: 'account-a',
+          credentialRevision: 1,
+          networkRevision: NetworkRevision(2, networkIdentity: 'wifi'),
+        ),
+        submissionContextProvider: () => null,
+        encoderFactory: (_) => _FakeGifEncoder(),
+      );
+
+      final result = await job.start();
+
+      expect(result.status, UgoiraExportStatus.failed);
+      expect(result.error, contains('UgoiraExportOwnershipException'));
+      expect(sinks.sinks, isEmpty);
+      await job.dispose();
+      await asset.dispose();
+    });
+
     test(
       'writes a post-process output and emits one terminal success',
       () async {
@@ -359,10 +399,12 @@ void main() {
           file: File('/tmp/pixiv-func-test-ugoira.zip'),
         );
         final sinks = MemorySinkFactory();
+        final recoveryStore = MemoryDownloadRecoveryStore();
         final job = UgoiraExportJob(
           asset: asset,
           sinkFactory: sinks,
           encoderFactory: (_) => _FakeGifEncoder(),
+          recoveryStore: recoveryStore,
         );
         final events = <UgoiraExportSnapshot>[];
         final subscription = job.events.listen(events.add);
@@ -378,6 +420,14 @@ void main() {
           events.where((event) => event.status == UgoiraExportStatus.succeeded),
           hasLength(1),
         );
+        expect(
+          events.any((event) => event.status == UgoiraExportStatus.finalizing),
+          isTrue,
+        );
+        final recoveryRecord = (await recoveryStore.load()).single;
+        expect(recoveryRecord.status, DownloadStatus.succeeded);
+        expect(recoveryRecord.pendingMediaStoreId, isNull);
+        expect(recoveryRecord.snapshot.illustId, 42);
         await subscription.cancel();
         await job.dispose();
         await asset.dispose();

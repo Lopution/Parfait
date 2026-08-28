@@ -6,7 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
+import '../../../core/download/download_recovery.dart';
+import '../../../core/network/compat/network_providers.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
 import '../../../core/ugoira/ugoira_cache.dart';
@@ -150,7 +153,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                       onPressed: _export,
                       icon:
                           _exportJob?.snapshot.status ==
-                              UgoiraExportStatus.running
+                                  UgoiraExportStatus.running ||
+                              _exportJob?.snapshot.status ==
+                                  UgoiraExportStatus.finalizing
                           ? const SizedBox(
                               width: 22,
                               height: 22,
@@ -292,7 +297,8 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
 
   Future<void> _export() async {
     if (_disposed ||
-        _exportJob?.snapshot.status == UgoiraExportStatus.running) {
+        _exportJob?.snapshot.status == UgoiraExportStatus.running ||
+        _exportJob?.snapshot.status == UgoiraExportStatus.finalizing) {
       return;
     }
     if (_asset == null) await _load(play: false);
@@ -300,9 +306,21 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     if (asset == null || _disposed) return;
     final previousJob = _exportJob;
     if (previousJob != null) await previousJob.dispose();
+    final submissionContext = _currentDownloadContext();
+    if (submissionContext == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('请先登录后保存 GIF')));
+      }
+      return;
+    }
     final job = UgoiraExportJob(
       asset: asset,
       sinkFactory: ref.read(downloadSinkFactoryProvider),
+      recoveryStore: ref.read(ugoiraRecoveryStoreProvider),
+      submissionContext: submissionContext,
+      submissionContextProvider: _currentDownloadContext,
     );
     _exportJob = job;
     final subscription = job.events.listen((_) {
@@ -339,6 +357,17 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     if (error is UgoiraArchiveException) return '动图压缩包无效：${error.message}';
     if (error is UgoiraDecodeException) return '动图帧损坏：${error.message}';
     return '动图加载失败：$error';
+  }
+
+  DownloadSubmissionContext? _currentDownloadContext() {
+    final accountState = ref.read(accountStoreProvider).asData?.value;
+    final account = accountState?.usableCurrent;
+    if (accountState == null || account == null) return null;
+    return DownloadSubmissionContext(
+      accountId: account.id,
+      credentialRevision: accountState.credentialRevision,
+      networkRevision: ref.read(networkAccessPolicyProvider).revision,
+    );
   }
 }
 

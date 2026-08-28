@@ -32,6 +32,13 @@ abstract class DownloadResponse {
   Future<void> close();
 }
 
+/// Optional response metadata used for observable Retry-After handling.
+/// Keeping it separate preserves compatibility with small test/platform
+/// response adapters that only provide status, length and body.
+abstract interface class DownloadResponseMetadata {
+  Map<String, String> get headers;
+}
+
 /// Pluggable streaming transport so tests inject fakes while production uses
 /// the shared pooled [HttpClient] (R1).
 abstract class DownloadTransport {
