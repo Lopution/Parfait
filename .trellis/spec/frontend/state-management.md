@@ -1044,6 +1044,121 @@ from the shared Dart auth/network path, gate publication on account,
 credential and network revisions, preserve same-account last-good on transient
 failure, and make native rendering fail closed with unique bounded work.
 
+### Signed Updater and Distribution Flavor Contract (`UpdateService`, `lib/core/updater/`)
+
+#### 1. Scope / Trigger
+
+This contract applies to the About update flow and its Android flavor
+boundary. It covers signed release metadata, app-private APK downloads,
+unknown-source installation, process recovery, and the F-Droid no-network
+path. The updater is not a Pixiv API or image-download route.
+
+#### 2. Signatures
+
+```dart
+Future<UpdateCheckResult> UpdateService.check({
+  UpdateChannel channel = UpdateChannel.stable,
+});
+Future<UpdateApplyResult> UpdateService.apply(
+  UpdateRelease release, {
+  bool confirmed = false,
+});
+Future<void> UpdateService.cancel();
+Future<UpdateCapability> UpdateService.capability();
+UpdateManifest UpdateManifest.parse(String raw);
+```
+
+```kotlin
+// Both product flavors expose this channel; only the GitHub source set
+// implements verification, APK validation and installer intents.
+pixivfunc/updater:
+  getCapability -> { flavor, enabled, storeManaged }
+  getPlatformInfo -> { packageName, version, versionCode,
+                       signingCertificateSha256 }
+```
+
+#### 3. Contracts
+
+- A manifest is bounded to 64 KiB and must contain exactly `schema`,
+  `repository`, `tag`, `channel`, `version`, `versionCode`, and `asset`.
+  The repository is `Lopution/Pixiv-func`, the tag is `v<version>`, and the
+  asset contains an exact positive `size`, lowercase 64-character `sha256`,
+  the fixed package name and lowercase installed-certificate digest.
+- Manifest and detached signature are fetched only from exact HTTPS GitHub
+  release hosts. Redirects are manual, bounded, and revalidated at every hop;
+  manifest bytes are verified by the compile-time Ed25519 public key before
+  parsing or exposing a release. Missing/invalid key or signature is a typed
+  invalid result, never an available update.
+- `UpdateService.apply` requires `confirmed == true`, is single-flight, and
+  uses the exact signed URL through `DownloadManager` target `updaterApk`.
+  The stream writes to app-private `files/updates/`; final length, SHA-256,
+  package and APK signer are checked before `FileProvider` installation.
+- Durable update state contains only `downloadId`, version/versionCode,
+  signed asset identity, package/certificate digests and the owned path. On
+  restart it is reused only when the same manager task, target, URL, display
+  name and verified file still match. A missing or mismatched task/file is
+  cleaned and the next download requires the same explicit user confirmation.
+- The GitHub flavor declares the minimum install permission and requests the
+  Android per-source grant before an install intent. The intent uses a
+  `content://` URI, read grant and the controlled `updates/` FileProvider
+  path. F-Droid declares no install permission and its provider checks the
+  native store capability before constructing any updater `HttpClient`.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|---|---|
+| F-Droid capability or store-managed build | No manifest/signature/APK network request; render the store explanation and no inert update button |
+| Unknown schema/keys, malformed semver/channel/tag, oversize body or foreign URL | Reject before typed release creation; keep `release == null` |
+| Missing/invalid signature or missing public key | Return `invalid`; never expose `UpdateAvailable` |
+| HTTP 429, socket/timeout or bounded redirect failure | Return rate-limited/offline/typed failure; do not retry through another route |
+| Current version is equal/newer or stable sees beta | Return `noUpdate`/`prerelease`; do not install |
+| User has not confirmed | Return `requiresConfirmation`; no download or install call |
+| Size/hash/package/signer mismatch | Abort and delete the owned APK; return a typed failure |
+| Process restart with exact durable task and file | Reattach/verify that task; never auto-resume a different URL or hash |
+| Unknown-source permission absent or installer rejects | Surface permission/failure; retain only the explicitly recoverable owned state and never claim installation success |
+
+#### 5. Good / Base / Bad Cases
+
+- Good: a signed manifest points to an allowlisted `.apk`, the exact task
+  streams it into `files/updates`, all identity checks pass, and the user
+  confirms before the system installer receives a content URI.
+- Base: the process restarts after a partial updater task; recovery finds the
+  same task identity as `retryable`, and an explicit apply action retries that
+  exact task after clearing the partial file.
+- Bad: treating a GitHub API response, release title or redirect alone as a
+  trust root; accepting a public key supplied by the manifest; copying the APK
+  to shared storage; sending a F-Droid check request; or silently reinstalling
+  after an unknown-source denial.
+
+#### 6. Tests Required
+
+- Manifest tests assert exact keys/schema/repository/tag/channel/semver,
+  bounds and strict asset URL policy; service tests cover valid, invalid and
+  missing signatures, 429/offline, no-update and stable-prerelease states.
+- Download tests assert streaming sink usage, exact size/hash cleanup,
+  package/signer verification delegation, explicit confirmation, single-flight
+  check/apply and exact durable recovery identity.
+- Flavor contract tests assert product flavors, compile-time fields, merged
+  manifest permission differences, source-set separation, FileProvider paths
+  and F-Droid About store text without a button.
+- Android builds must run `assembleGithubDebug`, `assembleFdroidDebug`,
+  `assembleGithubRelease` and `assembleFdroidRelease`; device evidence must
+  identify flavor, API, proxy/VPN state and whether the installer permission
+  branch was actually exercised.
+
+#### 7. Wrong vs Correct
+
+**Wrong**: fetch the latest GitHub release JSON, trust its APK URL, download
+the bytes into shared storage, and call `ACTION_VIEW` without checking the
+installed certificate or asking the user.
+
+**Correct**: gate by compile-time distribution capability, fetch bounded
+manifest/signature over exact HTTPS hosts, verify the detached signature before
+parsing, stream through the updater-owned DownloadManager target, verify every
+identity field, require confirmation, and install only through a controlled
+content URI with an observable Android permission result.
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

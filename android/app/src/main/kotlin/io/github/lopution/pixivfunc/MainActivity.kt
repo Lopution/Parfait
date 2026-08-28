@@ -13,6 +13,7 @@ class MainActivity : FlutterActivity() {
         ReverseImageInputChannel.configure(this, flutterEngine)
         AccountTransferClipboardChannel.configure(this, flutterEngine)
         WidgetForegroundChannel.configure(this, flutterEngine)
+        DistributionUpdaterChannel.configure(this, flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {

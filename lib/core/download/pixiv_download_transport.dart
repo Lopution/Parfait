@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../network/pixiv_client_identity.dart';
 import 'download_transport.dart';
+import 'download_request.dart';
 
 /// One raw HTTP hop as observed by the redirect loop. Extracted so the
 /// hop-policy (allowlist, https, redirect limit, status handling) is unit
@@ -44,6 +45,7 @@ class HttpDownloadTransport
     this.maxRedirects = 5,
     Set<String>? allowedHosts,
     this.requireHttps = true,
+    this.strictUrlPolicy = false,
   }) : _ownsClient = client == null,
        client = client ?? HttpClient(),
        allowedHosts = allowedHosts ?? PixivClientIdentity.downloadHosts;
@@ -52,6 +54,11 @@ class HttpDownloadTransport
   final int maxRedirects;
   final Set<String> allowedHosts;
   final bool requireHttps;
+
+  /// When true, every redirect must remain a signed updater APK URL. This is
+  /// intentionally opt-in so legacy Pixiv image transports keep their own
+  /// destination contract.
+  final bool strictUrlPolicy;
   final bool _ownsClient;
 
   bool isAllowedHost(String host) => allowedHosts.contains(host.toLowerCase());
@@ -170,6 +177,9 @@ class HttpDownloadTransport
   }
 
   void _validateUrl(Uri url) {
+    if (strictUrlPolicy && !isStrictUpdateAssetUrl(url)) {
+      throw const DownloadTransportException('strict download URL rejected');
+    }
     if (requireHttps && url.scheme != 'https') {
       throw const DownloadTransportException('download URL must be https');
     }

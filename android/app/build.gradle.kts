@@ -9,6 +9,12 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    flavorDimensions += "distribution"
+
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -26,6 +32,25 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("boolean", "UPDATE_SELF_UPDATER_ENABLED", "true")
+            val publicKey = providers.gradleProperty("PIXIV_UPDATE_PUBLIC_KEY_DER_B64")
+                .orNull
+                ?.trim()
+                ?.replace("\\", "\\\\")
+                ?.replace("\"", "\\\"")
+                ?: ""
+            buildConfigField("String", "UPDATE_PUBLIC_KEY_DER_B64", "\"$publicKey\"")
+        }
+        create("fdroid") {
+            dimension = "distribution"
+            buildConfigField("boolean", "UPDATE_SELF_UPDATER_ENABLED", "false")
+            buildConfigField("String", "UPDATE_PUBLIC_KEY_DER_B64", "\"\"")
+        }
     }
 
     buildTypes {
