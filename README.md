@@ -1,5 +1,7 @@
 # Pixiv Func
 
+SPDX-License-Identifier: AGPL-3.0-only
+
 Pixiv Func 的现代化复刻项目，在尽量保留原版 UI、交互逻辑与使用体验的基础上，使用当前稳定版 Flutter 与现代 Android 技术栈重新实现。
 
 > 项目目标：先复刻体验，再逐步迭代。
@@ -15,8 +17,10 @@ Pixiv Func 的现代化复刻项目，在尽量保留原版 UI、交互逻辑与
 
 本项目基于原 Pixiv Func 项目的公开源码进行现代化复刻。原项目作者为 git-xiaocao（小草），原项目采用 GNU Affero General Public License v3.0。
 
-本仓库同样采用 AGPL-3.0 许可，并会保留原项目归属与修改说明。
+本仓库同样采用 AGPL-3.0-only 许可，并保留原项目归属与修改说明，详见
+`NOTICE` 和 `LICENSE`。
 
 ## 当前状态
 
-项目正在进行基础工程与第一条纵向功能链路的重建，暂未提供可用发行版。
+项目仍在进行 Replica v1 的集成验收，暂未提供可用发行版；当前状态和已知
+验证边界记录在 Trellis task evidence 中。
