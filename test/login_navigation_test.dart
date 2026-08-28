@@ -10,6 +10,7 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
+import 'package:pixiv_func/core/network/compat/webview_route.dart';
 import 'package:pixiv_func/app/widgets/replica_button.dart';
 import 'package:pixiv_func/app/widgets/replica_switch_tile.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
@@ -59,15 +60,29 @@ class _FakeWebViewController extends PlatformWebViewController {
 }
 
 class _FakeNavigationDelegate extends PlatformNavigationDelegate {
-  _FakeNavigationDelegate(super.params) : super.implementation();
+  _FakeNavigationDelegate(super.params) : super.implementation() {
+    latest = this;
+  }
+
+  static _FakeNavigationDelegate? latest;
+
+  NavigationRequestCallback? navigationRequest;
+  WebResourceErrorCallback? webResourceError;
+  HttpResponseErrorCallback? httpError;
+  PageEventCallback? pageStarted;
+  UrlChangeCallback? urlChange;
 
   @override
   Future<void> setOnNavigationRequest(
     NavigationRequestCallback? onNavigationRequest,
-  ) async {}
+  ) async {
+    navigationRequest = onNavigationRequest;
+  }
 
   @override
-  Future<void> setOnPageStarted(PageEventCallback? onPageStarted) async {}
+  Future<void> setOnPageStarted(PageEventCallback? onPageStarted) async {
+    pageStarted = onPageStarted;
+  }
 
   @override
   Future<void> setOnPageFinished(PageEventCallback? onPageFinished) async {}
@@ -78,10 +93,14 @@ class _FakeNavigationDelegate extends PlatformNavigationDelegate {
   @override
   Future<void> setOnWebResourceError(
     WebResourceErrorCallback? onWebResourceError,
-  ) async {}
+  ) async {
+    webResourceError = onWebResourceError;
+  }
 
   @override
-  Future<void> setOnUrlChange(UrlChangeCallback? onUrlChange) async {}
+  Future<void> setOnUrlChange(UrlChangeCallback? onUrlChange) async {
+    urlChange = onUrlChange;
+  }
 
   @override
   Future<void> setOnHttpAuthRequest(
@@ -89,7 +108,9 @@ class _FakeNavigationDelegate extends PlatformNavigationDelegate {
   ) async {}
 
   @override
-  Future<void> setOnHttpError(HttpResponseErrorCallback? onHttpError) async {}
+  Future<void> setOnHttpError(HttpResponseErrorCallback? onHttpError) async {
+    httpError = onHttpError;
+  }
 
   @override
   Future<void> setOnSSlAuthError(SslAuthErrorCallback? onSslAuthError) async {}
@@ -137,6 +158,7 @@ void main() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     WebViewPlatform.instance = _FakeWebViewPlatform();
+    _FakeNavigationDelegate.latest = null;
   });
 
   Widget wrap() {
@@ -173,6 +195,69 @@ void main() {
 
     expect(find.byType(LoginWebViewPage), findsOneWidget);
   });
+
+  testWidgets(
+    'subresource errors do not invalidate subsequent Pixiv login navigation',
+    (tester) async {
+      final service = OAuthService(exchangeTimeout: Duration.zero);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            credentialStoreProvider.overrideWithValue(
+              const _NoCredentialStore(),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(
+              const _EmptyMetadataRepository(),
+            ),
+            oauthServiceProvider.overrideWithValue(service),
+            webViewRoutePolicyProvider.overrideWithValue(
+              WebViewRoutePolicy(
+                registry: PixivDestinationRegistry(),
+                capabilities: const UnsupportedWebKitCapabilities(),
+              ),
+            ),
+          ],
+          child: MaterialApp(home: LoginWebViewPage(oauthService: service)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final delegate = _FakeNavigationDelegate.latest;
+      expect(delegate, isNotNull);
+      expect(delegate!.navigationRequest, isNotNull);
+      expect(delegate.webResourceError, isNotNull);
+      expect(delegate.httpError, isNotNull);
+
+      delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+      delegate.httpError!.call(
+        HttpResponseError(
+          request: WebResourceRequest(
+            uri: Uri.parse('https://s.pximg.net/accounts/assets/app.js'),
+          ),
+          response: const WebResourceResponse(uri: null, statusCode: 404),
+        ),
+      );
+      delegate.webResourceError!.call(
+        const WebResourceError(
+          errorCode: -7,
+          description: 'subresource timeout',
+          errorType: WebResourceErrorType.timeout,
+          isForMainFrame: false,
+          url: 'https://www.recaptcha.net/recaptcha/enterprise.js',
+        ),
+      );
+      await tester.pump();
+
+      final decision = await delegate.navigationRequest!.call(
+        const NavigationRequest(
+          url: 'https://accounts.pixiv.net/login?prompt=select_account',
+          isMainFrame: true,
+        ),
+      );
+      expect(decision, NavigationDecision.navigate);
+      expect(find.text('已拒绝非 Pixiv 登录导航'), findsNothing);
+    },
+  );
 
   testWidgets('login compatibility switch changes the real network policy', (
     tester,
