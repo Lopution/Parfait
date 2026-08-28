@@ -226,6 +226,24 @@ void main() {
         reason: 'credential must be rolled back when metadata fails');
   });
 
+  test('failed metadata refresh restores the previous credential', () async {
+    final (container, credentials, metadata) = makeContainer();
+    final store = container.read(accountStoreProvider.notifier);
+    await container.read(accountStoreProvider.future);
+
+    await store.upsertAccount(account('100'), credential('old'));
+    metadata.failSave = true;
+    await store.upsertAccount(account('100'), credential('new'));
+
+    final restored = await credentials.read('100');
+    expect(restored!.accessToken, 'access-token-old');
+    expect(restored.refreshToken, 'refresh-token-old');
+    expect(
+      container.read(accountStoreProvider).requireValue.accounts.single.name,
+      'user100',
+    );
+  });
+
   test('unreadable credential on hydration marks reauthRequired, not absent',
       () async {
     final (container, credentials, metadata) = makeContainer();

@@ -13,5 +13,6 @@ export 'android_platform_interfaces.dart'
         RecoverableMediaStoreSession,
         WebKitCapabilities;
 export 'android_intent_channel.dart';
+export 'account_transfer_clipboard.dart';
 export 'intent_router.dart';
 export 'webkit_capabilities_channel.dart';

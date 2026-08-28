@@ -109,6 +109,20 @@ class AccountStore extends AsyncNotifier<AccountState> {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final credentials = ref.read(credentialStoreProvider);
     final current = state.requireValue;
+    final hasExistingMetadata = current.accounts.any(
+      (existing) => existing.id == account.id,
+    );
+    Credential? previousCredential;
+    if (hasExistingMetadata) {
+      try {
+        previousCredential = await credentials.read(account.id);
+      } on Object catch (error) {
+        state = AsyncData(
+          current.copyWith(status: AccountStatus.failure, error: error),
+        );
+        return;
+      }
+    }
 
     try {
       await credentials.write(account.id, credential);
@@ -134,10 +148,15 @@ class AccountStore extends AsyncNotifier<AccountState> {
       );
       _resetNetworkSession();
     } on Object catch (error) {
-      // Metadata failed to commit: roll the secret back so no half-added
-      // account lingers in secure storage.
+      // Metadata failed to commit: restore the previous secret for an
+      // existing account, or remove the new secret for a new account. This
+      // prevents a failed migration/refresh from destroying a usable login.
       try {
-        await credentials.delete(account.id);
+        if (hasExistingMetadata && previousCredential != null) {
+          await credentials.write(account.id, previousCredential);
+        } else {
+          await credentials.delete(account.id);
+        }
       } on Object catch (rollbackError) {
         state = AsyncData(
           current.copyWith(status: AccountStatus.failure, error: rollbackError),
