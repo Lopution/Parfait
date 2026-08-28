@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,8 @@ import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/auth/account_transfer.dart';
+import '../../core/auth/account_transfer_service.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/network/compat/network_contracts.dart';
 import '../../core/network/compat/network_providers.dart';
@@ -33,6 +37,7 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   NetworkMode _networkMode = NetworkMode.automatic;
   bool _help = false;
+  bool _clipboardBusy = false;
 
   @override
   void initState() {
@@ -51,6 +56,63 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     );
   }
 
+  void _importFromClipboard() {
+    if (_clipboardBusy) return;
+    setState(() => _clipboardBusy = true);
+    unawaited(() async {
+      try {
+        final result = await ref
+            .read(accountTransferServiceProvider)
+            .importFromClipboard();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_loginText('accountTransferImported'))),
+        );
+        if (!result.clipboardCleared) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_loginText('accountTransferClipboardReplaced')),
+            ),
+          );
+        }
+      } on AccountTransferException catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_loginTransferErrorText(error.code))),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _clipboardBusy = false);
+      }
+    }());
+  }
+
+  String _loginText(String key) => ReplicaStrings.fromTag(
+    Localizations.localeOf(context).toLanguageTag(),
+    key,
+  );
+
+  String _loginTransferErrorText(AccountTransferErrorCode code) {
+    final key = switch (code) {
+      AccountTransferErrorCode.corrupt => 'accountTransferCorrupt',
+      AccountTransferErrorCode.expired => 'accountTransferExpired',
+      AccountTransferErrorCode.replayedOnThisDevice =>
+        'accountTransferReplayed',
+      AccountTransferErrorCode.credentialInvalid =>
+        'accountTransferCredentialInvalid',
+      AccountTransferErrorCode.verificationUnavailable =>
+        'accountTransferVerificationUnavailable',
+      AccountTransferErrorCode.noUsableAccount => 'accountTransferNoAccount',
+      AccountTransferErrorCode.credentialUnavailable =>
+        'accountTransferCredentialUnavailable',
+      AccountTransferErrorCode.clipboardUnavailable =>
+        'accountTransferClipboardUnavailable',
+      AccountTransferErrorCode.storageFailure =>
+        'accountTransferStorageFailure',
+    };
+    return _loginText(key);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ref
@@ -62,6 +124,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           data: (settings) {
             final language = ReplicaLanguage.fromTag(settings.languageTag);
             String text(String key) => ReplicaStrings.text(language, key);
+            final onClipboardLogin =
+                widget.onClipboardLogin ?? _importFromClipboard;
             final title = Text(
               text('loginTitle'),
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -150,26 +214,30 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             ),
                           const Spacer(),
                           if (_help) ...[
-                            if (widget.onClipboardLogin != null) ...[
-                              Text(
-                                text('useLoginWithClipboardHint'),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            Text(
+                              text('accountTransferWarning'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              text('useLoginWithClipboardHint'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(height: 10),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ReplicaButton(
-                                  label: text('useLoginWithClipboard'),
-                                  backgroundColor: FuncTokens.primary,
-                                  foregroundColor: Colors.white,
-                                  onPressed: widget.onClipboardLogin!,
-                                ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ReplicaButton(
+                                label: text('useLoginWithClipboard'),
+                                backgroundColor: FuncTokens.primary,
+                                foregroundColor: Colors.white,
+                                onPressed: onClipboardLogin,
                               ),
-                            ],
+                            ),
                           ] else
                             Row(
                               children: [

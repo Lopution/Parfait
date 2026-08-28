@@ -38,6 +38,19 @@ class ReplicaStrings {
       'getMoreHelp': '获取更多帮助 >>',
       'useLoginWithClipboardHint': '或使用\n长按头像复制账号数据',
       'useLoginWithClipboard': '使用剪贴板数据登录',
+      'accountTransferWarning': '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。',
+      'accountTransferCopied': '账号迁移数据已复制，请尽快在目标设备粘贴。',
+      'accountTransferImported': '账号迁移成功',
+      'accountTransferClipboardReplaced': '账号已导入；剪贴板已被其他内容替换，未执行清除。',
+      'accountTransferCorrupt': '剪贴板账号数据损坏或格式不受支持',
+      'accountTransferExpired': '剪贴板账号数据已过期，请重新复制',
+      'accountTransferReplayed': '这份账号数据已在本设备使用过',
+      'accountTransferCredentialInvalid': '账号凭据无效，请重新登录或重新复制',
+      'accountTransferVerificationUnavailable': '暂时无法向 Pixiv 验证账号凭据',
+      'accountTransferNoAccount': '当前没有可复制的已登录账号',
+      'accountTransferCredentialUnavailable': '当前账号凭据不可用，请重新登录',
+      'accountTransferClipboardUnavailable': '剪贴板当前不可用',
+      'accountTransferStorageFailure': '账号迁移记录无法安全保存',
       'loginAgree': '登录即表示您同意',
       'userAgreement': '《Pixiv Func用户使用协议》',
       'settingsTitle': '设置',
@@ -302,6 +315,29 @@ class ReplicaStrings {
       'useLoginWithClipboardHint':
           'Or use\nlong press on the avatar to copy account data',
       'useLoginWithClipboard': 'Login with clipboard data',
+      'accountTransferWarning':
+          'The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.',
+      'accountTransferCopied':
+          'Account-transfer data copied. Paste it on the target device soon.',
+      'accountTransferImported': 'Account transfer succeeded',
+      'accountTransferClipboardReplaced':
+          'Account imported; the clipboard was replaced, so it was not cleared.',
+      'accountTransferCorrupt':
+          'Clipboard account data is corrupt or unsupported',
+      'accountTransferExpired':
+          'Clipboard account data has expired; copy it again',
+      'accountTransferReplayed':
+          'This account data was already used on this device',
+      'accountTransferCredentialInvalid':
+          'The account credential is invalid; log in or copy again',
+      'accountTransferVerificationUnavailable':
+          'Pixiv credential verification is temporarily unavailable',
+      'accountTransferNoAccount': 'There is no signed-in account to copy',
+      'accountTransferCredentialUnavailable':
+          'The current credential is unavailable; log in again',
+      'accountTransferClipboardUnavailable': 'The clipboard is unavailable',
+      'accountTransferStorageFailure':
+          'The account-transfer record could not be stored safely',
       'loginAgree': 'By logging in you agree',
       'userAgreement': '《Pixiv Func User Agreement》',
       'settingsTitle': 'Settings',
@@ -574,6 +610,21 @@ class ReplicaStrings {
       'getMoreHelp': '詳細なヘルプ >>',
       'useLoginWithClipboardHint': 'もしくは\nプロフィール画像を長押ししてアカウントデータをコピー',
       'useLoginWithClipboard': 'クリップボードに保存されたデータでログイン',
+      'accountTransferWarning':
+          'クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。',
+      'accountTransferCopied': 'アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。',
+      'accountTransferImported': 'アカウント移行に成功しました',
+      'accountTransferClipboardReplaced':
+          'アカウントを取り込みました。クリップボードが置き換えられたため消去していません。',
+      'accountTransferCorrupt': 'クリップボードのアカウントデータが壊れているか未対応です',
+      'accountTransferExpired': 'クリップボードのアカウントデータが期限切れです。再度コピーしてください',
+      'accountTransferReplayed': 'このアカウントデータはこの端末ですでに使用されています',
+      'accountTransferCredentialInvalid': 'アカウント認証情報が無効です。再ログインまたは再コピーしてください',
+      'accountTransferVerificationUnavailable': 'Pixiv の認証情報を一時的に確認できません',
+      'accountTransferNoAccount': 'コピーできるログイン済みアカウントがありません',
+      'accountTransferCredentialUnavailable': '現在の認証情報を利用できません。再ログインしてください',
+      'accountTransferClipboardUnavailable': 'クリップボードを利用できません',
+      'accountTransferStorageFailure': 'アカウント移行記録を安全に保存できません',
       'loginAgree': 'ログインすると利用規約に同意したものとみなします',
       'userAgreement': '《Pixiv Func利用規約》',
       'settingsTitle': '設定',
@@ -840,6 +891,29 @@ class ReplicaStrings {
       'useLoginWithClipboardHint':
           'Или используйте длинное нажатие на аватаре,\n чтобы скопировать данные аккаунта',
       'useLoginWithClipboard': 'Войти с данными из буфера обмена',
+      'accountTransferWarning':
+          'Буфер обмена хранится недолго и может быть прочитан другими приложениями; этот формат не обеспечивает шифрование или аутентификацию отправителя.',
+      'accountTransferCopied':
+          'Данные для переноса аккаунта скопированы. Скоро вставьте их на целевом устройстве.',
+      'accountTransferImported': 'Перенос аккаунта выполнен',
+      'accountTransferClipboardReplaced':
+          'Аккаунт импортирован; буфер обмена заменён, поэтому он не очищен.',
+      'accountTransferCorrupt':
+          'Данные аккаунта в буфере повреждены или не поддерживаются',
+      'accountTransferExpired':
+          'Данные аккаунта в буфере устарели; скопируйте их снова',
+      'accountTransferReplayed':
+          'Эти данные аккаунта уже использовались на этом устройстве',
+      'accountTransferCredentialInvalid':
+          'Учетные данные аккаунта недействительны; войдите или скопируйте снова',
+      'accountTransferVerificationUnavailable':
+          'Проверка учетных данных Pixiv временно недоступна',
+      'accountTransferNoAccount': 'Нет вошедшего аккаунта для копирования',
+      'accountTransferCredentialUnavailable':
+          'Текущие учетные данные недоступны; войдите снова',
+      'accountTransferClipboardUnavailable': 'Буфер обмена недоступен',
+      'accountTransferStorageFailure':
+          'Запись переноса аккаунта не удалось безопасно сохранить',
       'loginAgree': 'Входя в систему, вы принимаете',
       'userAgreement': '《Пользовательское соглашение Pixiv Func》',
       'settingsTitle': 'Настройки',

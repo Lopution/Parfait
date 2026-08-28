@@ -7,6 +7,8 @@ import '../../app/pixiv_image.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/auth/account_transfer.dart';
+import '../../core/auth/account_transfer_service.dart';
 import '../../core/download/download_manager.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/download/download_task.dart';
@@ -75,18 +77,23 @@ class SettingsPage extends ConsumerWidget {
   }
 }
 
-class _SettingsList extends StatelessWidget {
+class _SettingsList extends ConsumerWidget {
   const _SettingsList({required this.accounts});
 
   final AsyncValue<AccountState> accounts;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final account = accounts.value?.current;
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        _AccountCard(account: account),
+        _AccountCard(
+          account: account,
+          onLongPress: account == null
+              ? null
+              : () => _copyAccount(context, ref),
+        ),
         const Divider(),
         _SettingsRouteTile(
           icon: Icons.manage_accounts_outlined,
@@ -146,6 +153,27 @@ class _SettingsList extends StatelessWidget {
       ],
     );
   }
+
+  void _copyAccount(BuildContext context, WidgetRef ref) {
+    unawaited(() async {
+      try {
+        await ref
+            .read(accountTransferServiceProvider)
+            .exportCurrentToClipboard();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_settingsText(context, 'accountTransferCopied')),
+          ),
+        );
+      } on AccountTransferException catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_transferErrorText(context, error.code))),
+        );
+      }
+    }());
+  }
 }
 
 class _SettingsRouteTile extends StatelessWidget {
@@ -171,9 +199,10 @@ class _SettingsRouteTile extends StatelessWidget {
 }
 
 class _AccountCard extends StatelessWidget {
-  const _AccountCard({required this.account});
+  const _AccountCard({required this.account, this.onLongPress});
 
   final Account? account;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -205,9 +234,29 @@ class _AccountCard extends StatelessWidget {
                   ),
                 ),
               ),
+        onLongPress: onLongPress,
       ),
     );
   }
+}
+
+String _transferErrorText(BuildContext context, AccountTransferErrorCode code) {
+  final key = switch (code) {
+    AccountTransferErrorCode.corrupt => 'accountTransferCorrupt',
+    AccountTransferErrorCode.expired => 'accountTransferExpired',
+    AccountTransferErrorCode.replayedOnThisDevice => 'accountTransferReplayed',
+    AccountTransferErrorCode.credentialInvalid =>
+      'accountTransferCredentialInvalid',
+    AccountTransferErrorCode.verificationUnavailable =>
+      'accountTransferVerificationUnavailable',
+    AccountTransferErrorCode.noUsableAccount => 'accountTransferNoAccount',
+    AccountTransferErrorCode.credentialUnavailable =>
+      'accountTransferCredentialUnavailable',
+    AccountTransferErrorCode.clipboardUnavailable =>
+      'accountTransferClipboardUnavailable',
+    AccountTransferErrorCode.storageFailure => 'accountTransferStorageFailure',
+  };
+  return _settingsText(context, key);
 }
 
 class _AccountAvatar extends StatelessWidget {

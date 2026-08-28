@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
         AndroidIntentChannel.configure(this, flutterEngine)
         WebKitCapabilityChannel.configure(this, flutterEngine)
         ReverseImageInputChannel.configure(this, flutterEngine)
+        AccountTransferClipboardChannel.configure(this, flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../auth/account_store.dart';
+import '../auth/credential.dart';
 import '../auth/credential_store.dart';
 import '../auth/oauth_service.dart';
 import '../auth/token_refresh_gate.dart';
@@ -75,6 +76,43 @@ class PixivHttpClient {
     CancelToken? cancelToken,
   }) async {
     final response = await get(uri, cancelToken: cancelToken);
+    try {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('response is not a JSON object');
+      }
+      return decoded;
+    } on FormatException catch (error) {
+      throw ApiParseError(error);
+    }
+  }
+
+  /// Reads an App API resource with a caller-supplied credential exactly
+  /// once. This is reserved for pre-import verification: it does not use the
+  /// current account, refresh, or replay the request, and it never writes the
+  /// supplied credential to a store.
+  Future<Map<String, dynamic>> getJsonWithCredential(
+    Uri uri, {
+    required Credential credential,
+    CancelToken? cancelToken,
+  }) async {
+    PixivDestinationRegistry().require(uri, PixivDestinationPurpose.appApi);
+    final response = await _issue(
+      uri,
+      'GET',
+      const {},
+      credential.accessToken,
+      cancelToken: cancelToken,
+    );
+    if (_isAuthFailure(response)) {
+      throw const ApiUnauthorized('supplied credential was rejected');
+    }
+    if (response.statusCode == 429) {
+      throw ApiRateLimited(_parseRetryAfter(response.headers));
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiHttpError(response.statusCode, _errorBodyDetail(response));
+    }
     try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is! Map<String, dynamic>) {

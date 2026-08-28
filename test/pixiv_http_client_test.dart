@@ -14,6 +14,7 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -185,6 +186,71 @@ void main() {
       expect(request.headers['App-OS'], 'android');
       expect(request.headers['User-Agent'], PixivClientIdentity.userAgent);
       expect(request.headers['Accept-Language'], 'zh-CN');
+    },
+  );
+
+  test(
+    'pre-import verification can use a supplied token without switching stores',
+    () async {
+      final (container, client, credentials, fixture) = await _makeWorld();
+      addTearDown(container.dispose);
+
+      await client.getJsonWithCredential(
+        Uri.parse(_api),
+        credential: const Credential(
+          accessToken: 'imported-access',
+          refreshToken: 'imported-refresh',
+        ),
+      );
+
+      expect(
+        fixture.apiRequests.single.headers['Authorization'],
+        'Bearer imported-access',
+      );
+      expect(credentials.seeded('100')!.accessToken, 'old-access');
+      expect(credentials.seeded('100')!.refreshToken, 'old-refresh');
+    },
+  );
+
+  test('pre-import verification rejects a non-App-API destination', () async {
+    final (container, client, _, fixture) = await _makeWorld();
+    addTearDown(container.dispose);
+
+    await expectLater(
+      client.getJsonWithCredential(
+        Uri.parse('https://evil.example/v1/user/detail'),
+        credential: const Credential(
+          accessToken: 'imported-access',
+          refreshToken: 'imported-refresh',
+        ),
+      ),
+      throwsA(isA<PixivDestinationException>()),
+    );
+    expect(fixture.apiRequests, isEmpty);
+  });
+
+  test(
+    'pre-import verification maps 400 invalid_grant without refreshing',
+    () async {
+      final fixture = _Fixture(rejectStaleSeed: true)
+        ..staleRejectionStatus = 400;
+      final (container, client, _, fixtureF) = await _makeWorld(
+        fixture: fixture,
+      );
+      addTearDown(container.dispose);
+
+      await expectLater(
+        client.getJsonWithCredential(
+          Uri.parse(_api),
+          credential: const Credential(
+            accessToken: 'old-access',
+            refreshToken: 'imported-refresh',
+          ),
+        ),
+        throwsA(isA<ApiUnauthorized>()),
+      );
+      expect(fixtureF.apiRequests, hasLength(1));
+      expect(fixtureF.refreshCalls, 0);
     },
   );
 

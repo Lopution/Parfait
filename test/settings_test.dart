@@ -7,12 +7,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
+import 'package:pixiv_func/core/auth/account_transfer.dart';
+import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
+import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -51,12 +54,43 @@ class _CredentialStore implements CredentialStore {
 }
 
 class _AccountRepository implements AccountMetadataRepository {
+  _AccountRepository([this.initial = const []]);
+
+  final List<Account> initial;
+
   @override
   Future<AccountMetadataSnapshot> load() async =>
-      const AccountMetadataSnapshot(accounts: []);
+      AccountMetadataSnapshot(
+        accounts: initial,
+        currentId: initial.isEmpty ? null : initial.first.id,
+      );
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
+}
+
+class _TransferClipboard implements TransferClipboard {
+  String? text;
+  int writeCount = 0;
+
+  @override
+  Future<void> write(String value, {required Duration clearAfter}) async {
+    text = value;
+    writeCount++;
+  }
+
+  @override
+  Future<TransferClipboardContent?> read() async => null;
+
+  @override
+  Future<bool> clearIfCurrent(String fingerprint) async => false;
+}
+
+class _UnusedTransferVerifier implements TransferCredentialVerifier {
+  @override
+  Future<VerifiedTransferAccount> verify(TransferAccountPayload payload) {
+    throw StateError('not used by export test');
+  }
 }
 
 AppSettings _baseSettings() => const AppSettings(
@@ -232,6 +266,19 @@ void main() {
       'translateCredentialHint',
       'historySettingsHint',
       'aboutLicenseText',
+      'accountTransferWarning',
+      'accountTransferCopied',
+      'accountTransferImported',
+      'accountTransferClipboardReplaced',
+      'accountTransferCorrupt',
+      'accountTransferExpired',
+      'accountTransferReplayed',
+      'accountTransferCredentialInvalid',
+      'accountTransferVerificationUnavailable',
+      'accountTransferNoAccount',
+      'accountTransferCredentialUnavailable',
+      'accountTransferClipboardUnavailable',
+      'accountTransferStorageFailure',
     ];
     for (final language in ReplicaLanguage.values) {
       for (final key in keys) {
@@ -273,5 +320,47 @@ void main() {
     expect(find.text('下载任务'), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);
     expect(find.text('新作'), findsNothing);
+  });
+
+  testWidgets('long-pressing an account card exports bounded transfer data',
+      (tester) async {
+    final repository = _AccountRepository([
+      const Account(id: '42', userId: 42, name: 'tester'),
+    ]);
+    final clipboard = _TransferClipboard();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(_FakeRepository(_baseSettings())),
+          accountMetadataRepositoryProvider.overrideWithValue(repository),
+          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          accountTransferServiceProvider.overrideWith(
+            (ref) => AccountTransferService(
+              accountStore: ref.read(accountStoreProvider.notifier),
+              credentialStore: ref.read(credentialStoreProvider),
+              verifier: _UnusedTransferVerifier(),
+              replayStore: InMemoryTransferReplayStore(),
+              clipboard: clipboard,
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: SettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('tester'));
+    await tester.pumpAndSettle();
+
+    expect(clipboard.writeCount, 1);
+    expect(
+      TransferEnvelope.parse(clipboard.text!),
+      isA<TransferEnvelope>(),
+    );
   });
 }
