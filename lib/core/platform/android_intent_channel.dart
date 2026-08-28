@@ -11,7 +11,13 @@ abstract final class AndroidIntentMethods {
   static const getInitialIntent = 'getInitialIntent';
 }
 
-class MethodChannelAndroidIntentSource {
+abstract interface class AndroidIntentSource {
+  Future<AndroidIntentResult> readInitial();
+
+  Stream<AndroidIntentResult> get onNewIntent;
+}
+
+class MethodChannelAndroidIntentSource implements AndroidIntentSource {
   const MethodChannelAndroidIntentSource([
     this._methodChannel = const MethodChannel(AndroidIntentMethods.channel),
     this._eventChannel = const EventChannel(AndroidIntentMethods.events),
@@ -20,6 +26,7 @@ class MethodChannelAndroidIntentSource {
   final MethodChannel _methodChannel;
   final EventChannel _eventChannel;
 
+  @override
   Future<AndroidIntentResult> readInitial() async {
     final message = await _methodChannel.invokeMethod<Object?>(
       AndroidIntentMethods.getInitialIntent,
@@ -27,6 +34,7 @@ class MethodChannelAndroidIntentSource {
     return IntentRouter.routePlatformMessage(message);
   }
 
+  @override
   Stream<AndroidIntentResult> get onNewIntent => _eventChannel
       .receiveBroadcastStream()
       .map(IntentRouter.routePlatformMessage);

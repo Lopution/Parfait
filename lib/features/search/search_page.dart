@@ -11,6 +11,7 @@ import '../illust/detail/illust_detail_page.dart';
 import 'search_filter_sheet.dart';
 import 'search_router.dart';
 import 'search_text.dart';
+import 'reverse_image_search_page.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 class SearchHomePage extends ConsumerWidget {
@@ -38,7 +39,7 @@ class SearchHomePage extends ConsumerWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
-                  onPressed: () => showReverseImageUnavailable(context),
+                  onPressed: () => showReverseImageSearch(context),
                   icon: const Icon(Icons.image_search_outlined),
                   label: Text(searchText(context, 'searchReverseImage')),
                 ),
@@ -455,43 +456,4 @@ class _SearchInlineError extends StatelessWidget {
       ),
     );
   }
-}
-
-class ReverseImageUnavailablePage extends StatelessWidget {
-  const ReverseImageUnavailablePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(searchText(context, 'searchReverseImage'))),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.image_search_outlined, size: 56),
-              const SizedBox(height: 16),
-              Text(
-                searchText(context, 'searchReverseUnavailable'),
-                style: Theme.of(context).textTheme.titleLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                searchText(context, 'searchReverseUnavailableDetail'),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-void showReverseImageUnavailable(BuildContext context) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(builder: (_) => const ReverseImageUnavailablePage()),
-  );
 }

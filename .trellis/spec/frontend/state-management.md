@@ -873,6 +873,31 @@ emulator-tested, not physical-device-tested` is required wording; API 35
 results do not satisfy an API 36 criterion and must retain an explicit API 36
 blocker when no API 36 image is available.
 
+### Reverse Image Input and Provider Contract
+
+Reverse-image search has one controller for both the in-app picker and Android
+`ACTION_SEND`. The platform adapter may carry only opaque `content://`
+metadata and an app-private temporary-file handle; image bytes, cookies and
+provider credentials never cross into diagnostics, snapshots or ordinary
+settings. The controller validates the concrete MIME type, file signature,
+dimensions, pixel budget and encoded-size limit before exposing a preview, and
+owns exactly one temporary file until every terminal path has attempted
+cleanup.
+
+Provider implementations expose a typed capability (`structuredApi`,
+`interactiveWebView` or `unavailable`) and typed outcomes. A provider cannot
+turn an HTML/challenge response into result cards, silently scrape a web page,
+or return an empty success when credentials, ToS/privacy review or capability
+evidence is missing. Result mapping sorts by similarity, deduplicates Pixiv
+IDs, and permits only strict HTTPS external destinations. An unavailable
+provider is rendered as a visible terminal failure with retry/cancel behavior;
+it is not a hidden mock.
+
+The platform boundary rejects non-content URI shapes, missing read grants,
+unknown MIME/size metadata and paths outside the owned cache. Cancellation,
+provider failure, route disposal and cleanup failure remain observable, and a
+new upload may not reuse a previous flow's temporary file.
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->
