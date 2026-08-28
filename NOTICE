@@ -1,0 +1,16 @@
+# Pixiv Func Replica notices
+
+This repository is a modified work based on the public Pixiv Func project by
+git-xiaocao (小草). The original project and its author are retained here for
+attribution. The main behavior reference is the original beta56 source at
+`svenfuss/pixiv_func_mobile@c62b18ccb92a64fedde81c8d5a2bc95cfc8f5989`.
+
+This replica modernizes the Flutter and Android implementation, security
+boundaries, network handling, media/download lifecycle, and platform
+integration. It is not the original upstream release and must not be
+represented as one.
+
+The project license is AGPL-3.0-only. See `LICENSE` for the complete license
+text. Third-party package and asset notices remain governed by their own
+licenses; the dependency and asset audit for this candidate is recorded in
+`.trellis/tasks/08-26-replica-v1-integration-release/research/license-audit.md`.
