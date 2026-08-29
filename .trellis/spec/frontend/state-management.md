@@ -142,7 +142,6 @@ class FeedRequestContext {
   final int page;
   final String? cursor;
   final CancelToken cancelToken;
-  final NetworkRevision networkRevision;
 }
 
 Future<FeedPage> fetchPageForContext(FeedRequestContext context);
@@ -150,7 +149,6 @@ bool FeedCommitGate.commit(
   FeedRequestContext context, {
   required String? accountId,
   required int credentialRevision,
-  required NetworkRevision networkRevision,
   required void Function() action,
 });
 ```
@@ -163,7 +161,7 @@ merge into `IllustStore`, `NovelStore`, or `UserStore`.
 
 - A controller creates the immutable context before issuing the request. Its
   `feedKey` includes every family selector (mode, query, filter, sort, or
-  profile key); account ID, credential revision, and network revision are
+  profile key); account ID and credential revision are
   captured from the same boundary snapshot.
 - A repository parses/normalizes into `FeedPage` and performs no shared-store
   write. The controller validates `next_url` before invoking the callback, then
@@ -186,7 +184,7 @@ merge into `IllustStore`, `NovelStore`, or `UserStore`.
 
 | Condition | Required behavior |
 |---|---|
-| Feed key, generation, account, credential, or network revision is inactive | Reject commit; record stale/boundary telemetry; do not merge or update cursor/state |
+| Feed key, generation, account, or credential revision is inactive | Reject commit; record stale/boundary telemetry; do not merge or update cursor/state |
 | Cancellation or provider disposal | Reject commit; record cancellation/disposed telemetry; do not publish a network error or entity |
 | Unknown/foreign/invalid cursor | Raise `ApiParseError` before the page callback; preserve current list and cursor |
 | Current or previously committed cursor repeats | Raise `ApiParseError` before entity merge or cursor advance |
@@ -463,9 +461,10 @@ deleting the source data.
 - Theme, image source, quality, history, block, translation-provider and
   download-cap consumers use typed providers. The download manager updates its
   scheduler cap without replacing active jobs.
-- The normal image route is `i.pximg.net` over HTTPS/system DNS. Image URLs are
-  never rewritten to a fixed IP or mirror; compatibility routing belongs to the
-  exact-host network policy.
+- The normal image route is `i.pximg.net` over HTTPS. Image URLs are never
+  rewritten to an IP or a mirror; steering a connection to a resolved address
+  belongs to the exact-host network policy, which keeps the original hostname
+  for `Host` and certificate verification.
 - Translation credentials are not fields in `AppSettings.toJson()`. A
   `SecretSettingRef` may identify a secure-storage record, but the record's
   secret stays in `CredentialStore`.
@@ -491,8 +490,7 @@ NetworkRevision advanceNetworkRevision({String? networkIdentity});
 ```
 
 `PixivPolicyHttpClient` and `PolicyDownloadTransport` are the shared native
-consumers. `WebViewRoutePolicy` validates direct navigation and only reports a
-loopback route when its AndroidX capability gate is proven.
+consumers.
 
 #### 3. Contracts
 
@@ -504,10 +502,10 @@ loopback route when its AndroidX capability gate is proven.
   `www.pixiv.net`, `i.pximg.net` and `s.pximg.net` as applicable. Userinfo,
   fragments, IP literals, trailing dots, IDN input and non-443 ports are
   rejected.
-- System DNS and the optional fixed-endpoint DoH resolver return public A/AAAA
-  candidates with source, TTL and `NetworkRevision`. A secure-DNS connector
-  changes only the TCP destination; the original URI remains responsible for
-  TLS SNI, certificate hostname verification and the HTTP `Host` header.
+- The resolver returns public A/AAAA candidates with source, TTL and
+  `NetworkRevision`. A secure-DNS connector changes only the TCP destination;
+  the original URI remains responsible for TLS SNI, certificate hostname
+  verification and the HTTP `Host` header.
 - Only DNS, connect, timeout and reset failures may try another strict route.
   Empty GET/HEAD requests may be cloned for replay; POST, token exchange and
   every request with a possible body send never replay automatically.
@@ -515,8 +513,7 @@ loopback route when its AndroidX capability gate is proven.
   failure, latency, capability and network revision only. They do not contain
   query strings, cookies, tokens, bodies or full addresses.
 - Account changes, network revision changes, mode changes and disposal close
-  old pools and clear health state. WebView loopback remains fail-closed until
-  AndroidX reverse-bypass capability and lifecycle evidence exist.
+  old pools.
 
 #### 4. Validation & Error Matrix
 
@@ -527,8 +524,7 @@ loopback route when its AndroidX capability gate is proven.
 | HTTP, auth, rate-limit, parse, cancellation, TLS or certificate failure | Surface the failure; never use compatibility fallback |
 | POST, token exchange, or body possibly sent | Do not replay across routes |
 | Resolver result has wrong host/revision or no public address | Reject as a secure-resolution failure |
-| ECH/WebView capability evidence incomplete | Keep the optional route unavailable; do not bind a listener or add a dependency |
-| Account/network/mode boundary | Advance/replace revision, close pools and clear health |
+| Account/network/mode boundary | Advance/replace revision and close pools |
 
 #### 5. Good / Base / Bad Cases
 
@@ -548,24 +544,30 @@ loopback route when its AndroidX capability gate is proven.
 - Resolver tests cover public A/AAAA filtering, answer-name/type matching,
   TTL bounds, response-size limits, cancellation and revision binding.
 - Policy tests cover direct-first selection, eligible-only fallback,
-  original-host requests, no POST replay, pool/health invalidation and
+  original-host requests, no POST replay, pool invalidation and
   diagnostics redaction.
 - Factory tests prove API, OAuth, image cache and downloads share the policy;
   source audits prove translation, updater and reverse-image paths do not enter
   the Pixiv compatibility connector.
-- WebView/ECH tests prove incomplete capability evidence is explicit and
-  listener-free. Device evidence must distinguish API 35 MuMu emulator
-  coverage from an unavailable API 36 matrix and physical-device coverage.
+- Device evidence must distinguish API 35 MuMu emulator coverage from an
+  unavailable API 36 matrix and physical-device coverage.
 
 #### 7. Wrong vs Correct
 
-**Wrong**: set `badCertificateCallback` to accept every certificate, replace
-the SNI/`Host` with a candidate IP, or use a third-party proxy for every URL.
+**Wrong**: set `badCertificateCallback` to accept every certificate, rewrite
+the HTTP `Host` to a candidate IP, or use a third-party proxy for every URL.
+A censored path has an on-path adversary by definition, so disabling chain
+verification hands over the refresh token.
 
 **Correct**: allowlist the exact Pixiv destination and purpose, try direct
-HTTPS first, optionally steer a strict connector to a validated public
-candidate while retaining the original hostname, and fail closed when the
-capability or failure class is not approved.
+HTTPS first, and steer a strict connector to a validated public candidate while
+retaining the original hostname for `Host` and certificate verification.
+
+Omitting SNI is permitted, because it only moves the hostname check out of the
+TLS stack — but only together with full chain verification and an explicit SAN
+check against the intended hostname. Omitting SNI without that check is the
+same defect as `badCertificateCallback` returning true. A fixed IP table is a
+fallback for resolver failure only and never a security decision.
 
 ---
 
@@ -686,8 +688,8 @@ complete current-generation commit.
 This contract applies to every authenticated write that can outlive a widget
 callback, including Bookmark, Follow, Comments and the future Profile edit
 adapter. It is required when a request can overlap a duplicate tap, reverse
-operation, account/credential change, network revision change or provider
-disposal. It does not create a durable offline queue.
+operation, account/credential change or provider disposal. It does not create
+a durable offline queue.
 
 #### 2. Signatures
 
@@ -700,7 +702,6 @@ class MutationEnvelope {
   final String operation;
   final String clientMutationId;
   final DateTime createdAt;
-  final NetworkRevision networkRevision;
   final MutationOwner owner;
   final int revision;
 }
@@ -737,8 +738,8 @@ events; it never persists request bodies or credentials.
   `cancelled` or `superseded`. Cancellation clears the pending marker without
   manufacturing a server-confirmed change; ordinary failures preserve the
   previous confirmed value and retain the classified error.
-- Account switch, logout, credential-refresh invalidation, network revision
-  change and owner disposal cancel active owners. A provider rebuild may
+- Account switch, logout, credential-refresh invalidation and owner disposal
+  cancel active owners. A provider rebuild may
   reopen an empty ledger to retain bounded discard telemetry, but it never
   resurrects a pending request.
 - Bookmark, Follow and Comment repository calls pass the envelope's
@@ -823,7 +824,7 @@ returning `null` after logout is a boundary change, not permission to fall
 back to the submission-time context.
 
 On process recovery, only a record whose job, owner, account, credential
-revision, network revision and destination exactly match the current context
+revision and destination exactly match the current context
 may be restored as `retryable`; recovery does not auto-start it. Mismatched,
 invalid or unknown records become observable `orphaned` records, and known
 pending MediaStore rows are cleaned only through their opaque owner. Cleanup
@@ -840,7 +841,7 @@ before the sink finalize call and publishes success only after finalize
 returns. API 29+ pending-row behavior is verified through the Android bridge;
 API 35 MuMu evidence must remain separate from any unavailable API 36 run.
 
-### Android Platform Boundary Contract (`IntentRouter`, `WebViewRouteSession`)
+### Android Platform Boundary Contract (`IntentRouter`)
 
 Android platform messages are untrusted input. `AndroidIntentChannel` may
 forward only action, opaque URI, MIME, read-grant and bounded-size metadata;
@@ -851,21 +852,23 @@ explicit read permission, a concrete `image/*` subtype and a bounded positive
 size. Unknown actions, extras, URI shapes and malformed channel payloads are
 observable rejections, not empty routes.
 
-Each WebView navigation captures a `WebViewRouteSession` with an exact
-destination host set and `NetworkRevision`. A compatibility loopback can only
-be opened by an active session after all AndroidX capability gates and a
-concrete adapter are present; the default production provider is direct-only
-and fail-closed. Owners use idempotent leases, and page disposal, background,
-logout, authentication failure or a stale network revision closes the session
-and any listener. The route never disables TLS validation, changes SNI/Host,
-uses a fixed IP as a security decision or serves a non-Pixiv origin.
+The login WebView does not police navigation. Whatever Pixiv's own login
+endpoint chooses to load — including third-party identity providers and
+`oauth.secure.pixiv.net` — is allowed to load, because a navigation allowlist
+can only reject destinations Pixiv itself selected. The real boundary is the
+authorization code: it is bound to a live one-use PKCE session, `state` is
+compared when the callback carries one, and a missing, empty or duplicated
+`code` is rejected. Callback path shape and unknown callback parameters are
+not grounds for rejection; the real callback is
+`pixiv://account/login?code=...&via=...`.
 
-OAuth WebView navigation must validate the exact `pixiv://account` callback
-against the live one-use PKCE session and matching state before exchange.
-Invalid callback parameters and non-Pixiv web navigation are rejected and
-discard the session. Root back handling is lifecycle-aware: the one-second
-double-back window is cleared when a child route is pushed or the app leaves
-the resumed state.
+Only `AppLifecycleState.detached` terminates a PKCE session. Reading a
+verification code, using a third-party IdP or a full-screen IME all leave the
+foreground, so any stricter lifecycle rule breaks login. Recoverable errors
+keep the session and say so; only unrecoverable ones abort it.
+
+Root back handling is lifecycle-aware: the one-second double-back window is
+cleared when a child route is pushed or the app leaves the resumed state.
 
 Android evidence must identify the verified MuMu serial, state/API level,
 proxy/VPN state, WebView provider, route and failure scope. `MuMu
@@ -901,13 +904,13 @@ new upload may not reuse a previous flow's temporary file.
 ### Profile Edit Contract (`ProfileEditController`, `lib/core/profile/`)
 
 Profile editing is an account-scoped draft, not a second user cache. A draft
-captures the account id, credential revision, network revision, authoritative
+captures the account id, credential revision, authoritative
 base values and the typed `ProfileCapabilities` returned by the selected
 official route. `ProfilePatch` contains only fields that differ from that base;
 unsupported dirty fields remain visible as field errors and are never sent.
 
 The controller checks the owner before loading, submitting and committing a
-response. Account, credential or network revision changes cancel the request,
+response. Account or credential revision changes cancel the request,
 release owned image selections and discard late results. A confirmed response
 is committed persistence-first to `AccountStore`, then merged into the
 canonical `UserStore`; verification-pending, field-error, cancellation and
@@ -972,10 +975,14 @@ or TLS client.
   Writers stage uniquely named image files and a temporary pointer, then flip
   `active.json` last. Native reads only files below this directory and accepts
   only the referenced image names.
-- A successful generation captures account id, credential revision and
-  `NetworkRevision` before the request and rechecks all three immediately
-  before publication. Account, credential or network changes make the result
-  `superseded`; they must not publish or clear the newer owner's state.
+- A successful generation captures account id and credential revision before
+  the request and rechecks both immediately before publication. Account or
+  credential changes make the result `superseded`; they must not publish or
+  clear the newer owner's state. The `auth_required` branch compares the
+  account id only: handling a 401 is what marks the account as needing
+  re-auth, which advances the credential revision, so comparing revisions
+  there would classify every real auth failure as `superseded` and leave stale
+  artwork on the home screen.
 - `no_account` and same-account `auth_required` clear the snapshot. A
   transient network, parse, image or storage error retains the same-account
   last-good snapshot and uses bounded WorkManager retry. No result is changed
@@ -996,7 +1003,7 @@ or TLS client.
 | Missing, malformed, unknown-version or oversize snapshot | Render the explicit open-app/empty state; never render partial fields |
 | Missing, unreferenced, unsafe or oversize image | Keep last-good generation on write failure; native render falls back to open-app state |
 | Account not ready or credential missing | Clear render state and report `no_account` only when absence is established; unreadable storage remains transient |
-| Account, credential or network revision changes in flight | Return `superseded`; do not clear or publish across the boundary |
+| Account or credential revision changes in flight | Return `superseded`; do not clear or publish across the boundary |
 | HTTP/auth/rate/parse/network/image/storage failure | Preserve classified failure and same-account last-good; retry only through bounded WorkManager policy |
 | Widget resize/update storm | Coalesce unique work with `KEEP`; do not cancel an in-flight generation on every system update |
 | Last Recommend/Refresh widget deleted | Cancel the family schedule, and cancel all widget work only when both families are absent |
@@ -1011,9 +1018,9 @@ or TLS client.
   same account; the older generation remains visible and one bounded retry is
   enqueued.
 - Bad: copying a refresh token into `SharedPreferences` or WorkData,
-  resolving a fixed IP in native code, deleting `active.json` before a new
-  generation is staged, or replaying a stale account's result after a network
-  revision change.
+  privatizing the compatibility route in native code instead of using the
+  shared policy, deleting `active.json` before a new generation is staged, or
+  replaying a stale account's result after an account change.
 
 #### 6. Tests Required
 
@@ -1023,8 +1030,10 @@ or TLS client.
 - Store tests inject a failed second-image stage and assert the previous
   pointer and images remain readable, while temporary staged files are not
   published.
-- Loader tests use delayed account/credential/network revisions to assert
+- Loader tests use delayed account/credential revisions to assert
   `superseded`, same-account last-good retention, and account-invalid clear.
+  One test must pin that a real 401 for the current account returns
+  `auth_required` and clears the snapshot, never `superseded`.
 - Android JVM tests assert integer-overflow-safe bitmap budgets, stale-time
   overflow handling, provider export flags, unique family/revision work names,
   `KEEP` policies and bounded retries.
@@ -1040,8 +1049,8 @@ or TLS client.
 or treat every background exception as an empty successful widget.
 
 **Correct**: publish a bounded, versioned, secret-free snapshot atomically
-from the shared Dart auth/network path, gate publication on account,
-credential and network revisions, preserve same-account last-good on transient
+from the shared Dart auth/network path, gate publication on account and
+credential revisions, preserve same-account last-good on transient
 failure, and make native rendering fail closed with unique bounded work.
 
 ### Signed Updater and Distribution Flavor Contract (`UpdateService`, `lib/core/updater/`)
