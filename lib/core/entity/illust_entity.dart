@@ -23,12 +23,20 @@ class IllustImageUrls {
     required this.medium,
     required this.large,
     this.original,
+    this.width,
+    this.height,
   });
 
   final String squareMedium;
   final String medium;
   final String large;
   final String? original;
+
+  /// Per-page dimensions (API `meta_pages[].width/height`). `null` when the
+  /// feed payload omits them; the detail page falls back to the work-level
+  /// [IllustEntity.width]/[IllustEntity.height] then.
+  final int? width;
+  final int? height;
 }
 
 class IllustTag {
@@ -102,6 +110,36 @@ class IllustEntity {
 
   bool get isUgoira => type == IllustType.ugoira;
 
+  /// The width/height of one page. Multi-page works have per-page
+  /// dimensions from the detail API (`meta_pages[].width/height`), which
+  /// legitimately differ page to page; falling back to the work-level sizes
+  /// keeps single-page and list payloads working.
+  int pageWidthAt(int pageIndex) {
+    if (pageCount > 1 && pageIndex >= 0 && pageIndex < metaPages.length) {
+      final pageWidth = metaPages[pageIndex].width;
+      if (pageWidth != null && pageWidth > 0) return pageWidth;
+    }
+    return width;
+  }
+
+  int pageHeightAt(int pageIndex) {
+    if (pageCount > 1 && pageIndex >= 0 && pageIndex < metaPages.length) {
+      final pageHeight = metaPages[pageIndex].height;
+      if (pageHeight != null && pageHeight > 0) return pageHeight;
+    }
+    return height;
+  }
+
+  /// Aspect ratio of one page, defaulting to the work-level ratio.
+  double pageAspectRatioAt(int pageIndex) {
+    final pageWidth = pageWidthAt(pageIndex);
+    final pageHeight = pageHeightAt(pageIndex);
+    if (pageWidth > 0 && pageHeight > 0) {
+      return pageWidth / pageHeight;
+    }
+    return 1.0;
+  }
+
   /// Original-size URL for [pageIndex] (downloads; beta56 downloader input).
   String? originalUrlAt(int pageIndex) {
     if (pageCount > 1) {
@@ -132,6 +170,7 @@ class IllustEntity {
     Object? metaSinglePageOriginalUrl = _sentinel,
     bool? visible,
     int? pageCount,
+    Object? createDate = _sentinel,
   }) {
     return IllustEntity(
       id: id,
@@ -159,6 +198,13 @@ class IllustEntity {
           ? this.metaSinglePageOriginalUrl
           : metaSinglePageOriginalUrl as String?,
       visible: visible ?? this.visible,
+      // U2 (R7): createDate was the constructor's last field and the only
+      // one copyWith did not forward. Every store merge (mergeAll,
+      // updateBookmark) goes through copyWith, so the detail response
+      // silently dropped the date on every known entity.
+      createDate: identical(createDate, _sentinel)
+          ? this.createDate
+          : createDate as String?,
     );
   }
 
@@ -235,7 +281,11 @@ class IllustEntity {
           for (final page in json['meta_pages'] as List)
             if (page is Map<String, dynamic> &&
                 page['image_urls'] is Map<String, dynamic>)
-              _parseImageUrls(page['image_urls'] as Map<String, dynamic>),
+              _parseImageUrls(
+                page['image_urls'] as Map<String, dynamic>,
+                width: page['width'] is int ? page['width'] as int : null,
+                height: page['height'] is int ? page['height'] as int : null,
+              ),
       ],
       metaSinglePageOriginalUrl: _optionalString(
         (json['meta_single_page'] as Map<String, dynamic>?)?['original_image_url'],
@@ -270,7 +320,11 @@ class IllustEntity {
     );
   }
 
-  static IllustImageUrls _parseImageUrls(Map<String, dynamic> json) {
+  static IllustImageUrls _parseImageUrls(
+    Map<String, dynamic> json, {
+    int? width,
+    int? height,
+  }) {
     String requiredUrl(String key) {
       final value = json[key];
       if (value is! String) {
@@ -284,6 +338,8 @@ class IllustEntity {
       medium: requiredUrl('medium'),
       large: requiredUrl('large'),
       original: _optionalString(json['original']),
+      width: width,
+      height: height,
     );
   }
 

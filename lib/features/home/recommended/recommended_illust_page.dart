@@ -70,13 +70,20 @@ class RecommendedIllustPage extends ConsumerWidget {
                 return false;
               },
               child: CustomScrollView(
-                // Beta56 RecommendedPage uses a two-column waterfall flow
-                // (SliverWaterfallFlowDelegateWithFixedCrossAxisCount,
-                // mainAxisSpacing 5, crossAxisSpacing 10); card previews keep
-                // the original aspect ratio instead of a fixed cropped tile.
+                // U1 (R7): this tab is the only one without an AppBar, so
+                // on edge-to-edge Android 15+ the top padding is otherwise
+                // zero and the feed overlaps the status bar. Only the top
+                // safe inset is added — no AppBar — so the immersive feed
+                // look is kept. The RefreshIndicator overscroll zone stays
+                // above the padding, so pull-to-refresh still triggers.
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: EdgeInsets.fromLTRB(
+                      10,
+                      MediaQuery.viewPaddingOf(context).top,
+                      10,
+                      0,
+                    ),
                     sliver: SliverMasonryGrid.count(
                       crossAxisCount: 2,
                       mainAxisSpacing: 5,
@@ -220,11 +227,23 @@ class IllustCard extends ConsumerWidget {
                       // flight. Badges belong to the feed viewport; when the
                       // whole Stack was the Hero, the page-count badge was
                       // scaled and left as a large ghost during pop.
+                      //
+                      // The ClipRRect sits INSIDE the Hero child (R7 U…):
+                      // Hero flight renders the raw child, so a clip outside
+                      // the Hero only applied after the flight finished —
+                      // the image snapped from square to rounded on pop.
+                      // Clipping inside keeps the rounded corners during
+                      // the whole flight.
                       Hero(
                         tag: 'IllustHero-${entity.id}',
-                        child: PixivImage(
-                          url: previewUrl,
-                          fit: BoxFit.fitWidth,
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(12),
+                          ),
+                          child: PixivImage(
+                            url: previewUrl,
+                            fit: BoxFit.fitWidth,
+                          ),
                         ),
                       ),
                       if (entity.isR18)

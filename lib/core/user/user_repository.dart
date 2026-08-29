@@ -39,6 +39,15 @@ class UserIllustPage {
 abstract interface class UserRepository {
   Future<UserEntity> fetchDetail(int userId, {CancelToken? cancelToken});
 
+  /// Recommended users (`/v1/user/recommended`), paged via `next_url`.
+  Future<UserRelationPage> fetchRecommended({
+    String? cursor,
+    CancelToken? cancelToken,
+  });
+
+  bool validateRecommendedCursor({required String cursor});
+
+
   Future<UserIllustPage> fetchWorks(
     int userId, {
     required UserWorkType type,
@@ -105,6 +114,30 @@ class PixivUserRepository implements UserRepository {
       throw ApiParseError(error);
     }
   }
+
+  @override
+  Future<UserRelationPage> fetchRecommended({
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    final request = _pageRequest(
+      path: '/v1/user/recommended',
+      query: {'filter': 'for_ios'},
+      cursor: cursor,
+    );
+    final json = await _client.getJson(_target(request), cancelToken: cancelToken);
+    return _parseUserPage(json);
+  }
+
+  @override
+  bool validateRecommendedCursor({required String cursor}) {
+    return _validCursor(
+      path: '/v1/user/recommended',
+      query: {'filter': 'for_ios'},
+      cursor: cursor,
+    );
+  }
+
 
   @override
   Future<UserIllustPage> fetchWorks(

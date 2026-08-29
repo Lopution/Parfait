@@ -53,6 +53,13 @@ abstract interface class NovelRepository {
 
   bool validateUserNovelsCursor(int userId, {required String cursor});
 
+  Future<NovelPage> fetchRecommended({
+    String? cursor,
+    CancelToken? cancelToken,
+  });
+
+  bool validateRecommendedCursor({required String cursor});
+
   Future<NovelSeriesPage> fetchSeries(
     int seriesId, {
     String? cursor,
@@ -69,6 +76,7 @@ class PixivNovelRepository implements NovelRepository {
 
   static const _detailPath = '/v2/novel/detail';
   static const _userNovelsPath = '/v1/user/novels';
+  static const _recommendedPath = '/v1/novel/recommended';
   static const _seriesPath = '/v2/novel/series';
 
   @override
@@ -126,6 +134,33 @@ class PixivNovelRepository implements NovelRepository {
       cursor: cursor,
     );
   }
+
+  @override
+  Future<NovelPage> fetchRecommended({
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    final request = _pageRequest(
+      path: _recommendedPath,
+      expected: {'filter': 'for_android'},
+      cursor: cursor,
+    );
+    final json = await _client.getJson(
+      _target(request),
+      cancelToken: cancelToken,
+    );
+    return _parseNovelPage(json);
+  }
+
+  @override
+  bool validateRecommendedCursor({required String cursor}) {
+    return _isValidCursor(
+      path: _recommendedPath,
+      expected: {'filter': 'for_android'},
+      cursor: cursor,
+    );
+  }
+
 
   @override
   Future<NovelSeriesPage> fetchSeries(

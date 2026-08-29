@@ -84,6 +84,8 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           indicatorSize: TabBarIndicatorSize.label,
+          indicatorPadding: const EdgeInsets.only(bottom: 5),
+          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           onTap: _onTabTap,
           tabs: [
             for (final scope in _scopes)

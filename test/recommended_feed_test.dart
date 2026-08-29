@@ -16,7 +16,8 @@ import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_illust_page.dart';
-import 'package:pixiv_func/features/home/recommended/recommended_repository.dart';
+import 'package:pixiv_func/features/home/recommended/recommended_repository.dart'
+    hide RecommendedIllustPage;
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -327,4 +328,37 @@ void main() {
       expect(image.height, greaterThan(700));
     },
   );
+
+  testWidgets('U1: feed top padding follows the status-bar inset',
+      (tester) async {
+    final (container, _) = await makeWorld();
+    // Emulate edge-to-edge Android 15+: a 100px top system inset.
+    tester.view.viewPadding = const FakeViewPadding(top: 100);
+    addTearDown(tester.view.resetViewPadding);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: RecommendedIllustPage()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    });
+
+    // The only top-level sliver inside the feed scroll view.
+    final padding = tester.widget<SliverPadding>(
+      find.byType(SliverPadding).first,
+    );
+    final inset = padding.padding as EdgeInsets;
+    expect(
+      inset.top,
+      greaterThan(0),
+      reason: 'U1: the tab without an AppBar must offset the status bar '
+          'itself (edge-to-edge); before the fix the top padding was 0 and '
+          'the feed overlapped the status bar',
+    );
+    expect(inset.top, isNot(closeTo(0, 0.01)));
+    expect(inset.left, 10);
+  });
 }

@@ -11,11 +11,6 @@ sealed class IllustDetailState {
   const IllustDetailState();
 }
 
-/// No store snapshot yet — first load in progress.
-class IllustDetailLoading extends IllustDetailState {
-  const IllustDetailLoading();
-}
-
 /// Terminal success state.
 class IllustDetailReady extends IllustDetailState {
   const IllustDetailReady(this.entity);

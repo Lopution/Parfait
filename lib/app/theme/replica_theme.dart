@@ -18,6 +18,14 @@ ThemeData replicaTheme(Brightness brightness) {
     brightness: brightness,
     useMaterial3: false,
     primaryColor: FuncTokens.primary,
+    // M2 floating SnackBars go through FadeTransition (fade-in in the
+    // 0.4-1.0 interval of the animation); fixed M2 SnackBars only animate
+    // height and never fade. Forcing floating gives every hint (copy,
+    // saved, exit) a real fade so short-lived hints read as fade in/out
+    // instead of a block that pops in and out.
+    snackBarTheme: const SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+    ),
     scaffoldBackgroundColor: background,
     cardColor: dark ? surface : FuncTokens.lightBackground,
     colorScheme: ColorScheme.fromSeed(
