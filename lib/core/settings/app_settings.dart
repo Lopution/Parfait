@@ -58,6 +58,8 @@ class AppSettings {
     required this.languageTag,
     required this.themeCode,
     this.imageSource = normalImageSource,
+    this.enableDoh = true,
+    this.dohEndpointOverride,
     this.previewQuality = true,
     this.scaleQuality = true,
     this.enableHistory = true,
@@ -78,6 +80,19 @@ class AppSettings {
   static const int lightTheme = 1;
   static const int defaultMaxDownloadCount = 3;
   static const String normalImageSource = 'i.pximg.net';
+
+  /// Built-in DoH endpoints. Used when [dohEndpointOverride] is null; an
+  /// override replaces the whole list.
+  ///
+  /// Cloudflare DoH over anycast IPs (PixEz-proven bootstrap): anycast
+  /// serves these endpoints on any Cloudflare IP, so the first query needs
+  /// no system DNS round trip and no resolver recursion. Mainland DoH
+  /// (AliDNSPod) poisons `*.pixiv.net` answers, so they are not defaults;
+  /// users can add them through the override.
+  static const List<String> defaultDohEndpoints = [
+    'https://1dot1dot1dot1.cloudflare-dns.com/dns-query',
+    'https://dns.google/dns-query',
+  ];
   static const SecretSettingRef translationCredentialRef = SecretSettingRef(
     'replica.settings.translate.v1',
   );
@@ -87,6 +102,13 @@ class AppSettings {
   final String languageTag;
   final int themeCode;
   final String imageSource;
+
+  /// Whether the strict tier uses DoH; when disabled the system resolver
+  /// remains the only strict source (直连 + 系统 DNS).
+  final bool enableDoh;
+
+  /// Optional comma-separated DoH endpoint override. Null = built-in list.
+  final String? dohEndpointOverride;
   final bool previewQuality;
   final bool scaleQuality;
   final bool enableHistory;
@@ -134,6 +156,12 @@ class AppSettings {
       imageSource: source is String && ImageSourceMode.fromHost(source) != null
           ? source
           : base.imageSource,
+      enableDoh: _bool(json['enableDoh'], base.enableDoh),
+      dohEndpointOverride: _nullableString(
+        json,
+        'dohEndpointOverride',
+        base.dohEndpointOverride,
+      ),
       previewQuality: _bool(json['previewQuality'], base.previewQuality),
       scaleQuality: _bool(json['scaleQuality'], base.scaleQuality),
       enableHistory: _bool(json['enableHistory'], base.enableHistory),
@@ -165,6 +193,8 @@ class AppSettings {
       'languageTag': languageTag,
       'themeCode': themeCode,
       'imageSource': imageSource,
+      'enableDoh': enableDoh,
+      'dohEndpointOverride': dohEndpointOverride,
       'previewQuality': previewQuality,
       'scaleQuality': scaleQuality,
       'enableHistory': enableHistory,
@@ -228,6 +258,8 @@ class AppSettings {
     String? languageTag,
     int? themeCode,
     String? imageSource,
+    bool? enableDoh,
+    Object? dohEndpointOverride = _unset,
     bool? previewQuality,
     bool? scaleQuality,
     bool? enableHistory,
@@ -251,6 +283,10 @@ class AppSettings {
           imageSource != null && ImageSourceMode.fromHost(imageSource) != null
           ? imageSource
           : this.imageSource,
+      enableDoh: enableDoh ?? this.enableDoh,
+      dohEndpointOverride: identical(dohEndpointOverride, _unset)
+          ? this.dohEndpointOverride
+          : dohEndpointOverride as String?,
       previewQuality: previewQuality ?? this.previewQuality,
       scaleQuality: scaleQuality ?? this.scaleQuality,
       enableHistory: enableHistory ?? this.enableHistory,

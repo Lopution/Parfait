@@ -16,6 +16,7 @@ import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
+import 'package:pixiv_func/features/settings/network_settings_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -72,6 +73,7 @@ class _AccountRepository implements AccountMetadataRepository {
 class _TransferClipboard implements TransferClipboard {
   String? text;
   int writeCount = 0;
+  bool sensitiveMarkSupported = true;
 
   @override
   Future<void> write(String value, {required Duration clearAfter}) async {
@@ -84,6 +86,12 @@ class _TransferClipboard implements TransferClipboard {
 
   @override
   Future<bool> clearIfCurrent(String fingerprint) async => false;
+
+  @override
+  Future<TransferClipboardCapabilities> capabilities() async =>
+      TransferClipboardCapabilities(
+        sensitiveMarkSupported: sensitiveMarkSupported,
+      );
 }
 
 class _UnusedTransferVerifier implements TransferCredentialVerifier {
@@ -216,11 +224,15 @@ void main() {
       await Future.wait([
         controller.selectTheme(AppSettings.darkTheme),
         controller.setMaxDownloadCount(7),
+        controller.setDohEnabled(false),
+        controller.setDohEndpointOverride('https://9.9.9.9/dns-query'),
       ]);
       final state = container.read(settingsProvider).requireValue;
       expect(state.themeCode, AppSettings.darkTheme);
       expect(state.maxDownloadCount, 7);
-      expect(repository.saved, hasLength(2));
+      expect(state.enableDoh, isFalse);
+      expect(state.dohEndpointOverride, 'https://9.9.9.9/dns-query');
+      expect(repository.saved, hasLength(4));
 
       repository.failWrites = true;
       await expectLater(
@@ -245,6 +257,18 @@ void main() {
     const keys = [
       'settingsTitle',
       'accountSettings',
+      'networkSettings',
+      'networkMode',
+      'networkModeHint',
+      'networkDoh',
+      'networkDohHint',
+      'networkDohEndpoints',
+      'networkProbe',
+      'networkProbeHint',
+      'networkProbeRun',
+      'networkProbeRunning',
+      'networkProbeNotRun',
+      'networkProbeCopied',
       'themeSettings',
       'languageSettings',
       'translateSettings',
@@ -359,5 +383,100 @@ void main() {
       TransferEnvelope.parse(clipboard.text!),
       isA<TransferEnvelope>(),
     );
+  });
+
+  testWidgets(
+      'exporting on a device without sensitive clipboard shows a warning',
+      (tester) async {
+        final repository = _AccountRepository([
+          const Account(id: '42', userId: 42, name: 'tester'),
+        ]);
+        final clipboard = _TransferClipboard();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              settingsRepositoryProvider.overrideWithValue(
+                _FakeRepository(_baseSettings()),
+              ),
+              accountMetadataRepositoryProvider.overrideWithValue(repository),
+              credentialStoreProvider.overrideWithValue(_CredentialStore()),
+              accountTransferServiceProvider.overrideWith(
+                (ref) => AccountTransferService(
+                  accountStore: ref.read(accountStoreProvider.notifier),
+                  credentialStore: ref.read(credentialStoreProvider),
+                  verifier: _UnusedTransferVerifier(),
+                  clipboard: clipboard,
+                ),
+              ),
+              // Capability override: emulate an Android <13 device that
+              // cannot mark the clipboard entry as sensitive.
+              transferClipboardProvider.overrideWithValue(
+                _TransferClipboard()
+                  ..sensitiveMarkSupported = false,
+              ),
+            ],
+            child: const MaterialApp(
+              locale: Locale('zh', 'CN'),
+              supportedLocales: [Locale('zh', 'CN')],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              home: SettingsPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.text('tester'));
+        await tester.pumpAndSettle();
+        // The copied-toast (4s) blocks the queued warning snackbar; advance
+        // past it so the explicit security warning becomes visible.
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+
+        // The explicit security warning appears (R4: 安全降级不能静默).
+        expect(
+          find.text('此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。'),
+          findsOneWidget,
+        );
+      });
+
+  testWidgets('network settings accepts hostname DoH endpoints',
+      (tester) async {
+    // Regression: the endpoint validator required IP-literal hosts, which
+    // silently rejected the Cloudflare DoH domain defaults
+    // (1dot1dot1dot1.cloudflare-dns.com) as soon as the user touched the
+    // field. Domain endpoints are the production default now.
+    final repository = _FakeRepository(_baseSettings());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(repository),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            _AccountRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+        ],
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: NetworkSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The default endpoints are domain-URL form.
+    expect(
+      find.textContaining('1dot1dot1dot1.cloudflare-dns.com'),
+      findsWidgets,
+    );
+    // Replacing with another hostname endpoint must NOT show the error hint.
+    await tester.enterText(
+      find.byType(TextField),
+      'https://dns.alidns.com/dns-query',
+    );
+    await tester.pump();
+    expect(find.textContaining('Invalid'), findsNothing);
+    expect(find.textContaining('格式'), findsNothing);
   });
 }

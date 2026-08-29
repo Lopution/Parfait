@@ -2,12 +2,20 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../settings/settings_controller.dart';
 import 'network_policy.dart';
 
 /// App-scoped network policy. Every native Pixiv API/OAuth/image/download
 /// consumer receives this same revision and diagnostics owner.
+///
+/// DoH settings are watched so an enable/endpoint change rebuilds the
+/// policy's resolver; pooled clients are closed by the old policy's dispose.
 final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
-  final policy = NetworkAccessPolicy();
+  final dohEnabled = ref.watch(dohEnabledProvider);
+  final endpoints = ref.watch(dohEndpointsProvider);
+  final policy = NetworkAccessPolicy(
+    dohEndpoints: dohEnabled ? endpoints : const [],
+  );
   ref.onDispose(() => unawaited(policy.dispose()));
   return policy;
 });

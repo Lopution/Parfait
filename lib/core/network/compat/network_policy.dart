@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 
@@ -10,7 +12,8 @@ import 'network_contracts.dart';
 typedef NetworkClientFactory = http.Client Function(NetworkRoute route);
 
 /// One shared policy owner for all native Pixiv HTTP exits. It owns the
-/// revision, resolver, pooled route clients and diagnostics.
+/// revision, resolver, pooled route clients, per-host route memory and
+/// diagnostics.
 class NetworkAccessPolicy {
   NetworkAccessPolicy({
     PixivDestinationRegistry? registry,
@@ -19,12 +22,57 @@ class NetworkAccessPolicy {
     NetworkMode mode = NetworkMode.automatic,
     NetworkRevision revision = const NetworkRevision(0),
     NetworkClientFactory? clientFactory,
+    List<String> dohEndpoints = const [
+      // Cloudflare DoH over its well-known anycast IPs (PixEz-proven
+      // bootstrap: `1dot1dot1dot1.cloudflare-dns.com` + static IP map).
+      // Anycast serves these endpoints on any Cloudflare IP, so no system
+      // DNS round trip and no resolver recursion is needed before the first
+      // query; the endpoint certificate still carries the real hostname so
+      // hostname verification is unchanged.
+      //
+      // Order = preference. Mainland users see polluted answers from
+      // mainland DoH (AliDNSPod also poison *.pixiv.net), so those are NOT
+      // defaults — they remain available via the setting override.
+      'https://1dot1dot1dot1.cloudflare-dns.com/dns-query',
+      'https://dns.google/dns-query',
+    ],
+    Map<String, List<InternetAddress>>? dohHostOverrides,
   }) : registry = registry ?? PixivDestinationRegistry(),
-       _resolver = resolver ?? const SystemSecureResolver(),
+       _resolver =
+           resolver ??
+           (dohEndpoints.isEmpty
+               ? const SystemSecureResolver()
+               : DohResolver(
+                   endpointUrls: dohEndpoints,
+                   hostOverrides: dohHostOverrides ?? _defaultDohHostOverrides,
+                 )),
        diagnostics = diagnostics ?? NetworkDiagnostics(),
        _mode = mode,
        _revision = revision,
-       _clientFactory = clientFactory ?? const StrictHttpClientFactory().create;
+       _clientFactory =
+           clientFactory ?? const StrictHttpClientFactory().create;
+
+  /// Cloudflare DoH endpoints' anycast IPs (same values PixEz pins; the
+  /// DNS names themselves are only used for SNI/Host — the TCP peer is
+  /// always one of these).
+  /// Cloudflare DoH endpoints' anycast IPs (same values PixEz pins; the
+  /// DNS names themselves are only used for SNI/Host — the TCP peer is
+  /// always one of these). `InternetAddress` has no const constructor, so
+  /// the map is built lazily.
+  static Map<String, List<InternetAddress>> get _defaultDohHostOverrides => {
+    '1dot1dot1dot1.cloudflare-dns.com': [
+      InternetAddress('104.16.248.249'),
+      InternetAddress('104.16.249.249'),
+    ],
+    'cloudflare-dns.com': [
+      InternetAddress('104.16.248.249'),
+      InternetAddress('104.16.249.249'),
+    ],
+    'dns.google': [
+      InternetAddress('8.8.8.8'),
+      InternetAddress('8.8.4.4'),
+    ],
+  };
 
   final PixivDestinationRegistry registry;
   final SecureResolver _resolver;
@@ -32,12 +80,29 @@ class NetworkAccessPolicy {
   final NetworkClientFactory _clientFactory;
   final Map<String, http.Client> _clients = {};
 
+  /// The strict-tier resolver (DoH by default, system when DoH is off).
+  /// Exposed for the probe page; production requests use [runLadder].
+  SecureResolver get resolver => _resolver;
+
+  /// Per-host route memory: a host that reached a success through the strict
+  /// (secure-DNS) tier is remembered so subsequent requests skip the doomed
+  /// direct attempt inside the wall. Bounded, TTL'd, and cleared with the
+  /// same events that close route pools (mode/revision changes).
+  final Map<String, _HostRouteMemory> _routeMemory = {};
+  static const int _maxRouteMemoryEntries = 32;
+
   NetworkMode _mode;
   NetworkRevision _revision;
   bool _disposed = false;
 
   NetworkMode get mode => _mode;
   NetworkRevision get revision => _revision;
+
+  /// Whether [host] is currently remembered as strict-only. Exposed for
+  /// tests; production callers go through [runLadder].
+  @visibleForTesting
+  bool hasStrictRouteMemory(String host, {DateTime? now}) =>
+      _routeMemory[host]?.isFresh(now ?? DateTime.now()) ?? false;
 
   /// Returns one pooled client for a route. The purpose is an explicit
   /// argument so call sites cannot accidentally construct an unscoped client,
@@ -84,22 +149,113 @@ class NetworkAccessPolicy {
     );
   }
 
-  /// Changes mode and invalidates all route pools. This is deliberately
-  /// synchronous because `http.Client.close` is synchronous; no caller can
-  /// issue another request through the old pool after this method returns.
-  void setMode(NetworkMode mode) {
-    if (_mode == mode) return;
-    _mode = mode;
-    _closeClients();
+  /// The single route ladder shared by the API and download exits.
+  ///
+  /// [attempt] performs one request on the given route and returns the
+  /// response; [canReplay] gates whether a *second* attempt is permitted at
+  /// all (empty GET/HEAD only — a body must never be re-sent after a failed
+  /// first attempt). The ladder:
+  ///
+  /// 1. Direct route — always attempted unless route memory says the host
+  ///    is strict-only (inside the wall the direct attempt costs a timeout
+  ///    every single request).
+  /// 2. On an eligible transport failure, resolve via the policy resolver
+  ///    (DoH by default) and try each candidate address on the secure-DNS
+  ///    route.
+  ///
+  /// Failures are classified and recorded in diagnostics; a non-eligible
+  /// failure (certificate mismatch, auth, cancellation, HTTP…) aborts the
+  /// ladder immediately and rethrows.
+  Future<T> runLadder<T>({
+    required PixivDestination destination,
+    required NetworkCancelSignal? cancelSignal,
+    required bool canReplay,
+    required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+  }) async {
+    _checkUsable();
+    final host = destination.canonicalHost;
+    final now = DateTime.now();
+
+    var directRoute = NetworkRoute.direct(_revision);
+    if (_routeMemory[host]?.isFresh(now) ?? false) {
+      // Inside the wall the direct attempt is known to fail; jump straight
+      // to the strict tier.
+      directRoute = NetworkRoute.secureDns(
+        _revision,
+        _routeMemory[host]!.address,
+        dnsSource: _routeMemory[host]!.dnsSource,
+        ttl: _routeMemory[host]!.ttl,
+      );
+    }
+
+    final directTimer = Stopwatch()..start();
+    try {
+      final result = await attempt(directRoute, destination.uri);
+      // A success on the direct route clears a stale strict memory entry
+      // (e.g. the user moved to an open network).
+      _routeMemory.remove(host);
+      return result;
+    } on Object catch (error, stackTrace) {
+      policyRecord(destination, directRoute, error, directTimer.elapsed);
+      if (_mode == NetworkMode.directOnly ||
+          (cancelSignal?.isCancelled ?? false) ||
+          !canReplay ||
+          !TransportFailureClassifier.isFallbackEligible(error)) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+
+      final resolved = await resolve(destination, cancelSignal: cancelSignal);
+      Object lastError = error;
+      StackTrace lastStack = stackTrace;
+      for (final address in resolved.addresses) {
+        final route = NetworkRoute.secureDns(
+          _revision,
+          address,
+          dnsSource: resolved.dnsSource,
+          ttl: resolved.ttl,
+        );
+        final candidateTimer = Stopwatch()..start();
+        try {
+          if (cancelSignal?.isCancelled ?? false) {
+            throw const NetworkFailureException(NetworkFailureKind.cancelled);
+          }
+          final result = await attempt(route, destination.uri);
+          _routeMemory[host] = _HostRouteMemory(
+            address,
+            dnsSource: resolved.dnsSource,
+            ttl: resolved.ttl,
+            createdAt: DateTime.now(),
+          );
+          _trimRouteMemory();
+          return result;
+        } on Object catch (candidateError, candidateStack) {
+          policyRecord(destination, route, candidateError, candidateTimer.elapsed);
+          lastError = candidateError;
+          lastStack = candidateStack;
+          if (!TransportFailureClassifier.isFallbackEligible(candidateError)) {
+            break;
+          }
+        }
+      }
+      Error.throwWithStackTrace(lastError, lastStack);
+    }
   }
 
-  NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
-    _revision = NetworkRevision(
-      _revision.value + 1,
-      networkIdentity: networkIdentity ?? _revision.networkIdentity,
+  /// Records a failure; kept as a method so the ladder and diagnostics stay
+  /// in one place (route memory and client pools are owned here).
+  void policyRecord(
+    PixivDestination destination,
+    NetworkRoute route,
+    Object error,
+    Duration latency,
+  ) {
+    recordFailure(
+      host: destination.canonicalHost,
+      purpose: destination.purpose,
+      route: route,
+      error: error,
+      latency: latency,
     );
-    _closeClients();
-    return _revision;
   }
 
   void recordFailure({
@@ -126,6 +282,36 @@ class NetworkAccessPolicy {
     );
   }
 
+  /// Changes mode and invalidates all route pools and route memory. This is
+  /// deliberately synchronous because `http.Client.close` is synchronous; no
+  /// caller can issue another request through the old pool after this method
+  /// returns.
+  void setMode(NetworkMode mode) {
+    if (_mode == mode) return;
+    _mode = mode;
+    _closeClients();
+    _routeMemory.clear();
+  }
+
+  NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
+    _revision = NetworkRevision(
+      _revision.value + 1,
+      networkIdentity: networkIdentity ?? _revision.networkIdentity,
+    );
+    _closeClients();
+    _routeMemory.clear();
+    return _revision;
+  }
+
+  void _trimRouteMemory() {
+    if (_routeMemory.length <= _maxRouteMemoryEntries) return;
+    final oldest = _routeMemory.entries.toList()
+      ..sort((a, b) => a.value.createdAt.compareTo(b.value.createdAt));
+    for (final entry in oldest.take(_routeMemory.length - _maxRouteMemoryEntries)) {
+      _routeMemory.remove(entry.key);
+    }
+  }
+
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
@@ -146,10 +332,29 @@ class NetworkAccessPolicy {
   }
 }
 
+class _HostRouteMemory {
+  _HostRouteMemory(
+    this.address, {
+    required this.dnsSource,
+    required this.ttl,
+    required this.createdAt,
+  });
+
+  final InternetAddress address;
+  final DnsSource dnsSource;
+  final Duration ttl;
+  final DateTime createdAt;
+
+  bool isFresh(DateTime now) => now.difference(createdAt) < _kRouteMemoryTtl;
+}
+
+const _kRouteMemoryTtl = Duration(minutes: 10);
+
 /// A policy-aware `package:http` client. The direct route is always tried
-/// first. A second route is considered only for an empty GET/HEAD and an
-/// eligible transport failure; HTTP, auth, cancellation, parse and TLS
-/// failures are terminal and never replayed.
+/// first (unless route memory says strict-only). A second route is
+/// considered only for an empty GET/HEAD and an eligible transport failure;
+/// HTTP, auth, cancellation, parse and TLS certificate failures are
+/// terminal and never replayed.
 class PixivPolicyHttpClient extends http.BaseClient {
   PixivPolicyHttpClient({required this.policy, required this.purpose});
 
@@ -160,76 +365,23 @@ class PixivPolicyHttpClient extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final destination = policy.registry.require(request.url, purpose);
     request.followRedirects = false;
-    final direct = NetworkRoute.direct(policy.revision);
     final replay = _safeReplay(request);
     final cancelSignal = _RequestCancelSignal.from(request);
-    final directTimer = Stopwatch()..start();
-    try {
-      return await _sendOnRoute(request, destination, direct);
-    } on Object catch (error, stackTrace) {
-      policy.recordFailure(
-        host: destination.canonicalHost,
-        purpose: purpose,
-        route: direct,
-        error: error,
-        latency: directTimer.elapsed,
-      );
-      if (replay == null ||
-          policy.mode == NetworkMode.directOnly ||
-          (cancelSignal?.isCancelled ?? false) ||
-          !TransportFailureClassifier.isFallbackEligible(error)) {
-        Error.throwWithStackTrace(error, stackTrace);
-      }
-
-      final resolved = await policy.resolve(
-        destination,
-        cancelSignal: cancelSignal,
-      );
-      Object lastError = error;
-      StackTrace lastStack = stackTrace;
-      for (final address in resolved.addresses) {
-        final route = NetworkRoute.secureDns(
-          policy.revision,
-          address,
-          dnsSource: resolved.dnsSource,
-          ttl: resolved.ttl,
+    return policy.runLadder<http.StreamedResponse>(
+      destination: destination,
+      cancelSignal: cancelSignal,
+      canReplay: replay != null,
+      attempt: (route, url) async {
+        final response = await policy.clientFor(purpose, route).send(
+          replay ?? request,
         );
-        final candidateTimer = Stopwatch()..start();
-        try {
-          if (cancelSignal?.isCancelled ?? false) {
-            throw const NetworkFailureException(NetworkFailureKind.cancelled);
-          }
-          return await _sendOnRoute(replay, destination, route);
-        } on Object catch (candidateError, candidateStack) {
-          policy.recordFailure(
-            host: destination.canonicalHost,
-            purpose: purpose,
-            route: route,
-            error: candidateError,
-            latency: candidateTimer.elapsed,
-          );
-          lastError = candidateError;
-          lastStack = candidateStack;
-          if (!TransportFailureClassifier.isFallbackEligible(candidateError)) {
-            break;
-          }
+        if (response.statusCode >= 300 && response.statusCode < 400) {
+          await response.stream.drain<void>();
+          throw NetworkRedirectException(response.statusCode);
         }
-      }
-      Error.throwWithStackTrace(lastError, lastStack);
-    }
-  }
-
-  Future<http.StreamedResponse> _sendOnRoute(
-    http.BaseRequest request,
-    PixivDestination destination,
-    NetworkRoute route,
-  ) async {
-    final response = await policy.clientFor(purpose, route).send(request);
-    if (response.statusCode >= 300 && response.statusCode < 400) {
-      await response.stream.drain<void>();
-      throw NetworkRedirectException(response.statusCode);
-    }
-    return response;
+        return response;
+      },
+    );
   }
 
   static http.Request? _safeReplay(http.BaseRequest request) {
