@@ -71,7 +71,7 @@ Questions to answer:
 **What**: `UserStore` is the account-scoped canonical map for user previews and
 detail entities; `FollowStore` owns confirmed/pending/error relationship state
 keyed by `(account, userId)`. Profile, relation cards and future Search/
-Comments/Live surfaces read these stores rather than keeping page-local user
+Comments surfaces read these stores rather than keeping page-local user
 objects or follow booleans.
 
 **Mutation and merge rules**:
