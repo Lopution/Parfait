@@ -22,6 +22,7 @@ import '../login/login_page.dart';
 import '../profile/profile_edit_page.dart' as profile_edit;
 import '../profile/user_page.dart' as profile;
 import '../history/history_page.dart';
+import 'network_settings_page.dart';
 
 String _settingsText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -121,6 +122,11 @@ class _SettingsList extends ConsumerWidget {
         ),
         const Divider(),
         _SettingsRouteTile(
+          icon: Icons.network_check,
+          title: _settingsText(context, 'networkSettings'),
+          onTap: () => _openSettingsPage(context, const NetworkSettingsPage()),
+        ),
+        _SettingsRouteTile(
           icon: Icons.image_outlined,
           title: _settingsText(context, 'browseSettings'),
           onTap: () => _openSettingsPage(context, const BrowseSettingsPage()),
@@ -168,6 +174,22 @@ class _SettingsList extends ConsumerWidget {
             content: Text(_settingsText(context, 'accountTransferCopied')),
           ),
         );
+        // Android <13 cannot mark the clipboard entry as sensitive; the
+        // credential sits in the system clipboard in plaintext. Never do
+        // this silently (R4: 安全降级，不能静默少做一件事).
+        final capabilities = await ref
+            .read(transferClipboardProvider)
+            .capabilities();
+        if (!capabilities.sensitiveMarkSupported && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _settingsText(context, 'accountTransferSensitiveWarning'),
+              ),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       } on AccountTransferException catch (error) {
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

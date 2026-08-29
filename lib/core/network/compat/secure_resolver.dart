@@ -1,6 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
+
+import 'dns_message.dart';
 import 'network_contracts.dart';
 
 abstract interface class SecureResolver {
@@ -80,9 +85,230 @@ class SystemSecureResolver implements SecureResolver {
   Future<void> dispose() async {}
 }
 
+/// DoH (RFC 8484) resolver speaking `application/dns-message` over HTTPS.
+///
+/// Bootstrap properties (pinned by the design and the registry):
+///
+/// - Endpoint URLs use IP-literal hosts (e.g. `https://1.1.1.1/dns-query`),
+///   so no system DNS round trip is needed before the first query, and the
+///   endpoint certificate carries an `iPAddress` SAN — hostname verification
+///   succeeds normally; no certificate compromise is involved.
+/// - `resolve()` only accepts a canonical name from the caller; in this
+///   codebase the only caller is [NetworkAccessPolicy.resolve], which
+///   receives a [PixivDestination] already constrained by
+///   [PixivDestinationRegistry], so the resolver cannot become a generic
+///   open resolver through the production wiring.
+/// - Endpoints are tried in order; a failing endpoint moves the next call
+///   to the next endpoint (bounded circuit breaker).
+/// - Responses are bounded (size cap), time-bounded, cancellable, and TTLs
+///   are clamped to [maxTtl]. Only public addresses are returned.
+class DohResolver implements SecureResolver {
+  DohResolver({
+    required List<String> endpointUrls,
+    http.Client? client,
+    this.hostOverrides = const {},
+    this.maxResponseBytes = 64 * 1024,
+    this.maxTtl = const Duration(minutes: 10),
+    this.minTtl = const Duration(seconds: 5),
+    this.requestTimeout = const Duration(seconds: 8),
+    this.maxAddresses = 8,
+    this.endpointFailureWindow = const Duration(seconds: 30),
+    this.clock = DateTime.now,
+  })  : assert(endpointUrls.isNotEmpty, 'at least one DoH endpoint required'),
+        _client = client ?? _staticMappedClient(hostOverrides),
+        _ownsClient = client == null,
+        _endpoints = List.of(endpointUrls);
+
+  /// DNS-bootstrap-free endpoint resolution: maps an endpoint's hostname to
+  /// fixed public IPs (e.g. Cloudflare DoH `1dot1dot1dot1.cloudflare-dns.com`
+  /// → `104.16.248.249`). Cloudflare Anycast serves every domain on any of
+  /// its IPs, so the DoH request's real SNI is still `cloudflare-dns.com`
+  /// while the TCP peer is the static IP — no polluted system-DNS round trip
+  /// and no resolver recursion (PixEz `DnsSettings.static` equivalent).
+  final Map<String, List<InternetAddress>> hostOverrides;
+
+  /// Maximum accepted response body size (hard cap against amplification).
+  final int maxResponseBytes;
+
+  /// TTL clamp: DNS answers above this are reported as this value.
+  final Duration maxTtl;
+
+  /// TTL floor: answers below this are reported as this value.
+  final Duration minTtl;
+
+  final Duration requestTimeout;
+  final int maxAddresses;
+
+  /// A failing endpoint is skipped for this long before being retried.
+  final Duration endpointFailureWindow;
+
+  final DateTime Function() clock;
+
+  final http.Client _client;
+  final bool _ownsClient;
+  final List<String> _endpoints;
+  final Map<String, DateTime> _endpointFailedAt = {};
+  int _endpointCursor = 0;
+  bool _disposed = false;
+
+  int _nextQueryId = 0;
+
+  @override
+  Future<ResolvedHost> resolve(
+    String host, {
+    required NetworkRevision revision,
+    NetworkCancelSignal? cancelSignal,
+  }) async {
+    _validateDnsName(host);
+    _checkUsable();
+    if (cancelSignal?.isCancelled ?? false) {
+      throw const NetworkFailureException(NetworkFailureKind.cancelled);
+    }
+
+    // Find a healthy endpoint starting at the cursor (round-robin start).
+    final candidates = <String>[];
+    for (var i = 0; i < _endpoints.length; i++) {
+      final endpoint = _endpoints[(_endpointCursor + i) % _endpoints.length];
+      if (_isEndpointHealthy(endpoint)) candidates.add(endpoint);
+    }
+    if (candidates.isEmpty) {
+      // All endpoints are in their failure window: try the primary anyway
+      // so the resolver degrades to "last resort probe" instead of a hard
+      // block when the network genuinely changed.
+      candidates.add(_endpoints[_endpointCursor % _endpoints.length]);
+    }
+
+    Object? lastError;
+    for (final endpoint in candidates) {
+      try {
+        final result = await _query(
+          endpoint,
+          host,
+          revision,
+          cancelSignal,
+        );
+        _markEndpointHealthy(endpoint);
+        return result;
+      } on Object catch (error) {
+        lastError = error;
+        _markEndpointFailed(endpoint);
+        if (error is NetworkFailureException &&
+            error.kind == NetworkFailureKind.cancelled) {
+          rethrow;
+        }
+      }
+    }
+    _endpointCursor = (_endpointCursor + 1) % _endpoints.length;
+    throw lastError ??
+        const SecureResolutionException('all DoH endpoints failed');
+  }
+
+  Future<ResolvedHost> _query(
+    String endpoint,
+    String host,
+    NetworkRevision revision,
+    NetworkCancelSignal? cancelSignal,
+  ) async {
+    if (cancelSignal?.isCancelled ?? false) {
+      throw const NetworkFailureException(NetworkFailureKind.cancelled);
+    }
+    final id = _nextQueryId++ & 0xffff;
+    final payload = encodeQuery(id: id, name: host, type: 1);
+
+    final request = http.Request('POST', Uri.parse(endpoint))
+      ..headers['content-type'] = 'application/dns-message'
+      ..headers['accept'] = 'application/dns-message'
+      ..bodyBytes = payload;
+
+    final future = _client.send(request).timeout(requestTimeout);
+    final response = await _raceCancellation(future, cancelSignal);
+    if (response.statusCode != 200) {
+      throw SecureResolutionException('DoH endpoint $endpoint HTTP '
+          '${response.statusCode}');
+    }
+    final body = await response.stream
+        .fold<List<int>>(<int>[], (acc, chunk) {
+          if (acc.length + chunk.length > maxResponseBytes) {
+            throw const SecureResolutionException('DoH response too large');
+          }
+          acc.addAll(chunk);
+          return acc;
+        })
+        .timeout(requestTimeout);
+    if (body.length > maxResponseBytes) {
+      throw const SecureResolutionException('DoH response too large');
+    }
+
+    final message = decodeResponse(Uint8List.fromList(body));
+    if (message.id != id) {
+      throw const SecureResolutionException('DoH response id mismatch');
+    }
+    if (message.isTruncated) {
+      throw const SecureResolutionException('DoH response truncated');
+    }
+    if (!message.isOk) {
+      throw SecureResolutionException('DoH rcode ${message.rcode}');
+    }
+    final addresses = <InternetAddress>[];
+    for (final answer in message.addressAnswers) {
+      final address = answer.address!;
+      if (!isPublicNetworkAddress(address)) continue;
+      addresses.add(address);
+      if (addresses.length >= maxAddresses) break;
+    }
+    if (addresses.isEmpty) {
+      throw const SecureResolutionException('DoH returned no public address');
+    }
+
+    var ttl = const Duration(seconds: 30);
+    if (message.addressAnswers.isNotEmpty) {
+      final rawTtl = message.addressAnswers
+          .map((answer) => answer.ttl)
+          .reduce((a, b) => a < b ? a : b);
+      ttl = Duration(seconds: rawTtl);
+    }
+    if (ttl < minTtl) ttl = minTtl;
+    if (ttl > maxTtl) ttl = maxTtl;
+
+    return ResolvedHost(
+      host: host,
+      addresses: addresses,
+      dnsSource: DnsSource.doh,
+      revision: revision,
+      ttl: ttl,
+    );
+  }
+
+  bool _isEndpointHealthy(String endpoint) {
+    final failedAt = _endpointFailedAt[endpoint];
+    if (failedAt == null) return true;
+    return clock().difference(failedAt) >= endpointFailureWindow;
+  }
+
+  void _markEndpointFailed(String endpoint) {
+    _endpointFailedAt[endpoint] = clock();
+  }
+
+  void _markEndpointHealthy(String endpoint) {
+    _endpointFailedAt.remove(endpoint);
+  }
+
+  void _checkUsable() {
+    if (_disposed) throw StateError('DoH resolver is disposed');
+  }
+
+  @override
+  Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+    if (_ownsClient) {
+      _client.close();
+    }
+  }
+}
+
 /// A deterministic resolver useful for local integration and unit tests.
-class StaticSecureResolver implements SecureResolver {
-  StaticSecureResolver({
+class StaticSecureResolver implements SecureResolver {  StaticSecureResolver({
     required this.addresses,
     this.dnsSource = DnsSource.system,
   });
@@ -139,6 +365,49 @@ void _validateDnsName(String host) {
       InternetAddress.tryParse(host) != null) {
     throw const SecureResolutionException('unsafe DNS name');
   }
+}
+
+/// A dart:io client whose connectionFactory steers known endpoint hosts to
+/// static IPs while keeping the URI's real hostname (SNI, Host header,
+/// certificate chain and hostname verification all unchanged). Pinned by
+/// test/tls_sni_behaviour_test.dart: a raw connectionFactory socket skips
+/// TLS entirely, so every steered socket MUST be wrapped in
+/// `SecureSocket.secure(socket, host: url.host)`.
+http.Client _staticMappedClient(Map<String, List<InternetAddress>> overrides) {
+  final client = HttpClient();
+  client.findProxy = (_) => 'DIRECT';
+  if (overrides.isNotEmpty) {
+    client.connectionFactory = (url, proxyHost, proxyPort) {
+      final addresses = overrides[url.host];
+      if (addresses == null || addresses.isEmpty) {
+        // Not an overridden host: normal destination, still needs the
+        // SecureSocket wrapper (a bare connectionFactory socket skips TLS).
+        if (proxyHost != null || proxyPort != null) {
+          throw const SocketException('proxy route rejected');
+        }
+        return Socket.startConnect(url.host, url.port).then(
+          (rawTask) => ConnectionTask.fromSocket<Socket>(
+            rawTask.socket.then<Socket>(
+              (socket) => SecureSocket.secure(socket, host: url.host),
+            ),
+            rawTask.cancel,
+          ),
+        );
+      }
+      if (proxyHost != null || proxyPort != null) {
+        throw const SocketException('proxy route rejected');
+      }
+      return Socket.startConnect(addresses.first, url.port).then(
+        (rawTask) => ConnectionTask.fromSocket<Socket>(
+          rawTask.socket.then<Socket>(
+            (socket) => SecureSocket.secure(socket, host: url.host),
+          ),
+          rawTask.cancel,
+        ),
+      );
+    };
+  }
+  return IOClient(client);
 }
 
 bool isPublicNetworkAddress(InternetAddress address) {

@@ -91,7 +91,7 @@ enum NetworkRouteKind { direct, secureDns }
 
 enum NetworkIpFamily { ipv4, ipv6, unknown }
 
-enum DnsSource { none, system }
+enum DnsSource { none, system, doh }
 
 enum NetworkFailureKind {
   dns,
@@ -256,6 +256,12 @@ abstract final class TransportFailureClassifier {
       NetworkFailureKind.connect,
       NetworkFailureKind.timeout,
       NetworkFailureKind.reset,
+      // The GFW injects RSTs during the TLS handshake, which Dart surfaces
+      // as a HandshakeException without cert/hostname keywords (classified
+      // `tlsHandshake`). Without this entry the DoH tier would never be
+      // tried inside the wall. `certificateMismatch` stays terminal: it is
+      // the signal that someone swapped the certificate on the path.
+      NetworkFailureKind.tlsHandshake,
     }.contains(classify(error).kind);
   }
 

@@ -9,8 +9,14 @@ import 'network_contracts.dart';
 ///
 /// Secure-DNS steering changes only the TCP destination. The `HttpClient`
 /// still receives the original HTTPS URI, so Dart owns the original SNI,
-/// certificate hostname check and HTTP Host header. No certificate callback,
-/// SNI override or Host rewrite is installed here.
+/// certificate hostname check and HTTP Host header.
+///
+/// IMPORTANT (pinned by test/tls_sni_behaviour_test.dart): when
+/// `connectionFactory` is set and the request is direct, Dart's HttpClient
+/// uses the returned socket as-is and skips TLS entirely. The factory must
+/// therefore wrap the steered raw socket in `SecureSocket.secure` with the
+/// URL's real hostname — that keeps SNI, chain verification and hostname
+/// verification intact while the TCP peer is the resolver-chosen IP.
 abstract final class NativeStrictConnector {
   static HttpClient create(
     NetworkRoute route, {
@@ -30,8 +36,18 @@ abstract final class NativeStrictConnector {
           throw const SocketException('proxy route rejected');
         }
         // The URI passed to HttpClient remains `url`; only this socket's
-        // destination is steered to the resolver candidate.
-        return Socket.startConnect(address, url.port);
+        // destination is steered to the resolver candidate. The steered
+        // socket must then be upgraded to TLS explicitly (see the class
+        // doc): without the SecureSocket wrapper the SDK would send the
+        // request in plaintext to port 443.
+        return Socket.startConnect(address, url.port).then(
+          (rawTask) => ConnectionTask.fromSocket<Socket>(
+            rawTask.socket.then<Socket>(
+              (socket) => SecureSocket.secure(socket, host: url.host),
+            ),
+            rawTask.cancel,
+          ),
+        );
       };
     }
     return client;

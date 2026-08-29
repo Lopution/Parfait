@@ -28,68 +28,34 @@ class PolicyDownloadTransport
       url,
       PixivDestinationPurpose.image,
     );
-    final direct = NetworkRoute.direct(policy.revision);
-    final directTimer = Stopwatch()..start();
-    try {
-      return await _transportFor(direct).open(
-        url,
-        headers: headers,
-        cancelToken: cancelToken,
-      );
-    } on Object catch (error, stackTrace) {
-      final diagnosticError = _underlyingError(error);
-      policy.recordFailure(
-        host: destination.canonicalHost,
-        purpose: PixivDestinationPurpose.image,
-        route: direct,
-        error: diagnosticError,
-        latency: directTimer.elapsed,
-      );
-      if (policy.mode == NetworkMode.directOnly ||
-          !TransportFailureClassifier.isFallbackEligible(diagnosticError)) {
-        Error.throwWithStackTrace(error, stackTrace);
-      }
-
-      final resolved = await policy.resolve(
-        destination,
-        cancelSignal: cancelToken,
-      );
-      Object lastError = error;
-      StackTrace lastStack = stackTrace;
-      for (final address in resolved.addresses) {
-        final route = NetworkRoute.secureDns(
-          policy.revision,
-          address,
-          dnsSource: resolved.dnsSource,
-          ttl: resolved.ttl,
-        );
-        final candidateTimer = Stopwatch()..start();
+    return policy.runLadder<DownloadResponse>(
+      destination: destination,
+      cancelSignal: cancelToken,
+      // A download is a streamed GET with no body; a repeat is safe. The
+      // ladder itself enforces eligibility (transport failures only).
+      canReplay: true,
+      attempt: (route, routeUrl) async {
         try {
           return await _transportFor(route).open(
-            url,
+            routeUrl,
             headers: headers,
             cancelToken: cancelToken,
           );
-        } on Object catch (candidateError, candidateStack) {
-          final candidateDiagnostic = _underlyingError(candidateError);
-          policy.recordFailure(
-            host: destination.canonicalHost,
-            purpose: PixivDestinationPurpose.image,
-            route: route,
-            error: candidateDiagnostic,
-            latency: candidateTimer.elapsed,
-          );
-          lastError = candidateError;
-          lastStack = candidateStack;
-          if (!TransportFailureClassifier.isFallbackEligible(
-            candidateDiagnostic,
-          )) {
-            break;
+        } on DownloadTransportException catch (error, stackTrace) {
+          // The ladder classifies what attempt throws; the transitive
+          // cause carries the real transport error (e.g. SocketException).
+          // When it is fallback-eligible, drive the ladder with the cause
+          // (same observable network class downstream); otherwise keep the
+          // original wrapper so cancellation/HTTP semantics stay intact.
+          final cause = error.cause;
+          if (cause != null &&
+              TransportFailureClassifier.isFallbackEligible(cause)) {
+            Error.throwWithStackTrace(cause, stackTrace);
           }
+          rethrow;
         }
-      }
-      Error.throwWithStackTrace(lastError, lastStack);
-    }
+      },
+    );
   }
 
   HttpDownloadTransport _transportFor(NetworkRoute route) {
@@ -117,14 +83,4 @@ class PolicyDownloadTransport
       client.close(force: true);
     }
   }
-}
-
-Object _underlyingError(Object error) {
-  if (error is DownloadTransportException && error.cause != null) {
-    return error.cause!;
-  }
-  if (error is DownloadCancelledException) {
-    return const NetworkFailureException(NetworkFailureKind.cancelled);
-  }
-  return error;
 }

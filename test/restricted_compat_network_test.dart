@@ -166,6 +166,21 @@ void main() {
         ),
         isTrue,
       );
+      // Handshake reset injected mid-handshake (GFW RST): no cert/hostname
+      // keywords, so it classifies tlsHandshake and MAY fall back to the
+      // strict DoH tier.
+      expect(
+        TransportFailureClassifier.classify(
+          HandshakeException('Connection closed during handshake'),
+        ).kind,
+        NetworkFailureKind.tlsHandshake,
+      );
+      expect(
+        TransportFailureClassifier.isFallbackEligible(
+          HandshakeException('Connection closed during handshake'),
+        ),
+        isTrue,
+      );
       expect(
         TransportFailureClassifier.isFallbackEligible(
           HandshakeException('certificate mismatch'),
@@ -401,6 +416,134 @@ void main() {
       await factory.dispose();
     },
   );
+
+  test('per-host route memory skips the doomed direct attempt', () async {
+    final direct = _FakeClient(failure: SocketException('Connection refused'));
+    final secureDns = _FakeClient(body: '{"via":"secure-dns"}');
+    final resolver = _FakeResolver([InternetAddress('1.2.3.8')]);
+    final policy = NetworkAccessPolicy(
+      resolver: resolver,
+      clientFactory: (route) =>
+          route.kind == NetworkRouteKind.direct ? direct : secureDns,
+    );
+    addTearDown(policy.dispose);
+    final client = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.appApi,
+    );
+
+    // First request: direct fails, DoH tier succeeds, host is remembered.
+    final first = await client.get(_apiUri);
+    expect(first.statusCode, 200);
+    expect(direct.requests, hasLength(1));
+    expect(secureDns.requests, hasLength(1));
+    expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
+
+    // Second request: the direct tier is skipped entirely.
+    final second = await client.get(_apiUri);
+    expect(second.statusCode, 200);
+    expect(direct.requests, hasLength(1), reason: 'direct must be skipped');
+    expect(secureDns.requests, hasLength(2));
+    expect(
+      resolver.calls,
+      1,
+      reason: 'the remembered strict tier is reused without a new lookup',
+    );
+  });
+
+  test('route memory expires and is cleared by mode/revision changes', () async {
+    final direct = _FakeClient(failure: SocketException('Connection refused'));
+    final secureDns = _FakeClient(body: '{"via":"secure-dns"}');
+    final resolver = _FakeResolver([InternetAddress('1.2.3.9')]);
+    final policy = NetworkAccessPolicy(
+      resolver: resolver,
+      clientFactory: (route) =>
+          route.kind == NetworkRouteKind.direct ? direct : secureDns,
+    );
+    addTearDown(policy.dispose);
+    final client = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.appApi,
+    );
+    await client.get(_apiUri);
+    expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
+
+    // Past the TTL the host is no longer remembered.
+    expect(
+      policy.hasStrictRouteMemory(
+        'app-api.pixiv.net',
+        now: DateTime.now().add(const Duration(minutes: 11)),
+      ),
+      isFalse,
+    );
+
+    // A revision change (network handover) clears memory immediately.
+    policy.advanceNetworkRevision(networkIdentity: 'cellular');
+    expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isFalse);
+  });
+
+  test('route memory is per-host, not global', () async {
+    final direct = _FakeClient(failure: SocketException('Connection refused'));
+    final secureDns = _FakeClient(body: '{"via":"secure-dns"}');
+    final resolver = _FakeResolver([InternetAddress('1.2.3.10')]);
+    final policy = NetworkAccessPolicy(
+      resolver: resolver,
+      clientFactory: (route) =>
+          route.kind == NetworkRouteKind.direct ? direct : secureDns,
+    );
+    addTearDown(policy.dispose);
+    final client = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.appApi,
+    );
+    final imageClient = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.image,
+    );
+
+    await client.get(_apiUri);
+    expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
+    expect(policy.hasStrictRouteMemory('i.pximg.net'), isFalse);
+
+    // The other host pays its own direct attempt — memory is per-host.
+    await imageClient.get(
+      Uri.parse('https://i.pximg.net/img-master/img/1/2/3/a.jpg'),
+    );
+    expect(direct.requests, hasLength(2));
+    expect(policy.hasStrictRouteMemory('i.pximg.net'), isTrue);
+  });
+
+  test('API and download exits share one route ladder', () async {
+    final direct = _FakeClient(failure: SocketException('Connection refused'));
+    final secureDns = _FakeClient(body: '{"via":"secure-dns"}');
+    final resolver = _FakeResolver([InternetAddress('1.2.3.11')]);
+    final policy = NetworkAccessPolicy(
+      resolver: resolver,
+      clientFactory: (route) =>
+          route.kind == NetworkRouteKind.direct ? direct : secureDns,
+    );
+    addTearDown(policy.dispose);
+    final apiClient = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.appApi,
+    );
+    final imageClient = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.image,
+    );
+
+    await apiClient.get(_apiUri);
+    expect(secureDns.requests, hasLength(1));
+    await imageClient.get(
+      Uri.parse('https://i.pximg.net/img-master/img/1/2/3/a.jpg'),
+    );
+    expect(secureDns.requests, hasLength(2));
+    expect(direct.requests, hasLength(2));
+    expect(resolver.calls, 2);
+    // Both exits observe the same policy-owned route memory.
+    expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
+    expect(policy.hasStrictRouteMemory('i.pximg.net'), isTrue);
+  });
 
 }
 

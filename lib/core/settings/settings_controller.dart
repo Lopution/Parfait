@@ -62,6 +62,17 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setPreviewQuality(bool enabled) =>
       _update((settings) => settings.copyWith(previewQuality: enabled));
 
+  Future<void> setDohEnabled(bool enabled) =>
+      _update((settings) => settings.copyWith(enableDoh: enabled));
+
+  Future<void> setDohEndpointOverride(String? value) => _update(
+    (settings) => settings.copyWith(
+      dohEndpointOverride: value == null || value.trim().isEmpty
+          ? null
+          : value.trim(),
+    ),
+  );
+
   Future<void> setScaleQuality(bool enabled) =>
       _update((settings) => settings.copyWith(scaleQuality: enabled));
 
@@ -195,4 +206,27 @@ final maxDownloadCountProvider = Provider<int>((ref) {
           async.value?.maxDownloadCount ?? AppSettings.defaultMaxDownloadCount,
     ),
   );
+});
+
+/// Whether the strict network tier may use DoH.
+final dohEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select((async) => async.value?.enableDoh ?? true),
+  );
+});
+
+/// Effective DoH endpoint list: the user override (comma-separated) when
+/// set, otherwise the built-in IP-literal endpoints.
+final dohEndpointsProvider = Provider<List<String>>((ref) {
+  final override = ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.dohEndpointOverride,
+    ),
+  );
+  if (override == null) return AppSettings.defaultDohEndpoints;
+  return override
+      .split(',')
+      .map((entry) => entry.trim())
+      .where((entry) => entry.isNotEmpty)
+      .toList(growable: false);
 });
