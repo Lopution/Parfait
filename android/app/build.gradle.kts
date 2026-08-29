@@ -22,9 +22,11 @@ android {
 
     defaultConfig {
         applicationId = "io.github.lopution.pixivfunc"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // minSdk = 29 (Android 10): MediaStoreChannel throws on <29 so the
+        // download feature never worked there; exposing Android 7-9 devices
+        // to an app whose downloads always fail is worse than excluding
+        // them. API 29 is in the acceptance matrix (R4).
+        minSdk = 29
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)

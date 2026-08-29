@@ -99,6 +99,10 @@ class _Clipboard implements TransferClipboard {
     text = null;
     return true;
   }
+
+  @override
+  Future<TransferClipboardCapabilities> capabilities() async =>
+      const TransferClipboardCapabilities(sensitiveMarkSupported: true);
 }
 
 class _Verifier implements TransferCredentialVerifier {

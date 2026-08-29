@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.FileNotFoundException
 
@@ -25,6 +26,7 @@ object AndroidIntentChannel {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getInitialIntent" -> result.success(encode(activity, activity.intent))
+                    "openUrl" -> openUrl(activity, call, result)
                     else -> result.notImplemented()
                 }
             }
@@ -42,6 +44,25 @@ object AndroidIntentChannel {
 
     fun dispatch(context: Context, intent: Intent) {
         eventSink?.success(encode(context, intent))
+    }
+
+    private fun openUrl(activity: MainActivity, call: MethodCall, result: MethodChannel.Result) {
+        val raw = call.argument<String>("url")
+        val uri = runCatching { Uri.parse(raw?.trim() ?: "") }.getOrNull()
+        // Only http(s) targets leave the app. Anything else (javascript:,
+        // file:, custom schemes) is refused; this native check is the last
+        // gate before an external intent.
+        if (uri == null || (uri.scheme != "http" && uri.scheme != "https")) {
+            result.error("invalid_url", "only http(s) URLs may be opened", null)
+            return
+        }
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+        try {
+            activity.startActivity(intent)
+            result.success(true)
+        } catch (_: Exception) {
+            result.error("no_handler", "no activity can open this URL", null)
+        }
     }
 
     private fun encode(context: Context, intent: Intent): Map<String, Any?> {
