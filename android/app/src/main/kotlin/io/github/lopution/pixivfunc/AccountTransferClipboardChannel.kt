@@ -35,9 +35,26 @@ object AccountTransferClipboardChannel {
                     "write" -> write(clipboard, handler, call, result)
                     "read" -> read(clipboard, result)
                     "clearIfCurrent" -> clearIfCurrent(clipboard, call, result)
+                    "capabilities" -> capabilities(result)
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /**
+     * Reports which safety capabilities this platform offers for the
+     * transfer clipboard. `sensitiveMarkSupported` is false below API 33:
+     * the system then stores the credential in plaintext without the
+     * sensitive flag, and callers must surface an explicit warning instead
+     * of silently skipping a safety feature.
+     */
+    private fun capabilities(result: MethodChannel.Result) {
+        result.success(
+            mapOf(
+                "sensitiveMarkSupported" to
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU),
+            ),
+        )
     }
 
     private fun write(

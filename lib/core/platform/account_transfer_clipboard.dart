@@ -22,6 +22,17 @@ class TransferClipboardContent {
   final String fingerprint;
 }
 
+/// Safety capabilities of the platform clipboard bridge.
+class TransferClipboardCapabilities {
+  const TransferClipboardCapabilities({required this.sensitiveMarkSupported});
+
+  /// Whether `EXTRA_IS_SENSITIVE` can be set (API 33+). When false the
+  /// exported credential sits in the system clipboard in plaintext with no
+  /// sensitive flag — callers must surface an explicit security warning
+  /// (R4: Android 10 安全降级，不能静默少做一件事).
+  final bool sensitiveMarkSupported;
+}
+
 /// Platform boundary for the account-transfer clipboard lifecycle.
 abstract interface class TransferClipboard {
   Future<void> write(String text, {required Duration clearAfter});
@@ -31,6 +42,9 @@ abstract interface class TransferClipboard {
   /// Clears only if the currently owned clipboard content still has the given
   /// fingerprint. Returns false when the user or another app replaced it.
   Future<bool> clearIfCurrent(String fingerprint);
+
+  /// Reports platform safety capabilities (R4)。
+  Future<TransferClipboardCapabilities> capabilities();
 }
 
 abstract final class TransferClipboardMethods {
@@ -38,6 +52,7 @@ abstract final class TransferClipboardMethods {
   static const write = 'write';
   static const read = 'read';
   static const clearIfCurrent = 'clearIfCurrent';
+  static const capabilities = 'capabilities';
 }
 
 /// Android channel implementation. There is intentionally no fallback to
@@ -49,6 +64,37 @@ class MethodChannelTransferClipboard implements TransferClipboard {
   ]);
 
   final MethodChannel _channel;
+
+  @override
+  Future<TransferClipboardCapabilities> capabilities() async {
+    try {
+      final raw = await _channel.invokeMethod<Object?>(
+        TransferClipboardMethods.capabilities,
+      );
+      if (raw is! Map) {
+        throw const AccountTransferException(
+          AccountTransferErrorCode.clipboardUnavailable,
+          'clipboard capabilities response is malformed',
+        );
+      }
+      final sensitive = raw['sensitiveMarkSupported'];
+      return TransferClipboardCapabilities(
+        sensitiveMarkSupported: sensitive == true,
+      );
+    } on AccountTransferException {
+      rethrow;
+    } on MissingPluginException {
+      // Desktop/web tests have no Android channel; treat as unsupported so
+      // callers show the explicit warning instead of crashing.
+      return const TransferClipboardCapabilities(sensitiveMarkSupported: false);
+    } on Object catch (error) {
+      throw AccountTransferException(
+        AccountTransferErrorCode.clipboardUnavailable,
+        'clipboard capabilities are unavailable',
+        cause: error,
+      );
+    }
+  }
 
   @override
   Future<void> write(String text, {required Duration clearAfter}) async {
