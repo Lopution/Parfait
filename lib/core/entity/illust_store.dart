@@ -106,6 +106,10 @@ class IllustStore {
             entity.metaSinglePageOriginalUrl ??
             existing.metaSinglePageOriginalUrl,
         visible: entity.visible && existing.visible,
+        // U2: detail responses carry createDate but feed refreshes do not;
+        // a date-less payload must never erase an observed date (same
+        // no-regress rule as caption/metaPages).
+        createDate: entity.createDate ?? existing.createDate,
       );
       // pageCount never shrinks: a feed snapshot with page_count=1 must not
       // erase a detail payload's multi-page count (AC: merge 不倒退).

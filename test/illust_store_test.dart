@@ -3,7 +3,8 @@ import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/next_page_parser.dart';
 
-IllustEntity entity(int id, {bool bookmarked = false}) => IllustEntity(
+IllustEntity entity(int id, {bool bookmarked = false, String? createDate}) =>
+    IllustEntity(
       id: id,
       title: 'title-$id',
       type: IllustType.illust,
@@ -28,6 +29,7 @@ IllustEntity entity(int id, {bool bookmarked = false}) => IllustEntity(
       isBookmarked: bookmarked,
       totalView: 10,
       totalBookmarks: 5,
+      createDate: createDate,
     );
 
 void main() {
@@ -50,6 +52,49 @@ void main() {
       expect(store.get(1)!.isBookmarked, isTrue);
       store.clear();
       expect(store.get(1), isNull);
+    });
+
+    test(
+      'mergeAll round-trip preserves createDate through copyWith merges',
+      () {
+        // U2 regression: copyWith dropped createDate, so every merge that
+        // touched an existing entity silently nulled the date.
+        final store = IllustStore();
+        final feed = entity(1);
+        final dated = entity(1, createDate: '2026-08-29T12:00:00+09:00');
+        store.mergeAll([feed]);
+        // A later detail response carrying the date arrives; its merge goes
+        // through copyWith (existing != null) and must keep the date.
+        store.mergeAll([dated]);
+        expect(store.get(1)!.createDate, '2026-08-29T12:00:00+09:00');
+        // A date-less detail refresh must not erase the observed date.
+        store.mergeAll([entity(1)]);
+        expect(store.get(1)!.createDate, '2026-08-29T12:00:00+09:00');
+        // Bookmark sync goes through copyWith too.
+        store.updateBookmark(1, true);
+        expect(store.get(1)!.createDate, '2026-08-29T12:00:00+09:00');
+        // Unrelated merges must not affect the stored entity.
+        store.mergeAll([entity(2), entity(1, bookmarked: true)]);
+        expect(
+          store.get(1)!.createDate,
+          '2026-08-29T12:00:00+09:00',
+          reason: 'createDate must survive every later merge and bookmark',
+        );
+      },
+    );
+
+    test('copyWith exposes every constructor field (createDate included)', () {
+      final original = entity(1);
+      final copies = original.copyWith();
+      // The invariant: copying without arguments keeps every non-mutable
+      // field identical. Any future constructor field forgotten in
+      // copyWith fails this test suite-wide.
+      expect(copies.id, original.id);
+      expect(copies.title, original.title);
+      expect(copies.caption, original.caption);
+      expect(copies.pageCount, original.pageCount);
+      expect(copies.visible, original.visible);
+      expect(copies.createDate, original.createDate);
     });
 
     test('entity parser maps badges and tolerates optional fields', () {

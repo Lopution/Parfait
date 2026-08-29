@@ -63,7 +63,18 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     }
   }
 
-  void _onTransformed() => setState(() {});
+  void _onTransformed() {
+    final zoomed = _activeZoomed;
+    if (zoomed != _activeZoomedSnapshot) {
+      // Only rebuild when the physics actually flip (zoomed vs not); the
+      // transformation listener fires every frame during a pinch, and a
+      // setState per frame rebuilds the whole PageView (U3/R7).
+      _activeZoomedSnapshot = zoomed;
+      setState(() {});
+    }
+  }
+
+  bool _activeZoomedSnapshot = false;
 
   TransformationController _transformationFor(int page) {
     return _transformations.putIfAbsent(page, TransformationController.new);
@@ -100,7 +111,12 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                   minScale: ImageViewerPage.minScale,
                   maxScale: ImageViewerPage.maxScale,
                   panEnabled: true,
-                  child: Center(
+                  // Tight constraints (U3): Center alone gives loose
+                  // constraints, so RenderImage laid out at its intrinsic
+                  // size (original pixels / DPR) and BoxFit.contain had
+                  // nothing to fill. Expanding forces the image to fill
+                  // the viewport, giving the zoom a real target.
+                  child: SizedBox.expand(
                     child: PixivImage(
                       url: widget.urls[page],
                       fit: BoxFit.contain,

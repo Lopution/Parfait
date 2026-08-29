@@ -228,6 +228,32 @@ void main() {
       expect(find.text('1 / 0'), findsOneWidget);
     },
         skip: false);
+
+    testWidgets(
+        'U3: the image fills the viewport (tight constraints, not intrinsics)',
+        (tester) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ImageViewerPage(
+              urls: ['https://i.pximg.net/1/original.jpg'],
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // SizedBox.expand inside the viewer gives the RenderImage tight
+        // constraints, so BoxFit.contain has a real viewport to scale
+        // against (`Center` alone leaves it at intrinsic size — the bug).
+        final viewer = tester.widget<InteractiveViewer>(
+          find.byType(InteractiveViewer),
+        );
+        final expand = viewer.child;
+        expect(expand, isA<SizedBox>());
+        expect((expand as SizedBox).width, double.infinity);
+        expect(expand.height, double.infinity);
+      });
+    });
   });
 
   group('IllustDetailPage download mode (R4)', () {
@@ -420,6 +446,79 @@ void main() {
       await tester.tap(find.text('简介'));
       await tester.pump();
       expect(find.text('作品说明文字'), findsOneWidget);
+    });
+
+    testWidgets(
+        'U5: the store snapshot renders on the very first frame with the '
+        'Hero destination present', (tester) async {
+      final (container, _, _) = await makeWorld();
+      // Feed already placed the entity in the store before navigation.
+      final entity = parseIllust(illustJson(42, pageCount: 2));
+      container.read(illustStoreProvider).mergeAll([entity]);
+
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(home: IllustDetailPage(illustId: 42)),
+          ),
+        );
+        // No second pump / settle: this is the AsyncLoading first frame.
+        expect(find.byType(ProgressIndicator), findsNothing);
+        expect(
+          find.byType(Scrollable),
+          findsWidgets,
+          reason: 'content renders from the store snapshot, not a spinner',
+        );
+        // Hero destination exists on the first frame (feed -> detail flight).
+        final hero = tester.widget<Hero>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Hero && widget.tag == 'IllustHero-42',
+          ),
+        );
+        expect(hero, isNotNull);
+      });
+    });
+
+    testWidgets(
+        'U6: caption renders as rich clickable text, not literal HTML',
+        (tester) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(
+            42,
+            caption: 'line1<br>line2 — <a '
+                'href="https://www.pixiv.net/users/7">author</a> '
+                '&amp; more',
+          ),
+        },
+      );
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        await tester.scrollUntilVisible(
+          find.text('简介'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('简介'));
+        await tester.pump();
+      });
+
+      // The key assertions: no literal `<br />` text, the caption text
+      // renders decoded, and tapping an in-app pixiv link pushes a route.
+      // ('author' also names the author block, hence .last.)
+      expect(find.textContaining('<br>'), findsNothing);
+      expect(find.textContaining('line1'), findsOneWidget);
+      expect(find.text('author'), findsWidgets);
+
+      await tester.tap(find.text('author').last);
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(Scaffold).evaluate().length,
+        greaterThanOrEqualTo(2),
+        reason: 'in-app pixiv link pushes a detail page route',
+      );
     });
   });
 }

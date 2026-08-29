@@ -151,6 +151,18 @@ class _FakeUserRepository implements UserRepository {
     required UserRestrict restrict,
     required String cursor,
   }) => false;
+
+  @override
+  Future<UserRelationPage> fetchRecommended({
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    requests.add('recommended:${cursor == null ? 'first' : 'next'}');
+    return const UserRelationPage(users: [], nextUrl: null);
+  }
+
+  @override
+  bool validateRecommendedCursor({required String cursor}) => false;
 }
 
 Future<ProviderContainer> _makeWorld({

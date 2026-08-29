@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/replica_page_route.dart';
-import 'recommended/recommended_illust_page.dart';
+import 'recommended/recommended_home_page.dart';
 
 import '../../app/icons/app_icons.dart';
 import '../../core/navigation/route_observer.dart';
@@ -166,14 +166,34 @@ class _HomePageState extends State<HomePage>
       case RootBackAction.showExitHint:
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('再按一次退出')));
+          // U4 (R7): the hint's lifetime must equal the exit window — with
+          // the default 4s SnackBar the text was still on screen long after
+          // the window closed, so it was describing a state that was
+          // already false. Floating + M3 fade keeps it near the thumb; the
+          // in/out animation is shortened so the whole cycle fits the
+          // 1-second window the hint describes.
+          ..showSnackBar(
+            SnackBar(
+              content: const Text('再按一次退出'),
+              duration: RootBackCoordinator.exitWindow,
+              behavior: SnackBarBehavior.floating,
+            ),
+            snackBarAnimationStyle: const AnimationStyle(
+              // M2 floating fades inside the 0.4-1.0 interval, so a 120ms
+              // animation only paints ~72ms of fade — read as "no
+              // animation" on device. 200ms keeps the whole hint within the
+              // 1s exit window while the fade is perceptible.
+              duration: Duration(milliseconds: 200),
+              reverseDuration: Duration(milliseconds: 180),
+            ),
+          );
       case RootBackAction.exit:
         SystemNavigator.pop();
     }
   }
 
   static const pages = [
-    RecommendedIllustPage(),
+    RecommendedHomePage(),
     RankingPage(),
     NewPage(),
     SearchHomePage(),

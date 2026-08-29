@@ -15,6 +15,19 @@ class RecommendedIllustPage {
   final String? nextUrl;
 }
 
+/// Beta56 home feed content types: 插画 / 漫画 / 小说 / 用户.
+enum RecommendedContentType { illust, manga, novel, user }
+
+/// Wire `content_type` for the illust/manga share of `/v1/illust/recommended`.
+String recommendedIllustContentType(RecommendedContentType type) {
+  return switch (type) {
+    RecommendedContentType.illust => 'illust',
+    RecommendedContentType.manga => 'manga',
+    RecommendedContentType.novel || RecommendedContentType.user =>
+      throw ArgumentError('$type is not an illust/manga content type'),
+  };
+}
+
 /// Fetches and normalizes Recommended Illust pages.
 ///
 /// Entity writes belong to the feed controller's generation commit, not this
@@ -26,16 +39,17 @@ class RecommendedIllustRepository {
   final PixivHttpClient _client;
 
   /// Fetches one page. [cursor] is the validated next_url or `null` for the
-  /// first page.
+  /// first page. [contentType] selects illust vs manga (beta56 home tabs).
   Future<RecommendedIllustPage> fetchPage(
     String? cursor, {
+    String contentType = 'illust',
     CancelToken? cancelToken,
   }) async {
     final NextPageRequest request;
     try {
       request = cursor == null
           ? NextPageParser.firstPage('/v1/illust/recommended', {
-              'content_type': 'illust',
+              'content_type': contentType,
               'include_ranking_illusts': 'true',
               'filter': 'for_ios',
             })

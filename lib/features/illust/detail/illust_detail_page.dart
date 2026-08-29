@@ -9,6 +9,7 @@ import 'dart:async';
 
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart' show DownloadEvent;
+import '../../../core/entity/illust_caption.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/history/history_models.dart';
@@ -16,10 +17,12 @@ import '../../../core/history/history_repository.dart';
 import '../../../core/history/history_snapshot.dart';
 import '../../../core/history/history_visibility.dart';
 import '../../../core/network/compat/network_providers.dart';
+import '../../../core/platform/android_intent_channel.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/settings/blocked_tags.dart';
 import '../../bookmark/bookmark_switch_button.dart';
 import '../../comments/comments_page.dart';
+import '../../profile/user_page.dart' show showUserPage;
 import '../../search/tag_search_page.dart';
 import '../../../core/i18n/replica_strings.dart';
 import '../viewer/image_viewer_page.dart';
@@ -68,7 +71,19 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     return Scaffold(
       appBar: _buildAppBar(context, ref, async),
       body: async.when(
-        loading: () => const Center(child: CupertinoActivityIndicator()),
+        // U5 (R7): AsyncNotifier.build() returns a Future, so the first
+        // frame is ALWAYS AsyncLoading — a spinner here would hide the
+        // store snapshot the feed already placed in IllustStore, and the
+        // Hero destination would not exist on the first frame. Render the
+        // snapshot immediately; the controller's IllustDetailLoading state
+        // stays as the no-snapshot first-load signal.
+        loading: () {
+          final snapshot = ref.read(illustStoreProvider).get(widget.illustId);
+          if (snapshot != null) {
+            return _buildContent(context, ref, snapshot);
+          }
+          return const Center(child: CupertinoActivityIndicator());
+        },
         error: (Object error, StackTrace _) => _ErrorView(
           error: error,
           onRetry: () => ref
@@ -78,8 +93,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         data: (state) {
           // Snapshot-first (R1): the shared store renders stale data behind
           // any in-flight refresh; the controller state drives the terminal
-          // surfaces.
-          final snapshot = ref.watch(illustStoreProvider).get(widget.illustId);
+          // surfaces (the loading branch above reads the store directly).
           return switch (state) {
             IllustDetailRestricted(:final entity) => _RestrictedView(entity),
             IllustDetailNotFound() => const _NotFoundView(),
@@ -101,10 +115,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                           )
                           .reload(),
                     ),
-            IllustDetailLoading() =>
-              snapshot != null
-                  ? _buildContent(context, ref, snapshot)
-                  : const Center(child: CupertinoActivityIndicator()),
           };
         },
       ),
@@ -279,9 +289,11 @@ class _PageImage extends ConsumerWidget {
       onTap: () => _openViewer(context, scaleQuality: scaleQuality),
       onLongPress: onLongPress,
       child: AspectRatio(
-        aspectRatio: entity.width > 0 && entity.height > 0
-            ? entity.width / entity.height
-            : 1.0,
+        // Per-page ratio (R7): meta_pages carry their own width/height and
+        // multi-page works legitimately differ page to page. Using the
+        // work-level ratio + BoxFit.cover cropped every non-first page
+        // (visible on the 31-page strip work).
+        aspectRatio: entity.pageAspectRatioAt(index),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -292,7 +304,7 @@ class _PageImage extends ConsumerWidget {
               tag: heroTag,
               child: PixivImage(
                 url: previewUrl,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
                 width: double.infinity,
                 filterColor: downloadMode ? Colors.white24 : null,
                 filterBlendMode: downloadMode ? BlendMode.srcOver : null,
@@ -444,7 +456,7 @@ class _InfoBlock extends ConsumerWidget {
                     ),
                     Text(
                       entity.user.account,
-                      style: textTheme.bodySmall,
+                      style: textTheme.bodyMedium,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -453,6 +465,8 @@ class _InfoBlock extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
+          // 日期行与统计行的排版（U2 一并整理）：日期占左侧，视线/收藏
+          // 统计右侧成组，避免数字被日期挤压后换行错位。
           Row(
             children: [
               Expanded(
@@ -461,23 +475,24 @@ class _InfoBlock extends ConsumerWidget {
                       ? '投稿日期未知'
                       : '投稿日期：${createDate.year}/${createDate.month}/${createDate.day}',
                   overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodyMedium,
                 ),
               ),
-              const Icon(Icons.remove_red_eye_outlined, size: 12),
-              const SizedBox(width: 5),
-              Text('${entity.totalView}'),
-              const SizedBox(width: 5),
-              const Icon(Icons.favorite_border, size: 12),
-              const SizedBox(width: 5),
-              Text('${entity.totalBookmarks}'),
+              const SizedBox(width: 12),
+              _StatItem(icon: Icons.remove_red_eye_outlined, label: '${entity.totalView}'),
+              const SizedBox(width: 10),
+              _StatItem(icon: Icons.favorite_border, label: '${entity.totalBookmarks}'),
             ],
           ),
           const SizedBox(height: 5),
           Row(
             children: [
-              Text('尺寸：${entity.width}x${entity.height}'),
+              Text(
+                '尺寸：${entity.width}x${entity.height}',
+                style: textTheme.bodyMedium,
+              ),
               const SizedBox(width: 5),
-              Text('ID: ${entity.id}'),
+              Text('ID: ${entity.id}', style: textTheme.bodyMedium),
             ],
           ),
           if (entity.caption.isNotEmpty) ...[
@@ -487,10 +502,10 @@ class _InfoBlock extends ConsumerWidget {
               behavior: HitTestBehavior.opaque,
               child: Row(
                 children: [
-                  const SizedBox(width: 15),
                   Text(
                     '简介',
                     style: TextStyle(
+                      fontSize: 15,
                       color: showCaption ? theme.colorScheme.primary : null,
                     ),
                   ),
@@ -508,7 +523,11 @@ class _InfoBlock extends ConsumerWidget {
             if (showCaption)
               Padding(
                 padding: const EdgeInsets.only(top: 12, bottom: 20),
-                child: Text(entity.caption),
+                // U6 (R7): Pixiv captions are HTML; render as rich,
+                // clickable text. <br> breaks, entities are decoded and
+                // pixiv-internal links stay in-app while external links
+                // leave via the outbound intent.
+                child: _CaptionRichText(caption: entity.caption),
               ),
           ],
           const SizedBox(height: 20),
@@ -543,6 +562,27 @@ class _InfoBlock extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// One icon + numeric-stat pair in the detail meta row (U2 排版整理).
+class _StatItem extends StatelessWidget {
+  const _StatItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final textStyle = Theme.of(context).textTheme.bodyMedium;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12),
+        const SizedBox(width: 4),
+        Text(label, style: textStyle),
+      ],
     );
   }
 }
@@ -601,6 +641,118 @@ class _TagChip extends StatelessWidget {
   }
 }
 
+/// Renders a parsed HTML caption with clickable links (U6).
+///
+/// pixiv-internal links (www.pixiv.net users/artworks) navigate inside the
+/// app with the same right-in rhythm as feed cards; anything else opens via
+/// the outbound Android intent.
+class _CaptionRichText extends ConsumerWidget {
+  const _CaptionRichText({required this.caption});
+
+  final String caption;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final linkColor = theme.colorScheme.primary;
+    final parsed = parseIllustCaption(caption);
+
+    final spans = <InlineSpan>[];
+    for (final span in parsed.spans) {
+      switch (span) {
+        case CaptionText(:final text):
+          spans.add(TextSpan(text: text));
+        case CaptionBreak():
+          spans.add(const TextSpan(text: '\n'));
+        case CaptionLink(:final href, :final text):
+          final target = _resolvePixivRoute(href);
+          spans.add(
+            WidgetSpan(
+              alignment: PlaceholderAlignment.top,
+              child: GestureDetector(
+                onTap: () {
+                  if (target != null) {
+                    _openPixivRoute(context, target);
+                    return;
+                  }
+                  final opener = ref.read(outboundUrlOpenerProvider);
+                  unawaited(
+                    opener.openExternal(href).catchError((Object error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('无法打开链接：$error'),
+                          ),
+                        );
+                      }
+                    }),
+                  );
+                },
+                child: Text(
+                  text.isEmpty ? href : text,
+                  style: TextStyle(
+                    color: linkColor,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
+          );
+      }
+    }
+
+    return Text.rich(
+      TextSpan(children: spans),
+      style: theme.textTheme.bodyMedium,
+    );
+  }
+}
+
+/// Resolves a pixiv web URL to an internal route, or null for external.
+({String kind, String id})? _resolvePixivRoute(String href) {
+  final uri = Uri.tryParse(href);
+  if (uri == null) return null;
+  final host = uri.host.toLowerCase();
+  if (host != 'www.pixiv.net' && host != 'pixiv.net') return null;
+  final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  if (segments.isEmpty) return null;
+  // Strip a leading language segment (en/, ja/, ...).
+  final start = segments.length >= 2 && segments[0].length == 2 &&
+          !RegExp(r'^\d+$').hasMatch(segments[0])
+      ? 1
+      : 0;
+  if (segments.length <= start) return null;
+  return switch (segments[start]) {
+    'users' when segments.length > start + 1 => (
+      kind: 'user',
+      id: segments[start + 1],
+    ),
+    'artworks' || 'illusts' when segments.length > start + 1 => (
+      kind: 'illust',
+      id: segments[start + 1],
+    ),
+    _ => null,
+  };
+}
+
+void _openPixivRoute(
+  BuildContext context,
+  ({String kind, String id}) target,
+) {
+  final id = int.tryParse(target.id);
+  if (id == null || id <= 0) return;
+  switch (target.kind) {
+    case 'user':
+      // showUserPage pushes its own route with the right-in rhythm.
+      showUserPage(context, id);
+    case 'illust':
+      Navigator.of(context).push<void>(
+        ReplicaPageRoute<void>(
+          builder: (_) => IllustDetailPage(illustId: id),
+        ),
+      );
+  }
+}
 class _RestrictedView extends StatelessWidget {
   const _RestrictedView(this.entity);
 
