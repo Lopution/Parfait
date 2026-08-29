@@ -80,14 +80,12 @@ class WidgetFeedLoader {
     required CredentialStore credentialStore,
     required FutureOr<WidgetSnapshotStore> Function() storeFactory,
     DateTime Function() now = _defaultNow,
-    NetworkRevision Function()? networkRevision,
   }) : _apiClient = apiClient,
        _imageClient = imageClient,
        _accountStore = accountStore,
        _credentialStore = credentialStore,
        _storeFactory = storeFactory,
-       _now = now,
-       _networkRevision = networkRevision ?? (() => const NetworkRevision(0));
+       _now = now;
 
   final PixivHttpClient _apiClient;
   final http.Client _imageClient;
@@ -95,7 +93,6 @@ class WidgetFeedLoader {
   final CredentialStore _credentialStore;
   final FutureOr<WidgetSnapshotStore> Function() _storeFactory;
   final DateTime Function() _now;
-  final NetworkRevision Function() _networkRevision;
 
   Future<WidgetFeedResult> load() async {
     final AccountState state;
@@ -132,15 +129,6 @@ class WidgetFeedLoader {
       return const WidgetFeedResult(WidgetFeedOutcome.noAccount);
     }
 
-    final NetworkRevision requestNetworkRevision;
-    try {
-      requestNetworkRevision = _networkRevision();
-    } on Object catch (error) {
-      debugPrint(
-        'WidgetFeedLoader network revision unavailable: ${error.runtimeType}',
-      );
-      return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
-    }
     final accountKey = _accountKey(account.id);
     try {
       final page = await RecommendedIllustRepository(
@@ -192,11 +180,7 @@ class WidgetFeedLoader {
         generatedAt: _now(),
         items: items,
       );
-      if (!await _stillOwns(
-        account.id,
-        state.credentialRevision,
-        requestNetworkRevision,
-      )) {
+      if (!await _stillOwns(account.id, state.credentialRevision)) {
         return const WidgetFeedResult(WidgetFeedOutcome.superseded);
       }
       final store = await _storeFactory();
@@ -206,8 +190,11 @@ class WidgetFeedLoader {
       await store.write(snapshot, images);
       return WidgetFeedResult(WidgetFeedOutcome.written, snapshot: snapshot);
     } on ApiUnauthorized {
-      if (!await _isCurrentNetworkRevision(requestNetworkRevision) ||
-          !await _isSameCurrentAccount(account.id)) {
+      // Only the account identity is compared here. Handling the 401 is what
+      // marks the account as needing re-auth, which advances the credential
+      // revision, so comparing revisions would classify every real auth
+      // failure as superseded and leave stale artwork on the home screen.
+      if (!await _isSameCurrentAccount(account.id)) {
         return const WidgetFeedResult(WidgetFeedOutcome.superseded);
       }
       await _clearQuietly();
@@ -293,17 +280,12 @@ class WidgetFeedLoader {
     return '${now.abs()}_${Object().hashCode.abs()}';
   }
 
-  Future<bool> _stillOwns(
-    String accountId,
-    int revision,
-    NetworkRevision networkRevision,
-  ) async {
+  Future<bool> _stillOwns(String accountId, int revision) async {
     try {
       final current = await _accountStore.resolveState();
       return current.status == AccountStatus.ready &&
           current.usableCurrent?.id == accountId &&
-          current.credentialRevision == revision &&
-          _sameNetworkRevision(_networkRevision(), networkRevision);
+          current.credentialRevision == revision;
     } on Object catch (error) {
       debugPrint(
         'WidgetFeedLoader ownership check unavailable: ${error.runtimeType}',
@@ -312,18 +294,9 @@ class WidgetFeedLoader {
     }
   }
 
-  Future<bool> _isCurrentNetworkRevision(NetworkRevision revision) async {
-    try {
-      return _sameNetworkRevision(_networkRevision(), revision);
-    } on Object catch (error) {
-      debugPrint(
-        'WidgetFeedLoader network ownership check unavailable: '
-        '${error.runtimeType}',
-      );
-      return false;
-    }
-  }
-
+  /// Whether [accountId] is still the account the home screen represents.
+  /// A reauth-required account still counts: it is the same account, and the
+  /// caller's job is to clear its now-unauthorised snapshot.
   Future<bool> _isSameCurrentAccount(String accountId) async {
     try {
       final current = await _accountStore.resolveState();
@@ -336,13 +309,6 @@ class WidgetFeedLoader {
       return false;
     }
   }
-
-  static bool _sameNetworkRevision(
-    NetworkRevision left,
-    NetworkRevision right,
-  ) =>
-      left.value == right.value &&
-      left.networkIdentity == right.networkIdentity;
 }
 
 final widgetFeedLoaderProvider = Provider<WidgetFeedLoader>((ref) {
@@ -353,6 +319,5 @@ final widgetFeedLoaderProvider = Provider<WidgetFeedLoader>((ref) {
     accountStore: ref.watch(accountStoreProvider.notifier),
     credentialStore: ref.watch(credentialStoreProvider),
     storeFactory: WidgetSnapshotStore.standard,
-    networkRevision: () => ref.read(networkAccessPolicyProvider).revision,
   );
 });

@@ -50,7 +50,6 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
       return DownloadSubmissionContext(
         accountId: account.id,
         credentialRevision: accountState.credentialRevision,
-        networkRevision: ref.read(networkAccessPolicyProvider).revision,
       );
     },
   );

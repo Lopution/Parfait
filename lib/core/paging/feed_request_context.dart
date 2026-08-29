@@ -1,13 +1,12 @@
 import 'package:flutter/foundation.dart';
 
-import '../network/compat/network_contracts.dart';
 import '../network/pixiv_http_client.dart';
 
 /// A request identity that must travel with every page response.
 ///
 /// The identity is captured before the request is issued. A response may only
-/// commit when its feed, account/credential boundary, generation, network
-/// revision and cancellation handle still describe the active request.
+/// commit when its feed, account/credential boundary, generation and
+/// cancellation handle still describe the active request.
 @immutable
 class FeedRequestContext {
   const FeedRequestContext({
@@ -18,7 +17,6 @@ class FeedRequestContext {
     required this.page,
     required this.cursor,
     required this.cancelToken,
-    required this.networkRevision,
   });
 
   final String feedKey;
@@ -28,7 +26,6 @@ class FeedRequestContext {
   final int page;
   final String? cursor;
   final CancelToken cancelToken;
-  final NetworkRevision networkRevision;
 
   bool get isCancelled => cancelToken.isCancelled;
 }
@@ -55,7 +52,6 @@ enum FeedDiscardReason {
   stale,
   accountChanged,
   credentialChanged,
-  networkChanged,
   disposed,
 }
 
@@ -102,7 +98,6 @@ class FeedCommitGate {
     required int page,
     required String? cursor,
     required CancelToken cancelToken,
-    required NetworkRevision networkRevision,
   }) {
     if (generation != _generation) {
       throw StateError('feed request uses an inactive generation');
@@ -116,7 +111,6 @@ class FeedCommitGate {
       page: page,
       cursor: cursor,
       cancelToken: cancelToken,
-      networkRevision: networkRevision,
     );
     _active = context;
     return context;
@@ -126,7 +120,6 @@ class FeedCommitGate {
     FeedRequestContext context, {
     required String? accountId,
     required int credentialRevision,
-    required NetworkRevision networkRevision,
     required void Function() action,
     bool disposed = false,
   }) {
@@ -134,7 +127,6 @@ class FeedCommitGate {
       context,
       accountId: accountId,
       credentialRevision: credentialRevision,
-      networkRevision: networkRevision,
       disposed: disposed,
     );
     if (reason != null) {
@@ -149,21 +141,19 @@ class FeedCommitGate {
     FeedRequestContext context, {
     required String? accountId,
     required int credentialRevision,
-    required NetworkRevision networkRevision,
     bool disposed = false,
   }) {
     return _reason(
           context,
           accountId: accountId,
           credentialRevision: credentialRevision,
-          networkRevision: networkRevision,
           disposed: disposed,
         ) ==
         null;
   }
 
-  /// Returns whether [context] still owns the gate, ignoring mutable account,
-  /// network and cancellation boundaries. Controllers use this only to clear
+  /// Returns whether [context] still owns the gate, ignoring the mutable
+  /// account and cancellation boundaries. Controllers use this only to clear
   /// the loading phase of a request that was rejected by one of those
   /// boundaries; a newer context must never be touched.
   bool isCurrent(FeedRequestContext context) =>
@@ -175,7 +165,6 @@ class FeedCommitGate {
     FeedRequestContext context, {
     required String? accountId,
     required int credentialRevision,
-    required NetworkRevision networkRevision,
     bool disposed = false,
     FeedDiscardReason? reason,
   }) {
@@ -186,7 +175,6 @@ class FeedCommitGate {
             context,
             accountId: accountId,
             credentialRevision: credentialRevision,
-            networkRevision: networkRevision,
             disposed: disposed,
           ) ??
           FeedDiscardReason.stale,
@@ -208,7 +196,6 @@ class FeedCommitGate {
     FeedRequestContext context, {
     required String? accountId,
     required int credentialRevision,
-    required NetworkRevision networkRevision,
     required bool disposed,
   }) {
     if (disposed) return FeedDiscardReason.disposed;
@@ -219,9 +206,6 @@ class FeedCommitGate {
     if (context.accountId != accountId) return FeedDiscardReason.accountChanged;
     if (context.credentialRevision != credentialRevision) {
       return FeedDiscardReason.credentialChanged;
-    }
-    if (!_sameRevision(context.networkRevision, networkRevision)) {
-      return FeedDiscardReason.networkChanged;
     }
     return null;
   }
@@ -238,6 +222,3 @@ class FeedCommitGate {
     _discardEvents.add(FeedDiscardEvent(context: context, reason: reason));
   }
 }
-
-bool _sameRevision(NetworkRevision left, NetworkRevision right) =>
-    left.value == right.value && left.networkIdentity == right.networkIdentity;

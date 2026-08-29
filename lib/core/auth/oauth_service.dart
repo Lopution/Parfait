@@ -166,7 +166,11 @@ class OAuthService {
   }
 
   /// Validates a WebView redirect. Returns the code only for a live session
-  /// and a whitelisted `pixiv://account?code=...` URI.
+  /// and a `pixiv://account` URI carrying exactly one non-empty code.
+  ///
+  /// Pixiv does not echo `state`, so a returned state is compared when present
+  /// and not demanded when absent. The PKCE verifier remains the binding
+  /// between this session and the code.
   PixivCallback validateRedirect(Uri uri) {
     final parsed = parsePixivAccountCallback(uri);
     if (parsed is! PixivCallbackCode) {
@@ -182,7 +186,7 @@ class OAuthService {
       discardSession();
       return PixivCallbackInvalid(uri, 'callback already consumed');
     }
-    if (parsed.state == null || parsed.state != session.state) {
+    if (parsed.state != null && parsed.state != session.state) {
       discardSession();
       return PixivCallbackInvalid(uri, 'state mismatch');
     }

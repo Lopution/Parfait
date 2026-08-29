@@ -3,7 +3,6 @@ import 'package:pixiv_func/core/download/download_recovery.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/platform/android_platform_interfaces.dart';
 import 'package:pixiv_func/core/ugoira/ugoira_recovery.dart';
 
@@ -43,7 +42,6 @@ void main() {
         ),
         accountId: 'account-a',
         credentialRevision: 4,
-        networkRevision: const NetworkRevision(8, networkIdentity: 'wifi'),
         submittedAt: DateTime.utc(2026, 8, 28),
       );
       final owner = const DownloadOutputOwner(

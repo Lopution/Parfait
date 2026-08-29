@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../network/compat/network_contracts.dart';
 import 'download_request.dart';
 
 /// Lifecycle states persisted for one download attempt.
@@ -39,7 +38,7 @@ enum DownloadFailureKind {
   unknown,
 }
 
-/// The account/network boundary captured when a request is accepted.
+/// The account boundary captured when a request is accepted.
 ///
 /// It contains no credential material. A null context is supported only for
 /// legacy/unit callers; the app-scoped provider requires an owned context so
@@ -49,13 +48,11 @@ class DownloadSubmissionContext {
   const DownloadSubmissionContext({
     required this.accountId,
     required this.credentialRevision,
-    required this.networkRevision,
     this.destination = kDownloadDestination,
   });
 
   final String accountId;
   final int credentialRevision;
-  final NetworkRevision networkRevision;
   final String destination;
 }
 
@@ -64,8 +61,8 @@ const String kDownloadDestination = 'Pictures/PixivFunc';
 /// Immutable submission identity carried through every download phase.
 ///
 /// The request object is itself immutable; keeping it here means account,
-/// target, destination and network policy values cannot be replaced by a
-/// later settings/account change.
+/// target and destination values cannot be replaced by a later
+/// settings/account change.
 @immutable
 class DownloadSubmissionSnapshot {
   const DownloadSubmissionSnapshot({
@@ -75,7 +72,6 @@ class DownloadSubmissionSnapshot {
     required this.request,
     required this.accountId,
     required this.credentialRevision,
-    required this.networkRevision,
     required this.submittedAt,
     this.destination = kDownloadDestination,
   });
@@ -86,7 +82,6 @@ class DownloadSubmissionSnapshot {
   final DownloadRequest request;
   final String? accountId;
   final int credentialRevision;
-  final NetworkRevision networkRevision;
   final DateTime submittedAt;
   final String destination;
 
@@ -111,7 +106,6 @@ class DownloadSubmissionSnapshot {
       request: request,
       accountId: accountId,
       credentialRevision: credentialRevision,
-      networkRevision: networkRevision,
       submittedAt: submittedAt,
       destination: destination,
     );
@@ -201,8 +195,6 @@ class DownloadRecoveryRecord {
       'destination': snapshot.destination,
       if (snapshot.accountId != null) 'accountId': snapshot.accountId,
       'credentialRevision': snapshot.credentialRevision,
-      'networkRevision': snapshot.networkRevision.value,
-      'networkIdentity': snapshot.networkRevision.networkIdentity,
       'submittedAt': snapshot.submittedAt.toUtc().toIso8601String(),
     },
     'owner': owner.toJson(),
@@ -256,10 +248,6 @@ class DownloadRecoveryRecord {
       request: request,
       accountId: rawSnapshot['accountId'] as String?,
       credentialRevision: rawSnapshot['credentialRevision'] as int,
-      networkRevision: NetworkRevision(
-        rawSnapshot['networkRevision'] as int,
-        networkIdentity: rawSnapshot['networkIdentity'] as String? ?? 'initial',
-      ),
       submittedAt: submittedAt,
       destination:
           rawSnapshot['destination'] as String? ?? kDownloadDestination,

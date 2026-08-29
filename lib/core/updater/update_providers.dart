@@ -9,14 +9,12 @@ import '../download/download_manager.dart';
 import '../download/download_recovery.dart';
 import '../download/download_request.dart';
 import '../download/pixiv_download_transport.dart';
-import '../network/compat/network_contracts.dart';
 import 'update_download.dart';
 import 'update_service.dart';
 
 const _updaterSubmissionContext = DownloadSubmissionContext(
   accountId: 'pixivfunc-updater',
   credentialRevision: 0,
-  networkRevision: NetworkRevision(0),
   destination: 'app-private-updates',
 );
 

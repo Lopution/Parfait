@@ -30,16 +30,18 @@ void main() {
       expect(data.lengthInBytes, greaterThan(0));
     });
 
-    test('pubspec registers the iconFont family pointing at assets/icon.ttf',
-        () {
-      final pubspec = File('pubspec.yaml').readAsStringSync();
-      expect(pubspec.contains('family: iconFont'), isTrue);
-      expect(
-        pubspec.contains('asset: assets/icon.ttf'),
-        isTrue,
-        reason: 'pubspec.yaml must declare assets/icon.ttf under fonts',
-      );
-    });
+    test(
+      'pubspec registers the iconFont family pointing at assets/icon.ttf',
+      () {
+        final pubspec = File('pubspec.yaml').readAsStringSync();
+        expect(pubspec.contains('family: iconFont'), isTrue);
+        expect(
+          pubspec.contains('asset: assets/icon.ttf'),
+          isTrue,
+          reason: 'pubspec.yaml must declare assets/icon.ttf under fonts',
+        );
+      },
+    );
   });
 
   test('AppIcons use the iconFont family with beta56 codepoints', () {
@@ -94,22 +96,27 @@ void main() {
     }
   });
 
-  testWidgets('home bar renders four iconFont icons plus Icons.settings',
-      (tester) async {
-    await tester.pumpWidget(const ProviderScope(
-      child: MaterialApp(
-        home: HomePage(intentSource: const _NoAndroidIntentSource()),
+  testWidgets('home bar renders four iconFont icons plus Icons.settings', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: HomePage(intentSource: _NoAndroidIntentSource()),
+        ),
       ),
-    ));
+    );
     // The recommended tab starts its async load; settle the shell first.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
     final iconWidgets = tester
-        .widgetList<Icon>(find.descendant(
-          of: find.byType(BottomAppBar),
-          matching: find.byType(Icon),
-        ))
+        .widgetList<Icon>(
+          find.descendant(
+            of: find.byType(BottomAppBar),
+            matching: find.byType(Icon),
+          ),
+        )
         .toList();
     expect(iconWidgets, hasLength(5));
 
@@ -121,19 +128,24 @@ void main() {
     expect(identical(iconWidgets[4].icon, Icons.settings), isTrue);
   });
 
-  testWidgets('home bar renders real glyphs from the bundled font',
-      (tester) async {
+  testWidgets('home bar renders real glyphs from the bundled font', (
+    tester,
+  ) async {
     // Load the actual beta56 font binary so glyphs come from assets/icon.ttf,
     // making the golden below an observable anti-tofu render check.
-    final fontData = File('assets/icon.ttf').readAsBytesSync().buffer.asByteData();
+    final fontData = File(
+      'assets/icon.ttf',
+    ).readAsBytesSync().buffer.asByteData();
     final loader = FontLoader('iconFont')..addFont(Future.value(fontData));
     await loader.load();
 
-    await tester.pumpWidget(const ProviderScope(
-      child: MaterialApp(
-        home: HomePage(intentSource: const _NoAndroidIntentSource()),
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: HomePage(intentSource: _NoAndroidIntentSource()),
+        ),
       ),
-    ));
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await expectLater(

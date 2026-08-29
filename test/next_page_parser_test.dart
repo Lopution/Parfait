@@ -8,7 +8,7 @@ void main() {
       expect(NextPageParser.parse(''), isNull);
     });
 
-    test('allowlisted endpoint with known params is accepted', () {
+    test('a Pixiv API cursor is accepted', () {
       final request = NextPageParser.parse(
         'https://app-api.pixiv.net/v1/illust/recommended?offset=30&filter=for_ios',
       );
@@ -18,8 +18,8 @@ void main() {
 
     test('real-device recommended next_url shape is accepted', () {
       // Captured from a live /v1/illust/recommended response: indexed
-      // `viewed[n]` array params plus bookmark-recommend cursors must pass
-      // the allowlist, otherwise the whole feed errors out on page one.
+      // `viewed[n]` array params plus bookmark-recommend cursors. Pixiv owns
+      // this cursor state and changes it; the parser must not enumerate it.
       const realNextUrl =
           'https://app-api.pixiv.net/v1/illust/recommended'
           '?content_type=illust&include_ranking_illusts=false'
@@ -46,38 +46,43 @@ void main() {
       expect(request.query['restrict'], 'public');
     });
 
-    test('malicious corpus is rejected', () {
+    test('a next_url may never leave the Pixiv API origin', () {
       const corpus = <String, String>{
         'plain http': 'http://app-api.pixiv.net/v1/illust/recommended?offset=0',
         'unknown host':
             'https://evil.example.com/v1/illust/recommended?offset=0',
         'userinfo host':
             'https://app-api.pixiv.net@evil.example.com/v1/illust/recommended',
-        'unknown endpoint': 'https://app-api.pixiv.net/v1/unknown/path',
-        'path traversal':
-            'https://app-api.pixiv.net/v1/illust/recommended/../../secret',
-        'unknown query param':
-            'https://app-api.pixiv.net/v1/illust/recommended?evil=1',
-        'injected query param':
-            'https://app-api.pixiv.net/v1/illust/recommended?offset=0&word=x',
-        'firstPage unknown endpoint': '/v1/not/registered',
-        'firstPage unknown param': '/v2/illust/follow',
+        'non-default port':
+            'https://app-api.pixiv.net:8443/v1/illust/recommended',
       };
-      // Direct next_url rejections.
       for (final entry in corpus.entries) {
-        if (entry.key.startsWith('firstPage')) continue;
-        String? nextUrl;
-        if (entry.key == 'path traversal') {
-          nextUrl =
-              'https://app-api.pixiv.net/v1/illust/recommended/../../secret';
-        }
         expect(
-          () => NextPageParser.parse(nextUrl ?? entry.value),
+          () => NextPageParser.parse(entry.value),
           throwsA(isA<NextPageParseError>()),
           reason: entry.key,
         );
       }
-      // firstPage-specific rejections.
+    });
+
+    test('an unrecognised path or parameter is Pixiv cursor state', () {
+      // Repositories pin the endpoint and identity parameters they expect.
+      // A parameter this client has never seen is not a reason to break paging.
+      expect(
+        NextPageParser.parse(
+          'https://app-api.pixiv.net/v1/illust/recommended?offset=0&brand_new=1',
+        )!.query['brand_new'],
+        '1',
+      );
+      expect(
+        NextPageParser.parse(
+          'https://app-api.pixiv.net/v9/illust/something-new?offset=0',
+        )!.uri.path,
+        '/v9/illust/something-new',
+      );
+    });
+
+    test('firstPage only builds requests this client knows how to send', () {
       expect(
         () => NextPageParser.firstPage('/v1/not/registered', {}),
         throwsA(isA<NextPageParseError>()),

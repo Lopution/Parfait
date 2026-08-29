@@ -9,7 +9,6 @@ import '../../../app/pixiv_image.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_recovery.dart';
-import '../../../core/network/compat/network_providers.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
 import '../../../core/ugoira/ugoira_cache.dart';
@@ -366,7 +365,6 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     return DownloadSubmissionContext(
       accountId: account.id,
       credentialRevision: accountState.credentialRevision,
-      networkRevision: ref.read(networkAccessPolicyProvider).revision,
     );
   }
 }

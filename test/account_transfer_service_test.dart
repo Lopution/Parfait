@@ -15,8 +15,6 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
 
-final _now = DateTime.utc(2026, 8, 28, 1);
-
 const _sourceAccount = Account(
   id: '42',
   userId: 42,
@@ -139,14 +137,11 @@ AccountTransferService _service({
   required _Credentials credentials,
   required _Clipboard clipboard,
   required TransferCredentialVerifier verifier,
-  TransferReplayStore? replay,
 }) => AccountTransferService(
   accountStore: accountStore,
   credentialStore: credentials,
   verifier: verifier,
-  replayStore: replay ?? InMemoryTransferReplayStore(now: () => _now),
   clipboard: clipboard,
-  now: () => _now,
 );
 
 Map<String, dynamic> _authoritativeDetail({int id = 42}) => {
@@ -182,8 +177,6 @@ void main() {
       final envelope = TransferEnvelope.create(
         account: _sourceAccount,
         credential: _credential,
-        now: _now,
-        nonce: 'AAECAwQFBgcICQoLDA0ODw',
       );
       clipboard.text = envelope.encode();
       final verifier = _Verifier((payload) async {
@@ -224,8 +217,6 @@ void main() {
       final envelope = TransferEnvelope.create(
         account: _sourceAccount,
         credential: _credential,
-        now: _now,
-        nonce: 'AAECAwQFBgcICQoLDA0ODw',
       );
       clipboard.text = envelope.encode();
       final verifier = _Verifier((_) async {
@@ -265,8 +256,6 @@ void main() {
       final envelope = TransferEnvelope.create(
         account: _sourceAccount,
         credential: _credential,
-        now: _now,
-        nonce: 'AAECAwQFBgcICQoLDA0ODw',
       );
       clipboard.text = envelope.encode();
       final verifier = _Verifier(
@@ -298,8 +287,6 @@ void main() {
       final envelope = TransferEnvelope.create(
         account: _sourceAccount,
         credential: _credential,
-        now: _now,
-        nonce: 'AQIDBAUGBwgJCgsMDQ4PEQ',
       );
       clipboard.text = envelope.encode();
 
@@ -344,7 +331,7 @@ void main() {
       ).exportCurrentToClipboard();
 
       expect(clipboard.writeCount, 1);
-      final parsed = TransferEnvelope.parse(clipboard.text!, now: _now);
+      final parsed = TransferEnvelope.parse(clipboard.text!);
       expect(parsed.payload.accountId, '42');
       expect(parsed.payload.credential, isNotNull);
     },
@@ -375,44 +362,6 @@ void main() {
       expect(clipboard.readCount, 1);
       expect(clipboard.clearCount, 0);
       expect(clipboard.text, 'external clipboard text');
-    },
-  );
-
-  test(
-    'replayed envelopes are rejected before credential verification',
-    () async {
-      final (container, accounts, credentials, _) = _container();
-      await container.read(accountStoreProvider.future);
-      final clipboard = _Clipboard();
-      final envelope = TransferEnvelope.create(
-        account: _sourceAccount,
-        credential: _credential,
-        now: _now,
-        nonce: 'AAECAwQFBgcICQoLDA0ODw',
-      );
-      clipboard.text = envelope.encode();
-      final replay = InMemoryTransferReplayStore(now: () => _now);
-      await replay.claim(envelope.nonce, envelope.expiresAt);
-      final verifier = _Verifier((_) async => throw StateError('must not run'));
-
-      await expectLater(
-        _service(
-          accountStore: accounts,
-          credentials: credentials,
-          clipboard: clipboard,
-          verifier: verifier,
-          replay: replay,
-        ).importFromClipboard(),
-        throwsA(
-          isA<AccountTransferException>().having(
-            (error) => error.code,
-            'code',
-            AccountTransferErrorCode.replayedOnThisDevice,
-          ),
-        ),
-      );
-      expect(verifier.calls, 0);
-      expect(clipboard.text, isNull);
     },
   );
 

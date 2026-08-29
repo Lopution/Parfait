@@ -10,7 +10,7 @@ import 'network_contracts.dart';
 typedef NetworkClientFactory = http.Client Function(NetworkRoute route);
 
 /// One shared policy owner for all native Pixiv HTTP exits. It owns the
-/// revision, resolver, pooled route clients, health keys and diagnostics.
+/// revision, resolver, pooled route clients and diagnostics.
 class NetworkAccessPolicy {
   NetworkAccessPolicy({
     PixivDestinationRegistry? registry,
@@ -31,7 +31,6 @@ class NetworkAccessPolicy {
   final NetworkDiagnostics diagnostics;
   final NetworkClientFactory _clientFactory;
   final Map<String, http.Client> _clients = {};
-  final Map<String, NetworkHealthSnapshot> _health = {};
 
   NetworkMode _mode;
   NetworkRevision _revision;
@@ -39,8 +38,6 @@ class NetworkAccessPolicy {
 
   NetworkMode get mode => _mode;
   NetworkRevision get revision => _revision;
-  List<NetworkHealthSnapshot> get healthEntries =>
-      List.unmodifiable(_health.values);
 
   /// Returns one pooled client for a route. The purpose is an explicit
   /// argument so call sites cannot accidentally construct an unscoped client,
@@ -94,7 +91,6 @@ class NetworkAccessPolicy {
     if (_mode == mode) return;
     _mode = mode;
     _closeClients();
-    _health.clear();
   }
 
   NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
@@ -103,7 +99,6 @@ class NetworkAccessPolicy {
       networkIdentity: networkIdentity ?? _revision.networkIdentity,
     );
     _closeClients();
-    _health.clear();
     return _revision;
   }
 
@@ -129,30 +124,6 @@ class NetworkAccessPolicy {
         capability: capability,
       ),
     );
-    recordHealth(host: host, route: route, failure: failure.kind);
-  }
-
-  void recordHealth({
-    required String host,
-    required NetworkRoute route,
-    required NetworkFailureKind failure,
-    Duration? ttl,
-  }) {
-    final key = [
-      host,
-      route.revision.networkIdentity,
-      route.revision.value,
-      route.kind.name,
-      route.ipFamily.name,
-      (ttl ?? route.ttl)?.inSeconds ?? 0,
-    ].join('|');
-    _health[key] = NetworkHealthSnapshot(
-      host: host,
-      route: route.kind,
-      ipFamily: route.ipFamily,
-      failure: failure,
-      revision: route.revision,
-    );
   }
 
   Future<void> dispose() async {
@@ -160,7 +131,6 @@ class NetworkAccessPolicy {
     _disposed = true;
     _closeClients();
     await _resolver.dispose();
-    _health.clear();
   }
 
   void _closeClients() {
@@ -174,22 +144,6 @@ class NetworkAccessPolicy {
   void _checkUsable() {
     if (_disposed) throw StateError('network policy is disposed');
   }
-}
-
-class NetworkHealthSnapshot {
-  const NetworkHealthSnapshot({
-    required this.host,
-    required this.route,
-    required this.ipFamily,
-    required this.failure,
-    required this.revision,
-  });
-
-  final String host;
-  final NetworkRouteKind route;
-  final NetworkIpFamily ipFamily;
-  final NetworkFailureKind failure;
-  final NetworkRevision revision;
 }
 
 /// A policy-aware `package:http` client. The direct route is always tried
@@ -375,42 +329,4 @@ class PixivNetworkFactory {
     }
     await policy.dispose();
   }
-}
-
-/// ECH is intentionally evidence-gated. A route is not production-approved
-/// unless endpoint support, transport support, API 36 required mode, trust,
-/// cancellation, streaming and pooling have each been proven.
-class EchCapabilityEvidence {
-  const EchCapabilityEvidence({
-    required this.endpointSupport,
-    required this.transportSupport,
-    required this.api36RequiredMode,
-    required this.trustValidated,
-    required this.cancellationValidated,
-    required this.streamingValidated,
-    required this.poolingValidated,
-  });
-
-  final bool endpointSupport;
-  final bool transportSupport;
-  final bool api36RequiredMode;
-  final bool trustValidated;
-  final bool cancellationValidated;
-  final bool streamingValidated;
-  final bool poolingValidated;
-}
-
-class EchCapabilityGate {
-  const EchCapabilityGate(this.evidence);
-
-  final EchCapabilityEvidence evidence;
-
-  bool get approved =>
-      evidence.endpointSupport &&
-      evidence.transportSupport &&
-      evidence.api36RequiredMode &&
-      evidence.trustValidated &&
-      evidence.cancellationValidated &&
-      evidence.streamingValidated &&
-      evidence.poolingValidated;
 }

@@ -214,22 +214,16 @@ class AccountTransferService {
     required AccountStore accountStore,
     required CredentialStore credentialStore,
     required TransferCredentialVerifier verifier,
-    required TransferReplayStore replayStore,
     required TransferClipboard clipboard,
-    DateTime Function()? now,
   }) : _accountStore = accountStore,
        _credentialStore = credentialStore,
        _verifier = verifier,
-       _replayStore = replayStore,
-       _clipboard = clipboard,
-       _now = now ?? _utcNow;
+       _clipboard = clipboard;
 
   final AccountStore _accountStore;
   final CredentialStore _credentialStore;
   final TransferCredentialVerifier _verifier;
-  final TransferReplayStore _replayStore;
   final TransferClipboard _clipboard;
-  final DateTime Function() _now;
 
   Future<void> exportCurrentToClipboard() async {
     final state = await _accountStore.resolveState();
@@ -257,15 +251,13 @@ class AccountTransferService {
         cause: error,
       );
     }
-    final createdAt = _now().toUtc();
     final envelope = TransferEnvelope.create(
       account: account,
       credential: credential,
-      now: createdAt,
     );
     await _clipboard.write(
       envelope.encode(),
-      clearAfter: envelope.expiresAt.difference(createdAt),
+      clearAfter: transferClipboardLifetime,
     );
   }
 
@@ -280,7 +272,7 @@ class AccountTransferService {
     }
     TransferEnvelope? envelope;
     try {
-      envelope = TransferEnvelope.parse(content.text, now: _now());
+      envelope = TransferEnvelope.parse(content.text);
     } catch (error, stackTrace) {
       // A malformed value has not been identified as our envelope, so it is
       // never cleared. Preserve the typed parser error and stack for callers.
@@ -296,8 +288,8 @@ class AccountTransferService {
       );
     } catch (error, stackTrace) {
       // Once parsing succeeded, the clipboard value is recognized as an
-      // envelope even when it is expired/replayed/invalid. Clear it only if
-      // the fingerprint still matches, while retaining the primary failure.
+      // envelope even when the credential turns out to be invalid. Clear it
+      // only if the fingerprint still matches, keeping the primary failure.
       try {
         await _clipboard.clearIfCurrent(content.fingerprint);
       } catch (cleanupError) {
@@ -317,16 +309,6 @@ class AccountTransferService {
   Future<TransferImportResult> _importEnvelope(
     TransferEnvelope envelope,
   ) async {
-    final claimed = await _replayStore.claim(
-      envelope.nonce,
-      envelope.expiresAt,
-    );
-    if (!claimed) {
-      throw const AccountTransferException(
-        AccountTransferErrorCode.replayedOnThisDevice,
-        'this transfer was already used on this device',
-      );
-    }
     late final VerifiedTransferAccount verified;
     try {
       verified = await _verifier.verify(envelope.payload);
@@ -358,10 +340,6 @@ final transferClipboardProvider = Provider<TransferClipboard>((ref) {
   return MethodChannelTransferClipboard();
 });
 
-final transferReplayStoreProvider = Provider<TransferReplayStore>((ref) {
-  return SecureTransferReplayStore();
-});
-
 final transferCredentialVerifierProvider = Provider<TransferCredentialVerifier>(
   (ref) {
     return PixivTransferCredentialVerifier(
@@ -376,9 +354,6 @@ final accountTransferServiceProvider = Provider<AccountTransferService>((ref) {
     accountStore: ref.watch(accountStoreProvider.notifier),
     credentialStore: ref.watch(credentialStoreProvider),
     verifier: ref.watch(transferCredentialVerifierProvider),
-    replayStore: ref.watch(transferReplayStoreProvider),
     clipboard: ref.watch(transferClipboardProvider),
   );
 });
-
-DateTime _utcNow() => DateTime.now().toUtc();

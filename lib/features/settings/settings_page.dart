@@ -245,8 +245,6 @@ class _AccountCard extends StatelessWidget {
 String _transferErrorText(BuildContext context, AccountTransferErrorCode code) {
   final key = switch (code) {
     AccountTransferErrorCode.corrupt => 'accountTransferCorrupt',
-    AccountTransferErrorCode.expired => 'accountTransferExpired',
-    AccountTransferErrorCode.replayedOnThisDevice => 'accountTransferReplayed',
     AccountTransferErrorCode.credentialInvalid =>
       'accountTransferCredentialInvalid',
     AccountTransferErrorCode.verificationUnavailable =>

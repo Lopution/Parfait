@@ -225,9 +225,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
         ? MutationDiscardReason.accountChanged
         : _boundary!.accountId != current.accountId
         ? MutationDiscardReason.accountChanged
-        : _boundary!.credentialRevision != current.credentialRevision
-        ? MutationDiscardReason.credentialChanged
-        : MutationDiscardReason.networkChanged;
+        : MutationDiscardReason.credentialChanged;
     _ledger.cancelAll(reason);
     if (!settleState) return;
     final next = <BookmarkKey, BookmarkEntry>{...state};

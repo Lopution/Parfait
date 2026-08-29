@@ -11,7 +11,6 @@ import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
 import 'package:pixiv_func/core/comments/comment_store.dart';
 import 'package:pixiv_func/core/entity/comment_entity.dart';
 import 'package:pixiv_func/core/mutation/mutation_models.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/user/follow_store.dart';
@@ -78,7 +77,6 @@ void main() {
       operation: 'bookmark.add',
       clientMutationId: 'mutation-1',
       createdAt: DateTime.utc(2026, 8, 28),
-      networkRevision: const NetworkRevision(9),
       owner: owner,
       revision: 1,
     );
@@ -101,7 +99,6 @@ void main() {
     const boundary = MutationBoundary(
       accountId: 'a',
       credentialRevision: 1,
-      networkRevision: NetworkRevision(0),
     );
     final envelope = ledger.begin(
       boundary: boundary,
@@ -227,7 +224,6 @@ void main() {
         expect(envelope.accountId, 'a');
         expect(envelope.credentialRevision, 1);
         expect(envelope.entityId, isNotEmpty);
-        expect(envelope.networkRevision.value, isNonNegative);
         expect(envelope.owner.accountId, 'a');
       }
       expect(follow.envelope.entityType, 'user');

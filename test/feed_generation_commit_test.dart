@@ -7,8 +7,6 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
-import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
 
@@ -305,51 +303,6 @@ void main() {
     },
   );
 
-  test(
-    'network revision change drops an append without leaving its spinner',
-    () async {
-      final container = _container();
-      addTearDown(container.dispose);
-      await container.read(accountStoreProvider.future);
-      final provider = _deferredFeedProvider('recommended:illust');
-      final controller = container.read(provider.notifier);
-      var commits = 0;
-
-      final initialFuture = container.read(provider.future);
-      await _waitUntil(() => controller.requests.length == 1);
-      controller.completions
-          .removeAt(0)
-          .complete(
-            FeedPage(
-              ids: [1],
-              nextCursor: 'cursor-1',
-              commit: (_) => commits++,
-            ),
-          );
-      await initialFuture;
-
-      final appendFuture = controller.loadMore();
-      await _waitUntil(() => controller.requests.length == 2);
-      container.read(networkAccessPolicyProvider).advanceNetworkRevision();
-      controller.completions
-          .removeAt(0)
-          .complete(
-            FeedPage(ids: [2], nextCursor: null, commit: (_) => commits++),
-          );
-      await appendFuture;
-
-      final state = container.read(provider).requireValue;
-      expect(commits, 1);
-      expect(state.ids, [1]);
-      expect(state.showLoadMoreSpinner, isFalse);
-      expect(controller.nextCursor, 'cursor-1');
-      expect(
-        controller.discardEvents.last.reason,
-        FeedDiscardReason.networkChanged,
-      );
-    },
-  );
-
   test('account switch fences a late response and rebuilds the feed', () async {
     final accountStore = _SwitchableAccountStore();
     final container = ProviderContainer(
@@ -432,7 +385,7 @@ void main() {
     );
   });
 
-  test('FeedCommitGate rejects account and network boundary changes', () {
+  test('FeedCommitGate rejects account and credential boundary changes', () {
     final gate = FeedCommitGate();
     final token = CancelToken();
     final context = gate.beginRequest(
@@ -443,7 +396,6 @@ void main() {
       page: 1,
       cursor: null,
       cancelToken: token,
-      networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
     );
     var commits = 0;
 
@@ -452,7 +404,6 @@ void main() {
         context,
         accountId: 'account-b',
         credentialRevision: 4,
-        networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
         action: () => commits++,
       ),
       isFalse,
@@ -468,19 +419,20 @@ void main() {
       page: 1,
       cursor: null,
       cancelToken: CancelToken(),
-      networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
     );
     expect(
       gate.commit(
         next,
         accountId: 'account-a',
-        credentialRevision: 4,
-        networkRevision: const NetworkRevision(8, networkIdentity: 'cellular'),
+        credentialRevision: 5,
         action: () => commits++,
       ),
       isFalse,
     );
     expect(commits, 0);
-    expect(gate.discardEvents.last.reason, FeedDiscardReason.networkChanged);
+    expect(
+      gate.discardEvents.last.reason,
+      FeedDiscardReason.credentialChanged,
+    );
   });
 }

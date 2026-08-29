@@ -21,7 +21,6 @@ import 'package:pixiv_func/core/comments/comment_repository.dart';
 import 'package:pixiv_func/core/comments/comment_store.dart';
 import 'package:pixiv_func/core/comments/comment_translation.dart';
 import 'package:pixiv_func/core/entity/comment_entity.dart';
-import 'package:pixiv_func/core/network/next_page_parser.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/features/comments/comment_input.dart';
@@ -312,7 +311,7 @@ void main() {
     ]);
   });
 
-  test('comment cursors are endpoint and identity allowlisted', () async {
+  test('comment cursors are pinned to their endpoint and thread', () async {
     final container = await _apiContainer(
       (_) async => _json({'comments': [], 'next_url': null}),
     );
@@ -344,11 +343,14 @@ void main() {
       ),
       isFalse,
     );
+    // A reply cursor is not a root-thread cursor, whatever its parameters say.
     expect(
-      () => NextPageParser.parse(
-        'https://app-api.pixiv.net/v3/illust/comments?illust_id=50&evil=1',
+      repository.validateCursor(
+        root,
+        cursor:
+            'https://app-api.pixiv.net/v2/illust/comment/replies?illust_id=50',
       ),
-      throwsA(isA<NextPageParseError>()),
+      isFalse,
     );
   });
 

@@ -35,22 +35,6 @@ class PixivDestinationRegistry {
     throw PixivDestinationException(purpose);
   }
 
-  /// Returns the complete exact-host set for a purpose. Consumers such as a
-  /// WebView route session retain this set with the captured network revision
-  /// instead of reconstructing a broader suffix allowlist.
-  Set<String> allowedHosts(PixivDestinationPurpose purpose) {
-    return Set.unmodifiable(switch (purpose) {
-      PixivDestinationPurpose.appApi => {'app-api.pixiv.net'},
-      PixivDestinationPurpose.oauth => {'oauth.secure.pixiv.net'},
-      PixivDestinationPurpose.accountsWeb => {
-        'app-api.pixiv.net',
-        'accounts.pixiv.net',
-      },
-      PixivDestinationPurpose.pixivWeb => {'www.pixiv.net'},
-      PixivDestinationPurpose.image => {'i.pximg.net', 's.pximg.net'},
-    });
-  }
-
   static String? _canonicalHost(Uri uri) {
     if (uri.scheme.toLowerCase() != 'https') return null;
     if (uri.host.isEmpty || uri.userInfo.isNotEmpty || uri.hasFragment) {
@@ -103,11 +87,11 @@ class PixivDestinationException implements Exception {
 
 enum NetworkMode { automatic, directOnly }
 
-enum NetworkRouteKind { direct, secureDns, ech, webViewLoopback }
+enum NetworkRouteKind { direct, secureDns }
 
 enum NetworkIpFamily { ipv4, ipv6, unknown }
 
-enum DnsSource { none, system, doh }
+enum DnsSource { none, system }
 
 enum NetworkFailureKind {
   dns,

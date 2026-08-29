@@ -43,8 +43,6 @@ class ReplicaStrings {
       'accountTransferImported': '账号迁移成功',
       'accountTransferClipboardReplaced': '账号已导入；剪贴板已被其他内容替换，未执行清除。',
       'accountTransferCorrupt': '剪贴板账号数据损坏或格式不受支持',
-      'accountTransferExpired': '剪贴板账号数据已过期，请重新复制',
-      'accountTransferReplayed': '这份账号数据已在本设备使用过',
       'accountTransferCredentialInvalid': '账号凭据无效，请重新登录或重新复制',
       'accountTransferVerificationUnavailable': '暂时无法向 Pixiv 验证账号凭据',
       'accountTransferNoAccount': '当前没有可复制的已登录账号',
@@ -338,10 +336,6 @@ class ReplicaStrings {
           'Account imported; the clipboard was replaced, so it was not cleared.',
       'accountTransferCorrupt':
           'Clipboard account data is corrupt or unsupported',
-      'accountTransferExpired':
-          'Clipboard account data has expired; copy it again',
-      'accountTransferReplayed':
-          'This account data was already used on this device',
       'accountTransferCredentialInvalid':
           'The account credential is invalid; log in or copy again',
       'accountTransferVerificationUnavailable':
@@ -649,8 +643,6 @@ class ReplicaStrings {
       'accountTransferClipboardReplaced':
           'アカウントを取り込みました。クリップボードが置き換えられたため消去していません。',
       'accountTransferCorrupt': 'クリップボードのアカウントデータが壊れているか未対応です',
-      'accountTransferExpired': 'クリップボードのアカウントデータが期限切れです。再度コピーしてください',
-      'accountTransferReplayed': 'このアカウントデータはこの端末ですでに使用されています',
       'accountTransferCredentialInvalid': 'アカウント認証情報が無効です。再ログインまたは再コピーしてください',
       'accountTransferVerificationUnavailable': 'Pixiv の認証情報を一時的に確認できません',
       'accountTransferNoAccount': 'コピーできるログイン済みアカウントがありません',
@@ -947,10 +939,6 @@ class ReplicaStrings {
           'Аккаунт импортирован; буфер обмена заменён, поэтому он не очищен.',
       'accountTransferCorrupt':
           'Данные аккаунта в буфере повреждены или не поддерживаются',
-      'accountTransferExpired':
-          'Данные аккаунта в буфере устарели; скопируйте их снова',
-      'accountTransferReplayed':
-          'Эти данные аккаунта уже использовались на этом устройстве',
       'accountTransferCredentialInvalid':
           'Учетные данные аккаунта недействительны; войдите или скопируйте снова',
       'accountTransferVerificationUnavailable':

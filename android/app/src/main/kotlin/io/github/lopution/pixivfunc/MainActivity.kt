@@ -9,7 +9,6 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MediaStoreChannel.configure(this, flutterEngine)
         AndroidIntentChannel.configure(this, flutterEngine)
-        WebKitCapabilityChannel.configure(this, flutterEngine)
         ReverseImageInputChannel.configure(this, flutterEngine)
         AccountTransferClipboardChannel.configure(this, flutterEngine)
         WidgetForegroundChannel.configure(this, flutterEngine)

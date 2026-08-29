@@ -4,11 +4,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
-import 'package:pixiv_func/core/network/compat/webview_route.dart';
 
 class _FakeClient extends http.BaseClient {
   _FakeClient({this.failure, this.statusCode = 200, this.body = '{}'});
@@ -131,6 +129,7 @@ void main() {
         ),
         throwsA(isA<PixivDestinationException>()),
       );
+
     },
   );
 
@@ -304,53 +303,7 @@ void main() {
     },
   );
 
-  test(
-    'DoH parser accepts matching public records and preserves the minimum TTL',
-    () async {
-      final resolver = DohResolver(
-        client: MockClient((request) async {
-          final type = request.url.queryParameters['type'];
-          final body = jsonEncode({
-            'Status': 0,
-            'Answer': [
-              {
-                'name': 'app-api.pixiv.net.',
-                'type': type == 'A' ? 1 : 28,
-                'TTL': type == 'A' ? 42 : 17,
-                'data': type == 'A' ? '1.2.3.4' : '2001:4860:4860::8888',
-              },
-              {
-                'name': 'app-api.pixiv.net.',
-                'type': 1,
-                'TTL': 1,
-                'data': '192.168.1.1',
-              },
-            ],
-          });
-          return http.Response(body, 200);
-        }),
-      );
-      addTearDown(resolver.dispose);
-
-      final result = await resolver.resolve(
-        'app-api.pixiv.net',
-        revision: const NetworkRevision(2),
-      );
-      expect(
-        result.addresses.map((address) => address.address),
-        containsAll(['1.2.3.4', '2001:4860:4860::8888']),
-      );
-      expect(
-        result.addresses.map((address) => address.address),
-        isNot(contains('192.168.1.1')),
-      );
-      expect(result.ttl, const Duration(seconds: 17));
-    },
-  );
-
-  test(
-    'network revision and mode changes clear pooled routes and health',
-    () async {
+  test('network revision and mode changes clear pooled routes', () async {
       final created = <NetworkRoute>[];
       final policy = NetworkAccessPolicy(
         clientFactory: (route) {
@@ -369,15 +322,7 @@ void main() {
         ),
         same(first),
       );
-      policy.recordHealth(
-        host: 'app-api.pixiv.net',
-        route: NetworkRoute.direct(policy.revision),
-        failure: NetworkFailureKind.connect,
-      );
-      expect(policy.healthEntries, isNotEmpty);
-
       policy.setMode(NetworkMode.directOnly);
-      expect(policy.healthEntries, isEmpty);
       final next = policy.advanceNetworkRevision(networkIdentity: 'cellular');
       expect(next.value, 1);
       expect(next.networkIdentity, 'cellular');
@@ -388,9 +333,8 @@ void main() {
         ),
         isNot(same(first)),
       );
-      await policy.dispose();
-    },
-  );
+    await policy.dispose();
+  });
 
   test('policy rejects private addresses from an injected resolver', () async {
     final direct = _FakeClient(failure: SocketException('Connection refused'));
@@ -458,41 +402,6 @@ void main() {
     },
   );
 
-  test(
-    'ECH and WebView loopback remain fail-closed without capability proof',
-    () async {
-      const incomplete = EchCapabilityEvidence(
-        endpointSupport: true,
-        transportSupport: true,
-        api36RequiredMode: false,
-        trustValidated: true,
-        cancellationValidated: true,
-        streamingValidated: true,
-        poolingValidated: true,
-      );
-      expect(EchCapabilityGate(incomplete).approved, isFalse);
-
-      final route = WebViewRoutePolicy(
-        registry: PixivDestinationRegistry(),
-        capabilities: const UnsupportedWebKitCapabilities(),
-      );
-      final decision = await route.probe(
-        Uri.parse('https://app-api.pixiv.net/web/v1/login'),
-      );
-      expect(decision.allowed, isTrue);
-      expect(decision.compatibilityModeAvailable, isFalse);
-      expect(route.listenerCreated, isFalse);
-
-      final session = await WebViewRouteSession.open(
-        policy: route,
-        uri: Uri.parse('https://app-api.pixiv.net/web/v1/login'),
-      );
-      expect(session.isClosed, isFalse);
-      await session.close();
-      expect(session.isClosed, isTrue);
-      await session.close();
-    },
-  );
 }
 
 final _apiUri = Uri.parse(

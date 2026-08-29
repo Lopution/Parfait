@@ -10,7 +10,6 @@ import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/download/download_transport.dart';
 import 'package:pixiv_func/core/download/pixiv_download_transport.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/platform/android_platform_interfaces.dart';
 
 DownloadRequest _request({int pageIndex = 0}) => DownloadRequest(
@@ -23,14 +22,9 @@ DownloadRequest _request({int pageIndex = 0}) => DownloadRequest(
 DownloadSubmissionContext _context({
   String accountId = 'account-a',
   int credentialRevision = 3,
-  NetworkRevision networkRevision = const NetworkRevision(
-    7,
-    networkIdentity: 'wifi',
-  ),
 }) => DownloadSubmissionContext(
   accountId: accountId,
   credentialRevision: credentialRevision,
-  networkRevision: networkRevision,
 );
 
 class _Response implements DownloadResponse, DownloadResponseMetadata {
@@ -168,7 +162,6 @@ void main() {
         request: request,
         accountId: 'account-a',
         credentialRevision: 3,
-        networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
         submittedAt: DateTime.utc(2026, 8, 28),
       );
       await store.upsert(
@@ -287,7 +280,6 @@ void main() {
       request: request,
       accountId: 'account-a',
       credentialRevision: 3,
-      networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
       submittedAt: DateTime.utc(2026, 8, 28),
     );
     final store = MemoryDownloadRecoveryStore();
@@ -370,7 +362,6 @@ void main() {
         request: request,
         accountId: 'account-a',
         credentialRevision: 3,
-        networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
         submittedAt: DateTime.utc(2026, 8, 28),
       );
       final store = MemoryDownloadRecoveryStore();
@@ -431,7 +422,6 @@ void main() {
         request: request,
         accountId: 'account-a',
         credentialRevision: 3,
-        networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
         submittedAt: DateTime.utc(2026, 8, 28),
       );
       final store = MemoryDownloadRecoveryStore();
@@ -491,7 +481,6 @@ void main() {
       request: request,
       accountId: 'account-a',
       credentialRevision: 3,
-      networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
       submittedAt: DateTime.utc(2026, 8, 28),
     );
     final store = MemoryDownloadRecoveryStore();
@@ -570,7 +559,6 @@ void main() {
       request: firstRequest,
       accountId: 'account-a',
       credentialRevision: 3,
-      networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
       submittedAt: DateTime.utc(2026, 8, 28),
     );
     final secondSnapshot = DownloadSubmissionSnapshot(
@@ -580,7 +568,6 @@ void main() {
       request: secondRequest,
       accountId: 'account-a',
       credentialRevision: 3,
-      networkRevision: const NetworkRevision(7, networkIdentity: 'wifi'),
       submittedAt: DateTime.utc(2026, 8, 28),
     );
     final store = MemoryDownloadRecoveryStore();

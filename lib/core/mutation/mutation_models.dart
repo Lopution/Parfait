@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-import '../network/compat/network_contracts.dart';
 import '../network/pixiv_http_client.dart';
 
 /// Terminal state of an account-owned write operation.
@@ -19,12 +18,10 @@ class MutationBoundary {
   const MutationBoundary({
     required this.accountId,
     required this.credentialRevision,
-    required this.networkRevision,
   });
 
   final String accountId;
   final int credentialRevision;
-  final NetworkRevision networkRevision;
 }
 
 /// Lifecycle owner for one in-flight mutation.
@@ -60,7 +57,6 @@ class MutationEnvelope {
     required this.operation,
     required this.clientMutationId,
     required this.createdAt,
-    required this.networkRevision,
     required this.owner,
     required this.revision,
   });
@@ -72,7 +68,6 @@ class MutationEnvelope {
   final String operation;
   final String clientMutationId;
   final DateTime createdAt;
-  final NetworkRevision networkRevision;
   final MutationOwner owner;
   final int revision;
 
@@ -96,7 +91,6 @@ enum MutationDiscardReason {
   stale,
   accountChanged,
   credentialChanged,
-  networkChanged,
   disposed,
 }
 
@@ -177,7 +171,6 @@ class MutationLedger {
       operation: operation,
       clientMutationId: clientMutationId,
       createdAt: _now(),
-      networkRevision: boundary.networkRevision,
       owner: owner,
       revision: revision,
     );

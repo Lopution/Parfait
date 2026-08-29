@@ -10,7 +10,6 @@ import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/profile/profile_edit_controller.dart';
 import 'package:pixiv_func/core/profile/profile_edit_models.dart';
@@ -164,7 +163,6 @@ void main() {
     active = const ProfileEditOwner(
       accountId: 'account-b',
       credentialRevision: 8,
-      networkRevision: NetworkRevision(1, networkIdentity: 'handover'),
     );
     response.complete(ProfileEditConfirmed(_user().copyWith(name: 'wrong')));
     await submit;
@@ -400,7 +398,6 @@ UserEntity _user() => const UserEntity(
 ProfileEditOwner _owner() => const ProfileEditOwner(
   accountId: 'account-a',
   credentialRevision: 7,
-  networkRevision: NetworkRevision(0),
 );
 
 class _FakeRepository implements ProfileEditRepository {

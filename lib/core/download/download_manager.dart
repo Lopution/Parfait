@@ -148,8 +148,6 @@ class DownloadManager {
       request: request,
       accountId: ownerContext?.accountId,
       credentialRevision: ownerContext?.credentialRevision ?? 0,
-      networkRevision:
-          ownerContext?.networkRevision ?? const NetworkRevision(0),
       submittedAt: _now().toUtc(),
       destination: ownerContext?.destination ?? kDownloadDestination,
     );
@@ -495,8 +493,7 @@ class DownloadManager {
     final owner = context == null
         ? 'unowned'
         : '${context.accountId}|${context.credentialRevision}|'
-              '${context.networkRevision.value}|'
-              '${context.networkRevision.networkIdentity}|${context.destination}';
+              '${context.destination}';
     return '${request.dedupeKey}|$owner';
   }
 
@@ -749,9 +746,6 @@ class DownloadManager {
   ) {
     return snapshot.accountId == context.accountId &&
         snapshot.credentialRevision == context.credentialRevision &&
-        snapshot.networkRevision.value == context.networkRevision.value &&
-        snapshot.networkRevision.networkIdentity ==
-            context.networkRevision.networkIdentity &&
         snapshot.destination == context.destination;
   }
 

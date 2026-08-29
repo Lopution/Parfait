@@ -217,9 +217,7 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
         ? MutationDiscardReason.accountChanged
         : _boundary!.accountId != current.accountId
         ? MutationDiscardReason.accountChanged
-        : _boundary!.credentialRevision != current.credentialRevision
-        ? MutationDiscardReason.credentialChanged
-        : MutationDiscardReason.networkChanged;
+        : MutationDiscardReason.credentialChanged;
     _ledger.cancelAll(reason);
     if (!settleState) return;
     final next = <int, FollowEntry>{...state};

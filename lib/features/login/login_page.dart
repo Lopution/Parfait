@@ -95,9 +95,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   String _loginTransferErrorText(AccountTransferErrorCode code) {
     final key = switch (code) {
       AccountTransferErrorCode.corrupt => 'accountTransferCorrupt',
-      AccountTransferErrorCode.expired => 'accountTransferExpired',
-      AccountTransferErrorCode.replayedOnThisDevice =>
-        'accountTransferReplayed',
       AccountTransferErrorCode.credentialInvalid =>
         'accountTransferCredentialInvalid',
       AccountTransferErrorCode.verificationUnavailable =>

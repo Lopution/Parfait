@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../network/api_error.dart';
-import '../network/compat/network_contracts.dart';
-import '../network/compat/network_providers.dart';
 import '../network/pixiv_http_client.dart';
 import 'feed_request_context.dart';
 
@@ -253,7 +251,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
           context,
           accountId: _accountIdFor(context),
           credentialRevision: _credentialRevisionFor(context),
-          networkRevision: _networkRevisionFor(context),
           reason: FeedDiscardReason.cancelled,
         );
         state = AsyncData(current.copyWith(refreshPhase: FeedPhase.idle));
@@ -339,7 +336,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
           context,
           accountId: _accountIdFor(context),
           credentialRevision: _credentialRevisionFor(context),
-          networkRevision: _networkRevisionFor(context),
           reason: FeedDiscardReason.cancelled,
         );
         state = AsyncData(current.copyWith(loadMorePhase: FeedPhase.idle));
@@ -404,7 +400,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       page: page,
       cursor: cursor,
       cancelToken: CancelToken(),
-      networkRevision: _networkRevision,
     );
   }
 
@@ -413,7 +408,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       context,
       accountId: _accountIdFor(context),
       credentialRevision: _credentialRevisionFor(context),
-      networkRevision: _networkRevisionFor(context),
       disposed: _disposed,
       action: () => page.commit?.call(context),
     );
@@ -425,7 +419,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
           context,
           accountId: _accountId,
           credentialRevision: _credentialRevision,
-          networkRevision: _networkRevision,
         );
   }
 
@@ -448,7 +441,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       context,
       accountId: _accountIdFor(context),
       credentialRevision: _credentialRevisionFor(context),
-      networkRevision: _networkRevisionFor(context),
       disposed: _disposed,
     );
   }
@@ -491,15 +483,9 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   int get _credentialRevision =>
       ref.read(accountStoreProvider).asData?.value.credentialRevision ?? 0;
 
-  NetworkRevision get _networkRevision =>
-      ref.read(networkAccessPolicyProvider).revision;
-
   String? _accountIdFor(FeedRequestContext context) =>
       _disposed ? context.accountId : _accountId;
 
   int _credentialRevisionFor(FeedRequestContext context) =>
       _disposed ? context.credentialRevision : _credentialRevision;
-
-  NetworkRevision _networkRevisionFor(FeedRequestContext context) =>
-      _disposed ? context.networkRevision : _networkRevision;
 }

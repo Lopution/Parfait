@@ -413,9 +413,7 @@ class CommentStore extends Notifier<CommentStoreState> {
         ? MutationDiscardReason.accountChanged
         : _boundary!.accountId != current.accountId
         ? MutationDiscardReason.accountChanged
-        : _boundary!.credentialRevision != current.credentialRevision
-        ? MutationDiscardReason.credentialChanged
-        : MutationDiscardReason.networkChanged;
+        : MutationDiscardReason.credentialChanged;
     _ledger.cancelAll(reason);
     if (!settleState) return;
     final next = <String, CommentMutation>{};

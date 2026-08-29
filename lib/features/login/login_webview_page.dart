@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -8,16 +6,16 @@ import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
 import '../../core/auth/pkce.dart';
-import '../../core/network/compat/network_contracts.dart';
-import '../../core/network/compat/network_providers.dart';
-import '../../core/network/compat/webview_route.dart';
 
 /// OAuth login WebView.
 ///
-/// Loads the verified Pixiv authorize URL for a fresh one-use PKCE session
-/// and only treats an exact `pixiv://account?code=...` redirect as a
-/// completed login. Everything else is a normal navigation. TLS errors and
-/// user cancellation discard the session.
+/// Loads the Pixiv authorize URL for a fresh one-use PKCE session and only
+/// treats an exact `pixiv://account?code=...` redirect as a completed login.
+///
+/// Where the login page navigates in between is Pixiv's business: its own
+/// oauth host, a captcha vendor, or a third-party identity provider. The
+/// security boundary is the PKCE session and the exact callback match, not a
+/// host allowlist — an allowlist can only lag behind Pixiv and break sign-in.
 class LoginWebViewPage extends ConsumerStatefulWidget {
   const LoginWebViewPage({
     super.key,
@@ -39,12 +37,14 @@ class LoginWebViewPage extends ConsumerStatefulWidget {
 class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     with WidgetsBindingObserver {
   late final WebViewController _controller;
-  WebViewRouteSession? _routeSession;
-  bool _routeInvalidated = false;
-  bool _disposed = false;
   bool _exchanging = false;
   double? _progress;
   String? _error;
+
+  /// Whether [_error] describes a state the page cannot navigate out of.
+  /// Recoverable errors leave the PKCE session alive so the user can keep
+  /// using the same login page.
+  bool _fatal = false;
   Uri? _mainFrameUri;
 
   @override
@@ -55,7 +55,6 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       // Direct signup; login with PKCE happens afterwards.
       final signupUrl = Uri.parse('https://accounts.pixiv.net/signup');
       _mainFrameUri = signupUrl;
-      _prepareRouteSession(signupUrl);
       _controller = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setNavigationDelegate(
@@ -72,7 +71,6 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     }
     final session = widget.oauthService.beginSession();
     _mainFrameUri = session.authorizeUrl;
-    _prepareRouteSession(session.authorizeUrl);
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
@@ -92,86 +90,44 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
 
   @override
   void dispose() {
-    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     // Cancellation and page disposal must never leave a live verifier behind.
     widget.oauthService.discardSession();
-    unawaited(_closeRouteSession(WebViewRouteInvalidationReason.pageDisposed));
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) return;
-    _fail('页面已暂停，请重新打开');
-  }
-
-  void _prepareRouteSession(Uri uri) {
-    // Keep the synchronous direct validation in front of the asynchronous
-    // capability probe so malformed production URLs fail at construction.
-    ref
-        .read(webViewRoutePolicyProvider)
-        .validateDirect(uri, purpose: PixivDestinationPurpose.accountsWeb);
-    unawaited(_openRouteSession(uri));
-  }
-
-  Future<void> _openRouteSession(Uri uri) async {
-    try {
-      final session = await WebViewRouteSession.open(
-        policy: ref.read(webViewRoutePolicyProvider),
-        uri: uri,
-        purpose: PixivDestinationPurpose.accountsWeb,
-      );
-      if (!mounted || _disposed || _routeInvalidated) {
-        await session.close();
-        return;
-      }
-      _routeSession = session;
-    } on Object catch (error) {
-      if (mounted) _fail('WebView 路由不可用 (${error.runtimeType})');
-    }
-  }
-
-  Future<void> _closeRouteSession(WebViewRouteInvalidationReason reason) async {
-    _routeInvalidated = true;
-    final session = _routeSession;
-    _routeSession = null;
-    if (session != null) await session.invalidate(reason);
+    // Leaving the foreground is a normal part of signing in: reading a mail
+    // verification code, an identity provider's account chooser, password
+    // autofill and a full-screen IME all report inactive/paused/hidden.
+    // Discarding the PKCE session there makes the login unusable on return.
+    // Only a detached engine can no longer complete the flow.
+    if (state != AppLifecycleState.detached) return;
+    _abortLogin('页面已关闭，请重新打开');
   }
 
   NavigationDecision _onSignupNavigationRequest(NavigationRequest request) {
     final uri = _parseNavigationUri(request.url);
-    if (uri == null || !_isAllowedWebNavigation(uri)) {
-      _fail('已拒绝非 Pixiv WebView 导航');
-      return NavigationDecision.prevent;
-    }
-    _mainFrameUri = uri;
+    if (uri != null) _mainFrameUri = uri;
     return NavigationDecision.navigate;
   }
 
   NavigationDecision _onNavigationRequest(NavigationRequest request) {
     final uri = _parseNavigationUri(request.url);
-    if (uri == null) {
-      _fail('登录导航地址无效');
-      return NavigationDecision.prevent;
-    }
+    if (uri == null) return NavigationDecision.navigate;
     final parsed = widget.oauthService.validateRedirect(uri);
     switch (parsed) {
       case PixivCallbackCode(:final code):
         _exchange(code);
         return NavigationDecision.prevent;
       case PixivCallbackInvalid(:final reason):
-        _fail('登录回调无效: $reason');
+        // The callback was consumed with unusable parameters; the verifier
+        // cannot be reused for another attempt.
+        _abortLogin('登录回调无效: $reason');
         return NavigationDecision.prevent;
       case PixivCallbackOther():
-        if (uri.scheme != 'http' && uri.scheme != 'https') {
-          _fail('已拒绝非 HTTPS Pixiv 登录导航');
-          return NavigationDecision.prevent;
-        }
-        if (!_isAllowedWebNavigation(uri)) {
-          _fail('已拒绝非 Pixiv 登录导航');
-          return NavigationDecision.prevent;
-        }
+        // Every other destination is the login page doing its own work.
         _mainFrameUri = uri;
         return NavigationDecision.navigate;
     }
@@ -201,14 +157,16 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
         requestUri != mainFrameUri) {
       return;
     }
-    _fail('网络错误 (HTTP ${error.response?.statusCode})');
+    // A main-document 4xx is routinely a form-validation or risk-control
+    // response that the user can retry in place.
+    _reportRecoverable('网络错误 (HTTP ${error.response?.statusCode})');
   }
 
   void _onWebResourceError(WebResourceError error) {
     // WebView surfaces subresource failures through this callback as well.
-    // Only a main-frame failure terminates the login attempt.
+    // Only a main-frame failure is worth reporting, and it stays retryable.
     if (error.isForMainFrame == false) return;
-    _fail('页面加载失败 (${error.errorType ?? error.errorCode})');
+    _reportRecoverable('页面加载失败 (${error.errorType ?? error.errorCode})');
   }
 
   Uri? _parseNavigationUri(String raw) {
@@ -216,23 +174,6 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       return Uri.parse(raw);
     } on FormatException {
       return null;
-    }
-  }
-
-  bool _isAllowedWebNavigation(Uri uri) {
-    try {
-      final session = _routeSession;
-      if (_routeInvalidated && session == null) return false;
-      if (session != null) {
-        session.validate(uri);
-      } else {
-        ref
-            .read(webViewRoutePolicyProvider)
-            .validateDirect(uri, purpose: PixivDestinationPurpose.accountsWeb);
-      }
-      return true;
-    } on Object {
-      return false;
     }
   }
 
@@ -261,20 +202,31 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       // The StartupGate reacts to the new usable account and shows Home.
       Navigator.of(context).pop(true);
     } on OAuthException catch (error) {
-      _fail('登录失败: $error');
+      // The authorization code was already consumed by this exchange.
+      _abortLogin('登录失败: $error');
     } on Object catch (error) {
-      _fail('登录失败 (${error.runtimeType})');
+      _abortLogin('登录失败 (${error.runtimeType})');
     }
   }
 
-  void _fail(String message) {
+  /// Ends the login attempt. The PKCE verifier is discarded, so the page can
+  /// no longer complete a sign-in and must be reopened.
+  void _abortLogin(String message) {
     widget.oauthService.discardSession();
-    unawaited(_closeRouteSession(WebViewRouteInvalidationReason.authFailure));
     if (!mounted) return;
     setState(() {
       _exchanging = false;
       _error = message;
+      _fatal = true;
     });
+  }
+
+  /// Reports a transient problem without touching the PKCE session. A
+  /// form-validation status code or a failed page load must not turn into a
+  /// permanently dead WebView.
+  void _reportRecoverable(String message) {
+    if (!mounted || _fatal) return;
+    setState(() => _error = message);
   }
 
   @override
@@ -317,10 +269,20 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
                       child: Row(
                         children: [
                           Expanded(child: Text(_error!)),
-                          TextButton(
-                            onPressed: () => setState(() => _error = null),
-                            child: const Text('知道了'),
-                          ),
+                          // A fatal error leaves no usable session behind, so
+                          // the action closes the page instead of pretending
+                          // the WebView can still be used.
+                          _fatal
+                              ? TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).pop(false),
+                                  child: const Text('重新打开'),
+                                )
+                              : TextButton(
+                                  onPressed: () =>
+                                      setState(() => _error = null),
+                                  child: const Text('知道了'),
+                                ),
                         ],
                       ),
                     ),
