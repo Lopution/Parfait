@@ -38,8 +38,6 @@ Future<void> runWidgetBackground() async {
       accountStore: container.read(accountStoreProvider.notifier),
       credentialStore: container.read(credentialStoreProvider),
       storeFactory: WidgetSnapshotStore.standard,
-      networkRevision: () =>
-          container.read(networkAccessPolicyProvider).revision,
     );
     debugPrint('WidgetBackground: loader built');
     final result = await loader.load().timeout(const Duration(minutes: 4));

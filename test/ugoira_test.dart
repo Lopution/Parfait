@@ -9,7 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:pixiv_func/core/download/download_recovery.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/ugoira/ugoira_cache.dart';
 import 'package:pixiv_func/core/ugoira/ugoira_decoder.dart';
 import 'package:pixiv_func/core/ugoira/ugoira_export.dart';
@@ -360,7 +359,6 @@ void main() {
         submissionContext: const DownloadSubmissionContext(
           accountId: 'account-a',
           credentialRevision: 1,
-          networkRevision: NetworkRevision(2, networkIdentity: 'wifi'),
         ),
         submissionContextProvider: () => null,
         encoderFactory: (_) => _FakeGifEncoder(),

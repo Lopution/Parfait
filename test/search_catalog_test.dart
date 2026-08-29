@@ -275,12 +275,23 @@ void main() {
         ),
         isTrue,
       );
+      // The active search is pinned: a cursor for another keyword belongs to
+      // another feed and is refused.
       expect(
         repository.validateCursor(
           const IllustSearchQuery(keyword: 'cat'),
-          cursor: '$validCursor&redirect=https://example.com',
+          cursor: validCursor.replaceFirst('word=cat', 'word=dog'),
         ),
         isFalse,
+      );
+      // A parameter Pixiv added that this client has never seen is still the
+      // same search and must keep paging.
+      expect(
+        repository.validateCursor(
+          const IllustSearchQuery(keyword: 'cat'),
+          cursor: '$validCursor&brand_new_flag=1',
+        ),
+        isTrue,
       );
     },
   );

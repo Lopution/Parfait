@@ -68,15 +68,15 @@ void main() {
       }
     });
 
-    test('unknown callback parameters and fragments are invalid', () {
-      for (final uri in [
-        'pixiv://account?code=a&unexpected=1',
-        'pixiv://account?code=a#fragment',
-        'pixiv://account/path?code=a',
-      ]) {
-        final result = parsePixivAccountCallback(Uri.parse(uri));
-        expect(result, isA<PixivCallbackInvalid>(), reason: uri);
-      }
+    test('accepts the real Pixiv callback shape', () {
+      // Pixiv redirects to pixiv://account/login?code=...&via=... — a path
+      // and vendor parameters are normal, and state is not echoed.
+      final result = parsePixivAccountCallback(
+        Uri.parse('pixiv://account/login?code=abc&via=login'),
+      );
+      expect(result, isA<PixivCallbackCode>());
+      expect((result as PixivCallbackCode).code, 'abc');
+      expect(result.state, isNull);
     });
   });
 
@@ -139,14 +139,15 @@ void main() {
       expect(service.hasLiveSession, isFalse);
     });
 
-    test('callback without or with a mismatched state clears the session', () {
+    test('a mismatched state clears the session, an absent one does not', () {
       final service = OAuthService();
       service.beginSession();
+      // Pixiv omits state; PKCE still binds the code to this session.
       expect(
-        service.validateRedirect(Uri.parse('pixiv://account?code=abc')),
-        isA<PixivCallbackInvalid>(),
+        service.validateRedirect(Uri.parse('pixiv://account/login?code=abc')),
+        isA<PixivCallbackCode>(),
       );
-      expect(service.hasLiveSession, isFalse);
+      expect(service.hasLiveSession, isTrue);
 
       service.beginSession();
       expect(

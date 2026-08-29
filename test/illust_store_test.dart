@@ -133,11 +133,11 @@ void main() {
       expect(store.getAll([1, 2, 3, 4]), hasLength(4));
     });
 
-    test('malicious cursor is rejected by the allowlist parser', () {
+    test('a cursor may not move the client off the Pixiv API origin', () {
       for (final bad in [
         'http://app-api.pixiv.net/v1/illust/recommended?offset=30',
         'https://evil.example.com/v1/illust/recommended?offset=30',
-        'https://app-api.pixiv.net/v1/secret?x=1',
+        'https://app-api.pixiv.net@evil.example.com/v1/illust/recommended',
       ]) {
         expect(
           () => NextPageParser.parse(bad),

@@ -64,20 +64,15 @@ class PixivCallbackInvalid extends PixivCallback {
   final String reason;
 }
 
-/// Parses a redirect URI against the strict `pixiv://account` whitelist.
+/// Parses a `pixiv://account` redirect.
+///
+/// Pixiv's real callback is `pixiv://account/login?code=...&via=...`: it
+/// carries a path and its own extra parameters, and it does not echo `state`.
+/// Only the parts that make a code genuinely ambiguous are rejected here; the
+/// authorization code is still worthless without this session's PKCE verifier.
 PixivCallback parsePixivAccountCallback(Uri uri) {
   if (uri.scheme != 'pixiv' || uri.host != 'account') {
     return PixivCallbackOther(uri);
-  }
-  if (uri.path.isNotEmpty ||
-      uri.userInfo.isNotEmpty ||
-      uri.hasFragment ||
-      uri.hasPort) {
-    return PixivCallbackInvalid(uri, 'invalid callback URI shape');
-  }
-  final keys = uri.queryParametersAll.keys.toSet();
-  if (!keys.every((key) => key == 'code' || key == 'state')) {
-    return PixivCallbackInvalid(uri, 'unexpected callback parameter');
   }
   final codes = uri.queryParametersAll['code'];
   if (codes == null) {
@@ -93,9 +88,6 @@ PixivCallback parsePixivAccountCallback(Uri uri) {
   final states = uri.queryParametersAll['state'];
   if (states != null && states.length > 1) {
     return PixivCallbackInvalid(uri, 'duplicate state');
-  }
-  if (states?.single.isEmpty ?? false) {
-    return PixivCallbackInvalid(uri, 'empty state');
   }
   return PixivCallbackCode(code, state: states?.single);
 }

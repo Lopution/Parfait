@@ -8,7 +8,6 @@ import '../../app/pixiv_image.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/i18n/replica_strings.dart';
-import '../../core/network/compat/network_providers.dart';
 import '../../core/profile/profile_edit_controller.dart';
 import '../../core/profile/profile_edit_models.dart';
 import '../../core/profile/profile_edit_repository.dart';
@@ -115,7 +114,6 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
     return ProfileEditOwner(
       accountId: state?.usableCurrent?.id ?? '',
       credentialRevision: state?.credentialRevision ?? -1,
-      networkRevision: ref.read(networkAccessPolicyProvider).revision,
     );
   }
 

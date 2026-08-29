@@ -11,7 +11,6 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/widget/widget_feed_loader.dart';
 import 'package:pixiv_func/core/widget/widget_snapshot.dart';
@@ -129,7 +128,6 @@ _makeWorld({
   ],
   String? currentId = '100',
   WidgetSnapshotStore? snapshotStore,
-  NetworkRevision Function()? networkRevision,
 }) async {
   final transports = _Transports();
   SharedPreferencesAsyncPlatform.instance =
@@ -181,7 +179,6 @@ _makeWorld({
     accountStore: container.read(accountStoreProvider.notifier),
     credentialStore: credentials,
     storeFactory: () async => store,
-    networkRevision: networkRevision,
   );
   return (container, loader, store, transports);
 }
@@ -306,27 +303,6 @@ void main() {
       final result = await loader.load();
       expect(result.outcome, WidgetFeedOutcome.superseded);
       expect(store.read()!.accountKey, previous.accountKey);
-    },
-  );
-
-  test(
-    'network revision change during generation cannot publish old route',
-    () async {
-      var revision = const NetworkRevision(0, networkIdentity: 'wifi-a');
-      final (container, loader, store, transports) = await _makeWorld(
-        networkRevision: () => revision,
-      );
-      addTearDown(container.dispose);
-      expect((await loader.load()).written, isTrue);
-      final previous = store.read()!;
-      transports._firstCoverStarted = false;
-      transports.beforeFirstCover = () async {
-        revision = const NetworkRevision(1, networkIdentity: 'wifi-b');
-      };
-
-      final result = await loader.load();
-      expect(result.outcome, WidgetFeedOutcome.superseded);
-      expect(store.read()!.generatedAtMs, previous.generatedAtMs);
     },
   );
 

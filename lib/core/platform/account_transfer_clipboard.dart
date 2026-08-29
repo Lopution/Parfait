@@ -5,6 +5,11 @@ import 'package:flutter/services.dart';
 
 import '../auth/account_transfer.dart';
 
+/// How long the platform keeps an exported envelope on the clipboard before
+/// clearing it. The envelope itself never expires; this only bounds how long a
+/// credential sits in a system-wide buffer.
+const Duration transferClipboardLifetime = Duration(minutes: 5);
+
 /// Clipboard snapshot returned only after an explicit user-triggered read.
 /// The fingerprint is an opaque equality handle; it is not clipboard text.
 class TransferClipboardContent {
@@ -51,13 +56,6 @@ class MethodChannelTransferClipboard implements TransferClipboard {
       throw const AccountTransferException(
         AccountTransferErrorCode.clipboardUnavailable,
         'clipboard payload is outside the supported size',
-      );
-    }
-    if (clearAfter <= Duration.zero ||
-        clearAfter > TransferEnvelope.maxLifetime) {
-      throw const AccountTransferException(
-        AccountTransferErrorCode.clipboardUnavailable,
-        'clipboard expiry is outside the supported window',
       );
     }
     final fingerprint = transferClipboardFingerprint(text);

@@ -1,6 +1,5 @@
 import 'package:meta/meta.dart';
 
-import '../network/compat/network_contracts.dart';
 import '../network/pixiv_http_client.dart';
 import '../user/user_entity.dart';
 
@@ -399,18 +398,14 @@ class ProfileEditOwner {
   const ProfileEditOwner({
     required this.accountId,
     required this.credentialRevision,
-    required this.networkRevision,
   });
 
   final String accountId;
   final int credentialRevision;
-  final NetworkRevision networkRevision;
 
   bool matches(ProfileEditOwner other) =>
       accountId == other.accountId &&
-      credentialRevision == other.credentialRevision &&
-      networkRevision.value == other.networkRevision.value &&
-      networkRevision.networkIdentity == other.networkRevision.networkIdentity;
+      credentialRevision == other.credentialRevision;
 }
 
 enum ProfileEditFailureCode {

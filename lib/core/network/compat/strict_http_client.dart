@@ -16,10 +16,6 @@ abstract final class NativeStrictConnector {
     NetworkRoute route, {
     Duration idleTimeout = const Duration(seconds: 30),
   }) {
-    if (route.kind != NetworkRouteKind.direct &&
-        route.kind != NetworkRouteKind.secureDns) {
-      throw ArgumentError.value(route.kind, 'route', 'route is not native');
-    }
     final client = HttpClient();
     client.findProxy = (_) => 'DIRECT';
     client.idleTimeout = idleTimeout;

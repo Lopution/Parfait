@@ -1,8 +1,11 @@
-/// Validates and degrades a `next_url` from a paginated Pixiv response into
-/// a request the client is allowed to issue.
+/// Validates a `next_url` from a paginated Pixiv response into a request the
+/// client is allowed to issue.
 ///
-/// Only HTTPS, allowlisted Pixiv API hosts, known endpoints and known query
-/// parameters are accepted. Arbitrary absolute URLs are never requested.
+/// The URL must be HTTPS on the one Pixiv API host, so a response can never
+/// redirect the client at an arbitrary origin. Its path and parameters are
+/// Pixiv's own cursor state: each repository pins the endpoint and identity
+/// parameters it expects, and anything else is passed through. Enumerating
+/// Pixiv's parameters here only breaks paging the next time they add one.
 class NextPageRequest {
   const NextPageRequest({required this.uri});
 
@@ -22,7 +25,9 @@ class NextPageParseError implements Exception {
   String toString() => 'NextPageParseError($reason)';
 }
 
-/// Endpoint registry: path -> allowed query parameter names.
+/// First-page endpoint registry: path -> query parameter names this client
+/// sends. It describes the requests we construct, not the cursors Pixiv
+/// returns.
 ///
 /// Features extend this registry when they introduce paginated endpoints.
 const Map<String, Set<String>> kNextPageEndpoints = {
@@ -77,17 +82,10 @@ const Map<String, Set<String>> kNextPageEndpoints = {
 };
 
 abstract final class NextPageParser {
-  /// Per-endpoint parameter-name patterns (real next_url payloads carry
-  /// indexed array params like `viewed[0]..viewed[n]` that cannot be
-  /// enumerated; the name shape is still allowlisted, values are
-  /// server-echoed digits only).
-  static final Map<String, List<RegExp>> kNextPageParamPatterns = {
-    '/v1/illust/recommended': [RegExp(r'^viewed\[\d+\]$')],
-  };
-
   /// Parses [nextUrl]; `null` (no next page) passes through as `null`.
   ///
-  /// Throws [NextPageParseError] for anything not explicitly allowlisted.
+  /// Throws [NextPageParseError] when the URL does not point at the Pixiv API
+  /// host over HTTPS.
   static NextPageRequest? parse(String? nextUrl) {
     if (nextUrl == null || nextUrl.isEmpty) return null;
     final Uri uri;
@@ -105,18 +103,6 @@ abstract final class NextPageParser {
     if (uri.userInfo.isNotEmpty || (uri.hasPort && uri.port != 443)) {
       throw NextPageParseError(
         'next_url must use the default port without userinfo',
-      );
-    }
-    if (!kNextPageEndpoints.containsKey(uri.path)) {
-      throw NextPageParseError('unknown next_url endpoint: ${uri.path}');
-    }
-    final allowedParams = kNextPageEndpoints[uri.path]!;
-    final patterns = kNextPageParamPatterns[uri.path] ?? const [];
-    for (final name in uri.queryParameters.keys) {
-      if (allowedParams.contains(name)) continue;
-      if (patterns.any((pattern) => pattern.hasMatch(name))) continue;
-      throw NextPageParseError(
-        'unknown query parameter "$name" for ${uri.path}',
       );
     }
     return NextPageRequest(uri: uri);

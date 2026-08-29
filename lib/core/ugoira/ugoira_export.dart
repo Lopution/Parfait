@@ -9,7 +9,6 @@ import '../download/download_request.dart';
 import '../download/download_recovery.dart';
 import '../download/download_sink.dart';
 import '../download/download_transport.dart';
-import '../network/compat/network_contracts.dart';
 import 'ugoira_limits.dart';
 import 'ugoira_repository.dart';
 import 'ugoira_recovery.dart';
@@ -638,9 +637,6 @@ class UgoiraExportJob {
     if (current == null ||
         current.accountId != _submission.accountId ||
         current.credentialRevision != _submission.credentialRevision ||
-        current.networkRevision.value != _submission.networkRevision.value ||
-        current.networkRevision.networkIdentity !=
-            _submission.networkRevision.networkIdentity ||
         current.destination != _submission.destination) {
       throw const UgoiraExportOwnershipException();
     }
@@ -690,7 +686,6 @@ DownloadSubmissionSnapshot _makeSubmission(
     request: request,
     accountId: context?.accountId,
     credentialRevision: context?.credentialRevision ?? 0,
-    networkRevision: context?.networkRevision ?? const NetworkRevision(0),
     submittedAt: DateTime.now().toUtc(),
     destination: context?.destination ?? kDownloadDestination,
   );
