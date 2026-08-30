@@ -472,7 +472,7 @@ void main() {
     );
     // Replacing with another hostname endpoint must NOT show the error hint.
     await tester.enterText(
-      find.byType(TextField),
+      find.byType(TextField).first,
       'https://dns.alidns.com/dns-query',
     );
     await tester.pump();

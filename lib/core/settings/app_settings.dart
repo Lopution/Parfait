@@ -60,6 +60,9 @@ class AppSettings {
     this.imageSource = normalImageSource,
     this.enableDoh = true,
     this.dohEndpointOverride,
+    this.echFrontHost = defaultEchFrontHost,
+    this.insecureNoSniEnabled = false,
+    this.nativeWebViewIntercept = false,
     this.previewQuality = true,
     this.scaleQuality = true,
     this.enableHistory = true,
@@ -93,6 +96,10 @@ class AppSettings {
     'https://1dot1dot1dot1.cloudflare-dns.com/dns-query',
     'https://dns.google/dns-query',
   ];
+
+  /// ECH front host (serves the ECH config for the pixiv Cloudflare
+  /// domains). Configurable in settings; Cloudflare default.
+  static const String defaultEchFrontHost = 'cloudflare-ech.com';
   static const SecretSettingRef translationCredentialRef = SecretSettingRef(
     'replica.settings.translate.v1',
   );
@@ -109,6 +116,18 @@ class AppSettings {
 
   /// Optional comma-separated DoH endpoint override. Null = built-in list.
   final String? dohEndpointOverride;
+
+  /// ECH front host (HTTPS RR type 65 query target).
+  final String echFrontHost;
+
+  /// Whether the user explicitly enabled the `insecureNoSni` fallback tier
+  /// (R6). Default false; never auto-enabled by probe failures.
+  final bool insecureNoSniEnabled;
+
+  /// R7: login WebView uses the native PlatformView (request interception
+  /// through the policy ladder) instead of webview_flutter on Android.
+  /// Default false — webview_flutter is the tested, stable path.
+  final bool nativeWebViewIntercept;
   final bool previewQuality;
   final bool scaleQuality;
   final bool enableHistory;
@@ -162,6 +181,19 @@ class AppSettings {
         'dohEndpointOverride',
         base.dohEndpointOverride,
       ),
+      echFrontHost:
+          json['echFrontHost'] is String &&
+              (json['echFrontHost'] as String).isNotEmpty
+          ? json['echFrontHost'] as String
+          : base.echFrontHost,
+      insecureNoSniEnabled: _bool(
+        json['insecureNoSniEnabled'],
+        base.insecureNoSniEnabled,
+      ),
+      nativeWebViewIntercept: _bool(
+        json['nativeWebViewIntercept'],
+        base.nativeWebViewIntercept,
+      ),
       previewQuality: _bool(json['previewQuality'], base.previewQuality),
       scaleQuality: _bool(json['scaleQuality'], base.scaleQuality),
       enableHistory: _bool(json['enableHistory'], base.enableHistory),
@@ -195,6 +227,9 @@ class AppSettings {
       'imageSource': imageSource,
       'enableDoh': enableDoh,
       'dohEndpointOverride': dohEndpointOverride,
+      'echFrontHost': echFrontHost,
+      'insecureNoSniEnabled': insecureNoSniEnabled,
+      'nativeWebViewIntercept': nativeWebViewIntercept,
       'previewQuality': previewQuality,
       'scaleQuality': scaleQuality,
       'enableHistory': enableHistory,
@@ -260,6 +295,9 @@ class AppSettings {
     String? imageSource,
     bool? enableDoh,
     Object? dohEndpointOverride = _unset,
+    String? echFrontHost,
+    bool? insecureNoSniEnabled,
+    bool? nativeWebViewIntercept,
     bool? previewQuality,
     bool? scaleQuality,
     bool? enableHistory,
@@ -287,6 +325,11 @@ class AppSettings {
       dohEndpointOverride: identical(dohEndpointOverride, _unset)
           ? this.dohEndpointOverride
           : dohEndpointOverride as String?,
+      echFrontHost: echFrontHost ?? this.echFrontHost,
+      insecureNoSniEnabled:
+          insecureNoSniEnabled ?? this.insecureNoSniEnabled,
+      nativeWebViewIntercept:
+          nativeWebViewIntercept ?? this.nativeWebViewIntercept,
       previewQuality: previewQuality ?? this.previewQuality,
       scaleQuality: scaleQuality ?? this.scaleQuality,
       enableHistory: enableHistory ?? this.enableHistory,

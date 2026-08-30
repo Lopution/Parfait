@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +8,7 @@ import '../../core/network/compat/network_contracts.dart';
 import '../../core/network/compat/network_policy.dart';
 import '../../core/network/compat/network_probe.dart';
 import '../../core/network/compat/network_providers.dart';
+import '../../core/network/compat/secure_resolver.dart';
 
 String _probeText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -64,13 +64,114 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   Future<void> _runOne(
     ({String host, PixivDestinationPurpose purpose}) target,
   ) async {
+    final resolver = _policy.resolver;
     final report = await NetworkProbe.run(
       host: target.host,
       purpose: target.purpose,
       registry: _policy.registry,
-      dohResolver: _policy.resolver,
+      dohResolver: resolver,
       revision: _policy.revision,
       timeoutPerLayer: const Duration(seconds: 8),
+      echConfigLookup: resolver is DohResolver
+          ? () async {
+              try {
+                return await resolver.lookupEchConfig(
+                  _policy.echFrontHost,
+                  revision: _policy.revision,
+                );
+              } on Object catch (error) {
+                debugPrint('ech config lookup failed: $error');
+                // Keep the original error visible in the report: swallowing
+                // it as null collapses every failure mode (endpoint down,
+                // no SvcParam, parse error) into the same misleading
+                // `no ECH config available` line.
+                throw NetworkProbeLayerException(
+                  'ECH config lookup failed: $error',
+                );
+              }
+            }
+          : null,
+      echRequest: (uri, address, echConfig) async {
+        // ECH transport: the only exit that preserves real SNI encryption
+        // (outer SNI cloudflare-ech.com, inner SNI app-api.pixiv.net).
+        //
+        // The config and the connect address BOTH come from the lookup
+        // result carried through this callback — never from shared state.
+        // An earlier version read them from an instance field written by
+        // four concurrently running host probes (a race) and silently fell
+        // back to an empty config list when the cast failed, which made this
+        // layer report `ok` for a plain-TLS connection that never used ECH
+        // at all. A wrong type is now a hard failure.
+        if (echConfig is! EchConfigResult) {
+          throw NetworkProbeLayerException(
+            'ECH config has unexpected type ${echConfig.runtimeType}',
+          );
+        }
+        final configBytes = NetworkProbe.requireEchConfigBytes(echConfig);
+        // The connect target MUST be the ECH front's anycast IP (ipv4hint
+        // from its HTTPS RR), NOT the target host's answer: mainland answers
+        // for the target are polluted and the handshake would go nowhere.
+        final frontAddress = echConfig.frontAddresses.isNotEmpty
+            ? echConfig.frontAddresses.first
+            : address;
+        final route = NetworkRoute.ech(
+          _policy.revision,
+          frontAddress,
+          configBytes,
+        );
+        final client = _policy.clientFor(
+          target.purpose,
+          route,
+          target.host,
+        );
+        try {
+          final response =
+              await client.get(uri).timeout(const Duration(seconds: 8));
+          return HttpProbeResponse(response.statusCode);
+        } on Object catch (error) {
+          // Surface the transport error verbatim plus the config size so a
+          // probe run pinpoints ECH config/parse/negotiation failures.
+          throw NetworkProbeLayerException(
+            'ECH request failed (config ${echConfig.echConfig.length}B, '
+            'front ${frontAddress.address}): $error',
+          );
+        }
+      },
+      noSniHandshake: (_address, _port) async {
+        // Empty-SNI handshake requires a rustls client with sni=false;
+        // implemented via the policy's rhttp transport (a GET to the probe
+        // path with the noSni tier). This is the probe page asking "does
+        // empty SNI work on this host".
+        final route = NetworkRoute.noSni(_policy.revision, _address);
+        final client = _policy.clientFor(
+          target.purpose,
+          route,
+          target.host,
+        );
+        try {
+          await client
+              .get(Uri.parse('https://${target.host}${NetworkProbe.probePath}'))
+              .timeout(const Duration(seconds: 8));
+        } finally {
+          // Pooled client: do not close here (owned by the policy).
+        }
+      },
+      httpNoSniRequest: (uri, _address) async {
+        final route = NetworkRoute.noSni(_policy.revision, _address);
+        final client = _policy.clientFor(
+          target.purpose,
+          route,
+          target.host,
+        );
+        try {
+          final response = await client
+              .get(uri)
+              .timeout(const Duration(seconds: 8));
+          return HttpProbeResponse(response.statusCode);
+        } on Object catch (error) {
+          throw NetworkProbeLayerException('no-SNI request failed: $error');
+        }
+      },
     );
     if (mounted) {
       setState(() => _finished[target.host] = report);
@@ -225,6 +326,14 @@ class _ConclusionBadge extends StatelessWidget {
       NetworkProbeConclusion.sniBlocked => (
         'SNI 被封',
         Colors.red.shade700,
+      ),
+      NetworkProbeConclusion.echAvailable => (
+        '应选 ECH',
+        Colors.teal.shade700,
+      ),
+      NetworkProbeConclusion.noSniAvailable => (
+        '应选空 SNI',
+        Colors.indigo.shade700,
       ),
       NetworkProbeConclusion.ipBlackholed => (
         'IP 黑洞',

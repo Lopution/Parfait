@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
+
 import '../network/pixiv_client_identity.dart';
 import 'download_transport.dart';
 import 'download_request.dart';
@@ -31,26 +33,29 @@ abstract interface class RawHopHeaders {
   Map<String, String> get headers;
 }
 
-/// Production transport over a shared pooled `HttpClient` (R1). Redirects
-/// are followed manually so every hop is validated against the download
-/// host allowlist (R7). TLS failures propagate; there is no certificate
-/// bypass anywhere.
+/// Production transport over a shared pooled `http.Client` (R1: rhttp).
+/// Redirects are followed manually so every hop is validated against the
+/// download host allowlist (R7). TLS failures propagate; certificate
+/// verification is owned by the client factory (policy tier), never bypassed
+/// here.
 class HttpDownloadTransport
     implements DownloadTransport, DisposableDownloadTransport {
   /// [allowedHosts]/[requireHttps] default to the production security
   /// policy; tests inject loopback values. Nothing at runtime may widen
-  /// them.
+  /// them. [httpClient] is the `package:http` client (rhttp in production,
+  /// IOClient in tests); [fallbackConnectTimeout] is only honored by the
+  /// dart:io path used by tests.
   HttpDownloadTransport({
-    HttpClient? client,
+    http.Client? httpClient,
     this.maxRedirects = 5,
     Set<String>? allowedHosts,
     this.requireHttps = true,
     this.strictUrlPolicy = false,
-  }) : _ownsClient = client == null,
-       client = client ?? HttpClient(),
+  }) : _ownsClient = httpClient == null,
+       httpClient = httpClient ?? http.Client(),
        allowedHosts = allowedHosts ?? PixivClientIdentity.downloadHosts;
 
-  final HttpClient client;
+  final http.Client httpClient;
   final int maxRedirects;
   final Set<String> allowedHosts;
   final bool requireHttps;
@@ -118,60 +123,57 @@ class HttpDownloadTransport
     throw const DownloadTransportException('unreachable redirect loop');
   }
 
-  /// Opens one hop. Tests subclass and script hops deterministically.
+  /// Opens one hop via the pooled [httpClient]. Tests subclass and script
+  /// hops deterministically. The request is an [http.AbortableRequest] so
+  /// cancellation tears the underlying socket down (rhttp maps abortTrigger
+  /// to its CancelToken; dart:io IOClient maps it to request.abort).
   Future<RawHop> openHop(
     Uri url,
     Map<String, String> headers,
     DownloadCancelToken cancelToken,
   ) async {
-    final HttpClientRequest request;
-    try {
-      request = await client.getUrl(url);
-    } on Object catch (error) {
-      if (cancelToken.isCancelled) {
-        throw const DownloadCancelledException();
-      }
-      throw DownloadTransportException('request setup failed', cause: error);
-    }
+    final request = http.Request('GET', url);
+    request.headers.addAll(headers);
     request.followRedirects = false;
-    request.maxRedirects = 0;
-    headers.forEach(request.headers.set);
-    // Cancel before/while the request is in flight aborts the socket.
+
+    final abortTrigger = Completer<void>();
     unawaited(
       cancelToken.whenCancel.then((_) {
-        try {
-          request.abort();
-        } on Object {
-          // Already sent/response received or the socket is already gone;
-          // the response-side cancellation path still reports cancellation.
-        }
+        if (!abortTrigger.isCompleted) abortTrigger.complete();
       }),
     );
+    final abortable = http.AbortableRequest(
+      request.method,
+      request.url,
+      abortTrigger: abortTrigger.future,
+    )
+      ..headers.addAll(request.headers)
+      ..followRedirects = false
+      ..bodyBytes = request.bodyBytes;
+
     if (cancelToken.isCancelled) {
-      request.abort();
       throw const DownloadCancelledException();
     }
-    final HttpClientResponse response;
+
+    final http.StreamedResponse response;
     try {
-      response = await request.close();
+      response = await httpClient.send(abortable);
     } on Object catch (error) {
       if (cancelToken.isCancelled) {
         throw const DownloadCancelledException();
       }
       throw DownloadTransportException('request failed', cause: error);
     }
+    if (cancelToken.isCancelled) {
+      response.stream.listen(null).cancel();
+      throw const DownloadCancelledException();
+    }
     final lengthHeader = response.contentLength;
-    return _IoHop(
+    return _HttpHop(
       response,
-      contentLength: lengthHeader >= 0 ? lengthHeader : null,
+      contentLength: lengthHeader,
       onAbort: () {
-        try {
-          request.abort();
-        } on HttpException {
-          // Socket already gone; nothing to abort.
-        } on StateError {
-          // Request already finished; nothing to abort.
-        }
+        if (!abortTrigger.isCompleted) abortTrigger.complete();
       },
     );
   }
@@ -199,35 +201,35 @@ class HttpDownloadTransport
   @override
   Future<void> dispose() async {
     if (_ownsClient) {
-      client.close(force: true);
+      httpClient.close();
     }
   }
 }
 
-class _IoHop implements RawHop, RawHopHeaders {
-  _IoHop(
+class _HttpHop implements RawHop, RawHopHeaders {
+  _HttpHop(
     this._response, {
     required int? contentLength,
     required void Function() onAbort,
   }) : _contentLength = contentLength,
        _onAbort = onAbort;
 
-  final HttpClientResponse _response;
+  final http.StreamedResponse _response;
   final int? _contentLength;
   final void Function() _onAbort;
+  bool _drained = false;
 
   @override
   int get statusCode => _response.statusCode;
 
   @override
-  String? get locationHeader =>
-      _response.headers.value(HttpHeaders.locationHeader);
+  String? get locationHeader => _response.headers['location'];
 
   @override
   Map<String, String> get headers {
     final result = <String, String>{};
-    _response.headers.forEach((name, values) {
-      result[name] = values.join(',');
+    _response.headers.forEach((name, value) {
+      result[name] = value;
     });
     return result;
   }
@@ -236,10 +238,14 @@ class _IoHop implements RawHop, RawHopHeaders {
   int? get contentLength => _contentLength;
 
   @override
-  Stream<List<int>> get body => _response;
+  Stream<List<int>> get body => _response.stream;
 
   @override
-  Future<void> drain() => _response.drain<void>();
+  Future<void> drain() {
+    if (_drained) return Future.value();
+    _drained = true;
+    return _response.stream.drain<void>();
+  }
 
   @override
   void abort() => _onAbort();

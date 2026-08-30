@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/io_client.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
@@ -896,7 +897,6 @@ void main() {
           requireHttps: false,
           allowedHosts: {'127.0.0.1'},
         );
-        transport.client.connectionTimeout = const Duration(seconds: 5);
         try {
           final response = await transport.open(
             Uri.parse('http://127.0.0.1:${server.port}/a.jpg'),
@@ -936,7 +936,6 @@ void main() {
           requireHttps: false,
           allowedHosts: {'127.0.0.1'},
         );
-        transport.client.connectionTimeout = const Duration(seconds: 5);
         try {
           final token = DownloadCancelToken();
           final response = await transport
@@ -974,12 +973,11 @@ class _ScriptedTransport extends HttpDownloadTransport {
   _ScriptedTransport({required List<_ScriptedHop> hops, int? maxRedirects})
     : _pending = List.of(hops),
       super(
-        client: HttpClient(),
+        httpClient: IOClient(HttpClient()),
         maxRedirects: maxRedirects ?? 5,
         allowedHosts: {'i.pximg.net'},
       ) {
     // The inherited pooled client is never used by the override below.
-    client.close(force: true);
   }
 
   final List<_ScriptedHop> _pending;

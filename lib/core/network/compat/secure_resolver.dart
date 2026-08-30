@@ -18,6 +18,27 @@ abstract interface class SecureResolver {
   Future<void> dispose();
 }
 
+/// Result of an ECH config lookup: the raw ECH config list bytes plus the
+/// record TTL (already clamped) and the front host's connect addresses
+/// (from the HTTPS RR's ipv4hint — the only clean source for the ECH
+/// connection target; system DNS / mainland DoH answers for the target
+/// host are polluted).
+class EchConfigResult {
+  EchConfigResult({
+    required this.echConfig,
+    required this.ttl,
+    this.frontAddresses = const [],
+  });
+
+  final Uint8List echConfig;
+  final Duration ttl;
+
+  /// Connect target IPs for the ECH front (outer SNI host). Empty when the
+  /// HTTPS RR carries no ipv4hint; the policy then falls back to resolving
+  /// the front host itself.
+  final List<InternetAddress> frontAddresses;
+}
+
 class ResolvedHost {
   ResolvedHost({
     required this.host,
@@ -276,6 +297,140 @@ class DohResolver implements SecureResolver {
       dnsSource: DnsSource.doh,
       revision: revision,
       ttl: ttl,
+    );
+  }
+
+  /// Queries the HTTPS RR (type 65) for [frontHost] and extracts the
+  /// `ech` SvcParam (key 5). Reuses the same endpoint rotation, failure
+  /// window, cancellation, size cap and TTL clamping as [resolve].
+  ///
+  /// Throws [SecureResolutionException] when the query fails, the record
+  /// has no `ech` parameter, or the config cannot be parsed. Callers decide
+  /// whether an ECH tier is available — this method never silently falls
+  /// back to plain TLS.
+  Future<EchConfigResult> lookupEchConfig(
+    String frontHost, {
+    required NetworkRevision revision,
+    NetworkCancelSignal? cancelSignal,
+  }) async {
+    _validateDnsName(frontHost);
+    _checkUsable();
+    if (cancelSignal?.isCancelled ?? false) {
+      throw const NetworkFailureException(NetworkFailureKind.cancelled);
+    }
+
+    final candidates = <String>[];
+    for (var i = 0; i < _endpoints.length; i++) {
+      final endpoint = _endpoints[(_endpointCursor + i) % _endpoints.length];
+      if (_isEndpointHealthy(endpoint)) candidates.add(endpoint);
+    }
+    if (candidates.isEmpty) {
+      candidates.add(_endpoints[_endpointCursor % _endpoints.length]);
+    }
+
+    Object? lastError;
+    for (final endpoint in candidates) {
+      try {
+        final result = await _queryEch(
+          endpoint,
+          frontHost,
+          revision,
+          cancelSignal,
+        );
+        _markEndpointHealthy(endpoint);
+        return result;
+      } on Object catch (error) {
+        lastError = error;
+        _markEndpointFailed(endpoint);
+        if (error is NetworkFailureException &&
+            error.kind == NetworkFailureKind.cancelled) {
+          rethrow;
+        }
+      }
+    }
+    _endpointCursor = (_endpointCursor + 1) % _endpoints.length;
+    throw lastError ??
+        const SecureResolutionException('all DoH endpoints failed');
+  }
+
+  Future<EchConfigResult> _queryEch(
+    String endpoint,
+    String frontHost,
+    NetworkRevision revision,
+    NetworkCancelSignal? cancelSignal,
+  ) async {
+    if (cancelSignal?.isCancelled ?? false) {
+      throw const NetworkFailureException(NetworkFailureKind.cancelled);
+    }
+    final id = _nextQueryId++ & 0xffff;
+    final payload = encodeQuery(id: id, name: frontHost, type: 65);
+
+    final request = http.Request('POST', Uri.parse(endpoint))
+      ..headers['content-type'] = 'application/dns-message'
+      ..headers['accept'] = 'application/dns-message'
+      ..bodyBytes = payload;
+
+    final future = _client.send(request).timeout(requestTimeout);
+    final response = await _raceCancellation(future, cancelSignal);
+    if (response.statusCode != 200) {
+      throw SecureResolutionException('DoH endpoint $endpoint HTTP '
+          '${response.statusCode}');
+    }
+    final body = await response.stream
+        .fold<List<int>>(<int>[], (acc, chunk) {
+          if (acc.length + chunk.length > maxResponseBytes) {
+            throw const SecureResolutionException('DoH response too large');
+          }
+          acc.addAll(chunk);
+          return acc;
+        })
+        .timeout(requestTimeout);
+    if (body.length > maxResponseBytes) {
+      throw const SecureResolutionException('DoH response too large');
+    }
+
+    final message = decodeResponse(Uint8List.fromList(body));
+    if (message.id != id) {
+      throw const SecureResolutionException('DoH response id mismatch');
+    }
+    if (message.isTruncated) {
+      throw const SecureResolutionException('DoH response truncated');
+    }
+    if (!message.isOk) {
+      throw SecureResolutionException('DoH rcode ${message.rcode}');
+    }
+
+    Uint8List? echConfig;
+    int? ttlSeconds;
+    List<InternetAddress> frontAddresses = const [];
+    for (final answer in message.answers) {
+      if (answer.type != 65 || answer.rdata == null) continue;
+      final config = echConfigFromHttpsRdata(answer.rdata!);
+      if (config != null) {
+        echConfig = config;
+        ttlSeconds = answer.ttl;
+        // ipv4hint from the same RR: Cloudflare publishes the anycast IPs
+        // the ECH front is served on (bypasses polluted answers for the
+        // target host).
+        final hints = ipv4HintFromHttpsRdata(answer.rdata!);
+        if (hints.isNotEmpty) frontAddresses = hints;
+        break;
+      }
+    }
+    if (echConfig == null) {
+      throw const SecureResolutionException(
+        'DoH response has no ech SvcParam',
+      );
+    }
+
+    var ttl = Duration(seconds: ttlSeconds ?? 30);
+    if (ttl < minTtl) ttl = minTtl;
+    if (ttl > maxTtl) ttl = maxTtl;
+
+    return EchConfigResult(
+      echConfig: echConfig,
+      ttl: ttl,
+      frontAddresses: frontAddresses,
     );
   }
 

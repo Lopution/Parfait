@@ -187,4 +187,127 @@ void main() {
       expect(error, isA<DnsCodecException>());
     });
   });
+  _registerEchTests();
+}
+
+// Helper: build an HTTPS RDATA payload: priority + target + svcparams.
+Uint8List _httpsRdata({
+  required String target,
+  List<MapEntry<int, List<int>>> params = const [],
+  int priority = 1,
+}) {
+  final out = <int>[(priority >> 8) & 0xff, priority & 0xff];
+  for (final label in target.split('.')) {
+    out.add(label.length);
+    out.addAll(label.codeUnits);
+  }
+  out.add(0);
+  for (final param in params) {
+    out.add((param.key >> 8) & 0xff);
+    out.add(param.key & 0xff);
+    out.add((param.value.length >> 8) & 0xff);
+    out.add(param.value.length & 0xff);
+    out.addAll(param.value);
+  }
+  return Uint8List.fromList(out);
+}
+
+void _registerEchTests() {
+  group('parseHttpsSvcParams', () {
+    test('extracts the ech SvcParam (key 5) from a well-formed record', () {
+      final ech = <int>[0xfe, 0x0d, 1, 2, 3];
+      final rdata = _httpsRdata(
+        target: 'cloudflare-ech.com',
+        params: [const MapEntry(5, [0xfe, 0x0d, 1, 2, 3])],
+      );
+      final config = echConfigFromHttpsRdata(rdata);
+      expect(config, isNotNull);
+      expect(config, equals(ech));
+    });
+
+    test('skips unknown keys and finds ech in a multi-SvcParam record', () {
+      final rdata = _httpsRdata(
+        target: 'cloudflare-ech.com',
+        params: [
+          const MapEntry(1, [0x00]), // alpn
+          const MapEntry(2, [0xde, 0xad]), // no-default-alpn-ish unknown
+          const MapEntry(5, [1, 2, 3, 4]), // ech
+          const MapEntry(6, [9, 9]), // unknown key 6
+        ],
+      );
+      final config = echConfigFromHttpsRdata(rdata);
+      expect(config, isNotNull);
+      expect(config, equals([1, 2, 3, 4]));
+    });
+
+    test('returns null when no ech SvcParam is present', () {
+      final rdata = _httpsRdata(
+        target: 'cloudflare-ech.com',
+        params: [const MapEntry(1, [0x00])],
+      );
+      expect(echConfigFromHttpsRdata(rdata), isNull);
+    });
+
+    test('throws on truncated SvcParam value', () {
+      // Crafted: priority=1, target='.' then a key without length.
+      final truncated = Uint8List.fromList([
+        0x00, 0x01, // priority (16-bit)
+        0x00, // root target
+        0x00, 0x05, // key 5
+        0x00, // length high byte
+        // missing low byte + value
+      ]);
+      expect(
+        () => parseHttpsSvcParams(truncated),
+        throwsA(isA<DnsCodecException>()),
+      );
+    });
+
+    test('rejects compressed target names (RFC 9460 2.2)', () {
+      final compressed = Uint8List.fromList([
+        0x00, 0x01, // priority (16-bit)
+        0xc0, 0x0c, // compression pointer — illegal here
+      ]);
+      expect(
+        () => parseHttpsSvcParams(compressed),
+        throwsA(isA<DnsCodecException>()),
+      );
+    });
+
+    test('handles an empty value list', () {
+      expect(parseHttpsSvcParams(Uint8List(0)), isEmpty);
+    });
+  });
+
+  group('decodeResponse HTTPS answers', () {
+    test('keeps rdata for type 65 and decodes A normally', () {
+      final ech = _httpsRdata(
+        target: 'cloudflare-ech.com',
+        params: [const MapEntry(5, [7, 8, 9])],
+      );
+      // header(id, flags, qd=1, an=1)
+      final payload = <int>[
+        ..._hex('1234 8180 0001 0001 0000 0000'),
+        // question: cloudflare-ech.com type 65 class IN
+        10, ...'cloudflare'.codeUnits,
+        3, ...'ech'.codeUnits,
+        3, ...'com'.codeUnits,
+        0,
+        0, 65, 0, 1,
+        // answer: pointer to name, type 65, class IN, ttl, rdlength, rdata
+        0xc0, 0x0c,
+        0, 65, 0, 1,
+        0, 0, 0, 30,
+        (ech.length >> 8) & 0xff, ech.length & 0xff,
+        ...ech,
+      ];
+      final message = decodeResponse(Uint8List.fromList(payload));
+      expect(message.answers, hasLength(1));
+      final answer = message.answers.single;
+      expect(answer.type, 65);
+      expect(answer.ttl, 30);
+      expect(answer.rdata, isNotNull);
+      expect(echConfigFromHttpsRdata(answer.rdata!), equals([7, 8, 9]));
+    });
+  });
 }

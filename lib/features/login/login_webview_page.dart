@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -6,6 +7,8 @@ import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
 import '../../core/auth/pkce.dart';
+import '../../core/network/compat/network_policy.dart';
+import 'login_intercepted_webview.dart';
 
 /// OAuth login WebView.
 ///
@@ -16,15 +19,34 @@ import '../../core/auth/pkce.dart';
 /// oauth host, a captcha vendor, or a third-party identity provider. The
 /// security boundary is the PKCE session and the exact callback match, not a
 /// host allowlist — an allowlist can only lag behind Pixiv and break sign-in.
+///
+/// R7 (mainland direct login): when [useNativeIntercept] is true AND the
+/// platform is Android, the page renders the native PlatformView
+/// ([LoginInterceptedWebView]) whose `shouldInterceptRequest` re-sends every
+/// GET on a Pixiv host through the same policy ladder as API/images. The
+/// PKCE decision logic is identical in both modes (it lives in
+/// [_decideNavigation]); the webview_flutter path remains the default and the
+/// tested-by-default option.
 class LoginWebViewPage extends ConsumerStatefulWidget {
   const LoginWebViewPage({
     super.key,
     required this.oauthService,
+    this.policy,
+    this.useNativeIntercept = false,
     this.create = false,
     this.title = 'Pixiv',
   });
 
   final OAuthService oauthService;
+
+  /// Policy used by the native-interception mode to re-send requests; null
+  /// on non-Android paths where it is unused.
+  final NetworkAccessPolicy? policy;
+
+  /// Enables the native PlatformView interception on Android. Off by
+  /// default: webview_flutter is the stable, tested path and the native
+  /// mode is a settings-gated experiment for mainland direct login.
+  final bool useNativeIntercept;
 
   /// When true, loads the signup page directly (beta56 register flow).
   final bool create;
@@ -36,7 +58,7 @@ class LoginWebViewPage extends ConsumerStatefulWidget {
 
 class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     with WidgetsBindingObserver {
-  late final WebViewController _controller;
+  late final WebViewController? _controller;
   bool _exchanging = false;
   double? _progress;
   String? _error;
@@ -47,10 +69,29 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   bool _fatal = false;
   Uri? _mainFrameUri;
 
+  /// Native-interception mode: PlatformView instead of webview_flutter.
+  bool _useNative = false;
+  NetworkAccessPolicy? _policy;
+  String? _initialUrl;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _useNative =
+        widget.useNativeIntercept && defaultTargetPlatform == TargetPlatform.android;
+    _policy = widget.policy;
+    if (_useNative) {
+      if (widget.create) {
+        _mainFrameUri = Uri.parse('https://accounts.pixiv.net/signup');
+        _initialUrl = 'https://accounts.pixiv.net/signup';
+      } else {
+        final session = widget.oauthService.beginSession();
+        _mainFrameUri = session.authorizeUrl;
+        _initialUrl = session.authorizeUrl.toString();
+      }
+      return;
+    }
     if (widget.create) {
       // Direct signup; login with PKCE happens afterwards.
       final signupUrl = Uri.parse('https://accounts.pixiv.net/signup');
@@ -114,22 +155,36 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   }
 
   NavigationDecision _onNavigationRequest(NavigationRequest request) {
-    final uri = _parseNavigationUri(request.url);
-    if (uri == null) return NavigationDecision.navigate;
+    // webview_flutter adapter around the shared decision.
+    return _decideNavigation(request.url)
+        ? NavigationDecision.prevent
+        : NavigationDecision.navigate;
+  }
+
+  /// Shared PKCE navigation decision. Returns true when the navigation must
+  /// be stopped (callback consumed or invalid); false lets it proceed.
+  ///
+  /// Used by both modes: webview_flutter's [NavigationDelegate] and the
+  /// native PlatformView's `shouldOverrideUrlLoading` → Dart. The callback
+  /// match must be identical in both, otherwise a `pixiv://` callback would
+  /// exchange in one mode and silently navigate in the other.
+  bool _decideNavigation(String rawUrl) {
+    final uri = _parseNavigationUri(rawUrl);
+    if (uri == null) return false;
     final parsed = widget.oauthService.validateRedirect(uri);
     switch (parsed) {
       case PixivCallbackCode(:final code):
         _exchange(code);
-        return NavigationDecision.prevent;
+        return true;
       case PixivCallbackInvalid(:final reason):
         // The callback was consumed with unusable parameters; the verifier
         // cannot be reused for another attempt.
         _abortLogin('登录回调无效: $reason');
-        return NavigationDecision.prevent;
+        return true;
       case PixivCallbackOther():
         // Every other destination is the login page doing its own work.
         _mainFrameUri = uri;
-        return NavigationDecision.navigate;
+        return false;
     }
   }
 
@@ -250,7 +305,26 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       ),
       body: Stack(
         children: [
-          WebViewWidget(controller: _controller),
+          if (_useNative && _policy != null)
+            LoginInterceptedWebView(
+              key: const ValueKey('login-intercepted-webview'),
+              policy: _policy!,
+              initialUrl: _initialUrl ?? '',
+              onPageStarted: _onPageStarted,
+              onUrlChanged: (url) {
+                final uri = _parseNavigationUri(url);
+                if (uri != null) _mainFrameUri = uri;
+              },
+              onProgress: (value) {
+                if (mounted) setState(() => _progress = value);
+              },
+              onWebResourceError: (description) {
+                _reportRecoverable('页面加载失败 ($description)');
+              },
+              onNavigationDecision: _decideNavigation,
+            )
+          else
+            WebViewWidget(controller: _controller!),
           if (_exchanging)
             const ColoredBox(
               color: Colors.black38,

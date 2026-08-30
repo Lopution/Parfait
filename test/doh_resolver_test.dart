@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -24,6 +25,12 @@ class _FakeDohServer {
   Completer<void>? block;
   Duration delay = Duration.zero;
 
+  /// When set, HTTPS (type 65) queries for this host return an answer whose
+  /// RDATA carries this ech SvcParam body. When null, type 65 queries
+  /// return NOERROR with zero answers.
+  Uint8List? httpsEchRdata;
+  int httpsTtl = 60;
+
   Future<http.StreamedResponse> handle(http.Request request) async {
     requests.add(request);
     if (delay > Duration.zero) {
@@ -39,8 +46,29 @@ class _FakeDohServer {
     }
     final query = decodeResponse(request.bodyBytes);
     final id = query.id;
-    // A single A answer pointing at this server's IP, with the scripted TTL.
     final name = query.question?.name ?? '';
+    final qtype = query.question?.type ?? 1;
+    if (qtype == 65) {
+      final answer = _httpsRecord(id, name, httpsEchRdata, ttl: httpsTtl);
+      if (answer == null) {
+        // NOERROR, zero answers.
+        return http.StreamedResponse(
+          Stream<List<int>>.value([..._header(id, 0x8180 | (rcode & 0x0f), 1, 0), ..._question(name, type: 65)]),
+          200,
+          request: request,
+        );
+      }
+      return http.StreamedResponse(
+        Stream<List<int>>.value([
+          ..._header(id, 0x8180 | (rcode & 0x0f), 1, 1),
+          ..._question(name, type: 65),
+          ...answer,
+        ]),
+        200,
+        request: request,
+      );
+    }
+    // A single A answer pointing at this server's IP, with the scripted TTL.
     final answer = _aRecord(id, name, ip, ttl: ttl);
     var flags = 0x8180 | (rcode & 0x0f);
     final header = _header(id, flags, 1, 1);
@@ -51,6 +79,42 @@ class _FakeDohServer {
       request: request,
     );
   }
+}
+
+/// HTTPS record answer: pointer to question name, type 65, class IN.
+List<int>? _httpsRecord(
+  int id,
+  String name,
+  Uint8List? echRdata, {
+  int ttl = 60,
+}) {
+  if (echRdata == null) return null;
+  final out = <int>[];
+  out.addAll([0xc0, 0x0c]);
+  out.addAll([0, 65, 0, 1]);
+  out.addAll([
+    (ttl >> 24) & 0xff,
+    (ttl >> 16) & 0xff,
+    (ttl >> 8) & 0xff,
+    ttl & 0xff,
+  ]);
+  out.addAll([(echRdata.length >> 8) & 0xff, echRdata.length & 0xff]);
+  out.addAll(echRdata);
+  return out;
+}
+
+/// HTTPS RDATA with the `ech` SvcParam (key 5).
+Uint8List _echRdata(List<int> echBytes) {
+  final out = <int>[0, 1]; // priority (16-bit, RFC 9460 §2.2)
+  for (final label in 'cloudflare-ech.com'.split('.')) {
+    out.add(label.length);
+    out.addAll(label.codeUnits);
+  }
+  out.add(0);
+  out.addAll([0, 5]); // key 5
+  out.addAll([(echBytes.length >> 8) & 0xff, echBytes.length & 0xff]);
+  out.addAll(echBytes);
+  return Uint8List.fromList(out);
 }
 
 List<int> _header(int id, int flags, int qd, int an) {
@@ -69,14 +133,14 @@ List<int> _header(int id, int flags, int qd, int an) {
   return out;
 }
 
-List<int> _question(String name) {
+List<int> _question(String name, {int type = 1}) {
   final out = <int>[];
   for (final label in name.split('.')) {
     out.add(label.length);
     out.addAll(label.codeUnits);
   }
   out.add(0);
-  out.addAll([0, 1, 0, 1]); // A, IN
+  out.addAll([0, type, 0, 1]);
   return out;
 }
 
@@ -256,7 +320,7 @@ void main() {
     final server = _FakeDohServer(address: '1.1.1.1');
     final policy = NetworkAccessPolicy(
       dohEndpoints: ['https://1.1.1.1/dns-query'],
-      clientFactory: (route) => _RouteAwareClient(route),
+      clientFactory: (route, canonicalHost, _) => _RouteAwareClient(route),
     );
     // Inject a scripted doh client via a custom resolver instead: the
     // policy itself uses its own DohResolver; to observe the resolver we
@@ -343,6 +407,110 @@ void main() {
       '104.16.248.249',
     );
   });
+  group('lookupEchConfig', () {
+    test('extracts ech config from an HTTPS RR answer', () async {
+      final server = _FakeDohServer(address: '1.1.1.1')
+        ..httpsEchRdata = _echRdata([0xfe, 0x0d, 1, 2, 3])
+        ..httpsTtl = 120;
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        client: _FakeClient([server]),
+      );
+      addTearDown(resolver.dispose);
+
+      final result = await resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+      );
+
+      expect(result.echConfig, [0xfe, 0x0d, 1, 2, 3]);
+      expect(result.ttl, const Duration(seconds: 120));
+      final wire = server.requests.single;
+      final query = decodeResponse(wire.bodyBytes);
+      expect(query.question?.name, 'cloudflare-ech.com');
+      expect(query.question?.type, 65);
+    });
+
+    test('TTL is clamped for ECH config like addresses', () async {
+      final huge = _FakeDohServer(address: '1.1.1.1')
+        ..httpsEchRdata = _echRdata([1])
+        ..httpsTtl = 3600 * 24 * 30;
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        client: _FakeClient([huge]),
+      );
+      addTearDown(resolver.dispose);
+
+      final result = await resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+      );
+      expect(result.ttl, const Duration(minutes: 10));
+    });
+
+    test('no ech SvcParam → SecureResolutionException (no silent fallback)',
+        () async {
+      final server = _FakeDohServer(address: '1.1.1.1'); // httpsEchRdata null
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        client: _FakeClient([server]),
+      );
+      addTearDown(resolver.dispose);
+
+      await expectLater(
+        resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision),
+        throwsA(isA<SecureResolutionException>()),
+      );
+    });
+
+    test('endpoint failover applies to ECH lookups', () async {
+      final broken = _FakeDohServer(address: '1.1.1.1', statusCode: 503);
+      final healthy = _FakeDohServer(address: '8.8.8.8')
+        ..httpsEchRdata = _echRdata([9, 9]);
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query', 'https://8.8.8.8/dns-query'],
+        client: _FakeClient([broken, healthy]),
+      );
+      addTearDown(resolver.dispose);
+
+      final result = await resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+      );
+      expect(result.echConfig, [9, 9]);
+      expect(broken.requests, hasLength(1));
+    });
+
+    test('cancellation aborts the ECH lookup', () async {
+      final server = _FakeDohServer(address: '1.1.1.1')
+        ..httpsEchRdata = _echRdata([1]);
+      final gate = Completer<void>();
+      server.block = gate;
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        client: _FakeClient([server]),
+      );
+      addTearDown(resolver.dispose);
+      final cancel = _TestCancelSignal();
+      final query = resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+        cancelSignal: cancel,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      cancel.cancel();
+      await expectLater(
+        query,
+        throwsA(
+          isA<NetworkFailureException>().having(
+            (e) => e.kind,
+            'kind',
+            NetworkFailureKind.cancelled,
+          ),
+        ),
+      );
+    });
+  });
 }
 
 Future<void> _expectTtl(_FakeDohServer server, Duration expected) async {
@@ -353,6 +521,7 @@ Future<void> _expectTtl(_FakeDohServer server, Duration expected) async {
   addTearDown(resolver.dispose);
   final result = await resolver.resolve('app-api.pixiv.net', revision: _revision);
   expect(result.ttl, expected);
+
 }
 
 class _TestCancelSignal implements NetworkCancelSignal {
@@ -381,7 +550,6 @@ class _RouteAwareClient extends http.BaseClient {
     throw StateError('unexpected real send in policy test');
   }
 }
-
 class _HugeClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
