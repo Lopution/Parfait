@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
@@ -17,7 +18,11 @@ class _Harness {
     required this.tcpResult,
     required this.tlsResult,
     required this.httpResult,
+    this.echConfigResult = _unset,
+    this.noSniResult = _unset,
   });
+
+  static const _unset = Object();
 
   final List<InternetAddress> systemAddresses;
   final List<InternetAddress> dohAddresses;
@@ -25,10 +30,17 @@ class _Harness {
   final String tlsResult;
   final String httpResult;
 
+  /// `Object?` sentinel: null = lookup failed (no config); list = ECH config
+  /// available and ECH request ok; string = thrown error message.
+  final Object? echConfigResult;
+  final Object? noSniResult;
+
   static bool _ok(String result) => result == 'ok';
 
   Future<NetworkProbeReport> run() {
     final resolver = _ScriptedResolver(dohAddresses);
+    final hasEch = !identical(echConfigResult, _unset);
+    final hasNoSni = !identical(noSniResult, _unset);
     return NetworkProbe.run(
       host: 'app-api.pixiv.net',
       purpose: PixivDestinationPurpose.appApi,
@@ -46,6 +58,38 @@ class _Harness {
         if (!_ok(httpResult)) throw HttpException(httpResult);
         return const HttpProbeResponse(200);
       },
+      echConfigLookup: hasEch
+          ? () async {
+              final value = echConfigResult;
+              if (value is String && !_ok(value)) {
+                throw HandshakeException(value);
+              }
+              if (value == null) return null;
+              return EchConfigResult(
+                echConfig: Uint8List.fromList([1, 2, 3]),
+                ttl: const Duration(seconds: 30),
+                frontAddresses: [InternetAddress('104.18.10.118')],
+              );
+            }
+          : null,
+      echRequest: hasEch
+          ? (uri, address, echConfig) async {
+              final value = echConfigResult;
+              if (value is String && !_ok(value)) {
+                throw HandshakeException(value);
+              }
+              return const HttpProbeResponse(200);
+            }
+          : null,
+      noSniHandshake: hasNoSni
+          ? (address, port) async {
+              final value = noSniResult;
+              if (value is String && !_ok(value)) {
+                throw HandshakeException(value);
+              }
+              return;
+            }
+          : null,
       timeoutPerLayer: const Duration(seconds: 2),
     );
   }
@@ -202,5 +246,152 @@ void main() {
       ),
       throwsA(isA<PixivDestinationException>()),
     );
+  });
+
+  test('real-SNI fails but ECH available -> echAvailable', () async {
+    final report = await _Harness(
+      systemAddresses: _v4,
+      dohAddresses: _v4,
+      tcpResult: 'ok',
+      tlsResult: 'handshake reset',
+      httpResult: 'ok',
+      echConfigResult: [1, 2, 3],
+      noSniResult: 'fail',
+    ).run();
+    expect(
+      report.conclusion,
+      NetworkProbeConclusion.echAvailable,
+    );
+    expect(report.steps.map((s) => s.name), contains('ech'));
+  });
+
+  test('ECH config missing -> falls to noSni when empty-SNI ok', () async {
+    final report = await _Harness(
+      systemAddresses: _v4,
+      dohAddresses: _v4,
+      tcpResult: 'ok',
+      tlsResult: 'handshake reset',
+      httpResult: 'ok',
+      echConfigResult: null, // config lookup failed
+      noSniResult: 'ok',
+    ).run();
+    expect(
+      report.conclusion,
+      NetworkProbeConclusion.noSniAvailable,
+    );
+  });
+
+  test('both ECH and empty-SNI unavailable -> sniBlocked', () async {
+    final report = await _Harness(
+      systemAddresses: _v4,
+      dohAddresses: _v4,
+      tcpResult: 'ok',
+      tlsResult: 'handshake reset',
+      httpResult: 'ok',
+      echConfigResult: 'ech rejected',
+      noSniResult: 'no-sni rejected',
+    ).run();
+    expect(report.conclusion, NetworkProbeConclusion.sniBlocked);
+  });
+
+  test('HTTP 421 with empty SNI -> layer fails (tier unusable)', () async {
+    final resolver = _ScriptedResolver(_v4);
+    final report = await NetworkProbe.run(
+      host: 'i.pximg.net',
+      purpose: PixivDestinationPurpose.image,
+      registry: PixivDestinationRegistry(),
+      dohResolver: resolver,
+      revision: const NetworkRevision(0),
+      systemLookup: (host) async => _v4,
+      tcpConnect: (a, p) async {},
+      tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
+      minimalRequest: (uri) async => const HttpProbeResponse(200),
+      echConfigLookup: () async => null,
+      httpNoSniRequest: (uri, address) async =>
+          const HttpProbeResponse(421),
+      timeoutPerLayer: const Duration(seconds: 2),
+    );
+    final noSni = report.steps.firstWhere((s) => s.name == 'no-sni');
+    expect(noSni.ok, isFalse);
+    expect(noSni.detail, contains('421'));
+    expect(report.conclusion, NetworkProbeConclusion.sniBlocked);
+  });
+
+  test('config ok but no ECH transport -> ech layer FAILS (no plain-TLS fallback)', () async {
+    // Regression for the false positive: an earlier wiring fell back to the
+    // plain-TLS minimal request when no ECH prober was injected, measured a
+    // non-ECH connection and reported `ech: ok`. A config without a
+    // transport cannot be measured; the layer must fail, never pretend.
+    final report = await NetworkProbe.run(
+      host: 'app-api.pixiv.net',
+      purpose: PixivDestinationPurpose.appApi,
+      registry: PixivDestinationRegistry(),
+      dohResolver: _ScriptedResolver(_v4),
+      revision: const NetworkRevision(0),
+      systemLookup: (host) async => _v4,
+      tcpConnect: (a, p) async {},
+      tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
+      minimalRequest: (uri) async => const HttpProbeResponse(200),
+      echConfigLookup: () async => EchConfigResult(
+        echConfig: Uint8List.fromList([1, 2, 3]),
+        ttl: const Duration(seconds: 30),
+      ),
+      timeoutPerLayer: const Duration(seconds: 2),
+    );
+    final ech = report.steps.firstWhere((s) => s.name == 'ech');
+    expect(ech.ok, isFalse);
+    expect(ech.detail, contains('no ECH transport prober configured'));
+    expect(report.conclusion, NetworkProbeConclusion.sniBlocked);
+  });
+
+  test('empty ECH config list -> ech layer FAILS', () async {
+    // An empty config list must be a hard failure: rustls with an empty ECH
+    // list would send a plain ClientHello, and the layer would measure
+    // plain TLS while claiming ECH works.
+    final report = await NetworkProbe.run(
+      host: 'app-api.pixiv.net',
+      purpose: PixivDestinationPurpose.appApi,
+      registry: PixivDestinationRegistry(),
+      dohResolver: _ScriptedResolver(_v4),
+      revision: const NetworkRevision(0),
+      systemLookup: (host) async => _v4,
+      tcpConnect: (a, p) async {},
+      tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
+      minimalRequest: (uri) async => const HttpProbeResponse(200),
+      echConfigLookup: () async => EchConfigResult(
+        echConfig: Uint8List(0),
+        ttl: const Duration(seconds: 30),
+      ),
+      echRequest: (uri, address, echConfig) async {
+        // Must never be reached.
+        fail('echRequest must not be called with an empty config');
+      },
+      timeoutPerLayer: const Duration(seconds: 2),
+    );
+    final ech = report.steps.firstWhere((s) => s.name == 'ech');
+    expect(ech.ok, isFalse);
+    expect(ech.detail, contains('ECH config list is empty'));
+  });
+
+  test('lookup returns unexpected type -> ech layer FAILS', () async {
+    final report = await NetworkProbe.run(
+      host: 'app-api.pixiv.net',
+      purpose: PixivDestinationPurpose.appApi,
+      registry: PixivDestinationRegistry(),
+      dohResolver: _ScriptedResolver(_v4),
+      revision: const NetworkRevision(0),
+      systemLookup: (host) async => _v4,
+      tcpConnect: (a, p) async {},
+      tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
+      minimalRequest: (uri) async => const HttpProbeResponse(200),
+      echConfigLookup: () async => 'not-a-result',
+      echRequest: (uri, address, echConfig) async {
+        fail('echRequest must not be called with an unexpected type');
+      },
+      timeoutPerLayer: const Duration(seconds: 2),
+    );
+    final ech = report.steps.firstWhere((s) => s.name == 'ech');
+    expect(ech.ok, isFalse);
+    expect(ech.detail, contains('unexpected type'));
   });
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rhttp/rhttp.dart' as rhttp;
 
 import '../auth/account_store.dart';
 import '../network/compat/network_contracts.dart';
@@ -27,6 +28,11 @@ const MethodChannel widgetBackgroundChannel = MethodChannel(
 /// channel back to native; only the outcome classification.
 Future<void> runWidgetBackground() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // The headless worker is a separate engine entrypoint: `main()`'s
+  // `Rhttp.init()` never runs here, and every network exit in this pass
+  // funnels through the rhttp transport. `Rhttp.init` is idempotent per
+  // engine, so the widget pass and the UI pass are independent.
+  await rhttp.Rhttp.init();
   debugPrint('WidgetBackground: entered');
   final container = ProviderContainer();
   try {

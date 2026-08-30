@@ -49,18 +49,25 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
   late final TextEditingController _dohController;
   late final FocusNode _dohFocusNode;
   bool _dohDirty = false;
+  late final TextEditingController _echHostController;
+  late final FocusNode _echHostFocusNode;
+  bool _echHostDirty = false;
 
   @override
   void initState() {
     super.initState();
     _dohController = TextEditingController();
     _dohFocusNode = FocusNode();
+    _echHostController = TextEditingController();
+    _echHostFocusNode = FocusNode();
   }
 
   @override
   void dispose() {
     _dohController.dispose();
     _dohFocusNode.dispose();
+    _echHostController.dispose();
+    _echHostFocusNode.dispose();
     super.dispose();
   }
 
@@ -113,6 +120,32 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
     return true;
   }
 
+  Future<void> _saveEchHost() async {
+    final value = _echHostController.text.trim();
+    if (!_echHostDirty) return;
+    if (value.isNotEmpty &&
+        !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(value)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_networkText(context, 'networkEchHostInvalid')),
+          ),
+        );
+      }
+      return;
+    }
+    final saved = await _persistNetwork(
+      context,
+      () => ref.read(settingsProvider.notifier).setEchFrontHost(value),
+    );
+    if (saved && mounted) {
+      setState(() => _echHostDirty = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_networkText(context, 'saved'))),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider).value;
@@ -125,6 +158,11 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
     if (!_dohDirty && _dohController.text != endpoints) {
       _dohController.text = endpoints;
     }
+    final echHost = settings.echFrontHost;
+    if (!_echHostDirty && _echHostController.text != echHost) {
+      _echHostController.text = echHost;
+    }
+    final insecureNoSni = settings.insecureNoSniEnabled;
     return Scaffold(
       appBar: AppBar(title: Text(_networkText(context, 'networkSettings'))),
       body: ListView(
@@ -173,6 +211,62 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
                 onPressed: dohEnabled ? _saveEndpoints : null,
                 child: Text(_networkText(context, 'saved')),
               ),
+            ),
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              controller: _echHostController,
+              focusNode: _echHostFocusNode,
+              decoration: InputDecoration(
+                labelText: _networkText(context, 'networkEchFrontHost'),
+                helperText: _networkText(context, 'networkEchFrontHostHint'),
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (_) => setState(() => _echHostDirty = true),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonal(
+                onPressed: _saveEchHost,
+                child: Text(_networkText(context, 'saved')),
+              ),
+            ),
+          ),
+          const Divider(),
+          SwitchListTile(
+            title: Text(_networkText(context, 'networkInsecureNoSni')),
+            subtitle: Text(_networkText(context, 'networkInsecureNoSniHint')),
+            value: insecureNoSni,
+            onChanged: (value) => _persistNetwork(
+              context,
+              () => ref
+                  .read(settingsProvider.notifier)
+                  .setInsecureNoSniEnabled(value),
+            ),
+          ),
+          if (insecureNoSni)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                _networkText(context, 'networkInsecureNoSniWarning'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          const Divider(),
+          SwitchListTile(
+            title: Text(_networkText(context, 'networkWebViewIntercept')),
+            subtitle: Text(_networkText(context, 'networkWebViewInterceptHint')),
+            value: settings.nativeWebViewIntercept,
+            onChanged: (value) => _persistNetwork(
+              context,
+              () => ref
+                  .read(settingsProvider.notifier)
+                  .setNativeWebViewIntercept(value),
             ),
           ),
           const Divider(),

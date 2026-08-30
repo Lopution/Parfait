@@ -65,6 +65,20 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setDohEnabled(bool enabled) =>
       _update((settings) => settings.copyWith(enableDoh: enabled));
 
+  Future<void> setEchFrontHost(String value) => _update(
+    (settings) => settings.copyWith(
+      echFrontHost: value.trim().isEmpty
+          ? AppSettings.defaultEchFrontHost
+          : value.trim(),
+    ),
+  );
+
+  Future<void> setInsecureNoSniEnabled(bool enabled) =>
+      _update((settings) => settings.copyWith(insecureNoSniEnabled: enabled));
+
+  Future<void> setNativeWebViewIntercept(bool enabled) =>
+      _update((settings) => settings.copyWith(nativeWebViewIntercept: enabled));
+
   Future<void> setDohEndpointOverride(String? value) => _update(
     (settings) => settings.copyWith(
       dohEndpointOverride: value == null || value.trim().isEmpty
@@ -229,4 +243,31 @@ final dohEndpointsProvider = Provider<List<String>>((ref) {
       .map((entry) => entry.trim())
       .where((entry) => entry.isNotEmpty)
       .toList(growable: false);
+});
+
+/// ECH front host (HTTPS RR query target for ECH config).
+final echFrontHostProvider = Provider<String>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.echFrontHost ?? AppSettings.defaultEchFrontHost,
+    ),
+  );
+});
+
+/// Whether the user explicitly enabled the `insecureNoSni` fallback tier.
+final insecureNoSniEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.insecureNoSniEnabled ?? false,
+    ),
+  );
+});
+
+/// R7: login WebView uses the native interception PlatformView on Android.
+final nativeWebViewInterceptProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.nativeWebViewIntercept ?? false,
+    ),
+  );
 });

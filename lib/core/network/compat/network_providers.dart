@@ -13,8 +13,12 @@ import 'network_policy.dart';
 final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   final dohEnabled = ref.watch(dohEnabledProvider);
   final endpoints = ref.watch(dohEndpointsProvider);
+  final echFrontHost = ref.watch(echFrontHostProvider);
+  final insecureNoSni = ref.watch(insecureNoSniEnabledProvider);
   final policy = NetworkAccessPolicy(
     dohEndpoints: dohEnabled ? endpoints : const [],
+    echFrontHost: echFrontHost,
+    insecureNoSniEnabled: insecureNoSni,
   );
   ref.onDispose(() => unawaited(policy.dispose()));
   return policy;

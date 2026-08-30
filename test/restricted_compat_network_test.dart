@@ -202,7 +202,7 @@ void main() {
     final resolver = _FakeResolver([InternetAddress('1.2.3.4')]);
     final policy = NetworkAccessPolicy(
       resolver: resolver,
-      clientFactory: (route) =>
+      clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : secureDns,
     );
     addTearDown(policy.dispose);
@@ -229,7 +229,7 @@ void main() {
     final resolver = _FakeResolver([InternetAddress('1.2.3.5')]);
     final policy = NetworkAccessPolicy(
       resolver: resolver,
-      clientFactory: (route) =>
+      clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : secureDns,
     );
     addTearDown(policy.dispose);
@@ -262,7 +262,7 @@ void main() {
         final secureDns = _FakeClient();
         final policy = NetworkAccessPolicy(
           resolver: resolver,
-          clientFactory: (route) =>
+          clientFactory: (route, canonicalHost, _) =>
               route.kind == NetworkRouteKind.direct ? direct : secureDns,
         );
         final client = PixivPolicyHttpClient(
@@ -278,7 +278,7 @@ void main() {
       final secureHttp = _FakeClient();
       final httpPolicy = NetworkAccessPolicy(
         resolver: resolver,
-        clientFactory: (route) =>
+        clientFactory: (route, canonicalHost, _) =>
             route.kind == NetworkRouteKind.direct ? directHttp : secureHttp,
       );
       final httpClient = PixivPolicyHttpClient(
@@ -321,7 +321,7 @@ void main() {
   test('network revision and mode changes clear pooled routes', () async {
       final created = <NetworkRoute>[];
       final policy = NetworkAccessPolicy(
-        clientFactory: (route) {
+        clientFactory: (route, canonicalHost, _) {
           created.add(route);
           return _FakeClient();
         },
@@ -329,12 +329,14 @@ void main() {
       final first = policy.clientFor(
         PixivDestinationPurpose.appApi,
         NetworkRoute.direct(policy.revision),
+        'app-api.pixiv.net',
       );
       expect(
         policy.clientFor(
-          PixivDestinationPurpose.appApi,
-          NetworkRoute.direct(policy.revision),
-        ),
+        PixivDestinationPurpose.appApi,
+        NetworkRoute.direct(policy.revision),
+        'app-api.pixiv.net',
+      ),
         same(first),
       );
       policy.setMode(NetworkMode.directOnly);
@@ -343,9 +345,10 @@ void main() {
       expect(next.networkIdentity, 'cellular');
       expect(
         policy.clientFor(
-          PixivDestinationPurpose.appApi,
-          NetworkRoute.direct(policy.revision),
-        ),
+        PixivDestinationPurpose.appApi,
+        NetworkRoute.direct(policy.revision),
+        'app-api.pixiv.net',
+      ),
         isNot(same(first)),
       );
     await policy.dispose();
@@ -356,7 +359,7 @@ void main() {
     final secureDns = _FakeClient(body: 'must-not-send');
     final policy = NetworkAccessPolicy(
       resolver: _FakeResolver([InternetAddress('192.168.1.10')]),
-      clientFactory: (route) =>
+      clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : secureDns,
     );
     addTearDown(policy.dispose);
@@ -380,7 +383,7 @@ void main() {
       final resolver = _FakeResolver([InternetAddress('1.2.3.7')]);
       final policy = NetworkAccessPolicy(
         resolver: resolver,
-        clientFactory: (route) =>
+        clientFactory: (route, canonicalHost, _) =>
             route.kind == NetworkRouteKind.direct ? direct : secureDns,
       );
       addTearDown(policy.dispose);
@@ -405,7 +408,7 @@ void main() {
   test(
     'API, OAuth and image cache use one app-scoped policy factory',
     () async {
-      final policy = NetworkAccessPolicy(clientFactory: (_) => _FakeClient());
+      final policy = NetworkAccessPolicy(clientFactory: (_, _, _) => _FakeClient());
       final factory = PixivNetworkFactory(policy);
       expect(factory.apiClient.policy, same(policy));
       expect(factory.oauthClient.policy, same(policy));
@@ -423,7 +426,7 @@ void main() {
     final resolver = _FakeResolver([InternetAddress('1.2.3.8')]);
     final policy = NetworkAccessPolicy(
       resolver: resolver,
-      clientFactory: (route) =>
+      clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : secureDns,
     );
     addTearDown(policy.dispose);
@@ -457,7 +460,7 @@ void main() {
     final resolver = _FakeResolver([InternetAddress('1.2.3.9')]);
     final policy = NetworkAccessPolicy(
       resolver: resolver,
-      clientFactory: (route) =>
+      clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : secureDns,
     );
     addTearDown(policy.dispose);
@@ -488,7 +491,7 @@ void main() {
     final resolver = _FakeResolver([InternetAddress('1.2.3.10')]);
     final policy = NetworkAccessPolicy(
       resolver: resolver,
-      clientFactory: (route) =>
+      clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : secureDns,
     );
     addTearDown(policy.dispose);
@@ -519,7 +522,7 @@ void main() {
     final resolver = _FakeResolver([InternetAddress('1.2.3.11')]);
     final policy = NetworkAccessPolicy(
       resolver: resolver,
-      clientFactory: (route) =>
+      clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : secureDns,
     );
     addTearDown(policy.dispose);

@@ -1,22 +1,21 @@
-import 'dart:io';
-
 import '../../download/download_transport.dart';
 import '../../download/pixiv_download_transport.dart';
 import '../pixiv_client_identity.dart';
 import 'network_contracts.dart';
 import 'network_policy.dart';
-import 'strict_http_client.dart';
+import 'rhttp_client_factory.dart';
 
 /// Streaming Pixiv media transport backed by the same network policy as API,
 /// OAuth and image-cache requests. Redirects remain manual and are validated
-/// by [HttpDownloadTransport] at every hop.
+/// by [HttpDownloadTransport] at every hop. The underlying client is built by
+/// [RhttpClientFactory] per route tier (rhttp/Rust), so the download exit
+/// shares the exact same policy decision as the API exit.
 class PolicyDownloadTransport
     implements DownloadTransport, DisposableDownloadTransport {
   PolicyDownloadTransport({required this.policy});
 
   final NetworkAccessPolicy policy;
   final Map<String, HttpDownloadTransport> _transports = {};
-  final Map<String, HttpClient> _rawClients = {};
 
   @override
   Future<DownloadResponse> open(
@@ -36,7 +35,7 @@ class PolicyDownloadTransport
       canReplay: true,
       attempt: (route, routeUrl) async {
         try {
-          return await _transportFor(route).open(
+          return await _transportFor(route, destination.canonicalHost).open(
             routeUrl,
             headers: headers,
             cancelToken: cancelToken,
@@ -58,12 +57,20 @@ class PolicyDownloadTransport
     );
   }
 
-  HttpDownloadTransport _transportFor(NetworkRoute route) {
+  HttpDownloadTransport _transportFor(
+    NetworkRoute route,
+    String canonicalHost,
+  ) {
     return _transports.putIfAbsent(route.key, () {
-      final rawClient = NativeStrictConnector.create(route);
-      _rawClients[route.key] = rawClient;
+      final client = RhttpClientFactory.create(
+        route,
+        canonicalHost,
+        // Downloads stream an unbounded body: this selects the connect-only
+        // time budget so a large or slow transfer is never cut mid-body.
+        PixivDestinationPurpose.image,
+      );
       return HttpDownloadTransport(
-        client: rawClient,
+        httpClient: client,
         allowedHosts: PixivClientIdentity.downloadHosts,
         requireHttps: true,
       );
@@ -73,14 +80,9 @@ class PolicyDownloadTransport
   @override
   Future<void> dispose() async {
     final transports = _transports.values.toList(growable: false);
-    final clients = _rawClients.values.toList(growable: false);
     _transports.clear();
-    _rawClients.clear();
     for (final transport in transports) {
       await transport.dispose();
-    }
-    for (final client in clients) {
-      client.close(force: true);
     }
   }
 }

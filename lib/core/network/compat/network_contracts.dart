@@ -87,7 +87,22 @@ class PixivDestinationException implements Exception {
 
 enum NetworkMode { automatic, directOnly }
 
-enum NetworkRouteKind { direct, secureDns }
+/// The policy tiers. Each tier = DNS source × TLS presentation × certificate
+/// verification. Ordering in a ladder is per-destination-group, not global
+/// (API hosts are on Cloudflare anycast, image hosts on the origin).
+///
+/// - [direct]: system DNS + real SNI + full verification (baseline)
+/// - [ech]: DoH addresses + ECH (real SNI encrypted, outer = ECH front) +
+///   full verification
+/// - [dohRealSni]: DoH addresses + real SNI + full verification
+/// - [noSni]: DoH/fallback addresses + empty SNI + full verification
+///   (origin hosts only: nginx routes by Host without SNI)
+/// - [insecureNoSni]: same as [noSni] but certificate verification OFF —
+///   ONLY present when the user explicitly enables it; never automatic.
+///
+/// `certificateMismatch` stays terminal on every tier; the insecure tier is
+/// a user-gated escape hatch, not a ladder rung.
+enum NetworkRouteKind { direct, ech, dohRealSni, noSni, insecureNoSni }
 
 enum NetworkIpFamily { ipv4, ipv6, unknown }
 
@@ -128,6 +143,7 @@ class NetworkRoute {
     this.address,
     this.dnsSource = DnsSource.none,
     this.ttl,
+    this.echConfig,
   });
 
   factory NetworkRoute.direct(NetworkRevision revision) =>
@@ -139,11 +155,73 @@ class NetworkRoute {
     DnsSource dnsSource = DnsSource.system,
     Duration? ttl,
   }) => NetworkRoute._(
-    kind: NetworkRouteKind.secureDns,
+    kind: NetworkRouteKind.dohRealSni,
     revision: revision,
     address: address,
     dnsSource: dnsSource,
     ttl: ttl,
+  );
+
+  /// ECH tier: DoH-resolved address + ECH config bytes.
+  factory NetworkRoute.ech(
+    NetworkRevision revision,
+    InternetAddress address,
+    List<int> echConfig, {
+    DnsSource dnsSource = DnsSource.doh,
+    Duration? ttl,
+  }) => NetworkRoute._(
+    kind: NetworkRouteKind.ech,
+    revision: revision,
+    address: address,
+    dnsSource: dnsSource,
+    ttl: ttl,
+    echConfig: echConfig,
+  );
+
+  /// No-SNI tier for origin hosts (empty SNI + full verification).
+  factory NetworkRoute.noSni(
+    NetworkRevision revision,
+    InternetAddress address, {
+    DnsSource dnsSource = DnsSource.doh,
+    Duration? ttl,
+  }) => NetworkRoute._(
+    kind: NetworkRouteKind.noSni,
+    revision: revision,
+    address: address,
+    dnsSource: dnsSource,
+    ttl: ttl,
+  );
+
+  /// User-gated insecure fallback: empty SNI + NO certificate verification.
+  factory NetworkRoute.insecureNoSni(
+    NetworkRevision revision,
+    InternetAddress address, {
+    DnsSource dnsSource = DnsSource.doh,
+    Duration? ttl,
+  }) => NetworkRoute._(
+    kind: NetworkRouteKind.insecureNoSni,
+    revision: revision,
+    address: address,
+    dnsSource: dnsSource,
+    ttl: ttl,
+  );
+
+  /// Rebuilds this route under a new revision keeping kind/address/dns.
+  /// Used by the per-host route memory to reconstruct a fresh route.
+  factory NetworkRoute.remembered(
+    NetworkRevision revision,
+    NetworkRouteKind kind,
+    InternetAddress address, {
+    DnsSource dnsSource = DnsSource.doh,
+    Duration? ttl,
+    List<int>? echConfig,
+  }) => NetworkRoute._(
+    kind: kind,
+    revision: revision,
+    address: address,
+    dnsSource: dnsSource,
+    ttl: ttl,
+    echConfig: echConfig,
   );
 
   final NetworkRouteKind kind;
@@ -152,11 +230,24 @@ class NetworkRoute {
   final DnsSource dnsSource;
   final Duration? ttl;
 
+  /// ECH config list bytes for the [NetworkRouteKind.ech] tier.
+  final List<int>? echConfig;
+
   NetworkIpFamily get ipFamily => switch (address?.type) {
     InternetAddressType.IPv4 => NetworkIpFamily.ipv4,
     InternetAddressType.IPv6 => NetworkIpFamily.ipv6,
     _ => NetworkIpFamily.unknown,
   };
+
+  /// Whether this tier presents a real SNI in the ClientHello.
+  // ignore: avoid_positional_boolean_parameters
+  bool get presentsRealSni => switch (kind) {
+    NetworkRouteKind.direct || NetworkRouteKind.dohRealSni => true,
+    NetworkRouteKind.ech => true, // encrypted by ECH, outer is the front
+    NetworkRouteKind.noSni || NetworkRouteKind.insecureNoSni => false,
+  };
+
+  bool get verifiesCertificates => kind != NetworkRouteKind.insecureNoSni;
 
   String get key => [
     revision.value,
@@ -165,6 +256,7 @@ class NetworkRoute {
     ipFamily.name,
     dnsSource.name,
     address?.address ?? '',
+    echConfig?.length ?? -1,
   ].join('|');
 }
 

@@ -13,6 +13,13 @@ class MainActivity : FlutterActivity() {
         AccountTransferClipboardChannel.configure(this, flutterEngine)
         WidgetForegroundChannel.configure(this, flutterEngine)
         DistributionUpdaterChannel.configure(this, flutterEngine)
+        // Login WebView interception (PRD R7): native PlatformView registered
+        // with the engine's platform views controller so Dart can embed it
+        // with AndroidView(viewType: LoginWebViewPlatformView.viewType).
+        flutterEngine.platformViewsController.registry.registerViewFactory(
+            LoginWebViewPlatformView.viewType,
+            LoginWebViewFactory(flutterEngine.dartExecutor.binaryMessenger),
+        )
     }
 
     override fun onNewIntent(intent: Intent) {

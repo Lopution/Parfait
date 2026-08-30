@@ -50,6 +50,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       MaterialPageRoute(
         builder: (_) => LoginWebViewPage(
           oauthService: ref.read(oauthServiceProvider),
+          policy: ref.read(networkAccessPolicyProvider),
+          useNativeIntercept:
+              ref.read(nativeWebViewInterceptProvider),
           create: create,
         ),
       ),

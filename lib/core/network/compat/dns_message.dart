@@ -15,19 +15,32 @@ class DnsQuestion {
 }
 
 /// A single resource record from the answer section. Non-address record
-/// types are carried opaquely (the strict resolver ignores them).
+/// types are carried opaquely (the strict resolver ignores them), except
+/// HTTPS records (type 65) whose rdata is retained for ECH config parsing.
 class DnsAnswer {
   const DnsAnswer({
     required this.name,
     required this.type,
     required this.ttl,
     this.address,
+    this.rdata,
   });
 
   final String name;
   final int type;
   final int ttl;
   final InternetAddress? address;
+
+  /// Raw RDATA for non-A/AAAA records (only kept for type 65 HTTPS so the
+  /// SvcParams can be parsed). Null for A/AAAA answers.
+  final Uint8List? rdata;
+}
+
+/// DNS record type constants used by this codec.
+class DnsRecordType {
+  static const int a = 1;
+  static const int https = 65;
+  static const int aaaa = 28;
 }
 
 /// A decoded DNS response.
@@ -150,7 +163,93 @@ DnsAnswer _readAnswer(_Reader reader) {
     ),
     _ => null,
   };
-  return DnsAnswer(name: name, type: type, ttl: ttl, address: address);
+  return DnsAnswer(
+    name: name,
+    type: type,
+    ttl: ttl,
+    address: address,
+    // Keep rdata only for HTTPS records (type 65): the DohResolver's ECH
+    // config lookup needs the SvcParams, while A/AAAA answers already have
+    // their address decoded.
+    rdata: type == 65 ? data : null,
+  );
+}
+
+/// SvcParam key for ECH (RFC 9460 §9.5 / RFC 9849).
+const int kSvcParamKeyEch = 5;
+
+/// SvcParam key for ipv4hint (RFC 9460 §7.1: a sequence of IPv4 addresses,
+/// each 4 bytes). Used as the ECH front's connect target when present.
+const int kSvcParamKeyIpv4Hint = 4;
+
+/// One parsed SvcParam from an HTTPS record's RDATA (RFC 9460 §2.2).
+class HttpsSvcParam {
+  const HttpsSvcParam({required this.key, required this.value});
+
+  final int key;
+  final Uint8List value;
+}
+
+/// Parses the SvcParams of an HTTPS (type 65) RDATA payload.
+///
+/// Supports RFC 9460 §2.2 (key=value pairs with 16-bit keys, 16-bit length
+/// prefixed values) and the mandatory-key 8-bit field at the start. Unknown
+/// keys are skipped. Returns an empty list when `ech` is absent.
+///
+/// Exceptions (DnsCodecException) are thrown on truncated/malformed input.
+List<HttpsSvcParam> parseHttpsSvcParams(Uint8List rdata) {
+  final reader = _Reader(rdata);
+  final params = <HttpsSvcParam>[];
+  if (rdata.isEmpty) {
+    return params;
+  }
+  // RFC 9460 §2.2: SvcPriority is a 16-bit unsigned integer, followed by
+  // the TargetName (wire-format domain name, must not use compression) and
+  // the SvcParams.
+  reader.u16(); // SvcPriority
+  // TargetName is a wire-format domain name; read it but ignore its value.
+  // Compression in the target name is not allowed by RFC 9460 §2.2 except
+  // as an escape for the root label, and the reader handles plain labels.
+  reader.targetName();
+  while (reader.remaining > 0) {
+    final key = reader.u16();
+    final length = reader.u16();
+    final value = reader.bytes(length);
+    params.add(HttpsSvcParam(key: key, value: value));
+  }
+  return params;
+}
+
+/// Extracts the ECH config list bytes (SvcParam key 5) from an HTTPS
+/// record's RDATA. Returns null when the parameter is absent.
+Uint8List? echConfigFromHttpsRdata(Uint8List rdata) {
+  for (final param in parseHttpsSvcParams(rdata)) {
+    if (param.key == kSvcParamKeyEch) {
+      return param.value;
+    }
+  }
+  return null;
+}
+
+/// Extracts the ipv4hint addresses (SvcParam key 4) from an HTTPS record's
+/// RDATA. Empty when absent or malformed. ipv4hint is the authoritative
+/// connect target for ECH: Cloudflare publishes the anycast IPs the ECH
+/// front is served on, which is exactly the clean answer we need (system
+/// DNS / mainland DoH answers for the target host are polluted).
+List<InternetAddress> ipv4HintFromHttpsRdata(Uint8List rdata) {
+  for (final param in parseHttpsSvcParams(rdata)) {
+    if (param.key == kSvcParamKeyIpv4Hint) {
+      final out = <InternetAddress>[];
+      for (var i = 0; i + 4 <= param.value.length; i += 4) {
+        out.add(
+          InternetAddress('${param.value[i]}.${param.value[i + 1]}.'
+              '${param.value[i + 2]}.${param.value[i + 3]}'),
+        );
+      }
+      return out;
+    }
+  }
+  return const [];
 }
 
 /// Writer for header + question. Names are encoded without compression
@@ -222,6 +321,31 @@ class _Reader {
     final slice = Uint8List.sublistView(raw, _offset, _offset + length);
     _offset += length;
     return slice;
+  }
+
+  int u8() {
+    if (_offset + 1 > raw.length) {
+      throw const DnsCodecException('truncated u8');
+    }
+    return raw[_offset++];
+  }
+
+  int get remaining => raw.length - _offset;
+
+  /// Reads an uncompressed wire-format domain name. HTTPS target names must
+  /// not use compression (RFC 9460 §2.2), so pointers are rejected here to
+  /// keep the SvcParam parser simple and deterministic.
+  String targetName() {
+    final labels = <String>[];
+    while (true) {
+      final length = u8();
+      if (length == 0) break;
+      if (length & 0xc0 != 0) {
+        throw const DnsCodecException('compressed name in HTTPS target');
+      }
+      labels.add(String.fromCharCodes(bytes(length)));
+    }
+    return labels.join('.');
   }
 
   /// Reads a possibly compressed name (RFC 1035 4.1.4). Pointers are

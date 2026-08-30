@@ -6,10 +6,20 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 
 import 'secure_resolver.dart';
-import 'strict_http_client.dart';
 import 'network_contracts.dart';
+import 'rhttp_client_factory.dart';
 
-typedef NetworkClientFactory = http.Client Function(NetworkRoute route);
+/// Builds the transport client for one route.
+///
+/// [purpose] is part of the signature because the time budget depends on it:
+/// image and download exits stream an unbounded body and must not carry a
+/// total request timeout, while API/OAuth exits must (see
+/// [RhttpClientFactory.timeoutsFor]).
+typedef NetworkClientFactory = http.Client Function(
+  NetworkRoute route,
+  String canonicalHost,
+  PixivDestinationPurpose purpose,
+);
 
 /// One shared policy owner for all native Pixiv HTTP exits. It owns the
 /// revision, resolver, pooled route clients, per-host route memory and
@@ -22,6 +32,8 @@ class NetworkAccessPolicy {
     NetworkMode mode = NetworkMode.automatic,
     NetworkRevision revision = const NetworkRevision(0),
     NetworkClientFactory? clientFactory,
+    this.echFrontHost = 'cloudflare-ech.com',
+    this.insecureNoSniEnabled = false,
     List<String> dohEndpoints = const [
       // Cloudflare DoH over its well-known anycast IPs (PixEz-proven
       // bootstrap: `1dot1dot1dot1.cloudflare-dns.com` + static IP map).
@@ -50,7 +62,15 @@ class NetworkAccessPolicy {
        _mode = mode,
        _revision = revision,
        _clientFactory =
-           clientFactory ?? const StrictHttpClientFactory().create;
+           clientFactory ?? RhttpClientFactory.create;
+
+  /// ECH front host used to fetch the ECH config (Cloudflare serves the
+  /// ECH config for pixiv domains via this host; configurable in settings).
+  final String echFrontHost;
+
+  /// Whether the user explicitly enabled the `insecureNoSni` fallback tier
+  /// (PRD R6). Default false; never auto-enabled by probe failures.
+  final bool insecureNoSniEnabled;
 
   /// Cloudflare DoH endpoints' anycast IPs (same values PixEz pins; the
   /// DNS names themselves are only used for SNI/Host — the TCP peer is
@@ -98,22 +118,41 @@ class NetworkAccessPolicy {
   NetworkMode get mode => _mode;
   NetworkRevision get revision => _revision;
 
-  /// Whether [host] is currently remembered as strict-only. Exposed for
-  /// tests; production callers go through [runLadder].
+  /// Whether [host] is currently remembered as non-direct (strict tier).
+  /// Exposed for tests; production callers go through [runLadder].
   @visibleForTesting
   bool hasStrictRouteMemory(String host, {DateTime? now}) =>
-      _routeMemory[host]?.isFresh(now ?? DateTime.now()) ?? false;
+      (_routeMemory[host]?.isFresh(now ?? DateTime.now()) ?? false) &&
+      _routeMemory[host]!.kind != NetworkRouteKind.direct;
 
-  /// Returns one pooled client for a route. The purpose is an explicit
-  /// argument so call sites cannot accidentally construct an unscoped client,
-  /// even though the native pool itself is keyed only by route/revision.
-  http.Client clientFor(PixivDestinationPurpose purpose, NetworkRoute route) {
+  /// The remembered route kind for [host], or null when absent/stale.
+  @visibleForTesting
+  NetworkRouteKind? rememberedRouteKind(String host, {DateTime? now}) {
+    final memory = _routeMemory[host];
+    if (memory == null || !memory.isFresh(now ?? DateTime.now())) return null;
+    return memory.kind;
+  }
+
+  /// Returns one pooled client for a route. The purpose and canonical host
+  /// are explicit arguments so call sites cannot accidentally construct an
+  /// unscoped client; the native pool is keyed by route + host + purpose
+  /// because rhttp's DNS override is per-host and its time budget is
+  /// per-purpose.
+  http.Client clientFor(
+    PixivDestinationPurpose purpose,
+    NetworkRoute route,
+    String canonicalHost,
+  ) {
     _checkUsable();
     if (route.revision.value != _revision.value ||
         route.revision.networkIdentity != _revision.networkIdentity) {
       throw StateError('network route revision is stale');
     }
-    return _clients.putIfAbsent(route.key, () => _clientFactory(route));
+    final key = '${route.key}|$canonicalHost|${purpose.name}';
+    return _clients.putIfAbsent(
+      key,
+      () => _clientFactory(route, canonicalHost, purpose),
+    );
   }
 
   Future<ResolvedHost> resolve(
@@ -157,11 +196,29 @@ class NetworkAccessPolicy {
   /// first attempt). The ladder:
   ///
   /// 1. Direct route — always attempted unless route memory says the host
-  ///    is strict-only (inside the wall the direct attempt costs a timeout
-  ///    every single request).
-  /// 2. On an eligible transport failure, resolve via the policy resolver
-  ///    (DoH by default) and try each candidate address on the secure-DNS
-  ///    route.
+  /// The single route ladder shared by the API and download exits.
+  ///
+  /// [attempt] performs one request on the given route and returns the
+  /// response; [canReplay] gates whether a *second* attempt is permitted at
+  /// all (empty GET/HEAD only — a body must never be re-sent after a failed
+  /// first attempt). The ladder:
+  ///
+  /// 1. Direct route — always attempted unless route memory says the host
+  ///    skips it (inside the wall the direct attempt costs a timeout every
+  ///    single request).
+  /// 2. On an eligible transport failure, the destination group's tier
+  ///    order applies:
+  ///    - API / OAuth / accounts / www (Cloudflare):
+  ///      `ech → dohRealSni`
+  ///    - images / downloads (*.pximg.net origin):
+  ///      `dohRealSni → noSni`
+  ///    - `insecureNoSni` is appended ONLY when the user explicitly
+  ///      enabled it (`insecureNoSniEnabled`); it is never automatic.
+  ///
+  /// Each tier resolves its own address via [resolve] (DoH) unless the
+  /// route memory already knows a working tier for the host; memory is
+  /// keyed by host and remembers the tier (not just an IP), so the next
+  /// request starts at the remembered tier.
   ///
   /// Failures are classified and recorded in diagnostics; a non-eligible
   /// failure (certificate mismatch, auth, cancellation, HTTP…) aborts the
@@ -176,27 +233,22 @@ class NetworkAccessPolicy {
     final host = destination.canonicalHost;
     final now = DateTime.now();
 
-    var directRoute = NetworkRoute.direct(_revision);
-    if (_routeMemory[host]?.isFresh(now) ?? false) {
-      // Inside the wall the direct attempt is known to fail; jump straight
-      // to the strict tier.
-      directRoute = NetworkRoute.secureDns(
-        _revision,
-        _routeMemory[host]!.address,
-        dnsSource: _routeMemory[host]!.dnsSource,
-        ttl: _routeMemory[host]!.ttl,
-      );
+    // Start at the remembered tier (if fresh); otherwise direct.
+    final memory = _routeMemory[host];
+    var firstRoute = NetworkRoute.direct(_revision);
+    if (memory != null && memory.isFresh(now)) {
+      firstRoute = memory.routeFor(_revision);
     }
 
-    final directTimer = Stopwatch()..start();
+    final firstTimer = Stopwatch()..start();
     try {
-      final result = await attempt(directRoute, destination.uri);
-      // A success on the direct route clears a stale strict memory entry
-      // (e.g. the user moved to an open network).
+      final result = await attempt(firstRoute, destination.uri);
+      // A success clears stale memory (e.g. the user moved to an open
+      // network).
       _routeMemory.remove(host);
       return result;
     } on Object catch (error, stackTrace) {
-      policyRecord(destination, directRoute, error, directTimer.elapsed);
+      policyRecord(destination, firstRoute, error, firstTimer.elapsed);
       if (_mode == NetworkMode.directOnly ||
           (cancelSignal?.isCancelled ?? false) ||
           !canReplay ||
@@ -204,16 +256,49 @@ class NetworkAccessPolicy {
         Error.throwWithStackTrace(error, stackTrace);
       }
 
-      final resolved = await resolve(destination, cancelSignal: cancelSignal);
+      // Determine the ordered fallback tiers for this destination.
+      final tiers = _fallbackTiersFor(destination.purpose);
       Object lastError = error;
       StackTrace lastStack = stackTrace;
-      for (final address in resolved.addresses) {
-        final route = NetworkRoute.secureDns(
-          _revision,
-          address,
-          dnsSource: resolved.dnsSource,
-          ttl: resolved.ttl,
-        );
+
+      // The destination resolve is lazy and memoised: only tiers that
+      // actually need the destination host's address pay for it. The ECH
+      // tier does not — it connects to the ECH front's anycast address —
+      // so a slow or failing DoH lookup must not take it down with it.
+      ResolvedHost? pendingResolved;
+      Future<ResolvedHost> resolveOnce() async =>
+          pendingResolved ??= await resolve(
+            destination,
+            cancelSignal: cancelSignal,
+          );
+
+      for (final kind in tiers) {
+        final NetworkRoute? route;
+        try {
+          route = await _routeForTier(
+            kind,
+            destination,
+            resolveHost: resolveOnce,
+            cancelSignal: cancelSignal,
+          );
+        } on Object catch (routeError, routeStack) {
+          // Building this tier failed (DoH down, ECH config unavailable…).
+          // That makes this one tier unusable, not the whole ladder: the
+          // remaining tiers may not depend on the same input. Cancellation
+          // is the exception — it aborts everything.
+          lastError = routeError;
+          lastStack = routeStack;
+          if (routeError is NetworkFailureException &&
+              routeError.kind == NetworkFailureKind.cancelled) {
+            Error.throwWithStackTrace(routeError, routeStack);
+          }
+          continue;
+        }
+        if (route == null) {
+          // Tier unavailable (e.g. ECH config could not be fetched): skip
+          // it and continue with the next tier.
+          continue;
+        }
         final candidateTimer = Stopwatch()..start();
         try {
           if (cancelSignal?.isCancelled ?? false) {
@@ -221,15 +306,22 @@ class NetworkAccessPolicy {
           }
           final result = await attempt(route, destination.uri);
           _routeMemory[host] = _HostRouteMemory(
-            address,
-            dnsSource: resolved.dnsSource,
-            ttl: resolved.ttl,
+            route.address!,
+            kind: route.kind,
+            dnsSource: route.dnsSource,
+            ttl: route.ttl ?? _kRouteMemoryTtl,
             createdAt: DateTime.now(),
+            echConfig: route.echConfig,
           );
           _trimRouteMemory();
           return result;
         } on Object catch (candidateError, candidateStack) {
-          policyRecord(destination, route, candidateError, candidateTimer.elapsed);
+          policyRecord(
+            destination,
+            route,
+            candidateError,
+            candidateTimer.elapsed,
+          );
           lastError = candidateError;
           lastStack = candidateStack;
           if (!TransportFailureClassifier.isFallbackEligible(candidateError)) {
@@ -238,6 +330,135 @@ class NetworkAccessPolicy {
         }
       }
       Error.throwWithStackTrace(lastError, lastStack);
+    }
+  }
+
+  /// Ordered fallback tiers after a direct failure, per destination group.
+  /// [insecureNoSni] is appended only when the user explicitly enabled it.
+  List<NetworkRouteKind> _fallbackTiersFor(PixivDestinationPurpose purpose) {
+    final isCloudflareHost = switch (purpose) {
+      PixivDestinationPurpose.appApi ||
+      PixivDestinationPurpose.oauth ||
+      PixivDestinationPurpose.accountsWeb ||
+      PixivDestinationPurpose.pixivWeb => true,
+      PixivDestinationPurpose.image => false,
+    };
+    final tiers = isCloudflareHost
+        ? [NetworkRouteKind.ech, NetworkRouteKind.dohRealSni]
+        : [NetworkRouteKind.dohRealSni, NetworkRouteKind.noSni];
+    if (insecureNoSniEnabled) {
+      tiers.add(NetworkRouteKind.insecureNoSni);
+    }
+    return tiers;
+  }
+
+  /// Builds a [NetworkRoute] for [kind], resolving the destination host only
+  /// for the tiers that need it.
+  ///
+  /// [resolveHost] is lazy and memoised by the caller: the ECH tier never
+  /// calls it. Returns null when the tier cannot be constructed (e.g. the ECH
+  /// config lookup failed, or the policy was injected with a non-DoH
+  /// resolver). The ladder skips null tiers and falls through to the next one
+  /// — an unavailable ECH tier never turns into a hard error here, because
+  /// the caller treats "no route" as "tier unavailable".
+  Future<NetworkRoute?> _routeForTier(
+    NetworkRouteKind kind,
+    PixivDestination destination, {
+    required Future<ResolvedHost> Function() resolveHost,
+    required NetworkCancelSignal? cancelSignal,
+  }) async {
+    switch (kind) {
+      case NetworkRouteKind.ech:
+        // Deliberately does NOT resolve the destination host. The ECH tier's
+        // TCP peer is the ECH front's anycast address (ipv4hint from the
+        // front's own HTTPS RR); the destination's mainland answer is
+        // polluted and would send the handshake nowhere. Coupling this tier
+        // to the destination resolve also meant a slow or failing DoH lookup
+        // took ECH down with it, which is exactly what kept the tier from
+        // ever running on a mainland device.
+        final ech = await _lookupEchConfig(cancelSignal: cancelSignal);
+        if (ech == null) return null;
+        final frontAddress = ech.frontAddresses.isNotEmpty
+            ? ech.frontAddresses.first
+            : await _resolveFrontHost(cancelSignal: cancelSignal);
+        if (frontAddress == null) return null;
+        return NetworkRoute.ech(
+          _revision,
+          frontAddress,
+          ech.echConfig,
+          dnsSource: DnsSource.doh,
+          ttl: ech.ttl,
+        );
+      case NetworkRouteKind.dohRealSni:
+        final resolved = await resolveHost();
+        return NetworkRoute.secureDns(
+          _revision,
+          resolved.addresses.first,
+          dnsSource: resolved.dnsSource,
+          ttl: resolved.ttl,
+        );
+      case NetworkRouteKind.noSni:
+        final resolved = await resolveHost();
+        return NetworkRoute.noSni(
+          _revision,
+          resolved.addresses.first,
+          dnsSource: resolved.dnsSource,
+          ttl: resolved.ttl,
+        );
+      case NetworkRouteKind.insecureNoSni:
+        final resolved = await resolveHost();
+        return NetworkRoute.insecureNoSni(
+          _revision,
+          resolved.addresses.first,
+          dnsSource: resolved.dnsSource,
+          ttl: resolved.ttl,
+        );
+      case NetworkRouteKind.direct:
+        throw StateError('direct is not a fallback tier');
+    }
+  }
+
+  /// Fetches the ECH config for [echFrontHost]. Returns null when the
+  /// resolver is not a DoH resolver or the lookup failed — the ECH tier is
+  /// then treated as unavailable and the ladder moves on (never a silent
+  /// plain-TLS downgrade: the next tier, if any, is its own explicit
+  /// route).
+  Future<EchConfigResult?> _lookupEchConfig({
+    required NetworkCancelSignal? cancelSignal,
+  }) async {
+    final resolver = _resolver;
+    if (resolver is! DohResolver) {
+      return null;
+    }
+    try {
+      return await resolver.lookupEchConfig(
+        echFrontHost,
+        revision: _revision,
+        cancelSignal: cancelSignal,
+      );
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Resolves the ECH front host (e.g. cloudflare-ech.com) to a connect
+  /// address when its HTTPS RR carries no ipv4hint. The front host is not
+  /// polluted by the GFW (its answers stayed clean in mainland probes), so
+  /// the DoH resolve is the fallback source for the ECH TCP peer.
+  Future<InternetAddress?> _resolveFrontHost({
+    required NetworkCancelSignal? cancelSignal,
+  }) async {
+    final resolver = _resolver;
+    if (resolver is! DohResolver) return null;
+    try {
+      final resolved = await resolver.resolve(
+        echFrontHost,
+        revision: _revision,
+        cancelSignal: cancelSignal,
+      );
+      return resolved.addresses.isEmpty ? null : resolved.addresses.first;
+    } on Object {
+      return null;
     }
   }
 
@@ -335,17 +556,31 @@ class NetworkAccessPolicy {
 class _HostRouteMemory {
   _HostRouteMemory(
     this.address, {
+    required this.kind,
     required this.dnsSource,
     required this.ttl,
     required this.createdAt,
+    this.echConfig,
   });
 
   final InternetAddress address;
+  final NetworkRouteKind kind;
   final DnsSource dnsSource;
   final Duration ttl;
   final DateTime createdAt;
+  final List<int>? echConfig;
 
   bool isFresh(DateTime now) => now.difference(createdAt) < _kRouteMemoryTtl;
+
+  /// Rebuilds the route at the [revision] seen by [NetworkRoute.kind].
+  NetworkRoute routeFor(NetworkRevision revision) => NetworkRoute.remembered(
+    revision,
+    kind,
+    address,
+    dnsSource: dnsSource,
+    ttl: ttl,
+    echConfig: echConfig,
+  );
 }
 
 const _kRouteMemoryTtl = Duration(minutes: 10);
@@ -372,9 +607,11 @@ class PixivPolicyHttpClient extends http.BaseClient {
       cancelSignal: cancelSignal,
       canReplay: replay != null,
       attempt: (route, url) async {
-        final response = await policy.clientFor(purpose, route).send(
-          replay ?? request,
-        );
+        final response = await policy
+            .clientFor(purpose, route, destination.canonicalHost)
+            .send(
+              replay ?? request,
+            );
         if (response.statusCode >= 300 && response.statusCode < 400) {
           await response.stream.drain<void>();
           throw NetworkRedirectException(response.statusCode);
