@@ -149,8 +149,10 @@ class _RankingModeBody extends ConsumerWidget {
                     crossAxisCount: 2,
                     mainAxisSpacing: 5,
                     crossAxisSpacing: 10,
-                    itemBuilder: (context, index) =>
-                        IllustCard(entity: entities[index]),
+                    itemBuilder: (context, index) => IllustCard(
+                      entity: entities[index],
+                      heroScope: 'ranking',
+                    ),
                     childCount: entities.length,
                   ),
                 ),

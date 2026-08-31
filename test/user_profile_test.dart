@@ -306,6 +306,38 @@ void main() {
     },
   );
 
+  testWidgets('current profile header has no settings entry', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: ReplicaProfileHeaderDelegate(
+                  user: _user(42),
+                  isMe: true,
+                  selectedTabIndex: 0,
+                  showRestrictSelector: false,
+                  restrict: UserRestrict.public,
+                  onRestrictChanged: (_) {},
+                  onShare: () {},
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pump();
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+  });
+
   testWidgets(
     'UserPage renders tabs and re-tapping the current tab opens type selector',
     (tester) async {

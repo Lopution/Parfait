@@ -150,7 +150,7 @@ class _IllustSearchFeed extends ConsumerWidget {
                   mainAxisSpacing: 5,
                   crossAxisSpacing: 10,
                   itemBuilder: (context, index) =>
-                      IllustCard(entity: entities[index]),
+                      IllustCard(entity: entities[index], heroScope: 'search'),
                   childCount: entities.length,
                 ),
               ),

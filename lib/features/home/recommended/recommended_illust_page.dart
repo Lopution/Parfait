@@ -88,8 +88,10 @@ class RecommendedIllustPage extends ConsumerWidget {
                       crossAxisCount: 2,
                       mainAxisSpacing: 5,
                       crossAxisSpacing: 10,
-                      itemBuilder: (context, index) =>
-                          IllustCard(entity: entities[index]),
+                      itemBuilder: (context, index) => IllustCard(
+                        entity: entities[index],
+                        heroScope: 'recommended',
+                      ),
                       childCount: entities.length,
                     ),
                   ),
@@ -186,9 +188,10 @@ class _InitialErrorView extends StatelessWidget {
 /// R-18 top-left, ugoira gif bottom-left, page count top-right, AI
 /// bottom-right, title (14 bold) + user name (12) beneath the image.
 class IllustCard extends ConsumerWidget {
-  const IllustCard({super.key, required this.entity});
+  const IllustCard({super.key, required this.entity, this.heroScope = 'feed'});
 
   final IllustEntity entity;
+  final String heroScope;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -212,7 +215,11 @@ class IllustCard extends ConsumerWidget {
             return GestureDetector(
               onTap: () => Navigator.of(context).push(
                 ReplicaPageRoute<void>(
-                  builder: (_) => IllustDetailPage(illustId: entity.id),
+                  builder: (_) => IllustDetailPage(
+                    illustId: entity.id,
+                    initialEntity: entity,
+                    heroScope: heroScope,
+                  ),
                 ),
               ),
               child: ClipRRect(
@@ -235,7 +242,7 @@ class IllustCard extends ConsumerWidget {
                       // Clipping inside keeps the rounded corners during
                       // the whole flight.
                       Hero(
-                        tag: 'IllustHero-${entity.id}',
+                        tag: illustHeroTag(heroScope, entity.id),
                         child: ClipRRect(
                           borderRadius: const BorderRadius.all(
                             Radius.circular(12),

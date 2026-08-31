@@ -273,7 +273,7 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
             mainAxisSpacing: 5,
             crossAxisSpacing: 10,
             itemBuilder: (context, index) =>
-                IllustCard(entity: entities[index]),
+                IllustCard(entity: entities[index], heroScope: 'new'),
             childCount: entities.length,
           ),
         ),

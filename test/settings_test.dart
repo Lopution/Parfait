@@ -12,12 +12,16 @@ import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/i18n/replica_strings.dart';
+import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
+import 'package:pixiv_func/core/user/user_entity.dart';
+import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/features/settings/network_settings_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
+import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -68,6 +72,80 @@ class _AccountRepository implements AccountMetadataRepository {
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
+}
+
+class _FakeProfileRepository implements UserRepository {
+  @override
+  Future<UserEntity> fetchDetail(
+    int userId, {
+    CancelToken? cancelToken,
+  }) async => UserEntity(id: userId, name: 'tester', account: 'tester');
+
+  @override
+  Future<UserRelationPage> fetchRecommended({
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async => const UserRelationPage(users: [], nextUrl: null);
+
+  @override
+  bool validateRecommendedCursor({required String cursor}) => false;
+
+  @override
+  Future<UserIllustPage> fetchWorks(
+    int userId, {
+    required UserWorkType type,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async => const UserIllustPage(illusts: [], nextUrl: null);
+
+  @override
+  Future<UserIllustPage> fetchBookmarks(
+    int userId, {
+    required UserRestrict restrict,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async => const UserIllustPage(illusts: [], nextUrl: null);
+
+  @override
+  bool validateWorksCursor(
+    int userId, {
+    required UserWorkType type,
+    required String cursor,
+  }) => false;
+
+  @override
+  bool validateBookmarksCursor(
+    int userId, {
+    required UserRestrict restrict,
+    required String cursor,
+  }) => false;
+
+  @override
+  Future<UserRelationPage> fetchRelation(
+    int userId, {
+    required UserRelation relation,
+    UserRestrict restrict = UserRestrict.public,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async => const UserRelationPage(users: [], nextUrl: null);
+
+  @override
+  bool validateRelationCursor(
+    int userId, {
+    required UserRelation relation,
+    required UserRestrict restrict,
+    required String cursor,
+  }) => false;
+}
+
+class _PushCounter extends NavigatorObserver {
+  int pushes = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushes++;
+    super.didPush(route, previousRoute);
+  }
 }
 
 class _TransferClipboard implements TransferClipboard {
@@ -342,6 +420,44 @@ void main() {
     expect(find.text('下载任务'), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);
     expect(find.text('新作'), findsNothing);
+  });
+
+  testWidgets('account card opens one profile route without a settings entry', (
+    tester,
+  ) async {
+    final observer = _PushCounter();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            _FakeRepository(_baseSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            _AccountRepository([
+              const Account(id: '42', userId: 42, name: 'tester'),
+            ]),
+          ),
+          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          userRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
+        ],
+        child: MaterialApp(
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          navigatorObservers: [observer],
+          home: const SettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pushesBeforeProfile = observer.pushes;
+    await tester.tap(find.text('tester'));
+    await tester.pumpAndSettle();
+
+    expect(observer.pushes, pushesBeforeProfile + 1);
+    expect(find.byType(profile.MePage), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
   testWidgets('long-pressing an account card exports bounded transfer data',

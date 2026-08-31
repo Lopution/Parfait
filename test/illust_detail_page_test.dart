@@ -441,26 +441,29 @@ void main() {
       expect(find.textContaining('ID: 42'), findsOneWidget);
       expect(find.text('#original'), findsOneWidget);
       expect(find.textContaining('風景'), findsOneWidget);
-      expect(find.text('作品说明文字'), findsNothing,
-          reason: 'caption collapses until 简介 tapped');
-      await tester.tap(find.text('简介'));
-      await tester.pump();
       expect(find.text('作品说明文字'), findsOneWidget);
+      expect(find.text('简介'), findsNothing);
     });
 
     testWidgets(
-        'U5: the store snapshot renders on the very first frame with the '
+        'U5: the card snapshot renders on the very first frame with the '
         'Hero destination present', (tester) async {
       final (container, _, _) = await makeWorld();
-      // Feed already placed the entity in the store before navigation.
-      final entity = parseIllust(illustJson(42, pageCount: 2));
-      container.read(illustStoreProvider).mergeAll([entity]);
+      final entity = parseIllust(
+        illustJson(42, pageCount: 1, width: 800, height: 100),
+      );
 
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
-            child: MaterialApp(home: IllustDetailPage(illustId: 42)),
+            child: MaterialApp(
+              home: IllustDetailPage(
+                illustId: 42,
+                initialEntity: entity,
+                heroScope: 'profile:42:bookmarks:illust:public',
+              ),
+            ),
           ),
         );
         // No second pump / settle: this is the AsyncLoading first frame.
@@ -468,13 +471,17 @@ void main() {
         expect(
           find.byType(Scrollable),
           findsWidgets,
-          reason: 'content renders from the store snapshot, not a spinner',
+          reason: 'content renders from the card snapshot, not a spinner',
         );
+        expect(find.text('illust 42'), findsOneWidget);
+        expect(find.text('author'), findsWidgets);
         // Hero destination exists on the first frame (feed -> detail flight).
         final hero = tester.widget<Hero>(
           find.byWidgetPredicate(
             (widget) =>
-                widget is Hero && widget.tag == 'IllustHero-42',
+                widget is Hero &&
+                widget.tag ==
+                    'IllustHero:profile:42:bookmarks:illust:public:42',
           ),
         );
         expect(hero, isNotNull);
@@ -497,11 +504,10 @@ void main() {
       await pumpDetail(tester, container);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
-          find.text('简介'),
+          find.textContaining('line1'),
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.tap(find.text('简介'));
         await tester.pump();
       });
 
@@ -511,6 +517,7 @@ void main() {
       expect(find.textContaining('<br>'), findsNothing);
       expect(find.textContaining('line1'), findsOneWidget);
       expect(find.text('author'), findsWidgets);
+      expect(find.text('简介'), findsNothing);
 
       await tester.tap(find.text('author').last);
       await tester.pumpAndSettle();
