@@ -133,6 +133,10 @@ class OAuthService {
   PkceSession? _session;
   int _sessionCounter = 0;
 
+  /// Exposes the injected transport for wiring/diagnostic tests without
+  /// exposing credentials or mutable OAuth state.
+  http.Client get client => _client;
+
   /// Whether a live (non-expired, unconsumed) session exists.
   bool get hasLiveSession {
     final session = _session;
@@ -236,6 +240,10 @@ class OAuthService {
       throw OAuthException('token exchange timed out');
     } on SocketException catch (error) {
       throw OAuthException('token exchange network error', cause: error);
+    } on http.ClientException catch (error) {
+      throw OAuthException('token exchange network error', cause: error);
+    } on NetworkFailureException catch (error) {
+      throw OAuthException('token exchange network error', cause: error);
     } on FormatException catch (error) {
       throw OAuthException('token response is not valid JSON', cause: error);
     } finally {
@@ -281,6 +289,10 @@ class OAuthService {
     } on TimeoutException {
       throw const OAuthException('token refresh timed out');
     } on SocketException catch (error) {
+      throw OAuthException('token refresh network error', cause: error);
+    } on http.ClientException catch (error) {
+      throw OAuthException('token refresh network error', cause: error);
+    } on NetworkFailureException catch (error) {
       throw OAuthException('token refresh network error', cause: error);
     } on FormatException catch (error) {
       throw OAuthException(

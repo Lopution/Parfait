@@ -135,7 +135,9 @@ class LoginWebViewPlatformView(
                 val url = requestUri.toString()
                 // Ask Dart: the PKCE callback (pixiv://account?code=...) must
                 // be intercepted there. Return true = WebView stops.
-                if (request.method == "GET" && isPixivHost(requestUri.host ?: "")) {
+                if (request.method == "GET" &&
+                    (requestUri.scheme.equals("pixiv", ignoreCase = true) ||
+                        isPixivHost(requestUri.host ?: ""))) {
                     val prevented = askDartNavigationDecision(url)
                     if (prevented) {
                         return true
@@ -225,17 +227,27 @@ class LoginWebViewPlatformView(
         // non-GET API calls) falls through to the native stack — never
         // swallowed, because the auth session lives in the WebView cookie
         // jar and the flow must keep working when interception is off.
-        return fetchViaDart(requestUri)
+        return fetchViaDart(requestUri, request.requestHeaders)
     }
 
-    private fun fetchViaDart(url: Uri): WebResourceResponse? {
+    private fun fetchViaDart(
+        url: Uri,
+        originalHeaders: Map<String, String>,
+    ): WebResourceResponse? {
         val latch = CountDownLatch(1)
         val result = AtomicReference<WebResourceResponse?>()
         val errorHolder = AtomicReference<String?>()
 
         MethodChannel(messenger, CHANNEL).invokeMethod(
             METHOD_FETCH,
-            mapOf("url" to url.toString()),
+            mapOf(
+                "url" to url.toString(),
+                // A custom WebResourceResponse does not inherit the WebView
+                // request headers. Forward the small, non-hop-by-hop set the
+                // login page needs (notably Cookie) so an intercepted page
+                // remains in the same browser session.
+                "headers" to forwardRequestHeaders(originalHeaders),
+            ),
             object : MethodChannel.Result {
                 override fun success(value: Any?) {
                     @Suppress("UNCHECKED_CAST")
@@ -243,7 +255,15 @@ class LoginWebViewPlatformView(
                     if (response == null) {
                         result.set(null)
                     } else {
-                        result.set(buildResponse(response, url))
+                        val webResponse = buildResponse(response, url)
+                        if (webResponse != null) {
+                            injectCookies(
+                                webResponse,
+                                url,
+                                response["setCookies"] as? List<*>,
+                            )
+                        }
+                        result.set(webResponse)
                     }
                     latch.countDown()
                 }
@@ -269,10 +289,26 @@ class LoginWebViewPlatformView(
             return null
         }
         val response = result.get()
-        if (response != null) {
-            injectCookies(response, url)
-        }
         return response
+    }
+
+    private fun forwardRequestHeaders(
+        originalHeaders: Map<String, String>,
+    ): Map<String, String> {
+        // The WebView API exposes request headers on WebResourceRequest; keep
+        // the forwarding boundary explicit and never pass Host/Auth or other
+        // connection-controlled headers into the Dart policy client.
+        val allowed = setOf(
+            "accept",
+            "accept-language",
+            "cache-control",
+            "cookie",
+            "referer",
+            "user-agent",
+        )
+        return originalHeaders.entries
+            .filter { (name, _) -> name.lowercase() in allowed }
+            .associate { (name, value) -> name.lowercase() to value }
     }
 
     /**
@@ -314,19 +350,57 @@ class LoginWebViewPlatformView(
         }
     }
 
-    private fun injectCookies(response: WebResourceResponse, url: Uri) {
-        val headers = response.responseHeaders ?: return
-        val cookieValues = headers.filterKeys { it.equals("Set-Cookie", ignoreCase = true) }
+    private fun injectCookies(
+        response: WebResourceResponse,
+        url: Uri,
+        payloadCookies: List<*>?,
+    ) {
+        val headers = response.responseHeaders ?: emptyMap()
+        val cookieValues = payloadCookies
+            ?.mapNotNull { it as? String }
+            ?.takeIf { it.isNotEmpty() }
+            ?: headers
+                .filterKeys { it.equals("Set-Cookie", ignoreCase = true) }
+                .values
+                .flatMap(::splitSetCookieHeader)
         val cookieManager = CookieManager.getInstance()
-        for ((_, value) in cookieValues) {
-            // A single Set-Cookie header line may contain multiple cookies
-            // separated by commas in some legacy servers; split conservatively
-            // on the cookie boundary (value up to the first `;`).
-            val firstPair = value.substringBefore(';')
+        for (value in cookieValues) {
+            val firstPair = value.substringBefore(';').trim()
             val separator = firstPair.indexOf('=')
             if (separator <= 0) continue
-            cookieManager.setCookie(url.host ?: return, firstPair)
+            // CookieManager expects an URL (including the scheme), not just
+            // Uri.host. Passing the bare host silently drops the cookie on
+            // Android releases that validate the argument.
+            cookieManager.setCookie(url.toString(), firstPair)
         }
+        cookieManager.flush()
+    }
+
+    /** Splits a comma-combined Set-Cookie value without splitting Expires=. */
+    private fun splitSetCookieHeader(value: String): List<String> {
+        val result = mutableListOf<String>()
+        var start = 0
+        var index = 0
+        var inExpires = false
+        while (index < value.length) {
+            if (index + 8 <= value.length &&
+                value.regionMatches(index, "expires=", 0, 8, ignoreCase = true)) {
+                inExpires = true
+            }
+            if (value[index] == ';') inExpires = false
+            if (value[index] == ',' && !inExpires) {
+                val candidate = value.substring(index + 1).trimStart()
+                val equals = candidate.indexOf('=')
+                val semicolon = candidate.indexOf(';')
+                if (equals > 0 && (semicolon < 0 || equals < semicolon)) {
+                    result += value.substring(start, index).trim()
+                    start = index + 1
+                }
+            }
+            index++
+        }
+        result += value.substring(start).trim()
+        return result.filter { it.isNotEmpty() }
     }
 
     override fun getView(): android.view.View = webView

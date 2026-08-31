@@ -225,7 +225,10 @@ List<HttpsSvcParam> parseHttpsSvcParams(Uint8List rdata) {
 Uint8List? echConfigFromHttpsRdata(Uint8List rdata) {
   for (final param in parseHttpsSvcParams(rdata)) {
     if (param.key == kSvcParamKeyEch) {
-      return param.value;
+      // An empty `ech` value is syntactically well-formed but cannot drive an
+      // ECH ClientHello. Treat it exactly like an absent parameter so callers
+      // never mistake a plain-TLS probe for an ECH result.
+      return param.value.isEmpty ? null : param.value;
     }
   }
   return null;
@@ -242,8 +245,10 @@ List<InternetAddress> ipv4HintFromHttpsRdata(Uint8List rdata) {
       final out = <InternetAddress>[];
       for (var i = 0; i + 4 <= param.value.length; i += 4) {
         out.add(
-          InternetAddress('${param.value[i]}.${param.value[i + 1]}.'
-              '${param.value[i + 2]}.${param.value[i + 3]}'),
+          InternetAddress(
+            '${param.value[i]}.${param.value[i + 1]}.'
+            '${param.value[i + 2]}.${param.value[i + 3]}',
+          ),
         );
       }
       return out;
@@ -267,7 +272,9 @@ class _Writer {
   /// Encodes a DNS name: labels + root terminator. Tolerates a trailing
   /// dot and rejects empty or over-long labels per RFC 1035 limits.
   void encodedName(String name) {
-    final withoutDot = name.endsWith('.') ? name.substring(0, name.length - 1) : name;
+    final withoutDot = name.endsWith('.')
+        ? name.substring(0, name.length - 1)
+        : name;
     if (withoutDot.isEmpty) {
       throw ArgumentError.value(name, 'name', 'empty DNS name');
     }
@@ -373,8 +380,7 @@ class _Reader {
         if (pointerJumps > 32) {
           throw const DnsCodecException('compression pointer loop');
         }
-        final pointer =
-            ((length & 0x3f) << 8) | raw[offset + 1];
+        final pointer = ((length & 0x3f) << 8) | raw[offset + 1];
         if (!jumped) {
           _offset += 2;
           jumped = true;
@@ -388,9 +394,7 @@ class _Reader {
       if (offset + 1 + length > raw.length) {
         throw const DnsCodecException('truncated label');
       }
-      labels.add(
-        String.fromCharCodes(raw, offset + 1, offset + 1 + length),
-      );
+      labels.add(String.fromCharCodes(raw, offset + 1, offset + 1 + length));
       offset += 1 + length;
     }
     if (!jumped) {

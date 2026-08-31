@@ -15,11 +15,17 @@ import 'rhttp_client_factory.dart';
 /// image and download exits stream an unbounded body and must not carry a
 /// total request timeout, while API/OAuth exits must (see
 /// [RhttpClientFactory.timeoutsFor]).
-typedef NetworkClientFactory = http.Client Function(
-  NetworkRoute route,
-  String canonicalHost,
-  PixivDestinationPurpose purpose,
-);
+typedef NetworkClientFactory =
+    http.Client Function(
+      NetworkRoute route,
+      String canonicalHost,
+      PixivDestinationPurpose purpose,
+    );
+
+/// Runs a small, side-effect-free request on a candidate route.  Route
+/// selection owns this callback; business requests are not used as probes.
+typedef NetworkRouteProbe =
+    FutureOr<void> Function(NetworkRoute route, Uri probeUri);
 
 /// One shared policy owner for all native Pixiv HTTP exits. It owns the
 /// revision, resolver, pooled route clients, per-host route memory and
@@ -49,6 +55,7 @@ class NetworkAccessPolicy {
       'https://dns.google/dns-query',
     ],
     Map<String, List<InternetAddress>>? dohHostOverrides,
+    this.clock = DateTime.now,
   }) : registry = registry ?? PixivDestinationRegistry(),
        _resolver =
            resolver ??
@@ -61,8 +68,7 @@ class NetworkAccessPolicy {
        diagnostics = diagnostics ?? NetworkDiagnostics(),
        _mode = mode,
        _revision = revision,
-       _clientFactory =
-           clientFactory ?? RhttpClientFactory.create;
+       _clientFactory = clientFactory ?? RhttpClientFactory.create;
 
   /// ECH front host used to fetch the ECH config (Cloudflare serves the
   /// ECH config for pixiv domains via this host; configurable in settings).
@@ -88,10 +94,7 @@ class NetworkAccessPolicy {
       InternetAddress('104.16.248.249'),
       InternetAddress('104.16.249.249'),
     ],
-    'dns.google': [
-      InternetAddress('8.8.8.8'),
-      InternetAddress('8.8.4.4'),
-    ],
+    'dns.google': [InternetAddress('8.8.8.8'), InternetAddress('8.8.4.4')],
   };
 
   final PixivDestinationRegistry registry;
@@ -99,6 +102,10 @@ class NetworkAccessPolicy {
   final NetworkDiagnostics diagnostics;
   final NetworkClientFactory _clientFactory;
   final Map<String, http.Client> _clients = {};
+
+  /// Injectable clock keeps route-memory TTL tests deterministic while the
+  /// production default remains wall-clock time.
+  final DateTime Function() clock;
 
   /// The strict-tier resolver (DoH by default, system when DoH is off).
   /// Exposed for the probe page; production requests use [runLadder].
@@ -122,14 +129,21 @@ class NetworkAccessPolicy {
   /// Exposed for tests; production callers go through [runLadder].
   @visibleForTesting
   bool hasStrictRouteMemory(String host, {DateTime? now}) =>
-      (_routeMemory[host]?.isFresh(now ?? DateTime.now()) ?? false) &&
+      (_routeMemory[host]?.isUsable(
+            now ?? clock(),
+            _revision.networkIdentity,
+          ) ??
+          false) &&
       _routeMemory[host]!.kind != NetworkRouteKind.direct;
 
   /// The remembered route kind for [host], or null when absent/stale.
   @visibleForTesting
   NetworkRouteKind? rememberedRouteKind(String host, {DateTime? now}) {
     final memory = _routeMemory[host];
-    if (memory == null || !memory.isFresh(now ?? DateTime.now())) return null;
+    if (memory == null ||
+        !memory.isUsable(now ?? clock(), _revision.networkIdentity)) {
+      return null;
+    }
     return memory.kind;
   }
 
@@ -190,140 +204,328 @@ class NetworkAccessPolicy {
 
   /// The single route ladder shared by the API and download exits.
   ///
-  /// [attempt] performs one request on the given route and returns the
-  /// response; [canReplay] gates whether a *second* attempt is permitted at
-  /// all (empty GET/HEAD only — a body must never be re-sent after a failed
-  /// first attempt). The ladder:
+  /// When [probe] is supplied (all production exits), the order is strictly
+  /// `route probe -> one business attempt`.  A business POST/PATCH/DELETE is
+  /// therefore never used to discover a route and is never transparently
+  /// replayed.  [canReplay] only permits one fresh attempt for an idempotent
+  /// operation after the already-selected route genuinely fails.
   ///
-  /// 1. Direct route — always attempted unless route memory says the host
-  /// The single route ladder shared by the API and download exits.
-  ///
-  /// [attempt] performs one request on the given route and returns the
-  /// response; [canReplay] gates whether a *second* attempt is permitted at
-  /// all (empty GET/HEAD only — a body must never be re-sent after a failed
-  /// first attempt). The ladder:
-  ///
-  /// 1. Direct route — always attempted unless route memory says the host
-  ///    skips it (inside the wall the direct attempt costs a timeout every
-  ///    single request).
-  /// 2. On an eligible transport failure, the destination group's tier
-  ///    order applies:
-  ///    - API / OAuth / accounts / www (Cloudflare):
-  ///      `ech → dohRealSni`
-  ///    - images / downloads (*.pximg.net origin):
-  ///      `dohRealSni → noSni`
-  ///    - `insecureNoSni` is appended ONLY when the user explicitly
-  ///      enabled it (`insecureNoSniEnabled`); it is never automatic.
-  ///
-  /// Each tier resolves its own address via [resolve] (DoH) unless the
-  /// route memory already knows a working tier for the host; memory is
-  /// keyed by host and remembers the tier (not just an IP), so the next
-  /// request starts at the remembered tier.
-  ///
-  /// Failures are classified and recorded in diagnostics; a non-eligible
-  /// failure (certificate mismatch, auth, cancellation, HTTP…) aborts the
-  /// ladder immediately and rethrows.
+  /// The optional no-[probe] form is retained for small legacy/test callers;
+  /// production code must pass a side-effect-free probe callback.
   Future<T> runLadder<T>({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
     required bool canReplay,
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+    NetworkRouteProbe? probe,
   }) async {
     _checkUsable();
-    final host = destination.canonicalHost;
-    final now = DateTime.now();
+    if (probe != null) {
+      return _runPreflightLadder<T>(
+        destination: destination,
+        cancelSignal: cancelSignal,
+        canReplay: canReplay,
+        attempt: attempt,
+        probe: probe,
+      );
+    }
+    return _runLegacyLadder<T>(
+      destination: destination,
+      cancelSignal: cancelSignal,
+      canReplay: canReplay,
+      attempt: attempt,
+    );
+  }
 
-    // Start at the remembered tier (if fresh); otherwise direct.
-    final memory = _routeMemory[host];
-    var firstRoute = NetworkRoute.direct(_revision);
-    if (memory != null && memory.isFresh(now)) {
-      firstRoute = memory.routeFor(_revision);
+  /// Selects a route with an independent probe, then sends the business
+  /// request exactly once on that route.  The attempted sets live for the
+  /// whole operation, including the one allowed idempotent re-selection, so
+  /// a failed remembered ECH route cannot be tried again in the same turn.
+  Future<T> _runPreflightLadder<T>({
+    required PixivDestination destination,
+    required NetworkCancelSignal? cancelSignal,
+    required bool canReplay,
+    required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+    required NetworkRouteProbe probe,
+  }) async {
+    final host = destination.canonicalHost;
+    final attemptedKeys = <String>{};
+    final attemptedKinds = <NetworkRouteKind>{};
+    NetworkRoute route;
+    try {
+      route = await _selectRoute(
+        destination: destination,
+        cancelSignal: cancelSignal,
+        probe: probe,
+        attemptedKeys: attemptedKeys,
+        attemptedKinds: attemptedKinds,
+      );
+    } on Object catch (error, stackTrace) {
+      Error.throwWithStackTrace(error, stackTrace);
     }
 
-    final firstTimer = Stopwatch()..start();
+    final businessTimer = Stopwatch()..start();
     try {
-      final result = await attempt(firstRoute, destination.uri);
-      // A success clears stale memory (e.g. the user moved to an open
-      // network).
-      _routeMemory.remove(host);
-      return result;
+      return await _sendOnRoute(destination, route, attempt, cancelSignal);
     } on Object catch (error, stackTrace) {
-      policyRecord(destination, firstRoute, error, firstTimer.elapsed);
+      policyRecord(destination, route, error, businessTimer.elapsed);
+      final eligible = TransportFailureClassifier.isFallbackEligible(error);
+      if (eligible) _invalidateRouteMemory(host, route);
       if (_mode == NetworkMode.directOnly ||
           (cancelSignal?.isCancelled ?? false) ||
           !canReplay ||
-          !TransportFailureClassifier.isFallbackEligible(error)) {
+          !eligible) {
         Error.throwWithStackTrace(error, stackTrace);
       }
 
-      // Determine the ordered fallback tiers for this destination.
-      final tiers = _fallbackTiersFor(destination.purpose);
+      // One and only one idempotent reselection.  The failed route's kind is
+      // already in [attemptedKinds], so the candidate loop cannot repeat it.
+      final retryRoute = await _selectRoute(
+        destination: destination,
+        cancelSignal: cancelSignal,
+        probe: probe,
+        attemptedKeys: attemptedKeys,
+        attemptedKinds: attemptedKinds,
+        useMemory: false,
+      );
+      final retryTimer = Stopwatch()..start();
+      try {
+        return await _sendOnRoute(
+          destination,
+          retryRoute,
+          attempt,
+          cancelSignal,
+        );
+      } on Object catch (retryError, retryStack) {
+        policyRecord(destination, retryRoute, retryError, retryTimer.elapsed);
+        if (TransportFailureClassifier.isFallbackEligible(retryError)) {
+          _invalidateRouteMemory(host, retryRoute);
+        }
+        Error.throwWithStackTrace(retryError, retryStack);
+      }
+    }
+  }
+
+  /// Finds the first candidate whose independent probe succeeds.
+  Future<NetworkRoute> _selectRoute({
+    required PixivDestination destination,
+    required NetworkCancelSignal? cancelSignal,
+    required NetworkRouteProbe probe,
+    required Set<String> attemptedKeys,
+    required Set<NetworkRouteKind> attemptedKinds,
+    bool useMemory = true,
+  }) async {
+    final host = destination.canonicalHost;
+    final now = clock();
+    final memory = _routeMemory[host];
+    if (memory != null && !memory.isUsable(now, _revision.networkIdentity)) {
+      _routeMemory.remove(host);
+    }
+
+    // Explicit direct-only mode is a route decision, not a reason to probe
+    // and then issue a second direct request.
+    if (_mode == NetworkMode.directOnly) {
+      final direct = NetworkRoute.direct(_revision);
+      attemptedKinds.add(direct.kind);
+      attemptedKeys.add(direct.key);
+      _rememberRoute(host, direct);
+      return direct;
+    }
+
+    if (useMemory) {
+      final remembered = _routeMemory[host];
+      if (remembered != null &&
+          remembered.isUsable(now, _revision.networkIdentity)) {
+        final route = remembered.routeFor(_revision);
+        if (!attemptedKinds.contains(route.kind) &&
+            attemptedKeys.add(route.key)) {
+          attemptedKinds.add(route.kind);
+          return route;
+        }
+      }
+    }
+
+    Object? lastError;
+    StackTrace? lastStack;
+    ResolvedHost? pendingResolved;
+    Future<ResolvedHost> resolveOnce() async => pendingResolved ??=
+        await resolve(destination, cancelSignal: cancelSignal);
+
+    final kinds = <NetworkRouteKind>[
+      NetworkRouteKind.direct,
+      ..._fallbackTiersFor(destination.purpose),
+    ];
+    for (final kind in kinds) {
+      if (attemptedKinds.contains(kind)) continue;
+      NetworkRoute? route;
+      try {
+        route = kind == NetworkRouteKind.direct
+            ? NetworkRoute.direct(_revision)
+            : await _routeForTier(
+                kind,
+                destination,
+                resolveHost: resolveOnce,
+                cancelSignal: cancelSignal,
+              );
+      } on Object catch (error, stackTrace) {
+        lastError = error;
+        lastStack = stackTrace;
+        if (_isCancellation(error, cancelSignal)) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+        continue;
+      }
+      if (route == null) continue;
+      if (!attemptedKeys.add(route.key)) {
+        attemptedKinds.add(kind);
+        continue;
+      }
+      attemptedKinds.add(kind);
+
+      final timer = Stopwatch()..start();
+      try {
+        if (cancelSignal?.isCancelled ?? false) {
+          throw const NetworkFailureException(NetworkFailureKind.cancelled);
+        }
+        await probe(route, _probeUri(destination.uri));
+        _rememberRoute(host, route);
+        return route;
+      } on Object catch (error, stackTrace) {
+        policyRecord(destination, route, error, timer.elapsed);
+        lastError = error;
+        lastStack = stackTrace;
+        if (_isCancellation(error, cancelSignal) ||
+            !TransportFailureClassifier.isFallbackEligible(error)) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+      }
+    }
+    if (lastError != null) {
+      Error.throwWithStackTrace(lastError, lastStack ?? StackTrace.current);
+    }
+    throw const NetworkFailureException(NetworkFailureKind.connect);
+  }
+
+  Future<T> _sendOnRoute<T>(
+    PixivDestination destination,
+    NetworkRoute route,
+    FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+    NetworkCancelSignal? cancelSignal,
+  ) async {
+    if (cancelSignal?.isCancelled ?? false) {
+      throw const NetworkFailureException(NetworkFailureKind.cancelled);
+    }
+    final result = await attempt(route, destination.uri);
+    // Refresh (rather than delete) a remembered route on every successful
+    // business request.  A successful direct route is the one case that
+    // intentionally replaces an older strict preference.
+    _rememberRoute(destination.canonicalHost, route);
+    return result;
+  }
+
+  Uri _probeUri(Uri original) => original.replace(
+    path: '/v1/illust/prime',
+    queryParameters: const <String, String>{},
+    fragment: null,
+  );
+
+  void _rememberRoute(String host, NetworkRoute route) {
+    final address = route.address;
+    if (route.kind != NetworkRouteKind.direct && address == null) {
+      // A strict route without a connect address is not usable and must never
+      // become a remembered preference.
+      return;
+    }
+    _routeMemory[host] = _HostRouteMemory(
+      address,
+      kind: route.kind,
+      dnsSource: route.dnsSource,
+      ttl: route.ttl ?? _kRouteMemoryTtl,
+      createdAt: clock(),
+      networkIdentity: _revision.networkIdentity,
+      echConfig: route.echConfig == null
+          ? null
+          : List<int>.unmodifiable(route.echConfig!),
+    );
+    _trimRouteMemory();
+  }
+
+  void _invalidateRouteMemory(String host, NetworkRoute route) {
+    final memory = _routeMemory[host];
+    if (memory == null) return;
+    if (memory.kind != route.kind ||
+        memory.networkIdentity != _revision.networkIdentity) {
+      return;
+    }
+    final remembered = memory.routeFor(_revision);
+    if (remembered.key == route.key) {
+      _routeMemory.remove(host);
+    }
+  }
+
+  bool _isCancellation(Object error, NetworkCancelSignal? signal) =>
+      signal?.isCancelled == true ||
+      TransportFailureClassifier.classify(error).kind ==
+          NetworkFailureKind.cancelled;
+
+  /// Compatibility path for callers that have not supplied a separate
+  /// probe. It retains the old replay contract but still deduplicates tiers
+  /// and keeps successful route memory intact. Production clients never use
+  /// this branch.
+  Future<T> _runLegacyLadder<T>({
+    required PixivDestination destination,
+    required NetworkCancelSignal? cancelSignal,
+    required bool canReplay,
+    required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+  }) async {
+    final host = destination.canonicalHost;
+    final memory = _routeMemory[host];
+    final firstRoute =
+        memory != null && memory.isUsable(clock(), _revision.networkIdentity)
+        ? memory.routeFor(_revision)
+        : NetworkRoute.direct(_revision);
+    final attemptedKinds = <NetworkRouteKind>{firstRoute.kind};
+    final firstTimer = Stopwatch()..start();
+    try {
+      final result = await attempt(firstRoute, destination.uri);
+      _rememberRoute(host, firstRoute);
+      return result;
+    } on Object catch (error, stackTrace) {
+      policyRecord(destination, firstRoute, error, firstTimer.elapsed);
+      final eligible = TransportFailureClassifier.isFallbackEligible(error);
+      if (eligible) _invalidateRouteMemory(host, firstRoute);
+      if (_mode == NetworkMode.directOnly ||
+          (cancelSignal?.isCancelled ?? false) ||
+          !canReplay ||
+          !eligible) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+      ResolvedHost? pendingResolved;
+      Future<ResolvedHost> resolveOnce() async => pendingResolved ??=
+          await resolve(destination, cancelSignal: cancelSignal);
       Object lastError = error;
       StackTrace lastStack = stackTrace;
-
-      // The destination resolve is lazy and memoised: only tiers that
-      // actually need the destination host's address pay for it. The ECH
-      // tier does not — it connects to the ECH front's anycast address —
-      // so a slow or failing DoH lookup must not take it down with it.
-      ResolvedHost? pendingResolved;
-      Future<ResolvedHost> resolveOnce() async =>
-          pendingResolved ??= await resolve(
-            destination,
-            cancelSignal: cancelSignal,
-          );
-
-      for (final kind in tiers) {
-        final NetworkRoute? route;
+      for (final kind in _fallbackTiersFor(destination.purpose)) {
+        if (attemptedKinds.contains(kind)) continue;
+        attemptedKinds.add(kind);
+        final route = await _routeForTier(
+          kind,
+          destination,
+          resolveHost: resolveOnce,
+          cancelSignal: cancelSignal,
+        );
+        if (route == null) continue;
         try {
-          route = await _routeForTier(
-            kind,
-            destination,
-            resolveHost: resolveOnce,
-            cancelSignal: cancelSignal,
-          );
-        } on Object catch (routeError, routeStack) {
-          // Building this tier failed (DoH down, ECH config unavailable…).
-          // That makes this one tier unusable, not the whole ladder: the
-          // remaining tiers may not depend on the same input. Cancellation
-          // is the exception — it aborts everything.
-          lastError = routeError;
-          lastStack = routeStack;
-          if (routeError is NetworkFailureException &&
-              routeError.kind == NetworkFailureKind.cancelled) {
-            Error.throwWithStackTrace(routeError, routeStack);
-          }
-          continue;
-        }
-        if (route == null) {
-          // Tier unavailable (e.g. ECH config could not be fetched): skip
-          // it and continue with the next tier.
-          continue;
-        }
-        final candidateTimer = Stopwatch()..start();
-        try {
-          if (cancelSignal?.isCancelled ?? false) {
-            throw const NetworkFailureException(NetworkFailureKind.cancelled);
-          }
           final result = await attempt(route, destination.uri);
-          _routeMemory[host] = _HostRouteMemory(
-            route.address!,
-            kind: route.kind,
-            dnsSource: route.dnsSource,
-            ttl: route.ttl ?? _kRouteMemoryTtl,
-            createdAt: DateTime.now(),
-            echConfig: route.echConfig,
-          );
-          _trimRouteMemory();
+          _rememberRoute(host, route);
           return result;
         } on Object catch (candidateError, candidateStack) {
-          policyRecord(
-            destination,
-            route,
-            candidateError,
-            candidateTimer.elapsed,
-          );
+          policyRecord(destination, route, candidateError, const Duration());
           lastError = candidateError;
           lastStack = candidateStack;
+          if (TransportFailureClassifier.isFallbackEligible(candidateError)) {
+            _invalidateRouteMemory(host, route);
+          }
           if (!TransportFailureClassifier.isFallbackEligible(candidateError)) {
             break;
           }
@@ -377,10 +579,10 @@ class NetworkAccessPolicy {
         // took ECH down with it, which is exactly what kept the tier from
         // ever running on a mainland device.
         final ech = await _lookupEchConfig(cancelSignal: cancelSignal);
-        if (ech == null) return null;
-        final frontAddress = ech.frontAddresses.isNotEmpty
-            ? ech.frontAddresses.first
-            : await _resolveFrontHost(cancelSignal: cancelSignal);
+        if (ech == null || ech.echConfig.isEmpty) return null;
+        final frontAddress =
+            ech.frontAddresses.where(isPublicNetworkAddress).firstOrNull ??
+            await _resolveFrontHost(cancelSignal: cancelSignal);
         if (frontAddress == null) return null;
         return NetworkRoute.ech(
           _revision,
@@ -427,16 +629,20 @@ class NetworkAccessPolicy {
     required NetworkCancelSignal? cancelSignal,
   }) async {
     final resolver = _resolver;
-    if (resolver is! DohResolver) {
+    if (resolver is! EchConfigResolver) {
       return null;
     }
+    final echResolver = resolver as EchConfigResolver;
     try {
-      return await resolver.lookupEchConfig(
+      return await echResolver.lookupEchConfig(
         echFrontHost,
         revision: _revision,
         cancelSignal: cancelSignal,
       );
-    } on Object {
+    } on Object catch (error, stackTrace) {
+      if (_isCancellation(error, cancelSignal)) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
       return null;
     }
   }
@@ -449,15 +655,23 @@ class NetworkAccessPolicy {
     required NetworkCancelSignal? cancelSignal,
   }) async {
     final resolver = _resolver;
-    if (resolver is! DohResolver) return null;
+    if (resolver is! EchConfigResolver) return null;
     try {
-      final resolved = await resolver.resolve(
+      final resolved = await _resolver.resolve(
         echFrontHost,
         revision: _revision,
         cancelSignal: cancelSignal,
       );
-      return resolved.addresses.isEmpty ? null : resolved.addresses.first;
-    } on Object {
+      if (resolved.host != echFrontHost ||
+          resolved.revision.value != _revision.value ||
+          resolved.revision.networkIdentity != _revision.networkIdentity) {
+        return null;
+      }
+      return resolved.addresses.where(isPublicNetworkAddress).firstOrNull;
+    } on Object catch (error, stackTrace) {
+      if (_isCancellation(error, cancelSignal)) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
       return null;
     }
   }
@@ -528,7 +742,9 @@ class NetworkAccessPolicy {
     if (_routeMemory.length <= _maxRouteMemoryEntries) return;
     final oldest = _routeMemory.entries.toList()
       ..sort((a, b) => a.value.createdAt.compareTo(b.value.createdAt));
-    for (final entry in oldest.take(_routeMemory.length - _maxRouteMemoryEntries)) {
+    for (final entry in oldest.take(
+      _routeMemory.length - _maxRouteMemoryEntries,
+    )) {
       _routeMemory.remove(entry.key);
     }
   }
@@ -560,17 +776,23 @@ class _HostRouteMemory {
     required this.dnsSource,
     required this.ttl,
     required this.createdAt,
+    required this.networkIdentity,
     this.echConfig,
   });
 
-  final InternetAddress address;
+  final InternetAddress? address;
   final NetworkRouteKind kind;
   final DnsSource dnsSource;
   final Duration ttl;
   final DateTime createdAt;
+  final String networkIdentity;
   final List<int>? echConfig;
 
-  bool isFresh(DateTime now) => now.difference(createdAt) < _kRouteMemoryTtl;
+  bool isFresh(DateTime now) =>
+      !now.isBefore(createdAt) && now.difference(createdAt) < ttl;
+
+  bool isUsable(DateTime now, String currentNetworkIdentity) =>
+      networkIdentity == currentNetworkIdentity && isFresh(now);
 
   /// Rebuilds the route at the [revision] seen by [NetworkRoute.kind].
   NetworkRoute routeFor(NetworkRevision revision) => NetworkRoute.remembered(
@@ -585,11 +807,10 @@ class _HostRouteMemory {
 
 const _kRouteMemoryTtl = Duration(minutes: 10);
 
-/// A policy-aware `package:http` client. The direct route is always tried
-/// first (unless route memory says strict-only). A second route is
-/// considered only for an empty GET/HEAD and an eligible transport failure;
-/// HTTP, auth, cancellation, parse and TLS certificate failures are
-/// terminal and never replayed.
+/// A policy-aware `package:http` client. It performs an independent,
+/// credential-free route probe before every first-use business request, then
+/// sends that request once through the selected transport. Only an empty
+/// GET/HEAD may be freshly cloned for one post-selection retry.
 class PixivPolicyHttpClient extends http.BaseClient {
   PixivPolicyHttpClient({required this.policy, required this.purpose});
 
@@ -600,18 +821,23 @@ class PixivPolicyHttpClient extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final destination = policy.registry.require(request.url, purpose);
     request.followRedirects = false;
-    final replay = _safeReplay(request);
+    final replayFactory = _safeReplayFactory(request);
     final cancelSignal = _RequestCancelSignal.from(request);
     return policy.runLadder<http.StreamedResponse>(
       destination: destination,
       cancelSignal: cancelSignal,
-      canReplay: replay != null,
+      canReplay: replayFactory != null,
+      probe: (route, probeUri) =>
+          _probeRoute(route, probeUri, destination, cancelSignal),
       attempt: (route, url) async {
+        // A clone is created for each idempotent attempt.  package:http
+        // requests are single-use after finalize(), so reusing one object
+        // would turn the allowed retry into a local "already finalized"
+        // failure.
+        final outbound = replayFactory?.call() ?? request;
         final response = await policy
             .clientFor(purpose, route, destination.canonicalHost)
-            .send(
-              replay ?? request,
-            );
+            .send(outbound);
         if (response.statusCode >= 300 && response.statusCode < 400) {
           await response.stream.drain<void>();
           throw NetworkRedirectException(response.statusCode);
@@ -621,26 +847,82 @@ class PixivPolicyHttpClient extends http.BaseClient {
     );
   }
 
-  static http.Request? _safeReplay(http.BaseRequest request) {
+  Future<void> _probeRoute(
+    NetworkRoute route,
+    Uri probeUri,
+    PixivDestination destination,
+    NetworkCancelSignal? cancelSignal,
+  ) async {
+    if (cancelSignal?.isCancelled ?? false) {
+      throw const NetworkFailureException(NetworkFailureKind.cancelled);
+    }
+    final request =
+        http.AbortableRequest(
+            'HEAD',
+            probeUri,
+            abortTrigger: cancelSignal?.whenCancel,
+          )
+          ..followRedirects = false
+          // Explicitly avoid carrying Authorization/Cookie/body from the
+          // business request into route discovery.
+          ..headers['cache-control'] = 'no-cache';
+    final response = await _raceWithCancellation(
+      policy.clientFor(purpose, route, destination.canonicalHost).send(request),
+      cancelSignal,
+    );
+    try {
+      await _raceWithCancellation(response.stream.drain<void>(), cancelSignal);
+    } catch (_) {
+      // A stream error is a probe transport failure and must reach the route
+      // classifier unchanged.
+      rethrow;
+    }
+    if (response.statusCode == 421) {
+      throw const NetworkRouteProbeException(421);
+    }
+  }
+
+  static http.BaseRequest Function()? _safeReplayFactory(
+    http.BaseRequest request,
+  ) {
     if (request is! http.Request) return null;
     final method = request.method.toUpperCase();
     if ((method != 'GET' && method != 'HEAD') || request.bodyBytes.isNotEmpty) {
       return null;
     }
-    final abortTrigger = request is http.AbortableRequest
-        ? request.abortTrigger
-        : null;
-    return http.AbortableRequest(
-        request.method,
-        request.url,
-        abortTrigger: abortTrigger,
-      )
-      ..headers.addAll(request.headers)
-      ..followRedirects = false
-      ..maxRedirects = request.maxRedirects
-      ..persistentConnection = request.persistentConnection
-      ..bodyBytes = request.bodyBytes;
+    final headers = Map<String, String>.from(request.headers);
+    final body = List<int>.from(request.bodyBytes);
+    return () {
+      final abortTrigger = request is http.AbortableRequest
+          ? request.abortTrigger
+          : null;
+      final clone =
+          http.AbortableRequest(
+              request.method,
+              request.url,
+              abortTrigger: abortTrigger,
+            )
+            ..headers.addAll(headers)
+            ..followRedirects = false
+            ..maxRedirects = request.maxRedirects
+            ..persistentConnection = request.persistentConnection
+            ..bodyBytes = body;
+      return clone;
+    };
   }
+}
+
+Future<T> _raceWithCancellation<T>(
+  Future<T> operation,
+  NetworkCancelSignal? cancelSignal,
+) {
+  if (cancelSignal == null) return operation;
+  return Future.any<T>([
+    operation,
+    cancelSignal.whenCancel.then<T>(
+      (_) => throw const NetworkFailureException(NetworkFailureKind.cancelled),
+    ),
+  ]);
 }
 
 class _RequestCancelSignal implements NetworkCancelSignal {

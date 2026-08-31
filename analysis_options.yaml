@@ -18,6 +18,10 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # The vendored rhttp package owns this test tree and its mocktail/codegen
+    # dependencies. Analyze it from plugins/rhttp/rhttp as a package; the app
+    # analyzer must not treat those package-private tests as app sources.
+    - plugins/rhttp/rhttp/test/**
 
 linter:
   # The lint rules applied to this project can be customized in the

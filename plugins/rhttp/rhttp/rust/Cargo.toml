@@ -37,7 +37,6 @@ features = [
     "cookies",
     "form",
     "http2",
-    "http3",
     "query",
     "rustls",
     "stream",

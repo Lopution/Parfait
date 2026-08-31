@@ -55,13 +55,11 @@ abstract final class NetworkProbe {
       Uri uri,
       InternetAddress address,
       Object? echConfig,
-    )? echRequest,
-    Future<void> Function(InternetAddress address, int port)?
-    noSniHandshake,
-    Future<HttpProbeResponse> Function(
-      Uri uri,
-      InternetAddress address,
-    )? httpNoSniRequest,
+    )?
+    echRequest,
+    Future<void> Function(InternetAddress address, int port)? noSniHandshake,
+    Future<HttpProbeResponse> Function(Uri uri, InternetAddress address)?
+    httpNoSniRequest,
     Duration timeoutPerLayer = const Duration(seconds: 6),
   }) {
     final destination = registry.require(
@@ -93,7 +91,11 @@ abstract final class NetworkProbe {
     required Future<List<InternetAddress>> Function(String host) systemLookup,
     required Future<void> Function(InternetAddress address, int port)
     tcpConnect,
-    required Future<void> Function(InternetAddress address, int port, String host)
+    required Future<void> Function(
+      InternetAddress address,
+      int port,
+      String host,
+    )
     tlsHandshake,
     required Future<HttpProbeResponse> Function(Uri uri) minimalRequest,
     required Future<Object?> Function()? echConfigLookup,
@@ -101,13 +103,15 @@ abstract final class NetworkProbe {
       Uri uri,
       InternetAddress address,
       Object? echConfig,
-    )? echRequest,
+    )?
+    echRequest,
     required Future<void> Function(InternetAddress address, int port)?
     noSniHandshake,
     required Future<HttpProbeResponse> Function(
       Uri uri,
       InternetAddress address,
-    )? httpNoSniRequest,
+    )?
+    httpNoSniRequest,
     required Duration timeoutPerLayer,
   }) async {
     final host = destination.canonicalHost;
@@ -124,7 +128,7 @@ abstract final class NetworkProbe {
       }
       return _ProbeValue(
         '${safe.length} public address(es): '
-            '${safe.map((a) => a.address).join(', ')}',
+        '${safe.map((a) => a.address).join(', ')}',
         addresses: safe,
       );
     });
@@ -147,8 +151,8 @@ abstract final class NetworkProbe {
       }
       return _ProbeValue(
         '${safe.length} public address(es): '
-            '${safe.map((a) => a.address).join(', ')} '
-            '(source ${resolved.dnsSource.name})',
+        '${safe.map((a) => a.address).join(', ')} '
+        '(source ${resolved.dnsSource.name})',
         addresses: safe,
       );
     });
@@ -158,7 +162,8 @@ abstract final class NetworkProbe {
 
     final systemAddresses = _addressesOf(systemDns);
     final dohAddresses = _addressesOf(doh);
-    final dnsDisagrees = systemAddresses != null &&
+    final dnsDisagrees =
+        systemAddresses != null &&
         dohAddresses != null &&
         !_sameAddressSets(systemAddresses, dohAddresses);
 
@@ -227,11 +232,12 @@ abstract final class NetworkProbe {
         // polluted on mainland networks and its TCP pre-check would time
         // out even though ECH works. Use the front address when the lookup
         // carried one.
-        final Object? frontAddress = configResult.frontAddresses.isNotEmpty
-            ? configResult.frontAddresses.first
-            : null;
-        final tcpPeer =
-            frontAddress is InternetAddress ? frontAddress : tcpTarget;
+        final Object? frontAddress = configResult.frontAddresses
+            .where(isPublicNetworkAddress)
+            .firstOrNull;
+        final tcpPeer = frontAddress is InternetAddress
+            ? frontAddress
+            : tcpTarget;
         if (tcpPeer == null) {
           throw const NetworkProbeLayerException('no candidate address');
         }
@@ -248,8 +254,11 @@ abstract final class NetworkProbe {
           );
         }
         final uri = Uri.parse('https://$host$probePath');
-        final response = await transport(uri, tcpPeer, configResult)
-            .timeout(timeoutPerLayer);
+        final response = await transport(
+          uri,
+          tcpPeer,
+          configResult,
+        ).timeout(timeoutPerLayer);
         // [configBytes] is validated above (type + non-empty) so the layer
         // never measures an empty or malformed config.
         return 'ECH config available (${configBytes.length}B); '
@@ -268,8 +277,10 @@ abstract final class NetworkProbe {
         }
         final uri = Uri.parse('https://$host$probePath');
         if (httpNoSniRequest != null) {
-          final response =
-              await httpNoSniRequest(uri, tcpTarget).timeout(timeoutPerLayer);
+          final response = await httpNoSniRequest(
+            uri,
+            tcpTarget,
+          ).timeout(timeoutPerLayer);
           if (response.statusCode == 421) {
             throw const NetworkProbeLayerException(
               'HTTP 421: link ok but certificate/Host mismatch',
@@ -335,8 +346,8 @@ abstract final class NetworkProbe {
     if (dnsDisagrees) {
       return NetworkProbeConclusion.dnsPolluted;
     }
-    final hadCandidate = (systemDnsOk && systemDnsAddresses) ||
-        (dohOk && dohAddresses);
+    final hadCandidate =
+        (systemDnsOk && systemDnsAddresses) || (dohOk && dohAddresses);
     if (tcp != null && !tcp.ok) {
       // IP blackholing is only concluded when some DNS source produced a
       // candidate; with none, the result is inconclusive (nothing to test).

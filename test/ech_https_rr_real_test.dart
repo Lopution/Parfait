@@ -38,15 +38,15 @@ void main() {
     // key 1 (alpn h3,h2), key 4 (ipv4hint), key 5 (ech), key 6 (ipv6hint).
     final params = parseHttpsSvcParams(answer.rdata!);
     expect(params.map((p) => p.key), containsAll([1, 4, 5, 6]));
-    expect(
-      params.firstWhere((p) => p.key == 5).value,
-      equals(config),
-    );
+    expect(params.firstWhere((p) => p.key == 5).value, equals(config));
 
     // ipv4hint (key 4) carries the ECH front's anycast connect IPs — the
     // clean target that bypasses polluted answers for the target host.
     final hints = ipv4HintFromHttpsRdata(answer.rdata!);
-    expect(hints.map((a) => a.address), containsAll(['104.18.10.118', '104.18.11.118']));
+    expect(
+      hints.map((a) => a.address),
+      containsAll(['104.18.10.118', '104.18.11.118']),
+    );
   });
 }
 
