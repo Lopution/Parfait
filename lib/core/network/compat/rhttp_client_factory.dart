@@ -94,10 +94,16 @@ abstract final class RhttpClientFactory {
     final dns = address == null
         ? const rhttp.DnsSettings.static()
         : rhttp.DnsSettings.static(
-            overrides: {destinationHost: [address.address]},
+            overrides: {
+              destinationHost: [address.address],
+            },
           );
     return rhttp.ClientSettings(
-      httpVersionPref: rhttp.HttpVersionPref.http2, // h2 ALPN, no http3
+      // Let rustls/reqwest negotiate HTTP/2 or HTTP/1.1 via ALPN.  Forcing
+      // `prior_knowledge` HTTP/2 breaks perfectly valid Pixiv edges that do
+      // not advertise h2; HTTP/3 remains disabled because `all` in this
+      // fork means the TLS ALPN pair only.
+      httpVersionPref: rhttp.HttpVersionPref.all,
       redirectSettings: const rhttp.RedirectSettings.none(),
       timeoutSettings: timeoutsFor(route, purpose: purpose),
       tlsSettings: tls,
@@ -129,8 +135,12 @@ abstract final class RhttpClientFactory {
       purpose == PixivDestinationPurpose.image;
 
   static void _checkRoute(NetworkRoute route) {
-    if (route.kind == NetworkRouteKind.ech && route.echConfig == null) {
-      throw ArgumentError('ECH route without echConfig');
+    if (route.kind == NetworkRouteKind.ech &&
+        (route.echConfig == null || route.echConfig!.isEmpty)) {
+      throw ArgumentError('ECH route without usable echConfig');
+    }
+    if (route.kind != NetworkRouteKind.direct && route.address == null) {
+      throw ArgumentError('strict route must carry a connect address');
     }
     if (route.kind == NetworkRouteKind.direct && route.address != null) {
       throw ArgumentError('direct route must not carry an address');

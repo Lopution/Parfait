@@ -546,6 +546,10 @@ consumers.
 - Policy tests cover direct-first selection, eligible-only fallback,
   original-host requests, no POST replay, pool invalidation and
   diagnostics redaction.
+- Protocol parser tests use repository-owned deterministic bytes (or a
+  checked-in fixture builder) and run without ambient files or network I/O.
+  A live capture may document provenance in task research, but tests must not
+  read `/tmp`, a home-directory capture, or another machine-local path.
 - Factory tests prove API, OAuth, image cache and downloads share the policy;
   source audits prove translation, updater and reverse-image paths do not enter
   the Pixiv compatibility connector.

@@ -19,6 +19,11 @@ void main() {
       expect(tls.sni, isTrue);
       expect(tls.verifyCertificates, isTrue);
       expect(tls.echConfigList, isNull);
+      expect(
+        settings.httpVersionPref,
+        rhttp.HttpVersionPref.all,
+        reason: 'use ALPN negotiation; do not force h2 prior knowledge',
+      );
       final dns = settings.dnsSettings!;
       expect(dns, isA<rhttp.DnsSettings>());
     });
@@ -43,10 +48,7 @@ void main() {
       // class, which is asserted by the factory code path itself (create
       // never uses dynamic resolver).
       expect(settings.dnsSettings, isA<rhttp.DnsSettings>());
-      expect(
-        settings.tlsSettings!.echConfigList,
-        [0xfe, 0x0d, 1, 2, 3],
-      );
+      expect(settings.tlsSettings!.echConfigList, [0xfe, 0x0d, 1, 2, 3]);
     });
 
     test('dohRealSni route: DoH address + real SNI + no ECH', () {
@@ -147,11 +149,10 @@ void main() {
       for (final route in [
         NetworkRoute.direct(_revision),
         NetworkRoute.secureDns(_revision, InternetAddress('104.18.42.239')),
-        NetworkRoute.ech(
-          _revision,
-          InternetAddress('104.18.10.118'),
-          [0xfe, 0x0d],
-        ),
+        NetworkRoute.ech(_revision, InternetAddress('104.18.10.118'), [
+          0xfe,
+          0x0d,
+        ]),
         NetworkRoute.noSni(_revision, InternetAddress('210.140.139.129')),
         NetworkRoute.insecureNoSni(
           _revision,
@@ -176,11 +177,10 @@ void main() {
         purpose: PixivDestinationPurpose.appApi,
       );
       final ech = RhttpClientFactory.timeoutsFor(
-        NetworkRoute.ech(
-          _revision,
-          InternetAddress('104.18.10.118'),
-          [0xfe, 0x0d],
-        ),
+        NetworkRoute.ech(_revision, InternetAddress('104.18.10.118'), [
+          0xfe,
+          0x0d,
+        ]),
         purpose: PixivDestinationPurpose.appApi,
       );
       expect(direct.connectTimeout!, lessThan(ech.connectTimeout!));
@@ -193,10 +193,7 @@ void main() {
       // before reaching the tier that works.
       final direct = RhttpClientFactory.directRequestTimeout;
       final fallback = RhttpClientFactory.fallbackRequestTimeout;
-      expect(
-        direct + fallback * 2,
-        lessThan(const Duration(seconds: 20)),
-      );
+      expect(direct + fallback * 2, lessThan(const Duration(seconds: 20)));
     });
 
     test('streaming exits carry no total timeout', () {

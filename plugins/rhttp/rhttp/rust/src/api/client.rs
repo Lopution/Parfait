@@ -291,7 +291,15 @@ fn create_client(settings: ClientSettings) -> Result<RequestClient, RhttpError> 
         client = match settings.http_version_pref {
             HttpVersionPref::Http10 | HttpVersionPref::Http11 => client.http1_only(),
             HttpVersionPref::Http2 => client.http2_prior_knowledge(),
-            HttpVersionPref::Http3 => client.http3_prior_knowledge(),
+            // HTTP/3 is intentionally not compiled in this fork. Keep the
+            // public enum variant for API compatibility, but fail visibly if
+            // a caller requests an unsupported transport instead of silently
+            // sending HTTP/2 or HTTP/1.1.
+            HttpVersionPref::Http3 => {
+                return Err(RhttpError::RhttpUnknownError(
+                    "HTTP/3 is not enabled in this build".to_string(),
+                ));
+            }
             HttpVersionPref::All => client,
         };
 

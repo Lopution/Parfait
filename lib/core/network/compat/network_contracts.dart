@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:rhttp/rhttp.dart' as rhttp;
 
 import '../api_error.dart';
 
@@ -143,8 +144,8 @@ class NetworkRoute {
     this.address,
     this.dnsSource = DnsSource.none,
     this.ttl,
-    this.echConfig,
-  });
+    List<int>? echConfig,
+  }) : echConfig = echConfig == null ? null : List<int>.unmodifiable(echConfig);
 
   factory NetworkRoute.direct(NetworkRevision revision) =>
       NetworkRoute._(kind: NetworkRouteKind.direct, revision: revision);
@@ -169,14 +170,20 @@ class NetworkRoute {
     List<int> echConfig, {
     DnsSource dnsSource = DnsSource.doh,
     Duration? ttl,
-  }) => NetworkRoute._(
-    kind: NetworkRouteKind.ech,
-    revision: revision,
-    address: address,
-    dnsSource: dnsSource,
-    ttl: ttl,
-    echConfig: echConfig,
-  );
+  }) {
+    if (echConfig.isEmpty ||
+        echConfig.any((value) => value < 0 || value > 255)) {
+      throw ArgumentError.value(echConfig, 'echConfig', 'must contain bytes');
+    }
+    return NetworkRoute._(
+      kind: NetworkRouteKind.ech,
+      revision: revision,
+      address: address,
+      dnsSource: dnsSource,
+      ttl: ttl,
+      echConfig: echConfig,
+    );
+  }
 
   /// No-SNI tier for origin hosts (empty SNI + full verification).
   factory NetworkRoute.noSni(
@@ -211,18 +218,26 @@ class NetworkRoute {
   factory NetworkRoute.remembered(
     NetworkRevision revision,
     NetworkRouteKind kind,
-    InternetAddress address, {
+    InternetAddress? address, {
     DnsSource dnsSource = DnsSource.doh,
     Duration? ttl,
     List<int>? echConfig,
-  }) => NetworkRoute._(
-    kind: kind,
-    revision: revision,
-    address: address,
-    dnsSource: dnsSource,
-    ttl: ttl,
-    echConfig: echConfig,
-  );
+  }) {
+    if (kind == NetworkRouteKind.ech &&
+        (echConfig == null ||
+            echConfig.isEmpty ||
+            echConfig.any((value) => value < 0 || value > 255))) {
+      throw ArgumentError.value(echConfig, 'echConfig', 'must contain bytes');
+    }
+    return NetworkRoute._(
+      kind: kind,
+      revision: revision,
+      address: address,
+      dnsSource: dnsSource,
+      ttl: ttl,
+      echConfig: echConfig,
+    );
+  }
 
   final NetworkRouteKind kind;
   final NetworkRevision revision;
@@ -256,7 +271,15 @@ class NetworkRoute {
     ipFamily.name,
     dnsSource.name,
     address?.address ?? '',
-    echConfig?.length ?? -1,
+    // The ECH config is part of the TLS ClientHello.  Length alone is not a
+    // route identity: two rotations can have the same length while carrying
+    // different keys/config ids, and reusing the pooled client would then
+    // send an old config.  This is bounded by the resolver's response cap.
+    echConfig == null
+        ? '-'
+        : echConfig!
+              .map((value) => value.toRadixString(16).padLeft(2, '0'))
+              .join(),
   ].join('|');
 }
 
@@ -290,6 +313,20 @@ class NetworkRedirectException implements Exception {
   String toString() => 'NetworkRedirectException(HTTP $statusCode)';
 }
 
+/// A connectivity probe reached a server but the route cannot be used for
+/// this host (currently HTTP 421 is the important case).  It is deliberately
+/// distinct from a business HTTP response: route selection may try another
+/// transport, while the same status returned by a real API request remains a
+/// normal application-layer response.
+class NetworkRouteProbeException implements Exception {
+  const NetworkRouteProbeException(this.statusCode);
+
+  final int statusCode;
+
+  @override
+  String toString() => 'NetworkRouteProbeException(HTTP $statusCode)';
+}
+
 /// Converts low-level errors into a stable taxonomy. Only the four transport
 /// failures listed by [isFallbackEligible] may try a second strict route.
 abstract final class TransportFailureClassifier {
@@ -316,22 +353,30 @@ abstract final class TransportFailureClassifier {
     if (error is ApiHttpError) {
       return NetworkFailure(NetworkFailureKind.http, cause: error);
     }
+    if (error is NetworkRouteProbeException) {
+      return NetworkFailure(NetworkFailureKind.http, cause: error);
+    }
     if (error is NetworkRedirectException) {
       return NetworkFailure(NetworkFailureKind.redirect, cause: error);
     }
+    // rhttp wraps its Rust error in package:http's ClientException.  Always
+    // unwrap it before looking at the legacy Dart exception hierarchy so a
+    // certificate failure cannot be mistaken for a generic connection error.
+    if (error is rhttp.RhttpWrappedClientException) {
+      return _classifyRhttp(error.rhttpException);
+    }
+    if (error is rhttp.RhttpException) {
+      return _classifyRhttp(error);
+    }
+    if (error is http.RequestAbortedException) {
+      return NetworkFailure(NetworkFailureKind.cancelled, cause: error);
+    }
     if (error is HandshakeException || error is TlsException) {
-      final text = error.toString().toLowerCase();
-      final isCertificate =
-          text.contains('cert') ||
-          text.contains('hostname') ||
-          text.contains('verify') ||
-          text.contains('peer');
-      return NetworkFailure(
-        isCertificate
-            ? NetworkFailureKind.certificateMismatch
-            : NetworkFailureKind.tlsHandshake,
-        cause: error,
-      );
+      // dart:io has no reliable certificate-specific subtype.  A textual
+      // "certificate"/"handshake" guess was unsafe: injected TLS resets
+      // commonly contain those words.  Only rhttp's structured
+      // RhttpInvalidCertificateException is a certificate mismatch.
+      return NetworkFailure(NetworkFailureKind.tlsHandshake, cause: error);
     }
     if (error is SocketException) {
       return NetworkFailure(_classifySocket(error), cause: error);
@@ -343,6 +388,7 @@ abstract final class TransportFailureClassifier {
   }
 
   static bool isFallbackEligible(Object error) {
+    if (error is NetworkRouteProbeException) return true;
     return const {
       NetworkFailureKind.dns,
       NetworkFailureKind.connect,
@@ -359,9 +405,10 @@ abstract final class TransportFailureClassifier {
 
   static NetworkFailureKind _classifySocket(SocketException error) {
     final text = error.toString().toLowerCase();
-    if (text.contains('certificate') || text.contains('handshake')) {
-      return NetworkFailureKind.certificateMismatch;
-    }
+    // Never infer certificate replacement from SocketException text.  A
+    // handshake/reset is a transport failure and may be retried on a strict
+    // route; certificate validation is represented structurally by rhttp.
+    if (text.contains('handshake')) return NetworkFailureKind.tlsHandshake;
     if (text.contains('failed host lookup') ||
         text.contains('getaddrinfo') ||
         text.contains('name or service not known') ||
@@ -382,9 +429,7 @@ abstract final class TransportFailureClassifier {
 
   static NetworkFailureKind _classifyMessage(String message) {
     final text = message.toLowerCase();
-    if (text.contains('certificate') || text.contains('handshake')) {
-      return NetworkFailureKind.certificateMismatch;
-    }
+    if (text.contains('handshake')) return NetworkFailureKind.tlsHandshake;
     if (text.contains('timeout') || text.contains('timed out')) {
       return NetworkFailureKind.timeout;
     }
@@ -395,6 +440,72 @@ abstract final class TransportFailureClassifier {
       return NetworkFailureKind.dns;
     }
     return NetworkFailureKind.unknown;
+  }
+
+  static NetworkFailure _classifyRhttp(rhttp.RhttpException error) {
+    return switch (error) {
+      rhttp.RhttpInvalidCertificateException() => NetworkFailure(
+        NetworkFailureKind.certificateMismatch,
+        cause: error,
+      ),
+      rhttp.RhttpTimeoutException() => NetworkFailure(
+        NetworkFailureKind.timeout,
+        cause: error,
+      ),
+      rhttp.RhttpCancelException() => NetworkFailure(
+        NetworkFailureKind.cancelled,
+        cause: error,
+      ),
+      rhttp.RhttpRedirectException() => NetworkFailure(
+        NetworkFailureKind.redirect,
+        cause: error,
+      ),
+      rhttp.RhttpStatusCodeException(:final statusCode) => NetworkFailure(
+        _classifyStatus(statusCode),
+        cause: error,
+      ),
+      rhttp.RhttpConnectionException(:final message) => NetworkFailure(
+        _classifyConnectionMessage(message),
+        cause: error,
+      ),
+      rhttp.RhttpClientDisposedException() => NetworkFailure(
+        NetworkFailureKind.unknown,
+        cause: error,
+      ),
+      rhttp.RhttpInterceptorException(:final error) => classify(error),
+      rhttp.RhttpUnknownException() => NetworkFailure(
+        NetworkFailureKind.unknown,
+        cause: error,
+      ),
+      _ => NetworkFailure(NetworkFailureKind.unknown, cause: error),
+    };
+  }
+
+  static NetworkFailureKind _classifyStatus(int statusCode) {
+    if (statusCode == 401 || statusCode == 403) {
+      return NetworkFailureKind.auth;
+    }
+    if (statusCode == 429) return NetworkFailureKind.rateLimit;
+    return NetworkFailureKind.http;
+  }
+
+  static NetworkFailureKind _classifyConnectionMessage(String message) {
+    final text = message.toLowerCase();
+    if (text.contains('timed out') || text.contains('timeout')) {
+      return NetworkFailureKind.timeout;
+    }
+    if (text.contains('lookup') ||
+        text.contains('dns') ||
+        text.contains('name or service')) {
+      return NetworkFailureKind.dns;
+    }
+    if (text.contains('reset') ||
+        text.contains('closed') ||
+        text.contains('broken pipe') ||
+        text.contains('eof')) {
+      return NetworkFailureKind.reset;
+    }
+    return NetworkFailureKind.connect;
   }
 }
 

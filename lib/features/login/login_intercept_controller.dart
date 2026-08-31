@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 import '../../core/network/compat/network_contracts.dart';
 import '../../core/network/compat/network_policy.dart';
@@ -55,8 +56,14 @@ class LoginWebViewInterceptController {
     if (urlValue is! String) {
       throw PlatformException(code: 'bad_arguments', message: 'url missing');
     }
+    final rawHeaders = raw?['headers'];
+    final headers = rawHeaders is Map
+        ? rawHeaders.map<String, String>(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          )
+        : const <String, String>{};
     final uri = Uri.parse(urlValue);
-    final result = await fetchWithPolicy(uri);
+    final result = await fetchWithPolicy(uri, headers: headers);
     if (result == null) {
       // Native fallthrough.
       throw PlatformException(code: 'unavailable', message: 'host not allowed');
@@ -67,7 +74,10 @@ class LoginWebViewInterceptController {
   /// Fetches [uri] via the policy ladder. Returns a Map for PlatformView
   /// conversion or null when the host is not registry-allowed (native must
   /// fall through).
-  Future<Map<String, Object?>?> fetchWithPolicy(Uri uri) async {
+  Future<Map<String, Object?>?> fetchWithPolicy(
+    Uri uri, {
+    Map<String, String> headers = const {},
+  }) async {
     final purpose = _purposeForHost(uri.host.toLowerCase());
     if (purpose == null) return null;
     try {
@@ -77,25 +87,40 @@ class LoginWebViewInterceptController {
     }
     try {
       final client = _policyClient(purpose);
-      final response = await client.get(uri);
+      final request = http.Request('GET', uri)
+        ..headers.addAll(_forwardableHeaders(headers));
+      final response = await http.Response.fromStream(
+        await client.send(request),
+      );
       final body = response.bodyBytes;
-      final headers = <String, String>{};
+      final responseHeaders = <String, String>{};
+      final setCookies = <String>[];
       response.headers.forEach((name, value) {
-        headers[name] = value;
+        responseHeaders[name] = value;
+        if (name.toLowerCase() == 'set-cookie') {
+          setCookies.addAll(_splitSetCookieHeader(value));
+        }
       });
       return {
         'status': response.statusCode,
-        'mimeType': response.headers['content-type']?.split(';').first ??
+        'mimeType':
+            response.headers['content-type']?.split(';').first ??
             'application/octet-stream',
         'encoding': 'utf-8',
-        'headers': headers,
+        'headers': responseHeaders,
+        // package:http exposes combined header values. Keep an explicit list
+        // for the Android PlatformView so multiple Set-Cookie lines survive
+        // the channel boundary and are injected one by one.
+        'setCookies': setCookies,
         'bodyBytes': body.buffer.asUint8List(),
       };
     } on Object catch (error) {
       // Any fetch failure: report back so the native side falls through.
+      // Do not put the intercepted URL (which may carry an OAuth query) into
+      // a platform-channel error string or log sink.
       throw PlatformException(
         code: 'policy_fetch_failed',
-        message: '$error',
+        message: error.runtimeType.toString(),
       );
     }
   }
@@ -127,4 +152,47 @@ class LoginWebViewInterceptController {
   }
 
   final Map<PixivDestinationPurpose, PixivPolicyHttpClient> _clients = {};
+
+  /// Preserve browser-session headers needed by an intercepted GET while
+  /// excluding authority/authentication headers that the policy transport
+  /// must own. In particular, Cookie is intentionally forwarded from the
+  /// WebView jar; Authorization is never accepted from the channel payload.
+  static Map<String, String> _forwardableHeaders(Map<String, String> headers) {
+    const allowed = {
+      'accept',
+      'accept-language',
+      'cache-control',
+      'cookie',
+      'referer',
+      'user-agent',
+    };
+    return {
+      for (final entry in headers.entries)
+        if (allowed.contains(entry.key.toLowerCase()))
+          entry.key.toLowerCase(): entry.value,
+    };
+  }
+
+  static List<String> _splitSetCookieHeader(String value) {
+    final result = <String>[];
+    var start = 0;
+    var inExpires = false;
+    for (var i = 0; i < value.length; i++) {
+      final lower = value.substring(i).toLowerCase();
+      if (lower.startsWith('expires=')) inExpires = true;
+      if (value[i] == ';') inExpires = false;
+      if (value[i] != ',' || inExpires) continue;
+      final candidate = value.substring(i + 1).trimLeft();
+      final equals = candidate.indexOf('=');
+      final semicolon = candidate.indexOf(';');
+      if (equals > 0 && (semicolon < 0 || equals < semicolon)) {
+        final cookie = value.substring(start, i).trim();
+        if (cookie.isNotEmpty) result.add(cookie);
+        start = i + 1;
+      }
+    }
+    final last = value.substring(start).trim();
+    if (last.isNotEmpty) result.add(last);
+    return result;
+  }
 }

@@ -9,7 +9,6 @@
 //! 回答: 网络可达(上一个实验已证明)但主路径失败 —— 是 http2/ALPN、
 //! reqwest 层的问题, 还是别的问题？
 
-use rustls::pki_types::ServerName;
 use std::sync::Arc;
 use std::time::Duration;
 

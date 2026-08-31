@@ -18,6 +18,18 @@ abstract interface class SecureResolver {
   Future<void> dispose();
 }
 
+/// Optional capability exposed by resolvers that can query HTTPS records.
+/// Keeping it separate from [SecureResolver] means test/static resolvers and
+/// future DNS implementations do not need to fake ECH support just to serve
+/// address answers.
+abstract interface class EchConfigResolver {
+  Future<EchConfigResult> lookupEchConfig(
+    String frontHost, {
+    required NetworkRevision revision,
+    NetworkCancelSignal? cancelSignal,
+  });
+}
+
 /// Result of an ECH config lookup: the raw ECH config list bytes plus the
 /// record TTL (already clamped) and the front host's connect addresses
 /// (from the HTTPS RR's ipv4hint — the only clean source for the ECH
@@ -123,7 +135,7 @@ class SystemSecureResolver implements SecureResolver {
 ///   to the next endpoint (bounded circuit breaker).
 /// - Responses are bounded (size cap), time-bounded, cancellable, and TTLs
 ///   are clamped to [maxTtl]. Only public addresses are returned.
-class DohResolver implements SecureResolver {
+class DohResolver implements SecureResolver, EchConfigResolver {
   DohResolver({
     required List<String> endpointUrls,
     http.Client? client,
@@ -135,10 +147,10 @@ class DohResolver implements SecureResolver {
     this.maxAddresses = 8,
     this.endpointFailureWindow = const Duration(seconds: 30),
     this.clock = DateTime.now,
-  })  : assert(endpointUrls.isNotEmpty, 'at least one DoH endpoint required'),
-        _client = client ?? _staticMappedClient(hostOverrides),
-        _ownsClient = client == null,
-        _endpoints = List.of(endpointUrls);
+  }) : assert(endpointUrls.isNotEmpty, 'at least one DoH endpoint required'),
+       _client = client ?? _staticMappedClient(hostOverrides),
+       _ownsClient = client == null,
+       _endpoints = List.of(endpointUrls);
 
   /// DNS-bootstrap-free endpoint resolution: maps an endpoint's hostname to
   /// fixed public IPs (e.g. Cloudflare DoH `1dot1dot1dot1.cloudflare-dns.com`
@@ -202,12 +214,7 @@ class DohResolver implements SecureResolver {
     Object? lastError;
     for (final endpoint in candidates) {
       try {
-        final result = await _query(
-          endpoint,
-          host,
-          revision,
-          cancelSignal,
-        );
+        final result = await _query(endpoint, host, revision, cancelSignal);
         _markEndpointHealthy(endpoint);
         return result;
       } on Object catch (error) {
@@ -236,26 +243,40 @@ class DohResolver implements SecureResolver {
     final id = _nextQueryId++ & 0xffff;
     final payload = encodeQuery(id: id, name: host, type: 1);
 
-    final request = http.Request('POST', Uri.parse(endpoint))
-      ..headers['content-type'] = 'application/dns-message'
-      ..headers['accept'] = 'application/dns-message'
-      ..bodyBytes = payload;
+    final request =
+        http.AbortableRequest(
+            'POST',
+            Uri.parse(endpoint),
+            abortTrigger: cancelSignal?.whenCancel,
+          )
+          ..headers['content-type'] = 'application/dns-message'
+          ..headers['accept'] = 'application/dns-message'
+          ..bodyBytes = payload;
 
     final future = _client.send(request).timeout(requestTimeout);
     final response = await _raceCancellation(future, cancelSignal);
     if (response.statusCode != 200) {
-      throw SecureResolutionException('DoH endpoint $endpoint HTTP '
-          '${response.statusCode}');
+      await _raceCancellation(
+        response.stream.drain<void>().timeout(requestTimeout),
+        cancelSignal,
+      );
+      throw SecureResolutionException(
+        'DoH endpoint $endpoint HTTP '
+        '${response.statusCode}',
+      );
     }
-    final body = await response.stream
-        .fold<List<int>>(<int>[], (acc, chunk) {
-          if (acc.length + chunk.length > maxResponseBytes) {
-            throw const SecureResolutionException('DoH response too large');
-          }
-          acc.addAll(chunk);
-          return acc;
-        })
-        .timeout(requestTimeout);
+    final body = await _raceCancellation(
+      response.stream
+          .fold<List<int>>(<int>[], (acc, chunk) {
+            if (acc.length + chunk.length > maxResponseBytes) {
+              throw const SecureResolutionException('DoH response too large');
+            }
+            acc.addAll(chunk);
+            return acc;
+          })
+          .timeout(requestTimeout),
+      cancelSignal,
+    );
     if (body.length > maxResponseBytes) {
       throw const SecureResolutionException('DoH response too large');
     }
@@ -308,6 +329,7 @@ class DohResolver implements SecureResolver {
   /// has no `ech` parameter, or the config cannot be parsed. Callers decide
   /// whether an ECH tier is available — this method never silently falls
   /// back to plain TLS.
+  @override
   Future<EchConfigResult> lookupEchConfig(
     String frontHost, {
     required NetworkRevision revision,
@@ -365,26 +387,40 @@ class DohResolver implements SecureResolver {
     final id = _nextQueryId++ & 0xffff;
     final payload = encodeQuery(id: id, name: frontHost, type: 65);
 
-    final request = http.Request('POST', Uri.parse(endpoint))
-      ..headers['content-type'] = 'application/dns-message'
-      ..headers['accept'] = 'application/dns-message'
-      ..bodyBytes = payload;
+    final request =
+        http.AbortableRequest(
+            'POST',
+            Uri.parse(endpoint),
+            abortTrigger: cancelSignal?.whenCancel,
+          )
+          ..headers['content-type'] = 'application/dns-message'
+          ..headers['accept'] = 'application/dns-message'
+          ..bodyBytes = payload;
 
     final future = _client.send(request).timeout(requestTimeout);
     final response = await _raceCancellation(future, cancelSignal);
     if (response.statusCode != 200) {
-      throw SecureResolutionException('DoH endpoint $endpoint HTTP '
-          '${response.statusCode}');
+      await _raceCancellation(
+        response.stream.drain<void>().timeout(requestTimeout),
+        cancelSignal,
+      );
+      throw SecureResolutionException(
+        'DoH endpoint $endpoint HTTP '
+        '${response.statusCode}',
+      );
     }
-    final body = await response.stream
-        .fold<List<int>>(<int>[], (acc, chunk) {
-          if (acc.length + chunk.length > maxResponseBytes) {
-            throw const SecureResolutionException('DoH response too large');
-          }
-          acc.addAll(chunk);
-          return acc;
-        })
-        .timeout(requestTimeout);
+    final body = await _raceCancellation(
+      response.stream
+          .fold<List<int>>(<int>[], (acc, chunk) {
+            if (acc.length + chunk.length > maxResponseBytes) {
+              throw const SecureResolutionException('DoH response too large');
+            }
+            acc.addAll(chunk);
+            return acc;
+          })
+          .timeout(requestTimeout),
+      cancelSignal,
+    );
     if (body.length > maxResponseBytes) {
       throw const SecureResolutionException('DoH response too large');
     }
@@ -417,9 +453,9 @@ class DohResolver implements SecureResolver {
         break;
       }
     }
-    if (echConfig == null) {
+    if (echConfig == null || echConfig.isEmpty) {
       throw const SecureResolutionException(
-        'DoH response has no ech SvcParam',
+        'DoH response has no usable ech SvcParam',
       );
     }
 
@@ -463,7 +499,8 @@ class DohResolver implements SecureResolver {
 }
 
 /// A deterministic resolver useful for local integration and unit tests.
-class StaticSecureResolver implements SecureResolver {  StaticSecureResolver({
+class StaticSecureResolver implements SecureResolver {
+  StaticSecureResolver({
     required this.addresses,
     this.dnsSource = DnsSource.system,
   });

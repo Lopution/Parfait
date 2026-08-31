@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../../core/i18n/replica_strings.dart';
 import '../../core/network/compat/network_contracts.dart';
@@ -40,8 +41,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   final Map<String, NetworkProbeReport?> _finished = {};
   bool _running = false;
 
-  NetworkAccessPolicy get _policy =>
-      ref.read(networkAccessPolicyProvider);
+  NetworkAccessPolicy get _policy => ref.read(networkAccessPolicyProvider);
 
   Future<void> _runAll() async {
     if (_running) return;
@@ -72,21 +72,33 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
       dohResolver: resolver,
       revision: _policy.revision,
       timeoutPerLayer: const Duration(seconds: 8),
-      echConfigLookup: resolver is DohResolver
+      // The probe's minimal HTTP layer must exercise the same Rust/rhttp
+      // transport as production. Use an explicit direct route here so this
+      // baseline layer does not recursively invoke the policy ladder.
+      minimalRequest: (uri) async {
+        final route = NetworkRoute.direct(_policy.revision);
+        final request = http.Request('GET', uri)..followRedirects = false;
+        final response = await _policy
+            .clientFor(target.purpose, route, target.host)
+            .send(request);
+        await response.stream.drain<void>();
+        return HttpProbeResponse(response.statusCode);
+      },
+      echConfigLookup: resolver is EchConfigResolver
           ? () async {
               try {
-                return await resolver.lookupEchConfig(
+                return await (resolver as EchConfigResolver).lookupEchConfig(
                   _policy.echFrontHost,
                   revision: _policy.revision,
                 );
               } on Object catch (error) {
-                debugPrint('ech config lookup failed: $error');
+                debugPrint('ech config lookup failed: ${error.runtimeType}');
                 // Keep the original error visible in the report: swallowing
                 // it as null collapses every failure mode (endpoint down,
                 // no SvcParam, parse error) into the same misleading
                 // `no ECH config available` line.
                 throw NetworkProbeLayerException(
-                  'ECH config lookup failed: $error',
+                  'ECH config lookup failed: ${error.runtimeType}',
                 );
               }
             }
@@ -111,22 +123,21 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
         // The connect target MUST be the ECH front's anycast IP (ipv4hint
         // from its HTTPS RR), NOT the target host's answer: mainland answers
         // for the target are polluted and the handshake would go nowhere.
-        final frontAddress = echConfig.frontAddresses.isNotEmpty
-            ? echConfig.frontAddresses.first
-            : address;
+        final frontAddress =
+            echConfig.frontAddresses
+                .where(isPublicNetworkAddress)
+                .firstOrNull ??
+            address;
         final route = NetworkRoute.ech(
           _policy.revision,
           frontAddress,
           configBytes,
         );
-        final client = _policy.clientFor(
-          target.purpose,
-          route,
-          target.host,
-        );
+        final client = _policy.clientFor(target.purpose, route, target.host);
         try {
-          final response =
-              await client.get(uri).timeout(const Duration(seconds: 8));
+          final response = await client
+              .get(uri)
+              .timeout(const Duration(seconds: 8));
           return HttpProbeResponse(response.statusCode);
         } on Object catch (error) {
           // Surface the transport error verbatim plus the config size so a
@@ -137,17 +148,13 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
           );
         }
       },
-      noSniHandshake: (_address, _port) async {
+      noSniHandshake: (address, _) async {
         // Empty-SNI handshake requires a rustls client with sni=false;
         // implemented via the policy's rhttp transport (a GET to the probe
         // path with the noSni tier). This is the probe page asking "does
         // empty SNI work on this host".
-        final route = NetworkRoute.noSni(_policy.revision, _address);
-        final client = _policy.clientFor(
-          target.purpose,
-          route,
-          target.host,
-        );
+        final route = NetworkRoute.noSni(_policy.revision, address);
+        final client = _policy.clientFor(target.purpose, route, target.host);
         try {
           await client
               .get(Uri.parse('https://${target.host}${NetworkProbe.probePath}'))
@@ -156,13 +163,9 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
           // Pooled client: do not close here (owned by the policy).
         }
       },
-      httpNoSniRequest: (uri, _address) async {
-        final route = NetworkRoute.noSni(_policy.revision, _address);
-        final client = _policy.clientFor(
-          target.purpose,
-          route,
-          target.host,
-        );
+      httpNoSniRequest: (uri, address) async {
+        final route = NetworkRoute.noSni(_policy.revision, address);
+        final client = _policy.clientFor(target.purpose, route, target.host);
         try {
           final response = await client
               .get(uri)
@@ -272,9 +275,7 @@ class _HostProbeCard extends StatelessWidget {
                   child: Text(
                     step.toLine(),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: step.ok
-                          ? null
-                          : theme.colorScheme.error,
+                      color: step.ok ? null : theme.colorScheme.error,
                     ),
                   ),
                 ),
@@ -315,38 +316,17 @@ class _ConclusionBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final (label, color) = switch (conclusion) {
-      NetworkProbeConclusion.allReachable => (
-        'OK',
-        Colors.green.shade700,
-      ),
-      NetworkProbeConclusion.dnsPolluted => (
-        'DNS 污染',
-        Colors.orange.shade700,
-      ),
-      NetworkProbeConclusion.sniBlocked => (
-        'SNI 被封',
-        Colors.red.shade700,
-      ),
-      NetworkProbeConclusion.echAvailable => (
-        '应选 ECH',
-        Colors.teal.shade700,
-      ),
+      NetworkProbeConclusion.allReachable => ('OK', Colors.green.shade700),
+      NetworkProbeConclusion.dnsPolluted => ('DNS 污染', Colors.orange.shade700),
+      NetworkProbeConclusion.sniBlocked => ('SNI 被封', Colors.red.shade700),
+      NetworkProbeConclusion.echAvailable => ('应选 ECH', Colors.teal.shade700),
       NetworkProbeConclusion.noSniAvailable => (
         '应选空 SNI',
         Colors.indigo.shade700,
       ),
-      NetworkProbeConclusion.ipBlackholed => (
-        'IP 黑洞',
-        Colors.red.shade700,
-      ),
-      NetworkProbeConclusion.appLayer => (
-        '应用层',
-        Colors.orange.shade700,
-      ),
-      NetworkProbeConclusion.inconclusive => (
-        '不确定',
-        Colors.grey.shade600,
-      ),
+      NetworkProbeConclusion.ipBlackholed => ('IP 黑洞', Colors.red.shade700),
+      NetworkProbeConclusion.appLayer => ('应用层', Colors.orange.shade700),
+      NetworkProbeConclusion.inconclusive => ('不确定', Colors.grey.shade600),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
