@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/pixiv_image.dart';
 import '../../../app/replica_page_route.dart';
-import 'dart:async';
 
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart' show DownloadEvent;
@@ -32,10 +33,20 @@ import 'ugoira_viewer.dart';
 
 /// Detail page replicating beta56 illust.dart: images with download mode,
 /// author block, meta row, caption, tag chips (R2/R4/R5).
+String illustHeroTag(String scope, int illustId) =>
+    'IllustHero:$scope:$illustId';
+
 class IllustDetailPage extends ConsumerStatefulWidget {
-  const IllustDetailPage({super.key, required this.illustId});
+  const IllustDetailPage({
+    super.key,
+    required this.illustId,
+    this.initialEntity,
+    this.heroScope = 'feed',
+  });
 
   final int illustId;
+  final IllustEntity? initialEntity;
+  final String heroScope;
 
   @override
   ConsumerState<IllustDetailPage> createState() => _IllustDetailPageState();
@@ -44,7 +55,6 @@ class IllustDetailPage extends ConsumerStatefulWidget {
 class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   bool _downloadMode = false;
   bool _blockMode = false;
-  bool _showCaption = false;
   StreamSubscription<DownloadEvent>? _downloadEvents;
 
   @override
@@ -78,7 +88,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         // snapshot immediately; the controller's IllustDetailLoading state
         // stays as the no-snapshot first-load signal.
         loading: () {
-          final snapshot = ref.read(illustStoreProvider).get(widget.illustId);
+          final snapshot = _snapshotEntity();
           if (snapshot != null) {
             return _buildContent(context, ref, snapshot);
           }
@@ -103,18 +113,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               entity,
             ),
             IllustDetailError(:final error, :final snapshot) =>
-              snapshot != null
-                  ? _buildContent(context, ref, snapshot)
-                  : _ErrorView(
-                      error: error,
-                      onRetry: () => ref
-                          .read(
-                            illustDetailControllerProvider(
-                              widget.illustId,
-                            ).notifier,
-                          )
-                          .reload(),
-                    ),
+              _errorOrSnapshot(context, ref, error, snapshot),
           };
         },
       ),
@@ -171,9 +170,29 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     return switch (state) {
       IllustDetailReady(:final entity) => entity,
       IllustDetailRestricted(:final entity) => entity,
-      IllustDetailError(:final snapshot) => snapshot,
-      _ => null,
+      IllustDetailError(:final snapshot) => snapshot ?? _snapshotEntity(),
+      _ => _snapshotEntity(),
     };
+  }
+
+  IllustEntity? _snapshotEntity() =>
+      ref.read(illustStoreProvider).get(widget.illustId) ??
+      widget.initialEntity;
+
+  Widget _errorOrSnapshot(
+    BuildContext context,
+    WidgetRef ref,
+    Object error,
+    IllustEntity? snapshot,
+  ) {
+    final entity = snapshot ?? _snapshotEntity();
+    if (entity != null) return _buildContent(context, ref, entity);
+    return _ErrorView(
+      error: error,
+      onRetry: () => ref
+          .read(illustDetailControllerProvider(widget.illustId).notifier)
+          .reload(),
+    );
   }
 
   Widget _buildContent(
@@ -204,7 +223,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               child: _PageImage(
                 entity: entity,
                 index: 0,
-                heroTag: 'IllustHero-${entity.id}',
+                heroTag: illustHeroTag(widget.heroScope, entity.id),
                 downloadMode: _downloadMode,
                 onLongPress: _toggleDownloadMode,
               ),
@@ -220,8 +239,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                     entity: entity,
                     index: index,
                     heroTag: index == 0
-                        ? 'IllustHero-${entity.id}'
-                        : 'IllustHero-${entity.id}-$index',
+                        ? illustHeroTag(widget.heroScope, entity.id)
+                        : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
                     downloadMode: _downloadMode,
                     onLongPress: _toggleDownloadMode,
                   ),
@@ -232,10 +251,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
           SliverToBoxAdapter(
             child: _InfoBlock(
               entity: entity,
-              showCaption: _showCaption,
               blockMode: _blockMode,
-              onToggleCaption: () =>
-                  setState(() => _showCaption = !_showCaption),
               onToggleBlockMode: () => setState(() => _blockMode = !_blockMode),
             ),
           ),
@@ -403,16 +419,12 @@ class _DownloadBadge extends StatelessWidget {
 class _InfoBlock extends ConsumerWidget {
   const _InfoBlock({
     required this.entity,
-    required this.showCaption,
     required this.blockMode,
-    required this.onToggleCaption,
     required this.onToggleBlockMode,
   });
 
   final IllustEntity entity;
-  final bool showCaption;
   final bool blockMode;
-  final VoidCallback onToggleCaption;
   final VoidCallback onToggleBlockMode;
 
   @override
@@ -496,39 +508,13 @@ class _InfoBlock extends ConsumerWidget {
             ],
           ),
           if (entity.caption.isNotEmpty) ...[
-            const SizedBox(height: 5),
-            GestureDetector(
-              onTap: onToggleCaption,
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  Text(
-                    '简介',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: showCaption ? theme.colorScheme.primary : null,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Icon(
-                    showCaption
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    size: 12,
-                    color: showCaption ? theme.colorScheme.primary : null,
-                  ),
-                ],
-              ),
+            const SizedBox(height: 12),
+            // Pixiv captions are HTML; render them immediately so the detail
+            // content is complete on the same frame as the artwork.
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: _CaptionRichText(caption: entity.caption),
             ),
-            if (showCaption)
-              Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 20),
-                // U6 (R7): Pixiv captions are HTML; render as rich,
-                // clickable text. <br> breaks, entities are decoded and
-                // pixiv-internal links stay in-app while external links
-                // leave via the outbound intent.
-                child: _CaptionRichText(caption: entity.caption),
-              ),
           ],
           const SizedBox(height: 20),
           Wrap(

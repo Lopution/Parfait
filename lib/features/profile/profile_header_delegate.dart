@@ -49,7 +49,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.restrict,
     required this.onRestrictChanged,
     required this.onShare,
-    this.onSettings,
     this.onEditProfile,
     this.expandedExtent = 430,
   });
@@ -61,7 +60,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final UserRestrict restrict;
   final ValueChanged<UserRestrict> onRestrictChanged;
   final VoidCallback onShare;
-  final VoidCallback? onSettings;
   final VoidCallback? onEditProfile;
   final double expandedExtent;
 
@@ -98,7 +96,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                 isMe: isMe,
                 backgroundHeight: backgroundHeight,
                 onShare: onShare,
-                onSettings: onSettings,
                 onEditProfile: onEditProfile,
               ),
             ),
@@ -111,7 +108,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
               restrict: restrict,
               onRestrictChanged: onRestrictChanged,
               onShare: onShare,
-              onSettings: onSettings,
               onEditProfile: onEditProfile,
             ),
         ],
@@ -126,7 +122,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.selectedTabIndex != selectedTabIndex ||
         oldDelegate.showRestrictSelector != showRestrictSelector ||
         oldDelegate.restrict != restrict ||
-        oldDelegate.onSettings != onSettings ||
         oldDelegate.onEditProfile != onEditProfile ||
         oldDelegate.expandedExtent != expandedExtent;
   }
@@ -138,7 +133,6 @@ class _ExpandedProfile extends StatelessWidget {
     required this.isMe,
     required this.backgroundHeight,
     required this.onShare,
-    required this.onSettings,
     required this.onEditProfile,
   });
 
@@ -146,7 +140,6 @@ class _ExpandedProfile extends StatelessWidget {
   final bool isMe;
   final double backgroundHeight;
   final VoidCallback onShare;
-  final VoidCallback? onSettings;
   final VoidCallback? onEditProfile;
 
   String _profileText(BuildContext context, String key) =>
@@ -252,11 +245,6 @@ class _ExpandedProfile extends StatelessWidget {
                         onPressed: onEditProfile,
                         icon: const Icon(Icons.edit_outlined),
                       ),
-                    IconButton(
-                      tooltip: 'Settings',
-                      onPressed: onSettings,
-                      icon: const Icon(Icons.settings_outlined),
-                    ),
                   ],
                 )
               else
@@ -282,7 +270,6 @@ class _CollapsedProfile extends StatelessWidget {
     required this.restrict,
     required this.onRestrictChanged,
     required this.onShare,
-    required this.onSettings,
     required this.onEditProfile,
   });
 
@@ -293,7 +280,6 @@ class _CollapsedProfile extends StatelessWidget {
   final UserRestrict restrict;
   final ValueChanged<UserRestrict> onRestrictChanged;
   final VoidCallback onShare;
-  final VoidCallback? onSettings;
   final VoidCallback? onEditProfile;
 
   String _text(BuildContext context, String key) => ReplicaStrings.fromTag(
@@ -371,22 +357,13 @@ class _CollapsedProfile extends StatelessWidget {
                     ],
                   )
                 : isMe
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (onEditProfile != null)
-                        IconButton(
+                ? (onEditProfile != null
+                      ? IconButton(
                           tooltip: _text(context, 'profileEditTitle'),
                           onPressed: onEditProfile,
                           icon: const Icon(Icons.edit_outlined),
-                        ),
-                      IconButton(
-                        tooltip: 'Settings',
-                        onPressed: onSettings,
-                        icon: const Icon(Icons.settings_outlined),
-                      ),
-                    ],
-                  )
+                        )
+                      : const SizedBox.shrink())
                 : IconButton(
                     tooltip: 'Share',
                     onPressed: onShare,

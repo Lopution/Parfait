@@ -17,7 +17,6 @@ import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../home/recommended/recommended_illust_page.dart';
 import '../novel/novel_page.dart';
-import '../settings/settings_page.dart';
 import 'follow_switch_button.dart';
 import 'profile_feed_controller.dart';
 import 'profile_header_delegate.dart';
@@ -31,7 +30,6 @@ class UserPage extends ConsumerStatefulWidget {
     super.key,
     int? id,
     int? userId,
-    this.onSettings,
     this.onEditProfile,
   }) : userId = userId ?? id ?? 0,
        isMe = false,
@@ -39,13 +37,11 @@ class UserPage extends ConsumerStatefulWidget {
 
   const UserPage._me({
     required this.userId,
-    this.onSettings,
     this.onEditProfile,
   }) : isMe = true;
 
   final int userId;
   final bool isMe;
-  final VoidCallback? onSettings;
   final VoidCallback? onEditProfile;
 
   @override
@@ -55,9 +51,8 @@ class UserPage extends ConsumerStatefulWidget {
 /// Current-account profile. The account id is resolved at build time so an
 /// account switch cannot leave a stale UserPage mounted for the old account.
 class MePage extends ConsumerWidget {
-  const MePage({super.key, this.onSettings, this.onEditProfile});
+  const MePage({super.key, this.onEditProfile});
 
-  final VoidCallback? onSettings;
   final VoidCallback? onEditProfile;
 
   @override
@@ -83,7 +78,6 @@ class MePage extends ConsumerWidget {
         }
         return UserPage._me(
           userId: account.userId,
-          onSettings: onSettings,
           onEditProfile: onEditProfile,
         );
       },
@@ -107,13 +101,11 @@ void showUserPage(BuildContext context, int userId) {
 
 void showMePage(
   BuildContext context, {
-  VoidCallback? onSettings,
   VoidCallback? onEditProfile,
 }) {
   Navigator.of(context).push<void>(
     ReplicaPageRoute<void>(
-      builder: (_) =>
-          MePage(onSettings: onSettings, onEditProfile: onEditProfile),
+      builder: (_) => MePage(onEditProfile: onEditProfile),
     ),
   );
 }
@@ -317,14 +309,6 @@ class _UserPageState extends ConsumerState<UserPage>
                   restrict: _restrict,
                   onRestrictChanged: _onRestrictChanged,
                   onShare: () => _showProfileShare(context, user),
-                  onSettings: widget.isMe
-                      ? (widget.onSettings ??
-                            () => Navigator.of(context).push<void>(
-                              ReplicaPageRoute<void>(
-                                builder: (_) => const SettingsPage(),
-                              ),
-                            ))
-                      : null,
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                 ),
               ),
@@ -472,8 +456,12 @@ class _ProfileIllustFeed extends ConsumerWidget {
                       crossAxisCount: 2,
                       mainAxisSpacing: 5,
                       crossAxisSpacing: 10,
-                      itemBuilder: (context, index) =>
-                          IllustCard(entity: entities[index]),
+                      itemBuilder: (context, index) => IllustCard(
+                        entity: entities[index],
+                        heroScope:
+                            'profile:${feedKey.userId}:${feedKey.kind.name}:'
+                            '${feedKey.workType.name}:${feedKey.restrict.name}',
+                      ),
                       childCount: entities.length,
                     ),
                   ),
