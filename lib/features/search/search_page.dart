@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/pixiv_image.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
@@ -86,10 +87,9 @@ class SearchHomePage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
                 sliver: SliverGrid.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                    crossAxisCount: 3,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
-                    childAspectRatio: 3.4,
                   ),
                   itemCount: tags.length,
                   itemBuilder: (context, index) =>
@@ -152,46 +152,89 @@ class _TrendingTagTile extends StatelessWidget {
 
   final TrendingTag tag;
 
+  void _openRepresentative(BuildContext context) {
+    final representative = tag.representative;
+    if (representative == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(searchText(context, 'searchNoRepresentative'))),
+      );
+      return;
+    }
+    Navigator.of(context).push<void>(
+      ReplicaPageRoute<void>(
+        builder: (_) => IllustDetailPage(
+          illustId: representative.id,
+          initialEntity: representative,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final representative = tag.representative;
     return GestureDetector(
+      // Tapping still means "search this tag" — the image is context, not a
+      // new primary action. Opening the representative work stays secondary.
       onTap: () =>
           showSearchResults(context, IllustSearchQuery(keyword: tag.name)),
-      onLongPress: () {
-        final representative = tag.representative;
-        if (representative == null) {
-          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-            SnackBar(
-              content: Text(searchText(context, 'searchNoRepresentative')),
-            ),
-          );
-          return;
-        }
-        Navigator.of(context).push<void>(
-          ReplicaPageRoute<void>(
-            builder: (_) => IllustDetailPage(illustId: representative.id),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+      onLongPress: () => _openRepresentative(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: ColoredBox(
           color: scheme.surfaceContainerHighest,
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.local_offer_outlined, size: 18, color: scheme.primary),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(
-                '#${tag.displayName}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (representative != null)
+                PixivImage(
+                  url: representative.imageUrls.squareMedium,
+                  fit: BoxFit.cover,
+                ),
+              if (representative != null)
+                // Without a scrim the label is unreadable over a bright
+                // thumbnail; without an image the scrim would darken the
+                // plain card for no reason.
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.center,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x00000000), Color(0xB3000000)],
+                    ),
+                  ),
+                ),
+              Align(
+                alignment: representative == null
+                    ? Alignment.center
+                    : Alignment.bottomLeft,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    '#${tag.displayName}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: representative == null
+                        ? TextAlign.center
+                        : TextAlign.start,
+                    style: TextStyle(
+                      color: representative == null
+                          ? scheme.onSurface
+                          : Colors.white,
+                      fontWeight: FontWeight.w600,
+                      shadows: representative == null
+                          ? null
+                          : const [Shadow(blurRadius: 4)],
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

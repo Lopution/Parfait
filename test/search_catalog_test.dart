@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -19,6 +21,7 @@ import 'package:pixiv_func/core/search/search_autocomplete_controller.dart';
 import 'package:pixiv_func/core/search/search_feed_controller.dart';
 import 'package:pixiv_func/core/search/search_models.dart';
 import 'package:pixiv_func/core/search/search_repository.dart';
+import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/search_result_page.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -83,11 +86,16 @@ class _FakeSearchRepository implements SearchRepository {
         Future.value(const []);
   }
 
+  int trendingTagsCallCount = 0;
+
   @override
-  Future<List<TrendingTag>> trendingTags({CancelToken? cancelToken}) async => [
-    TrendingTag(name: '风景', representative: parseIllust(illustJson(901))),
-    const TrendingTag(name: '猫'),
-  ];
+  Future<List<TrendingTag>> trendingTags({CancelToken? cancelToken}) async {
+    trendingTagsCallCount++;
+    return [
+      TrendingTag(name: '风景', representative: parseIllust(illustJson(901))),
+      const TrendingTag(name: '猫'),
+    ];
+  }
 }
 
 class _CredentialStore implements CredentialStore {
@@ -438,6 +446,104 @@ void main() {
     expect(find.text('插画 & 漫画'), findsOneWidget);
     expect(find.text('小说'), findsOneWidget);
     expect(find.text('用户'), findsOneWidget);
+  });
+
+  testWidgets('U2: a trending tag renders its representative image', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp(
+            locale: const Locale('zh', 'CN'),
+            supportedLocales: const [Locale('zh', 'CN')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            home: const SearchHomePage(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    });
+
+    // 风景 has a representative; 猫 does not. Exactly one image, and it uses
+    // the square thumbnail rather than a full-size preview.
+    final images = tester.widgetList<PixivImage>(find.byType(PixivImage));
+    expect(images, hasLength(1));
+    expect(images.single.url, 'https://i.pximg.net/901/square.jpg');
+    expect(images.single.fit, BoxFit.cover);
+    // The tagless card keeps the plain text form, no broken-image slot.
+    expect(find.text('#猫'), findsOneWidget);
+    expect(find.text('#风景'), findsOneWidget);
+  });
+
+  testWidgets('U2: tapping a trending tag still searches that tag', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp(
+            locale: const Locale('zh', 'CN'),
+            supportedLocales: const [Locale('zh', 'CN')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            home: const SearchHomePage(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // Adding the image must not turn the primary tap into "open the work".
+      await tester.tap(find.text('#风景'));
+      await tester.pumpAndSettle();
+    });
+    expect(find.byType(SearchResultPage), findsOneWidget);
+    expect(find.byType(IllustDetailPage), findsNothing);
+  });
+
+  testWidgets('U2: re-entering search does not re-request trending tags', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    final showSearch = ValueNotifier<bool>(true);
+    addTearDown(showSearch.dispose);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp(
+            locale: const Locale('zh', 'CN'),
+            supportedLocales: const [Locale('zh', 'CN')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            home: ValueListenableBuilder<bool>(
+              valueListenable: showSearch,
+              builder: (context, visible, _) => visible
+                  ? const SearchHomePage()
+                  : const Scaffold(body: SizedBox.shrink()),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(repository.trendingTagsCallCount, 1);
+
+      // Fully unmount the page: with an autoDispose provider this removed the
+      // last listener and the next visit re-requested the endpoint.
+      showSearch.value = false;
+      await tester.pumpAndSettle();
+      showSearch.value = true;
+      await tester.pumpAndSettle();
+    });
+
+    expect(repository.trendingTagsCallCount, 1);
+    expect(find.text('#风景'), findsOneWidget);
   });
 
   testWidgets('typed result page uses the shared result route', (tester) async {
