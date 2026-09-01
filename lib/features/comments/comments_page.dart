@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/replica_page_route.dart';
+import '../../app/pull_to_refresh.dart';
 import '../../core/comments/comment_actions.dart';
 import '../../core/comments/comment_feed_controller.dart';
 import '../../core/comments/comment_models.dart';
@@ -306,7 +307,7 @@ class _CommentFeedView extends ConsumerWidget {
         if (comments.isEmpty && feed.isEmptyAndReady) {
           return Center(child: Text(commentText(context, 'commentNoResults')));
         }
-        return RefreshIndicator(
+        return PullToRefresh(
           onRefresh: () =>
               ref.read(commentFeedProvider(query).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(

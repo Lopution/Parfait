@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../app/pull_to_refresh.dart';
 import '../../../app/replica_page_route.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/i18n/replica_strings.dart';
@@ -41,9 +42,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
 
   late final TabController _tabController;
   RecommendedContentType _type = RecommendedContentType.illust;
-  final Set<RecommendedContentType> _loaded = {
-    RecommendedContentType.illust,
-  };
+  final Set<RecommendedContentType> _loaded = {RecommendedContentType.illust};
 
   @override
   void initState() {
@@ -98,10 +97,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           for (final type in _loaded)
             Offstage(
               offstage: type != _type,
-              child: RecommendedFeedView(
-                key: ValueKey(type),
-                type: type,
-              ),
+              child: RecommendedFeedView(key: ValueKey(type), type: type),
             ),
         ],
       ),
@@ -132,9 +128,7 @@ class _RecommendedTypeSelector extends StatelessWidget {
       indicatorSize: TabBarIndicatorSize.label,
       indicatorPadding: const EdgeInsets.only(bottom: 5),
       labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-      onTap: (index) => onChanged(
-        RecommendedContentType.values[index],
-      ),
+      onTap: (index) => onChanged(RecommendedContentType.values[index]),
       tabs: [
         for (final value in RecommendedContentType.values)
           Tab(text: _recommendedText(context, _labelKey(value))),
@@ -191,9 +185,8 @@ class RecommendedFeedView extends ConsumerWidget {
               ref.read(recommendedFeedProvider(key).notifier).refresh(),
           onLoadMore: () =>
               ref.read(recommendedFeedProvider(key).notifier).loadMore(),
-          onRetryLoadMore: () => ref
-              .read(recommendedFeedProvider(key).notifier)
-              .retryLoadMore(),
+          onRetryLoadMore: () =>
+              ref.read(recommendedFeedProvider(key).notifier).retryLoadMore(),
           onRetryRefresh: () =>
               ref.read(recommendedFeedProvider(key).notifier).refresh(),
         );
@@ -223,27 +216,20 @@ class _RecommendedFeedBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tail = <Widget>[
       if (feed.refreshPhase == FeedPhase.error)
-        SliverToBoxAdapter(
-          child: _TailError(
-            onRetry: onRetryRefresh,
-          ),
-        ),
+        SliverToBoxAdapter(child: _TailError(onRetry: onRetryRefresh)),
       SliverToBoxAdapter(
-        child: _FeedTail(
-          feed: feed,
-          onRetry: onRetryLoadMore,
-        ),
+        child: _FeedTail(feed: feed, onRetry: onRetryLoadMore),
       ),
     ];
 
     final slivers = switch (type) {
-      RecommendedContentType.illust || RecommendedContentType.manga =>
-        _illustSlivers(context, ref, tail),
+      RecommendedContentType.illust ||
+      RecommendedContentType.manga => _illustSlivers(context, ref, tail),
       RecommendedContentType.novel => _novelSlivers(context, ref, tail),
       RecommendedContentType.user => _userSlivers(context, ref, tail),
     };
 
-    return RefreshIndicator(
+    return PullToRefresh(
       onRefresh: onRefresh,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
@@ -277,7 +263,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
           crossAxisSpacing: 10,
           itemBuilder: (context, index) => IllustCard(
             entity: entities[index],
-            heroScope: 'recommended',
+            heroScope: 'recommended:${type.name}',
           ),
           childCount: entities.length,
         ),
@@ -408,7 +394,9 @@ class _NovelCover extends StatelessWidget {
         child: PixivImage(
           url: url,
           fit: BoxFit.cover,
-          placeholderColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          placeholderColor: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest,
         ),
       ),
     );
@@ -426,9 +414,7 @@ class _UserRowCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: InkWell(
         onTap: () => Navigator.of(context).push<void>(
-          ReplicaPageRoute<void>(
-            builder: (_) => UserPage(userId: entity.id),
-          ),
+          ReplicaPageRoute<void>(builder: (_) => UserPage(userId: entity.id)),
         ),
         borderRadius: BorderRadius.circular(4),
         child: Padding(
@@ -437,8 +423,9 @@ class _UserRowCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 24,
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 child: entity.profileImageUrl == null
                     ? const Icon(Icons.person_outline, size: 24)
                     : ClipOval(

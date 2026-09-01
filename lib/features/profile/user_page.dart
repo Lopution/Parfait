@@ -4,6 +4,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/icons/app_icons.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/pull_to_refresh.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_store.dart';
@@ -26,19 +27,12 @@ import 'user_detail_controller.dart';
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
 class UserPage extends ConsumerStatefulWidget {
-  const UserPage({
-    super.key,
-    int? id,
-    int? userId,
-    this.onEditProfile,
-  }) : userId = userId ?? id ?? 0,
-       isMe = false,
-       assert(userId != null || id != null);
+  const UserPage({super.key, int? id, int? userId, this.onEditProfile})
+    : userId = userId ?? id ?? 0,
+      isMe = false,
+      assert(userId != null || id != null);
 
-  const UserPage._me({
-    required this.userId,
-    this.onEditProfile,
-  }) : isMe = true;
+  const UserPage._me({required this.userId, this.onEditProfile}) : isMe = true;
 
   final int userId;
   final bool isMe;
@@ -99,10 +93,7 @@ void showUserPage(BuildContext context, int userId) {
   );
 }
 
-void showMePage(
-  BuildContext context, {
-  VoidCallback? onEditProfile,
-}) {
+void showMePage(BuildContext context, {VoidCallback? onEditProfile}) {
   Navigator.of(context).push<void>(
     ReplicaPageRoute<void>(
       builder: (_) => MePage(onEditProfile: onEditProfile),
@@ -424,7 +415,7 @@ class _ProfileIllustFeed extends ConsumerWidget {
         }
         final store = ref.watch(illustStoreProvider);
         final entities = store.getAll(feed.ids);
-        return RefreshIndicator(
+        return PullToRefresh(
           onRefresh: () =>
               ref.read(profileIllustFeedProvider(feedKey).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
@@ -514,7 +505,7 @@ class _ProfileUserFeed extends ConsumerWidget {
           for (final id in feed.ids)
             if (storedUsers[id] != null) storedUsers[id]!,
         ];
-        return RefreshIndicator(
+        return PullToRefresh(
           onRefresh: () =>
               ref.read(profileUserFeedProvider(feedKey).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
@@ -689,7 +680,7 @@ class _ProfileNovelFeed extends ConsumerWidget {
           for (final id in feed.ids)
             if (storedNovels[id] != null) storedNovels[id]!,
         ];
-        return RefreshIndicator(
+        return PullToRefresh(
           onRefresh: () =>
               ref.read(userNovelFeedProvider(userId).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(

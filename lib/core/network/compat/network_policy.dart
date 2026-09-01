@@ -116,6 +116,10 @@ class NetworkAccessPolicy {
   /// direct attempt inside the wall. Bounded, TTL'd, and cleared with the
   /// same events that close route pools (mode/revision changes).
   final Map<String, _HostRouteMemory> _routeMemory = {};
+
+  /// A successful strict route is also remembered for its destination group.
+  /// The value changes candidate order only; target addresses remain per-host.
+  final Map<_RouteGroup, _RouteGroupMemory> _groupMemory = {};
   static const int _maxRouteMemoryEntries = 32;
 
   NetworkMode _mode;
@@ -142,6 +146,21 @@ class NetworkAccessPolicy {
     final memory = _routeMemory[host];
     if (memory == null ||
         !memory.isUsable(now ?? clock(), _revision.networkIdentity)) {
+      return null;
+    }
+    return memory.kind;
+  }
+
+  @visibleForTesting
+  NetworkRouteKind? rememberedGroupRouteKind(
+    PixivDestinationPurpose purpose, {
+    DateTime? now,
+  }) {
+    final group = _routeGroupFor(purpose);
+    final memory = _groupMemory[group];
+    if (memory == null) return null;
+    if (!memory.isUsable(now ?? clock(), _revision.networkIdentity)) {
+      _groupMemory.remove(group);
       return null;
     }
     return memory.kind;
@@ -270,7 +289,9 @@ class NetworkAccessPolicy {
     } on Object catch (error, stackTrace) {
       policyRecord(destination, route, error, businessTimer.elapsed);
       final eligible = TransportFailureClassifier.isFallbackEligible(error);
-      if (eligible) _invalidateRouteMemory(host, route);
+      if (eligible) {
+        _invalidateRouteMemory(host, route, purpose: destination.purpose);
+      }
       if (_mode == NetworkMode.directOnly ||
           (cancelSignal?.isCancelled ?? false) ||
           !canReplay ||
@@ -299,7 +320,11 @@ class NetworkAccessPolicy {
       } on Object catch (retryError, retryStack) {
         policyRecord(destination, retryRoute, retryError, retryTimer.elapsed);
         if (TransportFailureClassifier.isFallbackEligible(retryError)) {
-          _invalidateRouteMemory(host, retryRoute);
+          _invalidateRouteMemory(
+            host,
+            retryRoute,
+            purpose: destination.purpose,
+          );
         }
         Error.throwWithStackTrace(retryError, retryStack);
       }
@@ -328,7 +353,7 @@ class NetworkAccessPolicy {
       final direct = NetworkRoute.direct(_revision);
       attemptedKinds.add(direct.kind);
       attemptedKeys.add(direct.key);
-      _rememberRoute(host, direct);
+      _rememberRoute(host, direct, purpose: destination.purpose);
       return direct;
     }
 
@@ -351,7 +376,12 @@ class NetworkAccessPolicy {
     Future<ResolvedHost> resolveOnce() async => pendingResolved ??=
         await resolve(destination, cancelSignal: cancelSignal);
 
+    final preferredKind = rememberedGroupRouteKind(
+      destination.purpose,
+      now: now,
+    );
     final kinds = <NetworkRouteKind>[
+      ?preferredKind,
       NetworkRouteKind.direct,
       ..._fallbackTiersFor(destination.purpose),
     ];
@@ -373,9 +403,17 @@ class NetworkAccessPolicy {
         if (_isCancellation(error, cancelSignal)) {
           Error.throwWithStackTrace(error, stackTrace);
         }
+        if (preferredKind == kind) {
+          _invalidateGroupPreference(destination.purpose, kind);
+        }
         continue;
       }
-      if (route == null) continue;
+      if (route == null) {
+        if (preferredKind == kind) {
+          _invalidateGroupPreference(destination.purpose, kind);
+        }
+        continue;
+      }
       if (!attemptedKeys.add(route.key)) {
         attemptedKinds.add(kind);
         continue;
@@ -388,7 +426,7 @@ class NetworkAccessPolicy {
           throw const NetworkFailureException(NetworkFailureKind.cancelled);
         }
         await probe(route, _probeUri(destination.uri));
-        _rememberRoute(host, route);
+        _rememberRoute(host, route, purpose: destination.purpose);
         return route;
       } on Object catch (error, stackTrace) {
         policyRecord(destination, route, error, timer.elapsed);
@@ -398,6 +436,7 @@ class NetworkAccessPolicy {
             !TransportFailureClassifier.isFallbackEligible(error)) {
           Error.throwWithStackTrace(error, stackTrace);
         }
+        _invalidateRouteMemory(host, route, purpose: destination.purpose);
       }
     }
     if (lastError != null) {
@@ -419,7 +458,11 @@ class NetworkAccessPolicy {
     // Refresh (rather than delete) a remembered route on every successful
     // business request.  A successful direct route is the one case that
     // intentionally replaces an older strict preference.
-    _rememberRoute(destination.canonicalHost, route);
+    _rememberRoute(
+      destination.canonicalHost,
+      route,
+      purpose: destination.purpose,
+    );
     return result;
   }
 
@@ -429,37 +472,73 @@ class NetworkAccessPolicy {
     fragment: null,
   );
 
-  void _rememberRoute(String host, NetworkRoute route) {
+  void _rememberRoute(
+    String host,
+    NetworkRoute route, {
+    required PixivDestinationPurpose purpose,
+  }) {
     final address = route.address;
     if (route.kind != NetworkRouteKind.direct && address == null) {
       // A strict route without a connect address is not usable and must never
       // become a remembered preference.
       return;
     }
+    final now = clock();
+    final existing = _routeMemory[host];
+    final keepEchCreatedAt =
+        route.kind == NetworkRouteKind.ech &&
+        existing?.kind == NetworkRouteKind.ech &&
+        existing?.routeFor(_revision).key == route.key;
     _routeMemory[host] = _HostRouteMemory(
       address,
       kind: route.kind,
       dnsSource: route.dnsSource,
       ttl: route.ttl ?? _kRouteMemoryTtl,
-      createdAt: clock(),
+      createdAt: keepEchCreatedAt ? existing!.createdAt : now,
       networkIdentity: _revision.networkIdentity,
       echConfig: route.echConfig == null
           ? null
           : List<int>.unmodifiable(route.echConfig!),
     );
+    final group = _routeGroupFor(purpose);
+    if (route.kind == NetworkRouteKind.direct) {
+      _groupMemory.remove(group);
+    } else if (_isGroupPreferenceKind(route.kind)) {
+      final current = _groupMemory[group];
+      final keepEchGroupCreatedAt =
+          route.kind == NetworkRouteKind.ech &&
+          current?.kind == NetworkRouteKind.ech &&
+          current?.networkIdentity == _revision.networkIdentity;
+      _groupMemory[group] = _RouteGroupMemory(
+        kind: route.kind,
+        ttl: route.ttl ?? _kRouteMemoryTtl,
+        createdAt: keepEchGroupCreatedAt ? current!.createdAt : now,
+        networkIdentity: _revision.networkIdentity,
+      );
+    }
     _trimRouteMemory();
   }
 
-  void _invalidateRouteMemory(String host, NetworkRoute route) {
+  void _invalidateRouteMemory(
+    String host,
+    NetworkRoute route, {
+    required PixivDestinationPurpose purpose,
+  }) {
     final memory = _routeMemory[host];
-    if (memory == null) return;
-    if (memory.kind != route.kind ||
-        memory.networkIdentity != _revision.networkIdentity) {
-      return;
+    if (memory != null &&
+        memory.kind == route.kind &&
+        memory.networkIdentity == _revision.networkIdentity) {
+      final remembered = memory.routeFor(_revision);
+      if (remembered.key == route.key) {
+        _routeMemory.remove(host);
+      }
     }
-    final remembered = memory.routeFor(_revision);
-    if (remembered.key == route.key) {
-      _routeMemory.remove(host);
+    final group = _routeGroupFor(purpose);
+    final groupMemory = _groupMemory[group];
+    if (groupMemory != null &&
+        groupMemory.kind == route.kind &&
+        groupMemory.networkIdentity == _revision.networkIdentity) {
+      _groupMemory.remove(group);
     }
   }
 
@@ -488,12 +567,14 @@ class NetworkAccessPolicy {
     final firstTimer = Stopwatch()..start();
     try {
       final result = await attempt(firstRoute, destination.uri);
-      _rememberRoute(host, firstRoute);
+      _rememberRoute(host, firstRoute, purpose: destination.purpose);
       return result;
     } on Object catch (error, stackTrace) {
       policyRecord(destination, firstRoute, error, firstTimer.elapsed);
       final eligible = TransportFailureClassifier.isFallbackEligible(error);
-      if (eligible) _invalidateRouteMemory(host, firstRoute);
+      if (eligible) {
+        _invalidateRouteMemory(host, firstRoute, purpose: destination.purpose);
+      }
       if (_mode == NetworkMode.directOnly ||
           (cancelSignal?.isCancelled ?? false) ||
           !canReplay ||
@@ -517,14 +598,14 @@ class NetworkAccessPolicy {
         if (route == null) continue;
         try {
           final result = await attempt(route, destination.uri);
-          _rememberRoute(host, route);
+          _rememberRoute(host, route, purpose: destination.purpose);
           return result;
         } on Object catch (candidateError, candidateStack) {
           policyRecord(destination, route, candidateError, const Duration());
           lastError = candidateError;
           lastStack = candidateStack;
           if (TransportFailureClassifier.isFallbackEligible(candidateError)) {
-            _invalidateRouteMemory(host, route);
+            _invalidateRouteMemory(host, route, purpose: destination.purpose);
           }
           if (!TransportFailureClassifier.isFallbackEligible(candidateError)) {
             break;
@@ -552,6 +633,30 @@ class NetworkAccessPolicy {
       tiers.add(NetworkRouteKind.insecureNoSni);
     }
     return tiers;
+  }
+
+  static _RouteGroup _routeGroupFor(PixivDestinationPurpose purpose) =>
+      switch (purpose) {
+        PixivDestinationPurpose.image => _RouteGroup.image,
+        PixivDestinationPurpose.appApi ||
+        PixivDestinationPurpose.oauth ||
+        PixivDestinationPurpose.accountsWeb ||
+        PixivDestinationPurpose.pixivWeb => _RouteGroup.cloudflare,
+      };
+
+  static bool _isGroupPreferenceKind(NetworkRouteKind kind) => switch (kind) {
+    NetworkRouteKind.ech ||
+    NetworkRouteKind.dohRealSni ||
+    NetworkRouteKind.noSni => true,
+    NetworkRouteKind.direct || NetworkRouteKind.insecureNoSni => false,
+  };
+
+  void _invalidateGroupPreference(
+    PixivDestinationPurpose purpose,
+    NetworkRouteKind kind,
+  ) {
+    final group = _routeGroupFor(purpose);
+    if (_groupMemory[group]?.kind == kind) _groupMemory.remove(group);
   }
 
   /// Builds a [NetworkRoute] for [kind], resolving the destination host only
@@ -726,6 +831,7 @@ class NetworkAccessPolicy {
     _mode = mode;
     _closeClients();
     _routeMemory.clear();
+    _groupMemory.clear();
   }
 
   NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
@@ -735,6 +841,7 @@ class NetworkAccessPolicy {
     );
     _closeClients();
     _routeMemory.clear();
+    _groupMemory.clear();
     return _revision;
   }
 
@@ -753,6 +860,7 @@ class NetworkAccessPolicy {
     if (_disposed) return;
     _disposed = true;
     _closeClients();
+    _groupMemory.clear();
     await _resolver.dispose();
   }
 
@@ -803,6 +911,27 @@ class _HostRouteMemory {
     ttl: ttl,
     echConfig: echConfig,
   );
+}
+
+enum _RouteGroup { cloudflare, image }
+
+class _RouteGroupMemory {
+  const _RouteGroupMemory({
+    required this.kind,
+    required this.ttl,
+    required this.createdAt,
+    required this.networkIdentity,
+  });
+
+  final NetworkRouteKind kind;
+  final Duration ttl;
+  final DateTime createdAt;
+  final String networkIdentity;
+
+  bool isUsable(DateTime now, String currentNetworkIdentity) =>
+      networkIdentity == currentNetworkIdentity &&
+      !now.isBefore(createdAt) &&
+      now.difference(createdAt) < ttl;
 }
 
 const _kRouteMemoryTtl = Duration(minutes: 10);

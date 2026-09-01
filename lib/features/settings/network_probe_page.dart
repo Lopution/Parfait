@@ -269,6 +269,16 @@ class _HostProbeCard extends StatelessWidget {
                 style: theme.textTheme.bodySmall,
               )
             else ...[
+              if (body.dnsDisagrees)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    _probeText(context, 'networkProbeDnsDiff'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.orange.shade800,
+                    ),
+                  ),
+                ),
               for (final step in body.steps)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),

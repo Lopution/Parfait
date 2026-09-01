@@ -487,6 +487,12 @@ Future<ResolvedHost> resolve(
 });
 void setMode(NetworkMode mode);
 NetworkRevision advanceNetworkRevision({String? networkIdentity});
+
+Future<EchConfigResult> lookupEchConfig(
+  String frontHost, {
+  required NetworkRevision revision,
+  NetworkCancelSignal? cancelSignal,
+});
 ```
 
 `PixivPolicyHttpClient` and `PolicyDownloadTransport` are the shared native
@@ -509,6 +515,19 @@ consumers.
 - Only DNS, connect, timeout and reset failures may try another strict route.
   Empty GET/HEAD requests may be cloned for replay; POST, token exchange and
   every request with a possible body send never replay automatically.
+- `DohResolver.lookupEchConfig` caches only validated config bytes and front
+  addresses for the clamped HTTPS-RR TTL and current `NetworkRevision`.
+  Concurrent calls without cancellation share one in-flight query; a
+  cancellation-aware call remains independently cancellable and only a
+  completed success populates the cache.
+- After a verified `ech`, `dohRealSni` or `noSni` success, the policy may put
+  that route kind first for the matching destination group. Group memory is
+  runtime-only, uses each target host's own addresses, and is cleared on
+  transport failure, expiry, mode changes and revision changes. The explicit
+  insecure tier is never promoted across hosts.
+- `NetworkProbeReport.dnsDisagrees` is diagnostic evidence only. A reached ECH
+  response (including HTTP 403/404) or a non-421 empty-SNI response remains
+  the actionable conclusion; HTTP 421 keeps empty-SNI unavailable.
 - Diagnostics contain canonical host, purpose, route, DNS source, IP family,
   failure, latency, capability and network revision only. They do not contain
   query strings, cookies, tokens, bodies or full addresses.
@@ -525,6 +544,8 @@ consumers.
 | POST, token exchange, or body possibly sent | Do not replay across routes |
 | Resolver result has wrong host/revision or no public address | Reject as a secure-resolution failure |
 | Account/network/mode boundary | Advance/replace revision and close pools |
+| ECH config TTL or revision expires | Drop the config and query again; never reuse stale bytes |
+| ECH/no-SNI transport succeeds while DNS sets differ | Report the route as usable and retain DNS disagreement as an extra field |
 
 #### 5. Good / Base / Bad Cases
 
@@ -533,9 +554,13 @@ consumers.
   `Host`; diagnostics record only route metadata.
 - Base: an API `429` or certificate mismatch is returned immediately, while
   `DirectOnly` uses the original strict HTTPS client without resolver work.
+- Good: after one verified ECH request, a second Cloudflare-host request uses
+  its own resolved address with the remembered ECH kind and cached HTTPS-RR
+  config inside the same revision.
 - Bad: rewriting an image URL to an IP/mirror, accepting
   `evil.pixiv.net`, logging the request body, or retrying a bookmark `POST`
-  after the socket may have sent its body.
+  after the socket may have sent its body. Treating a DNS mismatch as the
+  primary conclusion after ECH returned HTTP 404 is also wrong.
 
 #### 6. Tests Required
 
@@ -546,6 +571,12 @@ consumers.
 - Policy tests cover direct-first selection, eligible-only fallback,
   original-host requests, no POST replay, pool invalidation and
   diagnostics redaction.
+- ECH resolver tests cover TTL/revision invalidation, defensive result copies,
+  uncancelled in-flight sharing, and cancellation that cannot poison the
+  shared cache. Policy tests cover group preference, cross-host address
+  isolation, insecure-tier non-promotion, and failure invalidation.
+- Probe tests cover DNS disagreement as secondary evidence, ECH HTTP 403/404,
+  empty-SNI 421, and the all-paths-failed conclusion.
 - Protocol parser tests use repository-owned deterministic bytes (or a
   checked-in fixture builder) and run without ambient files or network I/O.
   A live capture may document provenance in task research, but tests must not

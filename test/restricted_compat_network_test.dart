@@ -496,7 +496,7 @@ void main() {
     );
   });
 
-  test('remembered ECH is reused and refreshed instead of removed', () async {
+  test('remembered ECH is reused only within its config TTL', () async {
     final base = DateTime(2026, 8, 31, 12);
     var now = base;
     final direct = _FakeClient(failure: SocketException('Connection refused'));
@@ -543,10 +543,91 @@ void main() {
       reason: 'business request uses ECH once',
     );
 
-    // 25 seconds after the refresh is still within the 30-second DNS TTL;
-    // without refreshing on the second success it would already be stale.
+    // A successful business request does not extend the DNS RR lifetime of
+    // the ECH config that built this route.
     now = base.add(const Duration(seconds: 45));
-    expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
+    expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isFalse);
+    expect(
+      policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+      isNull,
+    );
+  });
+
+  test(
+    'a verified ECH route is preferred by another Cloudflare host',
+    () async {
+      final direct = _FakeClient(
+        failure: SocketException('Connection refused'),
+      );
+      final ech = _FakeClient(body: '{"route":"ech"}');
+      final resolver = _FakeEchResolver(
+        [InternetAddress('1.2.3.32')],
+        frontAddresses: [InternetAddress('1.2.3.33')],
+      );
+      final policy = NetworkAccessPolicy(
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, _) =>
+            route.kind == NetworkRouteKind.direct ? direct : ech,
+      );
+      addTearDown(policy.dispose);
+
+      final api = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.appApi,
+      );
+      final oauth = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.oauth,
+      );
+
+      await api.get(_apiUri);
+      expect(
+        policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+        NetworkRouteKind.ech,
+      );
+      expect(direct.requests, hasLength(1));
+
+      await oauth.get(Uri.parse('https://oauth.secure.pixiv.net/auth/token'));
+      expect(
+        direct.requests,
+        hasLength(1),
+        reason: 'the verified Cloudflare-group ECH tier is probed first',
+      );
+
+      policy.advanceNetworkRevision(networkIdentity: 'cellular');
+      expect(
+        policy.rememberedGroupRouteKind(PixivDestinationPurpose.appApi),
+        isNull,
+      );
+    },
+  );
+
+  test('the explicit insecure tier is never promoted across hosts', () async {
+    final failed = _FakeClient(failure: SocketException('Connection refused'));
+    final insecure = _FakeClient(body: '{"route":"insecure"}');
+    final policy = NetworkAccessPolicy(
+      resolver: _FakeResolver([InternetAddress('1.2.3.34')]),
+      insecureNoSniEnabled: true,
+      clientFactory: (route, canonicalHost, _) =>
+          route.kind == NetworkRouteKind.insecureNoSni ? insecure : failed,
+    );
+    addTearDown(policy.dispose);
+    final client = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.appApi,
+    );
+
+    final response = await client.get(_apiUri);
+    expect(response.statusCode, 200);
+    expect(
+      policy.rememberedRouteKind('app-api.pixiv.net'),
+      NetworkRouteKind.insecureNoSni,
+    );
+    expect(
+      policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+      isNull,
+      reason: 'another host must still try its strict ladder first',
+    );
   });
 
   test(

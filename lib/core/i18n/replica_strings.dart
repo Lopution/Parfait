@@ -39,7 +39,8 @@ class ReplicaStrings {
       'useLoginWithClipboardHint': '或使用\n长按头像复制账号数据',
       'useLoginWithClipboard': '使用剪贴板数据登录',
       'accountTransferWarning': '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。',
-      'accountTransferSensitiveWarning': '此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。',
+      'accountTransferSensitiveWarning':
+          '此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。',
       'accountTransferCopied': '账号迁移数据已复制，请尽快在目标设备粘贴。',
       'accountTransferImported': '账号迁移成功',
       'accountTransferClipboardReplaced': '账号已导入；剪贴板已被其他内容替换，未执行清除。',
@@ -56,27 +57,35 @@ class ReplicaStrings {
       'accountSettings': '账号',
       'networkSettings': '网络',
       'networkMode': '自动兼容网络',
-      'networkModeHint': '默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。',
+      'networkModeHint':
+          '默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。',
       'networkDoh': '严格回退使用 DoH 解析',
-      'networkDohHint': '启用后，回退阶梯使用 DoH 解析（默认 Cloudflare DoH：域名端点 + 静态 Anycast IP，免系统 DNS 投毒；自定义端点解析域名）；关闭则仅用系统 DNS。',
+      'networkDohHint':
+          '启用后，回退阶梯使用 DoH 解析（默认 Cloudflare DoH：域名端点 + 静态 Anycast IP，免系统 DNS 投毒；自定义端点解析域名）；关闭则仅用系统 DNS。',
       'networkDohEndpoints': 'DoH 端点（逗号分隔，https URL）',
       'networkEchFrontHost': 'ECH 前置主机',
-      'networkEchFrontHostHint': '查询 HTTPS RR 获取 ECH config 的域名（默认 cloudflare-ech.com）',
+      'networkEchFrontHostHint':
+          '查询 HTTPS RR 获取 ECH config 的域名（默认 cloudflare-ech.com）',
       'networkEchHostInvalid': '前置主机名无效',
       'networkInsecureNoSni': '不校验证书兜底档（不推荐）',
-      'networkInsecureNoSniHint': '启用后阶梯会以「空 SNI + 不校验证书」作为最后尝试。仅当其它方案全部失效且您理解风险时开启。',
-      'networkInsecureNoSniWarning': '警告：此档不校验服务器证书。在当前网络上的中间人可以伪造 Pixiv 证书并读取您的会话。默认关闭，仅在您明确开启后出现。',
+      'networkInsecureNoSniHint':
+          '启用后阶梯会以「空 SNI + 不校验证书」作为最后尝试。仅当其它方案全部失效且您理解风险时开启。',
+      'networkInsecureNoSniWarning':
+          '警告：此档不校验服务器证书。在当前网络上的中间人可以伪造 Pixiv 证书并读取您的会话。默认关闭，仅在您明确开启后出现。',
 
       'networkWebViewIntercept': '登录页原生拦截',
-      'networkWebViewInterceptHint': '在 Android 上让登录页 WebView 的请求改走网络策略阶梯（用于大陆直连登录）。默认关闭，使用内置 WebView 的稳定实现。',
+      'networkWebViewInterceptHint':
+          '在 Android 上让登录页 WebView 的请求改走网络策略阶梯（用于大陆直连登录）。默认关闭，使用内置 WebView 的稳定实现。',
 
       'networkProbe': '分层连通性探测',
       'networkProbeTitle': '分层连通性探测',
-      'networkProbeHint': '对 Pixiv 四个官方主机逐层测试：系统 DNS → DoH → TCP → TLS(真实 SNI) → 最小请求。TCP 通但 TLS 握手失败 = SNI 被封。',
+      'networkProbeHint':
+          '对 Pixiv 四个官方主机逐层测试：系统 DNS → DoH → TCP → TLS(真实 SNI) → 最小请求。TCP 通但 TLS 握手失败 = SNI 被封。',
       'networkProbeRun': '开始探测',
       'networkProbeRunning': '探测中…',
       'networkProbeNotRun': '尚未运行',
       'networkProbeCopied': '报告已复制',
+      'networkProbeDnsDiff': '附加信息：系统 DNS 与 DoH 的公共地址没有交集。',
       'copy': '复制',
       'themeSettings': '主题',
       'languageSettings': '语言',
@@ -386,27 +395,37 @@ class ReplicaStrings {
       'accountSettings': 'Account',
       'networkSettings': 'Network',
       'networkMode': 'Auto compatibility mode',
-      'networkModeHint': 'Direct by default; only Pixiv official hosts may retry via a strict HTTPS tier after a clear transport failure. No other traffic is proxied and certificate checks are never disabled.',
+      'networkModeHint':
+          'Direct by default; only Pixiv official hosts may retry via a strict HTTPS tier after a clear transport failure. No other traffic is proxied and certificate checks are never disabled.',
       'networkDoh': 'Use DoH for strict fallback',
-      'networkDohHint': 'When enabled, the fallback tier resolves via DoH (default Cloudflare DoH: domain endpoints pinned to static anycast IPs — no poisoned system round trip; custom endpoints resolve their own hostnames); otherwise the system DNS is used.',
+      'networkDohHint':
+          'When enabled, the fallback tier resolves via DoH (default Cloudflare DoH: domain endpoints pinned to static anycast IPs — no poisoned system round trip; custom endpoints resolve their own hostnames); otherwise the system DNS is used.',
       'networkDohEndpoints': 'DoH endpoints (comma-separated, https URLs)',
       'networkEchFrontHost': 'ECH front host',
-      'networkEchFrontHostHint': 'Domain queried for the HTTPS RR carrying the ECH config (default cloudflare-ech.com)',
+      'networkEchFrontHostHint':
+          'Domain queried for the HTTPS RR carrying the ECH config (default cloudflare-ech.com)',
       'networkEchHostInvalid': 'Invalid front host name',
-      'networkInsecureNoSni': 'Insecure no-verification fallback tier (not recommended)',
-      'networkInsecureNoSniHint': 'When enabled, the ladder adds a final "empty SNI + no certificate verification" attempt. Enable only if every other tier fails and you understand the risk.',
-      'networkInsecureNoSniWarning': 'Warning: this tier does not verify the server certificate. A middlebox on your current network could forge a Pixiv certificate and read your session. Disabled by default; appears only after explicit opt-in.',
+      'networkInsecureNoSni':
+          'Insecure no-verification fallback tier (not recommended)',
+      'networkInsecureNoSniHint':
+          'When enabled, the ladder adds a final "empty SNI + no certificate verification" attempt. Enable only if every other tier fails and you understand the risk.',
+      'networkInsecureNoSniWarning':
+          'Warning: this tier does not verify the server certificate. A middlebox on your current network could forge a Pixiv certificate and read your session. Disabled by default; appears only after explicit opt-in.',
 
       'networkWebViewIntercept': 'Native login WebView interception',
-      'networkWebViewInterceptHint': 'On Android, routes login WebView requests through the network policy ladder (for mainland direct login). Off by default; uses the stable built-in WebView implementation.',
+      'networkWebViewInterceptHint':
+          'On Android, routes login WebView requests through the network policy ladder (for mainland direct login). Off by default; uses the stable built-in WebView implementation.',
 
       'networkProbe': 'Layered connectivity probe',
       'networkProbeTitle': 'Layered connectivity probe',
-      'networkProbeHint': 'Probes the four official Pixiv hosts layer by layer: system DNS → DoH → TCP → TLS(real SNI) → minimal request. TCP ok but TLS handshake fails = SNI blocked.',
+      'networkProbeHint':
+          'Probes the four official Pixiv hosts layer by layer: system DNS → DoH → TCP → TLS(real SNI) → minimal request. TCP ok but TLS handshake fails = SNI blocked.',
       'networkProbeRun': 'Run probe',
       'networkProbeRunning': 'Probing…',
       'networkProbeNotRun': 'Not run yet',
       'networkProbeCopied': 'Report copied',
+      'networkProbeDnsDiff':
+          'Additional evidence: system DNS and DoH share no public address.',
       'copy': 'Copy',
       'themeSettings': 'Theme',
       'languageSettings': 'Language',
@@ -439,12 +458,14 @@ class ReplicaStrings {
       'profileEditAvatar': 'Avatar',
       'profileEditBackground': 'Background image',
       'profileEditCurrentPassword': 'Current password',
-      'profileEditFieldUnsupported': 'This field is not supported by the current route',
+      'profileEditFieldUnsupported':
+          'This field is not supported by the current route',
       'profileEditImageChoose': 'Choose a supported image',
       'profileEditChooseImage': 'Choose image',
       'profileEditSave': 'Save profile',
       'profileEditLeaveTitle': 'Discard unsaved changes?',
-      'profileEditLeaveDetail': 'Your changes have not been submitted and will be lost.',
+      'profileEditLeaveDetail':
+          'Your changes have not been submitted and will be lost.',
       'profileEditLeaveConfirm': 'Discard changes',
       'accountManagement': 'Account management',
       'addAccount': 'Add account',
@@ -703,7 +724,8 @@ class ReplicaStrings {
       'useLoginWithClipboard': 'クリップボードに保存されたデータでログイン',
       'accountTransferWarning':
           'クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。',
-      'accountTransferSensitiveWarning': 'この端末はクリップボードの機密マーク（Android 13+）未対応です。認証情報は平文でシステムクリップボードに置かれます。すぐに貼り付けてください。5分後に自動クリアされます。',
+      'accountTransferSensitiveWarning':
+          'この端末はクリップボードの機密マーク（Android 13+）未対応です。認証情報は平文でシステムクリップボードに置かれます。すぐに貼り付けてください。5分後に自動クリアされます。',
       'accountTransferCopied': 'アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。',
       'accountTransferImported': 'アカウント移行に成功しました',
       'accountTransferClipboardReplaced':
@@ -721,27 +743,35 @@ class ReplicaStrings {
       'accountSettings': 'アカウント',
       'networkSettings': 'ネットワーク',
       'networkMode': '自動互換ネットワーク',
-      'networkModeHint': 'デフォルトは直結。Pixiv 公式ドメインのみ、明確な転送失敗時に厳格 HTTPS 候補を試します。他トラフィックはプロキシせず、証明書検証は無効化しません。',
+      'networkModeHint':
+          'デフォルトは直結。Pixiv 公式ドメインのみ、明確な転送失敗時に厳格 HTTPS 候補を試します。他トラフィックはプロキシせず、証明書検証は無効化しません。',
       'networkDoh': '厳格フォールバックで DoH を使用',
-      'networkDohHint': '有効時、フォールバック層は DoH（デフォルト Cloudflare DoH：ドメイン端点を静的 Anycast IP にピン留め — 汚染されたシステム DNS を回避；カスタム端点は自身のホスト名を解決）で解決します。無効時はシステム DNS を使用します。',
+      'networkDohHint':
+          '有効時、フォールバック層は DoH（デフォルト Cloudflare DoH：ドメイン端点を静的 Anycast IP にピン留め — 汚染されたシステム DNS を回避；カスタム端点は自身のホスト名を解決）で解決します。無効時はシステム DNS を使用します。',
       'networkDohEndpoints': 'DoH エンドポイント（カンマ区切り、https URL）',
       'networkEchFrontHost': 'ECH フロントホスト',
-      'networkEchFrontHostHint': 'ECH config を含む HTTPS RR を照会するドメイン（デフォルト cloudflare-ech.com）',
+      'networkEchFrontHostHint':
+          'ECH config を含む HTTPS RR を照会するドメイン（デフォルト cloudflare-ech.com）',
       'networkEchHostInvalid': 'フロントホスト名が無効です',
       'networkInsecureNoSni': '証明書検証なしフォールバック層（非推奨）',
-      'networkInsecureNoSniHint': '有効時、ラダーは最後に「空 SNI + 証明書検証なし」を試します。他の層が全て失敗し、リスクを理解した場合のみ有効にしてください。',
-      'networkInsecureNoSniWarning': '警告：この層はサーバー証明書を検証しません。現在のネットワーク上の中間者は Pixiv 証明書を偽装してセッションを読む可能性があります。デフォルト無効、明示的に有効化した場合のみ存在します。',
+      'networkInsecureNoSniHint':
+          '有効時、ラダーは最後に「空 SNI + 証明書検証なし」を試します。他の層が全て失敗し、リスクを理解した場合のみ有効にしてください。',
+      'networkInsecureNoSniWarning':
+          '警告：この層はサーバー証明書を検証しません。現在のネットワーク上の中間者は Pixiv 証明書を偽装してセッションを読む可能性があります。デフォルト無効、明示的に有効化した場合のみ存在します。',
 
       'networkWebViewIntercept': 'ログイン WebView のネイティブ文字',
-      'networkWebViewInterceptHint': 'Android でログイン WebView のリクエストをネットワークポリシー経由に回します（大陸直結ログイン用）。デフォルト無効で、安定した組み込み WebView を使用します。',
+      'networkWebViewInterceptHint':
+          'Android でログイン WebView のリクエストをネットワークポリシー経由に回します（大陸直結ログイン用）。デフォルト無効で、安定した組み込み WebView を使用します。',
 
       'networkProbe': '階層接続プローブ',
       'networkProbeTitle': '階層接続プローブ',
-      'networkProbeHint': 'Pixiv の4公式ホストを層ごとにテスト：システム DNS → DoH → TCP → TLS(実SNI) → 最小リクエスト。TCP 成功でも TLS ハンドシェイク失敗 = SNI ブロック。',
+      'networkProbeHint':
+          'Pixiv の4公式ホストを層ごとにテスト：システム DNS → DoH → TCP → TLS(実SNI) → 最小リクエスト。TCP 成功でも TLS ハンドシェイク失敗 = SNI ブロック。',
       'networkProbeRun': 'プローブ開始',
       'networkProbeRunning': '実行中…',
       'networkProbeNotRun': '未実行',
       'networkProbeCopied': 'レポートをコピーしました',
+      'networkProbeDnsDiff': '追加情報：システム DNS と DoH の公開アドレスが一致しません。',
       'copy': 'コピー',
       'themeSettings': 'テーマ',
       'languageSettings': '言語',
@@ -1029,7 +1059,8 @@ class ReplicaStrings {
       'useLoginWithClipboard': 'Войти с данными из буфера обмена',
       'accountTransferWarning':
           'Буфер обмена хранится недолго и может быть прочитан другими приложениями; этот формат не обеспечивает шифрование или аутентификацию отправителя.',
-      'accountTransferSensitiveWarning': 'Это устройство не поддерживает пометку буфера как конфиденциального (только Android 13+): учётные данные попадут в системный буфер открытым текстом. Вставьте как можно скорее; очистка через 5 минут.',
+      'accountTransferSensitiveWarning':
+          'Это устройство не поддерживает пометку буфера как конфиденциального (только Android 13+): учётные данные попадут в системный буфер открытым текстом. Вставьте как можно скорее; очистка через 5 минут.',
       'accountTransferCopied':
           'Данные для переноса аккаунта скопированы. Скоро вставьте их на целевом устройстве.',
       'accountTransferImported': 'Перенос аккаунта выполнен',
@@ -1053,27 +1084,37 @@ class ReplicaStrings {
       'accountSettings': 'Аккаунт',
       'networkSettings': 'Сеть',
       'networkMode': 'Автосовместимость сети',
-      'networkModeHint': 'По умолчанию прямое соединение; только официальные домены Pixiv могут повторяться через строгий HTTPS-уровень после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификатов не отключается.',
+      'networkModeHint':
+          'По умолчанию прямое соединение; только официальные домены Pixiv могут повторяться через строгий HTTPS-уровень после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификатов не отключается.',
       'networkDoh': 'Использовать DoH для строгого резерва',
-      'networkDohHint': 'Включено: резервный уровень резолвит через DoH (по умолчанию Cloudflare DoH: доменные эндпоинты привязаны к статическим Anycast IP — никакого отравленного системного DNS; кастомные эндпоинты резолвят свои хосты); выключено — системный DNS.',
+      'networkDohHint':
+          'Включено: резервный уровень резолвит через DoH (по умолчанию Cloudflare DoH: доменные эндпоинты привязаны к статическим Anycast IP — никакого отравленного системного DNS; кастомные эндпоинты резолвят свои хосты); выключено — системный DNS.',
       'networkDohEndpoints': 'DoH-эндпоинты (через запятую, https URL)',
       'networkEchFrontHost': 'ECH-фронт-хост',
-      'networkEchFrontHostHint': 'Домен, у которого запрашивается HTTPS RR с ECH config (по умолчанию cloudflare-ech.com)',
+      'networkEchFrontHostHint':
+          'Домен, у которого запрашивается HTTPS RR с ECH config (по умолчанию cloudflare-ech.com)',
       'networkEchHostInvalid': 'Неверное имя фронт-хоста',
-      'networkInsecureNoSni': 'Небезопасный резервный уровень без проверки (не рекомендуется)',
-      'networkInsecureNoSniHint': 'Включено: лестница добавляет финальную попытку «пустой SNI + без проверки сертификатов». Включайте только если все остальные уровни не работают и вы понимаете риск.',
-      'networkInsecureNoSniWarning': 'Предупреждение: этот уровень не проверяет сертификат сервера. Посредник в вашей сети может подделать сертификат Pixiv и прочитать сессию. Отключено по умолчанию; появляется только после явного включения.',
+      'networkInsecureNoSni':
+          'Небезопасный резервный уровень без проверки (не рекомендуется)',
+      'networkInsecureNoSniHint':
+          'Включено: лестница добавляет финальную попытку «пустой SNI + без проверки сертификатов». Включайте только если все остальные уровни не работают и вы понимаете риск.',
+      'networkInsecureNoSniWarning':
+          'Предупреждение: этот уровень не проверяет сертификат сервера. Посредник в вашей сети может подделать сертификат Pixiv и прочитать сессию. Отключено по умолчанию; появляется только после явного включения.',
 
       'networkWebViewIntercept': 'Нативный перехват WebView входа',
-      'networkWebViewInterceptHint': 'На Android направляет запросы WebView входа через лестницу сетевой политики (для прямого входа из материкового Китая). По умолчанию выключено, используется стабильный встроенный WebView.',
+      'networkWebViewInterceptHint':
+          'На Android направляет запросы WebView входа через лестницу сетевой политики (для прямого входа из материкового Китая). По умолчанию выключено, используется стабильный встроенный WebView.',
 
       'networkProbe': 'Многоуровневый зонд связи',
       'networkProbeTitle': 'Многоуровневый зонд связи',
-      'networkProbeHint': 'Проверяет 4 официальных хоста Pixiv послойно: системный DNS → DoH → TCP → TLS(реальный SNI) → минимальный запрос. TCP ок, но TLS-рукопожатие падает = SNI заблокирован.',
+      'networkProbeHint':
+          'Проверяет 4 официальных хоста Pixiv послойно: системный DNS → DoH → TCP → TLS(реальный SNI) → минимальный запрос. TCP ок, но TLS-рукопожатие падает = SNI заблокирован.',
       'networkProbeRun': 'Запустить зонд',
       'networkProbeRunning': 'Проверка…',
       'networkProbeNotRun': 'Ещё не запущен',
       'networkProbeCopied': 'Отчёт скопирован',
+      'networkProbeDnsDiff':
+          'Дополнительно: системный DNS и DoH не имеют общих публичных адресов.',
       'copy': 'Копировать',
       'themeSettings': 'Тема',
       'languageSettings': 'Язык',
@@ -1097,7 +1138,8 @@ class ReplicaStrings {
       'accountProfile': 'Профиль',
       'profileEditTitle': 'Редактировать профиль',
       'profileEditLoadFailed': 'Не удалось загрузить профиль',
-      'profileEditUnavailable': 'Нет утверждённого канала редактирования профиля.',
+      'profileEditUnavailable':
+          'Нет утверждённого канала редактирования профиля.',
       'profileEditPending': 'Изменения отправлены и ожидают подтверждения.',
       'profileEditConfirmed': 'Профиль подтверждён и синхронизирован.',
       'profileEditDisplayName': 'Имя',

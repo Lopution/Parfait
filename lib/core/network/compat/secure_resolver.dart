@@ -37,11 +37,14 @@ abstract interface class EchConfigResolver {
 /// host are polluted).
 class EchConfigResult {
   EchConfigResult({
-    required this.echConfig,
+    required List<int> echConfig,
     required this.ttl,
-    this.frontAddresses = const [],
-  });
+    List<InternetAddress> frontAddresses = const [],
+  }) : echConfig = Uint8List.fromList(echConfig),
+       frontAddresses = List<InternetAddress>.unmodifiable(frontAddresses);
 
+  /// A private copy is kept so a caller cannot mutate the resolver's cached
+  /// config bytes after a successful lookup.
   final Uint8List echConfig;
   final Duration ttl;
 
@@ -181,6 +184,9 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   final bool _ownsClient;
   final List<String> _endpoints;
   final Map<String, DateTime> _endpointFailedAt = {};
+  final Map<_EchCacheKey, _EchCacheEntry> _echCache = {};
+  final Map<_EchCacheKey, Future<EchConfigResult>> _echInflight = {};
+  static const int _maxEchCacheEntries = 16;
   int _endpointCursor = 0;
   bool _disposed = false;
 
@@ -341,6 +347,57 @@ class DohResolver implements SecureResolver, EchConfigResolver {
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
     }
 
+    final key = _EchCacheKey(frontHost, revision);
+    final cached = _echCache[key];
+    if (cached != null) {
+      if (cached.isUsable(clock())) {
+        return _copyEchResult(cached.result);
+      }
+      _echCache.remove(key);
+    }
+
+    // Only calls without a cancellation signal may share an in-flight query.
+    // A caller with its own signal must be able to stop independently without
+    // cancelling (or poisoning) another request that is using the result.
+    if (cancelSignal == null) {
+      final pending = _echInflight[key];
+      if (pending != null) {
+        return _copyEchResult(await pending);
+      }
+      final future = _lookupEchConfigUncached(
+        frontHost,
+        revision: revision,
+        cancelSignal: null,
+      );
+      _echInflight[key] = future;
+      try {
+        final result = await future;
+        _rememberEchResult(key, result);
+        return _copyEchResult(result);
+      } finally {
+        if (identical(_echInflight[key], future)) {
+          _echInflight.remove(key);
+        }
+      }
+    }
+
+    // Cancellation-aware lookups intentionally bypass the shared flight.
+    final result = await _lookupEchConfigUncached(
+      frontHost,
+      revision: revision,
+      cancelSignal: cancelSignal,
+    );
+    _rememberEchResult(key, result);
+    return _copyEchResult(result);
+  }
+
+  Future<EchConfigResult> _lookupEchConfigUncached(
+    String frontHost, {
+    required NetworkRevision revision,
+    required NetworkCancelSignal? cancelSignal,
+  }) async {
+    _checkUsable();
+
     final candidates = <String>[];
     for (var i = 0; i < _endpoints.length; i++) {
       final endpoint = _endpoints[(_endpointCursor + i) % _endpoints.length];
@@ -373,6 +430,30 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     _endpointCursor = (_endpointCursor + 1) % _endpoints.length;
     throw lastError ??
         const SecureResolutionException('all DoH endpoints failed');
+  }
+
+  static EchConfigResult _copyEchResult(EchConfigResult result) =>
+      EchConfigResult(
+        echConfig: result.echConfig,
+        ttl: result.ttl,
+        frontAddresses: result.frontAddresses,
+      );
+
+  void _rememberEchResult(_EchCacheKey key, EchConfigResult result) {
+    if (_disposed) return;
+    _echCache[key] = _EchCacheEntry(result, clock());
+    _trimEchCache();
+  }
+
+  void _trimEchCache() {
+    final now = clock();
+    _echCache.removeWhere((_, entry) => !entry.isUsable(now));
+    if (_echCache.length <= _maxEchCacheEntries) return;
+    final oldest = _echCache.entries.toList()
+      ..sort((a, b) => a.value.createdAt.compareTo(b.value.createdAt));
+    for (final entry in oldest.take(_echCache.length - _maxEchCacheEntries)) {
+      _echCache.remove(entry.key);
+    }
   }
 
   Future<EchConfigResult> _queryEch(
@@ -492,10 +573,40 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _echCache.clear();
+    _echInflight.clear();
     if (_ownsClient) {
       _client.close();
     }
   }
+}
+
+class _EchCacheKey {
+  const _EchCacheKey(this.frontHost, this.revision);
+
+  final String frontHost;
+  final NetworkRevision revision;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _EchCacheKey &&
+      other.frontHost == frontHost &&
+      other.revision.value == revision.value &&
+      other.revision.networkIdentity == revision.networkIdentity;
+
+  @override
+  int get hashCode =>
+      Object.hash(frontHost, revision.value, revision.networkIdentity);
+}
+
+class _EchCacheEntry {
+  _EchCacheEntry(this.result, this.createdAt);
+
+  final EchConfigResult result;
+  final DateTime createdAt;
+
+  bool isUsable(DateTime now) =>
+      !now.isBefore(createdAt) && now.difference(createdAt) < result.ttl;
 }
 
 /// A deterministic resolver useful for local integration and unit tests.

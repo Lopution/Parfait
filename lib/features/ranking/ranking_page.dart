@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../app/pull_to_refresh.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/network/api_error.dart';
@@ -126,7 +127,7 @@ class _RankingModeBody extends ConsumerWidget {
         }
 
         final entities = store.getAll(feed.ids);
-        return RefreshIndicator(
+        return PullToRefresh(
           onRefresh: () =>
               ref.read(rankingFeedControllerProvider(mode).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
@@ -151,7 +152,7 @@ class _RankingModeBody extends ConsumerWidget {
                     crossAxisSpacing: 10,
                     itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],
-                      heroScope: 'ranking',
+                      heroScope: 'ranking:${mode.name}',
                     ),
                     childCount: entities.length,
                   ),

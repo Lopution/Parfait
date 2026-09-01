@@ -3,6 +3,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
+import '../../app/pull_to_refresh.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
@@ -228,7 +229,7 @@ class _HistoryBodyState extends State<_HistoryBody> {
       return _HistoryError(error: _error!, onRetry: _reload);
     }
     if (_records.isEmpty) {
-      return RefreshIndicator(
+      return PullToRefresh(
         onRefresh: _reload,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -241,7 +242,7 @@ class _HistoryBodyState extends State<_HistoryBody> {
         ),
       );
     }
-    return RefreshIndicator(
+    return PullToRefresh(
       onRefresh: _reload,
       child: CustomScrollView(
         controller: _scrollController,

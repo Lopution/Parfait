@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/pixiv_image.dart';
@@ -36,17 +36,139 @@ import 'ugoira_viewer.dart';
 String illustHeroTag(String scope, int illustId) =>
     'IllustHero:$scope:$illustId';
 
+const _illustHeroBorderRadius = BorderRadius.all(Radius.circular(12));
+
+Widget illustHeroFlightShuttleBuilder(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection direction,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final heroContext = direction == HeroFlightDirection.push
+      ? toHeroContext
+      : fromHeroContext;
+  final hero = heroContext.widget as Hero;
+  final fromClip = _heroViewportClip(fromHeroContext, flightContext);
+  final toClip = _heroViewportClip(toHeroContext, flightContext);
+  // The shuttle lives in Navigator's overlay and otherwise escapes every
+  // scrollable that contained the source/target Hero. Keep it inside both
+  // viewports for the entire flight, including a pop from a partially visible
+  // feed card.
+  final viewportClip = fromClip.intersect(toClip);
+  return AnimatedBuilder(
+    animation: animation,
+    child: ClipRRect(borderRadius: _illustHeroBorderRadius, child: hero.child),
+    builder: (context, child) {
+      return _GlobalRectClip(globalRect: viewportClip, child: child!);
+    },
+  );
+}
+
+Rect _heroViewportClip(BuildContext heroContext, BuildContext fallbackContext) {
+  RenderObject? renderObject = heroContext.findRenderObject();
+  RenderSliver? viewportSliver;
+  while (renderObject != null) {
+    if (renderObject is RenderSliver) {
+      // Keep the sliver that is directly below the viewport. Its approximate
+      // paint clip includes NestedScrollView overlap (for example, a pinned
+      // profile header) that is not represented by viewport.size alone.
+      viewportSliver = renderObject;
+    }
+    if (renderObject is RenderViewportBase &&
+        renderObject.axis == Axis.vertical) {
+      final viewport = renderObject;
+      if (viewport.hasSize && viewport.size.isFinite) {
+        final localClip =
+            viewportSliver == null || viewportSliver.geometry == null
+            ? Offset.zero & viewport.size
+            : viewport.describeApproximatePaintClip(viewportSliver) ??
+                  (Offset.zero & viewport.size);
+        final globalClip = MatrixUtils.transformRect(
+          viewport.getTransformTo(null),
+          localClip,
+        );
+        if (globalClip.isFinite && !globalClip.isEmpty) {
+          return globalClip;
+        }
+      }
+    }
+    renderObject = renderObject.parent;
+  }
+
+  final navigator = Navigator.maybeOf(fallbackContext);
+  final navigatorRenderObject = navigator?.context.findRenderObject();
+  if (navigatorRenderObject is RenderBox &&
+      navigatorRenderObject.hasSize &&
+      navigatorRenderObject.size.isFinite) {
+    return navigatorRenderObject.localToGlobal(Offset.zero) &
+        navigatorRenderObject.size;
+  }
+  return Offset.zero & MediaQuery.sizeOf(fallbackContext);
+}
+
+class _GlobalRectClip extends SingleChildRenderObjectWidget {
+  const _GlobalRectClip({required this.globalRect, required super.child});
+
+  final Rect globalRect;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderGlobalRectClip(globalRect);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderGlobalRectClip renderObject,
+  ) {
+    renderObject.globalRect = globalRect;
+  }
+}
+
+class _RenderGlobalRectClip extends RenderProxyBox {
+  _RenderGlobalRectClip(this._globalRect);
+
+  Rect _globalRect;
+
+  Rect get globalRect => _globalRect;
+
+  set globalRect(Rect value) {
+    if (value == _globalRect) return;
+    _globalRect = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null || size.isEmpty) return;
+    final globalOrigin = localToGlobal(Offset.zero);
+    final localClip = _globalRect
+        .shift(-globalOrigin)
+        .intersect(Offset.zero & size);
+    if (localClip.isEmpty) return;
+    context.pushClipRect(
+      needsCompositing,
+      offset,
+      localClip,
+      super.paint,
+      clipBehavior: Clip.hardEdge,
+    );
+  }
+}
+
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
     super.key,
     required this.illustId,
     this.initialEntity,
     this.heroScope = 'feed',
+    this.heroImageUrl,
   });
 
   final int illustId;
   final IllustEntity? initialEntity;
   final String heroScope;
+  final String? heroImageUrl;
 
   @override
   ConsumerState<IllustDetailPage> createState() => _IllustDetailPageState();
@@ -211,11 +333,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             SliverToBoxAdapter(
               child: UgoiraViewer(
                 illustId: entity.id,
-                previewUrl: entity.imageUrls.large,
+                previewUrl: widget.heroImageUrl ?? entity.imageUrls.large,
                 width: entity.width,
                 height: entity.height,
                 downloadMode: _downloadMode,
                 onLongPress: _toggleDownloadMode,
+                heroTag: illustHeroTag(widget.heroScope, entity.id),
+                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
               ),
             )
           else if (entity.pageCount == 1)
@@ -224,6 +348,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 entity: entity,
                 index: 0,
                 heroTag: illustHeroTag(widget.heroScope, entity.id),
+                heroImageUrl: widget.heroImageUrl,
                 downloadMode: _downloadMode,
                 onLongPress: _toggleDownloadMode,
               ),
@@ -241,6 +366,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                     heroTag: index == 0
                         ? illustHeroTag(widget.heroScope, entity.id)
                         : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
+                    heroImageUrl: index == 0 ? widget.heroImageUrl : null,
                     downloadMode: _downloadMode,
                     onLongPress: _toggleDownloadMode,
                   ),
@@ -281,6 +407,7 @@ class _PageImage extends ConsumerWidget {
     required this.entity,
     required this.index,
     required this.heroTag,
+    this.heroImageUrl,
     required this.downloadMode,
     required this.onLongPress,
   });
@@ -288,6 +415,7 @@ class _PageImage extends ConsumerWidget {
   final IllustEntity entity;
   final int index;
   final String heroTag;
+  final String? heroImageUrl;
   final bool downloadMode;
   final VoidCallback onLongPress;
 
@@ -296,10 +424,10 @@ class _PageImage extends ConsumerWidget {
     final download = ref.watch(illustDownloadControllerProvider);
     final scaleQuality = ref.watch(scaleQualityProvider);
     final state = download.stateFor(entity.id, index);
-    final previewUrl = entity.pageCount > 1
-        ? (index < entity.metaPages.length
-              ? entity.metaPages[index].medium
-              : entity.imageUrls.medium)
+    final previewUrl = index == 0 && heroImageUrl != null
+        ? heroImageUrl!
+        : entity.pageCount > 1 && index < entity.metaPages.length
+        ? entity.metaPages[index].large
         : entity.imageUrls.large;
     final image = GestureDetector(
       onTap: () => _openViewer(context, scaleQuality: scaleQuality),
@@ -318,6 +446,7 @@ class _PageImage extends ConsumerWidget {
             // never be scaled or retained by a detail pop transition.
             Hero(
               tag: heroTag,
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
               child: PixivImage(
                 url: previewUrl,
                 fit: BoxFit.contain,
@@ -442,17 +571,20 @@ class _InfoBlock extends ConsumerWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundImage: entity.user.profileImageUrl == null
-                    ? null
-                    : CachedNetworkImageProvider(
-                        entity.user.profileImageUrl!,
-                        headers: PixivImage.headers,
-                        cacheManager: ref
-                            .watch(pixivNetworkFactoryProvider)
-                            .imageCacheManager,
-                      ),
+              SizedBox.square(
+                key: const Key('illust-author-avatar'),
+                dimension: 48,
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundImage: entity.user.profileImageUrl == null
+                      ? null
+                      : PixivImage.provider(
+                          entity.user.profileImageUrl!,
+                          cacheManager: ref
+                              .watch(pixivNetworkFactoryProvider)
+                              .imageCacheManager,
+                        ),
+                ),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -491,9 +623,15 @@ class _InfoBlock extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              _StatItem(icon: Icons.remove_red_eye_outlined, label: '${entity.totalView}'),
+              _StatItem(
+                icon: Icons.remove_red_eye_outlined,
+                label: '${entity.totalView}',
+              ),
               const SizedBox(width: 10),
-              _StatItem(icon: Icons.favorite_border, label: '${entity.totalBookmarks}'),
+              _StatItem(
+                icon: Icons.favorite_border,
+                label: '${entity.totalBookmarks}',
+              ),
             ],
           ),
           const SizedBox(height: 5),
@@ -666,9 +804,7 @@ class _CaptionRichText extends ConsumerWidget {
                     opener.openExternal(href).catchError((Object error) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('无法打开链接：$error'),
-                          ),
+                          SnackBar(content: Text('无法打开链接：$error')),
                         );
                       }
                     }),
@@ -703,7 +839,9 @@ class _CaptionRichText extends ConsumerWidget {
   final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
   if (segments.isEmpty) return null;
   // Strip a leading language segment (en/, ja/, ...).
-  final start = segments.length >= 2 && segments[0].length == 2 &&
+  final start =
+      segments.length >= 2 &&
+          segments[0].length == 2 &&
           !RegExp(r'^\d+$').hasMatch(segments[0])
       ? 1
       : 0;
@@ -721,10 +859,7 @@ class _CaptionRichText extends ConsumerWidget {
   };
 }
 
-void _openPixivRoute(
-  BuildContext context,
-  ({String kind, String id}) target,
-) {
+void _openPixivRoute(BuildContext context, ({String kind, String id}) target) {
   final id = int.tryParse(target.id);
   if (id == null || id <= 0) return;
   switch (target.kind) {
@@ -733,12 +868,11 @@ void _openPixivRoute(
       showUserPage(context, id);
     case 'illust':
       Navigator.of(context).push<void>(
-        ReplicaPageRoute<void>(
-          builder: (_) => IllustDetailPage(illustId: id),
-        ),
+        ReplicaPageRoute<void>(builder: (_) => IllustDetailPage(illustId: id)),
       );
   }
 }
+
 class _RestrictedView extends StatelessWidget {
   const _RestrictedView(this.entity);
 

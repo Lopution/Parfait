@@ -13,7 +13,7 @@ import 'secure_resolver.dart';
 ///
 /// | observation | conclusion |
 /// |---|---|
-/// | system DNS != DoH addresses | DNS pollution — DoH tier suffices |
+/// | system DNS and DoH share no public address | DNS discrepancy (secondary evidence) |
 /// | DoH has answers but TCP fails | IP blackholing — no client-side fix |
 /// | TCP ok but TLS handshake (real SNI) fails | SNI blocked — ECH/noSni tier |
 /// | ECH config available AND ECH handshake ok | `ech` tier is the answer |
@@ -301,6 +301,7 @@ abstract final class NetworkProbe {
       steps: steps,
       conclusion: _classify(steps, dnsDisagrees),
       firstError: firstError,
+      dnsDisagrees: dnsDisagrees,
     );
   }
 
@@ -343,9 +344,16 @@ abstract final class NetworkProbe {
         systemDns?.detail.contains('address(es):') ?? false;
     final dohAddresses = doh?.detail.contains('address(es):') ?? false;
 
-    if (dnsDisagrees) {
-      return NetworkProbeConclusion.dnsPolluted;
+    // A successful fallback transport is stronger evidence than a DNS
+    // discrepancy.  CDN rotation and split-horizon answers are common, and
+    // the old DNS-first branch hid a working ECH path behind "DNS polluted".
+    if (ech != null && ech.ok) {
+      return NetworkProbeConclusion.echAvailable;
     }
+    if (noSni != null && noSni.ok) {
+      return NetworkProbeConclusion.noSniAvailable;
+    }
+    if (dnsDisagrees) return NetworkProbeConclusion.dnsPolluted;
     final hadCandidate =
         (systemDnsOk && systemDnsAddresses) || (dohOk && dohAddresses);
     if (tcp != null && !tcp.ok) {
@@ -545,6 +553,7 @@ class NetworkProbeReport {
     required this.steps,
     required this.conclusion,
     required this.firstError,
+    this.dnsDisagrees = false,
   });
 
   final String host;
@@ -553,11 +562,17 @@ class NetworkProbeReport {
   final NetworkProbeConclusion conclusion;
   final String? firstError;
 
+  /// True when system DNS and DoH returned disjoint public address sets.
+  /// This is secondary evidence and must not override a verified ECH/no-SNI
+  /// transport conclusion.
+  final bool dnsDisagrees;
+
   /// Copy-pasteable report (PRD R2: 结果可复制).
   String toCopyableText() {
     final buffer = StringBuffer()
       ..writeln('NetworkProbe $host (${purpose.name})')
-      ..writeln('conclusion: ${conclusion.name}');
+      ..writeln('conclusion: ${conclusion.name}')
+      ..writeln('dns-disagrees: $dnsDisagrees');
     for (final step in steps) {
       buffer.writeln(step.toLine());
     }
