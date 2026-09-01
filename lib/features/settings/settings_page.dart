@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/replica_page_route.dart';
+import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
@@ -70,7 +71,7 @@ class SettingsPage extends ConsumerWidget {
       appBar: AppBar(title: Text(_settingsText(context, 'settingsTitle'))),
       body: settings.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _SettingsLoadError(
+        error: (error, _) => SettingsLoadError(
           error: error,
           onRetry: () => ref.read(settingsProvider.notifier).reload(),
         ),
@@ -302,36 +303,6 @@ class _AccountAvatar extends StatelessWidget {
   }
 }
 
-class _SettingsLoadError extends StatelessWidget {
-  const _SettingsLoadError({required this.error, required this.onRetry});
-
-  final Object error;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.settings_outlined, size: 48),
-            const SizedBox(height: 12),
-            Text(_settingsText(context, 'settingsReadFailed')),
-            const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_settingsText(context, 'retry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 /// Read-only local account profile entry. It is deliberately backed by the
 /// account store; the later profile task owns remote profile editing.

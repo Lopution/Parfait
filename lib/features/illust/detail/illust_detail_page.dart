@@ -251,7 +251,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final download = ref.watch(illustDownloadControllerProvider);
     return AppBar(
       title: Text(
-        entity?.title ?? '作品详情',
+        entity?.title ?? _detailText(context, 'illustDetailTitle'),
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       actions: [
@@ -568,45 +568,52 @@ class _InfoBlock extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox.square(
-                key: const Key('illust-author-avatar'),
-                dimension: 48,
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundImage: entity.user.profileImageUrl == null
-                      ? null
-                      : PixivImage.provider(
-                          entity.user.profileImageUrl!,
-                          cacheManager: ref
-                              .watch(pixivNetworkFactoryProvider)
-                              .imageCacheManager,
+          // The whole author block (avatar + name + account) opens the user
+          // page. Wrapping happens outside the Row so the avatar keeps its
+          // 48px slot and the existing key/spacing stay untouched.
+          InkWell(
+            onTap: () => showUserPage(context, entity.user.id),
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox.square(
+                  key: const Key('illust-author-avatar'),
+                  dimension: 48,
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundImage: entity.user.profileImageUrl == null
+                        ? null
+                        : PixivImage.provider(
+                            entity.user.profileImageUrl!,
+                            cacheManager: ref
+                                .watch(pixivNetworkFactoryProvider)
+                                .imageCacheManager,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entity.user.name,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entity.user.name,
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      entity.user.account,
-                      style: textTheme.bodyMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                      Text(
+                        entity.user.account,
+                        style: textTheme.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           // 日期行与统计行的排版（U2 一并整理）：日期占左侧，视线/收藏
@@ -616,8 +623,11 @@ class _InfoBlock extends ConsumerWidget {
               Expanded(
                 child: Text(
                   createDate == null
-                      ? '投稿日期未知'
-                      : '投稿日期：${createDate.year}/${createDate.month}/${createDate.day}',
+                      ? _detailText(context, 'illustDetailCreateDateUnknown')
+                      : _detailText(context, 'illustDetailCreateDate', {
+                          'date':
+                              '${createDate.year}/${createDate.month}/${createDate.day}',
+                        }),
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium,
                 ),
@@ -638,7 +648,10 @@ class _InfoBlock extends ConsumerWidget {
           Row(
             children: [
               Text(
-                '尺寸：${entity.width}x${entity.height}',
+                _detailText(context, 'illustDetailSize', {
+                  'width': entity.width,
+                  'height': entity.height,
+                }),
                 style: textTheme.bodyMedium,
               ),
               const SizedBox(width: 5),
@@ -677,12 +690,7 @@ class _InfoBlock extends ConsumerWidget {
           OutlinedButton.icon(
             onPressed: () => showIllustComments(context, entity.id),
             icon: const Icon(Icons.comment_outlined),
-            label: Text(
-              ReplicaStrings.fromTag(
-                Localizations.localeOf(context).toLanguageTag(),
-                'commentTitle',
-              ),
-            ),
+            label: Text(_detailText(context, 'commentTitle')),
           ),
         ],
       ),
@@ -804,7 +812,15 @@ class _CaptionRichText extends ConsumerWidget {
                     opener.openExternal(href).catchError((Object error) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('无法打开链接：$error')),
+                          SnackBar(
+                            content: Text(
+                              _detailText(
+                                context,
+                                'illustDetailOpenLinkFailed',
+                                {'error': error},
+                              ),
+                            ),
+                          ),
                         );
                       }
                     }),
@@ -886,7 +902,9 @@ class _RestrictedView extends StatelessWidget {
         children: [
           const Icon(Icons.visibility_off_outlined, size: 48),
           const SizedBox(height: 12),
-          Text('该作品已被删除或受限（ID: ${entity.id}）'),
+          Text(
+            _detailText(context, 'illustDetailRestricted', {'id': entity.id}),
+          ),
         ],
       ),
     );
@@ -898,13 +916,13 @@ class _NotFoundView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off, size: 48),
-          SizedBox(height: 12),
-          Text('作品不存在或已被删除'),
+          const Icon(Icons.search_off, size: 48),
+          const SizedBox(height: 12),
+          Text(_detailText(context, 'illustDetailNotFound')),
         ],
       ),
     );
@@ -927,14 +945,27 @@ class _ErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off, size: 48),
             const SizedBox(height: 12),
-            const Text('作品加载失败'),
+            Text(_detailText(context, 'illustDetailLoadFailed')),
             const SizedBox(height: 8),
             Text('$error', style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('重试')),
+            FilledButton(
+              onPressed: onRetry,
+              child: Text(_detailText(context, 'retry')),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+String _detailText(
+  BuildContext context,
+  String key, [
+  Map<String, Object?> args = const {},
+]) => ReplicaStrings.fromTag(
+  Localizations.localeOf(context).toLanguageTag(),
+  key,
+  args,
+);

@@ -10,6 +10,9 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
+import 'package:pixiv_func/core/settings/app_settings.dart';
+import 'package:pixiv_func/core/settings/settings_controller.dart';
+import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/app/widgets/replica_button.dart';
 import 'package:pixiv_func/app/widgets/replica_switch_tile.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
@@ -139,6 +142,28 @@ class _NoCredentialStore implements CredentialStore {
 
   @override
   Future<void> delete(String accountId) async {}
+}
+
+/// Settings storage that fails a fixed number of reads, then succeeds.
+/// Retry has to be observable as a real second read, not a rebuild.
+class _FlakySettingsRepository implements SettingsRepository {
+  _FlakySettingsRepository({required this.failures});
+
+  int failures;
+  int loadCount = 0;
+
+  @override
+  Future<AppSettings> load() async {
+    loadCount++;
+    if (failures > 0) {
+      failures--;
+      throw const SettingsRepositoryException('load', 'disk is gone');
+    }
+    return AppSettings.defaults();
+  }
+
+  @override
+  Future<void> save(AppSettings settings) async {}
 }
 
 class _EmptyMetadataRepository implements AccountMetadataRepository {
@@ -416,5 +441,73 @@ void main() {
     expect(policy.mode, NetworkMode.automatic);
     await tester.tap(find.byType(ReplicaSwitchTile));
     expect(policy.mode, NetworkMode.directOnly);
+  });
+
+  group('C11: settings read failure on the login page', () {
+    Widget wrapWithRepository(SettingsRepository repository) => ProviderScope(
+      // Riverpod 3 retries a failed provider build on its own backoff. That
+      // is real app behaviour, but it makes the read count here ambiguous —
+      // switch it off so every load is one the page actually asked for.
+      retry: (retryCount, error) => null,
+      overrides: [
+        settingsRepositoryProvider.overrideWithValue(repository),
+        credentialStoreProvider.overrideWithValue(const _NoCredentialStore()),
+        accountMetadataRepositoryProvider.overrideWithValue(
+          const _EmptyMetadataRepository(),
+        ),
+        oauthServiceProvider.overrideWithValue(
+          OAuthService(exchangeTimeout: Duration.zero),
+        ),
+      ],
+      child: const MaterialApp(home: LoginPage()),
+    );
+
+    testWidgets('renders an error with retry instead of a blank page', (
+      tester,
+    ) async {
+      final repository = _FlakySettingsRepository(failures: 1);
+      await tester.pumpWidget(wrapWithRepository(repository));
+      await tester.pumpAndSettle();
+
+      expect(repository.loadCount, 1);
+      expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
+      expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
+      expect(
+        find.textContaining('SettingsRepositoryException'),
+        findsOneWidget,
+        reason: 'the real cause stays visible instead of being swallowed',
+      );
+      // The blank-page bug: the login controls must not be silently absent
+      // AND unrecoverable — before the fix this branch rendered nothing.
+      expect(find.byType(ReplicaButton), findsNothing);
+    });
+
+    testWidgets('retry performs a real second read and recovers', (
+      tester,
+    ) async {
+      final repository = _FlakySettingsRepository(failures: 1);
+      await tester.pumpWidget(wrapWithRepository(repository));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('settings-load-retry')));
+      await tester.pumpAndSettle();
+
+      expect(repository.loadCount, 2, reason: 'retry re-reads storage');
+      expect(find.byKey(const Key('settings-load-error')), findsNothing);
+      expect(find.byType(ReplicaButton), findsNWidgets(2));
+    });
+
+    testWidgets('a still-failing retry keeps the error state', (tester) async {
+      final repository = _FlakySettingsRepository(failures: 2);
+      await tester.pumpWidget(wrapWithRepository(repository));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('settings-load-retry')));
+      await tester.pumpAndSettle();
+
+      expect(repository.loadCount, 2);
+      expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
+      expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
+    });
   });
 }

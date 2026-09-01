@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -18,9 +19,11 @@ import 'package:pixiv_func/core/download/download_providers.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
+import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
+import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -138,6 +141,7 @@ Future<void> pumpDetail(
   ProviderContainer container, {
   bool seedStore = true,
   int illustId = 42,
+  Locale? locale,
 }) async {
   if (seedStore) {
     container.read(illustStoreProvider).mergeAll([
@@ -148,7 +152,17 @@ Future<void> pumpDetail(
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(home: IllustDetailPage(illustId: illustId)),
+        child: MaterialApp(
+          locale: locale,
+          supportedLocales: const [
+            Locale('zh', 'CN'),
+            Locale('en', 'US'),
+            Locale('ja', 'JP'),
+            Locale('ru', 'RU'),
+          ],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: IllustDetailPage(illustId: illustId),
+        ),
       ),
     );
     await tester.pump();
@@ -407,9 +421,16 @@ void main() {
       final (container, _, _) = await makeWorld(
         detailOverrides: {42: illustJson(42, visible: false)},
       );
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
       await tester.pump(const Duration(milliseconds: 50));
-      expect(find.textContaining('删除或受限'), findsOneWidget);
+      expect(
+        find.text(
+          ReplicaStrings.text(ReplicaLanguage.zhCN, 'illustDetailRestricted', {
+            'id': 42,
+          }),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('detail renders badges, tags and summary from the snapshot', (
@@ -555,5 +576,106 @@ void main() {
         );
       },
     );
+  });
+
+  group('IllustDetailPage author block & i18n (U9 / C20)', () {
+    testWidgets('U9: tapping the author block opens the user page', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('illust-author-avatar')),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump();
+      });
+
+      expect(find.byType(UserPage), findsNothing);
+      await mockNetworkImagesFor(() async {
+        // The avatar is the smallest of the three hit areas; the InkWell
+        // wraps the whole Row, so a tap on it must reach the same callback.
+        await tester.tap(find.byKey(const Key('illust-author-avatar')));
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(UserPage), findsOneWidget);
+    });
+
+    testWidgets('U9: tapping the author name opens the user page too', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('illust-author-avatar')),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump();
+      });
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.text('author').first);
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(UserPage), findsOneWidget);
+    });
+
+    testWidgets('C20: detail copy follows the UI locale', (tester) async {
+      const keys = [
+        'illustDetailCreateDateUnknown',
+        'illustDetailSize',
+        'illustDetailNotFound',
+        'illustDetailLoadFailed',
+      ];
+
+      for (final language in [ReplicaLanguage.jaJP, ReplicaLanguage.enUS]) {
+        final (container, _, _) = await makeWorld();
+        await pumpDetail(
+          tester,
+          container,
+          locale: switch (language) {
+            ReplicaLanguage.jaJP => const Locale('ja', 'JP'),
+            _ => const Locale('en', 'US'),
+          },
+        );
+        await mockNetworkImagesFor(() async {
+          await tester.scrollUntilVisible(
+            find.text('#original'),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pump();
+        });
+
+        // The size row is the one always-present interpolated string.
+        expect(
+          find.text(
+            ReplicaStrings.text(language, 'illustDetailSize', {
+              'width': 800,
+              'height': 600,
+            }),
+          ),
+          findsOneWidget,
+          reason: 'size row must render in ${language.tag}',
+        );
+        // No zh fallback leaks through for any of the migrated keys.
+        for (final key in keys) {
+          expect(
+            find.textContaining(
+              ReplicaStrings.text(ReplicaLanguage.zhCN, key, {
+                'width': 800,
+                'height': 600,
+              }),
+            ),
+            findsNothing,
+            reason: '$key must not fall back to zh under ${language.tag}',
+          );
+        }
+      }
+    });
   });
 }
