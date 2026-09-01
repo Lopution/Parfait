@@ -81,6 +81,17 @@ const IllustDetailPage({
 });
 
 String illustHeroTag(String scope, int illustId);
+
+Future<void> PixivImage.preload(
+  BuildContext context,
+  String url, {
+  BaseCacheManager? cacheManager,
+});
+
+const PullToRefresh({
+  required RefreshCallback onRefresh,
+  required Widget child,
+});
 ```
 
 ### 3. Contracts
@@ -93,6 +104,25 @@ String illustHeroTag(String scope, int illustId);
   the detail request may refresh the shared store after navigation.
 - A detail route without a matching source Hero uses the normal page route; it
   must not create a synthetic source or wait for the request before navigating.
+- The source card passes its selected preview URL to the detail route. Both
+  sides use the same `PixivImage` headers and cache manager, including the
+  first page of a multi-page work.
+- A card may call `PixivImage.preload` on pointer down, but must not await it
+  before pushing the detail route. The detail frame creates a fixed-size
+  avatar provider immediately; a cold avatar may fill after the transition.
+- `PullToRefresh` tracks the leading-edge drag distance separately from
+  Flutter's armed lifecycle. Its indicator follows both outward and reverse
+  pointer deltas, including the reverse segment above the refresh threshold;
+  releasing below the threshold cancels without calling `onRefresh`.
+  Once edge tracking has started, apply every vertical `scrollDelta` until
+  the matching `ScrollEndNotification`; a reverse update may have a null
+  `dragDetails` while the scrollable bounces back.
+  Once `onRefresh` starts, scroll notifications cannot reset the refreshing
+  state until that Future completes.
+- Hero shuttles are clipped in the global coordinate space of the source and
+  target vertical viewports. The clip is their intersection for the whole
+  flight (not an interpolated boundary), and a sliver's approximate paint clip
+  is used so `NestedScrollView` pinned-header overlap remains protected.
 
 ### 4. Validation & Error Matrix
 
@@ -103,6 +133,9 @@ String illustHeroTag(String scope, int illustId);
 | No source card or no snapshot | Normal route/loading state remains observable. |
 | API refresh fails with a snapshot | Snapshot content remains renderable and retry stays available. |
 | Current profile is rendered | No settings icon or `onSettings` navigation hook is present. |
+| Preview URL differs between card and detail | Correct the route input; do not let Hero fly a placeholder or lower-quality image. |
+| Armed pull reverses before release | Dismiss the indicator and do not call `onRefresh`. |
+| Avatar cache misses during navigation | Keep the same 48px slot and placeholder; never delay the route push. |
 
 ### 5. Good / Base / Bad Cases
 
@@ -123,6 +156,14 @@ String illustHeroTag(String scope, int illustId);
   icon on the resulting `MePage`.
 - Caption tests assert non-empty captions are visible without a `简介`
   control and preserve rich-link behavior.
+- Pull-to-refresh tests arm, reverse, and release a real scrollable, asserting
+  linear indicator movement before release, dismissal below the threshold, and
+  exactly one refresh after a valid release.
+- Hero flight tests cover a partially visible card and a nested pinned header;
+  the shuttle clip must stay within the source/target viewport intersection.
+- Preview tests assert the source URL and detail index-0 Hero URL are equal;
+  first-frame tests assert the avatar slot and provider exist before the detail
+  request settles.
 
 ### 7. Wrong vs Correct
 
@@ -144,3 +185,16 @@ IllustDetailPage(
   heroScope: heroScope,
 );
 ```
+
+For refresh and image timing, keep the shared boundary small:
+
+```dart
+onTapDown: (_) => unawaited(
+  PixivImage.preload(context, previewUrl, cacheManager: cacheManager),
+);
+onTap: () => Navigator.push(detailRoute); // do not await the preload
+```
+
+Do not let the framework's armed visual state pin the indicator after the user
+has reversed the drag; keep that correction in the shared wrapper rather than
+creating a second per-page refresh implementation.

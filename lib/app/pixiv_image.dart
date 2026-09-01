@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
-import '../../core/network/pixiv_client_identity.dart';
+import '../core/network/pixiv_client_identity.dart';
 import '../core/network/compat/network_providers.dart';
 
 /// Shared Pixiv CDN image widget: every i.pximg.net request must carry the
@@ -31,6 +31,25 @@ class PixivImage extends ConsumerWidget {
   static Map<String, String> get headers => {
     'Referer': PixivClientIdentity.downloadReferer.toString(),
   };
+
+  static CachedNetworkImageProvider provider(
+    String url, {
+    BaseCacheManager? cacheManager,
+  }) => CachedNetworkImageProvider(
+    url,
+    headers: headers,
+    cacheManager: cacheManager,
+  );
+
+  /// Starts decoding through the same provider/cache identity as [build].
+  /// [precacheImage] completes normally on image errors, so callers can start
+  /// this without delaying navigation; the visible widget still owns its
+  /// placeholder and error state.
+  static Future<void> preload(
+    BuildContext context,
+    String url, {
+    BaseCacheManager? cacheManager,
+  }) => precacheImage(provider(url, cacheManager: cacheManager), context);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

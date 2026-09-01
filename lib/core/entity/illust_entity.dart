@@ -110,6 +110,12 @@ class IllustEntity {
 
   bool get isUgoira => type == IllustType.ugoira;
 
+  /// Feed/detail transition image. The caller owns the quality setting, and
+  /// passing this exact URL to the detail route keeps both Hero endpoints on
+  /// the same cache key.
+  String previewUrl({required bool highQuality}) =>
+      highQuality ? imageUrls.large : imageUrls.medium;
+
   /// The width/height of one page. Multi-page works have per-page
   /// dimensions from the detail API (`meta_pages[].width/height`), which
   /// legitimately differ page to page; falling back to the work-level sizes
@@ -153,13 +159,9 @@ class IllustEntity {
   /// Viewer URLs: original when available, else large (beta56 scaleQuality).
   List<String> viewerUrls() {
     if (pageCount > 1) {
-      return [
-        for (final page in metaPages) page.original ?? page.large,
-      ];
+      return [for (final page in metaPages) page.original ?? page.large];
     }
-    return [
-      metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large,
-    ];
+    return [metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large];
   }
 
   IllustEntity copyWith({
@@ -178,9 +180,7 @@ class IllustEntity {
       type: type,
       imageUrls: imageUrls,
       user: user,
-      caption: identical(caption, _sentinel)
-          ? this.caption
-          : caption as String,
+      caption: identical(caption, _sentinel) ? this.caption : caption as String,
       tags: identical(tags, _sentinel) ? this.tags : tags as List<IllustTag>,
       pageCount: pageCount ?? this.pageCount,
       width: width,
@@ -218,15 +218,21 @@ class IllustEntity {
     final title = json['title'];
     final userJson = json['user'];
     final imageUrlsJson = json['image_urls'];
-    if (id is! int || title is! String || userJson is! Map<String, dynamic> || imageUrlsJson is! Map<String, dynamic>) {
+    if (id is! int ||
+        title is! String ||
+        userJson is! Map<String, dynamic> ||
+        imageUrlsJson is! Map<String, dynamic>) {
       throw const FormatException('illust object is missing required fields');
     }
     final user = IllustUser(
       id: userJson['id'] is int
           ? userJson['id'] as int
-          : int.tryParse('${userJson['id']}') ?? (throw const FormatException('user id is invalid')),
+          : int.tryParse('${userJson['id']}') ??
+                (throw const FormatException('user id is invalid')),
       name: userJson['name'] is String ? userJson['name'] as String : '',
-      account: userJson['account'] is String ? userJson['account'] as String : '',
+      account: userJson['account'] is String
+          ? userJson['account'] as String
+          : '',
       profileImageUrl: _optionalString(
         (userJson['profile_image_urls'] as Map<String, dynamic>?)?['medium'],
       ),
@@ -274,8 +280,9 @@ class IllustEntity {
       aiType: json['illust_ai_type'] is int ? json['illust_ai_type'] as int : 0,
       isBookmarked: json['is_bookmarked'] == true,
       totalView: json['total_view'] is int ? json['total_view'] as int : 0,
-      totalBookmarks:
-          json['total_bookmarks'] is int ? json['total_bookmarks'] as int : 0,
+      totalBookmarks: json['total_bookmarks'] is int
+          ? json['total_bookmarks'] as int
+          : 0,
       metaPages: [
         if (json['meta_pages'] is List)
           for (final page in json['meta_pages'] as List)
@@ -288,7 +295,8 @@ class IllustEntity {
               ),
       ],
       metaSinglePageOriginalUrl: _optionalString(
-        (json['meta_single_page'] as Map<String, dynamic>?)?['original_image_url'],
+        (json['meta_single_page']
+            as Map<String, dynamic>?)?['original_image_url'],
       ),
       visible: json['visible'] is! bool || (json['visible'] as bool),
       createDate: _optionalString(json['create_date']),
@@ -347,5 +355,6 @@ class IllustEntity {
       value is String && value.isNotEmpty ? value : null;
 
   @override
-  String toString() => 'IllustEntity(${jsonEncode({'id': id, 'title': title})})';
+  String toString() =>
+      'IllustEntity(${jsonEncode({'id': id, 'title': title})})';
 }

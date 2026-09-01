@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/pixiv_image.dart';
+import '../../app/pull_to_refresh.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
@@ -121,7 +122,7 @@ class _IllustSearchFeed extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
-    return RefreshIndicator(
+    return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
@@ -149,8 +150,10 @@ class _IllustSearchFeed extends ConsumerWidget {
                   crossAxisCount: 2,
                   mainAxisSpacing: 5,
                   crossAxisSpacing: 10,
-                  itemBuilder: (context, index) =>
-                      IllustCard(entity: entities[index], heroScope: 'search'),
+                  itemBuilder: (context, index) => IllustCard(
+                    entity: entities[index],
+                    heroScope: 'search:${query.cacheKey}',
+                  ),
                   childCount: entities.length,
                 ),
               ),
@@ -182,7 +185,7 @@ class _NovelSearchFeed extends ConsumerWidget {
       for (final id in feed.ids)
         if (stored[id] != null) stored[id]!,
     ];
-    return RefreshIndicator(
+    return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
@@ -234,7 +237,7 @@ class _UserSearchFeed extends ConsumerWidget {
       for (final id in feed.ids)
         if (stored[id] != null) stored[id]!,
     ];
-    return RefreshIndicator(
+    return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {

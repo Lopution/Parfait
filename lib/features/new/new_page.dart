@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../app/pull_to_refresh.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/new/new_feed_controller.dart';
@@ -222,7 +223,7 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
         }
 
         final slivers = _buildSlivers(feed);
-        return RefreshIndicator(
+        return PullToRefresh(
           onRefresh: () =>
               ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
@@ -272,8 +273,11 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
             crossAxisCount: 2,
             mainAxisSpacing: 5,
             crossAxisSpacing: 10,
-            itemBuilder: (context, index) =>
-                IllustCard(entity: entities[index], heroScope: 'new'),
+            itemBuilder: (context, index) => IllustCard(
+              entity: entities[index],
+              heroScope:
+                  'new:${widget.feedKey.scope.name}:${widget.feedKey.type.name}',
+            ),
             childCount: entities.length,
           ),
         ),

@@ -31,6 +31,8 @@ class UgoiraViewer extends ConsumerStatefulWidget {
     required this.height,
     this.downloadMode = false,
     this.onLongPress,
+    this.heroTag,
+    this.flightShuttleBuilder,
   });
 
   final int illustId;
@@ -39,6 +41,8 @@ class UgoiraViewer extends ConsumerStatefulWidget {
   final int height;
   final bool downloadMode;
   final VoidCallback? onLongPress;
+  final Object? heroTag;
+  final HeroFlightShuttleBuilder? flightShuttleBuilder;
 
   @override
   ConsumerState<UgoiraViewer> createState() => _UgoiraViewerState();
@@ -107,18 +111,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (currentImage == null)
-                PixivImage(
-                  url: widget.previewUrl,
-                  fit: BoxFit.fitWidth,
-                  width: double.infinity,
-                )
-              else
-                RawImage(
-                  image: currentImage,
-                  fit: BoxFit.fitWidth,
-                  width: double.infinity,
-                ),
+              _buildCover(currentImage),
               if (_loading)
                 const Center(child: CircularProgressIndicator())
               else if (_error != null)
@@ -167,6 +160,30 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCover(ui.Image? currentImage) {
+    final image = currentImage == null
+        ? PixivImage(
+            url: widget.previewUrl,
+            fit: BoxFit.fitWidth,
+            width: double.infinity,
+          )
+        : RawImage(
+            image: currentImage,
+            fit: BoxFit.fitWidth,
+            width: double.infinity,
+          );
+    final tag = widget.heroTag;
+    if (tag == null) return image;
+    return Hero(
+      tag: tag,
+      flightShuttleBuilder: widget.flightShuttleBuilder,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        child: image,
       ),
     );
   }

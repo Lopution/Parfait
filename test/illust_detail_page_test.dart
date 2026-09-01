@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -40,48 +41,50 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       ScriptedResponse(
         contentLength: 3,
         chunks: [
-          [1, 2, 3]
+          [1, 2, 3],
         ],
       ),
     );
   }
   final sinks = MemorySinkFactory();
-  final manager = DownloadManager(
-    transport: transport,
-    sinkFactory: sinks,
-  );
+  final manager = DownloadManager(transport: transport, sinkFactory: sinks);
   final credentials = _FakeCredentialStore()
     ..seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
     );
   final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(overrides: [
-    downloadManagerProvider.overrideWithValue(manager),
-    credentialStoreProvider.overrideWithValue(credentials),
-    accountMetadataRepositoryProvider
-        .overrideWithValue(_FakeMetadataRepository()),
-    oauthServiceProvider.overrideWithValue(
-      OAuthService(
-        client: MockClient((request) async =>
-            throw StateError('refresh must not happen here')),
+  final container = ProviderContainer(
+    overrides: [
+      downloadManagerProvider.overrideWithValue(manager),
+      credentialStoreProvider.overrideWithValue(credentials),
+      accountMetadataRepositoryProvider.overrideWithValue(
+        _FakeMetadataRepository(),
       ),
-    ),
-    pixivHttpClientProvider.overrideWith((ref) {
-      final client = clientRef[0];
-      if (client == null) {
-        throw StateError('client not wired yet');
-      }
-      return client;
-    }),
-  ]);
+      oauthServiceProvider.overrideWithValue(
+        OAuthService(
+          client: MockClient(
+            (request) async => throw StateError('refresh must not happen here'),
+          ),
+        ),
+      ),
+      pixivHttpClientProvider.overrideWith((ref) {
+        final client = clientRef[0];
+        if (client == null) {
+          throw StateError('client not wired yet');
+        }
+        return client;
+      }),
+    ],
+  );
   final client = PixivHttpClient(
     client: MockClient((request) async {
       if (request.url.path == '/v1/illust/detail') {
         final id = int.parse(request.url.queryParameters['illust_id']!);
         final override = detailOverrides?[id];
         return okJson({
-          'illust': override ?? illustJson(42, pageCount: 2, withMetaPages: true),
+          'illust':
+              override ?? illustJson(42, pageCount: 2, withMetaPages: true),
         });
       }
       return http.Response('unexpected', 404);
@@ -97,10 +100,10 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
 }
 
 http.Response okJson(Map<String, dynamic> json) => http.Response(
-      jsonEncode(json),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
+  jsonEncode(json),
+  200,
+  headers: {'content-type': 'application/json'},
+);
 
 class _FakeCredentialStore implements CredentialStore {
   final _secrets = <String, Credential>{};
@@ -121,11 +124,10 @@ class _FakeCredentialStore implements CredentialStore {
 
 class _FakeMetadataRepository implements AccountMetadataRepository {
   @override
-  Future<AccountMetadataSnapshot> load() async =>
-      const AccountMetadataSnapshot(
-        accounts: [Account(id: '100', userId: 100, name: 'tester')],
-        currentId: '100',
-      );
+  Future<AccountMetadataSnapshot> load() async => const AccountMetadataSnapshot(
+    accounts: [Account(id: '100', userId: 100, name: 'tester')],
+    currentId: '100',
+  );
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
@@ -139,9 +141,7 @@ Future<void> pumpDetail(
 }) async {
   if (seedStore) {
     container.read(illustStoreProvider).mergeAll([
-      parseIllust(
-        illustJson(illustId, pageCount: 2, withMetaPages: true),
-      ),
+      parseIllust(illustJson(illustId, pageCount: 2, withMetaPages: true)),
     ]);
   }
   await mockNetworkImagesFor(() async {
@@ -187,30 +187,24 @@ void main() {
         await tester.pump();
         expect(find.text('2 / 2'), findsOneWidget);
 
-        await tester.fling(
-          find.byType(PageView),
-          const Offset(300, 0),
-          1000,
-        );
+        await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
         await tester.pumpAndSettle();
         expect(find.text('1 / 2'), findsOneWidget);
       });
     });
 
-    testWidgets('zoom clamps to 0.9–6.0 via InteractiveViewer',
-        (tester) async {
+    testWidgets('zoom clamps to 0.9–6.0 via InteractiveViewer', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
-            home: ImageViewerPage(
-              urls: ['https://i.pximg.net/1/original.jpg'],
-            ),
+            home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
           ),
         );
         await tester.pump();
 
-        final viewer =
-            tester.widget<InteractiveViewer>(find.byType(InteractiveViewer));
+        final viewer = tester.widget<InteractiveViewer>(
+          find.byType(InteractiveViewer),
+        );
         expect(viewer.minScale, ImageViewerPage.minScale);
         expect(viewer.maxScale, ImageViewerPage.maxScale);
         expect(ImageViewerPage.minScale, 0.9);
@@ -218,47 +212,49 @@ void main() {
       });
     });
 
-    testWidgets('empty URL list renders a placeholder, not a crash',
-        (tester) async {
+    testWidgets('empty URL list renders a placeholder, not a crash', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(home: ImageViewerPage(urls: [])),
       );
       await tester.pump();
       expect(find.text('没有可显示的图片'), findsOneWidget);
       expect(find.text('1 / 0'), findsOneWidget);
-    },
-        skip: false);
+    }, skip: false);
 
     testWidgets(
-        'U3: the image fills the viewport (tight constraints, not intrinsics)',
-        (tester) async {
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          MaterialApp(
-            home: ImageViewerPage(
-              urls: ['https://i.pximg.net/1/original.jpg'],
+      'U3: the image fills the viewport (tight constraints, not intrinsics)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: ImageViewerPage(
+                urls: ['https://i.pximg.net/1/original.jpg'],
+              ),
             ),
-          ),
-        );
-        await tester.pump();
+          );
+          await tester.pump();
 
-        // SizedBox.expand inside the viewer gives the RenderImage tight
-        // constraints, so BoxFit.contain has a real viewport to scale
-        // against (`Center` alone leaves it at intrinsic size — the bug).
-        final viewer = tester.widget<InteractiveViewer>(
-          find.byType(InteractiveViewer),
-        );
-        final expand = viewer.child;
-        expect(expand, isA<SizedBox>());
-        expect((expand as SizedBox).width, double.infinity);
-        expect(expand.height, double.infinity);
-      });
-    });
+          // SizedBox.expand inside the viewer gives the RenderImage tight
+          // constraints, so BoxFit.contain has a real viewport to scale
+          // against (`Center` alone leaves it at intrinsic size — the bug).
+          final viewer = tester.widget<InteractiveViewer>(
+            find.byType(InteractiveViewer),
+          );
+          final expand = viewer.child;
+          expect(expand, isA<SizedBox>());
+          expect((expand as SizedBox).width, double.infinity);
+          expect(expand.height, double.infinity);
+        });
+      },
+    );
   });
 
   group('IllustDetailPage download mode (R4)', () {
-    testWidgets('long-press enters download mode with per-page actions',
-        (tester) async {
+    testWidgets('long-press enters download mode with per-page actions', (
+      tester,
+    ) async {
       final (container, transport, sinks) = await makeWorld();
       await pumpDetail(tester, container);
 
@@ -297,8 +293,9 @@ void main() {
     });
 
     testWidgets('Download All enqueues every page once', (tester) async {
-      final (container, transport, sinks) =
-          await makeWorld(scriptedResponses: 4);
+      final (container, transport, sinks) = await makeWorld(
+        scriptedResponses: 4,
+      );
       await pumpDetail(tester, container);
 
       await longPressImage(tester);
@@ -321,51 +318,55 @@ void main() {
       expect(sinks.sinks, hasLength(2));
     });
 
-    testWidgets('failed download shows retry and retry re-enqueues',
-        (tester) async {
+    testWidgets('failed download shows retry and retry re-enqueues', (
+      tester,
+    ) async {
       final transport = FakeTransport();
       transport.responses.add(ScriptedResponse(error: Exception('boom')));
       transport.responses.add(
         ScriptedResponse(
           contentLength: 3,
           chunks: [
-            [1, 2, 3]
+            [1, 2, 3],
           ],
         ),
       );
       final sinks = MemorySinkFactory();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: sinks,
-      );
+      final manager = DownloadManager(transport: transport, sinkFactory: sinks);
       final credentials = _FakeCredentialStore()
         ..seed(
           '100',
           const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
         );
       final clientRef = <PixivHttpClient?>[null];
-      final container = ProviderContainer(overrides: [
-        downloadManagerProvider.overrideWithValue(manager),
-        credentialStoreProvider.overrideWithValue(credentials),
-        accountMetadataRepositoryProvider
-            .overrideWithValue(_FakeMetadataRepository()),
-        oauthServiceProvider.overrideWithValue(
-          OAuthService(
-            client: MockClient((request) async =>
-                throw StateError('refresh must not happen here')),
+      final container = ProviderContainer(
+        overrides: [
+          downloadManagerProvider.overrideWithValue(manager),
+          credentialStoreProvider.overrideWithValue(credentials),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            _FakeMetadataRepository(),
           ),
-        ),
-        pixivHttpClientProvider.overrideWith((ref) {
-          final client = clientRef[0];
-          if (client == null) throw StateError('not wired');
-          return client;
-        }),
-      ]);
+          oauthServiceProvider.overrideWithValue(
+            OAuthService(
+              client: MockClient(
+                (request) async =>
+                    throw StateError('refresh must not happen here'),
+              ),
+            ),
+          ),
+          pixivHttpClientProvider.overrideWith((ref) {
+            final client = clientRef[0];
+            if (client == null) throw StateError('not wired');
+            return client;
+          }),
+        ],
+      );
       final client = PixivHttpClient(
-        client: MockClient((request) async => okJson({
-              'illust':
-                  illustJson(42, pageCount: 2, withMetaPages: true),
-            })),
+        client: MockClient(
+          (request) async => okJson({
+            'illust': illustJson(42, pageCount: 2, withMetaPages: true),
+          }),
+        ),
         accountStore: container.read(accountStoreProvider.notifier),
         credentialStore: credentials,
         oauthService: container.read(oauthServiceProvider),
@@ -389,16 +390,20 @@ void main() {
         await tester.tap(find.byIcon(Icons.file_download_outlined).first);
         await tester.pump(const Duration(milliseconds: 100));
       });
-      expect(manager.tasks, hasLength(1),
-          reason: 'retry replaces the failed task (same dedupe key)');
+      expect(
+        manager.tasks,
+        hasLength(1),
+        reason: 'retry replaces the failed task (same dedupe key)',
+      );
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
       expect(find.byIcon(Icons.check), findsOneWidget);
     });
   });
 
   group('IllustDetailPage badges & restricted states (R1/R2)', () {
-    testWidgets('visible:false detail shows the restricted state',
-        (tester) async {
+    testWidgets('visible:false detail shows the restricted state', (
+      tester,
+    ) async {
       final (container, _, _) = await makeWorld(
         detailOverrides: {42: illustJson(42, visible: false)},
       );
@@ -407,8 +412,9 @@ void main() {
       expect(find.textContaining('删除或受限'), findsOneWidget);
     });
 
-    testWidgets('detail renders badges, tags and summary from the snapshot',
-        (tester) async {
+    testWidgets('detail renders badges, tags and summary from the snapshot', (
+      tester,
+    ) async {
       final (container, _, _) = await makeWorld();
       container.read(illustStoreProvider).mergeAll([
         parseIllust(
@@ -435,8 +441,11 @@ void main() {
 
       // beta56 detail shows no R-18/AI/page badges (those live on feed
       // cards); it renders author, meta and tags.
-      expect(find.text('author'), findsNWidgets(2),
-          reason: 'author name + account render in the author block');
+      expect(
+        find.text('author'),
+        findsNWidgets(2),
+        reason: 'author name + account render in the author block',
+      );
       expect(find.textContaining('800x600'), findsOneWidget);
       expect(find.textContaining('ID: 42'), findsOneWidget);
       expect(find.text('#original'), findsOneWidget);
@@ -446,86 +455,105 @@ void main() {
     });
 
     testWidgets(
-        'U5: the card snapshot renders on the very first frame with the '
-        'Hero destination present', (tester) async {
-      final (container, _, _) = await makeWorld();
-      final entity = parseIllust(
-        illustJson(42, pageCount: 1, width: 800, height: 100),
-      );
+      'U5: the card snapshot renders on the very first frame with the '
+      'Hero destination present',
+      (tester) async {
+        final (container, _, _) = await makeWorld();
+        final entity = parseIllust(
+          illustJson(42, pageCount: 1, width: 800, height: 100),
+        );
 
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              home: IllustDetailPage(
-                illustId: 42,
-                initialEntity: entity,
-                heroScope: 'profile:42:bookmarks:illust:public',
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                home: IllustDetailPage(
+                  illustId: 42,
+                  initialEntity: entity,
+                  heroScope: 'profile:42:bookmarks:illust:public',
+                  heroImageUrl: 'https://i.pximg.net/feed/42/medium.jpg',
+                ),
               ),
             ),
-          ),
-        );
-        // No second pump / settle: this is the AsyncLoading first frame.
-        expect(find.byType(ProgressIndicator), findsNothing);
-        expect(
-          find.byType(Scrollable),
-          findsWidgets,
-          reason: 'content renders from the card snapshot, not a spinner',
-        );
-        expect(find.text('illust 42'), findsOneWidget);
-        expect(find.text('author'), findsWidgets);
-        // Hero destination exists on the first frame (feed -> detail flight).
-        final hero = tester.widget<Hero>(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is Hero &&
-                widget.tag ==
-                    'IllustHero:profile:42:bookmarks:illust:public:42',
-          ),
-        );
-        expect(hero, isNotNull);
-      });
-    });
+          );
+          // No second pump / settle: this is the AsyncLoading first frame.
+          expect(find.byType(ProgressIndicator), findsNothing);
+          expect(
+            find.byType(Scrollable),
+            findsWidgets,
+            reason: 'content renders from the card snapshot, not a spinner',
+          );
+          expect(find.text('illust 42'), findsOneWidget);
+          expect(find.text('author'), findsWidgets);
+          expect(
+            tester.widget<PixivImage>(find.byType(PixivImage).first).url,
+            'https://i.pximg.net/feed/42/medium.jpg',
+            reason: 'the Hero target must reuse the exact feed cache key',
+          );
+          expect(find.byKey(const Key('illust-author-avatar')), findsOneWidget);
+          expect(
+            tester
+                .widget<CircleAvatar>(find.byType(CircleAvatar).first)
+                .backgroundImage,
+            isNotNull,
+            reason: 'the author avatar provider exists in the first frame',
+          );
+          // Hero destination exists on the first frame (feed -> detail flight).
+          final hero = tester.widget<Hero>(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is Hero &&
+                  widget.tag ==
+                      'IllustHero:profile:42:bookmarks:illust:public:42',
+            ),
+          );
+          expect(hero, isNotNull);
+          expect(hero.flightShuttleBuilder, illustHeroFlightShuttleBuilder);
+        });
+      },
+    );
 
     testWidgets(
-        'U6: caption renders as rich clickable text, not literal HTML',
-        (tester) async {
-      final (container, _, _) = await makeWorld(
-        detailOverrides: {
-          42: illustJson(
-            42,
-            caption: 'line1<br>line2 — <a '
-                'href="https://www.pixiv.net/users/7">author</a> '
-                '&amp; more',
-          ),
-        },
-      );
-      await pumpDetail(tester, container);
-      await mockNetworkImagesFor(() async {
-        await tester.scrollUntilVisible(
-          find.textContaining('line1'),
-          300,
-          scrollable: find.byType(Scrollable).first,
+      'U6: caption renders as rich clickable text, not literal HTML',
+      (tester) async {
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {
+            42: illustJson(
+              42,
+              caption:
+                  'line1<br>line2 — <a '
+                  'href="https://www.pixiv.net/users/7">author</a> '
+                  '&amp; more',
+            ),
+          },
         );
-        await tester.pump();
-      });
+        await pumpDetail(tester, container);
+        await mockNetworkImagesFor(() async {
+          await tester.scrollUntilVisible(
+            find.textContaining('line1'),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pump();
+        });
 
-      // The key assertions: no literal `<br />` text, the caption text
-      // renders decoded, and tapping an in-app pixiv link pushes a route.
-      // ('author' also names the author block, hence .last.)
-      expect(find.textContaining('<br>'), findsNothing);
-      expect(find.textContaining('line1'), findsOneWidget);
-      expect(find.text('author'), findsWidgets);
-      expect(find.text('简介'), findsNothing);
+        // The key assertions: no literal `<br />` text, the caption text
+        // renders decoded, and tapping an in-app pixiv link pushes a route.
+        // ('author' also names the author block, hence .last.)
+        expect(find.textContaining('<br>'), findsNothing);
+        expect(find.textContaining('line1'), findsOneWidget);
+        expect(find.text('author'), findsWidgets);
+        expect(find.text('简介'), findsNothing);
 
-      await tester.tap(find.text('author').last);
-      await tester.pumpAndSettle();
-      expect(
-        find.byType(Scaffold).evaluate().length,
-        greaterThanOrEqualTo(2),
-        reason: 'in-app pixiv link pushes a detail page route',
-      );
-    });
+        await tester.tap(find.text('author').last);
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(Scaffold).evaluate().length,
+          greaterThanOrEqualTo(2),
+          reason: 'in-app pixiv link pushes a detail page route',
+        );
+      },
+    );
   });
 }

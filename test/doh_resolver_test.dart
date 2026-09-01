@@ -53,7 +53,10 @@ class _FakeDohServer {
       if (answer == null) {
         // NOERROR, zero answers.
         return http.StreamedResponse(
-          Stream<List<int>>.value([..._header(id, 0x8180 | (rcode & 0x0f), 1, 0), ..._question(name, type: 65)]),
+          Stream<List<int>>.value([
+            ..._header(id, 0x8180 | (rcode & 0x0f), 1, 0),
+            ..._question(name, type: 65),
+          ]),
           200,
           request: request,
         );
@@ -235,10 +238,7 @@ void main() {
     expect(result.addresses.single.address, healthy.ip.address);
     expect(broken.requests, hasLength(1));
     // The failing endpoint is remembered and temporarily skipped.
-    final again = await resolver.resolve(
-      'i.pximg.net',
-      revision: _revision,
-    );
+    final again = await resolver.resolve('i.pximg.net', revision: _revision);
     expect(again.addresses.single.address, healthy.ip.address);
     expect(broken.requests, hasLength(1));
     expect(healthy.requests, hasLength(2));
@@ -293,10 +293,7 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 10));
     cancel.cancel();
     gate.complete();
-    await expectLater(
-      query,
-      throwsA(isA<NetworkFailureException>()),
-    );
+    await expectLater(query, throwsA(isA<NetworkFailureException>()));
   });
 
   test('unresolvable hosts are rejected before any network I/O', () async {
@@ -315,44 +312,45 @@ void main() {
     expect(client.requests, isEmpty);
   });
 
-  test('policy wiring: default resolver is DoH and scoped by registry',
-      () async {
-    final server = _FakeDohServer(address: '1.1.1.1');
-    final policy = NetworkAccessPolicy(
-      dohEndpoints: ['https://1.1.1.1/dns-query'],
-      clientFactory: (route, canonicalHost, _) => _RouteAwareClient(route),
-    );
-    // Inject a scripted doh client via a custom resolver instead: the
-    // policy itself uses its own DohResolver; to observe the resolver we
-    // need the injected client. Use the real DohResolver with scripted
-    // client through policy construction.
-    await policy.dispose();
-    final resolver = DohResolver(
-      endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: _FakeClient([server]),
-    );
-    final scoped = NetworkAccessPolicy(resolver: resolver);
-    addTearDown(scoped.dispose);
+  test(
+    'policy wiring: default resolver is DoH and scoped by registry',
+    () async {
+      final server = _FakeDohServer(address: '1.1.1.1');
+      final policy = NetworkAccessPolicy(
+        dohEndpoints: ['https://1.1.1.1/dns-query'],
+        clientFactory: (route, canonicalHost, _) => _RouteAwareClient(route),
+      );
+      // Inject a scripted doh client via a custom resolver instead: the
+      // policy itself uses its own DohResolver; to observe the resolver we
+      // need the injected client. Use the real DohResolver with scripted
+      // client through policy construction.
+      await policy.dispose();
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        client: _FakeClient([server]),
+      );
+      final scoped = NetworkAccessPolicy(resolver: resolver);
+      addTearDown(scoped.dispose);
 
-    // Any allowed Pixiv host passes through.
-    final destination =
-        scoped.registry.require(
-          Uri.parse('https://app-api.pixiv.net/v1/illust/prime'),
-          PixivDestinationPurpose.appApi,
-        );
-    final result = await scoped.resolve(destination);
-    expect(result.dnsSource, DnsSource.doh);
-    expect(result.addresses.single.address, server.ip.address);
-
-    // A non-Pixiv host never reaches the resolver via the registry.
-    expect(
-      () => scoped.registry.require(
-        Uri.parse('https://evil.example.com/'),
+      // Any allowed Pixiv host passes through.
+      final destination = scoped.registry.require(
+        Uri.parse('https://app-api.pixiv.net/v1/illust/prime'),
         PixivDestinationPurpose.appApi,
-      ),
-      throwsA(isA<PixivDestinationException>()),
-    );
-  });
+      );
+      final result = await scoped.resolve(destination);
+      expect(result.dnsSource, DnsSource.doh);
+      expect(result.addresses.single.address, server.ip.address);
+
+      // A non-Pixiv host never reaches the resolver via the registry.
+      expect(
+        () => scoped.registry.require(
+          Uri.parse('https://evil.example.com/'),
+          PixivDestinationPurpose.appApi,
+        ),
+        throwsA(isA<PixivDestinationException>()),
+      );
+    },
+  );
 
   test('requests time out and surface as a resolution failure', () async {
     final server = _FakeDohServer(address: '1.1.1.1')
@@ -448,27 +446,134 @@ void main() {
       expect(result.ttl, const Duration(minutes: 10));
     });
 
-    test('no ech SvcParam → SecureResolutionException (no silent fallback)',
-        () async {
-      final server = _FakeDohServer(address: '1.1.1.1'); // httpsEchRdata null
+    test('caches ECH config until TTL and returns defensive copies', () async {
+      final base = DateTime(2026, 8, 31, 12);
+      var now = base;
+      final server = _FakeDohServer(address: '1.1.1.1')
+        ..httpsEchRdata = _echRdata([1, 2, 3])
+        ..httpsTtl = 30;
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        client: _FakeClient([server]),
+        clock: () => now,
+      );
+      addTearDown(resolver.dispose);
+
+      final first = await resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+      );
+      first.echConfig[0] = 99;
+      final cached = await resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+      );
+
+      expect(cached.echConfig, [1, 2, 3]);
+      expect(server.requests, hasLength(1));
+
+      now = base.add(const Duration(seconds: 31));
+      await resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision);
+      expect(server.requests, hasLength(2));
+    });
+
+    test('revision change invalidates ECH config cache', () async {
+      final server = _FakeDohServer(address: '1.1.1.1')
+        ..httpsEchRdata = _echRdata([1, 2, 3]);
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
         client: _FakeClient([server]),
       );
       addTearDown(resolver.dispose);
 
-      await expectLater(
-        resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision),
-        throwsA(isA<SecureResolutionException>()),
+      await resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision);
+      await resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: const NetworkRevision(8, networkIdentity: 'cellular'),
       );
+
+      expect(server.requests, hasLength(2));
     });
+
+    test('concurrent uncancelled ECH lookups share one wire query', () async {
+      final gate = Completer<void>();
+      final server = _FakeDohServer(address: '1.1.1.1')
+        ..httpsEchRdata = _echRdata([1, 2, 3])
+        ..block = gate;
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        client: _FakeClient([server]),
+      );
+      addTearDown(resolver.dispose);
+
+      final first = resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+      );
+      final second = resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(server.requests, hasLength(1));
+
+      gate.complete();
+      final results = await Future.wait([first, second]);
+      expect(results[0].echConfig, results[1].echConfig);
+      expect(server.requests, hasLength(1));
+    });
+
+    test(
+      'a successful cancellable ECH lookup still populates the cache',
+      () async {
+        final server = _FakeDohServer(address: '1.1.1.1')
+          ..httpsEchRdata = _echRdata([1, 2, 3]);
+        final resolver = DohResolver(
+          endpointUrls: ['https://1.1.1.1/dns-query'],
+          client: _FakeClient([server]),
+        );
+        addTearDown(resolver.dispose);
+
+        await resolver.lookupEchConfig(
+          'cloudflare-ech.com',
+          revision: _revision,
+          cancelSignal: _TestCancelSignal(),
+        );
+        await resolver.lookupEchConfig(
+          'cloudflare-ech.com',
+          revision: _revision,
+        );
+
+        expect(server.requests, hasLength(1));
+      },
+    );
+
+    test(
+      'no ech SvcParam → SecureResolutionException (no silent fallback)',
+      () async {
+        final server = _FakeDohServer(address: '1.1.1.1'); // httpsEchRdata null
+        final resolver = DohResolver(
+          endpointUrls: ['https://1.1.1.1/dns-query'],
+          client: _FakeClient([server]),
+        );
+        addTearDown(resolver.dispose);
+
+        await expectLater(
+          resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision),
+          throwsA(isA<SecureResolutionException>()),
+        );
+      },
+    );
 
     test('endpoint failover applies to ECH lookups', () async {
       final broken = _FakeDohServer(address: '1.1.1.1', statusCode: 503);
       final healthy = _FakeDohServer(address: '8.8.8.8')
         ..httpsEchRdata = _echRdata([9, 9]);
       final resolver = DohResolver(
-        endpointUrls: ['https://1.1.1.1/dns-query', 'https://8.8.8.8/dns-query'],
+        endpointUrls: [
+          'https://1.1.1.1/dns-query',
+          'https://8.8.8.8/dns-query',
+        ],
         client: _FakeClient([broken, healthy]),
       );
       addTearDown(resolver.dispose);
@@ -509,6 +614,16 @@ void main() {
           ),
         ),
       );
+      server.block = null;
+      gate.complete();
+      await Future<void>.delayed(Duration.zero);
+
+      await resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision);
+      expect(
+        server.requests,
+        hasLength(2),
+        reason: 'a cancelled lookup must not populate the cache',
+      );
     });
   });
 }
@@ -519,9 +634,11 @@ Future<void> _expectTtl(_FakeDohServer server, Duration expected) async {
     client: _FakeClient([server]),
   );
   addTearDown(resolver.dispose);
-  final result = await resolver.resolve('app-api.pixiv.net', revision: _revision);
+  final result = await resolver.resolve(
+    'app-api.pixiv.net',
+    revision: _revision,
+  );
   expect(result.ttl, expected);
-
 }
 
 class _TestCancelSignal implements NetworkCancelSignal {
@@ -550,6 +667,7 @@ class _RouteAwareClient extends http.BaseClient {
     throw StateError('unexpected real send in policy test');
   }
 }
+
 class _HugeClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {

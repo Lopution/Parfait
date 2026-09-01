@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../app/pull_to_refresh.dart';
 import '../../../app/replica_page_route.dart';
 import '../../bookmark/bookmark_switch_button.dart';
 import '../../illust/detail/illust_detail_page.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
+import '../../../core/network/compat/network_providers.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/settings/settings_controller.dart';
 import 'recommended_repository.dart';
@@ -55,7 +59,7 @@ class RecommendedIllustPage extends ConsumerWidget {
         }
         final entities = store.getAll(feed.ids);
         return Scaffold(
-          body: RefreshIndicator(
+          body: PullToRefresh(
             onRefresh: () => ref
                 .read(recommendedIllustControllerProvider.notifier)
                 .refresh(),
@@ -90,7 +94,7 @@ class RecommendedIllustPage extends ConsumerWidget {
                       crossAxisSpacing: 10,
                       itemBuilder: (context, index) => IllustCard(
                         entity: entities[index],
-                        heroScope: 'recommended',
+                        heroScope: 'recommended:illust',
                       ),
                       childCount: entities.length,
                     ),
@@ -197,9 +201,7 @@ class IllustCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final previewQuality = ref.watch(previewQualityProvider);
-    final previewUrl = previewQuality
-        ? entity.imageUrls.large
-        : entity.imageUrls.medium;
+    final previewUrl = entity.previewUrl(highQuality: previewQuality);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,15 +215,21 @@ class IllustCard extends ConsumerWidget {
                 ? constraints.maxWidth / entity.width * entity.height
                 : constraints.maxWidth;
             return GestureDetector(
-              onTap: () => Navigator.of(context).push(
-                ReplicaPageRoute<void>(
-                  builder: (_) => IllustDetailPage(
-                    illustId: entity.id,
-                    initialEntity: entity,
-                    heroScope: heroScope,
+              onTapDown: (_) =>
+                  _preloadTransitionImages(context, ref, previewUrl),
+              onTap: () {
+                _preloadTransitionImages(context, ref, previewUrl);
+                Navigator.of(context).push(
+                  ReplicaPageRoute<void>(
+                    builder: (_) => IllustDetailPage(
+                      illustId: entity.id,
+                      initialEntity: entity,
+                      heroScope: heroScope,
+                      heroImageUrl: previewUrl,
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
               child: ClipRRect(
                 borderRadius: const BorderRadius.all(Radius.circular(12)),
                 child: SizedBox(
@@ -243,6 +251,7 @@ class IllustCard extends ConsumerWidget {
                       // the whole flight.
                       Hero(
                         tag: illustHeroTag(heroScope, entity.id),
+                        flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                         child: ClipRRect(
                           borderRadius: const BorderRadius.all(
                             Radius.circular(12),
@@ -366,5 +375,24 @@ class IllustCard extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  void _preloadTransitionImages(
+    BuildContext context,
+    WidgetRef ref,
+    String previewUrl,
+  ) {
+    final cacheManager = ref
+        .read(pixivNetworkFactoryProvider)
+        .imageCacheManager;
+    unawaited(
+      PixivImage.preload(context, previewUrl, cacheManager: cacheManager),
+    );
+    final avatarUrl = entity.user.profileImageUrl;
+    if (avatarUrl != null) {
+      unawaited(
+        PixivImage.preload(context, avatarUrl, cacheManager: cacheManager),
+      );
+    }
   }
 }

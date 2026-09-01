@@ -329,8 +329,40 @@ void main() {
     },
   );
 
-  testWidgets('U1: feed top padding follows the status-bar inset',
-      (tester) async {
+  testWidgets('IllustCard includes its live page scope in the Hero tag', (
+    tester,
+  ) async {
+    final (container, _) = await makeWorld();
+    final entity = parseIllust(illustJson(8));
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: SingleChildScrollView(
+              child: Column(
+                children: [
+                  IllustCard(entity: entity, heroScope: 'ranking:day'),
+                  IllustCard(entity: entity, heroScope: 'search:blue-archive'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    });
+
+    final tags = tester
+        .widgetList<Hero>(find.byType(Hero))
+        .map((hero) => hero.tag);
+    expect(tags, contains('IllustHero:ranking:day:8'));
+    expect(tags, contains('IllustHero:search:blue-archive:8'));
+  });
+
+  testWidgets('U1: feed top padding follows the status-bar inset', (
+    tester,
+  ) async {
     final (container, _) = await makeWorld();
     // Emulate edge-to-edge Android 15+: a 100px top system inset.
     tester.view.viewPadding = const FakeViewPadding(top: 100);
@@ -354,7 +386,8 @@ void main() {
     expect(
       inset.top,
       greaterThan(0),
-      reason: 'U1: the tab without an AppBar must offset the status bar '
+      reason:
+          'U1: the tab without an AppBar must offset the status bar '
           'itself (edge-to-edge); before the fix the top padding was 0 and '
           'the feed overlapped the status bar',
     );
