@@ -202,6 +202,11 @@ const PullToRefresh({
 - Indicator behavior, stated as observable outcomes:
   - A pull that reverses before release moves the indicator back with the
     finger; releasing below the threshold cancels without calling `onRefresh`.
+  - **While any part of the indicator is on screen, the list does not scroll.**
+    The reverse gesture retracts the indicator first; only once it is gone does
+    the remaining gesture move the content. This requires the pull to be stored
+    as real overscroll in the scroll coordinate space — under clamping physics
+    the distance does not exist and the two necessarily move together.
   - Motion produced after the pointer has lifted (ballistic settle, bounce,
     overscroll) never starts or resumes a pull.
   - Every pull ends with the indicator hidden — whether it refreshed or cancelled.
@@ -210,12 +215,18 @@ const PullToRefresh({
 - The refresh threshold is decided in exactly one place. The wrapper must not
   maintain a drag-distance judgement in parallel with the framework's, and must
   not veto a refresh the framework has already triggered.
+- Reading `metrics.pixels` to *render* is allowed and is how the wrapper drives
+  the indicator; accumulating a drag distance, deciding a threshold, or
+  overriding the framework's decision is not. Mirroring the framework's own
+  value creates no second source of truth — the previous implementation's
+  defect was the second judgement, not the act of listening.
 
 ### 4. Validation & Error Matrix
 
 | Condition | Required behavior |
 | --- | --- |
 | Armed pull reverses before release | Indicator follows the finger back; releasing below threshold cancels without calling `onRefresh`. |
+| Reverse gesture continues past the indicator | Indicator retracts fully before the list scrolls; the two never move together. |
 | Scroll motion continues after the pointer lifts | No pull starts or resumes; indicator stays hidden. |
 | Refresh completes or cancels | Indicator returns to hidden; nothing residual on screen. |
 
@@ -225,11 +236,16 @@ const PullToRefresh({
   below threshold, a valid release, and pointer-up ballistic overscroll.
   Assert the indicator's **final** visibility in every case, not only its
   motion before release.
+- The reverse-drag case must pull **past the arm threshold**. A pull that stops
+  short takes a different framework path, so a test written that way passes
+  without ever exercising the behavior it claims to cover.
 
 ### 6. Wrong vs Correct
 
 Do not let the framework's armed visual state pin the indicator after the user
 has reversed the drag. Correct that in the shared wrapper — but not by running
-a second scroll-notification state machine alongside the framework's. If the
-framework cannot express the visual, drop the visual, not the correctness.
+a second scroll-notification state machine alongside the framework's. Take the
+framework's answers (its status callbacks, its scroll metrics) rather than
+re-deriving them; "do not rebuild the state machine" is not "do not read the
+framework's state".
 

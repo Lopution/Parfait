@@ -57,9 +57,19 @@ Questions to answer:
   commit as the code.** Never leave a contract that the shipped code
   contradicts, and never keep a falsified implementation just to stay
   spec-compliant.
-- **If the framework cannot express a visual, drop the visual, not the
-  correctness.** Record the dropped requirement and who decides on it, rather
-  than reintroducing a parallel implementation to satisfy it.
+- **Exhaust the framework's primitives before scaling down a requirement.**
+  "The framework cannot do this" is a claim about the primitive you happened to
+  reach for, not about the framework. Physics, gesture arenas, layout, and
+  status callbacks are separate primitives; a requirement that is impossible
+  under one is often the natural behavior of another. Requirements live in the
+  PRD and designs live in the design doc — when a design cannot deliver a
+  requirement, the design is what changes.
+- **"Do not rebuild the framework's state machine" is not "do not read the
+  framework's state".** Mirroring an authoritative value (scroll metrics, a
+  status callback) to render from creates no second source of truth.
+  Accumulating your own copy of it, deciding a threshold from it, or overriding
+  the framework's decision does. Conflating the two blocks the only workable
+  solutions.
 
 ---
 
@@ -87,6 +97,11 @@ release.
 When a case depends on a condition being reached (an overscroll actually
 occurring, a request actually being sent), assert that the condition happened.
 Otherwise the case silently degrades into "nothing happened, so nothing broke".
+
+Also check the case takes the same code path a user does. A pull-to-refresh
+test that stops short of the arm threshold exercises a different framework
+branch than any real pull, so it passes while the shipped behavior is broken.
+When a threshold splits behavior in two, name which side the test is on.
 
 ### dart:io Loopback Flakiness (WSL environment gotcha)
 
