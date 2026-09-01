@@ -31,7 +31,16 @@ Questions to answer:
 
 <!-- Patterns that should never be used and why -->
 
-(To be filled by the team)
+- **A second state machine beside a framework one.** Do not re-derive scroll,
+  gesture, or animation lifecycle state from notifications when the framework
+  already owns it. A threshold, an "is the pointer down" judgement, or a
+  progress value must exist in exactly one place. Two measurements of the same
+  physical quantity will disagree, and every disagreement is a user-visible
+  defect (09-01 U1: pointer-up overscroll re-armed a pull, a wrapper vetoed a
+  refresh the framework had already triggered, an indicator stuck on screen —
+  all one root cause).
+- **Layering a patch on an erroneous guard.** When a guard blocks correct
+  behavior, delete or relax it. Do not add a condition in front of it.
 
 ---
 
@@ -39,13 +48,45 @@ Questions to answer:
 
 <!-- Patterns that must always be used -->
 
-(To be filled by the team)
+- **Specs state observable outcomes, not implementation instructions.** Write
+  what the user must be able to see happen; do not write which notification to
+  listen to or which field to read. A spec containing "how" freezes the
+  implementation: 09-01 U1's spec mandated the exact code that caused the bug,
+  so fixing it read as violating the spec.
+- **When real behavior falsifies a spec clause, revise the spec in the same
+  commit as the code.** Never leave a contract that the shipped code
+  contradicts, and never keep a falsified implementation just to stay
+  spec-compliant.
+- **If the framework cannot express a visual, drop the visual, not the
+  correctness.** Record the dropped requirement and who decides on it, rather
+  than reintroducing a parallel implementation to satisfy it.
 
 ---
 
 ## Testing Requirements
 
 <!-- What level of testing is expected -->
+
+### Regression tests must be proven against the defect
+
+A test written alongside a fix is unproven until it has been run against the
+unfixed code. Temporarily restore the previous implementation (`git show
+HEAD:<path>`), run the new cases, and confirm the ones that encode the defect
+fail. Two 09-01 cases were validated this way; without it a regression test
+can pass for reasons unrelated to the bug it claims to cover.
+
+### Assert the terminal state, not only the trajectory
+
+Gesture and animation tests must assert what is on screen after the
+interaction ends, not just how things moved during it. "Indicator stuck on
+screen" passed the old suite because every assertion stopped at the moment of
+release.
+
+### A test that cannot fail proves nothing
+
+When a case depends on a condition being reached (an overscroll actually
+occurring, a request actually being sent), assert that the condition happened.
+Otherwise the case silently degrades into "nothing happened, so nothing broke".
 
 ### dart:io Loopback Flakiness (WSL environment gotcha)
 
