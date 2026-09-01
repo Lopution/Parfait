@@ -87,11 +87,6 @@ Future<void> PixivImage.preload(
   String url, {
   BaseCacheManager? cacheManager,
 });
-
-const PullToRefresh({
-  required RefreshCallback onRefresh,
-  required Widget child,
-});
 ```
 
 ### 3. Contracts
@@ -110,15 +105,6 @@ const PullToRefresh({
 - A card may call `PixivImage.preload` on pointer down, but must not await it
   before pushing the detail route. The detail frame creates a fixed-size
   avatar provider immediately; a cold avatar may fill after the transition.
-- `PullToRefresh` tracks the leading-edge drag distance separately from
-  Flutter's armed lifecycle. Its indicator follows both outward and reverse
-  pointer deltas, including the reverse segment above the refresh threshold;
-  releasing below the threshold cancels without calling `onRefresh`.
-  Once edge tracking has started, apply every vertical `scrollDelta` until
-  the matching `ScrollEndNotification`; a reverse update may have a null
-  `dragDetails` while the scrollable bounces back.
-  Once `onRefresh` starts, scroll notifications cannot reset the refreshing
-  state until that Future completes.
 - Hero shuttles are clipped in the global coordinate space of the source and
   target vertical viewports. The clip is their intersection for the whole
   flight (not an interpolated boundary), and a sliver's approximate paint clip
@@ -134,7 +120,6 @@ const PullToRefresh({
 | API refresh fails with a snapshot | Snapshot content remains renderable and retry stays available. |
 | Current profile is rendered | No settings icon or `onSettings` navigation hook is present. |
 | Preview URL differs between card and detail | Correct the route input; do not let Hero fly a placeholder or lower-quality image. |
-| Armed pull reverses before release | Dismiss the indicator and do not call `onRefresh`. |
 | Avatar cache misses during navigation | Keep the same 48px slot and placeholder; never delay the route push. |
 
 ### 5. Good / Base / Bad Cases
@@ -156,9 +141,6 @@ const PullToRefresh({
   icon on the resulting `MePage`.
 - Caption tests assert non-empty captions are visible without a `简介`
   control and preserve rich-link behavior.
-- Pull-to-refresh tests arm, reverse, and release a real scrollable, asserting
-  linear indicator movement before release, dismissal below the threshold, and
-  exactly one refresh after a valid release.
 - Hero flight tests cover a partially visible card and a nested pinned header;
   the shuttle clip must stay within the source/target viewport intersection.
 - Preview tests assert the source URL and detail index-0 Hero URL are equal;
@@ -186,7 +168,7 @@ IllustDetailPage(
 );
 ```
 
-For refresh and image timing, keep the shared boundary small:
+For image timing, keep the shared boundary small:
 
 ```dart
 onTapDown: (_) => unawaited(
@@ -195,6 +177,59 @@ onTapDown: (_) => unawaited(
 onTap: () => Navigator.push(detailRoute); // do not await the preload
 ```
 
+## Shared Pull-to-Refresh Contract
+
+### 1. Scope / Trigger
+
+This contract applies to every feed that offers pull-to-refresh. It is
+deliberately separate from the artwork detail transition contract: refresh
+behavior has nothing to do with Hero flights, and burying it there hid the
+rules from the people who needed them.
+
+### 2. Signatures
+
+```dart
+const PullToRefresh({
+  required RefreshCallback onRefresh,
+  required Widget child,
+});
+```
+
+### 3. Contracts
+
+- `PullToRefresh` is the single shared refresh wrapper. Feeds must not add a
+  second per-page refresh implementation.
+- Indicator behavior, stated as observable outcomes:
+  - A pull that reverses before release moves the indicator back with the
+    finger; releasing below the threshold cancels without calling `onRefresh`.
+  - Motion produced after the pointer has lifted (ballistic settle, bounce,
+    overscroll) never starts or resumes a pull.
+  - Every pull ends with the indicator hidden — whether it refreshed or cancelled.
+  - Once `onRefresh` starts, no scroll activity resets the refreshing state
+    until that Future completes. Exactly one `onRefresh` per qualifying pull.
+- The refresh threshold is decided in exactly one place. The wrapper must not
+  maintain a drag-distance judgement in parallel with the framework's, and must
+  not veto a refresh the framework has already triggered.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+| --- | --- |
+| Armed pull reverses before release | Indicator follows the finger back; releasing below threshold cancels without calling `onRefresh`. |
+| Scroll motion continues after the pointer lifts | No pull starts or resumes; indicator stays hidden. |
+| Refresh completes or cancels | Indicator returns to hidden; nothing residual on screen. |
+
+### 5. Tests Required
+
+- Pull-to-refresh tests drive a real scrollable and cover: reverse-then-release
+  below threshold, a valid release, and pointer-up ballistic overscroll.
+  Assert the indicator's **final** visibility in every case, not only its
+  motion before release.
+
+### 6. Wrong vs Correct
+
 Do not let the framework's armed visual state pin the indicator after the user
-has reversed the drag; keep that correction in the shared wrapper rather than
-creating a second per-page refresh implementation.
+has reversed the drag. Correct that in the shared wrapper — but not by running
+a second scroll-notification state machine alongside the framework's. If the
+framework cannot express the visual, drop the visual, not the correctness.
+
