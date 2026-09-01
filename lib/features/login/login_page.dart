@@ -7,6 +7,7 @@ import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
+import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
@@ -118,9 +119,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return ref
         .watch(settingsProvider)
         .when(
-          loading: () => const ReplicaScaffold(child: SizedBox.shrink()),
-          error: (error, stackTrace) =>
-              const ReplicaScaffold(child: SizedBox.shrink()),
+          loading: () => const ReplicaScaffold(
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, stackTrace) => ReplicaScaffold(
+            child: SettingsLoadError(
+              error: error,
+              onRetry: () => ref.read(settingsProvider.notifier).reload(),
+            ),
+          ),
           data: (settings) {
             final language = ReplicaLanguage.fromTag(settings.languageTag);
             String text(String key) => ReplicaStrings.text(language, key);
@@ -289,3 +296,4 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
   }
 }
+

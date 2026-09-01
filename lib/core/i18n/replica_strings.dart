@@ -264,6 +264,14 @@ class ReplicaStrings {
       'searchEndDate': '结束日期',
       'searchNoSuggestions': '没有匹配建议',
       'searchUserAccount': '账号',
+      'illustDetailTitle': '作品详情',
+      'illustDetailCreateDateUnknown': '投稿日期未知',
+      'illustDetailCreateDate': '投稿日期：{date}',
+      'illustDetailSize': '尺寸：{width}x{height}',
+      'illustDetailOpenLinkFailed': '无法打开链接：{error}',
+      'illustDetailRestricted': '该作品已被删除或受限（ID: {id}）',
+      'illustDetailNotFound': '作品不存在或已被删除',
+      'illustDetailLoadFailed': '作品加载失败',
       'commentTitle': '评论',
       'commentInput': '添加评论',
       'commentReply': '回复',
@@ -616,6 +624,15 @@ class ReplicaStrings {
       'searchEndDate': 'End date',
       'searchNoSuggestions': 'No suggestions',
       'searchUserAccount': 'Account',
+      'illustDetailTitle': 'Artwork',
+      'illustDetailCreateDateUnknown': 'Upload date unknown',
+      'illustDetailCreateDate': 'Uploaded on {date}',
+      'illustDetailSize': 'Size: {width}x{height}',
+      'illustDetailOpenLinkFailed': 'Could not open the link: {error}',
+      'illustDetailRestricted':
+          'This artwork has been deleted or restricted (ID: {id})',
+      'illustDetailNotFound': 'This artwork does not exist or was deleted',
+      'illustDetailLoadFailed': 'Failed to load the artwork',
       'commentTitle': 'Comments',
       'commentInput': 'Add a comment',
       'commentReply': 'Reply',
@@ -953,6 +970,14 @@ class ReplicaStrings {
       'searchEndDate': '終了日',
       'searchNoSuggestions': '候補はありません',
       'searchUserAccount': 'アカウント',
+      'illustDetailTitle': '作品詳細',
+      'illustDetailCreateDateUnknown': '投稿日不明',
+      'illustDetailCreateDate': '投稿日：{date}',
+      'illustDetailSize': 'サイズ：{width}x{height}',
+      'illustDetailOpenLinkFailed': 'リンクを開けませんでした：{error}',
+      'illustDetailRestricted': 'この作品は削除または非公開になりました（ID: {id}）',
+      'illustDetailNotFound': '作品が存在しないか削除されました',
+      'illustDetailLoadFailed': '作品の読み込みに失敗しました',
       'commentTitle': 'コメント',
       'commentInput': 'コメントを追加',
       'commentReply': '返信',
@@ -1304,6 +1329,14 @@ class ReplicaStrings {
       'searchEndDate': 'Дата окончания',
       'searchNoSuggestions': 'Нет подходящих вариантов',
       'searchUserAccount': 'Аккаунт',
+      'illustDetailTitle': 'Работа',
+      'illustDetailCreateDateUnknown': 'Дата публикации неизвестна',
+      'illustDetailCreateDate': 'Опубликовано: {date}',
+      'illustDetailSize': 'Размер: {width}x{height}',
+      'illustDetailOpenLinkFailed': 'Не удалось открыть ссылку: {error}',
+      'illustDetailRestricted': 'Работа удалена или ограничена (ID: {id})',
+      'illustDetailNotFound': 'Работа не существует или была удалена',
+      'illustDetailLoadFailed': 'Не удалось загрузить работу',
       'commentTitle': 'Комментарии',
       'commentInput': 'Добавить комментарий',
       'commentReply': 'Ответить',
@@ -1391,11 +1424,30 @@ class ReplicaStrings {
     },
   };
 
-  static String text(ReplicaLanguage language, String key) {
-    return _values[language]?[key] ?? _values[ReplicaLanguage.zhCN]![key]!;
+  static final _placeholder = RegExp(r'\{(\w+)\}');
+
+  static String text(
+    ReplicaLanguage language,
+    String key, [
+    Map<String, Object?> args = const {},
+  ]) {
+    final template =
+        _values[language]?[key] ?? _values[ReplicaLanguage.zhCN]![key]!;
+    if (args.isEmpty) return template;
+    // An unsupplied placeholder stays visible as `{name}` instead of turning
+    // into an empty string, so a missing argument surfaces as a UI defect
+    // rather than a silently truncated sentence.
+    return template.replaceAllMapped(_placeholder, (match) {
+      final name = match.group(1)!;
+      return args.containsKey(name) ? '${args[name]}' : match.group(0)!;
+    });
   }
 
-  static String fromTag(String languageTag, String key) {
-    return text(ReplicaLanguage.fromTag(languageTag), key);
+  static String fromTag(
+    String languageTag,
+    String key, [
+    Map<String, Object?> args = const {},
+  ]) {
+    return text(ReplicaLanguage.fromTag(languageTag), key, args);
   }
 }
