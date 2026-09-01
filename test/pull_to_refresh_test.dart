@@ -3,31 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/app/pull_to_refresh.dart';
 
 void main() {
-  // Counts overscroll produced with no pointer down — the ballistic settle
-  // that used to re-open the old wrapper's drag tracking.
-  var pointerUpOverscrolls = 0;
-
-  setUp(() => pointerUpOverscrolls = 0);
-
   Widget buildSubject({required Future<void> Function() onRefresh}) {
     return MaterialApp(
       home: Scaffold(
-        body: NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (notification is OverscrollNotification &&
-                notification.dragDetails == null) {
-              pointerUpOverscrolls++;
-            }
-            return false;
-          },
-          child: PullToRefresh(
-            onRefresh: onRefresh,
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: 40,
-              itemBuilder: (_, index) =>
-                  SizedBox(height: 60, child: Text('item $index')),
-            ),
+        body: PullToRefresh(
+          onRefresh: onRefresh,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: 40,
+            itemBuilder: (_, index) =>
+                SizedBox(height: 60, child: Text('item $index')),
           ),
         ),
       ),
@@ -71,7 +56,22 @@ void main() {
     expect(indicator, findsNothing);
   });
 
-  testWidgets('a reverse drag moves the indicator back and cancels', (
+  // Drag in steps rather than one big jump: bouncing physics computes friction
+  // per update, so a single 300px move overscrolls far more than a real finger
+  // travelling the same distance across many frames.
+  Future<void> pullBy(
+    WidgetTester tester,
+    TestGesture gesture,
+    int steps,
+    double perStep,
+  ) async {
+    for (var i = 0; i < steps; i++) {
+      await gesture.moveBy(Offset(0, perStep));
+      await tester.pump();
+    }
+  }
+
+  testWidgets('a reverse drag retracts the indicator and cancels', (
     tester,
   ) async {
     var refreshCount = 0;
@@ -82,19 +82,19 @@ void main() {
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(ListView)),
     );
-    await gesture.moveBy(const Offset(0, 300));
-    await tester.pump();
+    await pullBy(tester, gesture, 10, 40);
     expect(indicator, findsOneWidget);
     final armed = tester.getCenter(indicator).dy;
 
     var previous = armed;
-    for (var step = 0; step < 6; step++) {
-      await gesture.moveBy(const Offset(0, -40));
+    var retracted = false;
+    for (var step = 0; step < 16; step++) {
+      await gesture.moveBy(const Offset(0, -30));
       await tester.pump();
-      // The indicator must stay on screen for the whole gesture: a pull that
-      // vanishes mid-drag and a pull that survives release are the two halves
-      // of the same defect.
-      expect(indicator, findsOneWidget);
+      if (indicator.evaluate().isEmpty) {
+        retracted = true;
+        break;
+      }
       final current = tester.getCenter(indicator).dy;
       expect(
         current,
@@ -103,10 +103,71 @@ void main() {
       );
       previous = current;
     }
+
     expect(
-      previous,
-      lessThan(armed),
-      reason: 'the indicator should have travelled back up with the finger',
+      retracted,
+      isTrue,
+      reason: 'a fully reversed pull must retract the indicator, not park it',
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(refreshCount, 0);
+    expect(indicator, findsNothing);
+  });
+
+  testWidgets('reversing an armed pull retracts the indicator before the list '
+      'scrolls', (tester) async {
+    var refreshCount = 0;
+    await tester.pumpWidget(
+      buildSubject(onRefresh: () async => refreshCount++),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+    );
+    // Deliberately past the arm threshold: that is the path a real pull takes,
+    // and it is the one where the framework's own spinner parks itself at two
+    // thirds of its travel and rides up with the list.
+    await pullBy(tester, gesture, 10, 40);
+    expect(indicator, findsOneWidget);
+    expect(
+      scrollOffset(tester),
+      lessThan(0),
+      reason: 'the pull must be stored as overscroll, otherwise the reverse '
+          'gesture has nothing to pay back before it can move the list',
+    );
+
+    var indicatorGone = false;
+    for (var step = 0; step < 24; step++) {
+      await gesture.moveBy(const Offset(0, -30));
+      await tester.pump();
+
+      final onScreen =
+          indicator.evaluate().isNotEmpty &&
+          tester.getRect(indicator).bottom > 0;
+      if (onScreen) {
+        expect(
+          scrollOffset(tester),
+          lessThanOrEqualTo(0),
+          reason: 'the list must not scroll while the indicator is still on '
+              'screen — that is the "icon rides up with the list" defect',
+        );
+      } else {
+        indicatorGone = true;
+      }
+    }
+
+    expect(
+      indicatorGone,
+      isTrue,
+      reason: 'the reverse drag must be long enough to retract the indicator, '
+          'otherwise this test never reaches the half that matters',
+    );
+    expect(
+      scrollOffset(tester),
+      greaterThan(0),
+      reason: 'once the indicator is gone the remaining gesture should scroll',
     );
 
     await gesture.up();
@@ -144,8 +205,8 @@ void main() {
 
     // A short, fast flick: the drag itself never reaches the leading edge, so
     // everything that touches the edge happens after the finger is gone.
-    pointerUpOverscrolls = 0;
     await tester.fling(find.byType(ListView), const Offset(0, 80), 4000);
+    var deepestOverscroll = 0.0;
     for (var frame = 0; frame < 120; frame++) {
       await tester.pump(const Duration(milliseconds: 16));
       expect(
@@ -153,13 +214,16 @@ void main() {
         findsNothing,
         reason: 'motion after the pointer lifts must not summon the indicator',
       );
+      deepestOverscroll = deepestOverscroll < scrollOffset(tester)
+          ? deepestOverscroll
+          : scrollOffset(tester);
     }
     await tester.pumpAndSettle();
 
     expect(
-      pointerUpOverscrolls,
-      greaterThan(0),
-      reason: 'the flick must actually overscroll the leading edge, '
+      deepestOverscroll,
+      lessThan(0),
+      reason: 'the flick must actually overscroll past the leading edge, '
           'otherwise this test proves nothing',
     );
     expect(scrollOffset(tester), 0);
