@@ -18,6 +18,27 @@ class ReplicaProfileHeaderGeometry {
     required this.maxExtent,
   });
 
+  /// Expanded avatar radius. 104dp across reads as an identity element next
+  /// to the background band; the previous 144dp filled the band and, for the
+  /// default placeholder, looked like a watermark.
+  static const expandedAvatarRadius = 52.0;
+
+  /// Collapsed avatar radius — the toolbar-row size.
+  static const collapsedAvatarRadius = 20.0;
+
+  /// How far the expanded avatar hangs below the background image. Kept from
+  /// the previous layout so the gap to the name row does not change.
+  static const _avatarOverhang = 24.0;
+
+  /// The avatar reaches its collapsed anchor before the header does, so it is
+  /// already parked beside the leading slot when the toolbar chrome appears.
+  static const _avatarSettleProgress = 0.9;
+
+  /// The toolbar chrome fades in only once the avatar has parked. Starting
+  /// earlier would sweep the still-shrinking avatar across the title, whose
+  /// 96px inset is sized for the collapsed avatar.
+  static const _collapsedFadeStart = _avatarSettleProgress;
+
   final double shrinkOffset;
   final double minExtent;
   final double maxExtent;
@@ -32,14 +53,51 @@ class ReplicaProfileHeaderGeometry {
   double lerp(double expanded, double collapsed) =>
       expanded + (collapsed - expanded) * progress;
 
-  double get avatarRadius => lerp(72, 20);
+  /// [progress] remapped onto the avatar's own travel, which finishes early.
+  double get _avatarProgress =>
+      (progress / _avatarSettleProgress).clamp(0.0, 1.0);
+
+  double get avatarRadius =>
+      expandedAvatarRadius +
+      (collapsedAvatarRadius - expandedAvatarRadius) * _avatarProgress;
+
+  /// Avatar centre inside the header box, interpolated between the expanded
+  /// anchor (horizontally centred, straddling the background edge) and the
+  /// collapsed anchor (toolbar row, immediately right of the leading slot).
+  ///
+  /// [collapsedLeftInset] is the x of the avatar's left edge once collapsed:
+  /// the row padding plus the back button when the route can pop.
+  Offset avatarCenter({
+    required double headerWidth,
+    required double backgroundHeight,
+    required double collapsedLeftInset,
+  }) {
+    final expanded = Offset(
+      headerWidth / 2,
+      backgroundHeight + _avatarOverhang - expandedAvatarRadius,
+    );
+    final collapsed = Offset(
+      collapsedLeftInset + collapsedAvatarRadius,
+      minExtent / 2,
+    );
+    return Offset.lerp(expanded, collapsed, _avatarProgress)!;
+  }
 
   double get backgroundOpacity => 1 - progress;
+
+  /// Opacity of the collapsed toolbar chrome (back button, title, actions).
+  double get collapsedOpacity =>
+      ((progress - _collapsedFadeStart) / (1 - _collapsedFadeStart)).clamp(
+        0.0,
+        1.0,
+      );
 }
 
-/// Project-owned profile header. It avoids the old extended_sliver delegate:
-/// the collapsed title is rendered only at the fully-collapsed extent, never
-/// during the transition.
+/// Project-owned profile header. It avoids the old extended_sliver delegate.
+///
+/// The avatar is its own layer rather than living inside the expanded and
+/// collapsed subtrees: it interpolates size and position continuously and
+/// stays fully opaque, so it never fades out with the background image.
 class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileHeaderDelegate({
     required this.user,
@@ -85,32 +143,71 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     final canPop = Navigator.of(context).canPop();
     return Material(
       color: colors.surface,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (!geometry.isFullyCollapsed)
-            Opacity(
-              opacity: geometry.backgroundOpacity,
-              child: _ExpandedProfile(
-                user: user,
-                isMe: isMe,
-                backgroundHeight: backgroundHeight,
-                onShare: onShare,
-                onEditProfile: onEditProfile,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final radius = geometry.avatarRadius;
+          final center = geometry.avatarCenter(
+            headerWidth: constraints.maxWidth,
+            backgroundHeight: backgroundHeight,
+            // Where the collapsed avatar's left edge lands: the row padding,
+            // plus the back button slot when the route can pop.
+            collapsedLeftInset: canPop
+                ? 8 + kMinInteractiveDimension
+                : 16,
+          );
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              if (!geometry.isFullyCollapsed)
+                Opacity(
+                  opacity: geometry.backgroundOpacity,
+                  child: _ExpandedProfile(
+                    user: user,
+                    isMe: isMe,
+                    backgroundHeight: backgroundHeight,
+                    onShare: onShare,
+                    onEditProfile: onEditProfile,
+                  ),
+                ),
+              if (geometry.collapsedOpacity > 0)
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    // Pinned to the toolbar strip. Letting it fill the
+                    // shrinking box instead would slide the title down into
+                    // the artwork and across the travelling avatar.
+                    height: minExtent,
+                    child: Opacity(
+                      opacity: geometry.collapsedOpacity,
+                      child: IgnorePointer(
+                        // Hit testing stays exactly as before: the collapsed
+                        // controls only take taps once they are the only
+                        // thing on screen.
+                        ignoring: !geometry.isFullyCollapsed,
+                        child: _CollapsedProfile(
+                          user: user,
+                          isMe: isMe,
+                          canPop: canPop,
+                          showRestrictSelector: showRestrictSelector,
+                          restrict: restrict,
+                          onRestrictChanged: onRestrictChanged,
+                          onShare: onShare,
+                          onEditProfile: onEditProfile,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: center.dx - radius,
+                top: center.dy - radius,
+                width: radius * 2,
+                height: radius * 2,
+                child: _Avatar(user: user, radius: radius),
               ),
-            ),
-          if (geometry.isFullyCollapsed)
-            _CollapsedProfile(
-              user: user,
-              isMe: isMe,
-              canPop: canPop,
-              showRestrictSelector: showRestrictSelector,
-              restrict: restrict,
-              onRestrictChanged: onRestrictChanged,
-              onShare: onShare,
-              onEditProfile: onEditProfile,
-            ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -161,16 +258,6 @@ class _ExpandedProfile extends StatelessWidget {
           child: user.backgroundImageUrl == null
               ? ColoredBox(color: colors.surfaceContainerHighest)
               : PixivImage(url: user.backgroundImageUrl!, fit: BoxFit.cover),
-        ),
-        Positioned(
-          // Keep a visible gap between the avatar and the name row. The old
-          // position put the avatar's bottom edge into the text column at the
-          // default header height, which is especially visible on high-density
-          // displays.
-          top: backgroundHeight - 120,
-          left: 0,
-          right: 0,
-          child: Center(child: _Avatar(user: user, radius: 72)),
         ),
         Positioned(
           left: 24,
@@ -296,18 +383,15 @@ class _CollapsedProfile extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Padding(
             padding: EdgeInsets.only(left: canPop ? 8 : 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (canPop)
-                  IconButton(
+            // The avatar that used to sit here is now a delegate-level layer;
+            // the title's fixed 96px inset still reserves its slot.
+            child: canPop
+                ? IconButton(
                     tooltip: 'Back',
                     onPressed: () => Navigator.of(context).maybePop(),
                     icon: const Icon(Icons.arrow_back_ios_new),
-                  ),
-                _Avatar(user: user, radius: 20),
-              ],
-            ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ),
         Positioned.fill(
