@@ -298,6 +298,7 @@ void main() {
       await tester.tap(find.text('每日(R-18)'));
       await tester.pump();
       await tester.pump();
+      await tester.pumpAndSettle();
     });
     expect(fixture.requests, hasLength(2));
     expect(fixture.requests.last.queryParameters['mode'], 'day_r18');

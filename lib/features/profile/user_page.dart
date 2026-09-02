@@ -1,3 +1,4 @@
+import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -301,6 +302,7 @@ class _UserPageState extends ConsumerState<UserPage>
                   onRestrictChanged: _onRestrictChanged,
                   onShare: () => _showProfileShare(context, user),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
+                  topInset: MediaQuery.viewPaddingOf(context).top,
                 ),
               ),
               SliverPersistentHeader(
@@ -416,6 +418,7 @@ class _ProfileIllustFeed extends ConsumerWidget {
         final store = ref.watch(illustStoreProvider);
         final entities = store.getAll(feed.ids);
         return PullToRefresh(
+          isNested: true,
           onRefresh: () =>
               ref.read(profileIllustFeedProvider(feedKey).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
@@ -433,6 +436,7 @@ class _ProfileIllustFeed extends ConsumerWidget {
               key: PageStorageKey(feedKey),
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
+                const HeaderLocator.sliver(),
                 if (entities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
@@ -506,6 +510,7 @@ class _ProfileUserFeed extends ConsumerWidget {
             if (storedUsers[id] != null) storedUsers[id]!,
         ];
         return PullToRefresh(
+          isNested: true,
           onRefresh: () =>
               ref.read(profileUserFeedProvider(feedKey).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
@@ -520,8 +525,10 @@ class _ProfileUserFeed extends ConsumerWidget {
             child: ListView.builder(
               key: PageStorageKey(feedKey),
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: users.isEmpty ? 1 : users.length + 1,
+              itemCount: (users.isEmpty ? 1 : users.length + 1) + 1,
               itemBuilder: (context, index) {
+                if (index == 0) return const HeaderLocator();
+                final itemIndex = index - 1;
                 if (users.isEmpty) {
                   return SizedBox(
                     height: 240,
@@ -530,7 +537,7 @@ class _ProfileUserFeed extends ConsumerWidget {
                     ),
                   );
                 }
-                if (index == users.length) {
+                if (itemIndex == users.length) {
                   return _ProfileFeedTail(
                     feed: feed,
                     onRetry: () => ref
@@ -538,7 +545,7 @@ class _ProfileUserFeed extends ConsumerWidget {
                         .retryLoadMore(),
                   );
                 }
-                return _UserPreviewCard(user: users[index]);
+                return _UserPreviewCard(user: users[itemIndex]);
               },
             ),
           ),
@@ -681,6 +688,7 @@ class _ProfileNovelFeed extends ConsumerWidget {
             if (storedNovels[id] != null) storedNovels[id]!,
         ];
         return PullToRefresh(
+          isNested: true,
           onRefresh: () =>
               ref.read(userNovelFeedProvider(userId).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
@@ -695,8 +703,10 @@ class _ProfileNovelFeed extends ConsumerWidget {
             child: ListView.builder(
               key: PageStorageKey('profile-novel-$userId'),
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: novels.isEmpty ? 1 : novels.length + 1,
+              itemCount: (novels.isEmpty ? 1 : novels.length + 1) + 1,
               itemBuilder: (context, index) {
+                if (index == 0) return const HeaderLocator();
+                final itemIndex = index - 1;
                 if (novels.isEmpty) {
                   return SizedBox(
                     height: 240,
@@ -705,7 +715,7 @@ class _ProfileNovelFeed extends ConsumerWidget {
                     ),
                   );
                 }
-                if (index == novels.length) {
+                if (itemIndex == novels.length) {
                   return _ProfileFeedTail(
                     feed: feed,
                     onRetry: () => ref
@@ -713,7 +723,7 @@ class _ProfileNovelFeed extends ConsumerWidget {
                         .retryLoadMore(),
                   );
                 }
-                return NovelCard(entity: novels[index]);
+                return NovelCard(entity: novels[itemIndex]);
               },
             ),
           ),

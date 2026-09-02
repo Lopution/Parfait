@@ -192,6 +192,7 @@ rules from the people who needed them.
 const PullToRefresh({
   required RefreshCallback onRefresh,
   required Widget child,
+  bool isNested = false,
 });
 ```
 
@@ -199,6 +200,17 @@ const PullToRefresh({
 
 - `PullToRefresh` is the single shared refresh wrapper. Feeds must not add a
   second per-page refresh implementation.
+- The shared wrapper uses `EasyRefresh` with a `MaterialHeader` configured as
+  `position: IndicatorPosition.above`, `safeArea: true`, and `clamping: true`
+  for ordinary lists. For a tab body inside a `NestedScrollView`, pass
+  `isNested: true`; that path uses `IndicatorPosition.locator`,
+  `safeArea: false`, and exactly one `HeaderLocator` as the first list item or
+  sliver. Theme colors are passed through; pages do not create a second header
+  or refresh controller for the same scrollable.
+- A `NestedScrollView` is kept as the outer scroll coordinator and each active
+  tab body owns one nested `PullToRefresh` wrapper, following PixEz's
+  `EasyRefresh` locator pattern. Do not add another wrapper around the whole
+  `NestedScrollView`. Ordinary lists use the default `isNested: false` path.
 - Indicator behavior, stated as observable outcomes:
   - A pull that reverses before release moves the indicator back with the
     finger; releasing below the threshold cancels without calling `onRefresh`.
@@ -248,4 +260,3 @@ a second scroll-notification state machine alongside the framework's. Take the
 framework's answers (its status callbacks, its scroll metrics) rather than
 re-deriving them; "do not rebuild the state machine" is not "do not read the
 framework's state".
-
