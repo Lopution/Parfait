@@ -1,18 +1,56 @@
+import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/app/pull_to_refresh.dart';
 
 void main() {
-  Widget buildSubject({required Future<void> Function() onRefresh}) {
+  Widget buildSubject({
+    required Future<void> Function() onRefresh,
+    List<ScrollNotification>? notifications,
+  }) {
+    Widget list = ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: 40,
+      itemBuilder: (_, index) =>
+          SizedBox(height: 60, child: Text('item $index')),
+    );
+    if (notifications != null) {
+      list = NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          notifications.add(notification);
+          return false;
+        },
+        child: list,
+      );
+    }
     return MaterialApp(
       home: Scaffold(
-        body: PullToRefresh(
-          onRefresh: onRefresh,
-          child: ListView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
-            itemCount: 40,
-            itemBuilder: (_, index) =>
-                SizedBox(height: 60, child: Text('item $index')),
+        body: PullToRefresh(onRefresh: onRefresh, child: list),
+      ),
+    );
+  }
+
+  Widget buildNestedSubject({required Future<void> Function() onRefresh}) {
+    return MaterialApp(
+      home: Scaffold(
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            const SliverToBoxAdapter(child: SizedBox(height: 180)),
+          ],
+          body: PullToRefresh(
+            isNested: true,
+            onRefresh: onRefresh,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: 41,
+              itemBuilder: (_, index) {
+                if (index == 0) return const HeaderLocator();
+                return SizedBox(
+                  height: 60,
+                  child: Text('nested item ${index - 1}'),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -23,6 +61,18 @@ void main() {
 
   double scrollOffset(WidgetTester tester) =>
       tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels;
+
+  Future<void> pullBy(
+    WidgetTester tester,
+    TestGesture gesture,
+    int steps,
+    double perStep,
+  ) async {
+    for (var i = 0; i < steps; i++) {
+      await gesture.moveBy(Offset(0, perStep));
+      await tester.pump();
+    }
+  }
 
   testWidgets('an outward pull follows the finger, then cancels below the '
       'threshold', (tester) async {
@@ -48,28 +98,11 @@ void main() {
       previous = current;
     }
 
-    // 120px is short of the framework's arm threshold, so this release is a
-    // cancel — and a cancel still has to leave nothing on screen.
     await gesture.up();
     await tester.pumpAndSettle();
     expect(refreshCount, 0);
     expect(indicator, findsNothing);
   });
-
-  // Drag in steps rather than one big jump: bouncing physics computes friction
-  // per update, so a single 300px move overscrolls far more than a real finger
-  // travelling the same distance across many frames.
-  Future<void> pullBy(
-    WidgetTester tester,
-    TestGesture gesture,
-    int steps,
-    double perStep,
-  ) async {
-    for (var i = 0; i < steps; i++) {
-      await gesture.moveBy(Offset(0, perStep));
-      await tester.pump();
-    }
-  }
 
   testWidgets('a reverse drag retracts the indicator and cancels', (
     tester,
@@ -82,11 +115,10 @@ void main() {
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(ListView)),
     );
-    await pullBy(tester, gesture, 10, 40);
+    await pullBy(tester, gesture, 4, 30);
     expect(indicator, findsOneWidget);
-    final armed = tester.getCenter(indicator).dy;
 
-    var previous = armed;
+    var previous = tester.getCenter(indicator).dy;
     var retracted = false;
     for (var step = 0; step < 16; step++) {
       await gesture.moveBy(const Offset(0, -30));
@@ -99,17 +131,12 @@ void main() {
       expect(
         current,
         lessThanOrEqualTo(previous),
-        reason: 'reversing the drag must not push the indicator further down',
+        reason: 'reversing the drag must retract the indicator',
       );
       previous = current;
     }
 
-    expect(
-      retracted,
-      isTrue,
-      reason: 'a fully reversed pull must retract the indicator, not park it',
-    );
-
+    expect(retracted, isTrue);
     await gesture.up();
     await tester.pumpAndSettle();
     expect(refreshCount, 0);
@@ -126,16 +153,14 @@ void main() {
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(ListView)),
     );
-    // Deliberately past the arm threshold: that is the path a real pull takes,
-    // and it is the one where the framework's own spinner parks itself at two
-    // thirds of its travel and rides up with the list.
+    // MaterialHeader.clamping keeps this distance in the header rather than
+    // moving the list. The pull is deliberately past the arm threshold.
     await pullBy(tester, gesture, 10, 40);
     expect(indicator, findsOneWidget);
     expect(
       scrollOffset(tester),
-      lessThan(0),
-      reason: 'the pull must be stored as overscroll, otherwise the reverse '
-          'gesture has nothing to pay back before it can move the list',
+      closeTo(0, 0.001),
+      reason: 'the list must stay put while the clamping header is open',
     );
 
     var indicatorGone = false;
@@ -149,25 +174,19 @@ void main() {
       if (onScreen) {
         expect(
           scrollOffset(tester),
-          lessThanOrEqualTo(0),
-          reason: 'the list must not scroll while the indicator is still on '
-              'screen — that is the "icon rides up with the list" defect',
+          closeTo(0, 0.001),
+          reason: 'the list must not scroll while the indicator is visible',
         );
       } else {
         indicatorGone = true;
       }
     }
 
-    expect(
-      indicatorGone,
-      isTrue,
-      reason: 'the reverse drag must be long enough to retract the indicator, '
-          'otherwise this test never reaches the half that matters',
-    );
+    expect(indicatorGone, isTrue);
     expect(
       scrollOffset(tester),
       greaterThan(0),
-      reason: 'once the indicator is gone the remaining gesture should scroll',
+      reason: 'the remaining reverse gesture should scroll after retraction',
     );
 
     await gesture.up();
@@ -184,8 +203,9 @@ void main() {
       buildSubject(onRefresh: () async => refreshCount++),
     );
 
-    await tester.drag(find.byType(ListView), const Offset(0, 320));
+    await tester.drag(find.byType(ListView), const Offset(0, 600));
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(refreshCount, 1);
     expect(indicator, findsNothing);
@@ -195,39 +215,70 @@ void main() {
     tester,
   ) async {
     var refreshCount = 0;
+    final notifications = <ScrollNotification>[];
     await tester.pumpWidget(
-      buildSubject(onRefresh: () async => refreshCount++),
+      buildSubject(
+        onRefresh: () async => refreshCount++,
+        notifications: notifications,
+      ),
     );
 
     await tester.drag(find.byType(ListView), const Offset(0, -400));
     await tester.pumpAndSettle();
     expect(scrollOffset(tester), greaterThan(0));
+    notifications.clear();
 
-    // A short, fast flick: the drag itself never reaches the leading edge, so
-    // everything that touches the edge happens after the finger is gone.
+    // The short, fast flick reaches the leading edge after the pointer is
+    // gone. It must not turn that ballistic motion into a new pull.
     await tester.fling(find.byType(ListView), const Offset(0, 80), 4000);
-    var deepestOverscroll = 0.0;
+    var sawLeadingEdgeActivity = false;
     for (var frame = 0; frame < 120; frame++) {
       await tester.pump(const Duration(milliseconds: 16));
       expect(
         indicator,
         findsNothing,
-        reason: 'motion after the pointer lifts must not summon the indicator',
+        reason: 'post-release motion must not summon the indicator',
       );
-      deepestOverscroll = deepestOverscroll < scrollOffset(tester)
-          ? deepestOverscroll
-          : scrollOffset(tester);
+      sawLeadingEdgeActivity =
+          sawLeadingEdgeActivity ||
+          notifications.any(
+            (notification) =>
+                notification is OverscrollNotification ||
+                (notification is ScrollUpdateNotification &&
+                    notification.metrics.extentBefore == 0),
+          );
     }
     await tester.pumpAndSettle();
 
-    expect(
-      deepestOverscroll,
-      lessThan(0),
-      reason: 'the flick must actually overscroll past the leading edge, '
-          'otherwise this test proves nothing',
-    );
-    expect(scrollOffset(tester), 0);
+    expect(sawLeadingEdgeActivity, isTrue);
+    expect(scrollOffset(tester), closeTo(0, 0.001));
     expect(refreshCount, 0);
+    expect(indicator, findsNothing);
+  });
+
+  testWidgets('the shared wrapper uses the PixEz-style material header', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildSubject(onRefresh: () async {}));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EasyRefresh), findsOneWidget);
+  });
+
+  testWidgets('the shared wrapper refreshes a nested scroll view once', (
+    tester,
+  ) async {
+    var refreshCount = 0;
+    await tester.pumpWidget(
+      buildNestedSubject(onRefresh: () async => refreshCount++),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, 600));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(refreshCount, 1);
     expect(indicator, findsNothing);
   });
 }

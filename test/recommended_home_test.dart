@@ -189,6 +189,7 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
+      await tester.pumpAndSettle();
     });
     // Locale-independent: four tabs regardless of language.
     expect(find.byType(Tab), findsNWidgets(4));
@@ -222,6 +223,7 @@ void main() {
       await tester.tap(find.byType(Tab).at(1));
       await tester.pump();
       await tester.pump();
+      await tester.pumpAndSettle();
     });
     expect(
       fixture.requests,
@@ -268,6 +270,7 @@ void main() {
       await tester.tap(find.byType(Tab).at(3));
       await tester.pump();
       await tester.pump();
+      await tester.pumpAndSettle();
     });
     expect(
       fixture.requests,

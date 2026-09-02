@@ -286,132 +286,90 @@ void main() {
     },
   );
 
-  ReplicaProfileHeaderGeometry geometryAt(double progress) =>
-      ReplicaProfileHeaderGeometry(
-        shrinkOffset: 374 * progress,
-        minExtent: 56,
-        maxExtent: 430,
-      );
+  ReplicaProfileHeaderGeometry geometryAt(
+    double progress, {
+    double topInset = 0,
+  }) => ReplicaProfileHeaderGeometry(
+    shrinkOffset: (430 - (56 + topInset)) * progress,
+    minExtent: 56 + topInset,
+    maxExtent: 430,
+  );
 
   test(
-    'header geometry only reports the title at the fully collapsed extent',
+    'the expanded identity has one fixed avatar and a separated exit path',
     () {
-      final geometry = geometryAt(0);
-      expect(geometry.isFullyCollapsed, isFalse);
-      expect(geometry.avatarRadius, 52);
+      expect(ReplicaProfileHeaderGeometry.expandedAvatarRadius * 2, 104);
+
+      Offset centerAt(double progress) => geometryAt(progress).avatarCenter(
+        headerWidth: 400,
+        backgroundHeight: 252,
+        collapsedLeftInset: 56,
+      );
+
+      final expanded = centerAt(0);
+      expect(expanded.dx, 200);
+      expect(
+        expanded.dy + ReplicaProfileHeaderGeometry.expandedAvatarRadius,
+        252 + 8,
+      );
+
+      var previousY = expanded.dy;
+      for (var step = 1; step <= 20; step++) {
+        final geometry = geometryAt(step / 20);
+        final center = centerAt(step / 20);
+        expect(center.dx, 200);
+        expect(center.dy, lessThan(previousY));
+        expect(geometry.avatarRadius, 52);
+        previousY = center.dy;
+      }
 
       final collapsed = geometryAt(1);
       expect(collapsed.isFullyCollapsed, isTrue);
-      expect(collapsed.avatarRadius, 20);
+      expect(collapsed.showExpandedIdentity, isFalse);
+      expect(collapsed.expandedDetailsOpacity, 0);
     },
   );
 
-  test('D7: the avatar interpolates instead of switching between two sizes', () {
-    // 104dp across expanded, inside the 96-112dp the PRD asks for.
-    expect(ReplicaProfileHeaderGeometry.expandedAvatarRadius * 2, 104);
-
-    var previous = geometryAt(0).avatarRadius;
-    for (var step = 1; step <= 20; step++) {
-      final radius = geometryAt(step / 20).avatarRadius;
-      expect(
-        radius,
-        lessThanOrEqualTo(previous),
-        reason: 'the radius must shrink monotonically, never jump back',
-      );
-      // No step may cover more than a small slice of the whole travel; a
-      // two-state switch would show up here as one 32px step.
-      expect(previous - radius, lessThan(4));
-      previous = radius;
-    }
-    expect(previous, ReplicaProfileHeaderGeometry.collapsedAvatarRadius);
-  });
-
-  test('D7: the avatar travels continuously to the collapsed anchor', () {
-    Offset centerAt(double progress) => geometryAt(progress).avatarCenter(
-      headerWidth: 400,
-      backgroundHeight: 252,
-      collapsedLeftInset: 56,
+  test('expanded details leave before the toolbar title appears', () {
+    final beforeFade = geometryAt(
+      ReplicaProfileHeaderGeometry.expandedDetailsFadeStart,
     );
-
-    // Expanded: horizontally centred, hanging 24px past the background edge.
-    final expanded = centerAt(0);
-    expect(expanded.dx, 200);
-    expect(
-      expanded.dy + ReplicaProfileHeaderGeometry.expandedAvatarRadius,
-      252 + 24,
+    final afterExit = geometryAt(
+      ReplicaProfileHeaderGeometry.expandedIdentityExitProgress,
     );
-
-    // Collapsed: toolbar row, immediately right of the leading slot.
-    final collapsed = centerAt(1);
-    expect(collapsed.dx, 56 + 20);
-    expect(collapsed.dy, 28);
-
-    var previous = expanded;
-    for (var step = 1; step <= 20; step++) {
-      final center = centerAt(step / 20);
-      expect((previous - center).distance, lessThan(20));
-      previous = center;
-    }
-    expect(previous, collapsed);
-  });
-
-  test('D7: the avatar is parked before the toolbar chrome fades in', () {
-    // The collapsed title's 96px inset is sized for the collapsed avatar, so
-    // a still-shrinking avatar would sweep across the appearing title. Sample
-    // finely: a coarse sweep steps straight over a narrow overlap window.
-    const steps = 400;
-    for (var step = 0; step <= steps; step++) {
-      final progress = step / steps;
-      final geometry = geometryAt(progress);
-      if (geometry.collapsedOpacity > 0) {
-        expect(
-          geometry.avatarRadius,
-          ReplicaProfileHeaderGeometry.collapsedAvatarRadius,
-          reason: 'avatar still moving at progress $progress',
-        );
-        expect(
-          geometry
-              .avatarCenter(
-                headerWidth: 400,
-                backgroundHeight: 252,
-                collapsedLeftInset: 56,
-              )
-              .dx +
-              geometry.avatarRadius,
-          lessThanOrEqualTo(96),
-          reason: 'avatar reaches into the title inset at progress $progress',
-        );
-      }
-    }
-    expect(geometryAt(0).collapsedOpacity, 0);
+    expect(beforeFade.expandedDetailsOpacity, 1);
+    expect(afterExit.expandedDetailsOpacity, 0);
+    expect(afterExit.collapsedOpacity, 0);
     expect(geometryAt(1).collapsedOpacity, 1);
   });
 
-  test('D7: the avatar does not share the background fade', () {
-    // U8: a 144dp placeholder fading out with the background read as a
-    // watermark. The avatar layer must have no opacity curve of its own.
+  test('the pinned toolbar includes the status-bar inset', () {
+    final geometry = geometryAt(0, topInset: 24);
+    expect(geometry.minExtent, 80);
+    expect(geometry.collapseRange, 350);
+  });
+
+  test('the background still fades independently of the identity content', () {
     expect(geometryAt(0.5).backgroundOpacity, 0.5);
     expect(geometryAt(1).backgroundOpacity, 0);
   });
 
   testWidgets(
-    'U8: the avatar stays visible and unfaded across the whole transition',
+    'the avatar and expanded name never overlap, and no avatar enters the toolbar',
     (tester) async {
-      final withAvatar = _user(42).copyWith(
-        profileImageUrl: 'https://i.pximg.net/avatar.png',
-        backgroundImageUrl: 'https://i.pximg.net/background.png',
-      );
-      // The second case is the one U8 reported: the default placeholder at
-      // 144dp faded out with the background like a watermark.
-      for (final user in [withAvatar, _user(42)]) {
+      final users = [
+        _user(42).copyWith(
+          profileImageUrl: 'https://i.pximg.net/avatar.png',
+          backgroundImageUrl: 'https://i.pximg.net/background.png',
+        ),
+        _user(42),
+      ];
+      for (final user in users) {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
               home: Scaffold(
                 body: CustomScrollView(
-                  // Distinct keys per case: pumpWidget reuses a structurally
-                  // identical tree, and with it the ScrollPosition the
-                  // previous case left scrolled to the bottom.
                   key: ValueKey(user.profileImageUrl ?? 'placeholder'),
                   slivers: [
                     SliverPersistentHeader(
@@ -434,26 +392,18 @@ void main() {
           );
           await tester.pump();
 
-          final sizes = <double>[];
           for (var step = 0; step <= 10; step++) {
-            // Exactly one avatar at every scroll offset: the old header
-            // swapped between two hardcoded ones at the collapse threshold.
-            final avatar = find.byType(CircleAvatar);
-            expect(
-              avatar,
-              findsOneWidget,
-              reason: 'no avatar at drag step $step',
+            final avatar = find.byKey(
+              const ValueKey('profile-expanded-avatar'),
             );
-            sizes.add(tester.getSize(avatar).width);
-
-            // Nothing between the avatar and the header may fade it. The
-            // background does fade; the avatar must not ride that curve.
-            for (final opacity in tester.widgetList<Opacity>(
-              find.ancestor(of: avatar, matching: find.byType(Opacity)),
-            )) {
-              expect(opacity.opacity, 1);
+            final name = find.byKey(const ValueKey('profile-expanded-name'));
+            if (avatar.evaluate().isNotEmpty && name.evaluate().isNotEmpty) {
+              expect(
+                tester.getRect(avatar).overlaps(tester.getRect(name)),
+                isFalse,
+                reason: 'avatar/name overlap at drag step $step',
+              );
             }
-
             await tester.drag(
               find.byType(CustomScrollView),
               const Offset(0, -40),
@@ -461,19 +411,56 @@ void main() {
             await tester.pump();
           }
 
-          expect(sizes.first, ReplicaProfileHeaderGeometry.expandedAvatarRadius * 2);
-          expect(sizes.last, ReplicaProfileHeaderGeometry.collapsedAvatarRadius * 2);
-          for (var i = 1; i < sizes.length; i++) {
-            expect(
-              sizes[i],
-              lessThanOrEqualTo(sizes[i - 1]),
-              reason: 'avatar grew back between steps: $sizes',
-            );
-          }
+          expect(
+            find.byKey(const ValueKey('profile-expanded-avatar')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('profile-toolbar-title')),
+            findsOneWidget,
+          );
         });
       }
     },
   );
+
+  testWidgets('collapsed profile chrome starts below the status-bar inset', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: ReplicaProfileHeaderDelegate(
+                  user: _user(42),
+                  isMe: true,
+                  selectedTabIndex: 0,
+                  showRestrictSelector: false,
+                  restrict: UserRestrict.public,
+                  onRestrictChanged: (_) {},
+                  onShare: () {},
+                  topInset: 24,
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pump();
+
+    final title = tester.getRect(
+      find.byKey(const ValueKey('profile-toolbar-title')),
+    );
+    expect(title.top, greaterThanOrEqualTo(24));
+    expect(find.byKey(const ValueKey('profile-expanded-avatar')), findsNothing);
+  });
 
   testWidgets('current profile header has no settings entry', (tester) async {
     await tester.pumpWidget(
@@ -535,7 +522,7 @@ void main() {
       expect(find.text('sample user'), findsOneWidget);
 
       await tester.tap(find.text('作品'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.text('插画'), findsOneWidget);
       expect(find.text('漫画'), findsOneWidget);
       expect(find.text('小说'), findsOneWidget);

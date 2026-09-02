@@ -23,21 +23,25 @@ class ReplicaProfileHeaderGeometry {
   /// default placeholder, looked like a watermark.
   static const expandedAvatarRadius = 52.0;
 
-  /// Collapsed avatar radius — the toolbar-row size.
+  /// Historical collapsed avatar radius. The current header deliberately does
+  /// not render an avatar in the toolbar; keeping the constant avoids breaking
+  /// callers that use the geometry type as a small design token.
   static const collapsedAvatarRadius = 20.0;
 
-  /// How far the expanded avatar hangs below the background image. Kept from
-  /// the previous layout so the gap to the name row does not change.
-  static const _avatarOverhang = 24.0;
+  /// How far the expanded avatar hangs below the background image. Keeping the
+  /// overhang modest leaves a dedicated gap for the name row below it.
+  static const _avatarOverhang = 8.0;
 
-  /// The avatar reaches its collapsed anchor before the header does, so it is
-  /// already parked beside the leading slot when the toolbar chrome appears.
-  static const _avatarSettleProgress = 0.9;
+  /// The expanded identity block is laid out as one unit and translated out
+  /// of the shrinking header. It leaves a little earlier than the toolbar
+  /// title starts, so neither the avatar nor the expanded name can cross it.
+  static const expandedIdentityExitProgress = 0.78;
+  static const expandedDetailsFadeStart = 0.55;
 
-  /// The toolbar chrome fades in only once the avatar has parked. Starting
-  /// earlier would sweep the still-shrinking avatar across the title, whose
-  /// 96px inset is sized for the collapsed avatar.
-  static const _collapsedFadeStart = _avatarSettleProgress;
+  /// A native flexible-space header scrolls its background content out of the
+  /// pinned toolbar. The factor gives the identity block enough travel to
+  /// clear the toolbar before the header reaches its minimum extent.
+  static const _expandedContentTravelFactor = 1.25;
 
   final double shrinkOffset;
   final double minExtent;
@@ -50,23 +54,34 @@ class ReplicaProfileHeaderGeometry {
 
   bool get isFullyCollapsed => shrinkOffset >= collapseRange - 0.5;
 
+  /// Kept as a convenience for other header geometry callers. The current
+  /// design has one expanded avatar rather than an expanded/collapsed pair.
   double lerp(double expanded, double collapsed) =>
       expanded + (collapsed - expanded) * progress;
 
-  /// [progress] remapped onto the avatar's own travel, which finishes early.
-  double get _avatarProgress =>
-      (progress / _avatarSettleProgress).clamp(0.0, 1.0);
+  /// The avatar stays an expanded identity element instead of shrinking into
+  /// the toolbar. It is clipped as the expanded block leaves the header.
+  double get avatarRadius => expandedAvatarRadius;
 
-  double get avatarRadius =>
-      expandedAvatarRadius +
-      (collapsedAvatarRadius - expandedAvatarRadius) * _avatarProgress;
+  /// Vertical translation applied to the expanded identity block.
+  double get expandedContentOffset =>
+      -shrinkOffset * _expandedContentTravelFactor;
 
-  /// Avatar centre inside the header box, interpolated between the expanded
-  /// anchor (horizontally centred, straddling the background edge) and the
-  /// collapsed anchor (toolbar row, immediately right of the leading slot).
-  ///
-  /// [collapsedLeftInset] is the x of the avatar's left edge once collapsed:
-  /// the row padding plus the back button when the route can pop.
+  /// Fade only the text/actions block. The avatar remains opaque until it has
+  /// physically left the clipped expanded area, avoiding the old watermark
+  /// effect on placeholder avatars.
+  double get expandedDetailsOpacity =>
+      1 -
+      ((progress - expandedDetailsFadeStart) /
+              (expandedIdentityExitProgress - expandedDetailsFadeStart))
+          .clamp(0.0, 1.0);
+
+  bool get showExpandedIdentity => progress < expandedIdentityExitProgress;
+
+  /// Avatar centre in the expanded coordinate space, including the same
+  /// translation used by the identity block. [collapsedLeftInset] is retained
+  /// for source compatibility but is intentionally ignored: no avatar is
+  /// placed in the toolbar anymore.
   Offset avatarCenter({
     required double headerWidth,
     required double backgroundHeight,
@@ -76,28 +91,24 @@ class ReplicaProfileHeaderGeometry {
       headerWidth / 2,
       backgroundHeight + _avatarOverhang - expandedAvatarRadius,
     );
-    final collapsed = Offset(
-      collapsedLeftInset + collapsedAvatarRadius,
-      minExtent / 2,
-    );
-    return Offset.lerp(expanded, collapsed, _avatarProgress)!;
+    return expanded.translate(0, expandedContentOffset);
   }
 
   double get backgroundOpacity => 1 - progress;
 
   /// Opacity of the collapsed toolbar chrome (back button, title, actions).
   double get collapsedOpacity =>
-      ((progress - _collapsedFadeStart) / (1 - _collapsedFadeStart)).clamp(
-        0.0,
-        1.0,
-      );
+      ((progress - expandedIdentityExitProgress) /
+              (1 - expandedIdentityExitProgress))
+          .clamp(0.0, 1.0);
 }
 
 /// Project-owned profile header. It avoids the old extended_sliver delegate.
 ///
-/// The avatar is its own layer rather than living inside the expanded and
-/// collapsed subtrees: it interpolates size and position continuously and
-/// stays fully opaque, so it never fades out with the background image.
+/// The expanded profile follows the same separation used by PixEz's
+/// [SliverAppBar]: artwork and identity content live in the flexible area,
+/// while the pinned toolbar has its own controls. The avatar therefore scrolls
+/// out with the name instead of travelling into the toolbar.
 class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileHeaderDelegate({
     required this.user,
@@ -109,6 +120,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onShare,
     this.onEditProfile,
     this.expandedExtent = 430,
+    this.topInset = 0,
   });
 
   final UserEntity user;
@@ -120,9 +132,10 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback onShare;
   final VoidCallback? onEditProfile;
   final double expandedExtent;
+  final double topInset;
 
   @override
-  double get minExtent => kToolbarHeight;
+  double get minExtent => kToolbarHeight + topInset;
 
   @override
   double get maxExtent => math.max(expandedExtent, minExtent);
@@ -145,26 +158,34 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
       color: colors.surface,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final radius = geometry.avatarRadius;
-          final center = geometry.avatarCenter(
-            headerWidth: constraints.maxWidth,
-            backgroundHeight: backgroundHeight,
-            // Where the collapsed avatar's left edge lands: the row padding,
-            // plus the back button slot when the route can pop.
-            collapsedLeftInset: canPop
-                ? 8 + kMinInteractiveDimension
-                : 16,
-          );
           return Stack(
             fit: StackFit.expand,
+            clipBehavior: Clip.hardEdge,
             children: [
-              if (!geometry.isFullyCollapsed)
-                Opacity(
+              // Keep the artwork pinned while it fades, as in PixEz's
+              // FlexibleSpaceBar. Identity content below is translated out
+              // separately so the avatar never shares the fade curve.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: backgroundHeight,
+                child: Opacity(
                   opacity: geometry.backgroundOpacity,
+                  child: _ProfileBackground(user: user),
+                ),
+              ),
+              if (geometry.showExpandedIdentity)
+                Positioned(
+                  top: geometry.expandedContentOffset,
+                  left: 0,
+                  width: constraints.maxWidth,
+                  height: maxExtent,
                   child: _ExpandedProfile(
                     user: user,
                     isMe: isMe,
                     backgroundHeight: backgroundHeight,
+                    detailsOpacity: geometry.expandedDetailsOpacity,
                     onShare: onShare,
                     onEditProfile: onEditProfile,
                   ),
@@ -173,38 +194,36 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                 Align(
                   alignment: Alignment.topCenter,
                   child: SizedBox(
-                    // Pinned to the toolbar strip. Letting it fill the
-                    // shrinking box instead would slide the title down into
-                    // the artwork and across the travelling avatar.
+                    // The status-bar inset belongs above the actual 56dp
+                    // toolbar controls. This keeps pinned chrome out of the
+                    // system UI on targetSdk 36 edge-to-edge devices.
                     height: minExtent,
-                    child: Opacity(
-                      opacity: geometry.collapsedOpacity,
-                      child: IgnorePointer(
-                        // Hit testing stays exactly as before: the collapsed
-                        // controls only take taps once they are the only
-                        // thing on screen.
-                        ignoring: !geometry.isFullyCollapsed,
-                        child: _CollapsedProfile(
-                          user: user,
-                          isMe: isMe,
-                          canPop: canPop,
-                          showRestrictSelector: showRestrictSelector,
-                          restrict: restrict,
-                          onRestrictChanged: onRestrictChanged,
-                          onShare: onShare,
-                          onEditProfile: onEditProfile,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: topInset),
+                      child: SizedBox(
+                        height: kToolbarHeight,
+                        child: Opacity(
+                          opacity: geometry.collapsedOpacity,
+                          child: IgnorePointer(
+                            // Hit testing stays disabled until the toolbar is
+                            // the only visible header state.
+                            ignoring: !geometry.isFullyCollapsed,
+                            child: _CollapsedProfile(
+                              user: user,
+                              isMe: isMe,
+                              canPop: canPop,
+                              showRestrictSelector: showRestrictSelector,
+                              restrict: restrict,
+                              onRestrictChanged: onRestrictChanged,
+                              onShare: onShare,
+                              onEditProfile: onEditProfile,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              Positioned(
-                left: center.dx - radius,
-                top: center.dy - radius,
-                width: radius * 2,
-                height: radius * 2,
-                child: _Avatar(user: user, radius: radius),
-              ),
             ],
           );
         },
@@ -220,7 +239,10 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.showRestrictSelector != showRestrictSelector ||
         oldDelegate.restrict != restrict ||
         oldDelegate.onEditProfile != onEditProfile ||
-        oldDelegate.expandedExtent != expandedExtent;
+        oldDelegate.onShare != onShare ||
+        oldDelegate.onRestrictChanged != onRestrictChanged ||
+        oldDelegate.expandedExtent != expandedExtent ||
+        oldDelegate.topInset != topInset;
   }
 }
 
@@ -229,6 +251,7 @@ class _ExpandedProfile extends StatelessWidget {
     required this.user,
     required this.isMe,
     required this.backgroundHeight,
+    required this.detailsOpacity,
     required this.onShare,
     required this.onEditProfile,
   });
@@ -236,6 +259,7 @@ class _ExpandedProfile extends StatelessWidget {
   final UserEntity user;
   final bool isMe;
   final double backgroundHeight;
+  final double detailsOpacity;
   final VoidCallback onShare;
   final VoidCallback? onEditProfile;
 
@@ -247,102 +271,149 @@ class _ExpandedProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return Stack(
       children: [
         Positioned(
-          top: 0,
+          // Keep a clear vertical gap between the avatar and the identity
+          // block. Both are translated together by the delegate, so their
+          // relative positions cannot cross during a collapse.
+          top:
+              backgroundHeight +
+              ReplicaProfileHeaderGeometry._avatarOverhang -
+              ReplicaProfileHeaderGeometry.expandedAvatarRadius * 2,
           left: 0,
           right: 0,
-          height: backgroundHeight,
-          child: user.backgroundImageUrl == null
-              ? ColoredBox(color: colors.surfaceContainerHighest)
-              : PixivImage(url: user.backgroundImageUrl!, fit: BoxFit.cover),
+          child: Center(
+            child: KeyedSubtree(
+              key: const ValueKey('profile-expanded-avatar'),
+              child: _Avatar(
+                user: user,
+                radius: ReplicaProfileHeaderGeometry.expandedAvatarRadius,
+              ),
+            ),
+          ),
         ),
         Positioned(
           left: 24,
           right: 24,
-          bottom: 14,
-          child: Column(
+          top: backgroundHeight + 20,
+          child: IgnorePointer(
+            ignoring: detailsOpacity < 0.99,
+            child: Opacity(
+              opacity: detailsOpacity,
+              child: _ExpandedProfileDetails(
+                user: user,
+                isMe: isMe,
+                onShare: onShare,
+                onEditProfile: onEditProfile,
+                profileText: _profileText,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileBackground extends StatelessWidget {
+  const _ProfileBackground({required this.user});
+
+  final UserEntity user;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return user.backgroundImageUrl == null
+        ? ColoredBox(color: colors.surfaceContainerHighest)
+        : PixivImage(url: user.backgroundImageUrl!, fit: BoxFit.cover);
+  }
+}
+
+class _ExpandedProfileDetails extends StatelessWidget {
+  const _ExpandedProfileDetails({
+    required this.user,
+    required this.isMe,
+    required this.onShare,
+    required this.onEditProfile,
+    required this.profileText,
+  });
+
+  final UserEntity user;
+  final bool isMe;
+  final VoidCallback onShare;
+  final VoidCallback? onEditProfile;
+  final String Function(BuildContext context, String key) profileText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 48,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              SizedBox(
-                height: 48,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 56),
-                      child: Center(
-                        child: Text(
-                          user.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 56),
+                child: Center(
+                  child: Text(
+                    key: const ValueKey('profile-expanded-name'),
+                    user.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: IconButton(
-                        tooltip: 'Share',
-                        onPressed: onShare,
-                        icon: const Icon(Icons.share_outlined),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              if (user.account.isNotEmpty)
-                Text(
-                  user.account,
-                  style: Theme.of(context).textTheme.bodySmall,
+              Positioned(
+                right: 0,
+                top: 0,
+                child: IconButton(
+                  tooltip: 'Share',
+                  onPressed: onShare,
+                  icon: const Icon(Icons.share_outlined),
                 ),
-              const SizedBox(height: 7),
-              Wrap(
-                spacing: 16,
-                alignment: WrapAlignment.center,
-                children: [
-                  _Stat(
-                    icon: AppIcons.follow,
-                    label: '${user.totalFollowUsers}',
-                  ),
-                  _Stat(
-                    icon: AppIcons.friend,
-                    label: '${user.totalMyPixivUsers}',
-                  ),
-                  _Stat(
-                    icon: Icons.palette_outlined,
-                    label: '${user.totalIllusts}',
-                  ),
-                ],
               ),
-              const SizedBox(height: 8),
-              if (isMe)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (onEditProfile != null)
-                      IconButton(
-                        tooltip: _profileText(context, 'profileEditTitle'),
-                        onPressed: onEditProfile,
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                  ],
-                )
-              else
-                FollowSwitchButton(
-                  userId: user.id,
-                  userName: user.name,
-                  userAccount: user.account,
-                ),
             ],
           ),
         ),
+        if (user.account.isNotEmpty)
+          Text(user.account, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 7),
+        Wrap(
+          spacing: 16,
+          alignment: WrapAlignment.center,
+          children: [
+            _Stat(icon: AppIcons.follow, label: '${user.totalFollowUsers}'),
+            _Stat(icon: AppIcons.friend, label: '${user.totalMyPixivUsers}'),
+            _Stat(icon: Icons.palette_outlined, label: '${user.totalIllusts}'),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (isMe)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onEditProfile != null)
+                IconButton(
+                  tooltip: profileText(context, 'profileEditTitle'),
+                  onPressed: onEditProfile,
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+            ],
+          )
+        else
+          FollowSwitchButton(
+            userId: user.id,
+            userName: user.name,
+            userAccount: user.account,
+          ),
       ],
     );
   }
@@ -376,29 +447,69 @@ class _CollapsedProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
+    final actions = isMe && showRestrictSelector
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PopupMenuButton<UserRestrict>(
+                tooltip: _text(context, 'restrictSelector'),
+                initialValue: restrict,
+                onSelected: onRestrictChanged,
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: UserRestrict.public,
+                    child: Text(_text(context, 'restrictPublic')),
+                  ),
+                  PopupMenuItem(
+                    value: UserRestrict.private,
+                    child: Text(_text(context, 'restrictPrivate')),
+                  ),
+                ],
+                icon: const Icon(Icons.filter_alt_outlined),
+              ),
+              if (onEditProfile != null)
+                IconButton(
+                  tooltip: _text(context, 'profileEditTitle'),
+                  onPressed: onEditProfile,
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+            ],
+          )
+        : isMe
+        ? (onEditProfile != null
+              ? IconButton(
+                  tooltip: _text(context, 'profileEditTitle'),
+                  onPressed: onEditProfile,
+                  icon: const Icon(Icons.edit_outlined),
+                )
+              : const SizedBox.shrink())
+        : IconButton(
+            tooltip: 'Share',
+            onPressed: onShare,
+            icon: const Icon(Icons.share_outlined),
+          );
+
+    return Row(
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Padding(
-            padding: EdgeInsets.only(left: canPop ? 8 : 16),
-            // The avatar that used to sit here is now a delegate-level layer;
-            // the title's fixed 96px inset still reserves its slot.
-            child: canPop
-                ? IconButton(
-                    tooltip: 'Back',
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_ios_new),
-                  )
-                : const SizedBox.shrink(),
-          ),
+        SizedBox(
+          width: canPop ? kMinInteractiveDimension : 16,
+          child: canPop
+              ? IconButton(
+                  tooltip: 'Back',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back_ios_new),
+                )
+              : null,
         ),
-        Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 96),
-            child: Center(
+        Expanded(
+          child: Center(
+            child: Padding(
+              // The title no longer reserves an avatar slot. Keeping a small
+              // horizontal inset still prevents long names from touching the
+              // edge of the controls.
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
+                key: const ValueKey('profile-toolbar-title'),
                 user.name,
                 textAlign: TextAlign.center,
                 maxLines: 1,
@@ -408,53 +519,8 @@ class _CollapsedProfile extends StatelessWidget {
             ),
           ),
         ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: isMe && showRestrictSelector
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      PopupMenuButton<UserRestrict>(
-                        tooltip: _text(context, 'restrictSelector'),
-                        initialValue: restrict,
-                        onSelected: onRestrictChanged,
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: UserRestrict.public,
-                            child: Text(_text(context, 'restrictPublic')),
-                          ),
-                          PopupMenuItem(
-                            value: UserRestrict.private,
-                            child: Text(_text(context, 'restrictPrivate')),
-                          ),
-                        ],
-                        icon: const Icon(Icons.filter_alt_outlined),
-                      ),
-                      if (onEditProfile != null)
-                        IconButton(
-                          tooltip: _text(context, 'profileEditTitle'),
-                          onPressed: onEditProfile,
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
-                    ],
-                  )
-                : isMe
-                ? (onEditProfile != null
-                      ? IconButton(
-                          tooltip: _text(context, 'profileEditTitle'),
-                          onPressed: onEditProfile,
-                          icon: const Icon(Icons.edit_outlined),
-                        )
-                      : const SizedBox.shrink())
-                : IconButton(
-                    tooltip: 'Share',
-                    onPressed: onShare,
-                    icon: const Icon(Icons.share_outlined),
-                  ),
-          ),
-        ),
+        actions,
+        const SizedBox(width: 8),
       ],
     );
   }

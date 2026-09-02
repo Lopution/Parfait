@@ -376,6 +376,7 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
+      await tester.pumpAndSettle();
     });
 
     // The only top-level sliver inside the feed scroll view.

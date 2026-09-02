@@ -36,6 +36,7 @@ dependencies:
   visibility_detector: ^0.4.0
   rhttp:
     path: plugins/rhttp/rhttp
+  easy_refresh: ^3.5.1
 
 
 dev_dependencies:
