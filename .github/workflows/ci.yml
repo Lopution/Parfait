@@ -9,12 +9,12 @@ jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.47.0"
+          flutter-version: "3.47.2"
           channel: "stable"
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: flutter analyze
       - run: flutter test
 
@@ -23,16 +23,16 @@ jobs:
     # signed APK, so the release-signing check runs on the main branch.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.47.0"
+          flutter-version: "3.47.2"
           channel: "stable"
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: Decode release keystore
         env:
           PIXIV_RELEASE_KEYSTORE_B64: ${{ secrets.PIXIV_RELEASE_KEYSTORE_B64 }}
@@ -66,3 +66,65 @@ jobs:
             echo "::error::debug-signed APK cannot pass release CI"
             exit 1
           fi
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: "stable"
+      - run: rustup toolchain install
+      - run: rustup show active-toolchain
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: plugins/rhttp/rhttp/rust
+      - run: flutter pub get --enforce-lockfile
+        working-directory: plugins/rhttp/rhttp
+      - run: flutter test
+        working-directory: plugins/rhttp/rhttp
+      - run: tool/frb_check.sh
+      - run: cargo fmt --check
+        working-directory: plugins/rhttp/rhttp/rust
+      - run: cargo test --locked
+        working-directory: plugins/rhttp/rhttp/rust
+
+  android-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: "stable"
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build apk --config-only --flavor fdroid
+      - run: ./gradlew --no-daemon :app:testGithubDebugUnitTest :app:testFdroidDebugUnitTest
+        working-directory: android
+
+  deps-report:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: "stable"
+      - run: rustup toolchain install
+      - name: Collect dependency reports
+        run: |
+          mkdir -p deps-report
+          flutter pub outdated > deps-report/root-pub-outdated.txt 2>&1 || true
+          (cd plugins/rhttp/rhttp && flutter pub outdated) > deps-report/plugin-pub-outdated.txt 2>&1 || true
+          (cd plugins/rhttp/rhttp/rust && cargo update --dry-run) > deps-report/cargo-update-dry-run.txt 2>&1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: deps-report
+          path: deps-report/
+          retention-days: 30
