@@ -73,6 +73,10 @@ Not part of this fork (upstream features, out of scope):
   `ProxySettings`; `socks://` URLs fail at `Proxy::*` construction via the
   existing `RhttpUnknownError`. http/https proxies still compile. Re-apply
   on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `cookies`. The app never passes
+  `CookieSettings`. `client.rs` returns `RhttpError::RhttpUnknownError`
+  instead of `ClientBuilder::cookie_store`, dropping `cookie_store` /
+  `publicsuffix` / `time` from the lock. Re-apply on upstream sync.
 
 ## Sync guide
 
