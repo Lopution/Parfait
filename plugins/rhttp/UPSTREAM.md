@@ -84,6 +84,10 @@ Not part of this fork (upstream features, out of scope):
 - `rust/Cargo.toml` reqwest: drop `charset`. The app never uses plugin
   text decoding (compat layer returns bytes). Drops `encoding_rs` from
   the lock; `.text()` still compiles as UTF-8. Re-apply on upstream sync.
+- `rust/Cargo.toml` tokio: narrow `full` to `rt-multi-thread`, `net`,
+  `time`, `sync`, `io-util`, `macros`. rustc did not demand extra
+  features after multipart (and `tokio::fs`) went away. Re-apply on
+  upstream sync.
 
 ## Sync guide
 
