@@ -408,6 +408,23 @@ void main() {
   });
 
   test(
+    'a fully-filtered first page with no next cursor does not refill',
+    () async {
+      final (container, loader, store, transports) = await _makeWorld(
+        blockAI: true,
+      );
+      addTearDown(container.dispose);
+      transports.pageSequence = [
+        _pageBody([_illustJson(1, aiType: 2), _illustJson(2, xRestrict: 1)]),
+      ];
+      final result = await loader.load();
+      expect(result.outcome, WidgetFeedOutcome.transientFailure);
+      expect(store.read(), isNull);
+      expect(transports.pages, hasLength(1));
+    },
+  );
+
+  test(
     'refill cap reached with no candidates is a transient failure',
     () async {
       final (container, loader, store, transports) = await _makeWorld(
