@@ -17,9 +17,15 @@ import 'reverse_image_provider.dart';
 /// never extracts image bytes into long-lived memory and never sends Pixiv
 /// credentials, account ids or device identifiers.
 ///
-/// External facts (checked 2026-09-03): SauceNAO allows anonymous form
-/// searches; the documented free limits are ~4 searches per 30 seconds and
-/// ~99 per day, enforced with 429 responses carrying `retry-after`.
+/// External facts (re-verified 2026-09-07, see the task's
+/// `research/anonymous-policy.md`): the public `search.php` form still
+/// accepts anonymous multipart uploads and renders a result page; the JSON
+/// API (`output_type=2`) refuses anonymous callers ("The anonymous account
+/// type does not permit API usage"), which is why this provider is the HTML
+/// route. Unregistered limits are tracked per IP (4 searches / 30 s and 150
+/// / day as documented by SauceNAO's own limit pages); they surface as 429
+/// with `retry-after` or as a rendered "Daily Search Limit Exceeded" /
+/// "Search Rate Too High" page.
 ///
 /// The endpoint stays exactly `https://saucenao.com/search.php`; quota
 /// numbers are never hardcoded into the UI, only the observed response is
@@ -234,18 +240,29 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
   /// as a classified failure instead of entering the WebView success state.
   static ReverseImageSearchFailure? _classifyHtml(String html) {
     final normalized = html.toLowerCase();
+    // "Daily Search Limit Exceeded." / "Search Rate Too High." are the
+    // strings SauceNAO renders for the per-day and per-30-second limits.
     if (normalized.contains('too many requests') ||
         normalized.contains('rate limit') ||
-        normalized.contains('search limit')) {
+        normalized.contains('search limit') ||
+        normalized.contains('search rate too high')) {
       return const ReverseImageSearchFailure(
         code: ReverseImageProviderFailureCode.rateLimited,
         message: 'SauceNAO anonymous rate limit reached',
         retryable: true,
       );
     }
+    // Only challenge-page markers. A genuine result page embeds the
+    // Cloudflare Web Analytics beacon (`static.cloudflareinsights.com`), so
+    // the bare word "cloudflare" must not be treated as a challenge
+    // (fixture: test/fixtures/saucenao/anonymous_result_page.html).
     final challenge =
         normalized.contains('cf-chl-') ||
-        normalized.contains('cloudflare') ||
+        normalized.contains('cf_chl_opt') ||
+        normalized.contains('/cdn-cgi/challenge-platform/') ||
+        normalized.contains('<title>just a moment...') ||
+        normalized.contains('attention required! | cloudflare') ||
+        normalized.contains('checking your browser before accessing') ||
         (normalized.contains('captcha') &&
             (normalized.contains('verify') ||
                 normalized.contains('challenge') ||
