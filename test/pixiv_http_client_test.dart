@@ -132,6 +132,7 @@ _makeWorld({
   ],
   String currentId = '100',
   Duration requestTimeout = PixivHttpClient.defaultRequestTimeout,
+  String languageTag = 'zh-CN',
 }) async {
   final f = fixture ?? _Fixture();
   SharedPreferencesAsyncPlatform.instance =
@@ -162,6 +163,7 @@ _makeWorld({
     accountStore: store,
     credentialStore: credentials,
     oauthService: container.read(oauthServiceProvider),
+    languageTag: languageTag,
     requestTimeout: requestTimeout,
   );
   return (container, client, credentials, f);
@@ -188,6 +190,15 @@ void main() {
       expect(request.headers['Accept-Language'], 'zh-CN');
     },
   );
+
+  test('languageTag ja is sent as Accept-Language', () async {
+    final (container, client, _, fixture) = await _makeWorld(languageTag: 'ja');
+    addTearDown(container.dispose);
+
+    await client.getJson(Uri.parse(_api));
+
+    expect(fixture.apiRequests.single.headers['Accept-Language'], 'ja');
+  });
 
   test(
     'pre-import verification can use a supplied token without switching stores',
