@@ -136,11 +136,14 @@ jobs:
           gh release view "v${VERSION}" >/dev/null 2>&1 || \
             gh release create "v${VERSION}" \
               --title "v${VERSION}" \
-              --draft \
-              "pixiv-func-v${VERSION}-github-arm64-v8a.apk" \
-              "pixiv-func-v${VERSION}-github-armeabi-v7a.apk" \
-              "assets/update-manifest.json" \
-              "assets/update-manifest.sig"
+              --draft
+          # Upload on every run (a re-run for an existing draft must still
+          # replace the assets), overwriting same-named files.
+          gh release upload "v${VERSION}" --clobber \
+            "pixiv-func-v${VERSION}-github-arm64-v8a.apk" \
+            "pixiv-func-v${VERSION}-github-armeabi-v7a.apk" \
+            "assets/update-manifest.json" \
+            "assets/update-manifest.sig"
 
       - uses: actions/upload-artifact@v7
         with:
