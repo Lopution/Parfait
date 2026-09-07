@@ -8,12 +8,14 @@ import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
+import '../../app/replica_page_route.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
 import '../../core/i18n/replica_strings.dart';
-import '../../core/network/compat/network_contracts.dart';
+import '../../core/network/compat/network_contracts.dart' as network_contracts;
 import '../../core/network/compat/network_providers.dart';
+import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import 'login_webview_page.dart';
 
@@ -21,12 +23,19 @@ class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({
     super.key,
     this.isFirst = false,
+    this.returnToHomeOnSuccess = false,
     this.onRegister,
     this.onLogin,
     this.onClipboardLogin,
   });
 
   final bool isFirst;
+
+  /// Startup/onboarding login is a gate route.  Once the WebView reports a
+  /// confirmed account, remove the gate stack so the rebuilt StartupGate can
+  /// show Home immediately.  Settings keeps this false so adding an account
+  /// does not unexpectedly close the settings flow.
+  final bool returnToHomeOnSuccess;
   final VoidCallback? onRegister;
   final VoidCallback? onLogin;
   final VoidCallback? onClipboardLogin;
@@ -43,21 +52,43 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void initState() {
     super.initState();
-    _networkMode = ref.read(networkAccessPolicyProvider).mode;
+    _networkMode = switch (ref.read(networkAccessPolicyProvider).mode) {
+      network_contracts.NetworkMode.automatic => NetworkMode.automatic,
+      network_contracts.NetworkMode.directOnly => NetworkMode.directOnly,
+    };
   }
 
-  void _openLoginWebview({bool create = false}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
+  Future<void> _openLoginWebview({bool create = false}) async {
+    // R7 was cancelled: the first login always uses the stable webview_flutter
+    // path (C16). The native interception entry is removed.
+    final result = await Navigator.of(context).push<bool>(
+      ReplicaPageRoute<bool>(
         builder: (_) => LoginWebViewPage(
           oauthService: ref.read(oauthServiceProvider),
-          policy: ref.read(networkAccessPolicyProvider),
-          useNativeIntercept:
-              ref.read(nativeWebViewInterceptProvider),
           create: create,
         ),
       ),
     );
+    if (!mounted || result != true || !widget.returnToHomeOnSuccess) return;
+    // The account store is updated before the WebView pops.  Popping the
+    // onboarding/login routes now lets StartupGate rebuild to Home without
+    // leaving the user stranded on a stale login surface.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  void _persistNetworkMode(NetworkMode mode) {
+    unawaited(() async {
+      try {
+        await ref.read(settingsProvider.notifier).setNetworkMode(mode);
+      } on Object catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_loginText('settingsWriteFailed')}: $error'),
+          ),
+        );
+      }
+    }());
   }
 
   void _importFromClipboard() {
@@ -189,9 +220,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     ? NetworkMode.directOnly
                                     : NetworkMode.automatic;
                               });
-                              ref
-                                  .read(networkAccessPolicyProvider)
-                                  .setMode(_networkMode);
+                              ref.read(networkAccessPolicyProvider).setMode(
+                                switch (_networkMode) {
+                                  NetworkMode.automatic =>
+                                    network_contracts.NetworkMode.automatic,
+                                  NetworkMode.directOnly =>
+                                    network_contracts.NetworkMode.directOnly,
+                                },
+                              );
+                              _persistNetworkMode(_networkMode);
                             },
                           ),
                           const Divider(),
@@ -296,4 +333,3 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
   }
 }
-

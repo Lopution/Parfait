@@ -36,10 +36,13 @@ class MethodChannelMediaStoreSession
   Future<MediaStoreHandle> begin({
     required String displayName,
     required String mimeType,
+    String? relativePath,
   }) async {
     final id = await _channel.invokeMethod<int>(MediaStoreMethods.begin, {
       'displayName': displayName,
       'mimeType': mimeType,
+      if (relativePath != null && relativePath.isNotEmpty)
+        'relativePath': relativePath,
     });
     if (id == null) {
       throw const MediaStoreChannelException('begin returned null id');
@@ -52,11 +55,14 @@ class MethodChannelMediaStoreSession
     required String displayName,
     required String mimeType,
     required DownloadOutputOwner owner,
+    String? relativePath,
   }) async {
     final id = await _channel.invokeMethod<int>(MediaStoreMethods.begin, {
       'displayName': displayName,
       'mimeType': mimeType,
       'ownerId': owner.ownerId,
+      if (relativePath != null && relativePath.isNotEmpty)
+        'relativePath': relativePath,
     });
     if (id == null) {
       throw const MediaStoreChannelException('begin returned null id');

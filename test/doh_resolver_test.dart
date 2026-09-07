@@ -18,6 +18,10 @@ class _FakeDohServer {
   }
 
   late final InternetAddress ip;
+
+  /// The hostname the endpoint URL carries (e.g. `dns.alidns.com`); when set,
+  /// [_FakeClient] matches on it in addition to [ip].
+  String? host;
   final int statusCode;
   final int rcode;
   int ttl = 60;
@@ -175,11 +179,12 @@ class _FakeClient extends http.BaseClient {
       ..bodyBytes = await request.finalize().toBytes();
     requests.add(req);
     final server = servers.firstWhere(
-      (s) => request.url.host == s.ip.address,
+      (s) =>
+          request.url.host == s.ip.address ||
+          (s.host != null && request.url.host == s.host),
       orElse: () => throw StateError('unexpected endpoint ${request.url}'),
     );
-    return server.handle(req);
-  }
+    return server.handle(req);  }
 }
 
 const _revision = NetworkRevision(0);
@@ -219,6 +224,58 @@ void main() {
     final huge = _FakeDohServer(address: '1.1.1.1')..ttl = 3600 * 24 * 30;
     await _expectTtl(tiny, const Duration(seconds: 5));
     await _expectTtl(huge, const Duration(minutes: 10));
+  });
+
+  test(
+    'caches address answers until TTL and returns defensive copies',
+    () async {
+      final base = DateTime(2026, 8, 31, 12);
+      var now = base;
+      final server = _FakeDohServer(address: '1.1.1.1')..ttl = 30;
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        client: _FakeClient([server]),
+        clock: () => now,
+      );
+      addTearDown(resolver.dispose);
+
+      final first = await resolver.resolve(
+        'app-api.pixiv.net',
+        revision: _revision,
+      );
+      final cached = await resolver.resolve(
+        'app-api.pixiv.net',
+        revision: _revision,
+      );
+
+      expect(cached.addresses.single.address, '1.1.1.1');
+      expect(identical(first.addresses, cached.addresses), isFalse);
+      expect(server.requests, hasLength(1));
+
+      now = base.add(const Duration(seconds: 31));
+      await resolver.resolve('app-api.pixiv.net', revision: _revision);
+      expect(server.requests, hasLength(2));
+    },
+  );
+
+  test('concurrent address lookups share one wire query', () async {
+    final gate = Completer<void>();
+    final server = _FakeDohServer(address: '1.1.1.1')..block = gate;
+    final resolver = DohResolver(
+      endpointUrls: ['https://1.1.1.1/dns-query'],
+      client: _FakeClient([server]),
+    );
+    addTearDown(resolver.dispose);
+
+    final first = resolver.resolve('app-api.pixiv.net', revision: _revision);
+    final second = resolver.resolve('app-api.pixiv.net', revision: _revision);
+    await Future<void>.delayed(Duration.zero);
+    expect(server.requests, hasLength(1));
+
+    gate.complete();
+    final results = await Future.wait([first, second]);
+    expect(results[0].addresses, results[1].addresses);
+    expect(server.requests, hasLength(1));
   });
 
   test('fails over to the next endpoint in order', () async {
@@ -406,6 +463,37 @@ void main() {
     );
   });
   group('lookupEchConfig', () {
+    test('uses the dedicated ECH endpoints (Alicdn) instead of the A-record ones',
+        () async {
+      final echServer = _FakeDohServer(address: '223.5.5.5')
+        ..host = 'dns.alidns.com'
+        ..httpsEchRdata = _echRdata([0xfe, 0x0d])
+        ..httpsTtl = 60;
+      final aServer = _FakeDohServer(address: '1.1.1.1');
+      final resolver = DohResolver(
+        endpointUrls: ['https://1.1.1.1/dns-query'],
+        echEndpointUrls: ['https://dns.alidns.com/dns-query'],
+        client: _FakeClient([echServer, aServer]),
+      );
+      addTearDown(resolver.dispose);
+
+      final result = await resolver.lookupEchConfig(
+        'cloudflare-ech.com',
+        revision: _revision,
+      );
+
+      expect(result.echConfig, [0xfe, 0x0d]);
+      // The ECH query went to the alidns endpoint, while the A-record query
+      // still uses the original endpoint list.
+      expect(
+        (await resolver.resolve('app-api.pixiv.net', revision: _revision))
+            .addresses
+            .single
+            .address,
+        '1.1.1.1',
+      );
+    });
+
     test('extracts ech config from an HTTPS RR answer', () async {
       final server = _FakeDohServer(address: '1.1.1.1')
         ..httpsEchRdata = _echRdata([0xfe, 0x0d, 1, 2, 3])

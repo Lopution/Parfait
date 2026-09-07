@@ -241,6 +241,53 @@ void main() {
       throwsA(isA<DownloadTransportException>()),
     );
   });
+
+  test(
+    'strict updater transport accepts the GitHub CDN opaque asset path',
+    () async {
+      final transport = _ScriptedUpdaterTransport([
+        _ScriptedHop(
+          statusCode: 302,
+          location:
+              'https://objects.githubusercontent.com/github-production-release-asset-2e65be/opaque-token',
+        ),
+        _ScriptedHop(statusCode: 200),
+      ]);
+      addTearDown(transport.dispose);
+
+      final response = await transport.open(
+        Uri.parse(
+          'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+        ),
+        headers: const {},
+        cancelToken: DownloadCancelToken(),
+      );
+
+      expect(response.statusCode, 200);
+    },
+  );
+
+  test('strict updater transport accepts a GitHub release redirect hop', () async {
+    final transport = _ScriptedUpdaterTransport([
+      _ScriptedHop(
+        statusCode: 302,
+        location:
+            'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+      ),
+      _ScriptedHop(statusCode: 200),
+    ]);
+    addTearDown(transport.dispose);
+
+    final response = await transport.open(
+      Uri.parse(
+        'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+      ),
+      headers: const {},
+      cancelToken: DownloadCancelToken(),
+    );
+
+    expect(response.statusCode, 200);
+  });
 }
 
 UpdateRelease _release(List<int> bytes, {String? expectedHash}) {
@@ -336,10 +383,10 @@ class _FakePlatform implements UpdatePlatform {
   );
 
   @override
-  Future<bool> verifyManifestSignature({
+  Future<UpdateManifestVerification> verifyManifestSignature({
     required List<int> message,
     required List<int> signature,
-  }) async => true;
+  }) async => const UpdateManifestVerification.valid();
 
   @override
   Future<UpdateApkVerification> verifyApk({
@@ -397,10 +444,10 @@ class _FakeDownloader implements UpdateApkDownloader {
 
 class _AlwaysValidSignature implements UpdateSignatureVerifier {
   @override
-  Future<bool> verify({
+  Future<UpdateManifestVerification> verify({
     required List<int> message,
     required List<int> signature,
-  }) async => true;
+  }) async => const UpdateManifestVerification.valid();
 }
 
 class _UnusedTransport implements UpdateManifestTransport {

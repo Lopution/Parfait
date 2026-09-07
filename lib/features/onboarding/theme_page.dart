@@ -6,6 +6,7 @@ import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
+import '../../app/widgets/settings_load_error.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
@@ -16,9 +17,18 @@ class ThemePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(settingsProvider).when(
-          loading: () => const ReplicaScaffold(child: SizedBox.shrink()),
-          error: (error, stackTrace) => const ReplicaScaffold(child: SizedBox.shrink()),
+    return ref
+        .watch(settingsProvider)
+        .when(
+          loading: () => const ReplicaScaffold(
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, stackTrace) => ReplicaScaffold(
+            child: SettingsLoadError(
+              error: error,
+              onRetry: () => ref.read(settingsProvider.notifier).reload(),
+            ),
+          ),
           data: (settings) => _buildContent(context, ref, settings),
         );
   }
@@ -46,22 +56,46 @@ class ThemePage extends ConsumerWidget {
             ReplicaSwitchTile(
               contentPadding: const EdgeInsets.symmetric(vertical: 6),
               value: settings.themeCode == AppSettings.darkTheme,
-              title: Text(text('dark'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              onTap: () => ref.read(settingsProvider.notifier).selectTheme(AppSettings.darkTheme),
+              title: Text(
+                text('dark'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onTap: () => ref
+                  .read(settingsProvider.notifier)
+                  .selectTheme(AppSettings.darkTheme),
             ),
             const Divider(),
             ReplicaSwitchTile(
               contentPadding: const EdgeInsets.symmetric(vertical: 6),
               value: settings.themeCode == AppSettings.lightTheme,
-              title: Text(text('light'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              onTap: () => ref.read(settingsProvider.notifier).selectTheme(AppSettings.lightTheme),
+              title: Text(
+                text('light'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onTap: () => ref
+                  .read(settingsProvider.notifier)
+                  .selectTheme(AppSettings.lightTheme),
             ),
             const Divider(),
             ReplicaSwitchTile(
               contentPadding: const EdgeInsets.symmetric(vertical: 6),
               value: settings.themeCode == AppSettings.systemTheme,
-              title: Text(text('system'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              onTap: () => ref.read(settingsProvider.notifier).selectTheme(AppSettings.systemTheme),
+              title: Text(
+                text('system'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onTap: () => ref
+                  .read(settingsProvider.notifier)
+                  .selectTheme(AppSettings.systemTheme),
             ),
             const Spacer(flex: 2),
             SizedBox(
@@ -74,7 +108,12 @@ class ThemePage extends ConsumerWidget {
                   await ref.read(settingsProvider.notifier).completeGuide();
                   if (!context.mounted) return;
                   await Navigator.of(context).push(
-                    replicaRoute((context) => const LoginPage(isFirst: true)),
+                    replicaRoute(
+                      (context) => const LoginPage(
+                        isFirst: true,
+                        returnToHomeOnSuccess: true,
+                      ),
+                    ),
                   );
                 },
               ),

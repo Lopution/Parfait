@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 
 import '../network/compat/network_contracts.dart';
+import 'naming_rule.dart';
 
 /// What a download produces. `illustPage` names files by page index inside
 /// the detail flow; `ugoiraZip` is reserved for the later ugoira export task.
@@ -17,6 +18,10 @@ class DownloadRequest {
     required this.pageIndex,
     required this.url,
     required this.target,
+    this.namingRule,
+    this.artist,
+    this.title,
+    this.date,
   }) : assert(illustId > 0),
        assert(pageIndex >= 0);
 
@@ -24,6 +29,15 @@ class DownloadRequest {
   final int pageIndex;
   final Uri url;
   final DownloadTarget target;
+
+  /// D6 naming rule for the rendered file name; defaults to the built-in
+  /// `{id}_p{page}.{ext}` preset when absent.
+  final NamingRule? namingRule;
+
+  /// Optional naming metadata used by custom templates (`{artist}`/`{title}`).
+  final String? artist;
+  final String? title;
+  final DateTime? date;
 
   /// Dedupe identity: illust + page + normalized URL + target (R4).
   String get dedupeKey =>
@@ -37,12 +51,20 @@ class DownloadRequest {
     return path.substring(dot + 1).toLowerCase();
   }
 
-  /// Traversal-safe display name: `<illustId>_p<index>.<ext>`.
+  /// Traversal-safe display name per the D6 naming rule: default
+  /// `<id>_p<index>.<ext>`, or the configured preset/custom template.
   /// Throws [FormatException] for URLs without a usable image extension.
   String get displayName {
     final ext = _safeExtension(extension);
-    return '$illustId'
-        '_p$pageIndex.$ext';
+    final rule = namingRule ?? NamingRule.defaultRule;
+    return rule.resolve(
+      illustId: illustId,
+      pageIndex: pageIndex,
+      extension: ext,
+      artist: artist,
+      title: title,
+      date: date,
+    );
   }
 
   String get mimeType => mimeTypeForExtension(extension);
@@ -139,14 +161,45 @@ void validateDownloadUrl(
 }
 
 /// Exact HTTPS hosts allowed for a signed updater asset. This set is separate
-/// from the Pixiv image destination policy.
+/// from the Pixiv image destination policy. GitHub's actual asset download
+/// chain redirects from `github.com` through `objects.githubusercontent.com`
+/// and `github-releases.githubusercontent.com`; large assets may also go via
+/// `release-assets.githubusercontent.com` (09-01 R3, verified redirect chain).
 const Set<String> kUpdateDownloadHosts = <String>{
   'github.com',
   'objects.githubusercontent.com',
   'github-releases.githubusercontent.com',
+  'release-assets.githubusercontent.com',
 };
 
 bool isStrictUpdateAssetUrl(Uri url) {
+  return _isStrictUpdateHost(url) && url.path.toLowerCase().endsWith('.apk');
+}
+
+/// The URL embedded in a signed manifest must be the repository's release
+/// asset endpoint. CDN URLs are accepted only after a redirect from this
+/// initial origin.
+bool isStrictUpdateManifestAssetUrl(Uri url) {
+  return isStrictUpdateAssetUrl(url) &&
+      url.host.toLowerCase() == 'github.com' &&
+      url.path.startsWith('/Lopution/Pixiv-func/releases/download/');
+}
+
+/// Validates a GitHub release redirect hop. GitHub's CDN uses an opaque
+/// UUID-like path for the asset, so only the signed initial URL is required to
+/// end in `.apk`; the redirect host remains tightly allowlisted.
+bool isStrictUpdateRedirectUrl(Uri url) {
+  if (url.host.toLowerCase() == 'github.com') {
+    // A release endpoint may legitimately redirect through GitHub once more
+    // before handing the asset to its CDN. Keep the signed repository path
+    // restriction for that hop.
+    return isStrictUpdateManifestAssetUrl(url);
+  }
+  return _isStrictUpdateHost(url) &&
+      kUpdateCdnHosts.contains(url.host.toLowerCase());
+}
+
+bool _isStrictUpdateHost(Uri url) {
   return url.scheme == 'https' &&
       kUpdateDownloadHosts.contains(url.host.toLowerCase()) &&
       url.host.isNotEmpty &&
@@ -154,6 +207,11 @@ bool isStrictUpdateAssetUrl(Uri url) {
       !url.hasFragment &&
       (!url.hasPort || url.port == 443) &&
       !url.host.endsWith('.') &&
-      !url.host.codeUnits.any((value) => value > 0x7f) &&
-      url.path.toLowerCase().endsWith('.apk');
+      !url.host.codeUnits.any((value) => value > 0x7f);
 }
+
+const Set<String> kUpdateCdnHosts = <String>{
+  'objects.githubusercontent.com',
+  'github-releases.githubusercontent.com',
+  'release-assets.githubusercontent.com',
+};

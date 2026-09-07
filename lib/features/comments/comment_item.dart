@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/comments/comment_assets.dart';
@@ -127,13 +128,18 @@ class _CommentItemState extends ConsumerState<CommentItem> {
           );
       if (!mounted) return;
       setState(() => _translation = value);
-    } on CommentTranslationUnavailable {
+    } on CommentTranslationUnavailable catch (error) {
       if (mounted) {
         setState(
-          () => _translationError = commentText(
-            context,
-            'commentTranslationUnavailable',
-          ),
+          () =>
+              _translationError = _translationFailureText(context, error.kind),
+        );
+      }
+    } on CommentTranslationError catch (error) {
+      if (mounted) {
+        setState(
+          () =>
+              _translationError = _translationFailureText(context, error.kind),
         );
       }
     } on Object {
@@ -151,6 +157,26 @@ class _CommentItemState extends ConsumerState<CommentItem> {
   }
 }
 
+String _translationFailureText(
+  BuildContext context,
+  CommentTranslationFailureKind kind,
+) {
+  switch (kind) {
+    case CommentTranslationFailureKind.disabled:
+    case CommentTranslationFailureKind.notConfigured:
+      return commentText(context, 'commentTranslationUnavailable');
+    case CommentTranslationFailureKind.invalidCredentials:
+      return commentText(context, 'commentTranslationInvalidCredentials');
+    case CommentTranslationFailureKind.rateLimited:
+      return commentText(context, 'commentTranslationRateLimited');
+    case CommentTranslationFailureKind.network:
+    case CommentTranslationFailureKind.malformed:
+    case CommentTranslationFailureKind.unsupportedLanguage:
+    case CommentTranslationFailureKind.other:
+      return commentText(context, 'commentTranslationFailed');
+  }
+}
+
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.comment});
 
@@ -162,21 +188,9 @@ class _Avatar extends StatelessWidget {
       onTap: () {
         showUserPage(context, comment.user.id);
       },
-      child: ClipOval(
-        child: SizedBox(
-          width: 42,
-          height: 42,
-          child: comment.user.profileImageUrl == null
-              ? ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.person_outline),
-                )
-              : PixivImage(
-                  url: comment.user.profileImageUrl!,
-                  fit: BoxFit.cover,
-                ),
-        ),
-      ),
+      // Keep comment/profile avatars on the same placeholder, cache and ring
+      // contract as every other user surface.
+      child: PersonAvatar(imageUrl: comment.user.profileImageUrl, radius: 21),
     );
   }
 }

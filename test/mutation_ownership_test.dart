@@ -34,7 +34,6 @@ AccountState _state(String currentId) => AccountState(
     Account(id: 'b', userId: 20, name: 'B'),
   ],
   currentId: currentId,
-  credentialRevision: currentId == 'a' ? 1 : 2,
 );
 
 class _BookmarkRepository implements BookmarkRepository {
@@ -71,7 +70,6 @@ void main() {
     final owner = MutationOwner(id: 'screen-1', accountId: 'a');
     final envelope = MutationEnvelope(
       accountId: 'a',
-      credentialRevision: 4,
       entityType: 'illust',
       entityId: '42',
       operation: 'bookmark.add',
@@ -82,7 +80,6 @@ void main() {
     );
 
     expect(envelope.accountId, 'a');
-    expect(envelope.credentialRevision, 4);
     expect(envelope.entityType, 'illust');
     expect(envelope.entityId, '42');
     expect(envelope.operation, 'bookmark.add');
@@ -98,7 +95,6 @@ void main() {
     final ledger = MutationLedger();
     const boundary = MutationBoundary(
       accountId: 'a',
-      credentialRevision: 1,
     );
     final envelope = ledger.begin(
       boundary: boundary,
@@ -195,7 +191,7 @@ void main() {
         contains(
           anyOf(
             MutationDiscardReason.accountChanged,
-            MutationDiscardReason.credentialChanged,
+            MutationDiscardReason.accountChanged,
             MutationDiscardReason.cancelled,
             MutationDiscardReason.disposed,
           ),
@@ -222,7 +218,6 @@ void main() {
 
       for (final envelope in [follow.envelope, comment.envelope]) {
         expect(envelope.accountId, 'a');
-        expect(envelope.credentialRevision, 1);
         expect(envelope.entityId, isNotEmpty);
         expect(envelope.owner.accountId, 'a');
       }

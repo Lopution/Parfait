@@ -30,7 +30,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/illust_fixtures.dart';
 
 class _FakeSearchRepository implements SearchRepository {
-  _FakeSearchRepository({this.autocompleteHandler});
+  _FakeSearchRepository({this.autocompleteHandler, this.trendingTagCount = 2});
 
   final Future<List<SearchSuggestion>> Function(
     String keyword,
@@ -87,14 +87,19 @@ class _FakeSearchRepository implements SearchRepository {
   }
 
   int trendingTagsCallCount = 0;
+  final int trendingTagCount;
 
   @override
   Future<List<TrendingTag>> trendingTags({CancelToken? cancelToken}) async {
     trendingTagsCallCount++;
-    return [
+    final tags = <TrendingTag>[
       TrendingTag(name: '风景', representative: parseIllust(illustJson(901))),
       const TrendingTag(name: '猫'),
     ];
+    for (var i = tags.length; i < trendingTagCount; i++) {
+      tags.add(TrendingTag(name: '标签${i + 1}'));
+    }
+    return tags;
   }
 }
 
@@ -200,6 +205,28 @@ void main() {
           .toQuery(word: 'cat'),
       throwsFormatException,
     );
+  });
+
+  test('search cache keys include the active filter set', () {
+    const base = IllustSearchQuery(keyword: 'cat');
+    final dated = IllustSearchQuery(
+      keyword: 'cat',
+      filters: SearchFilters(
+        sort: SearchSort.dateAsc,
+        startDate: DateTime(2026, 8, 1),
+        endDate: DateTime(2026, 8, 27),
+      ),
+    );
+    final duration = IllustSearchQuery(
+      keyword: 'cat',
+      filters: SearchFilters(duration: SearchDuration.week),
+    );
+
+    expect(dated.cacheKey, isNot(base.cacheKey));
+    expect(duration.cacheKey, isNot(base.cacheKey));
+    expect(dated.cacheKey, contains('date_asc'));
+    expect(dated.cacheKey, contains('2026-08-01'));
+    expect(dated.cacheKey, contains('2026-08-27'));
   });
 
   test(
@@ -477,6 +504,27 @@ void main() {
     // The tagless card keeps the plain text form, no broken-image slot.
     expect(find.text('#猫'), findsOneWidget);
     expect(find.text('#风景'), findsOneWidget);
+  });
+
+  testWidgets('trending grid keeps the final partial row actionable', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository(trendingTagCount: 4);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: SearchHomePage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('#标签4'), findsOneWidget);
   });
 
   testWidgets('U2: tapping a trending tag still searches that tag', (

@@ -5,6 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
+import '../../core/i18n/replica_strings.dart';
+
+String _bookmarkText(
+  BuildContext context,
+  String key, [
+  Map<String, Object?> args = const {},
+]) => ReplicaStrings.fromTag(
+  Localizations.localeOf(context).toLanguageTag(),
+  key,
+  args,
+);
 
 /// Beta56 BookmarkSwitchButton replica driven entirely by the shared
 /// BookmarkStore: heart icon (isButton app-bar/row variant), pending
@@ -63,7 +74,10 @@ class BookmarkSwitchButton extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          isNovel ? '收藏小说' : '收藏插画',
+                          _bookmarkText(
+                            context,
+                            isNovel ? 'bookmarkNovel' : 'bookmarkIllust',
+                          ),
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -109,7 +123,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Text(
-                              '取消',
+                              _bookmarkText(context, 'cancel'),
                               style: TextStyle(
                                 fontSize: 18,
                                 color: colorScheme.onSurface,
@@ -132,7 +146,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Text(
-                              '确定',
+                              _bookmarkText(context, 'confirm'),
                               style: TextStyle(
                                 fontSize: 18,
                                 color: colorScheme.onPrimary,
@@ -175,9 +189,15 @@ class BookmarkSwitchButton extends ConsumerWidget {
       next,
     ) {
       if (next != null && previous != next) {
-        ScaffoldMessenger.maybeOf(
-          context,
-        )?.showSnackBar(SnackBar(content: Text('收藏操作失败: $next')));
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              _bookmarkText(context, 'bookmarkOperationFailed', {
+                'error': next,
+              }),
+            ),
+          ),
+        );
       }
     });
 
@@ -268,7 +288,12 @@ class _RestrictSelect extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          restrict == BookmarkRestrict.private ? '私密' : '公开',
+                          _bookmarkText(
+                            context,
+                            restrict == BookmarkRestrict.private
+                                ? 'restrictPrivate'
+                                : 'restrictPublic',
+                          ),
                           style: const TextStyle(fontSize: 14),
                         ),
                         const SizedBox(width: 4),

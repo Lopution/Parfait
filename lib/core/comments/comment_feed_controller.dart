@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
-import '../network/pixiv_http_client.dart';
 import '../paging/paged_feed_controller.dart';
 import 'comment_models.dart';
 import 'comment_repository.dart';
@@ -20,29 +19,22 @@ class CommentFeedController extends PagedFeedController {
   }
 
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) =>
-      fetchPageCancellable(cursor, CancelToken());
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
-    String? cursor,
-    CancelToken cancelToken,
-  ) async {
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     final repository = ref.read(commentRepositoryProvider);
     final page = query.isReplies
         ? await repository.fetchReplies(
             query.rootCommentId!,
             illustId: query.illustId,
-            cursor: cursor,
-            cancelToken: cancelToken,
+            cursor: context.cursor,
+            cancelToken: context.cancelToken,
           )
         : await repository.fetchComments(
             query.illustId,
-            cursor: cursor,
-            cancelToken: cancelToken,
+            cursor: context.cursor,
+            cancelToken: context.cancelToken,
           );
     ref.read(commentStoreProvider.notifier).mergePage(query, page.comments);
-    return (
+    return FeedPage(
       ids: [for (final comment in page.comments) comment.id],
       nextCursor: page.nextUrl,
     );

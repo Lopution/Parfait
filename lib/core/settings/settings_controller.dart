@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../download/download_destination.dart';
+import '../download/naming_rule.dart';
 import 'app_settings.dart';
 import 'settings_repository.dart';
 
@@ -59,8 +61,17 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     return _update((settings) => settings.copyWith(imageSource: imageSource));
   }
 
-  Future<void> setPreviewQuality(bool enabled) =>
-      _update((settings) => settings.copyWith(previewQuality: enabled));
+  Future<void> setPreviewQuality(PreviewQuality quality) =>
+      _update((settings) => settings.copyWith(previewQuality: quality));
+
+  Future<void> setViewQuality(ViewQuality quality) =>
+      _update((settings) => settings.copyWith(viewQuality: quality));
+
+  Future<void> setDetailQuality(DetailQuality quality) =>
+      _update((settings) => settings.copyWith(detailQuality: quality));
+
+  Future<void> setNetworkMode(NetworkMode mode) =>
+      _update((settings) => settings.copyWith(networkMode: mode));
 
   Future<void> setDohEnabled(bool enabled) =>
       _update((settings) => settings.copyWith(enableDoh: enabled));
@@ -73,12 +84,6 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     ),
   );
 
-  Future<void> setInsecureNoSniEnabled(bool enabled) =>
-      _update((settings) => settings.copyWith(insecureNoSniEnabled: enabled));
-
-  Future<void> setNativeWebViewIntercept(bool enabled) =>
-      _update((settings) => settings.copyWith(nativeWebViewIntercept: enabled));
-
   Future<void> setDohEndpointOverride(String? value) => _update(
     (settings) => settings.copyWith(
       dohEndpointOverride: value == null || value.trim().isEmpty
@@ -86,9 +91,6 @@ class SettingsController extends AsyncNotifier<AppSettings> {
           : value.trim(),
     ),
   );
-
-  Future<void> setScaleQuality(bool enabled) =>
-      _update((settings) => settings.copyWith(scaleQuality: enabled));
 
   Future<void> setHistoryEnabled(bool enabled) =>
       _update((settings) => settings.copyWith(enableHistory: enabled));
@@ -112,13 +114,12 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     return _update((settings) => settings.copyWith(maxDownloadCount: count));
   }
 
-  Future<void> setSavePath(String? path) =>
-      _update((settings) => settings.copyWith(savePath: path));
+  Future<void> setDownloadDestination(DownloadDestination destination) =>
+      _update(
+        (settings) => settings.copyWith(downloadDestination: destination),
+      );
 
-  Future<void> setSaveFolder(String? folder) =>
-      _update((settings) => settings.copyWith(saveFolder: folder));
-
-  Future<void> setNamingRule(String? rule) =>
+  Future<void> setNamingRule(NamingRule rule) =>
       _update((settings) => settings.copyWith(namingRule: rule));
 
   Future<void> _update(AppSettings Function(AppSettings) transform) {
@@ -165,15 +166,56 @@ final imageSourceProvider = Provider<ImageSourceMode>((ref) {
   );
 });
 
-final previewQualityProvider = Provider<bool>((ref) {
+final previewQualityProvider = Provider<PreviewQuality>((ref) {
   return ref.watch(
-    settingsProvider.select((async) => async.value?.previewQuality ?? true),
+    settingsProvider.select(
+      (async) => async.value?.previewQuality ?? PreviewQuality.medium,
+    ),
   );
 });
 
-final scaleQualityProvider = Provider<bool>((ref) {
+final viewQualityProvider = Provider<ViewQuality>((ref) {
   return ref.watch(
-    settingsProvider.select((async) => async.value?.scaleQuality ?? true),
+    settingsProvider.select(
+      (async) => async.value?.viewQuality ?? ViewQuality.original,
+    ),
+  );
+});
+
+/// Detail-page main image quality (三档之详情档).
+final detailQualityProvider = Provider<DetailQuality>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.detailQuality ?? DetailQuality.large,
+    ),
+  );
+});
+
+/// Selected network mode; the only persisted piece of the D3 choice.
+final networkModeProvider = Provider<NetworkMode>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.networkMode ?? NetworkMode.automatic,
+    ),
+  );
+});
+
+/// Download destination (D5) consumed by request normalization.
+final downloadDestinationProvider = Provider<DownloadDestination>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) =>
+          async.value?.downloadDestination ?? DownloadDestination.builtin,
+    ),
+  );
+});
+
+/// File naming rule (D6; preset or bounded custom template).
+final namingRuleProvider = Provider<NamingRule>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.namingRule ?? NamingRule.defaultRule,
+    ),
   );
 });
 
@@ -233,9 +275,7 @@ final dohEnabledProvider = Provider<bool>((ref) {
 /// set, otherwise the built-in IP-literal endpoints.
 final dohEndpointsProvider = Provider<List<String>>((ref) {
   final override = ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.dohEndpointOverride,
-    ),
+    settingsProvider.select((async) => async.value?.dohEndpointOverride),
   );
   if (override == null) return AppSettings.defaultDohEndpoints;
   return override
@@ -250,24 +290,6 @@ final echFrontHostProvider = Provider<String>((ref) {
   return ref.watch(
     settingsProvider.select(
       (async) => async.value?.echFrontHost ?? AppSettings.defaultEchFrontHost,
-    ),
-  );
-});
-
-/// Whether the user explicitly enabled the `insecureNoSni` fallback tier.
-final insecureNoSniEnabledProvider = Provider<bool>((ref) {
-  return ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.insecureNoSniEnabled ?? false,
-    ),
-  );
-});
-
-/// R7: login WebView uses the native interception PlatformView on Android.
-final nativeWebViewInterceptProvider = Provider<bool>((ref) {
-  return ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.nativeWebViewIntercept ?? false,
     ),
   );
 });

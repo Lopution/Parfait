@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../entity/illust_store.dart';
-import '../network/pixiv_http_client.dart';
 import '../novel/novel_store.dart';
 import '../paging/paged_feed_controller.dart';
 import '../user/user_store.dart';
@@ -18,58 +17,21 @@ class SearchFeedController extends PagedFeedController {
   @override
   String get feedKey => 'search:${query.cacheKey}';
 
+  /// C9: search results are discovery content. Only illust/manga queries
+  /// have local-block semantics; novel/user searches stay unfiltered.
+  @override
+  bool get localFilterEnabled => query is IllustSearchQuery;
+
+  @override
+  int get filterMinVisible => 24;
+
+  @override
+  int get filterMaxRefillPages => 3;
+
   @override
   Future<PagedFeedState> build() {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
     return super.build();
-  }
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) {
-    return fetchPageCancellable(cursor, CancelToken());
-  }
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
-    String? cursor,
-    CancelToken cancelToken,
-  ) async {
-    final repository = ref.read(searchRepositoryProvider);
-    return switch (query) {
-      final IllustSearchQuery value => () async {
-        final page = await repository.searchIllust(
-          value,
-          cursor: cursor,
-          cancelToken: cancelToken,
-        );
-        return (
-          ids: [for (final item in page.illusts) item.id],
-          nextCursor: page.nextUrl,
-        );
-      }(),
-      final NovelSearchQuery value => () async {
-        final page = await repository.searchNovel(
-          value,
-          cursor: cursor,
-          cancelToken: cancelToken,
-        );
-        return (
-          ids: [for (final item in page.novels) item.id],
-          nextCursor: page.nextUrl,
-        );
-      }(),
-      final UserSearchQuery value => () async {
-        final page = await repository.searchUsers(
-          value,
-          cursor: cursor,
-          cancelToken: cancelToken,
-        );
-        return (
-          ids: [for (final item in page.users) item.id],
-          nextCursor: page.nextUrl,
-        );
-      }(),
-    };
   }
 
   @override
@@ -109,6 +71,7 @@ class SearchFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.illusts) item.id],
       nextCursor: page.nextUrl,
+      incomingIllusts: {for (final item in page.illusts) item.id: item},
       commit: (_) => store.mergeAll(
         page.illusts,
         bookmarkSnapshotRevision: bookmarkRevision,

@@ -37,3 +37,33 @@ abstract final class WidgetChannel {
     }
   }
 }
+
+/// Native gate: does a live widget instance exist right now (C6)?
+///
+/// Without any instance the coordinator stays idle: no feed request, no
+/// snapshot write, no WorkManager schedule.
+abstract interface class WidgetInstanceGate {
+  Future<bool> hasAnyInstances();
+}
+
+/// Platform implementation querying `pixivfunc/widget` `hasAnyWidget`.
+/// Non-Android hosts have no widget surface and report false.
+class MethodChannelWidgetInstanceGate implements WidgetInstanceGate {
+  const MethodChannelWidgetInstanceGate();
+
+  static const MethodChannel _channel = MethodChannel('pixivfunc/widget');
+
+  @override
+  Future<bool> hasAnyInstances() async {
+    try {
+      final value = await _channel.invokeMethod<bool>('hasAnyWidget');
+      return value ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      // The gate is best-effort; a failed probe behaves like “no widget”
+      // (idle) instead of forcing eager work.
+      return false;
+    }
+  }
+}

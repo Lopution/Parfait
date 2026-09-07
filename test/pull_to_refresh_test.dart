@@ -153,14 +153,15 @@ void main() {
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(ListView)),
     );
-    // MaterialHeader.clamping keeps this distance in the header rather than
-    // moving the list. The pull is deliberately past the arm threshold.
+    // The open (non-clamping) header rides the overscroll: the list is
+    // pulled down while the indicator appears. The pull is deliberately past
+    // the arm threshold.
     await pullBy(tester, gesture, 10, 40);
     expect(indicator, findsOneWidget);
     expect(
       scrollOffset(tester),
-      closeTo(0, 0.001),
-      reason: 'the list must stay put while the clamping header is open',
+      lessThan(0),
+      reason: 'the list is pulled down while the indicator is open',
     );
 
     var indicatorGone = false;
@@ -174,8 +175,10 @@ void main() {
       if (onScreen) {
         expect(
           scrollOffset(tester),
-          closeTo(0, 0.001),
-          reason: 'the list must not scroll while the indicator is visible',
+          lessThanOrEqualTo(0.001),
+          reason:
+              'while the indicator is visible the reverse gesture only '
+              'retracts it / bounces the overscroll back, never scrolls up',
         );
       } else {
         indicatorGone = true;

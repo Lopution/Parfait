@@ -82,8 +82,9 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
         titleSpacing: 0,
         title: TabBar(
           controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
+          // Evenly distribute across the full width (same logic as the
+          // bottom navigation row), instead of a start-aligned scrollable.
+          isScrollable: false,
           indicatorSize: TabBarIndicatorSize.label,
           indicatorPadding: const EdgeInsets.only(bottom: 5),
           labelPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -216,9 +217,9 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
           );
         }
         if (feed.isEmptyAndReady) {
-          return _NewStatus(
-            icon: Icons.inbox_outlined,
-            title: _newText(context, 'newEmpty'),
+          return _NewEmpty(
+            onRefresh: () =>
+                ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
           );
         }
 
@@ -316,6 +317,32 @@ class _NewStatus extends StatelessWidget {
           Icon(icon, size: 48),
           const SizedBox(height: 12),
           Text(title),
+        ],
+      ),
+    );
+  }
+}
+
+class _NewEmpty extends StatelessWidget {
+  const _NewEmpty({required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.inbox_outlined, size: 48),
+          const SizedBox(height: 12),
+          Text(_newText(context, 'newEmpty')),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh),
+            label: Text(_newText(context, 'newRetry')),
+          ),
         ],
       ),
     );

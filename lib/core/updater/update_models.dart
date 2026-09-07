@@ -158,3 +158,19 @@ class UpdateApkVerification {
   final bool valid;
   final String? errorCode;
 }
+
+/// Manifest signature verification result (R2): a diagnosable error code
+/// instead of a collapsed boolean. `public_key_missing`,
+/// `algorithm_unavailable` and `signature_mismatch` reach the UI as distinct
+/// reasons.
+@immutable
+class UpdateManifestVerification {
+  const UpdateManifestVerification._(this.valid, this.errorCode);
+
+  const UpdateManifestVerification.valid() : this._(true, null);
+
+  const UpdateManifestVerification.invalid(String code) : this._(false, code);
+
+  final bool valid;
+  final String? errorCode;
+}

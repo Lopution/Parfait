@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'download_destination.dart';
+import 'naming_rule.dart';
 import 'download_request.dart';
 
 /// Lifecycle states persisted for one download attempt.
@@ -43,20 +45,21 @@ enum DownloadFailureKind {
 /// It contains no credential material. A null context is supported only for
 /// legacy/unit callers; the app-scoped provider requires an owned context so
 /// product downloads cannot be recovered across accounts.
+///
+/// C4: the owner is the stable `accountId + job/output + destination`; a
+/// token refresh (credentialRevision) or a profile metadata update never
+/// changes ownership. The destination is the D5 value object, persisted by
+/// its canonical [DownloadDestination.identity] only.
 @immutable
 class DownloadSubmissionContext {
   const DownloadSubmissionContext({
     required this.accountId,
-    required this.credentialRevision,
-    this.destination = kDownloadDestination,
+    this.destination = DownloadDestination.builtin,
   });
 
   final String accountId;
-  final int credentialRevision;
-  final String destination;
+  final DownloadDestination destination;
 }
-
-const String kDownloadDestination = 'Pictures/PixivFunc';
 
 /// Immutable submission identity carried through every download phase.
 ///
@@ -71,9 +74,8 @@ class DownloadSubmissionSnapshot {
     required this.groupId,
     required this.request,
     required this.accountId,
-    required this.credentialRevision,
     required this.submittedAt,
-    this.destination = kDownloadDestination,
+    this.destination = DownloadDestination.builtin,
   });
 
   final String snapshotId;
@@ -81,9 +83,8 @@ class DownloadSubmissionSnapshot {
   final String? groupId;
   final DownloadRequest request;
   final String? accountId;
-  final int credentialRevision;
   final DateTime submittedAt;
-  final String destination;
+  final DownloadDestination destination;
 
   int get illustId => request.illustId;
   int get pageIndex => request.pageIndex;
@@ -105,7 +106,6 @@ class DownloadSubmissionSnapshot {
           : groupId as String?,
       request: request,
       accountId: accountId,
-      credentialRevision: credentialRevision,
       submittedAt: submittedAt,
       destination: destination,
     );
@@ -192,9 +192,17 @@ class DownloadRecoveryRecord {
       'target': snapshot.target.name,
       'displayName': snapshot.displayName,
       'format': snapshot.format,
-      'destination': snapshot.destination,
+      'destination': snapshot.destination.identity,
+      if (snapshot.request.namingRule != null)
+        'namingPreset': snapshot.request.namingRule!.preset.code,
+      if (snapshot.request.namingRule?.preset == NamingPreset.custom &&
+          snapshot.request.namingRule?.template != null)
+        'namingTemplate': snapshot.request.namingRule!.template,
+      if (snapshot.request.artist != null) 'artist': snapshot.request.artist,
+      if (snapshot.request.title != null) 'title': snapshot.request.title,
+      if (snapshot.request.date != null)
+        'date': snapshot.request.date!.toUtc().toIso8601String(),
       if (snapshot.accountId != null) 'accountId': snapshot.accountId,
-      'credentialRevision': snapshot.credentialRevision,
       'submittedAt': snapshot.submittedAt.toUtc().toIso8601String(),
     },
     'owner': owner.toJson(),
@@ -221,11 +229,37 @@ class DownloadRecoveryRecord {
         'snapshot target is invalid',
       ),
     );
+    final rawPreset = rawSnapshot['namingPreset'];
+    NamingRule? namingRule;
+    if (rawPreset != null) {
+      final preset = NamingPreset.fromCode(rawPreset);
+      if (preset == NamingPreset.custom) {
+        final template = rawSnapshot['namingTemplate'];
+        if (template is String && NamingRule.isValidTemplate(template)) {
+          namingRule = NamingRule(preset: preset, template: template);
+        }
+      } else {
+        namingRule = NamingRule(preset: preset);
+      }
+    }
+    final artist = rawSnapshot['artist'] is String
+        ? rawSnapshot['artist'] as String
+        : null;
+    final title = rawSnapshot['title'] is String
+        ? rawSnapshot['title'] as String
+        : null;
+    final date = rawSnapshot['date'] is String
+        ? DateTime.tryParse(rawSnapshot['date'] as String)
+        : null;
     final request = DownloadRequest(
       illustId: rawSnapshot['illustId'] as int,
       pageIndex: rawSnapshot['pageIndex'] as int,
       url: Uri.parse(rawSnapshot['url'] as String),
       target: target,
+      namingRule: namingRule,
+      artist: artist,
+      title: title,
+      date: date,
     );
     final statusName = json['status'];
     final status = DownloadStatus.values.where(
@@ -247,10 +281,10 @@ class DownloadRecoveryRecord {
       groupId: rawSnapshot['groupId'] as String?,
       request: request,
       accountId: rawSnapshot['accountId'] as String?,
-      credentialRevision: rawSnapshot['credentialRevision'] as int,
       submittedAt: submittedAt,
-      destination:
-          rawSnapshot['destination'] as String? ?? kDownloadDestination,
+      destination: _destinationFromIdentity(
+        rawSnapshot['destination'] as String?,
+      ),
     );
     return DownloadRecoveryRecord(
       jobId: json['jobId'] as String,
@@ -440,4 +474,27 @@ class DownloadRecoveryDataException implements Exception {
 
   @override
   String toString() => 'DownloadRecoveryDataException: $message';
+}
+
+/// Parses the durable destination identity (D5). Legacy records stored the
+/// raw 'Pictures/PixivFunc' path; both map to the built-in album.
+DownloadDestination _destinationFromIdentity(String? identity) {
+  if (identity == null || identity.isEmpty) return DownloadDestination.builtin;
+  if (identity == 'Pictures/PixivFunc') return DownloadDestination.builtin;
+  if (identity == 'album:pixivfunc') {
+    return DownloadDestination.builtin;
+  }
+  if (identity.startsWith('album:')) {
+    final name = identity.substring('album:'.length);
+    final normalized = DownloadDestination.normalizeAlbumName(name);
+    if (normalized != null) {
+      return DownloadDestination.customAlbum(normalized);
+    }
+    return DownloadDestination.builtin;
+  }
+  if (identity.startsWith('saf:')) {
+    final uri = identity.substring('saf:'.length);
+    if (uri.isNotEmpty) return DownloadDestination.safFolder(uri);
+  }
+  return DownloadDestination.builtin;
 }

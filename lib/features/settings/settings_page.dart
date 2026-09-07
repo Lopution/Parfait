@@ -3,17 +3,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/pixiv_image.dart';
+import '../../app/person_avatar.dart';
 import '../../app/replica_page_route.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
+import '../../core/download/download_destination.dart';
 import '../../core/download/download_manager.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/download/download_task.dart';
+import '../../core/download/naming_rule.dart';
 import '../../core/i18n/replica_strings.dart';
+import '../../core/platform/saf_tree.dart';
+import '../../core/comments/comment_translation.dart';
+import '../../core/comments/translation_credentials.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/blocked_tags.dart';
 import '../../core/settings/settings_controller.dart';
@@ -53,6 +58,27 @@ Future<bool> _persistSettings(
   }
 }
 
+Widget _settingsUnavailable(
+  BuildContext context,
+  WidgetRef ref,
+  AsyncValue<AppSettings> state, {
+  required String titleKey,
+}) {
+  return Scaffold(
+    appBar: AppBar(title: Text(_settingsText(context, titleKey))),
+    body: state.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => SettingsLoadError(
+        error: error,
+        onRetry: () => ref.read(settingsProvider.notifier).reload(),
+      ),
+      // AsyncData<AppSettings> is never null; this branch only keeps the
+      // helper total if the provider implementation changes later.
+      data: (_) => const SizedBox.shrink(),
+    ),
+  );
+}
+
 void _openSettingsPage(BuildContext context, Widget page) {
   Navigator.of(
     context,
@@ -88,7 +114,25 @@ class _SettingsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final account = accounts.value?.current;
+    if (accounts.hasError) {
+      return SettingsLoadError(
+        error: accounts.error!,
+        onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
+        messageKey: 'accountReadFailed',
+      );
+    }
+    if (accounts.isLoading && !accounts.hasValue) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final state = accounts.value;
+    if (state?.status == AccountStatus.failure) {
+      return SettingsLoadError(
+        error: state?.error ?? StateError('account state unavailable'),
+        onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
+        messageKey: 'accountReadFailed',
+      );
+    }
+    final account = state?.current;
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
@@ -290,19 +334,15 @@ class _AccountAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = account?.profileImageUrl;
-    if (url == null || url.isEmpty) {
-      return const CircleAvatar(child: Icon(Icons.person_outline));
-    }
-    return ClipOval(
-      child: SizedBox(
-        width: 58,
-        height: 58,
-        child: PixivImage(url: url, fit: BoxFit.cover),
+    return SizedBox.square(
+      dimension: 58,
+      child: PersonAvatar(
+        imageUrl: url == null || url.isEmpty ? null : url,
+        radius: 29,
       ),
     );
   }
 }
-
 
 /// Read-only local account profile entry. It is deliberately backed by the
 /// account store; the later profile task owns remote profile editing.
@@ -311,51 +351,70 @@ class MePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final account = ref.watch(accountStoreProvider).value?.current;
+    final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
       appBar: AppBar(title: Text(_settingsText(context, 'accountProfile'))),
-      body: account == null
-          ? Center(child: Text(_settingsText(context, 'noAccounts')))
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Center(child: _AccountAvatar(account: account)),
-                const SizedBox(height: 16),
-                Center(
-                  child: Text(
-                    account.name,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (account.mailAddress != null)
-                  Center(child: Text(account.mailAddress!)),
-                const SizedBox(height: 24),
-                ListTile(
-                  leading: const Icon(Icons.badge_outlined),
-                  title: Text(_settingsText(context, 'accountId')),
-                  trailing: Text(account.id),
-                ),
-                if (account.authState == AccountAuthState.reauthRequired)
-                  ListTile(
-                    leading: const Icon(Icons.warning_amber_outlined),
-                    title: Text(_settingsText(context, 'reauthRequired')),
-                  ),
-                const Divider(),
-                Text(
-                  _settingsText(context, 'profileReadOnly'),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: () =>
-                      _openSettingsPage(context, const AccountSettingsPage()),
-                  child: Text(_settingsText(context, 'accountManagement')),
-                ),
-              ],
-            ),
+      body: accounts.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => SettingsLoadError(
+          error: error,
+          onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
+          messageKey: 'accountReadFailed',
+        ),
+        data: (state) {
+          if (state.status == AccountStatus.failure) {
+            return SettingsLoadError(
+              error: state.error ?? StateError('account state unavailable'),
+              onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
+              messageKey: 'accountReadFailed',
+            );
+          }
+          final account = state.current;
+          return account == null
+              ? Center(child: Text(_settingsText(context, 'noAccounts')))
+              : _buildAccountProfile(context, account);
+        },
+      ),
+    );
+  }
+
+  Widget _buildAccountProfile(BuildContext context, Account account) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Center(child: _AccountAvatar(account: account)),
+        const SizedBox(height: 16),
+        Center(
+          child: Text(
+            account.name,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+          ),
+        ),
+        if (account.mailAddress != null)
+          Center(child: Text(account.mailAddress!)),
+        const SizedBox(height: 24),
+        ListTile(
+          leading: const Icon(Icons.badge_outlined),
+          title: Text(_settingsText(context, 'accountId')),
+          trailing: Text(account.id),
+        ),
+        if (account.authState == AccountAuthState.reauthRequired)
+          ListTile(
+            leading: const Icon(Icons.warning_amber_outlined),
+            title: Text(_settingsText(context, 'reauthRequired')),
+          ),
+        const Divider(),
+        Text(
+          _settingsText(context, 'profileReadOnly'),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton(
+          onPressed: () =>
+              _openSettingsPage(context, const AccountSettingsPage()),
+          child: Text(_settingsText(context, 'accountManagement')),
+        ),
+      ],
     );
   }
 }
@@ -379,8 +438,18 @@ class AccountSettingsPage extends ConsumerWidget {
       ),
       body: accounts.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('$error')),
-        data: (state) => state.accounts.isEmpty
+        error: (error, _) => SettingsLoadError(
+          error: error,
+          onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
+          messageKey: 'accountReadFailed',
+        ),
+        data: (state) => state.status == AccountStatus.failure
+            ? SettingsLoadError(
+                error: state.error ?? StateError('account state unavailable'),
+                onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
+                messageKey: 'accountReadFailed',
+              )
+            : state.accounts.isEmpty
             ? Center(child: Text(_settingsText(context, 'noAccounts')))
             : ListView.builder(
                 itemCount: state.accounts.length,
@@ -460,8 +529,16 @@ class ThemeSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null) return const _SettingsProgress();
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) {
+      return _settingsUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'themeSettings',
+      );
+    }
     final items = [
       (AppSettings.darkTheme, _settingsText(context, 'dark')),
       (AppSettings.lightTheme, _settingsText(context, 'light')),
@@ -503,8 +580,16 @@ class LanguageSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null) return const _SettingsProgress();
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) {
+      return _settingsUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'languageSettings',
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: Text(_settingsText(context, 'languageSettings'))),
       body: ListView(
@@ -535,14 +620,27 @@ class TranslateSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null) return const _SettingsProgress();
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) {
+      return _settingsUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'translateSettings',
+      );
+    }
     final items = [
-      (TranslationProvider.google, _settingsText(context, 'translateGoogle')),
       (
         TranslationProvider.disabled,
         _settingsText(context, 'translateDisabled'),
       ),
+      (TranslationProvider.baidu, _settingsText(context, 'translateBaidu')),
+      (
+        TranslationProvider.translationLlm,
+        _settingsText(context, 'translateLlm'),
+      ),
+      (TranslationProvider.google, _settingsText(context, 'translateGoogle')),
     ];
     return Scaffold(
       appBar: AppBar(title: Text(_settingsText(context, 'translateSettings'))),
@@ -564,6 +662,19 @@ class TranslateSettingsPage extends ConsumerWidget {
                     .selectTranslationProvider(item.$1),
               ),
             ),
+          if (settings.translationProvider == TranslationProvider.baidu)
+            ListTile(
+              leading: const Icon(Icons.key_outlined),
+              title: Text(_settingsText(context, 'translateBaiduCredential')),
+              onTap: () => _openTranslationCredentials(context, ref, true),
+            ),
+          if (settings.translationProvider ==
+              TranslationProvider.translationLlm)
+            ListTile(
+              leading: const Icon(Icons.key_outlined),
+              title: Text(_settingsText(context, 'translateLlmCredential')),
+              onTap: () => _openTranslationCredentials(context, ref, false),
+            ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
@@ -571,7 +682,305 @@ class TranslateSettingsPage extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
+          if (settings.translationProvider == TranslationProvider.baidu)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Text(
+                _settingsText(context, 'translateBaiduHint'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  void _openTranslationCredentials(
+    BuildContext context,
+    WidgetRef ref,
+    bool baidu,
+  ) {
+    Navigator.of(context).push<void>(
+      ReplicaPageRoute<void>(
+        builder: (_) => TranslationCredentialsPage(baidu: baidu),
+      ),
+    );
+  }
+}
+
+class TranslationCredentialsPage extends ConsumerStatefulWidget {
+  const TranslationCredentialsPage({super.key, required this.baidu});
+
+  final bool baidu;
+
+  @override
+  ConsumerState<TranslationCredentialsPage> createState() =>
+      _TranslationCredentialsPageState();
+}
+
+class _TranslationCredentialsPageState
+    extends ConsumerState<TranslationCredentialsPage> {
+  final _appIdController = TextEditingController();
+  final _secretController = TextEditingController();
+  final _baseUrlController = TextEditingController();
+  final _apiKeyController = TextEditingController();
+  final _modelController = TextEditingController();
+  bool _saving = false;
+  String? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _appIdController.dispose();
+    _secretController.dispose();
+    _baseUrlController.dispose();
+    _apiKeyController.dispose();
+    _modelController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final store = ref.read(translationCredentialStoreProvider);
+      if (widget.baidu) {
+        final credentials = await store.readBaidu();
+        if (credentials != null && mounted) {
+          // Re-fill the form so a user can verify what is stored. Secret
+          // values are filled into the obscured field only; they are never
+          // rendered in status messages.
+          _appIdController.text = credentials.appId;
+          _secretController.text = credentials.secret;
+        }
+      } else {
+        final credentials = await store.readLlm();
+        if (credentials != null && mounted) {
+          _baseUrlController.text = credentials.baseUrl;
+          _apiKeyController.text = credentials.apiKey;
+          _modelController.text = credentials.model ?? '';
+        }
+      }
+    } on Object {
+      if (mounted) {
+        setState(
+          () => _status = _settingsText(
+            context,
+            'translateCredentialsStoreError',
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _status = null;
+    });
+    try {
+      final store = ref.read(translationCredentialStoreProvider);
+      if (widget.baidu) {
+        final appId = _appIdController.text.trim();
+        final secret = _secretController.text.trim();
+        if (appId.isEmpty || secret.isEmpty) {
+          throw const CommentTranslationError('incomplete baidu credentials');
+        }
+        await store.writeBaidu(
+          BaiduTranslationCredentials(appId: appId, secret: secret),
+        );
+      } else {
+        final baseUrl = _baseUrlController.text.trim();
+        final apiKey = _apiKeyController.text.trim();
+        final uri = Uri.tryParse(baseUrl);
+        if (baseUrl.isEmpty ||
+            apiKey.isEmpty ||
+            uri == null ||
+            uri.scheme != 'https' ||
+            uri.host.isEmpty) {
+          throw const CommentTranslationError('invalid LLM endpoint');
+        }
+        final model = _modelController.text.trim();
+        await store.writeLlm(
+          LlmTranslationCredentials(
+            baseUrl: baseUrl,
+            apiKey: apiKey,
+            model: model.isEmpty ? null : model,
+          ),
+        );
+      }
+      if (mounted) {
+        setState(
+          () => _status = _settingsText(context, 'translateCredentialsSaved'),
+        );
+      }
+    } on CommentTranslationError {
+      if (mounted) {
+        setState(
+          () => _status = _settingsText(context, 'translateCredentialsInvalid'),
+        );
+      }
+    } on TranslationCredentialsStoreException {
+      if (mounted) {
+        setState(
+          () => _status = _settingsText(
+            context,
+            'translateCredentialsStoreError',
+          ),
+        );
+      }
+    } on Object {
+      if (mounted) {
+        setState(
+          () => _status = _settingsText(
+            context,
+            'translateCredentialsStoreError',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _clear() async {
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _status = null;
+    });
+    try {
+      final store = ref.read(translationCredentialStoreProvider);
+      if (widget.baidu) {
+        await store.deleteBaidu();
+      } else {
+        await store.deleteLlm();
+      }
+      if (mounted) {
+        setState(() {
+          _status = _settingsText(context, 'translateCredentialsCleared');
+        });
+      }
+    } on TranslationCredentialsStoreException {
+      if (mounted) {
+        setState(
+          () => _status = _settingsText(
+            context,
+            'translateCredentialsStoreError',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _settingsText(
+            context,
+            widget.baidu
+                ? 'translateBaiduCredential'
+                : 'translateLlmCredential',
+          ),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (widget.baidu)
+            _credentialField(
+              controller: _appIdController,
+              label: _settingsText(context, 'translateBaiduAppId'),
+              obscure: false,
+            )
+          else
+            _credentialField(
+              controller: _baseUrlController,
+              label: _settingsText(context, 'translateLlmBaseUrl'),
+              obscure: false,
+              hint: 'https://api.example.com/v1',
+            ),
+          if (widget.baidu)
+            _credentialField(
+              controller: _secretController,
+              label: _settingsText(context, 'translateBaiduSecret'),
+              obscure: true,
+            )
+          else
+            _credentialField(
+              controller: _apiKeyController,
+              label: _settingsText(context, 'translateLlmApiKey'),
+              obscure: true,
+            ),
+          if (!widget.baidu)
+            _credentialField(
+              controller: _modelController,
+              label: _settingsText(context, 'translateLlmModel'),
+              obscure: false,
+            ),
+          const SizedBox(height: 8),
+          if (_status != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                _status!,
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
+            ),
+          FilledButton.icon(
+            onPressed: _saving ? null : _save,
+            icon: const Icon(Icons.save_outlined),
+            label: Text(_settingsText(context, 'translateCredentialsSave')),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _saving ? null : _clear,
+            icon: const Icon(Icons.delete_outline),
+            label: Text(_settingsText(context, 'translateCredentialsClear')),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Text(
+              _settingsText(
+                context,
+                widget.baidu
+                    ? 'translateBaiduHint'
+                    : 'translateLlmCredentialHint',
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _credentialField({
+    required TextEditingController controller,
+    required String label,
+    required bool obscure,
+    String? hint,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        obscureText: obscure,
+        autocorrect: false,
+        enableSuggestions: false,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          border: const OutlineInputBorder(),
+        ),
       ),
     );
   }
@@ -582,8 +991,16 @@ class BrowseSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null) return const _SettingsProgress();
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) {
+      return _settingsUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'browseSettings',
+      );
+    }
     final sources = [
       (
         AppSettings.normalImageSource,
@@ -594,41 +1011,79 @@ class BrowseSettingsPage extends ConsumerWidget {
       appBar: AppBar(title: Text(_settingsText(context, 'browseSettings'))),
       body: ListView(
         children: [
-          _SectionLabel(label: _settingsText(context, 'imageSource')),
-          for (final source in sources)
-            ListTile(
-              title: Text(source.$2),
-              trailing: settings.imageSource == source.$1
-                  ? Icon(
-                      Icons.check,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () => _persistSettings(
-                context,
-                () => ref
-                    .read(settingsProvider.notifier)
-                    .selectImageSource(source.$1),
+          // C13: a single product option is not a meaningful choice; the
+          // whole section is hidden until a second product-level image
+          // source exists.
+          if (sources.length > 1) ...[
+            _SectionLabel(label: _settingsText(context, 'imageSource')),
+            for (final source in sources)
+              ListTile(
+                title: Text(source.$2),
+                trailing: settings.imageSource == source.$1
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => _persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .selectImageSource(source.$1),
+                ),
               ),
+            const Divider(),
+          ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              _settingsText(context, 'previewQuality'),
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          for (final quality in PreviewQuality.values)
+            _qualityTile(
+              context,
+              quality,
+              settings.previewQuality,
+              () => ref
+                  .read(settingsProvider.notifier)
+                  .setPreviewQuality(quality),
             ),
           const Divider(),
-          SwitchListTile(
-            title: Text(_settingsText(context, 'previewQuality')),
-            value: settings.previewQuality,
-            onChanged: (value) => _persistSettings(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              _settingsText(context, 'detailQuality'),
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          for (final quality in const [
+            DetailQuality.large,
+            DetailQuality.original,
+          ])
+            _qualityTile(
               context,
+              quality,
+              settings.detailQuality,
               () =>
-                  ref.read(settingsProvider.notifier).setPreviewQuality(value),
+                  ref.read(settingsProvider.notifier).setDetailQuality(quality),
+            ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              _settingsText(context, 'viewQuality'),
+              style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
-          SwitchListTile(
-            title: Text(_settingsText(context, 'scaleQuality')),
-            value: settings.scaleQuality,
-            onChanged: (value) => _persistSettings(
+          for (final quality in const [ViewQuality.large, ViewQuality.original])
+            _qualityTile(
               context,
-              () => ref.read(settingsProvider.notifier).setScaleQuality(value),
+              quality,
+              settings.viewQuality,
+              () => ref.read(settingsProvider.notifier).setViewQuality(quality),
             ),
-          ),
           const Divider(),
           SwitchListTile(
             title: Text(_settingsText(context, 'pixivHistory')),
@@ -662,6 +1117,36 @@ class BrowseSettingsPage extends ConsumerWidget {
   }
 }
 
+String _qualityText(BuildContext context, Object quality) {
+  return switch (quality) {
+    PreviewQuality.medium ||
+    ViewQuality.medium ||
+    DetailQuality.medium => _settingsText(context, 'qualityMedium'),
+    PreviewQuality.large ||
+    ViewQuality.large ||
+    DetailQuality.large => _settingsText(context, 'qualityLarge'),
+    ViewQuality.original ||
+    DetailQuality.original => _settingsText(context, 'qualityOriginal'),
+    _ => _settingsText(context, 'qualityLarge'),
+  };
+}
+
+Widget _qualityTile(
+  BuildContext context,
+  Object quality,
+  Object current,
+  Future<void> Function() action,
+) {
+  final selected = quality == current;
+  return ListTile(
+    title: Text(_qualityText(context, quality)),
+    trailing: selected
+        ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+        : null,
+    onTap: () => _persistSettings(context, action),
+  );
+}
+
 class DownloadSettingsPage extends ConsumerStatefulWidget {
   const DownloadSettingsPage({super.key});
 
@@ -671,33 +1156,43 @@ class DownloadSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
-  late final TextEditingController _namingController;
-  late final FocusNode _namingFocusNode;
+  late final TextEditingController _templateController;
+  late final FocusNode _templateFocusNode;
   int? _draftMaxDownloads;
 
   @override
   void initState() {
     super.initState();
-    _namingController = TextEditingController();
-    _namingFocusNode = FocusNode();
+    _templateController = TextEditingController();
+    _templateFocusNode = FocusNode();
   }
 
   @override
   void dispose() {
-    _namingController.dispose();
-    _namingFocusNode.dispose();
+    _templateController.dispose();
+    _templateFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null) return const _SettingsProgress();
-    _draftMaxDownloads ??= settings.maxDownloadCount;
-    if (!_namingFocusNode.hasFocus &&
-        _namingController.text != (settings.namingRule ?? '')) {
-      _namingController.text = settings.namingRule ?? '';
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) {
+      return _settingsUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'downloadSettings',
+      );
     }
+    _draftMaxDownloads ??= settings.maxDownloadCount;
+    final namingRule = settings.namingRule;
+    if (!_templateFocusNode.hasFocus &&
+        _templateController.text != (namingRule.template ?? '')) {
+      _templateController.text = namingRule.template ?? '';
+    }
+    final destination = settings.downloadDestination;
     return Scaffold(
       appBar: AppBar(title: Text(_settingsText(context, 'downloadSettings'))),
       body: ListView(
@@ -715,54 +1210,303 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
             label: '$_draftMaxDownloads',
             onChanged: (value) =>
                 setState(() => _draftMaxDownloads = value.round()),
-            onChangeEnd: (value) => _persistSettings(
-              context,
-              () => ref
-                  .read(settingsProvider.notifier)
-                  .setMaxDownloadCount(value.round()),
+            onChangeEnd: (value) => _saveMaxDownloads(value.round()),
+          ),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(_settingsText(context, 'saveLocation')),
+            subtitle: Text(_destinationText(context, destination)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push<void>(
+              ReplicaPageRoute<void>(
+                builder: (_) => const DownloadDestinationPage(),
+              ),
             ),
           ),
           const Divider(),
-          TextField(
-            controller: _namingController,
-            focusNode: _namingFocusNode,
-            decoration: InputDecoration(
-              labelText: _settingsText(context, 'namingRule'),
-              hintText: _settingsText(context, 'namingRuleHint'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+            child: Text(
+              _settingsText(context, 'namingPreset'),
+              style: Theme.of(context).textTheme.titleSmall,
             ),
-            maxLength: 128,
           ),
-          FilledButton(
-            onPressed: () async {
-              final saved = await _persistSettings(
+          for (final preset in NamingPreset.values)
+            ListTile(
+              title: Text(_namingPresetText(context, preset)),
+              trailing: namingRule.preset == preset
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                  : null,
+              onTap: () => _persistSettings(
                 context,
                 () => ref
                     .read(settingsProvider.notifier)
-                    .setNamingRule(
-                      _namingController.text.trim().isEmpty
-                          ? null
-                          : _namingController.text.trim(),
-                    ),
-              );
-              if (saved && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(_settingsText(context, 'saved'))),
-                );
-              }
-            },
-            child: Text(_settingsText(context, 'saved')),
-          ),
-          const SizedBox(height: 12),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(_settingsText(context, 'saveFolder')),
-            trailing: Text(
-              settings.saveFolder ?? _settingsText(context, 'notConfigured'),
+                    .setNamingRule(NamingRule(preset: preset)),
+              ),
             ),
-          ),
+          if (namingRule.preset == NamingPreset.custom) ...[
+            TextField(
+              controller: _templateController,
+              focusNode: _templateFocusNode,
+              decoration: InputDecoration(
+                labelText: _settingsText(context, 'namingTemplate'),
+                hintText: _settingsText(context, 'namingTemplateHint'),
+                errorText: !NamingRule.isValidTemplate(_templateController.text)
+                    ? _settingsText(context, 'namingTemplateInvalid')
+                    : null,
+              ),
+              maxLength: 128,
+              onChanged: (_) => setState(() {}),
+            ),
+            Text(
+              '${_settingsText(context, 'namingPreview')}: '
+              '${_previewName(context, namingRule.preset == NamingPreset.custom ? NamingRule(preset: NamingPreset.custom, template: _templateController.text) : namingRule)}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _settingsText(context, 'namingTemplateVariables'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            FilledButton(
+              onPressed: () async {
+                final template = _templateController.text.trim();
+                if (!NamingRule.isValidTemplate(template)) return;
+                final saved = await _persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .setNamingRule(
+                        NamingRule(
+                          preset: NamingPreset.custom,
+                          template: template,
+                        ),
+                      ),
+                );
+                if (saved && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(_settingsText(context, 'saved'))),
+                  );
+                }
+              },
+              child: Text(_settingsText(context, 'save')),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  String _previewName(BuildContext context, NamingRule rule) {
+    final preview = rule.preview(
+      illustId: 123456,
+      pageIndex: 0,
+      extension: 'jpg',
+      artist: '作者名',
+      title: '作品标题',
+      date: DateTime(2026, 9, 1),
+    );
+    return preview;
+  }
+
+  Future<void> _saveMaxDownloads(int value) async {
+    final previous = _draftMaxDownloads;
+    final saved = await _persistSettings(
+      context,
+      () => ref.read(settingsProvider.notifier).setMaxDownloadCount(value),
+    );
+    if (!saved && mounted) {
+      final committed = ref.read(settingsProvider).value?.maxDownloadCount;
+      setState(() => _draftMaxDownloads = committed ?? previous);
+    }
+  }
+}
+
+String _destinationText(BuildContext context, DownloadDestination destination) {
+  return switch (destination.kind) {
+    DownloadDestinationKind.pixivAlbum => _settingsText(
+      context,
+      'saveLocationPixivAlbum',
+    ),
+    DownloadDestinationKind.customAlbum =>
+      '${_settingsText(context, 'saveLocationCustomAlbum')} '
+          '(${destination.customAlbumName})',
+    DownloadDestinationKind.safFolder => _settingsText(
+      context,
+      'saveLocationSafFolder',
+    ),
+  };
+}
+
+String _namingPresetText(BuildContext context, NamingPreset preset) {
+  return switch (preset) {
+    NamingPreset.id => _settingsText(context, 'namingPresetId'),
+    NamingPreset.artistTitleId => _settingsText(
+      context,
+      'namingPresetArtistTitleId',
+    ),
+    NamingPreset.titleId => _settingsText(context, 'namingPresetTitleId'),
+    NamingPreset.custom => _settingsText(context, 'namingPresetCustom'),
+  };
+}
+
+/// Single-entry save location chooser (D5): album vs SAF folder. Album
+/// defaults to the built-in PixivFunc album with an optional custom name;
+/// folder mode only accepts the system SAF tree URI.
+class DownloadDestinationPage extends ConsumerStatefulWidget {
+  const DownloadDestinationPage({super.key});
+
+  @override
+  ConsumerState<DownloadDestinationPage> createState() =>
+      _DownloadDestinationPageState();
+}
+
+class _DownloadDestinationPageState
+    extends ConsumerState<DownloadDestinationPage> {
+  late final TextEditingController _albumController;
+  late final FocusNode _albumFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _albumController = TextEditingController();
+    _albumFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _albumController.dispose();
+    _albumFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) {
+      return _settingsUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'saveLocation',
+      );
+    }
+    final destination = settings.downloadDestination;
+    if (!_albumFocusNode.hasFocus &&
+        _albumController.text != (destination.customAlbumName ?? '')) {
+      _albumController.text = destination.customAlbumName ?? '';
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(_settingsText(context, 'saveLocation'))),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          ListTile(
+            title: Text(_settingsText(context, 'saveLocationAlbum')),
+            trailing: !destination.isSafFolder
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : null,
+            onTap: () => _persistSettings(
+              context,
+              () => ref
+                  .read(settingsProvider.notifier)
+                  .setDownloadDestination(DownloadDestination.builtin),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(32, 0, 0, 0),
+            child: TextField(
+              controller: _albumController,
+              focusNode: _albumFocusNode,
+              decoration: InputDecoration(
+                labelText: _settingsText(context, 'saveLocationCustomAlbum'),
+                helperText: _settingsText(
+                  context,
+                  'saveLocationCustomAlbumHint',
+                ),
+              ),
+              maxLength: 64,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(32, 4, 0, 0),
+            child: FilledButton.tonal(
+              onPressed: () async {
+                final name = DownloadDestination.normalizeAlbumName(
+                  _albumController.text,
+                );
+                if (name == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _settingsText(context, 'saveLocationAlbumInvalid'),
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                final saved = await _persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .setDownloadDestination(
+                        DownloadDestination.customAlbum(name),
+                      ),
+                );
+                if (saved && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(_settingsText(context, 'saved'))),
+                  );
+                }
+              },
+              child: Text(_settingsText(context, 'saveLocationUseCustomAlbum')),
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            title: Text(_settingsText(context, 'saveLocationSafFolder')),
+            subtitle: Text(_settingsText(context, 'saveLocationSafFolderHint')),
+            trailing: destination.isSafFolder
+                ? Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : null,
+            onTap: () => _pickSafFolder(),
+          ),
+          if (destination.isSafFolder)
+            ListTile(
+              leading: const Icon(Icons.check_circle),
+              title: Text(_settingsText(context, 'saveLocationSafPicked')),
+              subtitle: Text(destination.safTreeUri ?? ''),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickSafFolder() async {
+    final uri = await ref.read(safTreePickerProvider).pickTree();
+    if (uri == null || !mounted) return;
+    final saved = await _persistSettings(
+      context,
+      () => ref
+          .read(settingsProvider.notifier)
+          .setDownloadDestination(DownloadDestination.safFolder(uri)),
+    );
+    if (saved && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_settingsText(context, 'saved'))));
+    }
   }
 }
 
@@ -771,8 +1515,16 @@ class HistorySettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null) return const _SettingsProgress();
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) {
+      return _settingsUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'historySettings',
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: Text(_settingsText(context, 'historySettings'))),
       body: ListView(
@@ -868,7 +1620,7 @@ class _BlockedTagsPageState extends ConsumerState<BlockedTagsPage> {
             decoration: InputDecoration(
               labelText: _settingsText(context, 'blockTagInputHint'),
               suffixIcon: IconButton(
-                tooltip: _settingsText(context, 'addAccount'),
+                tooltip: _settingsText(context, 'add'),
                 icon: const Icon(Icons.add),
                 onPressed: () => _addTag(_controller.text),
               ),
@@ -1312,15 +2064,6 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
     } finally {
       if (mounted) setState(() => _applying = false);
     }
-  }
-}
-
-class _SettingsProgress extends StatelessWidget {
-  const _SettingsProgress();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 

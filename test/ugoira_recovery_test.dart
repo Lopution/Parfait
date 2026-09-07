@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/download/download_recovery.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
+import 'package:pixiv_func/core/download/download_destination.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/platform/android_platform_interfaces.dart';
@@ -41,7 +42,6 @@ void main() {
           target: DownloadTarget.ugoiraGif,
         ),
         accountId: 'account-a',
-        credentialRevision: 4,
         submittedAt: DateTime.utc(2026, 8, 28),
       );
       final owner = const DownloadOutputOwner(
@@ -89,15 +89,17 @@ class _RecoverySinkFactory
   @override
   Future<DownloadSink> begin(
     DownloadRequest request,
-    String displayName,
-  ) async => MemorySink();
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async => MemorySink();
 
   @override
   Future<DownloadSink> beginOwned(
     DownloadRequest request,
     String displayName,
-    DownloadOutputOwner owner,
-  ) => begin(request, displayName);
+    DownloadOutputOwner owner, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) => begin(request, displayName, destination: destination);
 
   @override
   Future<List<PendingMediaStoreItem>> listPending() async => _pending;

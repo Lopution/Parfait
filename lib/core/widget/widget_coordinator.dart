@@ -16,9 +16,10 @@ import 'widget_feed_loader.dart';
 /// - transientFailure → keep the same-account last-good and ask native for
 ///   one bounded one-shot retry.
 class WidgetCoordinator {
-  WidgetCoordinator(this._ref);
+  WidgetCoordinator(this._ref, this.widgetGate);
 
   final Ref _ref;
+  final WidgetInstanceGate widgetGate;
   ProviderSubscription<AsyncValue<AccountState>>? _accountSubscription;
   String? _lastAccountId;
   int _lastRevision = -1;
@@ -29,7 +30,25 @@ class WidgetCoordinator {
 
   /// Subscribes to account changes and runs the first pass. Safe to call
   /// once from the app bootstrap.
-  void start() {
+  ///
+  /// C6: without a live widget instance the coordinator intentionally does
+  /// not start — no feed request, no snapshot writes, no WorkManager
+  /// schedule. [ensureStarted] re-checks the native gate on later lifecycle
+  /// events, so a widget added while the app is alive is picked up without
+  /// an app restart.
+  Future<void> start() async {
+    if (_started || _disposed) return;
+    if (!await widgetGate.hasAnyInstances()) return;
+    _start();
+  }
+
+  /// Re-checks the native gate (lifecycle resume, widget-added signal).
+  Future<void> ensureStarted() async {
+    if (_started || _disposed) return;
+    if (await widgetGate.hasAnyInstances()) _start();
+  }
+
+  void _start() {
     if (_started || _disposed) return;
     _started = true;
     _accountSubscription = _ref.listen(
@@ -43,6 +62,10 @@ class WidgetCoordinator {
     if (state == null) return;
     final account = state.usableCurrent;
     final id = account?.id;
+    // C1 (retained): this domain genuinely cares about the account world
+    // revision — the native widget shows *display state* (name/avatar/set)
+    // that changes on profile metadata updates and re-auth; the revision is
+    // the change signal for snapshot re-keying, not a credential epoch.
     final revision = state.credentialRevision;
     if (id == _lastAccountId && revision == _lastRevision) return;
     final switched = _lastAccountId != null && id != _lastAccountId;
@@ -118,7 +141,10 @@ class WidgetCoordinator {
 }
 
 final widgetCoordinatorProvider = Provider<WidgetCoordinator>((ref) {
-  final coordinator = WidgetCoordinator(ref);
+  final coordinator = WidgetCoordinator(
+    ref,
+    const MethodChannelWidgetInstanceGate(),
+  );
   ref.onDispose(coordinator.dispose);
   return coordinator;
 });

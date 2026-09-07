@@ -8,9 +8,10 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../download/download_manager.dart';
-import '../download/download_sink.dart';
-import '../download/download_task.dart';
 import '../download/download_request.dart';
+import '../download/download_sink.dart';
+import '../download/download_destination.dart';
+import '../download/download_task.dart';
 import 'update_manifest.dart';
 import 'update_models.dart';
 import 'update_platform.dart';
@@ -113,7 +114,7 @@ class UpdateDownloadState {
     }
     UpdateVersion.parse(value['version'] as String);
     final assetUri = Uri.tryParse(value['assetUrl'] as String);
-    if (assetUri == null || !isStrictUpdateAssetUrl(assetUri)) {
+    if (assetUri == null || !isStrictUpdateManifestAssetUrl(assetUri)) {
       throw const FormatException('update state URL');
     }
     return UpdateDownloadState(
@@ -199,8 +200,9 @@ class UpdateFileSinkFactory implements DownloadSinkFactory {
   @override
   Future<DownloadSink> begin(
     DownloadRequest request,
-    String displayName,
-  ) async {
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async {
     if (request.target != DownloadTarget.updaterApk) {
       throw const FormatException('update sink received non-APK target');
     }

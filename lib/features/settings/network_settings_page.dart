@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/replica_page_route.dart';
+import '../../app/widgets/settings_load_error.dart';
 import '../../core/i18n/replica_strings.dart';
-import '../../core/network/compat/network_contracts.dart';
-import '../../core/network/compat/network_providers.dart';
+import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import 'network_probe_page.dart';
 
@@ -36,16 +36,140 @@ Future<bool> _persistNetwork(
   }
 }
 
-/// beta56-compatible network settings: direct/strict mode, DoH enablement and
-/// endpoints, and the layered connectivity probe entry (Phase 1 / R2).
-class NetworkSettingsPage extends ConsumerStatefulWidget {
+Widget _networkUnavailable(
+  BuildContext context,
+  WidgetRef ref,
+  AsyncValue<AppSettings> state, {
+  required String titleKey,
+}) {
+  return Scaffold(
+    appBar: AppBar(title: Text(_networkText(context, titleKey))),
+    body: state.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => SettingsLoadError(
+        error: error,
+        onRetry: () => ref.read(settingsProvider.notifier).reload(),
+      ),
+      data: (_) => const SizedBox.shrink(),
+    ),
+  );
+}
+
+/// D3 network settings: the normal page only exposes network mode, the
+/// probe entry and the advanced page. Implementation nouns (DoH/ECH/SNI)
+/// live on the advanced page, not here.
+class NetworkSettingsPage extends ConsumerWidget {
   const NetworkSettingsPage({super.key});
 
   @override
-  ConsumerState<NetworkSettingsPage> createState() => _NetworkSettingsPageState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) {
+      return _networkUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'networkSettings',
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(_networkText(context, 'networkSettings'))),
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(
+              _networkText(context, 'networkModeListTitle'),
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+          _modeTile(
+            context,
+            settings.networkMode,
+            NetworkMode.automatic,
+            () => ref
+                .read(settingsProvider.notifier)
+                .setNetworkMode(NetworkMode.automatic),
+          ),
+          _modeTile(
+            context,
+            settings.networkMode,
+            NetworkMode.directOnly,
+            () => ref
+                .read(settingsProvider.notifier)
+                .setNetworkMode(NetworkMode.directOnly),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.network_check),
+            title: Text(_networkText(context, 'networkProbe')),
+            subtitle: Text(_networkText(context, 'networkProbeHint')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push<void>(
+              ReplicaPageRoute<void>(builder: (_) => const NetworkProbePage()),
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: Text(_networkText(context, 'networkAdvanced')),
+            subtitle: Text(_networkText(context, 'networkAdvancedHint')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push<void>(
+              ReplicaPageRoute<void>(
+                builder: (_) => const _NetworkAdvancedSettingsPage(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
+/// Common mode tile: selected mode renders the check icon (project style;
+/// RadioListTile is deprecated on this Flutter version).
+Widget _modeTile(
+  BuildContext context,
+  NetworkMode current,
+  NetworkMode value,
+  Future<void> Function() action,
+) {
+  final selected = current == value;
+  return ListTile(
+    title: Text(
+      value == NetworkMode.automatic
+          ? _networkText(context, 'networkModeAutomatic')
+          : _networkText(context, 'networkModeDirectOnly'),
+    ),
+    subtitle: Text(
+      value == NetworkMode.automatic
+          ? _networkText(context, 'networkModeAutomaticHint')
+          : _networkText(context, 'networkModeDirectOnlyHint'),
+    ),
+    trailing: selected
+        ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+        : null,
+    onTap: () => _persistNetwork(context, action),
+  );
+}
+
+/// Advanced network settings: implementation-level knobs for power users.
+/// Only DoH endpoint override, ECH front host and reset-to-default survive
+/// after C17 removed the global insecure switch and C16 removed the native
+/// login WebView intercept.
+class _NetworkAdvancedSettingsPage extends ConsumerStatefulWidget {
+  const _NetworkAdvancedSettingsPage();
+
+  @override
+  ConsumerState<_NetworkAdvancedSettingsPage> createState() =>
+      _NetworkAdvancedSettingsPageState();
+}
+
+class _NetworkAdvancedSettingsPageState
+    extends ConsumerState<_NetworkAdvancedSettingsPage> {
   late final TextEditingController _dohController;
   late final FocusNode _dohFocusNode;
   bool _dohDirty = false;
@@ -92,9 +216,9 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
     );
     if (saved && mounted) {
       setState(() => _dohDirty = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_networkText(context, 'saved'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_networkText(context, 'saved'))));
     }
   }
 
@@ -123,8 +247,7 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
   Future<void> _saveEchHost() async {
     final value = _echHostController.text.trim();
     if (!_echHostDirty) return;
-    if (value.isNotEmpty &&
-        !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(value)) {
+    if (value.isNotEmpty && !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(value)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -140,20 +263,45 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
     );
     if (saved && mounted) {
       setState(() => _echHostDirty = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_networkText(context, 'saved'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_networkText(context, 'saved'))));
+    }
+  }
+
+  Future<void> _resetDefaults() async {
+    final saved = await _persistNetwork(context, () async {
+      await ref.read(settingsProvider.notifier).setDohEnabled(true);
+      await ref.read(settingsProvider.notifier).setDohEndpointOverride(null);
+      await ref
+          .read(settingsProvider.notifier)
+          .setEchFrontHost(AppSettings.defaultEchFrontHost);
+    });
+    if (saved && mounted) {
+      _dohController.text = ref.read(dohEndpointsProvider).join(', ');
+      _echHostController.text = AppSettings.defaultEchFrontHost;
+      setState(() {
+        _dohDirty = false;
+        _echHostDirty = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_networkText(context, 'saved'))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider).value;
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
     if (settings == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return _networkUnavailable(
+        context,
+        ref,
+        state,
+        titleKey: 'networkAdvanced',
+      );
     }
-    final mode = ref.watch(networkAccessPolicyProvider).mode;
-    final dohEnabled = settings.enableDoh;
     final endpoints = ref.watch(dohEndpointsProvider).join(', ');
     if (!_dohDirty && _dohController.text != endpoints) {
       _dohController.text = endpoints;
@@ -162,39 +310,16 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
     if (!_echHostDirty && _echHostController.text != echHost) {
       _echHostController.text = echHost;
     }
-    final insecureNoSni = settings.insecureNoSniEnabled;
     return Scaffold(
-      appBar: AppBar(title: Text(_networkText(context, 'networkSettings'))),
+      appBar: AppBar(title: Text(_networkText(context, 'networkAdvanced'))),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          SwitchListTile(
-            title: Text(_networkText(context, 'networkMode')),
-            subtitle: Text(_networkText(context, 'networkModeHint')),
-            value: mode == NetworkMode.automatic,
-            onChanged: (value) {
-              ref
-                  .read(networkAccessPolicyProvider)
-                  .setMode(value ? NetworkMode.automatic : NetworkMode.directOnly);
-              setState(() {});
-            },
-          ),
-          const Divider(),
-          SwitchListTile(
-            title: Text(_networkText(context, 'networkDoh')),
-            subtitle: Text(_networkText(context, 'networkDohHint')),
-            value: dohEnabled,
-            onChanged: (value) => _persistNetwork(
-              context,
-              () => ref.read(settingsProvider.notifier).setDohEnabled(value),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: TextField(
               controller: _dohController,
               focusNode: _dohFocusNode,
-              enabled: dohEnabled,
               maxLines: 2,
               decoration: InputDecoration(
                 labelText: _networkText(context, 'networkDohEndpoints'),
@@ -208,8 +333,8 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
             child: Align(
               alignment: Alignment.centerRight,
               child: FilledButton.tonal(
-                onPressed: dohEnabled ? _saveEndpoints : null,
-                child: Text(_networkText(context, 'saved')),
+                onPressed: _saveEndpoints,
+                child: Text(_networkText(context, 'save')),
               ),
             ),
           ),
@@ -233,61 +358,15 @@ class _NetworkSettingsPageState extends ConsumerState<NetworkSettingsPage> {
               alignment: Alignment.centerRight,
               child: FilledButton.tonal(
                 onPressed: _saveEchHost,
-                child: Text(_networkText(context, 'saved')),
+                child: Text(_networkText(context, 'save')),
               ),
-            ),
-          ),
-          const Divider(),
-          SwitchListTile(
-            title: Text(_networkText(context, 'networkInsecureNoSni')),
-            subtitle: Text(_networkText(context, 'networkInsecureNoSniHint')),
-            value: insecureNoSni,
-            onChanged: (value) => _persistNetwork(
-              context,
-              () => ref
-                  .read(settingsProvider.notifier)
-                  .setInsecureNoSniEnabled(value),
-            ),
-          ),
-          if (insecureNoSni)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                _networkText(context, 'networkInsecureNoSniWarning'),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-          const Divider(),
-          SwitchListTile(
-            title: Text(_networkText(context, 'networkWebViewIntercept')),
-            subtitle: Text(_networkText(context, 'networkWebViewInterceptHint')),
-            value: settings.nativeWebViewIntercept,
-            onChanged: (value) => _persistNetwork(
-              context,
-              () => ref
-                  .read(settingsProvider.notifier)
-                  .setNativeWebViewIntercept(value),
             ),
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.network_check),
-            title: Text(_networkText(context, 'networkProbe')),
-            subtitle: Text(_networkText(context, 'networkProbeHint')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push<void>(
-              ReplicaPageRoute<void>(
-                builder: (_) => const NetworkProbePage(),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'DoH endpoints: $endpoints\n'
-              'enableDoh: $dohEnabled',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            leading: const Icon(Icons.restart_alt),
+            title: Text(_networkText(context, 'networkAdvancedReset')),
+            onTap: _resetDefaults,
           ),
         ],
       ),

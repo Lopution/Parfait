@@ -1,0 +1,8 @@
+# Global test timeouts.
+#
+# The full suite runs ~600 tests in well under a minute when nothing is
+# blocked. A generous-but-bounded per-test timeout turns an environment
+# flake (e.g. the real-socket smoke tests when the host network is
+# degraded) into a fast, clearly labelled failure instead of a silent
+# multi-minute hang.
+timeout: 60s

@@ -9,6 +9,8 @@ import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
+import 'package:pixiv_func/core/settings/app_settings.dart';
+import 'package:pixiv_func/core/settings/settings_controller.dart';
 
 import 'helpers/illust_fixtures.dart';
 
@@ -64,11 +66,6 @@ class _DeferredFeedController extends PagedFeedController {
   String get feedKey => keyValue;
 
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) {
-    fail('the generation-aware hook must be used by this feed');
-  }
-
-  @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) {
     requests.add(context);
     final completion = Completer<FeedPage>();
@@ -84,6 +81,41 @@ final _deferredFeedProvider =
       String
     >(_DeferredFeedController.new);
 
+class _BlockingSettingsController extends SettingsController {
+  @override
+  Future<AppSettings> build() async =>
+      AppSettings.defaults().copyWith(enableLocalBlockR18: true);
+}
+
+class _FilteringFeedController extends PagedFeedController {
+  @override
+  String get feedKey => 'filtering-fixture';
+
+  @override
+  bool get localFilterEnabled => true;
+
+  @override
+  int get filterMinVisible => 1;
+
+  @override
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
+    final store = ref.read(illustStoreProvider);
+    final blocked = parseIllust(illustJson(101, xRestrict: 1));
+    final visible = _illust(102);
+    return FeedPage(
+      ids: [blocked.id, visible.id],
+      nextCursor: null,
+      incomingIllusts: {blocked.id: blocked, visible.id: visible},
+      commit: (_) => store.mergeAll([blocked, visible]),
+    );
+  }
+}
+
+final _filteringFeedProvider =
+    AsyncNotifierProvider<_FilteringFeedController, PagedFeedState>(
+      _FilteringFeedController.new,
+    );
+
 Future<void> _waitUntil(bool Function() condition) async {
   for (var attempt = 0; attempt < 100; attempt++) {
     if (condition()) return;
@@ -97,6 +129,27 @@ ProviderContainer _container() => ProviderContainer(
 );
 
 void main() {
+  test(
+    'local filtering uses incoming entities before the commit callback',
+    () async {
+      final container = ProviderContainer(
+        overrides: [
+          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          settingsProvider.overrideWith(_BlockingSettingsController.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(accountStoreProvider.future);
+      await container.read(settingsProvider.future);
+
+      final state = await container.read(_filteringFeedProvider.future);
+
+      expect(state.ids, [102]);
+      expect(container.read(illustStoreProvider).get(101), isNotNull);
+      expect(container.read(illustStoreProvider).get(102), isNotNull);
+    },
+  );
+
   test(
     'refresh wins over a late append and drops its entity/cursor commit',
     () async {
@@ -113,7 +166,6 @@ void main() {
       final initialContext = controller.requests.single;
       expect(initialContext.feedKey, 'recommended:illust');
       expect(initialContext.accountId, 'account-a');
-      expect(initialContext.credentialRevision, 0);
       expect(initialContext.generation, 1);
       expect(initialContext.page, 1);
       expect(initialContext.cursor, isNull);
@@ -329,7 +381,6 @@ void main() {
     await _waitUntil(() => controller.requests.length == 2);
     final newContext = controller.requests[1];
     expect(newContext.accountId, 'account-b');
-    expect(newContext.credentialRevision, 1);
 
     controller.completions[0].complete(
       FeedPage(ids: [10], nextCursor: 'old', commit: (_) => oldCommits++),
@@ -385,13 +436,12 @@ void main() {
     );
   });
 
-  test('FeedCommitGate rejects account and credential boundary changes', () {
+  test('FeedCommitGate rejects account boundary changes (C1)', () {
     final gate = FeedCommitGate();
     final token = CancelToken();
     final context = gate.beginRequest(
       feedKey: 'search:cat',
       accountId: 'account-a',
-      credentialRevision: 4,
       generation: gate.beginGeneration(),
       page: 1,
       cursor: null,
@@ -400,12 +450,7 @@ void main() {
     var commits = 0;
 
     expect(
-      gate.commit(
-        context,
-        accountId: 'account-b',
-        credentialRevision: 4,
-        action: () => commits++,
-      ),
+      gate.commit(context, accountId: 'account-b', action: () => commits++),
       isFalse,
     );
     expect(commits, 0);
@@ -414,25 +459,18 @@ void main() {
     final next = gate.beginRequest(
       feedKey: 'search:cat',
       accountId: 'account-a',
-      credentialRevision: 4,
       generation: gate.generation,
       page: 1,
       cursor: null,
       cancelToken: CancelToken(),
     );
     expect(
-      gate.commit(
-        next,
-        accountId: 'account-a',
-        credentialRevision: 5,
-        action: () => commits++,
-      ),
-      isFalse,
+      gate.commit(next, accountId: 'account-a', action: () => commits++),
+      isTrue,
     );
-    expect(commits, 0);
-    expect(
-      gate.discardEvents.last.reason,
-      FeedDiscardReason.credentialChanged,
-    );
+    expect(commits, 1);
+    // C1: a same-account context without a global credential epoch still
+    // commits; only account/generation boundaries gate staleness.
+    expect(gate.discardEvents, hasLength(1));
   });
 }

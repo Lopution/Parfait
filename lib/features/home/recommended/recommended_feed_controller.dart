@@ -23,10 +23,18 @@ class RecommendedFeedController extends PagedFeedController {
   @override
   String get feedKey => 'recommended:${key.type.name}';
 
+  /// C9: discovery content only. Illusts and manga are filtered; novels and
+  /// user recommendations have no local-block semantics and stay unfiltered.
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) {
-    throw UnimplementedError('use fetchPageForContext');
-  }
+  bool get localFilterEnabled =>
+      key.type == RecommendedContentType.illust ||
+      key.type == RecommendedContentType.manga;
+
+  @override
+  int get filterMinVisible => 24;
+
+  @override
+  int get filterMaxRefillPages => 3;
 
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
@@ -54,6 +62,7 @@ class RecommendedFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.illusts) item.id],
       nextCursor: page.nextUrl,
+      incomingIllusts: {for (final item in page.illusts) item.id: item},
       commit: (_) => store.mergeAll(
         page.illusts,
         bookmarkSnapshotRevision: bookmarkRevision,
@@ -65,7 +74,10 @@ class RecommendedFeedController extends PagedFeedController {
     final store = ref.read(novelStoreProvider.notifier);
     final page = await ref
         .read(novelRepositoryProvider)
-        .fetchRecommended(cursor: context.cursor, cancelToken: context.cancelToken);
+        .fetchRecommended(
+          cursor: context.cursor,
+          cancelToken: context.cancelToken,
+        );
     return FeedPage(
       ids: [for (final item in page.novels) item.id],
       nextCursor: page.nextUrl,
@@ -77,7 +89,10 @@ class RecommendedFeedController extends PagedFeedController {
     final store = ref.read(userStoreProvider.notifier);
     final page = await ref
         .read(userRepositoryProvider)
-        .fetchRecommended(cursor: context.cursor, cancelToken: context.cancelToken);
+        .fetchRecommended(
+          cursor: context.cursor,
+          cancelToken: context.cancelToken,
+        );
     return FeedPage(
       ids: [for (final item in page.users) item.id],
       nextCursor: page.nextUrl,
@@ -99,7 +114,8 @@ class RecommendedFeedController extends PagedFeedController {
 }
 
 final recommendedFeedProvider =
-    AsyncNotifierProvider.family<RecommendedFeedController, PagedFeedState,
-        RecommendedFeedKey>(
-      RecommendedFeedController.new,
-    );
+    AsyncNotifierProvider.family<
+      RecommendedFeedController,
+      PagedFeedState,
+      RecommendedFeedKey
+    >(RecommendedFeedController.new);

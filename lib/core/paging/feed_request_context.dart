@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../entity/illust_entity.dart';
 import '../network/pixiv_http_client.dart';
 
 /// A request identity that must travel with every page response.
@@ -12,7 +13,6 @@ class FeedRequestContext {
   const FeedRequestContext({
     required this.feedKey,
     required this.accountId,
-    required this.credentialRevision,
     required this.generation,
     required this.page,
     required this.cursor,
@@ -21,7 +21,6 @@ class FeedRequestContext {
 
   final String feedKey;
   final String? accountId;
-  final int credentialRevision;
   final int generation;
   final int page;
   final String? cursor;
@@ -39,21 +38,28 @@ typedef FeedPageCommit = void Function(FeedRequestContext context);
 /// context gate accepts the complete page.
 @immutable
 class FeedPage {
-  FeedPage({required List<int> ids, required this.nextCursor, this.commit})
-    : ids = List.unmodifiable(ids);
+  FeedPage({
+    required List<int> ids,
+    required this.nextCursor,
+    this.commit,
+    Map<int, IllustEntity>? incomingIllusts,
+  }) : ids = List.unmodifiable(ids),
+       incomingIllusts = incomingIllusts == null
+           ? null
+           : Map.unmodifiable(incomingIllusts);
 
   final List<int> ids;
   final String? nextCursor;
   final FeedPageCommit? commit;
+
+  /// Illust payloads parsed from this response, before [commit] runs. Local
+  /// discovery filters use this map so a newly fetched blocked work cannot
+  /// leak into the visible ID list simply because the shared store is still
+  /// awaiting the commit gate.
+  final Map<int, IllustEntity>? incomingIllusts;
 }
 
-enum FeedDiscardReason {
-  cancelled,
-  stale,
-  accountChanged,
-  credentialChanged,
-  disposed,
-}
+enum FeedDiscardReason { cancelled, stale, accountChanged, disposed }
 
 /// Observable, bounded telemetry for responses that were intentionally not
 /// committed. It contains request metadata only and no response payload.
@@ -93,7 +99,6 @@ class FeedCommitGate {
   FeedRequestContext beginRequest({
     required String feedKey,
     required String? accountId,
-    required int credentialRevision,
     required int generation,
     required int page,
     required String? cursor,
@@ -106,7 +111,6 @@ class FeedCommitGate {
     final context = FeedRequestContext(
       feedKey: feedKey,
       accountId: accountId,
-      credentialRevision: credentialRevision,
       generation: generation,
       page: page,
       cursor: cursor,
@@ -119,16 +123,10 @@ class FeedCommitGate {
   bool commit(
     FeedRequestContext context, {
     required String? accountId,
-    required int credentialRevision,
     required void Function() action,
     bool disposed = false,
   }) {
-    final reason = _reason(
-      context,
-      accountId: accountId,
-      credentialRevision: credentialRevision,
-      disposed: disposed,
-    );
+    final reason = _reason(context, accountId: accountId, disposed: disposed);
     if (reason != null) {
       _record(context, reason);
       return false;
@@ -140,16 +138,9 @@ class FeedCommitGate {
   bool isActive(
     FeedRequestContext context, {
     required String? accountId,
-    required int credentialRevision,
     bool disposed = false,
   }) {
-    return _reason(
-          context,
-          accountId: accountId,
-          credentialRevision: credentialRevision,
-          disposed: disposed,
-        ) ==
-        null;
+    return _reason(context, accountId: accountId, disposed: disposed) == null;
   }
 
   /// Returns whether [context] still owns the gate, ignoring the mutable
@@ -164,19 +155,13 @@ class FeedCommitGate {
   void discard(
     FeedRequestContext context, {
     required String? accountId,
-    required int credentialRevision,
     bool disposed = false,
     FeedDiscardReason? reason,
   }) {
     _record(
       context,
       reason ??
-          _reason(
-            context,
-            accountId: accountId,
-            credentialRevision: credentialRevision,
-            disposed: disposed,
-          ) ??
+          _reason(context, accountId: accountId, disposed: disposed) ??
           FeedDiscardReason.stale,
     );
   }
@@ -195,7 +180,6 @@ class FeedCommitGate {
   FeedDiscardReason? _reason(
     FeedRequestContext context, {
     required String? accountId,
-    required int credentialRevision,
     required bool disposed,
   }) {
     if (disposed) return FeedDiscardReason.disposed;
@@ -204,9 +188,6 @@ class FeedCommitGate {
       return FeedDiscardReason.stale;
     }
     if (context.accountId != accountId) return FeedDiscardReason.accountChanged;
-    if (context.credentialRevision != credentialRevision) {
-      return FeedDiscardReason.credentialChanged;
-    }
     return null;
   }
 

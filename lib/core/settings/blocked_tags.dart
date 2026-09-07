@@ -14,9 +14,14 @@ class BlockedTags extends Notifier<Set<String>> {
   }
 
   Future<void> _restore() async {
-    final prefs = await SharedPreferencesAsync().getStringList(_key);
-    if (prefs != null && state.isEmpty) {
-      state = Set.of(prefs);
+    try {
+      final prefs = await SharedPreferencesAsync().getStringList(_key);
+      if (prefs != null && state.isEmpty) {
+        state = Set.of(prefs);
+      }
+    } on Object {
+      // A blocked-tag read failure must never break discovery feeds that
+      // watch this provider; the list simply stays empty for this session.
     }
   }
 

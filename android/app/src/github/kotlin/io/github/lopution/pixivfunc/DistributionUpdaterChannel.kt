@@ -26,6 +26,13 @@ object DistributionUpdaterChannel {
     private const val UPDATE_DIRECTORY = "updates"
     private const val APK_MIME = "application/vnd.android.package-archive"
 
+    // Signature errors are diagnosable codes, never a collapsed `false` (R2).
+    private const val ERR_PUBLIC_KEY_MISSING = "public_key_missing"
+    private const val ERR_ALGORITHM_UNAVAILABLE = "algorithm_unavailable"
+    private const val ERR_SIGNATURE_MISMATCH = "signature_mismatch"
+    private const val ERR_MESSAGE_MISSING = "message_missing"
+    private const val ERR_SIGNATURE_MISSING = "signature_missing"
+
     fun configure(context: Context, engine: FlutterEngine) {
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -47,26 +54,47 @@ object DistributionUpdaterChannel {
             }
     }
 
-    private fun verifyManifestSignature(call: MethodCall): Boolean {
+    /**
+     * Verifies the manifest signature with SHA256withECDSA (P-256), the
+     * provider contract available since API 29 (D-3). Ed25519 is NOT available
+     * on API 29-32 and must never be used here. Returns a diagnosable result
+     * instead of a collapsed boolean.
+     */
+    private fun verifyManifestSignature(call: MethodCall): Map<String, Any> {
         val encodedKey = BuildConfig.UPDATE_PUBLIC_KEY_DER_B64.trim()
         val message = call.argument<ByteArray>("message")
         val signature = call.argument<ByteArray>("signature")
-        if (!BuildConfig.UPDATE_SELF_UPDATER_ENABLED || encodedKey.isEmpty() ||
-            message == null || message.isEmpty() || signature == null || signature.size != 64
-        ) {
-            return false
+        if (!BuildConfig.UPDATE_SELF_UPDATER_ENABLED) {
+            return mapOf("valid" to false, "errorCode" to ERR_PUBLIC_KEY_MISSING)
+        }
+        if (encodedKey.isEmpty()) {
+            return mapOf("valid" to false, "errorCode" to ERR_PUBLIC_KEY_MISSING)
+        }
+        if (message == null || message.isEmpty()) {
+            return mapOf("valid" to false, "errorCode" to ERR_MESSAGE_MISSING)
+        }
+        if (signature == null || signature.isEmpty()) {
+            return mapOf("valid" to false, "errorCode" to ERR_SIGNATURE_MISSING)
         }
         return try {
             val keyBytes = Base64.decode(encodedKey, Base64.DEFAULT)
-            val key = KeyFactory.getInstance("Ed25519")
+            val key = KeyFactory.getInstance("EC")
                 .generatePublic(X509EncodedKeySpec(keyBytes))
-            Signature.getInstance("Ed25519").run {
+            val algorithm = "SHA256withECDSA"
+            val valid = Signature.getInstance(algorithm).run {
                 initVerify(key)
                 update(message)
                 verify(signature)
             }
+            if (valid) {
+                mapOf("valid" to true)
+            } else {
+                mapOf("valid" to false, "errorCode" to ERR_SIGNATURE_MISMATCH)
+            }
+        } catch (_: java.security.NoSuchAlgorithmException) {
+            mapOf("valid" to false, "errorCode" to ERR_ALGORITHM_UNAVAILABLE)
         } catch (_: Exception) {
-            false
+            mapOf("valid" to false, "errorCode" to ERR_SIGNATURE_MISMATCH)
         }
     }
 

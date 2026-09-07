@@ -35,6 +35,7 @@ import 'helpers/illust_fixtures.dart';
 Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   int scriptedResponses = 4,
   Map<int, Map<String, dynamic>>? detailOverrides,
+  Map<int, List<Map<String, dynamic>>>? relatedOverrides,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -87,7 +88,20 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
         final override = detailOverrides?[id];
         return okJson({
           'illust':
-              override ?? illustJson(42, pageCount: 2, withMetaPages: true),
+              override ??
+              illustJson(
+                42,
+                pageCount: 2,
+                withMetaPages: true,
+                caption: '作品说明文字',
+              ),
+        });
+      }
+      if (request.url.path == '/v2/illust/related') {
+        final id = int.parse(request.url.queryParameters['illust_id']!);
+        return okJson({
+          'illusts': relatedOverrides?[id] ?? [],
+          'next_url': null,
         });
       }
       return http.Response('unexpected', 404);
@@ -230,10 +244,18 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(home: ImageViewerPage(urls: [])),
+        const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: ImageViewerPage(urls: []),
+        ),
       );
       await tester.pump();
-      expect(find.text('没有可显示的图片'), findsOneWidget);
+      expect(
+        find.text(ReplicaStrings.text(ReplicaLanguage.zhCN, 'viewerNoImages')),
+        findsOneWidget,
+      );
       expect(find.text('1 / 0'), findsOneWidget);
     }, skip: false);
 
@@ -314,7 +336,11 @@ void main() {
 
       await longPressImage(tester);
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.byTooltip('Download All'));
+        await tester.tap(
+          find.byTooltip(
+            ReplicaStrings.text(ReplicaLanguage.enUS, 'downloadAll'),
+          ),
+        );
         await tester.pump();
       });
 
@@ -397,11 +423,13 @@ void main() {
       });
 
       expect(manager.tasks.single.status, DownloadStatus.failed);
-      // Error state still shows the download icon (tap = retry).
-      expect(find.byIcon(Icons.file_download_outlined), findsNWidgets(2));
+      // Error state is visually distinct now: badge = error outline (tap =
+      // retry); the app-bar Download All icon stays a download icon.
+      expect(find.byIcon(Icons.file_download_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.error_outline), findsOneWidget);
 
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.byIcon(Icons.file_download_outlined).first);
+        await tester.tap(find.byIcon(Icons.error_outline));
         await tester.pump(const Duration(milliseconds: 100));
       });
       expect(
@@ -514,10 +542,12 @@ void main() {
           );
           expect(find.byKey(const Key('illust-author-avatar')), findsOneWidget);
           expect(
-            tester
-                .widget<CircleAvatar>(find.byType(CircleAvatar).first)
-                .backgroundImage,
-            isNotNull,
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget.runtimeType.toString() == 'PersonAvatar' &&
+                  (widget as dynamic).imageUrl != null,
+            ),
+            findsOneWidget,
             reason: 'the author avatar provider exists in the first frame',
           );
           // Hero destination exists on the first frame (feed -> detail flight).
@@ -534,6 +564,20 @@ void main() {
         });
       },
     );
+
+    testWidgets('detail artwork keeps the cold-load transition enabled', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+
+      final image = tester.widget<PixivImage>(find.byType(PixivImage).first);
+      expect(
+        image.fade,
+        isTrue,
+        reason: 'cold detail artwork should not appear abruptly',
+      );
+    });
 
     testWidgets(
       'U6: caption renders as rich clickable text, not literal HTML',
@@ -676,6 +720,95 @@ void main() {
           );
         }
       }
+    });
+  });
+
+  group('Related works (official detail-page section)', () {
+    testWidgets('renders the section title and related tiles', (tester) async {
+      final (container, _, _) = await makeWorld(
+        relatedOverrides: {
+          42: [illustJson(901, pageCount: 1), illustJson(902, pageCount: 1)],
+        },
+      );
+      await pumpDetail(tester, container);
+      // The section is a lazy sliver below the info block: scroll down so
+      // it builds, then let the related page resolve.
+      await mockNetworkImagesFor(() async {
+        await tester.drag(
+          find.byType(CustomScrollView),
+          const Offset(0, -1400),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.drag(
+          find.byType(CustomScrollView),
+          const Offset(0, -1400),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+      });
+
+      // Section appears below the caption/tags with the official title.
+      expect(find.text('Related works'), findsOneWidget);
+      expect(find.text('illust 901'), findsOneWidget);
+      expect(find.text('illust 902'), findsOneWidget);
+    });
+
+    testWidgets('tapping a related tile opens its own detail page', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        relatedOverrides: {
+          42: [illustJson(901, pageCount: 1)],
+        },
+      );
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        await tester.drag(
+          find.byType(CustomScrollView),
+          const Offset(0, -1400),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.drag(
+          find.byType(CustomScrollView),
+          const Offset(0, -1400),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+        // Ensure the tile is visible before tapping (it may sit below the
+        // fold after the second drag).
+        await tester.scrollUntilVisible(
+          find.text('illust 901'),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        // Tap the related card's image area (IllustCard's onTap covers the
+        // image; the title row below is not clickable).
+        final relatedHero = find.byWidgetPredicate(
+          (w) => w is Hero && '${w.tag}'.contains('901'),
+        );
+        await tester.tapAt(tester.getRect(relatedHero).center);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(const Duration(milliseconds: 350));
+      });
+      // A second detail page (901) is open on top of the original one.
+      // (skipOffstage: the freshly pushed route is still in transition.)
+      expect(
+        find.byType(IllustDetailPage, skipOffstage: false),
+        findsNWidgets(2),
+      );
+    });
+
+    testWidgets('empty related list hides the whole section', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        await tester.drag(
+          find.byType(CustomScrollView),
+          const Offset(0, -1400),
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+      });
+      expect(find.text('Related works'), findsNothing);
     });
   });
 }

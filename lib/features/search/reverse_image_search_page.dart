@@ -2,14 +2,19 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/replica_page_route.dart';
+import '../../core/platform/intent_router.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/reverse_image/reverse_image_controller.dart';
 import '../../core/reverse_image/reverse_image_external.dart';
 import '../../core/reverse_image/reverse_image_platform.dart';
 import '../../core/reverse_image/reverse_image_provider.dart';
+import '../../core/reverse_image/sauce_nao_navigation_policy.dart';
+import '../../core/reverse_image/sauce_nao_provider.dart';
 import '../illust/detail/illust_detail_page.dart';
+import '../profile/user_page.dart' show showUserPage;
 import 'search_text.dart';
 
 class ReverseImageSearchPage extends StatefulWidget {
@@ -41,10 +46,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
       platform: widget.platform ?? MethodChannelReverseImageInputPlatform(),
       provider:
           widget.provider ??
-          UnavailableReverseImageProvider(
-            reason:
-                'No approved structured reverse-image provider is configured',
-          ),
+          SauceNaoWebViewProvider(),
     )..addListener(_onControllerChanged);
     _externalLauncher =
         widget.externalLauncher ?? MethodChannelReverseImageExternalLauncher();
@@ -109,8 +111,20 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
       ),
       ReverseImageFlowStatus.ready => _ready(context, state),
       ReverseImageFlowStatus.failure => _failure(context, state),
-      ReverseImageFlowStatus.success => _results(context, state),
+      ReverseImageFlowStatus.success => state.webView != null
+          ? _sauceNaoWebView(context, state.webView!)
+          : _results(context, state),
     };
+  }
+
+  Widget _sauceNaoWebView(
+    BuildContext context,
+    ReverseImageSearchWebView webView,
+  ) {
+    return _ControlledSauceNaoWebView(
+      webView: webView,
+      onOpenExternal: _openExternal,
+    );
   }
 
   Widget _idle(BuildContext context) {
@@ -123,13 +137,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
           const Icon(Icons.image_search_outlined, size: 72),
           const SizedBox(height: 18),
           Text(
-            searchText(context, 'searchReverseUnavailable'),
-            style: Theme.of(context).textTheme.titleLarge,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            searchText(context, 'searchReverseUnavailableDetail'),
+            searchText(context, 'searchReverseIntro'),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -245,6 +253,8 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
     final message =
         failure.code == ReverseImageProviderFailureCode.providerUnavailable
         ? searchText(context, 'searchReverseUnavailableDetail')
+        : failure.code == ReverseImageProviderFailureCode.rateLimited
+        ? searchText(context, 'searchReverseRateLimited')
         : failure.message;
     return Center(
       child: Padding(
@@ -331,6 +341,141 @@ String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KiB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB';
+}
+
+/// Controlled SauceNAO result WebView (D1): navigates freely inside
+/// saucenao.com, routes Pixiv links into the app (detail / user pages),
+/// sends every other HTTPS link to the external launcher and rejects
+/// non-HTTPS navigation. Errors stay visible; the WebView never renders
+/// into an empty-looking success.
+class _ControlledSauceNaoWebView extends StatefulWidget {
+  const _ControlledSauceNaoWebView({
+    required this.webView,
+    required this.onOpenExternal,
+  });
+
+  final ReverseImageSearchWebView webView;
+  final Future<void> Function(Uri uri) onOpenExternal;
+
+  @override
+  State<_ControlledSauceNaoWebView> createState() =>
+      _ControlledSauceNaoWebViewState();
+}
+
+class _ControlledSauceNaoWebViewState
+    extends State<_ControlledSauceNaoWebView> {
+  late final WebViewController _controller;
+  String? _error;
+  double? _progress;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (progress) {
+            if (mounted) setState(() => _progress = progress / 100.0);
+          },
+          onNavigationRequest: _onNavigationRequest,
+          onWebResourceError: (error) {
+            if (error.isForMainFrame == true && mounted) {
+              setState(() {
+                _error =
+                    '${searchText(context, 'searchReversePageLoadFailed')} '
+                    '(${error.errorType})';
+              });
+            }
+          },
+        ),
+      );
+    final result = widget.webView;
+    if (result.html != null) {
+      _controller.loadHtmlString(
+        result.html!,
+        baseUrl: SauceNaoWebViewProvider.defaultEndpoint,
+      );
+    } else {
+      _controller.loadRequest(result.resultUrl!);
+    }
+  }
+
+  NavigationDecision _onNavigationRequest(NavigationRequest request) {
+    final action = SauceNaoNavigationPolicy.decide(Uri.tryParse(request.url));
+    switch (action) {
+      case SauceNaoNavigationAction.navigate:
+        return NavigationDecision.navigate;
+      case SauceNaoNavigationAction.openIllust:
+        final id = _illustId(request.url);
+        if (id != null) {
+          Navigator.of(context).push<void>(
+            ReplicaPageRoute<void>(
+              builder: (_) => IllustDetailPage(illustId: id),
+            ),
+          );
+        } else {
+          unawaited(widget.onOpenExternal(Uri.parse(request.url)));
+        }
+        return NavigationDecision.prevent;
+      case SauceNaoNavigationAction.openUser:
+        final id = _userId(request.url);
+        if (id != null) {
+          showUserPage(context, id);
+        } else {
+          unawaited(widget.onOpenExternal(Uri.parse(request.url)));
+        }
+        return NavigationDecision.prevent;
+      case SauceNaoNavigationAction.openExternal:
+        final uri = Uri.tryParse(request.url);
+        if (uri != null) unawaited(widget.onOpenExternal(uri));
+        return NavigationDecision.prevent;
+      case SauceNaoNavigationAction.reject:
+        return NavigationDecision.prevent;
+    }
+  }
+
+  static int? _illustId(String url) {
+    final route = IntentRouter.route(Uri.parse(url));
+    return switch (route) {
+      IllustRoute(:final illustId) => illustId,
+      _ => null,
+    };
+  }
+
+  static int? _userId(String url) {
+    final route = IntentRouter.route(Uri.parse(url));
+    return switch (route) {
+      UserRoute(:final userId) => userId,
+      _ => null,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 56),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(_error!, textAlign: TextAlign.center),
+            ),
+          ],
+        ),
+      );
+    }
+    return Stack(
+      children: [
+        WebViewWidget(controller: _controller),
+        if (_progress != null && _progress! < 1.0)
+          LinearProgressIndicator(value: _progress, minHeight: 2),
+      ],
+    );
+  }
 }
 
 void showReverseImageSearch(

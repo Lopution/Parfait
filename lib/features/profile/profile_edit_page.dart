@@ -27,7 +27,8 @@ String _profileEditText(BuildContext context, String key) {
 
 /// The current-account beta56 profile editor. The repository is injectable so
 /// the form and ownership contract can be tested without changing a live
-/// account; production defaults to the authenticated read-only adapter.
+/// account; production uses the in-app profile transport selected by the
+/// repository (the form never opens a separate web editor).
 class ProfileEditPage extends ConsumerStatefulWidget {
   const ProfileEditPage({
     super.key,
@@ -111,10 +112,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
 
   ProfileEditOwner _readOwner() {
     final state = ref.read(accountStoreProvider).asData?.value;
-    return ProfileEditOwner(
-      accountId: state?.usableCurrent?.id ?? '',
-      credentialRevision: state?.credentialRevision ?? -1,
-    );
+    return ProfileEditOwner(accountId: state?.usableCurrent?.id ?? '');
   }
 
   Future<void> _attemptPop() async {

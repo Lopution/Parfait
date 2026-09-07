@@ -43,6 +43,13 @@ const Map<String, Set<String>> kNextPageEndpoints = {
   '/v2/illust/follow': {'filter', 'restrict', 'offset'},
   '/v2/illust/mypixiv': {'filter', 'offset'},
   '/v1/illust/new': {'filter', 'content_type', 'offset'},
+  '/v2/illust/related': {
+    'illust_id',
+    'filter',
+    'offset',
+    'seed_illust_ids[]',
+    'viewed[]',
+  },
   '/v1/illust/ranking': {'filter', 'mode', 'date', 'offset'},
   '/v1/search/illust': {
     'word',

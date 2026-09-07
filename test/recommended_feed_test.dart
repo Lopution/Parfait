@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -328,6 +330,74 @@ void main() {
       expect(image.height, greaterThan(700));
     },
   );
+
+  testWidgets('IllustCard keeps the artwork loading transition enabled', (
+    tester,
+  ) async {
+    final (container, _) = await makeWorld();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: SizedBox(
+                  width: 300,
+                  child: IllustCard(
+                    entity: parseIllust(
+                      illustJson(9, width: 800, height: 1200),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    });
+
+    final image = tester.widget<PixivImage>(find.byType(PixivImage).first);
+    expect(
+      image.fade,
+      isTrue,
+      reason: 'cold feed artwork should use a visible loading transition',
+    );
+  });
+
+  testWidgets('IllustCard hands quality changes off gaplessly', (tester) async {
+    final (container, _) = await makeWorld();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 300,
+                child: IllustCard(
+                  entity: parseIllust(illustJson(10, width: 800, height: 1200)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    });
+
+    final cached = tester.widget<CachedNetworkImage>(
+      find.byType(CachedNetworkImage).first,
+    );
+    expect(
+      cached.useOldImageOnUrlChange,
+      isTrue,
+      reason: 'every quality URL change must retain the previous decoded frame',
+    );
+  });
 
   testWidgets('IllustCard includes its live page scope in the Hero tag', (
     tester,

@@ -176,7 +176,6 @@ class ProfileDraft {
   ProfileDraft({
     required this.accountId,
     required this.userId,
-    required this.credentialRevision,
     required this.base,
     required this.values,
     required this.capabilities,
@@ -187,7 +186,6 @@ class ProfileDraft {
 
   factory ProfileDraft.fromUser({
     required String accountId,
-    required int credentialRevision,
     required UserEntity user,
     required ProfileCapabilities capabilities,
   }) {
@@ -195,7 +193,6 @@ class ProfileDraft {
     return ProfileDraft(
       accountId: accountId,
       userId: user.id,
-      credentialRevision: credentialRevision,
       base: values,
       values: values,
       capabilities: capabilities,
@@ -204,7 +201,6 @@ class ProfileDraft {
 
   final String accountId;
   final int userId;
-  final int credentialRevision;
   final ProfileValues base;
   final ProfileValues values;
   final ProfileCapabilities capabilities;
@@ -239,7 +235,6 @@ class ProfileDraft {
     return ProfilePatch(
       accountId: accountId,
       userId: userId,
-      credentialRevision: credentialRevision,
       textFields: textFields,
       images: images,
     );
@@ -254,7 +249,6 @@ class ProfileDraft {
     return ProfileDraft(
       accountId: accountId,
       userId: userId,
-      credentialRevision: credentialRevision,
       base: base,
       values: values ?? this.values,
       capabilities: capabilities,
@@ -279,7 +273,6 @@ class ProfilePatch {
   ProfilePatch({
     required this.accountId,
     required this.userId,
-    required this.credentialRevision,
     required Map<ProfileField, String?> textFields,
     required Map<ProfileField, ProfileImageSelection> images,
   }) : textFields = Map.unmodifiable(textFields),
@@ -287,7 +280,6 @@ class ProfilePatch {
 
   final String accountId;
   final int userId;
-  final int credentialRevision;
   final Map<ProfileField, String?> textFields;
   final Map<ProfileField, ProfileImageSelection> images;
 
@@ -395,17 +387,13 @@ abstract interface class ProfileEditRepository {
 
 @immutable
 class ProfileEditOwner {
-  const ProfileEditOwner({
-    required this.accountId,
-    required this.credentialRevision,
-  });
+  const ProfileEditOwner({required this.accountId});
 
+  /// C1: the owner is the stable account; a token refresh or profile
+  /// metadata update inside the same account never shelves a draft.
   final String accountId;
-  final int credentialRevision;
 
-  bool matches(ProfileEditOwner other) =>
-      accountId == other.accountId &&
-      credentialRevision == other.credentialRevision;
+  bool matches(ProfileEditOwner other) => accountId == other.accountId;
 }
 
 enum ProfileEditFailureCode {

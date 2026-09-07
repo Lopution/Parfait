@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/account_store.dart';
+import '../../core/i18n/replica_strings.dart';
 import '../../core/settings/app_settings.dart';
 import '../home/home_page.dart';
 import '../login/login_page.dart';
@@ -16,10 +17,7 @@ import 'welcome_page.dart';
 /// Hydration failures surface an explicit retryable error instead of silently
 /// degrading to the no-account branch.
 class StartupGate extends ConsumerWidget {
-  const StartupGate({
-    super.key,
-    required this.settings,
-  });
+  const StartupGate({super.key, required this.settings});
 
   final AppSettings settings;
 
@@ -37,7 +35,7 @@ class StartupGate extends ConsumerWidget {
           return _StartupError(error: state.error ?? 'unknown account error');
         }
         return state.usableCurrent == null
-            ? const LoginPage()
+            ? const LoginPage(returnToHomeOnSuccess: true)
             : const HomePage();
       },
     );
@@ -49,9 +47,7 @@ class _StartupProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 
@@ -62,6 +58,10 @@ class _StartupError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String text(String key) => ReplicaStrings.fromTag(
+      Localizations.localeOf(context).toLanguageTag(),
+      key,
+    );
     return Scaffold(
       body: Center(
         child: Padding(
@@ -71,17 +71,19 @@ class _StartupError extends StatelessWidget {
             children: [
               const Icon(Icons.error_outline, size: 48),
               const SizedBox(height: 16),
-              const Text('启动时读取账号状态失败'),
+              Text(text('accountReadFailed')),
               const SizedBox(height: 8),
-              Text('$error',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center),
+              Text(
+                '$error',
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               Consumer(
                 builder: (context, ref, _) => TextButton(
                   onPressed: () =>
                       ref.read(accountStoreProvider.notifier).reload(),
-                  child: const Text('重试'),
+                  child: Text(text('retry')),
                 ),
               ),
             ],

@@ -8,10 +8,13 @@ import 'recommended/recommended_home_page.dart';
 
 import '../../app/icons/app_icons.dart';
 import '../../core/navigation/route_observer.dart';
+import '../../core/i18n/replica_strings.dart';
 import '../../core/platform/android_intent_channel.dart';
+import '../../core/navigation/home_shell_metrics.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../core/reverse_image/image_input.dart';
+import '../profile/user_page.dart' show showUserPage;
 import '../illust/detail/illust_detail_page.dart';
 import '../new/new_page.dart';
 import '../ranking/ranking_page.dart';
@@ -30,9 +33,22 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with WidgetsBindingObserver, RouteAware {
-  int index = 0;
+    with WidgetsBindingObserver, RouteAware, SingleTickerProviderStateMixin {
+  late final TabController _navController;
+
+  /// C7: only tabs the user actually opened are built (and kept alive).
+  /// IndexedStack still preserves the scroll position and controller state
+  /// of every visited tab; unvisited tabs issue no feed requests at cold
+  /// start.
+  final Set<int> _visitedTabs = {0};
+  late final List<Widget?> _tabChildren = List<Widget?>.filled(
+    pages.length,
+    null,
+  );
+
   late final RootBackCoordinator _backCoordinator;
+  final GlobalKey _bottomNavKey = GlobalKey();
+  bool _bottomNavMeasureScheduled = false;
   late final AndroidIntentSource _intentSource;
   StreamSubscription<AndroidIntentResult>? _intentSubscription;
   bool _routeSubscribed = false;
@@ -42,9 +58,20 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
     _backCoordinator = RootBackCoordinator();
+    // The bottom row is a real TabBar (same machinery as the top tabs):
+    // selected indicator slides, ink ripples and icon colors all inherit
+    // the TabBar behaviour instead of a hand-rolled approximation.
+    _navController = TabController(
+      length: pages.length,
+      vsync: this,
+      initialIndex: 0,
+    )..addListener(_onNavChanged);
     _intentSource =
         widget.intentSource ?? const MethodChannelAndroidIntentSource();
     WidgetsBinding.instance.addObserver(this);
+    // Publish the real bottom-row height so the Hero flight can clip
+    // against the actual chrome instead of a guessed constant.
+    _scheduleBottomNavMeasure();
     _intentSubscription = _intentSource.onNewIntent.listen(
       _handleExternalIntent,
       onError: _handleExternalIntentStreamError,
@@ -72,12 +99,21 @@ class _HomePageState extends State<HomePage>
   }
 
   @override
+  void didChangeMetrics() => _scheduleBottomNavMeasure();
+
+  @override
   void dispose() {
     if (_routeSubscribed) replicaRouteObserver.unsubscribe(this);
     unawaited(_intentSubscription?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     _backCoordinator.dispose();
+    _navController.dispose();
     super.dispose();
+  }
+
+  void _onNavChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _readInitialIntent() async {
@@ -142,10 +178,41 @@ class _HomePageState extends State<HomePage>
               ),
             ),
           );
+        } else if (route is UserRoute && mounted) {
+          // C8: user deep links (pixivfunc://users/<id>, /u/<id>,
+          // /users/<id>, user.php?id=<id>) were parsed but silently dropped;
+          // route them into the existing user page like the detail page does.
+          showUserPage(context, route.userId);
         }
       case IgnoredAndroidIntent():
         break;
     }
+  }
+
+  void _measureBottomNav(Duration _) {
+    final box = _bottomNavKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize && box.size.height > 0) {
+      final origin = box.localToGlobal(Offset.zero);
+      HomeShellMetrics.bottomNavTop = origin.dy;
+      HomeShellMetrics.bottomNavHeight = box.size.height;
+    }
+  }
+
+  void _scheduleBottomNavMeasure() {
+    if (_bottomNavMeasureScheduled) return;
+    _bottomNavMeasureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((timestamp) {
+      _bottomNavMeasureScheduled = false;
+      if (mounted) _measureBottomNav(timestamp);
+    });
+  }
+
+  void _selectTab(int i) {
+    // TabBar already calls TabController.animateTo before invoking onTap.
+    // Starting a second animation here resets the indicator/body flight and
+    // makes a fast tap feel like it briefly stalls. The callback only owns
+    // lazy construction bookkeeping.
+    if (_visitedTabs.add(i) && mounted) setState(() {});
   }
 
   void _showExternalIntentFailure() {
@@ -174,7 +241,12 @@ class _HomePageState extends State<HomePage>
           // 1-second window the hint describes.
           ..showSnackBar(
             SnackBar(
-              content: const Text('再按一次退出'),
+              content: Text(
+                ReplicaStrings.fromTag(
+                  Localizations.localeOf(context).toLanguageTag(),
+                  'homeExitHint',
+                ),
+              ),
               duration: RootBackCoordinator.exitWindow,
               behavior: SnackBarBehavior.floating,
             ),
@@ -210,36 +282,42 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
+    _scheduleBottomNavMeasure();
+    for (final i in _visitedTabs) {
+      _tabChildren[i] ??= pages[i];
+    }
+    final index = _navController.index;
+    final children = [
+      for (var i = 0; i < pages.length; i++)
+        _tabChildren[i] ?? const SizedBox.shrink(),
+    ];
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
       child: Scaffold(
-        body: IndexedStack(index: index, children: pages),
-        bottomNavigationBar: BottomAppBar(
+        body: IndexedStack(index: index, children: children),
+        bottomNavigationBar: SizedBox(
+          key: _bottomNavKey,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              children: List.generate(icons.length, (i) {
-                return Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => setState(() => index = i),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 5,
-                        horizontal: 10,
-                      ),
-                      child: Icon(
-                        icons[i],
-                        size: 35,
-                        color: index == i
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
-                      ),
-                    ),
-                  ),
-                );
-              }),
+            // Leave a small, real hit-target margin above the gesture area.
+            // Translating only the pixels made the bar look higher while its
+            // semantic/touch bounds stayed at the very bottom of the screen.
+            padding: const EdgeInsets.only(bottom: 8),
+            child: BottomAppBar(
+              // A real TabBar: same sliding indicator, ripple and colour
+              // behaviour as the top TabBar row — full behavioural parity.
+              child: TabBar(
+                controller: _navController,
+                // Keep the C7 lazy-build set in sync with the tapped tab.
+                onTap: (i) => _selectTab(i),
+                indicatorSize: TabBarIndicatorSize.label,
+                indicatorPadding: const EdgeInsets.only(bottom: 5),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 2),
+                tabs: [
+                  for (var i = 0; i < icons.length; i++)
+                    Tab(icon: Icon(icons[i], size: 30)),
+                ],
+              ),
             ),
           ),
         ),

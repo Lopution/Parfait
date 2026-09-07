@@ -196,7 +196,7 @@ UpdateReleaseAsset _parseAsset(Object? value) {
     'signingCertificateSha256',
   }, 'asset_keys');
   final url = _strictHttpsUri(_string(map['url'], 'asset_url'));
-  if (!isStrictUpdateAssetUrl(url)) {
+  if (!isStrictUpdateManifestAssetUrl(url)) {
     throw const UpdateManifestFormatException('asset_url');
   }
   final exactSize = _positiveInt(map['size'], 'asset_size');

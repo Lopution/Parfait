@@ -27,7 +27,10 @@ class BookmarkRepository {
       PixivClientIdentity.appApiBase.replace(path: '/v2/illust/bookmark/add'),
       body: {'illust_id': '$id', 'restrict': bookmarkRestrictWire(restrict)},
       cancelToken: cancelToken,
-      allowAuthReplay: false,
+      // C2: an explicit auth rejection (401 / 400 invalid_grant) refreshes
+      // the credential and replays this operation exactly once; timeouts
+      // and unknown outcomes never replay.
+      allowAuthReplay: true,
     );
     _ensureSuccess(response);
   }
@@ -39,7 +42,7 @@ class BookmarkRepository {
       ),
       body: {'illust_id': '$id'},
       cancelToken: cancelToken,
-      allowAuthReplay: false,
+      allowAuthReplay: true,
     );
     _ensureSuccess(response);
   }

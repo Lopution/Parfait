@@ -10,6 +10,7 @@ import '../auth/credential.dart';
 import '../auth/credential_store.dart';
 import '../auth/oauth_service.dart';
 import '../auth/token_refresh_gate.dart';
+import '../settings/settings_controller.dart';
 import 'api_error.dart';
 import 'compat/network_contracts.dart';
 import 'compat/network_providers.dart';
@@ -43,8 +44,10 @@ class CancelToken implements NetworkCancelSignal {
 /// - On 401: compares the used token with the stored token and goes through
 ///   the per-account single-flight [TokenRefreshGate]; each request retries
 ///   at most once. Invalid refreshes mark the account re-auth-required.
-/// - TLS stays strict: transport errors (including certificate failures)
-///   surface as [ApiNetworkError] and are never downgraded.
+/// - Transport selection stays centralized in [NetworkAccessPolicy]. The
+///   production fast tier is an internal PixEz-compatible route; strict
+///   routes remain available as the policy fallback. Transport errors surface
+///   as [ApiNetworkError] and are never hidden.
 class PixivHttpClient {
   PixivHttpClient({
     http.Client? client,
@@ -70,6 +73,7 @@ class PixivHttpClient {
   final TokenRefreshGate _refreshGate;
   final String languageTag;
   final Duration requestTimeout;
+  final Map<_GetRequestFlightKey, Future<http.Response>> _getFlights = {};
 
   Future<Map<String, dynamic>> getJson(
     Uri uri, {
@@ -132,9 +136,13 @@ class PixivHttpClient {
     Map<String, String> body = const {},
     CancelToken? cancelToken,
 
-    /// A non-idempotent mutation may refresh the shared credential, but its
-    /// request body must never be replayed automatically.
-    bool allowAuthReplay = true,
+    /// C2: a non-idempotent mutation participates in the single replay
+    /// entry point only when it opts in. On an explicit auth rejection
+    /// (401, or 400 `invalid_grant`) the credential is refreshed and the
+    /// original operation is sent at most once more; timeouts, resets and
+    /// unknown outcomes never replay here (the transport ladder does not
+    /// replay POSTs either). Nothing is replayed a second time.
+    bool allowAuthReplay = false,
   }) => _send(
     uri,
     method: 'POST',
@@ -244,7 +252,51 @@ class PixivHttpClient {
     }
   }
 
+  /// Shares only uncancelled GETs. A caller with a cancellation token keeps an
+  /// independent request so cancelling one view cannot cancel another view's
+  /// network work. The key includes the bearer token, preventing a response
+  /// from crossing an account/credential boundary during refresh.
   Future<http.Response> _issue(
+    Uri uri,
+    String method,
+    Map<String, String> body,
+    String accessToken, {
+    CancelToken? cancelToken,
+  }) {
+    if (method != 'GET' || cancelToken != null) {
+      return _issueOnce(
+        uri,
+        method,
+        body,
+        accessToken,
+        cancelToken: cancelToken,
+      );
+    }
+    final key = _GetRequestFlightKey(uri, accessToken);
+    final pending = _getFlights[key];
+    if (pending != null) return pending;
+    final future = _issueOnce(
+      uri,
+      method,
+      body,
+      accessToken,
+      cancelToken: cancelToken,
+    );
+    _getFlights[key] = future;
+    unawaited(
+      future.then<void>(
+        (_) {
+          if (identical(_getFlights[key], future)) _getFlights.remove(key);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (identical(_getFlights[key], future)) _getFlights.remove(key);
+        },
+      ),
+    );
+    return future;
+  }
+
+  Future<http.Response> _issueOnce(
     Uri uri,
     String method,
     Map<String, String> body,
@@ -365,10 +417,32 @@ class PixivHttpClient {
 
 final pixivHttpClientProvider = Provider<PixivHttpClient>((ref) {
   final network = ref.watch(pixivNetworkFactoryProvider);
+  // C10: the Pixiv API follows the UI language. The client is rebuilt when
+  // the setting changes so every request carries the current language tag.
+  final languageTag = ref.watch(
+    settingsProvider.select((async) => async.value?.languageTag ?? 'zh-CN'),
+  );
   return PixivHttpClient(
     client: network.client(PixivDestinationPurpose.appApi),
     accountStore: ref.watch(accountStoreProvider.notifier),
     credentialStore: ref.watch(credentialStoreProvider),
     oauthService: ref.watch(oauthServiceProvider),
+    languageTag: languageTag,
   );
 });
+
+class _GetRequestFlightKey {
+  const _GetRequestFlightKey(this.uri, this.accessToken);
+
+  final Uri uri;
+  final String accessToken;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _GetRequestFlightKey &&
+      other.uri == uri &&
+      other.accessToken == accessToken;
+
+  @override
+  int get hashCode => Object.hash(uri, accessToken);
+}

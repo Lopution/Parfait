@@ -12,36 +12,69 @@ class WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
+    final languageTag = Localizations.localeOf(context).toLanguageTag();
     return ReplicaScaffold(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: width * .1),
-        child: Column(
-          children: [
-            const Spacer(),
-            Text(
-              ReplicaStrings.text(ReplicaLanguage.zhCN, 'welcome1'),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              ReplicaStrings.text(ReplicaLanguage.zhCN, 'welcome2'),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const Spacer(flex: 2),
-            SizedBox(
-              width: double.infinity,
-              child: ReplicaButton(
-                label: '开始',
-                backgroundColor: FuncTokens.primary,
-                foregroundColor: Colors.white,
-                onPressed: () => Navigator.of(context).push(
-                  replicaRoute((context) => const LanguagePage()),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final horizontal = (constraints.maxWidth * .1).clamp(24.0, 48.0);
+          final minHeight = (constraints.maxHeight - 48).clamp(
+            0.0,
+            double.infinity,
+          );
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 520,
+                  minHeight: minHeight,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 48),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          ReplicaStrings.fromTag(languageTag, 'welcome1'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          ReplicaStrings.fromTag(languageTag, 'welcome2'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 48),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ReplicaButton(
+                        label: ReplicaStrings.fromTag(languageTag, 'start'),
+                        backgroundColor: FuncTokens.primary,
+                        foregroundColor: Colors.white,
+                        onPressed: () => Navigator.of(context).push(
+                          replicaRoute((context) => const LanguagePage()),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
             ),
-            const Spacer(),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

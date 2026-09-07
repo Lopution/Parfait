@@ -35,7 +35,6 @@ void main() {
     final draft =
         ProfileDraft.fromUser(
           accountId: '42',
-          credentialRevision: 7,
           user: user,
           capabilities: capabilities,
         ).copyWith(
@@ -162,7 +161,6 @@ void main() {
     final submit = controller.submit();
     active = const ProfileEditOwner(
       accountId: 'account-b',
-      credentialRevision: 8,
     );
     response.complete(ProfileEditConfirmed(_user().copyWith(name: 'wrong')));
     await submit;
@@ -397,7 +395,6 @@ UserEntity _user() => const UserEntity(
 
 ProfileEditOwner _owner() => const ProfileEditOwner(
   accountId: 'account-a',
-  credentialRevision: 7,
 );
 
 class _FakeRepository implements ProfileEditRepository {

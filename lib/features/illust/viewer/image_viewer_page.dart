@@ -2,16 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../core/i18n/replica_strings.dart';
 
 /// Fullscreen horizontal viewer replicating beta56 ImageScalePage
 /// (R3): `n / total` title, horizontal paging, per-page zoom clamped to
 /// 0.9–6.0, initial page restored, swiping suspended while zoomed.
 class ImageViewerPage extends StatefulWidget {
-  const ImageViewerPage({
-    super.key,
-    required this.urls,
-    this.initialPage = 0,
-  }) : assert(initialPage >= 0);
+  const ImageViewerPage({super.key, required this.urls, this.initialPage = 0})
+    : assert(initialPage >= 0);
 
   final List<String> urls;
   final int initialPage;
@@ -36,8 +34,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     super.initState();
     // Empty URL list has no pages to clamp against; keep the title at
     // "1 / 0" and let the placeholder body render (R6: no crash).
-    _activePage =
-        _pageCount == 0 ? 0 : widget.initialPage.clamp(0, _pageCount - 1);
+    _activePage = _pageCount == 0
+        ? 0
+        : widget.initialPage.clamp(0, _pageCount - 1);
     _pageController = PageController(initialPage: _activePage);
     _pageController.addListener(_onPageChanged);
     _transformationFor(_activePage).addListener(_onTransformed);
@@ -86,6 +85,10 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
   @override
   Widget build(BuildContext context) {
+    String text(String key) => ReplicaStrings.fromTag(
+      Localizations.localeOf(context).toLanguageTag(),
+      key,
+    );
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -94,9 +97,11 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         title: Text('${_activePage + 1} / $_pageCount'),
       ),
       body: _pageCount == 0
-          ? const Center(
-              child:
-                  Text('没有可显示的图片', style: TextStyle(color: Colors.white)),
+          ? Center(
+              child: Text(
+                text('viewerNoImages'),
+                style: const TextStyle(color: Colors.white),
+              ),
             )
           : PageView.builder(
               controller: _pageController,

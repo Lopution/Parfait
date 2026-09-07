@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/replica_page_route.dart';
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/replica_empty_state.dart';
 import '../../core/comments/comment_actions.dart';
 import '../../core/comments/comment_feed_controller.dart';
 import '../../core/comments/comment_models.dart';
@@ -305,7 +306,13 @@ class _CommentFeedView extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (comments.isEmpty && feed.isEmptyAndReady) {
-          return Center(child: Text(commentText(context, 'commentNoResults')));
+          return ReplicaEmptyState(
+            message: commentText(context, 'commentNoResults'),
+            retryLabel: commentText(context, 'retry'),
+            onRetry: () =>
+                ref.read(commentFeedProvider(query).notifier).refresh(),
+            icon: Icons.comment_outlined,
+          );
         }
         return PullToRefresh(
           onRefresh: () =>

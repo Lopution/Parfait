@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import '../platform/android_platform_interfaces.dart';
+import '../platform/saf_tree.dart';
+import 'download_destination.dart';
 import 'download_recovery.dart';
 import 'download_request.dart';
 
@@ -20,7 +22,11 @@ abstract class DownloadSink {
 /// Creates sinks for submitted requests (R4 naming/MIME/dir decisions live
 /// in the request normalization + factory).
 abstract class DownloadSinkFactory {
-  Future<DownloadSink> begin(DownloadRequest request, String displayName);
+  Future<DownloadSink> begin(
+    DownloadRequest request,
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  });
 }
 
 /// Optional extension for factories that can register the opaque owner with
@@ -30,8 +36,9 @@ abstract interface class OwnedDownloadSinkFactory {
   Future<DownloadSink> beginOwned(
     DownloadRequest request,
     String displayName,
-    DownloadOutputOwner owner,
-  );
+    DownloadOutputOwner owner, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  });
 }
 
 /// Optional sink metadata used to persist/recover a pending platform row.
@@ -60,24 +67,30 @@ class MediaStoreSinkFactory
   final MediaStoreSession _session;
 
   @override
-  Future<DownloadSink> begin(DownloadRequest request, String displayName) =>
-      _begin(request, displayName);
+  Future<DownloadSink> begin(
+    DownloadRequest request,
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) => _begin(request, displayName, destination);
 
   @override
   Future<DownloadSink> beginOwned(
     DownloadRequest request,
     String displayName,
-    DownloadOutputOwner owner,
-  ) async {
+    DownloadOutputOwner owner, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async {
     final handle = _session is OwnedMediaStoreSession
         ? await (_session as OwnedMediaStoreSession).beginOwned(
             displayName: displayName,
             mimeType: request.mimeType,
             owner: owner,
+            relativePath: _relativePathFor(destination),
           )
         : await _session.begin(
             displayName: displayName,
             mimeType: request.mimeType,
+            relativePath: _relativePathFor(destination),
           );
     return _MediaStoreSink(handle);
   }
@@ -85,12 +98,25 @@ class MediaStoreSinkFactory
   Future<DownloadSink> _begin(
     DownloadRequest request,
     String displayName,
+    DownloadDestination destination,
   ) async {
     final handle = await _session.begin(
       displayName: displayName,
       mimeType: request.mimeType,
+      relativePath: _relativePathFor(destination),
     );
     return _MediaStoreSink(handle);
+  }
+
+  /// D5: built-in album is the platform default; a custom album adds one
+  /// `Pictures/<name>` segment after platform-side normalization.
+  static String? _relativePathFor(DownloadDestination destination) {
+    return switch (destination.kind) {
+      DownloadDestinationKind.pixivAlbum => null,
+      DownloadDestinationKind.customAlbum =>
+        'Pictures/${destination.customAlbumName ?? 'PixivFunc'}',
+      DownloadDestinationKind.safFolder => null,
+    };
   }
 
   @override
@@ -195,8 +221,9 @@ class MemorySinkFactory
   @override
   Future<DownloadSink> begin(
     DownloadRequest request,
-    String displayName,
-  ) async {
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async {
     final sink = MemorySink();
     sinks.add(sink);
     return sink;
@@ -206,6 +233,110 @@ class MemorySinkFactory
   Future<DownloadSink> beginOwned(
     DownloadRequest request,
     String displayName,
-    DownloadOutputOwner owner,
-  ) => begin(request, displayName);
+    DownloadOutputOwner owner, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) => begin(request, displayName, destination: destination);
+}
+
+/// SAF-backed sink writing into a persisted tree URI (D5).
+class SafDownloadSink implements DownloadSink {
+  SafDownloadSink(this._doc, {required this.owner});
+
+  final SafDocumentSink _doc;
+  final DownloadOutputOwner? owner;
+  bool _closed = false;
+
+  @override
+  Future<void> write(List<int> bytes) {
+    if (_closed) throw StateError('saf sink is closed');
+    return _doc.write(bytes);
+  }
+
+  @override
+  Future<String> finalize() async {
+    if (_closed) throw StateError('saf sink is closed');
+    await _doc.close();
+    _closed = true;
+    // A SAF document has no MediaStore pending row; the document URI itself
+    // is the durable result once the stream closes.
+    return _doc.uri;
+  }
+
+  @override
+  Future<void> abort() async {
+    if (_closed) return;
+    _closed = true;
+    // Best effort: remove the document so cancellation/failure cannot leave a
+    // partial file in the user's selected tree.
+    try {
+      await _doc.close();
+    } on Object {
+      // Cleanup must never mask the original failure.
+    }
+    try {
+      await _doc.delete();
+    } on Object {
+      // Cleanup must never mask the original failure.
+    }
+  }
+}
+
+/// Routes one submission to the MediaStore album path or the SAF tree path
+/// based on the persisted destination (D5). The requested target is
+/// normalized once here; neither path accepts raw filesystem paths.
+class DestinationAwareSinkFactory
+    implements DownloadSinkFactory, OwnedDownloadSinkFactory {
+  DestinationAwareSinkFactory({
+    required MediaStoreSinkFactory mediaStore,
+    required SafDocumentSinkFactory saf,
+  }) : _mediaStore = mediaStore,
+       _saf = saf;
+
+  final MediaStoreSinkFactory _mediaStore;
+  final SafDocumentSinkFactory _saf;
+
+  @override
+  Future<DownloadSink> begin(
+    DownloadRequest request,
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) {
+    if (destination.isSafFolder) {
+      return _beginSaf(request, displayName, null, destination);
+    }
+    return _mediaStore.begin(request, displayName, destination: destination);
+  }
+
+  @override
+  Future<DownloadSink> beginOwned(
+    DownloadRequest request,
+    String displayName,
+    DownloadOutputOwner owner, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) {
+    if (destination.isSafFolder) {
+      return _beginSaf(request, displayName, owner, destination);
+    }
+    return _mediaStore.beginOwned(
+      request,
+      displayName,
+      owner,
+      destination: destination,
+    );
+  }
+
+  Future<DownloadSink> _beginSaf(
+    DownloadRequest request,
+    String displayName,
+    DownloadOutputOwner? owner,
+    DownloadDestination effective,
+  ) async {
+    final doc = await _saf.create(
+      treeUri: effective.safTreeUri ?? '',
+      displayName: displayName,
+      mimeType: request.mimeType,
+      owner: owner,
+    );
+    return SafDownloadSink(doc, owner: owner);
+  }
 }

@@ -37,6 +37,7 @@ class ReverseImageFlowState {
     required this.status,
     this.input,
     this.results = const [],
+    this.webView,
     this.failure,
   });
 
@@ -44,11 +45,15 @@ class ReverseImageFlowState {
     : status = ReverseImageFlowStatus.idle,
       input = null,
       results = const [],
+      webView = null,
       failure = null;
 
   final ReverseImageFlowStatus status;
   final ReverseImageInputInfo? input;
   final List<ReverseImageHit> results;
+
+  /// SauceNAO-style service-rendered result page (D1). Only set on success.
+  final ReverseImageSearchWebView? webView;
   final ReverseImageFlowFailure? failure;
 }
 
@@ -209,6 +214,17 @@ class ReverseImageSearchController extends ChangeNotifier {
             results: hits,
           ),
         );
+      case ReverseImageSearchWebView(:final html, :final resultUrl):
+        _setState(
+          ReverseImageFlowState(
+            status: ReverseImageFlowStatus.success,
+            webView: ReverseImageSearchWebView(
+              html: html,
+              resultUrl: resultUrl,
+              observedAt: _nowIso(),
+            ),
+          ),
+        );
       case ReverseImageSearchFailure(
         :final code,
         :final message,
@@ -348,4 +364,6 @@ class ReverseImageSearchController extends ChangeNotifier {
     _state = value;
     notifyListeners();
   }
+
+  static String _nowIso() => DateTime.now().toIso8601String();
 }

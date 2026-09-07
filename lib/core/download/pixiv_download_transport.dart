@@ -76,7 +76,7 @@ class HttpDownloadTransport
   }) async {
     var current = url;
     for (var hop = 0; hop <= maxRedirects; hop++) {
-      _validateUrl(current);
+      _validateUrl(current, redirect: hop > 0);
       if (cancelToken.isCancelled) {
         throw const DownloadCancelledException();
       }
@@ -106,7 +106,7 @@ class HttpDownloadTransport
         }
         final next = current.resolve(location);
         // R7: each hop must stay on the allowlist, https only.
-        _validateUrl(next);
+        _validateUrl(next, redirect: true);
         current = next;
         continue;
       }
@@ -142,14 +142,15 @@ class HttpDownloadTransport
         if (!abortTrigger.isCompleted) abortTrigger.complete();
       }),
     );
-    final abortable = http.AbortableRequest(
-      request.method,
-      request.url,
-      abortTrigger: abortTrigger.future,
-    )
-      ..headers.addAll(request.headers)
-      ..followRedirects = false
-      ..bodyBytes = request.bodyBytes;
+    final abortable =
+        http.AbortableRequest(
+            request.method,
+            request.url,
+            abortTrigger: abortTrigger.future,
+          )
+          ..headers.addAll(request.headers)
+          ..followRedirects = false
+          ..bodyBytes = request.bodyBytes;
 
     if (cancelToken.isCancelled) {
       throw const DownloadCancelledException();
@@ -178,8 +179,11 @@ class HttpDownloadTransport
     );
   }
 
-  void _validateUrl(Uri url) {
-    if (strictUrlPolicy && !isStrictUpdateAssetUrl(url)) {
+  void _validateUrl(Uri url, {bool redirect = false}) {
+    if (strictUrlPolicy &&
+        !(redirect
+            ? isStrictUpdateRedirectUrl(url)
+            : isStrictUpdateAssetUrl(url))) {
       throw const DownloadTransportException('strict download URL rejected');
     }
     if (requireHttps && url.scheme != 'https') {

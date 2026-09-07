@@ -18,6 +18,27 @@ String _probeText(BuildContext context, String key) {
   );
 }
 
+String _probeStepLine(BuildContext context, NetworkProbeStep step) {
+  final nameKey = switch (step.name) {
+    'system-dns' => 'networkProbeStepSystemDns',
+    'doh' => 'networkProbeStepDoh',
+    'tcp' => 'networkProbeStepTcp',
+    'tls' => 'networkProbeStepTls',
+    'http' => 'networkProbeStepHttp',
+    'ech' => 'networkProbeStepEch',
+    'no-sni' => 'networkProbeStepNoSni',
+    _ => null,
+  };
+  final statusKey = step.skipped
+      ? 'networkProbeStepSkipped'
+      : step.ok
+      ? 'networkProbeStepOk'
+      : 'networkProbeStepFailed';
+  final name = nameKey == null ? step.name : _probeText(context, nameKey);
+  return '$name: ${_probeText(context, statusKey)} — ${step.detail} '
+      '(${step.duration.inMilliseconds}ms)';
+}
+
 /// 分层网络探测页（大陆连通性测量仪器）。
 ///
 /// 对 4 个 Pixiv 自有主机逐层跑：系统 DNS → DoH → TCP → TLS(真实 SNI) →
@@ -39,6 +60,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   ];
 
   final Map<String, NetworkProbeReport?> _finished = {};
+  final Map<String, Object> _errors = {};
   bool _running = false;
 
   NetworkAccessPolicy get _policy => ref.read(networkAccessPolicyProvider);
@@ -48,12 +70,16 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
     setState(() {
       _running = true;
       _finished.clear();
+      _errors.clear();
     });
     try {
       await Future.wait([
         for (final target in _targets)
           _runOne(target).catchError((Object error) {
             debugPrint('probe ${target.host} failed: $error');
+            if (mounted) {
+              setState(() => _errors[target.host] = error);
+            }
           }),
       ]);
     } finally {
@@ -177,7 +203,10 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
       },
     );
     if (mounted) {
-      setState(() => _finished[target.host] = report);
+      setState(() {
+        _errors.remove(target.host);
+        _finished[target.host] = report;
+      });
     }
   }
 
@@ -213,6 +242,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
             _HostProbeCard(
               host: target.host,
               report: _finished[target.host],
+              error: _errors[target.host],
               running: _running,
             ),
         ],
@@ -225,11 +255,13 @@ class _HostProbeCard extends StatelessWidget {
   const _HostProbeCard({
     required this.host,
     required this.report,
+    required this.error,
     required this.running,
   });
 
   final String host;
   final NetworkProbeReport? report;
+  final Object? error;
   final bool running;
 
   @override
@@ -261,7 +293,14 @@ class _HostProbeCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            if (body == null)
+            if (error != null)
+              Text(
+                '${_probeText(context, 'networkProbeHostFailed')}: $error',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              )
+            else if (body == null)
               Text(
                 running
                     ? _probeText(context, 'networkProbeRunning')
@@ -283,7 +322,7 @@ class _HostProbeCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
-                    step.toLine(),
+                    _probeStepLine(context, step),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: step.ok ? null : theme.colorScheme.error,
                     ),
@@ -325,27 +364,49 @@ class _ConclusionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final (label, color) = switch (conclusion) {
-      NetworkProbeConclusion.allReachable => ('OK', Colors.green.shade700),
-      NetworkProbeConclusion.dnsPolluted => ('DNS 污染', Colors.orange.shade700),
-      NetworkProbeConclusion.sniBlocked => ('SNI 被封', Colors.red.shade700),
-      NetworkProbeConclusion.echAvailable => ('应选 ECH', Colors.teal.shade700),
-      NetworkProbeConclusion.noSniAvailable => (
-        '应选空 SNI',
-        Colors.indigo.shade700,
+    final (key, color) = switch (conclusion) {
+      NetworkProbeConclusion.allReachable => (
+        'networkProbeConclusionAllReachable',
+        Colors.green,
       ),
-      NetworkProbeConclusion.ipBlackholed => ('IP 黑洞', Colors.red.shade700),
-      NetworkProbeConclusion.appLayer => ('应用层', Colors.orange.shade700),
-      NetworkProbeConclusion.inconclusive => ('不确定', Colors.grey.shade600),
+      NetworkProbeConclusion.dnsPolluted => (
+        'networkProbeConclusionDnsPolluted',
+        Colors.orange,
+      ),
+      NetworkProbeConclusion.sniBlocked => (
+        'networkProbeConclusionSniBlocked',
+        Colors.red,
+      ),
+      NetworkProbeConclusion.echAvailable => (
+        'networkProbeConclusionEchAvailable',
+        Colors.teal,
+      ),
+      NetworkProbeConclusion.noSniAvailable => (
+        'networkProbeConclusionNoSniAvailable',
+        Colors.indigo,
+      ),
+      NetworkProbeConclusion.ipBlackholed => (
+        'networkProbeConclusionIpBlackholed',
+        Colors.red,
+      ),
+      NetworkProbeConclusion.appLayer => (
+        'networkProbeConclusionAppLayer',
+        Colors.orange,
+      ),
+      NetworkProbeConclusion.inconclusive => (
+        'networkProbeConclusionInconclusive',
+        Colors.grey,
+      ),
     };
+    final resolvedColor = color.shade700;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color,
+        color: resolvedColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        label,
+        _probeText(context, key),
         style: TextStyle(
           color: theme.colorScheme.onPrimary,
           fontSize: 12,

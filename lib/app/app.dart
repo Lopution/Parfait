@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/auth/account_store.dart';
 import '../core/navigation/route_observer.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
 import '../core/widget/widget_coordinator.dart';
+import '../core/download/download_providers.dart';
+import '../core/network/compat/network_providers.dart';
 import '../features/onboarding/startup_gate.dart';
 import 'theme/replica_theme.dart';
 import 'widgets/settings_load_error.dart';
@@ -17,13 +22,36 @@ class PixivFuncApp extends ConsumerStatefulWidget {
   ConsumerState<PixivFuncApp> createState() => _PixivFuncAppState();
 }
 
-class _PixivFuncAppState extends ConsumerState<PixivFuncApp> {
+class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    // Widget maintenance runs for the app lifetime; the coordinator keeps
-    // render state in sync with account changes (PRD R6).
-    ref.read(widgetCoordinatorProvider).start();
+    WidgetsBinding.instance.addObserver(this);
+    // C5: one lightweight recovery bootstrap at process start. Constructing
+    // the provider triggers the fireImmediately account listener, which
+    // scans durable download/ugoira recovery records and cleans only
+    // provably-owned pending output; nothing is auto-retried. The scan
+    // touches local storage / MediaStore only — no network request.
+    ref.read(downloadManagerProvider);
+    // Widget maintenance runs only while a widget instance exists (C6); the
+    // coordinator checks the native gate and stays idle otherwise. The
+    // resume path re-checks the gate so a widget added while the app is
+    // running is picked up without a restart.
+    unawaited(ref.read(widgetCoordinatorProvider).start());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(ref.read(widgetCoordinatorProvider).ensureStarted());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -34,7 +62,10 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp> {
       loading: () => _materialApp(
         settings: AppSettings.defaults(),
         themeMode: themeMode,
-        home: const Scaffold(body: SizedBox.shrink()),
+        // Settings load is part of the startup surface. A blank scaffold made
+        // slow secure-storage/first-run loads look like a frozen app and also
+        // left the first route without any visual lifecycle feedback.
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       ),
       error: (error, stackTrace) => _materialApp(
         settings: AppSettings.defaults(),
@@ -46,11 +77,20 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp> {
           ),
         ),
       ),
-      data: (value) => _materialApp(
-        settings: value,
-        themeMode: themeMode,
-        home: StartupGate(settings: value),
-      ),
+      data: (value) {
+        // Build the shared Pixiv transports while settings are available so
+        // the first API/image request does not pay lazy client construction.
+        unawaited(ref.read(pixivNetworkFactoryProvider).warmUp());
+        // Start account restoration in the background too: StartupGate waits
+        // on it, so beginning the secure-storage read now overlaps with the
+        // first frame instead of serialising behind it.
+        unawaited(ref.read(accountStoreProvider.future));
+        return _materialApp(
+          settings: value,
+          themeMode: themeMode,
+          home: StartupGate(settings: value),
+        );
+      },
     );
   }
 
@@ -78,4 +118,3 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp> {
     );
   }
 }
-

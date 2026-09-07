@@ -17,10 +17,12 @@ class SettingsLoadError extends StatelessWidget {
     super.key,
     required this.error,
     required this.onRetry,
+    this.messageKey = 'settingsReadFailed',
   });
 
   final Object error;
   final VoidCallback onRetry;
+  final String messageKey;
 
   @override
   Widget build(BuildContext context) {
@@ -36,10 +38,7 @@ class SettingsLoadError extends StatelessWidget {
           children: [
             const Icon(Icons.settings_outlined, size: 48),
             const SizedBox(height: 12),
-            Text(
-              text('settingsReadFailed'),
-              key: const Key('settings-load-error'),
-            ),
+            Text(text(messageKey), key: const Key('settings-load-error')),
             const SizedBox(height: 8),
             Text('$error', textAlign: TextAlign.center),
             const SizedBox(height: 12),

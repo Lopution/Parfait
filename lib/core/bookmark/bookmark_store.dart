@@ -31,7 +31,9 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
     ref.watch(
       accountStoreProvider.select((async) {
         final account = async.value;
-        return (account?.usableCurrent?.id, account?.credentialRevision ?? 0);
+        // C1: the stable account id is the invalidate boundary; a token
+        // refresh or profile metadata update keeps the same store valid.
+        return account?.usableCurrent?.id;
       }),
     );
     final current = readMutationBoundary(ref);
@@ -225,7 +227,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
         ? MutationDiscardReason.accountChanged
         : _boundary!.accountId != current.accountId
         ? MutationDiscardReason.accountChanged
-        : MutationDiscardReason.credentialChanged;
+        : MutationDiscardReason.accountChanged;
     _ledger.cancelAll(reason);
     if (!settleState) return;
     final next = <BookmarkKey, BookmarkEntry>{...state};

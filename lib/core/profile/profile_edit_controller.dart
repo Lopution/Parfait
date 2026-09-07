@@ -130,7 +130,6 @@ class ProfileEditController extends ChangeNotifier {
           status: ProfileEditStatus.ready,
           draft: ProfileDraft.fromUser(
             accountId: _owner.accountId,
-            credentialRevision: _owner.credentialRevision,
             user: loaded,
             capabilities: capabilities,
           ),
@@ -326,7 +325,6 @@ class ProfileEditController extends ChangeNotifier {
           _owner = readOwner();
           final confirmedDraft = ProfileDraft.fromUser(
             accountId: _owner.accountId,
-            credentialRevision: _owner.credentialRevision,
             user: user,
             capabilities: draft.capabilities,
           );
