@@ -47,3 +47,10 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Release signing material never lives in the tree (tool/RELEASE.md keeps it
+# under ~/.pixivfunc-release); belt-and-braces in case a key is generated here.
+*.jks
+*.keystore
+*.p12
+*.pem
