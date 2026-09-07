@@ -53,6 +53,85 @@ void main() {
       );
     });
 
+    test('rejects an extra top-level key with manifest_keys', () {
+      final value = _manifestValue()..['notes'] = 'x';
+
+      expect(
+        () => UpdateManifest.parse(jsonEncode(value)),
+        throwsA(_formatError('manifest_keys')),
+      );
+    });
+
+    test('rejects an extra asset key with asset_keys', () {
+      final value = _manifestValue();
+      final assets = _assetsOf(value);
+      assets[0] = <String, Object?>{...assets[0], 'mirror': 'x'};
+      value['assets'] = assets;
+
+      expect(
+        () => UpdateManifest.parse(jsonEncode(value)),
+        throwsA(_formatError('asset_keys')),
+      );
+    });
+
+    test('rejects a duplicate ABI with asset_abi', () {
+      final value = _manifestValue();
+      final assets = _assetsOf(value);
+      assets[1] = <String, Object?>{...assets[1], 'abi': 'arm64-v8a'};
+      value['assets'] = assets;
+
+      expect(
+        () => UpdateManifest.parse(jsonEncode(value)),
+        throwsA(_formatError('asset_abi')),
+      );
+    });
+
+    test('rejects an empty assets list with assets', () {
+      final value = _manifestValue()..['assets'] = <Object?>[];
+
+      expect(
+        () => UpdateManifest.parse(jsonEncode(value)),
+        throwsA(_formatError('assets')),
+      );
+    });
+
+    test(
+      'rejects an asset larger than updateAssetMaxBytes with asset_size',
+      () {
+        final value = _manifestValue();
+        final assets = _assetsOf(value);
+        assets[0] = <String, Object?>{
+          ...assets[0],
+          'size': updateAssetMaxBytes + 1,
+        };
+        value['assets'] = assets;
+
+        expect(
+          () => UpdateManifest.parse(jsonEncode(value)),
+          throwsA(_formatError('asset_size')),
+        );
+      },
+    );
+
+    test('rejects upper-case hex in sha256 and certificate with hex', () {
+      final upper =
+          'ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
+      final certValue = _manifestValue()..['signingCertificateSha256'] = upper;
+      expect(
+        () => UpdateManifest.parse(jsonEncode(certValue)),
+        throwsA(_formatError('hex')),
+      );
+
+      final shaValue = _manifestValue();
+      final assets = _assetsOf(shaValue);
+      assets[0] = <String, Object?>{...assets[0], 'sha256': upper};
+      shaValue['assets'] = assets;
+      expect(
+        () => UpdateManifest.parse(jsonEncode(shaValue)),
+        throwsA(_formatError('hex')),
+      );
+    });
+
     test('parses a strict stable release and semver prerelease', () {
       final manifest = UpdateManifest.parse(jsonEncode(_manifestValue()));
 
@@ -118,28 +197,31 @@ void main() {
       );
     });
 
-    test('ABI selection picks the first supported ABI present in assets', () async {
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(_manifestValue())),
-        signature: base64Encode(List<int>.filled(64, 8)).codeUnits,
-      );
-      final service = UpdateService(
-        platform: _FakePlatform(
-          UpdateCapability.github(),
-          supportedAbis: const ['armeabi-v7a', 'arm64-v8a'],
-        ),
-        manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
-      );
+    test(
+      'ABI selection picks the first supported ABI present in assets',
+      () async {
+        final transport = _FakeManifestTransport(
+          body: utf8.encode(jsonEncode(_manifestValue())),
+          signature: base64Encode(List<int>.filled(64, 8)).codeUnits,
+        );
+        final service = UpdateService(
+          platform: _FakePlatform(
+            UpdateCapability.github(),
+            supportedAbis: const ['armeabi-v7a', 'arm64-v8a'],
+          ),
+          manifestTransport: transport,
+          signatureVerifier: _FakeSignatureVerifier(valid: true),
+        );
 
-      final result = await service.check();
+        final result = await service.check();
 
-      expect(result.status, UpdateCheckStatus.available);
-      expect(
-        result.release!.manifest.asset.url.toString(),
-        _assetUrl('0.1.1', 'armeabi-v7a'),
-      );
-    });
+        expect(result.status, UpdateCheckStatus.available);
+        expect(
+          result.release!.manifest.asset.url.toString(),
+          _assetUrl('0.1.1', 'armeabi-v7a'),
+        );
+      },
+    );
 
     test('unsupported ABI is invalid, never up_to_date', () async {
       final transport = _FakeManifestTransport(
@@ -358,26 +440,29 @@ void main() {
       },
     );
 
-    test('asset signer mismatch is not exposed as an available update', () async {
-      final value = _manifestValue()
-        ..['signingCertificateSha256'] =
-            '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff';
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(value)),
-        signature: base64Encode(List<int>.filled(64, 6)).codeUnits,
-      );
-      final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.github()),
-        manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
-      );
+    test(
+      'asset signer mismatch is not exposed as an available update',
+      () async {
+        final value = _manifestValue()
+          ..['signingCertificateSha256'] =
+              '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff';
+        final transport = _FakeManifestTransport(
+          body: utf8.encode(jsonEncode(value)),
+          signature: base64Encode(List<int>.filled(64, 6)).codeUnits,
+        );
+        final service = UpdateService(
+          platform: _FakePlatform(UpdateCapability.github()),
+          manifestTransport: transport,
+          signatureVerifier: _FakeSignatureVerifier(valid: true),
+        );
 
-      final result = await service.check();
+        final result = await service.check();
 
-      expect(result.status, UpdateCheckStatus.invalid);
-      expect(result.errorCode, 'asset_identity_mismatch');
-      expect(result.release, isNull);
-    });
+        expect(result.status, UpdateCheckStatus.invalid);
+        expect(result.errorCode, 'asset_identity_mismatch');
+        expect(result.release, isNull);
+      },
+    );
   });
 
   group('MethodChannelUpdatePlatform.info', () {
@@ -451,6 +536,18 @@ Map<String, Object?> _asset({
     'versionCode': versionCode,
   };
 }
+
+TypeMatcher<UpdateManifestFormatException> _formatError(String code) =>
+    isA<UpdateManifestFormatException>().having(
+      (error) => error.code,
+      'code',
+      code,
+    );
+
+List<Map<String, Object?>> _assetsOf(Map<String, Object?> value) =>
+    List<Map<String, Object?>>.from(
+      (value['assets']! as List).cast<Map<String, Object?>>(),
+    );
 
 Map<String, Object?> _manifestValue({
   String version = '0.1.1',
