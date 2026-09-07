@@ -33,7 +33,6 @@ rustls-platform-verifier = "0.7"
 version = "0.13.4"
 default-features = false
 features = [
-    "charset",
     "http2",
     "rustls",
     "stream",

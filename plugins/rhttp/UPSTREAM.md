@@ -81,6 +81,9 @@ Not part of this fork (upstream features, out of scope):
   into the URL itself. `http.rs` returns `RhttpError::RhttpUnknownError`
   when the plugin `query` argument is present, dropping
   `serde_urlencoded`. Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `charset`. The app never uses plugin
+  text decoding (compat layer returns bytes). Drops `encoding_rs` from
+  the lock; `.text()` still compiles as UTF-8. Re-apply on upstream sync.
 
 ## Sync guide
 
