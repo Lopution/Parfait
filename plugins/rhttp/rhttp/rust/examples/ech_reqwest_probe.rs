@@ -31,7 +31,9 @@ fn tls_config() -> rustls::ClientConfig {
     let mut roots = rustls::RootCertStore::empty();
     for cert in webpki_root_certs::TLS_SERVER_ROOT_CERTS {
         roots
-            .add(rustls::pki_types::CertificateDer::from(cert.as_ref().to_vec()))
+            .add(rustls::pki_types::CertificateDer::from(
+                cert.as_ref().to_vec(),
+            ))
             .unwrap();
     }
     let mut c = rustls::ClientConfig::builder_with_provider(Arc::new(
@@ -69,7 +71,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 r.version()
             );
             let body = r.text().await;
-            println!("body(preview): {:?}", &body.unwrap_or_default()[..200.min(200)]);
+            println!(
+                "body(preview): {:?}",
+                &body.unwrap_or_default()[..200.min(200)]
+            );
         }
         Err(e) => {
             println!("FAIL: {e}");

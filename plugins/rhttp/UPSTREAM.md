@@ -51,6 +51,10 @@ Not part of this fork (upstream features, out of scope):
   `<app root>/rust-toolchain.toml` (then falls back to `stable`), while
   rustup walks up from `rust/` to the same file. CI uses
   `flutter pub get --enforce-lockfile` and `cargo test --locked`.
+- `rust/src/lib.rs`: `#[rustfmt::skip]` on `mod frb_generated;`. The codegen
+  output is not rustfmt-stable across toolchains and CI runs
+  `cargo fmt --check`; skipping the generated module keeps the check
+  meaningful for hand-written code.
 
 ## Sync guide
 
@@ -62,4 +66,7 @@ To rebase on a newer upstream:
    rust-toolchain.toml).
 3. Regenerate `flutter_rust_bridge` bindings if Rust API signatures changed:
    `dart run flutter_rust_bridge_codegen generate` inside `plugins/rhttp/rhttp`.
+   `src/lib.rs` carries `#[rustfmt::skip]` on `mod frb_generated;`, so the
+   regenerated file is exempt from CI's `cargo fmt --check`; hand-written
+   Rust must stay `cargo fmt` clean.
 4. Update this file's upstream commit/version.

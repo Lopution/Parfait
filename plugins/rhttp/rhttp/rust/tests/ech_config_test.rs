@@ -1,5 +1,5 @@
-use rustls::pki_types::EchConfigListBytes;
 use rustls::client::EchConfig;
+use rustls::pki_types::EchConfigListBytes;
 
 #[test]
 fn parse_real_cloudflare_ech_config() {
@@ -13,5 +13,9 @@ fn parse_real_cloudflare_ech_config() {
     let list = EchConfigListBytes::from(bytes.as_slice());
     let result = EchConfig::new(list, rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES);
     println!("EchConfig::new result: {:?}", result.as_ref().map(|_| "ok"));
-    assert!(result.is_ok(), "expected valid config, got {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "expected valid config, got {:?}",
+        result.err()
+    );
 }
