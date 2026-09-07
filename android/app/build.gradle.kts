@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "io.github.lopution.pixivfunc"
-    compileSdk = flutter.compileSdkVersion
+    // Flutter 3.47.2 defaults compileSdkVersion to 36; 37 is required by
+    // androidx.core 1.19 and flutter_secure_storage 11. Revisit when flutter.compileSdkVersion reaches 37.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     flavorDimensions += "distribution"
@@ -166,8 +168,7 @@ flutter {
 }
 
 dependencies {
-    // 1.19.0 requires compileSdk 37; bumped together with AGP 9.1.1 in child A step A7.
-    implementation("androidx.core:core:1.15.0")
+    implementation("androidx.core:core:1.19.0")
     // Home widget background maintenance (08-26-android-home-widgets).
     // work-runtime-ktx is an empty shell since 2.8; Kotlin APIs live here.
     implementation("androidx.work:work-runtime:2.11.2")
