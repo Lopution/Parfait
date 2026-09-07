@@ -39,7 +39,6 @@ features = [
     "query",
     "rustls",
     "stream",
-    "socks",
 
     # Compression
     "brotli",
