@@ -118,6 +118,16 @@ android {
         }
     }
 
+    // Android history uses platform SQLite (`sqflite.databaseFactory`).
+    // `sqflite_common_ffi` stays a main dependency for desktop/tests (D-4)
+    // and would otherwise ship `libsqlite3.so` (~1.73 MB/ABI) as a native
+    // asset that the production factory never loads.
+    packaging {
+        jniLibs {
+            excludes += "**/libsqlite3.so"
+        }
+    }
+
 }
 
 // Keep the failure scoped to an actual GitHub package task. AGP configures
