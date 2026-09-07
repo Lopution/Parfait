@@ -33,6 +33,14 @@ lineage.
 Not part of this fork (upstream features, out of scope):
 - HTTP/3 / QUIC usage (compiled upstream, unused by this app).
 
+## Build configuration diffs (parent D-5)
+
+- `rhttp/cargokit/gradle/plugin.gradle`: parse `compileSdkVersion` as the API
+  major (`"android-37.0".substring(8).tokenize('.')[0]`). Upstream
+  `substring(8) as int` throws `For input string: "37.0"` when AGP 9.1.1 +
+  `platforms;android-37.0` reports `android-37.0` instead of `android-37`.
+  Needed for child A step A7 (`compileSdk 37`). Re-apply on upstream sync.
+
 ## Sync guide
 
 To rebase on a newer upstream:
