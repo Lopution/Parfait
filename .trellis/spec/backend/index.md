@@ -20,6 +20,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
 | [In-App Web Profile](./in-app-web-profile.md) | Native profile save via Pixiv SPA AJAX | Filled |
+| [Release Artifacts](./release-artifacts.md) | Per-ABI APKs, size gate, updater schema 2, rhttp feature rules | Filled |
 
 ---
 
