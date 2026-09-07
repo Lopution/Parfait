@@ -22,7 +22,7 @@ Questions to answer:
 
 ## Build Toolchain (Flutter / Android)
 
-- Flutter SDK lives at `/opt/flutter-3.47.0`; Android SDK at `/opt/android-sdk`. Run flutter via `export PATH=/opt/flutter-3.47.0/bin:$PATH`.
+- Flutter SDK lives at `/opt/flutter-3.47.2`; Android SDK at `/opt/android-sdk`. Run flutter via `export PATH=/opt/flutter-3.47.2/bin:$PATH`. `/opt/flutter-3.47.0` remains as the rollback SDK.
 - The flutter tool regenerates `android/local.properties` (including `sdk.dir`) from its **global** config (`flutter config --android-sdk ...`), not from the file. If builds fail with `LicenceNotAcceptedException` or an unexpected SDK path like `/usr/lib/android-sdk`, fix the global flutter config first — editing `local.properties` alone will be silently overwritten on the next `flutter` invocation.
 - Debian's `/usr/lib/android-sdk` exists on this machine but is NOT the project SDK; never let Gradle resolve to it.
 - `flutter` prints a root-user warning under this environment; it is expected and safe to continue.

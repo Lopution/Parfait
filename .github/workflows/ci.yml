@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.47.0"
+          flutter-version: "3.47.2"
           channel: "stable"
       - run: flutter pub get
       - run: flutter analyze
@@ -30,7 +30,7 @@ jobs:
           java-version: "17"
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.47.0"
+          flutter-version: "3.47.2"
           channel: "stable"
       - run: flutter pub get
       - name: Decode release keystore
