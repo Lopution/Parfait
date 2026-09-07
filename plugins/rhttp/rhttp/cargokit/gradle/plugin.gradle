@@ -67,6 +67,12 @@ abstract class CargoKitBuildTask extends DefaultTask {
                 commandLine 'chmod', '+x', path
             }
         }
+
+        // build_gradle.dart only copySyncs this invocation's targets and
+        // never deletes leftover ABI directories (see native-and-build-audit
+        // §0.2). Wipe the output dir so a later single-ABI cargo build cannot
+        // ship stale librhttp.so from a previous 3-ABI run.
+        project.delete(outputDir)
         
         execOperations.exec {
             executable path
