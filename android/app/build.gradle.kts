@@ -30,10 +30,14 @@ android {
         // them. API 29 is in the acceptance matrix (R4).
         minSdk = 29
         targetSdk = flutter.targetSdkVersion
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
+        // Split APK versionCodes use Flutter ABI_VERSION offsets
+        // (io.flutter.FlutterPluginConstants):
+        //   armeabi-v7a ABI_VERSION=1 → 1000+n
+        //   arm64-v8a   ABI_VERSION=2 → 2000+n
+        // x86_64 (ABI_VERSION=4) is not built. Do not pass
+        // -Pforce-version-code-ignoring-abi: F-Droid multi-APK same-version
+        // releases require distinct versionCodes, and the updater compares
+        // versionCode % 1000.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
