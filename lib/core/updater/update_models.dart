@@ -58,12 +58,31 @@ class UpdatePlatformInfo {
     required this.version,
     required this.versionCode,
     required this.signingCertificateSha256,
+    required this.supportedAbis,
   });
 
   final String packageName;
   final String version;
   final int versionCode;
   final String signingCertificateSha256;
+  final List<String> supportedAbis;
+}
+
+@immutable
+class UpdateManifestAsset {
+  const UpdateManifestAsset({
+    required this.abi,
+    required this.url,
+    required this.exactSize,
+    required this.sha256,
+    required this.versionCode,
+  });
+
+  final String abi;
+  final Uri url;
+  final int exactSize;
+  final String sha256;
+  final int versionCode;
 }
 
 @immutable

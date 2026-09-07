@@ -293,21 +293,33 @@ void main() {
 UpdateRelease _release(List<int> bytes, {String? expectedHash}) {
   final hash = expectedHash ?? sha256.convert(bytes).toString();
   final value = <String, Object?>{
-    'schema': 1,
+    'schema': 2,
     'repository': updateRepository,
     'tag': 'v0.1.1',
     'channel': 'stable',
     'version': '0.1.1',
     'versionCode': 2,
-    'asset': <String, Object?>{
-      'url':
-          'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
-      'size': bytes.length,
-      'sha256': hash,
-      'packageName': updatePackageName,
-      'signingCertificateSha256':
-          'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
-    },
+    'packageName': updatePackageName,
+    'signingCertificateSha256':
+        'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+    'assets': <Map<String, Object?>>[
+      <String, Object?>{
+        'abi': 'arm64-v8a',
+        'url':
+            'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/pixiv-func-v0.1.1-github-arm64-v8a.apk',
+        'size': bytes.length,
+        'sha256': hash,
+        'versionCode': 2002,
+      },
+      <String, Object?>{
+        'abi': 'armeabi-v7a',
+        'url':
+            'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/pixiv-func-v0.1.1-github-armeabi-v7a.apk',
+        'size': bytes.length,
+        'sha256': hash,
+        'versionCode': 1002,
+      },
+    ],
   };
   final raw = jsonEncode(value).codeUnits;
   return UpdateRelease(
@@ -380,6 +392,7 @@ class _FakePlatform implements UpdatePlatform {
     versionCode: 1,
     signingCertificateSha256:
         'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+    supportedAbis: ['arm64-v8a', 'armeabi-v7a'],
   );
 
   @override

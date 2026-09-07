@@ -162,8 +162,10 @@ fn create_client(settings: ClientSettings) -> Result<RequestClient, RhttpError> 
             }
         }
 
-        if let Some(cookie_settings) = settings.cookie_settings {
-            client = client.cookie_store(cookie_settings.store_cookies);
+        if settings.cookie_settings.is_some() {
+            return Err(RhttpError::RhttpUnknownError(
+                "cookie store is not supported".to_string(),
+            ));
         }
 
         if let Some(redirect_settings) = settings.redirect_settings {

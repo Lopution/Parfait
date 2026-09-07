@@ -29,6 +29,10 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: plugins/rhttp/rhttp/rust
       - run: flutter pub get --enforce-lockfile
 
       - name: Decode release keystore (never logged)
@@ -41,7 +45,7 @@ jobs:
           echo "$PIXIV_RELEASE_KEYSTORE_B64" | base64 -d > ~/.pixivfunc-release/pixivfunc-release.jks
           chmod 600 ~/.pixivfunc-release/pixivfunc-release.jks
 
-      - name: Build signed APK (github flavor)
+      - name: Build signed split APKs (github flavor)
         env:
           PIXIV_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.PIXIV_RELEASE_KEYSTORE_PASSWORD }}
           PIXIV_RELEASE_KEY_ALIAS: ${{ secrets.PIXIV_RELEASE_KEY_ALIAS }}
@@ -53,6 +57,8 @@ jobs:
           test -n "$PIXIV_RELEASE_KEY_PASSWORD" || { echo "::error::missing key password secret"; exit 1; }
           test -n "$PIXIV_UPDATE_PUBLIC_KEY_DER_B64" || { echo "::error::missing updater public key secret"; exit 1; }
           flutter build apk --release --flavor github \
+            --split-per-abi --target-platform android-arm64,android-arm \
+            --obfuscate --split-debug-info=build/symbols/github \
             -PPIXIV_RELEASE_KEYSTORE="$HOME/.pixivfunc-release/pixivfunc-release.jks" \
             -PPIXIV_RELEASE_KEYSTORE_PASSWORD="$PIXIV_RELEASE_KEYSTORE_PASSWORD" \
             -PPIXIV_RELEASE_KEY_ALIAS="$PIXIV_RELEASE_KEY_ALIAS" \
@@ -61,21 +67,44 @@ jobs:
 
       - name: Verify signer cert and compute fingerprint
         run: |
-          APK=build/app/outputs/flutter-apk/app-github-release.apk
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort | tail -n 1)
           test -x "$APKSIGNER" || { echo "::error::apksigner not found"; exit 1; }
-          SIGNER=$("$APKSIGNER" verify --print-certs "$APK" 2>/dev/null | \
-            grep -o 'SHA-256 digest: [0-9a-f]*' | awk '{print $3}' || true)
-          if [ -z "$SIGNER" ]; then
-            keytool -printcert -jarfile "$APK" 2>/dev/null | grep -o 'SHA256: [0-9A-Fa-f:]*' | head -1
-            SIGNER=$(keytool -printcert -jarfile "$APK" 2>/dev/null | grep -o 'SHA256: [0-9A-Fa-f:]*' | head -1 | tr -d 'SHA256: :' | tr 'A-F' 'a-f')
-          fi
-          test -n "$SIGNER" || { echo "::error::could not read signer fingerprint"; exit 1; }
-          if "$APKSIGNER" verify --print-certs "$APK" 2>/dev/null | grep -q 'Android Debug'; then
-            echo "::error::debug-signed APK cannot be released"
-            exit 1
-          fi
-          echo "FINGERPRINT=$SIGNER" >> "$GITHUB_ENV"
+          FINGERPRINT=""
+          for APK in \
+            build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
+            build/app/outputs/flutter-apk/app-armeabi-v7a-github-release.apk
+          do
+            test -s "$APK" || { echo "::error::missing $APK"; exit 1; }
+            "$APKSIGNER" verify --verbose --print-certs "$APK"
+            if "$APKSIGNER" verify --print-certs "$APK" 2>/dev/null | grep -q 'Android Debug'; then
+              echo "::error::debug-signed APK cannot be released: $APK"
+              exit 1
+            fi
+            SIGNER=$("$APKSIGNER" verify --print-certs "$APK" 2>/dev/null | \
+              grep -o 'SHA-256 digest: [0-9a-f]*' | awk '{print $3}' || true)
+            if [ -z "$SIGNER" ]; then
+              SIGNER=$(keytool -printcert -jarfile "$APK" 2>/dev/null | grep -o 'SHA256: [0-9A-Fa-f:]*' | head -1 | tr -d 'SHA256: :' | tr 'A-F' 'a-f')
+            fi
+            test -n "$SIGNER" || { echo "::error::could not read signer fingerprint: $APK"; exit 1; }
+            if [ -z "$FINGERPRINT" ]; then
+              FINGERPRINT="$SIGNER"
+            elif [ "$FINGERPRINT" != "$SIGNER" ]; then
+              echo "::error::split APK signing certificates differ"
+              exit 1
+            fi
+          done
+          echo "FINGERPRINT=$FINGERPRINT" >> "$GITHUB_ENV"
+
+      - name: Report split APK sizes
+        # Same B7 defaults as ci.yml (measured fdroid bytes + 1_000_000;
+        # github flavor is ~25 KB larger). F 迁 material_ui 后需重测.
+        env:
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28435321' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24226795' }}
+        run: |
+          python3 tool/apk_size_report.py \
+            build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
+            build/app/outputs/flutter-apk/app-armeabi-v7a-github-release.apk
 
       - name: Generate manifest + signature
         env:
@@ -84,13 +113,16 @@ jobs:
           test -n "$UPDATE_SIGNING_KEY_B64" || { echo "::error::missing UPDATE_SIGNING_KEY_B64 secret"; exit 1; }
           echo "$UPDATE_SIGNING_KEY_B64" | base64 -d > ~/.pixivfunc-release/update-signing-key.pem
           chmod 600 ~/.pixivfunc-release/update-signing-key.pem
-          APK=build/app/outputs/flutter-apk/app-github-release.apk
-          cp "$APK" "pixiv-func-v${{ github.event.inputs.version }}-github.apk"
+          VERSION="${{ github.event.inputs.version }}"
+          ARM64=build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk
+          ARMV7=build/app/outputs/flutter-apk/app-armeabi-v7a-github-release.apk
+          cp "$ARM64" "pixiv-func-v${VERSION}-github-arm64-v8a.apk"
+          cp "$ARMV7" "pixiv-func-v${VERSION}-github-armeabi-v7a.apk"
           python3 tool/update_release.py generate \
-            --apk "$APK" \
-            --version "${{ github.event.inputs.version }}" \
+            --apk "arm64-v8a=$ARM64" \
+            --apk "armeabi-v7a=$ARMV7" \
+            --version "$VERSION" \
             --version-code "${{ github.event.inputs.versionCode }}" \
-            --asset-url "https://github.com/Lopution/Pixiv-func/releases/download/v${{ github.event.inputs.version }}/pixiv-func-v${{ github.event.inputs.version }}-github.apk" \
             --signing-cert-sha256 "$FINGERPRINT" \
             --key-file ~/.pixivfunc-release/update-signing-key.pem \
             --out-dir ./assets
@@ -99,14 +131,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          VERSION="${{ github.event.inputs.version }}"
           # Draft only (L2): no public formal release is published here.
-          gh release view "v${{ github.event.inputs.version }}" >/dev/null 2>&1 || \
-            gh release create "v${{ github.event.inputs.version }}" \
-              --title "v${{ github.event.inputs.version }}" \
-              --draft \
-              "pixiv-func-v${{ github.event.inputs.version }}-github.apk" \
-              "assets/update-manifest.json" \
-              "assets/update-manifest.sig"
+          gh release view "v${VERSION}" >/dev/null 2>&1 || \
+            gh release create "v${VERSION}" \
+              --title "v${VERSION}" \
+              --draft
+          # Upload on every run (a re-run for an existing draft must still
+          # replace the assets), overwriting same-named files.
+          gh release upload "v${VERSION}" --clobber \
+            "pixiv-func-v${VERSION}-github-arm64-v8a.apk" \
+            "pixiv-func-v${VERSION}-github-armeabi-v7a.apk" \
+            "assets/update-manifest.json" \
+            "assets/update-manifest.sig"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: github-release-symbols
+          path: build/symbols/github
 
       - name: Scan for leaked secrets (fail on match)
         run: |

@@ -377,8 +377,17 @@ class UpdateService {
         ),
       );
     }
-    if (manifest.asset.packageName != info.packageName ||
-        manifest.asset.signingCertificateSha256 !=
+    final selected = manifest.selectForAbis(info.supportedAbis);
+    if (selected == null) {
+      return _remember(
+        const UpdateCheckResult(
+          status: UpdateCheckStatus.invalid,
+          errorCode: 'abi_unsupported',
+        ),
+      );
+    }
+    if (selected.asset.packageName != info.packageName ||
+        selected.asset.signingCertificateSha256 !=
             info.signingCertificateSha256.toLowerCase()) {
       return _remember(
         const UpdateCheckResult(
@@ -399,9 +408,10 @@ class UpdateService {
         ),
       );
     }
-    final versionResult = manifest.version.compareTo(currentVersion);
+    final versionResult = selected.version.compareTo(currentVersion);
     if (versionResult < 0 ||
-        (versionResult == 0 && manifest.versionCode <= info.versionCode)) {
+        (versionResult == 0 &&
+            selected.versionCode <= info.versionCode % 1000)) {
       return _remember(
         const UpdateCheckResult(
           status: UpdateCheckStatus.noUpdate,
@@ -413,7 +423,7 @@ class UpdateService {
       UpdateCheckResult(
         status: UpdateCheckStatus.available,
         release: UpdateRelease(
-          manifest: manifest,
+          manifest: selected,
           rawManifest: List.unmodifiable(manifestResponse.body),
         ),
       ),

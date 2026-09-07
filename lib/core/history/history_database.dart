@@ -1,8 +1,21 @@
 import 'dart:io';
 
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+/// Chooses the history SQLite factory without reading [Platform].
+///
+/// Production calls this with `useMobileSqflite: Platform.isAndroid ||
+/// Platform.isIOS`. Tests pass the flag directly because `flutter test`
+/// always reports a desktop [Platform].
+@visibleForTesting
+DatabaseFactory historyDatabaseFactory({required bool useMobileSqflite}) {
+  if (useMobileSqflite) return sqflite.databaseFactory;
+  sqfliteFfiInit();
+  return databaseFactoryFfi;
+}
 
 /// Owns the one SQLite connection used by the history feature.
 ///
@@ -25,9 +38,9 @@ class HistoryDatabase {
   bool _closed = false;
 
   static DatabaseFactory _platformDatabaseFactory() {
-    if (Platform.isAndroid || Platform.isIOS) return sqflite.databaseFactory;
-    sqfliteFfiInit();
-    return databaseFactoryFfi;
+    return historyDatabaseFactory(
+      useMobileSqflite: Platform.isAndroid || Platform.isIOS,
+    );
   }
 
   /// The single connection future also serializes concurrent first access.

@@ -56,10 +56,13 @@ class MethodChannelUpdatePlatform implements UpdatePlatform {
     final version = raw['version'];
     final versionCode = raw['versionCode'];
     final certificate = raw['signingCertificateSha256'];
+    final supportedAbis = raw['supportedAbis'];
     if (packageName is! String ||
         version is! String ||
         versionCode is! int ||
-        certificate is! String) {
+        certificate is! String ||
+        supportedAbis is! List ||
+        supportedAbis.any((item) => item is! String)) {
       throw const UpdatePlatformException('platform_info_malformed');
     }
     return UpdatePlatformInfo(
@@ -67,6 +70,9 @@ class MethodChannelUpdatePlatform implements UpdatePlatform {
       version: version,
       versionCode: versionCode,
       signingCertificateSha256: certificate,
+      supportedAbis: List<String>.unmodifiable(
+        supportedAbis.cast<String>(),
+      ),
     );
   }
 
