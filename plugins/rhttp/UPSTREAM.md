@@ -55,6 +55,40 @@ Not part of this fork (upstream features, out of scope):
   output is not rustfmt-stable across toolchains and CI runs
   `cargo fmt --check`; skipping the generated module keeps the check
   meaningful for hand-written code.
+- `rhttp/cargokit/gradle/plugin.gradle`: `CargoKitBuildTask.build()` deletes
+  `jniLibs/<buildType>` (`outputDir`) before `execOperations.exec` runs
+  `build-gradle`. Upstream `build_gradle.dart` only `copySync`s the current
+  target set and never removes leftover ABI subdirectories, so a later
+  `--target-platform android-arm64` build would otherwise package stale
+  `librhttp.so` from a previous 3-ABI run (research §0.2, ~10.4 MB).
+  Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `multipart`. The app never sends
+  `HttpBody.multipart` (profile/SauceNAO multipart is built in Dart).
+  `http.rs` returns `RhttpError::RhttpUnknownError` for that body instead of
+  linking `reqwest::multipart` / `mime_guess`. Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `form`. The app never sends
+  `HttpBody.form`. `http.rs` returns `RhttpError::RhttpUnknownError` for that
+  body instead of calling `RequestBuilder::form`. Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `socks`. The app never passes
+  `ProxySettings`; `socks://` URLs fail at `Proxy::*` construction via the
+  existing `RhttpUnknownError`. http/https proxies still compile. Re-apply
+  on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `cookies`. The app never passes
+  `CookieSettings`. `client.rs` returns `RhttpError::RhttpUnknownError`
+  instead of `ClientBuilder::cookie_store`, dropping `cookie_store` /
+  `publicsuffix` / `time` from the lock. Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: `query` is **kept** (tried and reverted in
+  child B, B5e). `lib/src/client/io/io_request.dart` strips the query
+  string from the URL and passes `query: uri.queryParameters` on every
+  request, so the app's whole `RhttpCompatibleClient` path depends on
+  `request.query(&query)`. Do not drop it (the saving was 6,080 B arm64).
+- `rust/Cargo.toml` reqwest: drop `charset`. The app never uses plugin
+  text decoding (compat layer returns bytes). Drops `encoding_rs` from
+  the lock; `.text()` still compiles as UTF-8. Re-apply on upstream sync.
+- `rust/Cargo.toml` tokio: narrow `full` to `rt-multi-thread`, `net`,
+  `time`, `sync`, `io-util`, `macros`. rustc did not demand extra
+  features after multipart (and `tokio::fs`) went away. Re-apply on
+  upstream sync.
 
 ## Sync guide
 

@@ -21,8 +21,9 @@ Key boundary:
     Android verifier Base64-decodes and feeds to KeyFactory("EC")).
 
 Usage:
-  python3 tool/update_release.py generate --apk <path> --version <semver> \
-      --version-code <int> --asset-url <https-url-to-apk> \
+  python3 tool/update_release.py generate \
+      --apk arm64-v8a=<path> --apk armeabi-v7a=<path> \
+      --version <semver> --version-code <int> \
       --signing-cert-sha256 <hex64> --key-file <pem> \
       --out-dir <dir> [--pubkey-out <file>] [--channel stable|beta]
   python3 tool/update_release.py pubkey --key-file <pem> [--pubkey-out <file>]
@@ -53,6 +54,10 @@ REPOSITORY = "Lopution/Pixiv-func"
 PACKAGE_NAME = "io.github.lopution.pixivfunc"
 MANIFEST_NAME = "update-manifest.json"
 SIGNATURE_NAME = "update-manifest.sig"
+KNOWN_ABIS = {
+    "armeabi-v7a": 1000,
+    "arm64-v8a": 2000,
+}
 
 SEMVER_RE = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$"
@@ -114,11 +119,41 @@ def generate_key(out_path: str, pubkey_out: str | None = None) -> None:
     print("generated P-256 signing key at %s (chmod 0600)" % out)
 
 
+def asset_url_for(version: str, abi: str) -> str:
+    # GitHub does not normalise repository-name case before redirecting.
+    url = (
+        f"https://github.com/Lopution/Pixiv-func/releases/download/"
+        f"v{version}/pixiv-func-v{version}-github-{abi}.apk"
+    )
+    parsed = urlparse(url)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != "github.com"
+        or parsed.username
+        or parsed.fragment
+        or not parsed.path.startswith("/Lopution/Pixiv-func/releases/download/")
+        or not parsed.path.lower().endswith(".apk")
+    ):
+        raise ReleaseError("asset URL must be the GitHub repository release APK URL")
+    return parsed.geturl()
+
+
+def parse_apk_spec(value: str) -> tuple[str, Path]:
+    if "=" not in value:
+        raise ReleaseError(f"--apk must be <abi>=<path>, got {value!r}")
+    abi, raw_path = value.split("=", 1)
+    if abi not in KNOWN_ABIS:
+        raise ReleaseError(f"unsupported ABI {abi!r}")
+    path = Path(raw_path)
+    if not path.is_file() or path.stat().st_size <= 0:
+        raise ReleaseError(f"apk not found: {path}")
+    return abi, path
+
+
 def manifest_payload(
-    apk_path: str,
+    apk_specs: list[tuple[str, Path]],
     version: str,
     version_code: int,
-    asset_url: str,
     signing_cert_sha256: str,
     channel: str,
 ) -> dict:
@@ -132,46 +167,40 @@ def manifest_payload(
     cert = signing_cert_sha256.lower()
     if not re.fullmatch(r"[0-9a-f]{64}", cert):
         raise ReleaseError("signingCertSha256 must be 64 lowercase hex")
-    apk = Path(apk_path)
-    if not apk.is_file() or apk.stat().st_size <= 0:
-        raise ReleaseError(f"apk not found: {apk}")
-    asset_url_parsed = urlparse(asset_url)
-    if (
-        asset_url_parsed.scheme != "https"
-        or asset_url_parsed.hostname != "github.com"
-        or asset_url_parsed.username
-        or asset_url_parsed.fragment
-        or not asset_url_parsed.path.startswith(
-            "/Lopution/Pixiv-func/releases/download/"
+    if not apk_specs:
+        raise ReleaseError("at least one --apk <abi>=<path> is required")
+    seen: set[str] = set()
+    assets: list[dict] = []
+    for abi, apk in apk_specs:
+        if abi in seen:
+            raise ReleaseError(f"duplicate ABI {abi}")
+        seen.add(abi)
+        assets.append(
+            {
+                "abi": abi,
+                "url": asset_url_for(version, abi),
+                "size": apk.stat().st_size,
+                "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
+                "versionCode": KNOWN_ABIS[abi] + version_code,
+            }
         )
-        or not asset_url_parsed.path.lower().endswith(".apk")
-    ):
-        raise ReleaseError("asset URL must be the GitHub repository release APK URL")
-    asset_url_text = asset_url_parsed.geturl()
-    size = apk.stat().st_size
-    sha256 = hashlib.sha256(apk.read_bytes()).hexdigest()
     return {
-        "schema": 1,
+        "schema": 2,
         "repository": REPOSITORY,
         "tag": f"v{version}",
         "channel": channel,
         "version": version,
         "versionCode": version_code,
-        "asset": {
-            "url": asset_url_text,
-            "size": size,
-            "sha256": sha256,
-            "packageName": PACKAGE_NAME,
-            "signingCertificateSha256": cert,
-        },
+        "packageName": PACKAGE_NAME,
+        "signingCertificateSha256": cert,
+        "assets": assets,
     }
 
 
 def generate(
-    apk_path: str,
+    apk_specs: list[tuple[str, Path]],
     version: str,
     version_code: int,
-    asset_url: str,
     signing_cert_sha256: str,
     key_file: str,
     out_dir: str,
@@ -180,7 +209,7 @@ def generate(
 ) -> None:
     key = load_private_key(key_file)
     payload = manifest_payload(
-        apk_path, version, version_code, asset_url, signing_cert_sha256, channel
+        apk_specs, version, version_code, signing_cert_sha256, channel
     )
     # Canonical, reproducible bytes: what is written is exactly what is
     # signed. No trailing newline, no re-ordering of the dict beyond the
@@ -219,7 +248,8 @@ def self_test() -> None:
     with tempfile.TemporaryDirectory(prefix="pixivfunc-release-test-") as root:
         root_path = Path(root)
         key_path = root_path / "test-key.pem"
-        apk_path = root_path / "test.apk"
+        arm64 = root_path / "arm64.apk"
+        armv7 = root_path / "armv7.apk"
         out_dir = root_path / "assets"
         key = ec.generate_private_key(ec.SECP256R1())
         key_path.write_bytes(
@@ -229,18 +259,31 @@ def self_test() -> None:
                 serialization.NoEncryption(),
             )
         )
-        apk_path.write_bytes(b"pixiv-func-release-self-test")
+        arm64.write_bytes(b"pixiv-func-release-self-test-arm64")
+        armv7.write_bytes(b"pixiv-func-release-self-test-armv7")
         cert = "a" * 64
         generate(
-            str(apk_path),
+            [("arm64-v8a", arm64), ("armeabi-v7a", armv7)],
             "1.2.3-test",
             123,
-            "https://github.com/Lopution/Pixiv-func/releases/download/v1.2.3-test/app.apk",
             cert,
             str(key_path),
             str(out_dir),
         )
         manifest = (out_dir / MANIFEST_NAME).read_bytes()
+        payload = json.loads(manifest.decode("utf-8"))
+        if payload.get("schema") != 2:
+            raise ReleaseError(f"self-test schema: {payload.get('schema')}")
+        if payload.get("versionCode") != 123:
+            raise ReleaseError("self-test base versionCode must stay unshifted")
+        assets = payload.get("assets")
+        if not isinstance(assets, list) or len(assets) != 2:
+            raise ReleaseError("self-test must write two assets")
+        by_abi = {item["abi"]: item for item in assets}
+        if by_abi["arm64-v8a"]["versionCode"] != 2123:
+            raise ReleaseError("self-test arm64 versionCode")
+        if by_abi["armeabi-v7a"]["versionCode"] != 1123:
+            raise ReleaseError("self-test armeabi-v7a versionCode")
         signature = base64.b64decode(
             (out_dir / SIGNATURE_NAME).read_text().strip(), validate=True
         )
@@ -249,9 +292,24 @@ def self_test() -> None:
         try:
             key.public_key().verify(signature, tampered, ec.ECDSA(hashes.SHA256()))
         except Exception:
-            print("self-test passed: sign/verify and tamper rejection")
+            pass
         else:
             raise ReleaseError("self-test tamper verification unexpectedly passed")
+        try:
+            generate(
+                [("arm64-v8a", arm64), ("armeabi-v7a", armv7)],
+                "1.2.3-test",
+                123,
+                cert,
+                str(key_path),
+                str(out_dir),
+            )
+        except ReleaseError as error:
+            if "refusing to overwrite" not in str(error):
+                raise
+        else:
+            raise ReleaseError("self-test overwrite unexpectedly succeeded")
+        print("self-test passed: schema 2, two assets, sign/verify, tamper")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -259,10 +317,15 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     gen = sub.add_parser("generate", help="generate manifest + signature")
-    gen.add_argument("--apk", required=True)
+    gen.add_argument(
+        "--apk",
+        action="append",
+        required=True,
+        metavar="ABI=PATH",
+        help="repeatable split APK spec, e.g. arm64-v8a=app.apk",
+    )
     gen.add_argument("--version", required=True)
     gen.add_argument("--version-code", type=int, required=True)
-    gen.add_argument("--asset-url", required=True)
     gen.add_argument("--signing-cert-sha256", required=True)
     gen.add_argument("--key-file", required=True)
     gen.add_argument("--out-dir", required=True)
@@ -282,10 +345,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "generate":
         generate(
-            args.apk,
+            [parse_apk_spec(spec) for spec in args.apk],
             args.version,
             args.version_code,
-            args.asset_url,
             args.signing_cert_sha256,
             args.key_file,
             args.out_dir,
