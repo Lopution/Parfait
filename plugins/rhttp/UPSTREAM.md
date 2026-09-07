@@ -77,6 +77,10 @@ Not part of this fork (upstream features, out of scope):
   `CookieSettings`. `client.rs` returns `RhttpError::RhttpUnknownError`
   instead of `ClientBuilder::cookie_store`, dropping `cookie_store` /
   `publicsuffix` / `time` from the lock. Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `query`. The app builds query strings
+  into the URL itself. `http.rs` returns `RhttpError::RhttpUnknownError`
+  when the plugin `query` argument is present, dropping
+  `serde_urlencoded`. Re-apply on upstream sync.
 
 ## Sync guide
 
