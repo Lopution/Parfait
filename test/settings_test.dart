@@ -359,12 +359,23 @@ void main() {
     expect(settings.previewQuality, PreviewQuality.large);
   });
 
-  test('legacy scaleQuality true migrates to ViewQuality.original', () {
-    final settings = AppSettings.fromJson({
-      'scaleQuality': true,
-    }, fallback: _baseSettings());
-    expect(settings.viewQuality, ViewQuality.original);
-  });
+  test(
+    'legacy scaleQuality bool migrates per R3 (true→original, false→large)',
+    () {
+      // `false → large` is the discriminating half: the type default is
+      // `original`, so `true → original` alone would also pass if the legacy
+      // key were ignored.
+      final fromFalse = AppSettings.fromJson({
+        'scaleQuality': false,
+      }, fallback: _baseSettings());
+      expect(fromFalse.viewQuality, ViewQuality.large);
+
+      final fromTrue = AppSettings.fromJson({
+        'scaleQuality': true,
+      }, fallback: _baseSettings());
+      expect(fromTrue.viewQuality, ViewQuality.original);
+    },
+  );
 
   test('plain settings JSON never contains translation credentials', () {
     final json = _baseSettings().toJson();
