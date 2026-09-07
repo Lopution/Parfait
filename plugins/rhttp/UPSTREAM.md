@@ -66,6 +66,9 @@ Not part of this fork (upstream features, out of scope):
   `HttpBody.multipart` (profile/SauceNAO multipart is built in Dart).
   `http.rs` returns `RhttpError::RhttpUnknownError` for that body instead of
   linking `reqwest::multipart` / `mime_guess`. Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `form`. The app never sends
+  `HttpBody.form`. `http.rs` returns `RhttpError::RhttpUnknownError` for that
+  body instead of calling `RequestBuilder::form`. Re-apply on upstream sync.
 
 ## Sync guide
 
