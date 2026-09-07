@@ -342,6 +342,41 @@ void main() {
   );
 
   test(
+    'exported envelope carries only the account credential, never translation secrets',
+    () async {
+      final (container, accounts, credentials, _) = _container();
+      await container.read(accountStoreProvider.future);
+      await accounts.upsertAccount(_sourceAccount, _credential);
+      final clipboard = _Clipboard();
+      await _service(
+        accountStore: accounts,
+        credentials: credentials,
+        clipboard: clipboard,
+        verifier: _Verifier((_) async => throw StateError('unused')),
+      ).exportCurrentToClipboard();
+
+      final decoded = utf8.decode(base64Decode(clipboard.text!));
+      final envelope = jsonDecode(decoded) as Map<String, Object?>;
+      expect(envelope.keys.toSet(), {
+        'version',
+        'payloadType',
+        'payload',
+        'checksum',
+      });
+      final payload = envelope['payload'] as Map<String, Object?>;
+      expect(payload.keys.toSet(), {'accountId', 'userId', 'credential'});
+      final credential = payload['credential'] as Map<String, Object?>;
+      expect(credential.keys.toSet(), {'accessToken', 'refreshToken'});
+      // Translation credentials live in their own secure namespace; the
+      // serialized envelope must not mention them under any spelling.
+      expect(
+        decoded.toLowerCase(),
+        isNot(anyOf(contains('baidu'), contains('llm'), contains('apikey'))),
+      );
+    },
+  );
+
+  test(
     'clipboard read is explicit and malformed input is not cleared',
     () async {
       final (container, accounts, credentials, _) = _container();
