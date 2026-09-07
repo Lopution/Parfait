@@ -117,39 +117,22 @@ class RankingFeedController extends PagedFeedController {
   @override
   String get feedKey => 'ranking:${mode.apiValue}';
 
+  /// C9: ranking is discovery content.
+  @override
+  bool get localFilterEnabled => true;
+
+  @override
+  int get filterMinVisible => 24;
+
+  @override
+  int get filterMaxRefillPages => 3;
+
   @override
   Future<PagedFeedState> build() {
     // A provider family instance must reset when the current account changes;
     // otherwise a cached mode/cursor from account A can leak into account B.
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
     return super.build();
-  }
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(
-    String? cursor,
-  ) async {
-    final page = await ref
-        .read(rankingRepositoryProvider)
-        .fetchPage(mode, cursor);
-    return (
-      ids: [for (final illust in page.illusts) illust.id],
-      nextCursor: page.nextUrl,
-    );
-  }
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
-    String? cursor,
-    CancelToken cancelToken,
-  ) async {
-    final page = await ref
-        .read(rankingRepositoryProvider)
-        .fetchPage(mode, cursor, cancelToken: cancelToken);
-    return (
-      ids: [for (final illust in page.illusts) illust.id],
-      nextCursor: page.nextUrl,
-    );
   }
 
   @override
@@ -162,6 +145,7 @@ class RankingFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final illust in page.illusts) illust.id],
       nextCursor: page.nextUrl,
+      incomingIllusts: {for (final illust in page.illusts) illust.id: illust},
       commit: (_) => store.mergeAll(
         page.illusts,
         bookmarkSnapshotRevision: bookmarkRevision,

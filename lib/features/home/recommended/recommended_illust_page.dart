@@ -7,10 +7,12 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/replica_page_route.dart';
+import '../../../app/widgets/replica_empty_state.dart';
 import '../../bookmark/bookmark_switch_button.dart';
 import '../../illust/detail/illust_detail_page.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
+import '../../../core/i18n/replica_strings.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/settings/settings_controller.dart';
@@ -55,7 +57,21 @@ class RecommendedIllustPage extends ConsumerWidget {
           );
         }
         if (feed.isEmptyAndReady) {
-          return const Scaffold(body: Center(child: Text('暂无推荐内容')));
+          return Scaffold(
+            body: ReplicaEmptyState(
+              message: ReplicaStrings.fromTag(
+                Localizations.localeOf(context).toLanguageTag(),
+                'recommendedEmpty',
+              ),
+              retryLabel: ReplicaStrings.fromTag(
+                Localizations.localeOf(context).toLanguageTag(),
+                'retry',
+              ),
+              onRetry: () => ref
+                  .read(recommendedIllustControllerProvider.notifier)
+                  .refresh(),
+            ),
+          );
         }
         final entities = store.getAll(feed.ids);
         return Scaffold(
@@ -140,13 +156,26 @@ class _FeedTail extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('加载更多失败'),
+              Text(
+                ReplicaStrings.fromTag(
+                  Localizations.localeOf(context).toLanguageTag(),
+                  'recommendedLoadMoreFailed',
+                ),
+              ),
               Text(
                 '${feed.loadMoreError}',
                 style: Theme.of(context).textTheme.bodySmall,
                 maxLines: 2,
               ),
-              TextButton(onPressed: onRetry, child: const Text('重试')),
+              TextButton(
+                onPressed: onRetry,
+                child: Text(
+                  ReplicaStrings.fromTag(
+                    Localizations.localeOf(context).toLanguageTag(),
+                    'retry',
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -172,7 +201,12 @@ class _InitialErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off, size: 48),
             const SizedBox(height: 12),
-            const Text('推荐内容加载失败'),
+            Text(
+              ReplicaStrings.fromTag(
+                Localizations.localeOf(context).toLanguageTag(),
+                'recommendedLoadFailed',
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
               error,
@@ -180,7 +214,15 @@ class _InitialErrorView extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('重试')),
+            FilledButton(
+              onPressed: onRetry,
+              child: Text(
+                ReplicaStrings.fromTag(
+                  Localizations.localeOf(context).toLanguageTag(),
+                  'retry',
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -201,7 +243,8 @@ class IllustCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final previewQuality = ref.watch(previewQualityProvider);
-    final previewUrl = entity.previewUrl(highQuality: previewQuality);
+    final previewUrl = entity.previewUrl(previewQuality);
+    final heroTag = illustHeroTag(heroScope, entity.id);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +293,7 @@ class IllustCard extends ConsumerWidget {
                       // Clipping inside keeps the rounded corners during
                       // the whole flight.
                       Hero(
-                        tag: illustHeroTag(heroScope, entity.id),
+                        tag: heroTag,
                         flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                         child: ClipRRect(
                           borderRadius: const BorderRadius.all(
@@ -259,6 +302,7 @@ class IllustCard extends ConsumerWidget {
                           child: PixivImage(
                             url: previewUrl,
                             fit: BoxFit.fitWidth,
+                            transitionKey: heroTag,
                           ),
                         ),
                       ),

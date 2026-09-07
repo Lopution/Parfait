@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../settings/app_settings.dart';
+
 /// Non-secret value objects describing one Pixiv illust.
 ///
 /// Parsed once at the repository boundary; widgets never touch raw JSON.
@@ -110,11 +112,15 @@ class IllustEntity {
 
   bool get isUgoira => type == IllustType.ugoira;
 
-  /// Feed/detail transition image. The caller owns the quality setting, and
-  /// passing this exact URL to the detail route keeps both Hero endpoints on
-  /// the same cache key.
-  String previewUrl({required bool highQuality}) =>
-      highQuality ? imageUrls.large : imageUrls.medium;
+  /// Feed/detail transition image. The caller owns the quality setting (D4),
+  /// and passing this exact URL to the detail route keeps both Hero
+  /// endpoints on the same cache key.
+  String previewUrl(PreviewQuality quality) => switch (quality) {
+    // Feed payloads never carry an original URL (list API limitation), so
+    // the preview choices are medium and large only.
+    PreviewQuality.medium => imageUrls.medium,
+    PreviewQuality.large => imageUrls.large,
+  };
 
   /// The width/height of one page. Multi-page works have per-page
   /// dimensions from the detail API (`meta_pages[].width/height`), which
@@ -156,12 +162,76 @@ class IllustEntity {
     return metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large;
   }
 
-  /// Viewer URLs: original when available, else large (beta56 scaleQuality).
-  List<String> viewerUrls() {
+  /// Viewer URLs for [quality] (D4): original when available, else large.
+  List<String> viewerUrls(ViewQuality quality) {
     if (pageCount > 1) {
-      return [for (final page in metaPages) page.original ?? page.large];
+      return [
+        for (final page in metaPages)
+          switch (quality) {
+            ViewQuality.medium => page.large,
+            ViewQuality.large => page.large,
+            ViewQuality.original => page.original ?? page.large,
+          },
+      ];
     }
-    return [metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large];
+    return [
+      switch (quality) {
+        ViewQuality.medium => imageUrls.large,
+        ViewQuality.large => imageUrls.large,
+        ViewQuality.original =>
+          metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large,
+      },
+    ];
+  }
+
+  /// Detail-page main image URL for one page (三档之详情档). The feed
+  /// snapshot has no original URLs, so this is only meaningful after the
+  /// detail API payload is merged into the entity.
+  String detailUrlAt(int pageIndex, DetailQuality quality) {
+    if (pageIndex < 0 || pageIndex >= pageCount) {
+      throw RangeError.index(pageIndex, pageCount);
+    }
+    if (pageCount > 1) {
+      if (pageIndex >= metaPages.length) return imageUrls.large;
+      return switch (quality) {
+        DetailQuality.medium || DetailQuality.large =>
+          metaPages[pageIndex].large,
+        DetailQuality.original =>
+          metaPages[pageIndex].original ?? metaPages[pageIndex].large,
+      };
+    }
+    return switch (quality) {
+      DetailQuality.medium || DetailQuality.large => imageUrls.large,
+      DetailQuality.original =>
+        metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large,
+    };
+  }
+
+  /// Quality-aware single-page viewer URL with original-first fallback.
+  String viewerUrlAt(int pageIndex, ViewQuality quality) {
+    if (pageIndex < 0 || pageIndex >= pageCount) {
+      throw RangeError.index(pageIndex, pageCount);
+    }
+    if (pageCount > 1) {
+      if (pageIndex >= metaPages.length) {
+        return imageUrls.large;
+      }
+      final page = metaPages[pageIndex];
+      return switch (quality) {
+        ViewQuality.medium => page.large,
+        ViewQuality.large => page.large,
+        ViewQuality.original => page.original ?? page.large,
+      };
+    }
+    if (pageIndex != 0) {
+      return imageUrls.large;
+    }
+    return switch (quality) {
+      ViewQuality.medium => imageUrls.large,
+      ViewQuality.large => imageUrls.large,
+      ViewQuality.original =>
+        metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large,
+    };
   }
 
   IllustEntity copyWith({

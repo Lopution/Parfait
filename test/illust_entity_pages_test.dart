@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
+import 'package:pixiv_func/core/settings/app_settings.dart';
 
 import 'helpers/illust_fixtures.dart';
 
@@ -11,11 +12,11 @@ void main() {
       );
 
       expect(
-        entity.previewUrl(highQuality: false),
+        entity.previewUrl(PreviewQuality.medium),
         'https://i.pximg.net/6/medium.jpg',
       );
       expect(
-        entity.previewUrl(highQuality: true),
+        entity.previewUrl(PreviewQuality.large),
         'https://i.pximg.net/6/large.jpg',
       );
     });
@@ -33,7 +34,7 @@ void main() {
         isNull,
         reason: 'index beyond pageCount has no URL',
       );
-      expect(entity.viewerUrls(), [
+      expect(entity.viewerUrls(ViewQuality.original), [
         'https://i.pximg.net/7/p0/original.jpg',
         'https://i.pximg.net/7/p1/original.jpg',
         'https://i.pximg.net/7/p2/original.jpg',
@@ -46,7 +47,7 @@ void main() {
         entity.originalUrlAt(0),
         'https://i.pximg.net/8/single_original.jpg',
       );
-      expect(entity.viewerUrls(), [
+      expect(entity.viewerUrls(ViewQuality.original), [
         'https://i.pximg.net/8/single_original.jpg',
       ]);
     });

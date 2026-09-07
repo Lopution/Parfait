@@ -36,11 +36,11 @@ Future<void> runWidgetBackground() async {
   debugPrint('WidgetBackground: entered');
   final container = ProviderContainer();
   try {
+    final network = container.read(pixivNetworkFactoryProvider);
+    await network.warmUp();
     final loader = WidgetFeedLoader(
       apiClient: container.read(pixivHttpClientProvider),
-      imageClient: container
-          .read(pixivNetworkFactoryProvider)
-          .client(PixivDestinationPurpose.image),
+      imageClient: network.client(PixivDestinationPurpose.image),
       accountStore: container.read(accountStoreProvider.notifier),
       credentialStore: container.read(credentialStoreProvider),
       storeFactory: WidgetSnapshotStore.standard,

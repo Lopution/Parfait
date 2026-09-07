@@ -13,6 +13,7 @@ import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
@@ -27,15 +28,19 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _FakeRepository implements SettingsRepository {
-  _FakeRepository(this.value);
+  _FakeRepository(this.value, {this.failLoad = false});
 
   AppSettings value;
+  bool failLoad;
   bool failWrites = false;
   final saved = <AppSettings>[];
   Duration writeDelay = Duration.zero;
 
   @override
-  Future<AppSettings> load() async => value;
+  Future<AppSettings> load() async {
+    if (failLoad) throw StateError('settings unavailable');
+    return value;
+  }
 
   @override
   Future<void> save(AppSettings settings) async {
@@ -59,16 +64,21 @@ class _CredentialStore implements CredentialStore {
 }
 
 class _AccountRepository implements AccountMetadataRepository {
-  _AccountRepository([this.initial = const []]);
+  _AccountRepository([this.initial = const [], this.failLoad = false]);
 
   final List<Account> initial;
+  final bool failLoad;
 
   @override
-  Future<AccountMetadataSnapshot> load() async =>
-      AccountMetadataSnapshot(
-        accounts: initial,
-        currentId: initial.isEmpty ? null : initial.first.id,
-      );
+  Future<AccountMetadataSnapshot> load() async {
+    if (failLoad) {
+      throw AccountDataException('account metadata unavailable');
+    }
+    return AccountMetadataSnapshot(
+      accounts: initial,
+      currentId: initial.isEmpty ? null : initial.first.id,
+    );
+  }
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
@@ -197,13 +207,13 @@ void main() {
     expect(settings.guideCompleted, isFalse);
     expect(settings.themeCode, AppSettings.systemTheme);
     expect(settings.imageSource, AppSettings.normalImageSource);
-    expect(settings.previewQuality, isTrue);
-    expect(settings.scaleQuality, isTrue);
+    expect(settings.previewQuality, PreviewQuality.medium);
+    expect(settings.viewQuality, ViewQuality.original);
     expect(settings.enableHistory, isTrue);
     expect(settings.enablePixivHistory, isTrue);
     expect(settings.enableLocalBlockR18, isFalse);
     expect(settings.enableLocalBlockAI, isFalse);
-    expect(settings.translateIndex, 0);
+    expect(settings.translateIndex, 1);
     expect(settings.maxDownloadCount, 3);
   });
 
@@ -225,12 +235,13 @@ void main() {
     expect(settings.languageTag, 'ja-JP');
     expect(settings.themeCode, AppSettings.lightTheme);
     expect(settings.imageSource, AppSettings.normalImageSource);
-    expect(settings.previewQuality, isFalse);
-    expect(settings.scaleQuality, isTrue);
+    expect(settings.previewQuality, PreviewQuality.medium);
+    expect(settings.viewQuality, ViewQuality.original);
     expect(settings.enableHistory, isFalse);
     expect(settings.maxDownloadCount, 3);
-    expect(settings.namingRule, 'artist_{id}');
-    expect(settings.translateIndex, 0);
+    expect(settings.namingRule.preset, NamingPreset.custom);
+    expect(settings.namingRule.template, 'artist_{id}');
+    expect(settings.translateIndex, 1);
   });
 
   test('legacy individual keys migrate to the versioned JSON key', () async {
@@ -284,7 +295,7 @@ void main() {
     expect(settings.languageTag, 'en-US');
     expect(settings.themeCode, AppSettings.systemTheme);
     expect(settings.maxDownloadCount, 7);
-    expect(settings.translateIndex, 0);
+    expect(settings.translateIndex, 1);
   });
 
   test(
@@ -314,12 +325,12 @@ void main() {
 
       repository.failWrites = true;
       await expectLater(
-        controller.setPreviewQuality(false),
+        controller.setPreviewQuality(PreviewQuality.medium),
         throwsA(isA<SettingsWriteException>()),
       );
       expect(
         container.read(settingsProvider).requireValue.previewQuality,
-        isTrue,
+        PreviewQuality.medium,
       );
     },
   );
@@ -338,6 +349,14 @@ void main() {
       'networkSettings',
       'networkMode',
       'networkModeHint',
+      'networkModeListTitle',
+      'networkModeAutomatic',
+      'networkModeAutomaticHint',
+      'networkModeDirectOnly',
+      'networkModeDirectOnlyHint',
+      'networkAdvanced',
+      'networkAdvancedHint',
+      'networkAdvancedReset',
       'networkDoh',
       'networkDohHint',
       'networkDohEndpoints',
@@ -358,6 +377,10 @@ void main() {
       'aboutSettings',
       'imageSourceNormal',
       'previewQuality',
+      'viewQuality',
+      'qualityMedium',
+      'qualityLarge',
+      'qualityOriginal',
       'scaleQuality',
       'localHistory',
       'pixivHistory',
@@ -365,6 +388,27 @@ void main() {
       'blockAI',
       'maxDownloadCount',
       'namingRule',
+      'saveLocation',
+      'saveLocationAlbum',
+      'saveLocationPixivAlbum',
+      'saveLocationCustomAlbum',
+      'saveLocationCustomAlbumHint',
+      'saveLocationUseCustomAlbum',
+      'saveLocationAlbumInvalid',
+      'saveLocationSafFolder',
+      'saveLocationSafFolderHint',
+      'saveLocationSafPicked',
+      'namingPreset',
+      'namingPresetId',
+      'namingPresetArtistTitleId',
+      'namingPresetTitleId',
+      'namingPresetCustom',
+      'namingTemplate',
+      'namingTemplateHint',
+      'namingTemplateInvalid',
+      'namingPreview',
+      'namingTemplateVariables',
+      'save',
       'translateCredentialHint',
       'historySettingsHint',
       'aboutLicenseText',
@@ -389,6 +433,52 @@ void main() {
         );
       }
     }
+  });
+
+  testWidgets('settings read failures expose a retryable UI', (tester) async {
+    final repository = _FakeRepository(_baseSettings(), failLoad: true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: ThemeSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
+    expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
+  });
+
+  testWidgets('account read failures expose a retryable UI', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            _FakeRepository(_baseSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            _AccountRepository(const [], true),
+          ),
+          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+        ],
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: AccountSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
+    expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
+    expect(find.text('无账号'), findsNothing);
   });
 
   testWidgets('settings home shows the beta56 route order', (tester) async {
@@ -460,8 +550,9 @@ void main() {
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
-  testWidgets('long-pressing an account card exports bounded transfer data',
-      (tester) async {
+  testWidgets('long-pressing an account card exports bounded transfer data', (
+    tester,
+  ) async {
     final repository = _AccountRepository([
       const Account(id: '42', userId: 42, name: 'tester'),
     ]);
@@ -469,7 +560,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          settingsRepositoryProvider.overrideWithValue(_FakeRepository(_baseSettings())),
+          settingsRepositoryProvider.overrideWithValue(
+            _FakeRepository(_baseSettings()),
+          ),
           accountMetadataRepositoryProvider.overrideWithValue(repository),
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
           accountTransferServiceProvider.overrideWith(
@@ -495,72 +588,73 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(clipboard.writeCount, 1);
-    expect(
-      TransferEnvelope.parse(clipboard.text!),
-      isA<TransferEnvelope>(),
-    );
+    expect(TransferEnvelope.parse(clipboard.text!), isA<TransferEnvelope>());
   });
 
   testWidgets(
-      'exporting on a device without sensitive clipboard shows a warning',
-      (tester) async {
-        final repository = _AccountRepository([
-          const Account(id: '42', userId: 42, name: 'tester'),
-        ]);
-        final clipboard = _TransferClipboard();
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              settingsRepositoryProvider.overrideWithValue(
-                _FakeRepository(_baseSettings()),
-              ),
-              accountMetadataRepositoryProvider.overrideWithValue(repository),
-              credentialStoreProvider.overrideWithValue(_CredentialStore()),
-              accountTransferServiceProvider.overrideWith(
-                (ref) => AccountTransferService(
-                  accountStore: ref.read(accountStoreProvider.notifier),
-                  credentialStore: ref.read(credentialStoreProvider),
-                  verifier: _UnusedTransferVerifier(),
-                  clipboard: clipboard,
-                ),
-              ),
-              // Capability override: emulate an Android <13 device that
-              // cannot mark the clipboard entry as sensitive.
-              transferClipboardProvider.overrideWithValue(
-                _TransferClipboard()
-                  ..sensitiveMarkSupported = false,
-              ),
-            ],
-            child: const MaterialApp(
-              locale: Locale('zh', 'CN'),
-              supportedLocales: [Locale('zh', 'CN')],
-              localizationsDelegates: GlobalMaterialLocalizations.delegates,
-              home: SettingsPage(),
+    'exporting on a device without sensitive clipboard shows a warning',
+    (tester) async {
+      final repository = _AccountRepository([
+        const Account(id: '42', userId: 42, name: 'tester'),
+      ]);
+      final clipboard = _TransferClipboard();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              _FakeRepository(_baseSettings()),
             ),
+            accountMetadataRepositoryProvider.overrideWithValue(repository),
+            credentialStoreProvider.overrideWithValue(_CredentialStore()),
+            accountTransferServiceProvider.overrideWith(
+              (ref) => AccountTransferService(
+                accountStore: ref.read(accountStoreProvider.notifier),
+                credentialStore: ref.read(credentialStoreProvider),
+                verifier: _UnusedTransferVerifier(),
+                clipboard: clipboard,
+              ),
+            ),
+            // Capability override: emulate an Android <13 device that
+            // cannot mark the clipboard entry as sensitive.
+            transferClipboardProvider.overrideWithValue(
+              _TransferClipboard()..sensitiveMarkSupported = false,
+            ),
+          ],
+          child: const MaterialApp(
+            locale: Locale('zh', 'CN'),
+            supportedLocales: [Locale('zh', 'CN')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            home: SettingsPage(),
           ),
-        );
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.longPress(find.text('tester'));
-        await tester.pumpAndSettle();
-        // The copied-toast (4s) blocks the queued warning snackbar; advance
-        // past it so the explicit security warning becomes visible.
-        await tester.pump(const Duration(seconds: 5));
-        await tester.pumpAndSettle();
+      await tester.longPress(find.text('tester'));
+      await tester.pumpAndSettle();
+      // The copied-toast (4s) blocks the queued warning snackbar; advance
+      // past it so the explicit security warning becomes visible.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
 
-        // The explicit security warning appears (R4: 安全降级不能静默).
-        expect(
-          find.text('此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。'),
-          findsOneWidget,
-        );
-      });
+      // The explicit security warning appears (R4: 安全降级不能静默).
+      expect(
+        find.text(
+          '此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('network settings accepts hostname DoH endpoints',
-      (tester) async {
+  testWidgets('network advanced accepts hostname DoH endpoints', (
+    tester,
+  ) async {
     // Regression: the endpoint validator required IP-literal hosts, which
     // silently rejected the Cloudflare DoH domain defaults
     // (1dot1dot1dot1.cloudflare-dns.com) as soon as the user touched the
-    // field. Domain endpoints are the production default now.
+    // field. Domain endpoints are the production default now. DoH editing
+    // lives on the advanced page (D3).
     final repository = _FakeRepository(_baseSettings());
     await tester.pumpWidget(
       ProviderScope(
@@ -579,6 +673,9 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('高级设置'));
     await tester.pumpAndSettle();
 
     // The default endpoints are domain-URL form.

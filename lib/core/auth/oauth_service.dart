@@ -85,8 +85,9 @@ class OAuthResult {
 ///   cleared on success, failure, cancellation, timeout and dispose.
 /// - The token exchange only ever talks to the fixed, verified endpoint
 ///   configured at construction; no user input ever enters the URL.
-/// - TLS is strict: the default http.Client never bypasses certificate
-///   validation and this service does not override it.
+/// - The production transport is injected from the shared Pixiv network
+///   policy (including its persisted fast route); this service never creates
+///   a separate network path or changes TLS settings itself.
 class OAuthService {
   OAuthService({
     http.Client? client,

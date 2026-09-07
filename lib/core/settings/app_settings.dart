@@ -2,6 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../download/download_destination.dart';
+import '../download/naming_rule.dart';
+
 /// Image source exposed by settings. Network compatibility belongs to the
 /// exact-host policy and cannot be selected by rewriting a CDN URL.
 enum ImageSourceMode {
@@ -23,7 +26,9 @@ enum ImageSourceMode {
 /// translation feature needs them, are referenced from secure storage only.
 enum TranslationProvider {
   google(0),
-  disabled(1);
+  disabled(1),
+  baidu(2),
+  translationLlm(3);
 
   const TranslationProvider(this.code);
 
@@ -35,6 +40,106 @@ enum TranslationProvider {
       if (provider.code == value) return provider;
     }
     return null;
+  }
+}
+
+/// Preview (feed card) image quality (D4). Default [medium].
+///
+/// Feed APIs only provide `image_urls.medium/large` — there is no original
+/// URL in list payloads, so original is deliberately not an option (an
+/// "original" preview would silently show large).
+enum PreviewQuality {
+  medium(0),
+  large(1);
+
+  const PreviewQuality(this.code);
+
+  final int code;
+
+  static PreviewQuality fromCode(Object? value) {
+    if (value is int) {
+      // Legacy saved value (code 2 = original) migrates to large: the old
+      // setting already displayed large in practice.
+      if (value == 2) return PreviewQuality.large;
+      for (final quality in values) {
+        if (quality.code == value) return quality;
+      }
+    }
+    return PreviewQuality.medium;
+  }
+
+  /// Legacy bool migration: `true` -> large, `false` -> medium.
+  static PreviewQuality fromLegacyBool(Object? value) =>
+      value == true ? PreviewQuality.large : PreviewQuality.medium;
+}
+
+/// Viewer image quality (D4). Default [original].
+enum ViewQuality {
+  medium(0),
+  large(1),
+  original(2);
+
+  const ViewQuality(this.code);
+
+  final int code;
+
+  static ViewQuality fromCode(Object? value) {
+    if (value is int) {
+      for (final quality in values) {
+        if (quality.code == value) return quality;
+      }
+    }
+    return ViewQuality.original;
+  }
+
+  /// Legacy bool migration: `true` -> original, `false` -> large.
+  static ViewQuality fromLegacyBool(Object? value) =>
+      value == true ? ViewQuality.original : ViewQuality.large;
+}
+
+/// Detail-page main image quality (三档之详情档). Default [large]; the
+/// medium option is available for code compatibility but served as large
+/// because a 540px image is unreadable as the detail hero.
+enum DetailQuality {
+  medium(0),
+  large(1),
+  original(2);
+
+  const DetailQuality(this.code);
+
+  final int code;
+
+  static DetailQuality fromCode(Object? value) {
+    if (value is int) {
+      for (final quality in values) {
+        if (quality.code == value) return quality;
+      }
+    }
+    return DetailQuality.large;
+  }
+}
+
+/// How the normal network stack routes traffic (D3). Only the user choice is
+/// persisted; route memory and probe results are never saved.
+enum NetworkMode {
+  automatic(0),
+  directOnly(1);
+
+  const NetworkMode(this.code);
+
+  final int code;
+
+  static NetworkMode? tryFromCode(Object? value) {
+    if (value is int) {
+      for (final mode in values) {
+        if (mode.code == value) return mode;
+      }
+    }
+    return null;
+  }
+
+  static NetworkMode fromCode(Object? value) {
+    return tryFromCode(value) ?? NetworkMode.automatic;
   }
 }
 
@@ -61,23 +166,22 @@ class AppSettings {
     this.enableDoh = true,
     this.dohEndpointOverride,
     this.echFrontHost = defaultEchFrontHost,
-    this.insecureNoSniEnabled = false,
-    this.nativeWebViewIntercept = false,
-    this.previewQuality = true,
-    this.scaleQuality = true,
+    this.previewQuality = PreviewQuality.medium,
+    this.viewQuality = ViewQuality.original,
+    this.detailQuality = DetailQuality.large,
+    this.networkMode = NetworkMode.automatic,
     this.enableHistory = true,
     this.enablePixivHistory = true,
     this.enableLocalBlockR18 = false,
     this.enableLocalBlockAI = false,
-    this.translateIndex = 0,
+    this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
-    this.savePath,
-    this.saveFolder,
-    this.namingRule,
+    this.downloadDestination = DownloadDestination.builtin,
+    this.namingRule = NamingRule.defaultRule,
     this.schemaVersion = currentSchemaVersion,
   });
 
-  static const int currentSchemaVersion = 2;
+  static const int currentSchemaVersion = 3;
   static const int systemTheme = -1;
   static const int darkTheme = 0;
   static const int lightTheme = 1;
@@ -120,25 +224,20 @@ class AppSettings {
   /// ECH front host (HTTPS RR type 65 query target).
   final String echFrontHost;
 
-  /// Whether the user explicitly enabled the `insecureNoSni` fallback tier
-  /// (R6). Default false; never auto-enabled by probe failures.
-  final bool insecureNoSniEnabled;
-
-  /// R7: login WebView uses the native PlatformView (request interception
-  /// through the policy ladder) instead of webview_flutter on Android.
-  /// Default false — webview_flutter is the tested, stable path.
-  final bool nativeWebViewIntercept;
-  final bool previewQuality;
-  final bool scaleQuality;
+  final PreviewQuality previewQuality;
+  final ViewQuality viewQuality;
+  final DetailQuality detailQuality;
+  final NetworkMode networkMode;
   final bool enableHistory;
   final bool enablePixivHistory;
   final bool enableLocalBlockR18;
   final bool enableLocalBlockAI;
   final int translateIndex;
   final int maxDownloadCount;
-  final String? savePath;
-  final String? saveFolder;
-  final String? namingRule;
+  final DownloadDestination downloadDestination;
+
+  /// File naming (D6): preset or bounded custom template.
+  final NamingRule namingRule;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -161,6 +260,9 @@ class AppSettings {
       json['translateIndex'] ?? json['translationProvider'],
     );
     final maxDownloads = json['maxDownloadCount'];
+    final legacyPreview = json['previewQuality'];
+    final legacyScale = json['scaleQuality'];
+    final legacyNaming = json['namingRule'];
     return AppSettings(
       schemaVersion: currentSchemaVersion,
       guideCompleted: _bool(
@@ -186,16 +288,21 @@ class AppSettings {
               (json['echFrontHost'] as String).isNotEmpty
           ? json['echFrontHost'] as String
           : base.echFrontHost,
-      insecureNoSniEnabled: _bool(
-        json['insecureNoSniEnabled'],
-        base.insecureNoSniEnabled,
-      ),
-      nativeWebViewIntercept: _bool(
-        json['nativeWebViewIntercept'],
-        base.nativeWebViewIntercept,
-      ),
-      previewQuality: _bool(json['previewQuality'], base.previewQuality),
-      scaleQuality: _bool(json['scaleQuality'], base.scaleQuality),
+      previewQuality: json['previewQualityCode'] is int
+          ? PreviewQuality.fromCode(json['previewQualityCode'])
+          : legacyPreview is bool
+          ? PreviewQuality.fromLegacyBool(legacyPreview)
+          : base.previewQuality,
+      viewQuality: json['viewQualityCode'] is int
+          ? ViewQuality.fromCode(json['viewQualityCode'])
+          : legacyScale is bool
+          ? ViewQuality.fromLegacyBool(legacyScale)
+          : base.viewQuality,
+      detailQuality: json['detailQualityCode'] is int
+          ? DetailQuality.fromCode(json['detailQualityCode'])
+          : base.detailQuality,
+      networkMode:
+          NetworkMode.tryFromCode(json['networkModeCode']) ?? base.networkMode,
       enableHistory: _bool(json['enableHistory'], base.enableHistory),
       enablePixivHistory: _bool(
         json['enablePixivHistory'],
@@ -211,9 +318,8 @@ class AppSettings {
       ),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
-      savePath: _nullableString(json, 'savePath', base.savePath),
-      saveFolder: _nullableString(json, 'saveFolder', base.saveFolder),
-      namingRule: _nullableString(json, 'namingRule', base.namingRule),
+      downloadDestination: _readDestination(json, base.downloadDestination),
+      namingRule: _readNamingRule(json, legacyNaming, base.namingRule),
     );
   }
 
@@ -228,20 +334,61 @@ class AppSettings {
       'enableDoh': enableDoh,
       'dohEndpointOverride': dohEndpointOverride,
       'echFrontHost': echFrontHost,
-      'insecureNoSniEnabled': insecureNoSniEnabled,
-      'nativeWebViewIntercept': nativeWebViewIntercept,
-      'previewQuality': previewQuality,
-      'scaleQuality': scaleQuality,
+      'previewQualityCode': previewQuality.code,
+      'viewQualityCode': viewQuality.code,
+      'detailQualityCode': detailQuality.code,
+      'networkModeCode': networkMode.code,
       'enableHistory': enableHistory,
       'enablePixivHistory': enablePixivHistory,
       'enableLocalBlockR18': enableLocalBlockR18,
       'enableLocalBlockAI': enableLocalBlockAI,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
-      'savePath': savePath,
-      'saveFolder': saveFolder,
-      'namingRule': namingRule,
+      ...downloadDestination.toJson(),
+      'namingPreset': namingRule.preset.code,
+      if (namingRule.preset == NamingPreset.custom)
+        'namingTemplate': namingRule.template,
     };
+  }
+
+  static DownloadDestination _readDestination(
+    Map<String, dynamic> json,
+    DownloadDestination fallback,
+  ) {
+    if (json.containsKey('destinationKind')) {
+      return DownloadDestination.fromJson(json, fallback: fallback);
+    }
+    // Legacy schema v2 stored savePath/saveFolder with no producer and no
+    // verifiable semantics. The safe migration is the built-in album; the
+    // settings page surfaces the visible state so users can re-choose.
+    return fallback;
+  }
+
+  static NamingRule _readNamingRule(
+    Map<String, dynamic> json,
+    Object? legacyNaming,
+    NamingRule fallback,
+  ) {
+    final rawPreset = json['namingPreset'];
+    if (rawPreset != null) {
+      final preset = NamingPreset.fromCode(rawPreset);
+      if (preset != NamingPreset.custom) {
+        return NamingRule(preset: preset);
+      }
+      final template = json['namingTemplate'];
+      if (template is String && NamingRule.isValidTemplate(template)) {
+        return NamingRule(preset: NamingPreset.custom, template: template);
+      }
+      // A saved custom preset with an invalid template falls back to the
+      // caller's default rather than silently switching to another preset.
+      return fallback;
+    }
+    // Legacy namingRule string survives only when it is a valid bounded
+    // template; anything else falls back to the default preset.
+    if (legacyNaming is String && NamingRule.isValidTemplate(legacyNaming)) {
+      return NamingRule(preset: NamingPreset.custom, template: legacyNaming);
+    }
+    return fallback;
   }
 
   static String canonicalLanguageTag(String value) {
@@ -272,7 +419,7 @@ class AppSettings {
 
   TranslationProvider get translationProvider =>
       TranslationProvider.fromCode(translateIndex) ??
-      TranslationProvider.google;
+      TranslationProvider.disabled;
 
   // Descriptive aliases used by consumers; beta56-compatible field names
   // remain the canonical public storage contract above.
@@ -296,18 +443,17 @@ class AppSettings {
     bool? enableDoh,
     Object? dohEndpointOverride = _unset,
     String? echFrontHost,
-    bool? insecureNoSniEnabled,
-    bool? nativeWebViewIntercept,
-    bool? previewQuality,
-    bool? scaleQuality,
+    PreviewQuality? previewQuality,
+    ViewQuality? viewQuality,
+    DetailQuality? detailQuality,
+    NetworkMode? networkMode,
     bool? enableHistory,
     bool? enablePixivHistory,
     bool? enableLocalBlockR18,
     bool? enableLocalBlockAI,
     int? translateIndex,
     int? maxDownloadCount,
-    Object? savePath = _unset,
-    Object? saveFolder = _unset,
+    Object? downloadDestination = _unset,
     Object? namingRule = _unset,
   }) {
     return AppSettings(
@@ -326,12 +472,10 @@ class AppSettings {
           ? this.dohEndpointOverride
           : dohEndpointOverride as String?,
       echFrontHost: echFrontHost ?? this.echFrontHost,
-      insecureNoSniEnabled:
-          insecureNoSniEnabled ?? this.insecureNoSniEnabled,
-      nativeWebViewIntercept:
-          nativeWebViewIntercept ?? this.nativeWebViewIntercept,
       previewQuality: previewQuality ?? this.previewQuality,
-      scaleQuality: scaleQuality ?? this.scaleQuality,
+      viewQuality: viewQuality ?? this.viewQuality,
+      detailQuality: detailQuality ?? this.detailQuality,
+      networkMode: networkMode ?? this.networkMode,
       enableHistory: enableHistory ?? this.enableHistory,
       enablePixivHistory: enablePixivHistory ?? this.enablePixivHistory,
       enableLocalBlockR18: enableLocalBlockR18 ?? this.enableLocalBlockR18,
@@ -340,15 +484,12 @@ class AppSettings {
           TranslationProvider.fromCode(translateIndex)?.code ??
           this.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloadCount, this.maxDownloadCount),
-      savePath: identical(savePath, _unset)
-          ? this.savePath
-          : savePath as String?,
-      saveFolder: identical(saveFolder, _unset)
-          ? this.saveFolder
-          : saveFolder as String?,
+      downloadDestination: identical(downloadDestination, _unset)
+          ? this.downloadDestination
+          : downloadDestination as DownloadDestination,
       namingRule: identical(namingRule, _unset)
           ? this.namingRule
-          : namingRule as String?,
+          : namingRule as NamingRule,
     );
   }
 

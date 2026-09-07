@@ -5,6 +5,15 @@ import '../bookmark/bookmark_models.dart';
 import '../bookmark/bookmark_store.dart';
 import 'illust_entity.dart';
 
+/// Payload provenance for entity merges (C3/audit R7.3).
+///
+/// - [feed]: sparse feed pages. Fields the payload does not carry must not
+///   erase a richer value already observed (no-regress).
+/// - [detail]: authoritative responses. An empty caption, empty tags,
+///   `visible=false` or a reduced page count is a real server state and may
+///   overwrite the previous snapshot.
+enum EntityMergeSource { feed, detail }
+
 /// Shared, account-scoped store of illust entities keyed by work ID.
 ///
 /// Feeds (recommended, ranking, search, bookmarks) only keep ordered ID
@@ -74,6 +83,7 @@ class IllustStore {
   /// regress, parent AC); `visible: false` sticks once seen.
   void mergeAll(
     Iterable<IllustEntity> incoming, {
+    EntityMergeSource source = EntityMergeSource.feed,
     int? bookmarkSnapshotRevision,
   }) {
     for (final entity in incoming) {
@@ -92,6 +102,18 @@ class IllustStore {
         _entities[entity.id] = bookmarkAuthority == null
             ? entity
             : entity.copyWith(isBookmarked: bookmarkAuthority);
+        continue;
+      }
+      if (source == EntityMergeSource.detail) {
+        // Authoritative detail payload: real server state wins, including
+        // empty caption/tags, visible=false and a reduced page count. The
+        // bookmark flag still follows the BookmarkStore authority when
+        // bound (R2): mutations are owned there.
+        _entities[entity.id] = entity.copyWith(
+          isBookmarked:
+              bookmarkAuthority ??
+              (entity.isBookmarked || existing.isBookmarked),
+        );
         continue;
       }
       _entities[entity.id] = entity.copyWith(

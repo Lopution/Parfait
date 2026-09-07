@@ -139,6 +139,14 @@ void main() {
     expect(report.toCopyableText(), contains('conclusion: allReachable'));
     expect(report.toCopyableText(), contains('system-dns: ok'));
     expect(report.toCopyableText(), contains('tls: ok'));
+    // P-NET timing: each layer carries its wall-clock duration and the
+    // total run time is exported; the probe never adds extra requests.
+    expect(
+      report.steps.every((step) => step.duration >= Duration.zero),
+      isTrue,
+    );
+    expect(report.toCopyableText(), contains('total '));
+    expect(report.totalDuration >= Duration.zero, isTrue);
   });
 
   test('system DNS disagrees with DoH -> dnsPolluted', () async {

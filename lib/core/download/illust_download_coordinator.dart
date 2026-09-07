@@ -4,6 +4,7 @@ import 'download_manager.dart';
 import 'download_providers.dart';
 import 'download_request.dart';
 import 'download_task.dart';
+import 'naming_rule.dart';
 
 /// Detail-page download facade (implement.md step 4): single page and
 /// Download All submit typed requests; toasts remain at the call site.
@@ -18,6 +19,9 @@ class IllustDownloadCoordinator {
     required int illustId,
     required int pageIndex,
     required Uri url,
+    NamingRule? namingRule,
+    String? artist,
+    String? title,
   }) {
     return _manager.submit(
       DownloadRequest(
@@ -25,6 +29,9 @@ class IllustDownloadCoordinator {
         pageIndex: pageIndex,
         url: url,
         target: DownloadTarget.illustPage,
+        namingRule: namingRule,
+        artist: artist,
+        title: title,
       ),
     );
   }
@@ -34,6 +41,9 @@ class IllustDownloadCoordinator {
   List<DownloadTaskSnapshot> downloadAllPages({
     required int illustId,
     required List<Uri> pageUrls,
+    NamingRule? namingRule,
+    String? artist,
+    String? title,
   }) {
     final group = _manager.submitGroup([
       for (var i = 0; i < pageUrls.length; i++)
@@ -42,6 +52,9 @@ class IllustDownloadCoordinator {
           pageIndex: i,
           url: pageUrls[i],
           target: DownloadTarget.illustPage,
+          namingRule: namingRule,
+          artist: artist,
+          title: title,
         ),
     ]);
     return [for (final id in group.jobIds) _manager.taskById(id)!];

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -6,6 +7,7 @@ import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
+import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/features/home/home_page.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
@@ -61,7 +63,12 @@ Widget _wrap({
         _StaticMetadataRepository(snapshot, corrupt: corruptMetadata),
       ),
     ],
-    child: MaterialApp(home: StartupGate(settings: settings)),
+    child: MaterialApp(
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [Locale('zh', 'CN')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: StartupGate(settings: settings),
+    ),
   );
 }
 
@@ -86,93 +93,103 @@ void main() {
   });
 
   testWidgets('guide not completed shows the welcome shell', (tester) async {
-    await tester.pumpWidget(_wrap(
-      settings: AppSettings.defaults(),
-      snapshot: const AccountMetadataSnapshot(accounts: []),
-    ));
+    await tester.pumpWidget(
+      _wrap(
+        settings: AppSettings.defaults(),
+        snapshot: const AccountMetadataSnapshot(accounts: []),
+      ),
+    );
 
     expect(find.byType(WelcomePage), findsOneWidget);
     expect(find.text('感谢使用Pixiv Func'), findsOneWidget);
     expect(find.text('开始'), findsOneWidget);
   });
 
-  testWidgets('guide completed without an account shows the login page',
-      (tester) async {
-    await tester.pumpWidget(_wrap(
-      settings: const AppSettings(
-        guideCompleted: true,
-        languageTag: 'zh-CN',
-        themeCode: AppSettings.systemTheme,
+  testWidgets('guide completed without an account shows the login page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        settings: const AppSettings(
+          guideCompleted: true,
+          languageTag: 'zh-CN',
+          themeCode: AppSettings.systemTheme,
+        ),
+        snapshot: const AccountMetadataSnapshot(accounts: []),
       ),
-      snapshot: const AccountMetadataSnapshot(accounts: []),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginPage), findsOneWidget);
   });
 
-  testWidgets('guide completed with a usable account shows home',
-      (tester) async {
-    await tester.pumpWidget(_wrap(
-      settings: const AppSettings(
-        guideCompleted: true,
-        languageTag: 'zh-CN',
-        themeCode: AppSettings.systemTheme,
+  testWidgets('guide completed with a usable account shows home', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        settings: const AppSettings(
+          guideCompleted: true,
+          languageTag: 'zh-CN',
+          themeCode: AppSettings.systemTheme,
+        ),
+        snapshot: const AccountMetadataSnapshot(
+          accounts: [Account(id: '100', userId: 100, name: 'tester')],
+          currentId: '100',
+        ),
       ),
-      snapshot: const AccountMetadataSnapshot(
-        accounts: [
-          Account(id: '100', userId: 100, name: 'tester'),
-        ],
-        currentId: '100',
-      ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(HomePage), findsOneWidget);
     expect(find.byIcon(Icons.settings), findsOneWidget);
   });
 
-  testWidgets('reauth-required current account falls back to login',
-      (tester) async {
-    await tester.pumpWidget(_wrap(
-      settings: const AppSettings(
-        guideCompleted: true,
-        languageTag: 'zh-CN',
-        themeCode: AppSettings.systemTheme,
+  testWidgets('reauth-required current account falls back to login', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        settings: const AppSettings(
+          guideCompleted: true,
+          languageTag: 'zh-CN',
+          themeCode: AppSettings.systemTheme,
+        ),
+        snapshot: const AccountMetadataSnapshot(
+          accounts: [
+            Account(
+              id: '100',
+              userId: 100,
+              name: 'tester',
+              authState: AccountAuthState.reauthRequired,
+            ),
+          ],
+          currentId: '100',
+        ),
       ),
-      snapshot: const AccountMetadataSnapshot(
-        accounts: [
-          Account(
-            id: '100',
-            userId: 100,
-            name: 'tester',
-            authState: AccountAuthState.reauthRequired,
-          ),
-        ],
-        currentId: '100',
-      ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginPage), findsOneWidget);
   });
 
-  testWidgets('unreadable credentials fall back to the re-auth flow',
-      (tester) async {
-    await tester.pumpWidget(_wrap(
-      settings: const AppSettings(
-        guideCompleted: true,
-        languageTag: 'zh-CN',
-        themeCode: AppSettings.systemTheme,
+  testWidgets('unreadable credentials fall back to the re-auth flow', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        settings: const AppSettings(
+          guideCompleted: true,
+          languageTag: 'zh-CN',
+          themeCode: AppSettings.systemTheme,
+        ),
+        snapshot: const AccountMetadataSnapshot(
+          accounts: [Account(id: '100', userId: 100, name: 'tester')],
+          currentId: '100',
+        ),
+        brokenStore: true,
       ),
-      snapshot: const AccountMetadataSnapshot(
-        accounts: [
-          Account(id: '100', userId: 100, name: 'tester'),
-        ],
-        currentId: '100',
-      ),
-      brokenStore: true,
-    ));
+    );
     await tester.pumpAndSettle();
 
     // Keystore failure degrades the account to re-auth required; the gate
@@ -182,19 +199,27 @@ void main() {
   });
 
   testWidgets('corrupt metadata surfaces a retryable error', (tester) async {
-    await tester.pumpWidget(_wrap(
-      settings: const AppSettings(
-        guideCompleted: true,
-        languageTag: 'zh-CN',
-        themeCode: AppSettings.systemTheme,
+    await tester.pumpWidget(
+      _wrap(
+        settings: const AppSettings(
+          guideCompleted: true,
+          languageTag: 'zh-CN',
+          themeCode: AppSettings.systemTheme,
+        ),
+        snapshot: const AccountMetadataSnapshot(accounts: []),
+        corruptMetadata: true,
       ),
-      snapshot: const AccountMetadataSnapshot(accounts: []),
-      corruptMetadata: true,
-    ));
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('启动时读取账号状态失败'), findsOneWidget);
-    expect(find.text('重试'), findsOneWidget);
+    expect(
+      find.text(ReplicaStrings.text(ReplicaLanguage.zhCN, 'accountReadFailed')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(ReplicaStrings.text(ReplicaLanguage.zhCN, 'retry')),
+      findsOneWidget,
+    );
     expect(find.byType(LoginPage), findsNothing);
     expect(find.byType(HomePage), findsNothing);
   });

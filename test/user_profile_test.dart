@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -526,6 +527,17 @@ void main() {
       expect(find.text('插画'), findsOneWidget);
       expect(find.text('漫画'), findsOneWidget);
       expect(find.text('小说'), findsOneWidget);
+      expect(find.byType(EasyRefresh), findsOneWidget);
+      expect(find.byType(HeaderLocator), findsOneWidget);
+
+      // Re-tapping a non-work tab must never open the work-type selector.
+      await tester.tap(find.text('收藏'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('收藏'));
+      await tester.pumpAndSettle();
+      expect(find.text('插画'), findsNothing);
+      expect(find.text('漫画'), findsNothing);
+      expect(find.text('小说'), findsNothing);
     },
   );
 }

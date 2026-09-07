@@ -6,12 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/io_client.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
+import 'package:pixiv_func/core/download/download_destination.dart';
+import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/download/download_transport.dart';
 import 'package:pixiv_func/core/download/illust_download_coordinator.dart';
 import 'package:pixiv_func/core/download/pixiv_download_transport.dart';
 import 'package:pixiv_func/core/platform/android_platform_interfaces.dart';
+import 'package:pixiv_func/core/platform/saf_tree.dart';
 
 DownloadRequest request({
   int illustId = 42,
@@ -141,6 +144,22 @@ void main() {
         ).mimeType,
         'application/zip',
       );
+    });
+
+    test('custom naming rules are consumed by download requests', () {
+      final named = DownloadRequest(
+        illustId: 42,
+        pageIndex: 2,
+        url: Uri.parse('https://i.pximg.net/img/42_p2.jpg'),
+        target: DownloadTarget.illustPage,
+        namingRule: const NamingRule(
+          preset: NamingPreset.custom,
+          template: '{artist}_{title}_{id}_p{page}.{ext}',
+        ),
+        artist: 'artist/name',
+        title: 'title',
+      );
+      expect(named.displayName, 'artist_name_title_42_p2.jpg');
     });
 
     test('unsupported extensions and traversal shapes are rejected', () {
@@ -645,6 +664,24 @@ void main() {
       );
     });
 
+    test(
+      'destination-aware factory honors the immutable destination',
+      () async {
+        final session = _FakeMediaStoreSession();
+        final factory = DestinationAwareSinkFactory(
+          mediaStore: MediaStoreSinkFactory(session),
+          saf: _UnusedSafDocumentSinkFactory(),
+        );
+        final sink = await factory.begin(
+          request(),
+          '42_p0.jpg',
+          destination: DownloadDestination.customAlbum('Archive'),
+        );
+        await sink.abort();
+        expect(session.begins.single.relativePath, 'Pictures/Archive');
+      },
+    );
+
     test('abort is idempotent and never throws through cleanup', () async {
       final session = _FakeMediaStoreSession(failAbort: true);
       final factory = MediaStoreSinkFactory(session);
@@ -913,7 +950,7 @@ void main() {
           await server.close(force: true);
         }
       });
-    });
+    }, timeout: const Timeout(Duration(minutes: 2)));
 
     test('cancel terminates a real in-flight transfer', () async {
       await tolerant(() async {
@@ -965,7 +1002,7 @@ void main() {
           await server.close(force: true);
         }
       });
-    });
+    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 }
 
@@ -1059,8 +1096,9 @@ class _FailingSinkFactory implements DownloadSinkFactory {
   @override
   Future<DownloadSink> begin(
     DownloadRequest request,
-    String displayName,
-  ) async {
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async {
     final inner = MemorySink();
     lastSink = inner;
     return _FailingSink(inner);
@@ -1085,11 +1123,22 @@ class _FailingSink implements DownloadSink {
   Future<void> abort() => inner.abort();
 }
 
+class _UnusedSafDocumentSinkFactory implements SafDocumentSinkFactory {
+  @override
+  Future<SafDocumentSink> create({
+    required String treeUri,
+    required String displayName,
+    required String mimeType,
+    DownloadOutputOwner? owner,
+  }) => throw StateError('SAF factory should not be called in this test');
+}
+
 class _BeginCall {
-  const _BeginCall(this.displayName, this.mimeType);
+  const _BeginCall(this.displayName, this.mimeType, [this.relativePath]);
 
   final String displayName;
   final String mimeType;
+  final String? relativePath;
 }
 
 class _FakeMediaStoreSession implements MediaStoreSession {
@@ -1106,8 +1155,9 @@ class _FakeMediaStoreSession implements MediaStoreSession {
   Future<MediaStoreHandle> begin({
     required String displayName,
     required String mimeType,
+    String? relativePath,
   }) async {
-    begins.add(_BeginCall(displayName, mimeType));
+    begins.add(_BeginCall(displayName, mimeType, relativePath));
     final id = nextId++;
     return _FakeHandle(id, this);
   }

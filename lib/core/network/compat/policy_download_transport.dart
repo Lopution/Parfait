@@ -1,5 +1,3 @@
-import 'package:http/http.dart' as http;
-
 import '../../download/download_transport.dart';
 import '../../download/pixiv_download_transport.dart';
 import '../pixiv_client_identity.dart';
@@ -35,8 +33,6 @@ class PolicyDownloadTransport
       // A download is a streamed GET with no body; a repeat is safe. The
       // ladder itself enforces eligibility (transport failures only).
       canReplay: true,
-      probe: (route, probeUri) =>
-          _probeRoute(route, probeUri, destination.canonicalHost, cancelToken),
       attempt: (route, routeUrl) async {
         try {
           return await _transportFor(
@@ -83,47 +79,6 @@ class PolicyDownloadTransport
     });
   }
 
-  Future<void> _probeRoute(
-    NetworkRoute route,
-    Uri probeUri,
-    String canonicalHost,
-    DownloadCancelToken cancelToken,
-  ) async {
-    if (cancelToken.isCancelled) {
-      throw const NetworkFailureException(NetworkFailureKind.cancelled);
-    }
-    final request =
-        http.AbortableRequest(
-            'HEAD',
-            probeUri,
-            abortTrigger: cancelToken.whenCancel,
-          )
-          ..followRedirects = false
-          ..headers['cache-control'] = 'no-cache';
-    final response = await _raceWithCancellation(
-      policy
-          .clientFor(PixivDestinationPurpose.image, route, canonicalHost)
-          .send(request),
-      cancelToken,
-    );
-    await _raceWithCancellation(response.stream.drain<void>(), cancelToken);
-    if (response.statusCode == 421) {
-      throw const NetworkRouteProbeException(421);
-    }
-  }
-
-  Future<T> _raceWithCancellation<T>(
-    Future<T> operation,
-    NetworkCancelSignal cancelSignal,
-  ) {
-    return Future.any<T>([
-      operation,
-      cancelSignal.whenCancel.then<T>(
-        (_) =>
-            throw const NetworkFailureException(NetworkFailureKind.cancelled),
-      ),
-    ]);
-  }
 
   @override
   Future<void> dispose() async {

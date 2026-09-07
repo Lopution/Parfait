@@ -328,12 +328,14 @@ class _FakeSignatureVerifier implements UpdateSignatureVerifier {
   var calls = 0;
 
   @override
-  Future<bool> verify({
+  Future<UpdateManifestVerification> verify({
     required List<int> message,
     required List<int> signature,
   }) async {
     calls++;
-    return valid;
+    return valid
+        ? const UpdateManifestVerification.valid()
+        : const UpdateManifestVerification.invalid('signature_mismatch');
   }
 }
 
@@ -358,10 +360,10 @@ class _FakePlatform implements UpdatePlatform {
   Future<bool> deleteApk(String path) async => true;
 
   @override
-  Future<bool> verifyManifestSignature({
+  Future<UpdateManifestVerification> verifyManifestSignature({
     required List<int> message,
     required List<int> signature,
-  }) async => false;
+  }) async => const UpdateManifestVerification.invalid('signature_mismatch');
 
   @override
   Future<UpdateInstallResult> installApk(String path) async =>

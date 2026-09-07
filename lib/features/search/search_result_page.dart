@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
-import '../../app/pixiv_image.dart';
+import '../../app/person_avatar.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/entity/illust_store.dart';
@@ -87,9 +87,6 @@ class SearchResultPage extends ConsumerWidget {
           if (feed.showInitialSpinner) {
             return _SearchStatus(title: searchText(context, 'searchLoading'));
           }
-          if (feed.isEmptyAndReady) {
-            return _SearchStatus(title: searchText(context, 'searchNoResults'));
-          }
           return _SearchFeedContent(query: query, feed: feed);
         },
       ),
@@ -122,6 +119,11 @@ class _IllustSearchFeed extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
+    if (entities.isEmpty) {
+      return _SearchEmpty(
+        onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
+      );
+    }
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
@@ -136,27 +138,19 @@ class _IllustSearchFeed extends ConsumerWidget {
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            if (entities.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _SearchStatus(
-                  title: searchText(context, 'searchNoResults'),
+            SliverPadding(
+              padding: const EdgeInsets.all(10),
+              sliver: SliverMasonryGrid.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 5,
+                crossAxisSpacing: 10,
+                itemBuilder: (context, index) => IllustCard(
+                  entity: entities[index],
+                  heroScope: 'search:${query.cacheKey}',
                 ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.all(10),
-                sliver: SliverMasonryGrid.count(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 5,
-                  crossAxisSpacing: 10,
-                  itemBuilder: (context, index) => IllustCard(
-                    entity: entities[index],
-                    heroScope: 'search:${query.cacheKey}',
-                  ),
-                  childCount: entities.length,
-                ),
+                childCount: entities.length,
               ),
+            ),
             SliverToBoxAdapter(
               child: _SearchFeedTail(
                 feed: feed,
@@ -185,6 +179,11 @@ class _NovelSearchFeed extends ConsumerWidget {
       for (final id in feed.ids)
         if (stored[id] != null) stored[id]!,
     ];
+    if (entities.isEmpty) {
+      return _SearchEmpty(
+        onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
+      );
+    }
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
@@ -198,16 +197,8 @@ class _NovelSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: entities.isEmpty ? 1 : entities.length + 1,
+          itemCount: entities.length + 1,
           itemBuilder: (context, index) {
-            if (entities.isEmpty) {
-              return SizedBox(
-                height: 260,
-                child: _SearchStatus(
-                  title: searchText(context, 'searchNoResults'),
-                ),
-              );
-            }
             if (index == entities.length) {
               return _SearchFeedTail(
                 feed: feed,
@@ -237,6 +228,11 @@ class _UserSearchFeed extends ConsumerWidget {
       for (final id in feed.ids)
         if (stored[id] != null) stored[id]!,
     ];
+    if (users.isEmpty) {
+      return _SearchEmpty(
+        onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
+      );
+    }
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
@@ -250,16 +246,8 @@ class _UserSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
-          itemCount: users.isEmpty ? 1 : users.length + 1,
+          itemCount: users.length + 1,
           itemBuilder: (context, index) {
-            if (users.isEmpty) {
-              return SizedBox(
-                height: 260,
-                child: _SearchStatus(
-                  title: searchText(context, 'searchNoResults'),
-                ),
-              );
-            }
             if (index == users.length) {
               return _SearchFeedTail(
                 feed: feed,
@@ -287,21 +275,7 @@ class _SearchUserCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
         onTap: () => showUserPage(context, user.id),
-        leading: CircleAvatar(
-          radius: 26,
-          child: user.profileImageUrl == null
-              ? const Icon(Icons.person_outline)
-              : ClipOval(
-                  child: SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: PixivImage(
-                      url: user.profileImageUrl!,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-        ),
+        leading: PersonAvatar(imageUrl: user.profileImageUrl, radius: 26),
         title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: user.account.isEmpty
             ? null
@@ -333,6 +307,32 @@ class _SearchStatus extends StatelessWidget {
           const Icon(Icons.search, size: 44),
           const SizedBox(height: 12),
           Text(title),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchEmpty extends StatelessWidget {
+  const _SearchEmpty({required this.onRefresh});
+
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.search, size: 44),
+          const SizedBox(height: 12),
+          Text(searchText(context, 'searchNoResults')),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh),
+            label: Text(searchText(context, 'searchRetry')),
+          ),
         ],
       ),
     );

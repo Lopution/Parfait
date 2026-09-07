@@ -51,6 +51,22 @@ class ReverseImageSearchSuccess extends ReverseImageSearchOutcome {
   final List<ReverseImageHit> hits;
 }
 
+/// SauceNAO-style interactive result: the service-rendered page is shown in
+/// a controlled WebView (D1). Exactly one of [html] / [resultUrl] is set.
+/// No HTML parsing happens in Dart; a challenge or error page is never
+/// converted into an empty success.
+class ReverseImageSearchWebView extends ReverseImageSearchOutcome {
+  const ReverseImageSearchWebView({
+    this.html,
+    this.resultUrl,
+    required this.observedAt,
+  }) : assert(html != null || resultUrl != null);
+
+  final String? html;
+  final Uri? resultUrl;
+  final String observedAt;
+}
+
 class ReverseImageSearchFailure extends ReverseImageSearchOutcome {
   const ReverseImageSearchFailure({
     required this.code,

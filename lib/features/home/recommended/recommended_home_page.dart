@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
+import '../../../app/widgets/replica_empty_state.dart';
 import '../../../app/replica_page_route.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/i18n/replica_strings.dart';
@@ -73,7 +75,6 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       _type = type;
       _loaded.add(type);
     });
-    _tabController.animateTo(_types.indexOf(type));
   }
 
   @override
@@ -123,8 +124,9 @@ class _RecommendedTypeSelector extends StatelessWidget {
     // provides the surface).
     return TabBar(
       controller: controller,
-      isScrollable: true,
-      tabAlignment: TabAlignment.start,
+      // Evenly distribute across the full width (same logic as the bottom
+      // navigation row) instead of a start-aligned scrollable.
+      isScrollable: false,
       indicatorSize: TabBarIndicatorSize.label,
       indicatorPadding: const EdgeInsets.only(bottom: 5),
       labelPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -174,8 +176,10 @@ class RecommendedFeedView extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (feed.isEmptyAndReady) {
-          return Center(
-            child: Text(_recommendedText(context, 'recommendedEmpty')),
+          return _RecommendedEmptyFeed(
+            message: _recommendedText(context, 'recommendedEmpty'),
+            onRefresh: () =>
+                ref.read(recommendedFeedProvider(key).notifier).refresh(),
           );
         }
         return _RecommendedFeedBody(
@@ -317,6 +321,22 @@ class _RecommendedFeedBody extends ConsumerWidget {
   }
 }
 
+class _RecommendedEmptyFeed extends StatelessWidget {
+  const _RecommendedEmptyFeed({required this.message, required this.onRefresh});
+
+  final String message;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReplicaEmptyState(
+      message: message,
+      retryLabel: _recommendedText(context, 'retry'),
+      onRetry: onRefresh,
+    );
+  }
+}
+
 class _NovelRowCard extends StatelessWidget {
   const _NovelRowCard({required this.entity});
 
@@ -421,24 +441,7 @@ class _UserRowCard extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest,
-                child: entity.profileImageUrl == null
-                    ? const Icon(Icons.person_outline, size: 24)
-                    : ClipOval(
-                        child: SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: PixivImage(
-                            url: entity.profileImageUrl!,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-              ),
+              PersonAvatar(imageUrl: entity.profileImageUrl, radius: 24),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

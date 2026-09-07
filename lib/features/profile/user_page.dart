@@ -1,10 +1,10 @@
-import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../app/icons/app_icons.dart';
-import '../../app/pixiv_image.dart';
+import '../../app/person_avatar.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/auth/account_store.dart';
@@ -63,6 +63,14 @@ class MePage extends ConsumerWidget {
         onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
       ),
       data: (state) {
+        if (state.status == AccountStatus.failure) {
+          return _ProfileStatusPage(
+            icon: Icons.cloud_off,
+            title: _profileText(context, 'accountReadFailed'),
+            detail: '${state.error ?? 'unknown account error'}',
+            onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
+          );
+        }
         final account = state.usableCurrent;
         if (account == null) {
           return _ProfileStatusPage(
@@ -157,7 +165,10 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   void _onTabTap(int index) {
-    if (index == _selectedIndex && !_tabController.indexIsChanging) {
+    final workTabIndex = widget.isMe ? _tabKeys.length - 1 : 0;
+    if (index == _selectedIndex &&
+        index == workTabIndex &&
+        !_tabController.indexIsChanging) {
       setState(() => _selectorExpanded = !_selectorExpanded);
     }
   }
@@ -330,7 +341,6 @@ class _UserPageState extends ConsumerState<UserPage>
                     isMe: widget.isMe,
                     tabIndex: index,
                     feedKey: _feedKeyFor(index),
-                    active: index == _selectedIndex,
                   ),
               ],
             ),
@@ -349,7 +359,6 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.isMe,
     required this.tabIndex,
     required this.feedKey,
-    required this.active,
   });
 
   final UserEntity user;
@@ -357,7 +366,6 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   final bool isMe;
   final int tabIndex;
   final ProfileFeedKey? feedKey;
-  final bool active;
 
   @override
   ConsumerState<_ProfileTabBody> createState() => _ProfileTabBodyState();
@@ -374,9 +382,10 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
     final feedKey = widget.feedKey;
     if (feedKey == null) return _ProfileAbout(user: widget.user);
     if (feedKey.workType == UserWorkType.novel) {
-      return widget.active
-          ? _ProfileNovelFeed(userId: feedKey.userId)
-          : const SizedBox.shrink();
+      // TabController.indexIsChanging is false during a drag gesture. Keep
+      // the page mounted for both tap and swipe transitions so the destination
+      // never becomes a zero-size blank child mid-flight.
+      return _ProfileNovelFeed(userId: feedKey.userId);
     }
     if (feedKey.kind == ProfileFeedKind.following ||
         feedKey.kind == ProfileFeedKind.fans ||
@@ -440,8 +449,10 @@ class _ProfileIllustFeed extends ConsumerWidget {
                 if (entities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
-                    child: Center(
-                      child: Text(_profileText(context, 'profileItemsEmpty')),
+                    child: _ProfileEmpty(
+                      onRetry: () => ref
+                          .read(profileIllustFeedProvider(feedKey).notifier)
+                          .refresh(),
                     ),
                   )
                 else
@@ -530,11 +541,10 @@ class _ProfileUserFeed extends ConsumerWidget {
                 if (index == 0) return const HeaderLocator();
                 final itemIndex = index - 1;
                 if (users.isEmpty) {
-                  return SizedBox(
-                    height: 240,
-                    child: Center(
-                      child: Text(_profileText(context, 'profileItemsEmpty')),
-                    ),
+                  return _ProfileEmpty(
+                    onRetry: () => ref
+                        .read(profileUserFeedProvider(feedKey).notifier)
+                        .refresh(),
                   );
                 }
                 if (itemIndex == users.length) {
@@ -708,11 +718,10 @@ class _ProfileNovelFeed extends ConsumerWidget {
                 if (index == 0) return const HeaderLocator();
                 final itemIndex = index - 1;
                 if (novels.isEmpty) {
-                  return SizedBox(
-                    height: 240,
-                    child: Center(
-                      child: Text(_profileText(context, 'profileItemsEmpty')),
-                    ),
+                  return _ProfileEmpty(
+                    onRetry: () => ref
+                        .read(userNovelFeedProvider(userId).notifier)
+                        .refresh(),
                   );
                 }
                 if (itemIndex == novels.length) {
@@ -763,21 +772,10 @@ class _ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
+    return PersonAvatar(
+      imageUrl: user.profileImageUrl,
       radius: radius,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: user.profileImageUrl == null
-          ? Icon(Icons.person_outline, size: radius)
-          : ClipOval(
-              child: SizedBox(
-                width: radius * 2,
-                height: radius * 2,
-                child: PixivImage(
-                  url: user.profileImageUrl!,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
+      ring: true,
     );
   }
 }
@@ -812,6 +810,42 @@ class _ProfileFeedTail extends StatelessWidget {
       );
     }
     return const SizedBox(height: 24);
+  }
+}
+
+class _ProfileEmpty extends StatelessWidget {
+  const _ProfileEmpty({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 240,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 42,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _profileText(context, 'profileItemsEmpty'),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: Text(_profileText(context, 'profileRetry')),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -865,7 +899,7 @@ class _ProfileStatusPage extends StatelessWidget {
       appBar: AppBar(
         leading: Navigator.of(context).canPop()
             ? IconButton(
-                tooltip: 'Back',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => Navigator.of(context).maybePop(),
                 icon: const Icon(Icons.arrow_back_ios_new),
               )

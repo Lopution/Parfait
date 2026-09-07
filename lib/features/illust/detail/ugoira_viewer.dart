@@ -9,6 +9,8 @@ import '../../../app/pixiv_image.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_recovery.dart';
+import '../../../core/i18n/replica_strings.dart';
+import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
 import '../../../core/ugoira/ugoira_cache.dart';
@@ -18,6 +20,16 @@ import '../../../core/ugoira/ugoira_providers.dart';
 import '../../../core/ugoira/ugoira_repository.dart';
 import '../../../core/ugoira/ugoira_scheduler.dart';
 import '../../../core/ugoira/ugoira_zip.dart';
+
+String _ugoiraText(
+  BuildContext context,
+  String key, [
+  Map<String, Object?> args = const {},
+]) => ReplicaStrings.fromTag(
+  Localizations.localeOf(context).toLanguageTag(),
+  key,
+  args,
+);
 
 /// Inline beta56-compatible Ugoira surface. The cover, play affordance and
 /// paused overlay stay in the detail page; ZIP/decode/export resources are
@@ -56,9 +68,21 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   CancelToken? _loadCancelToken;
   Future<void>? _loadFuture;
   Future<void>? _decodeFuture;
+  int? _decodeIndex;
+
+  /// Frame indexes that failed decoding in the current archive.  A failed
+  /// frame must not be retried on every scheduler tick: doing so used to
+  /// produce a rapid pause/resume loop (and apparent frame corruption) while
+  /// the ZIP was still being decoded.
+  final Set<int> _failedFrames = <int>{};
   UgoiraExportJob? _exportJob;
   String? _error;
   var _loading = false;
+  var _frameReady = false;
+  var _playRequested = false;
+  var _visible = true;
+  var _appResumed = true;
+  int? _lastFrameIndex;
   var _disposed = false;
 
   @override
@@ -70,12 +94,12 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final scheduler = _scheduler;
-    if (scheduler == null) return;
     if (state == AppLifecycleState.resumed) {
-      scheduler.start();
-      _ensureCurrentFrame();
+      _appResumed = true;
+      if (scheduler != null) unawaited(_startPlaybackIfReady(scheduler));
     } else {
-      scheduler.stop();
+      _appResumed = false;
+      scheduler?.stop();
     }
   }
 
@@ -83,9 +107,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   Widget build(BuildContext context) {
     final scheduler = _scheduler;
     final cache = _cache;
-    final currentImage = scheduler == null || cache == null
-        ? null
-        : cache.get(scheduler.currentIndex);
+    final currentImage = _currentImage(scheduler, cache);
     final aspectRatio = widget.width > 0 && widget.height > 0
         ? widget.width / widget.height
         : 1.0;
@@ -94,12 +116,12 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       key: ValueKey('ugoira-${widget.illustId}'),
       onVisibilityChanged: (info) {
         final activeScheduler = _scheduler;
+        _visible = info.visibleFraction > 0;
         if (activeScheduler == null) return;
-        if (info.visibleFraction == 0) {
+        if (!_visible) {
           activeScheduler.stop();
         } else {
-          activeScheduler.start();
-          _ensureCurrentFrame();
+          unawaited(_startPlaybackIfReady(activeScheduler));
         }
       },
       child: GestureDetector(
@@ -141,7 +163,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                     color: Theme.of(context).colorScheme.surface,
                     shape: const CircleBorder(),
                     child: IconButton(
-                      tooltip: '保存 GIF',
+                      tooltip: _ugoiraText(context, 'ugoiraSaveGif'),
                       onPressed: _export,
                       icon:
                           _exportJob?.snapshot.status ==
@@ -165,17 +187,32 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   }
 
   Widget _buildCover(ui.Image? currentImage) {
-    final image = currentImage == null
-        ? PixivImage(
+    // Keep the network cover mounted even after a decoded GIF frame appears.
+    // Apart from avoiding a blank frame when playback is starting/stopping,
+    // this makes preview URL changes use the same gapless PixivImage path as
+    // still and multi-page works. The decoded frame simply paints above the
+    // cover while it is available.
+    final image = Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: PixivImage(
             url: widget.previewUrl,
             fit: BoxFit.fitWidth,
             width: double.infinity,
-          )
-        : RawImage(
-            image: currentImage,
-            fit: BoxFit.fitWidth,
-            width: double.infinity,
-          );
+            transitionKey: widget.heroTag,
+          ),
+        ),
+        if (currentImage != null)
+          Positioned.fill(
+            child: RawImage(
+              image: currentImage,
+              fit: BoxFit.fitWidth,
+              width: double.infinity,
+            ),
+          ),
+      ],
+    );
     final tag = widget.heroTag;
     if (tag == null) return image;
     return Hero(
@@ -188,18 +225,39 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     );
   }
 
+  ui.Image? _currentImage(
+    UgoiraScheduler? scheduler,
+    UgoiraFrameCache<ui.Image>? cache,
+  ) {
+    if (scheduler == null || cache == null) return null;
+    final current = cache.get(scheduler.currentIndex);
+    if (current != null) {
+      _lastFrameIndex = scheduler.currentIndex;
+      return current;
+    }
+    final previousIndex = _lastFrameIndex;
+    return previousIndex == null ? null : cache.get(previousIndex);
+  }
+
   void _togglePlayback() {
     if (_disposed) return;
+    if (_error != null) {
+      _playRequested = true;
+      _loadAndPlay();
+      return;
+    }
     final scheduler = _scheduler;
-    if (scheduler == null) {
+    if (scheduler == null || !_frameReady) {
+      _playRequested = true;
       _loadAndPlay();
       return;
     }
     if (scheduler.isPlaying) {
+      _playRequested = false;
       scheduler.pause();
     } else {
-      scheduler.play();
-      _ensureCurrentFrame();
+      _playRequested = true;
+      unawaited(_startPlaybackIfReady(scheduler));
     }
     setState(() {});
   }
@@ -214,6 +272,10 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
 
   Future<void> _performLoad({required bool play}) async {
     if (!mounted) return;
+    _playRequested = play;
+    _frameReady = false;
+    _failedFrames.clear();
+    if (_scheduler != null) _releaseLoadedResources();
     setState(() {
       _loading = true;
       _error = null;
@@ -245,12 +307,22 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       _asset = asset;
       _cache = cache;
       _scheduler = scheduler;
-      if (play) scheduler.play();
       await _ensureFrame(0);
+      if (!_disposed &&
+          mounted &&
+          identical(_scheduler, scheduler) &&
+          _cache?.get(0) != null) {
+        _frameReady = true;
+        if (_playRequested) unawaited(_startPlaybackIfReady(scheduler));
+      }
     } on ApiCancelled {
-      if (!_disposed) setState(() => _error = '加载已取消');
+      if (!_disposed) {
+        setState(() => _error = _ugoiraText(context, 'ugoiraLoadCanceled'));
+      }
     } catch (error) {
-      if (!_disposed) setState(() => _error = _friendlyError(error));
+      if (!_disposed) {
+        setState(() => _error = _friendlyError(context, error));
+      }
     } finally {
       _loadCancelToken = null;
       if (!_disposed && mounted) {
@@ -262,14 +334,69 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
 
   void _onFrame(int index) {
     if (_disposed) return;
-    unawaited(_ensureFrame(index));
+    final scheduler = _scheduler;
+    final cache = _cache;
+    if (scheduler != null && cache != null && cache.get(index) == null) {
+      scheduler.suspend();
+      unawaited(
+        _ensureFrame(index).then((_) {
+          if (!_disposed && mounted && !_failedFrames.contains(index)) {
+            unawaited(_startPlaybackIfReady(scheduler));
+          }
+        }),
+      );
+    }
     if (mounted) setState(() {});
   }
 
-  Future<void> _ensureCurrentFrame() {
-    final scheduler = _scheduler;
-    if (scheduler == null) return Future.value();
-    return _ensureFrame(scheduler.currentIndex);
+  Future<void> _startPlaybackIfReady(UgoiraScheduler scheduler) async {
+    if (_disposed ||
+        !mounted ||
+        !identical(_scheduler, scheduler) ||
+        !_frameReady ||
+        !_playRequested ||
+        !_visible ||
+        !_appResumed) {
+      return;
+    }
+    final cache = _cache;
+    if (cache == null) return;
+    final index = scheduler.currentIndex;
+    if (_failedFrames.contains(index)) {
+      // Keep the last successfully decoded frame visible and stop the
+      // scheduler.  Retrying a known-bad frame on every tick is what caused
+      // GIFs to jump/flash before the archive had finished loading.
+      _playRequested = false;
+      if (scheduler.isPlaying) scheduler.pause();
+      if (mounted) setState(() {});
+      return;
+    }
+    if (cache.get(index) == null) {
+      scheduler.suspend();
+      await _ensureFrame(index);
+      if (_disposed ||
+          !mounted ||
+          !identical(_scheduler, scheduler) ||
+          !_frameReady ||
+          !_playRequested ||
+          !_visible ||
+          !_appResumed ||
+          cache.get(index) == null ||
+          _failedFrames.contains(index)) {
+        if (_failedFrames.contains(index)) {
+          _playRequested = false;
+          if (scheduler.isPlaying) scheduler.pause();
+          if (mounted) setState(() {});
+        }
+        return;
+      }
+    }
+    if (!scheduler.isPlaying) {
+      scheduler.play();
+    } else {
+      scheduler.start();
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _ensureFrame(int index) {
@@ -277,19 +404,40 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final cache = _cache;
     if (asset == null || cache == null || _disposed) return Future.value();
     if (cache.get(index) != null) return Future.value();
+    if (_failedFrames.contains(index)) return Future.value();
     final active = _decodeFuture;
-    if (active != null) return active;
+    if (active != null) {
+      if (_decodeIndex == index) return active;
+      return active.then((_) => _ensureFrame(index));
+    }
     final future = _decodeOne(asset, cache, index);
     _decodeFuture = future;
+    _decodeIndex = index;
     return future.whenComplete(() {
       if (identical(_decodeFuture, future)) {
         _decodeFuture = null;
+        _decodeIndex = null;
         final scheduler = _scheduler;
         if (scheduler != null && scheduler.currentIndex != index) {
           unawaited(_ensureFrame(scheduler.currentIndex));
         }
       }
     });
+  }
+
+  void _releaseLoadedResources() {
+    final scheduler = _scheduler;
+    final cache = _cache;
+    final asset = _asset;
+    _scheduler = null;
+    _cache = null;
+    _asset = null;
+    _frameReady = false;
+    _lastFrameIndex = null;
+    _failedFrames.clear();
+    scheduler?.dispose();
+    cache?.clear();
+    if (asset != null) unawaited(asset.dispose());
   }
 
   Future<void> _decodeOne(
@@ -305,7 +453,15 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       image = null;
       if (mounted) setState(() {});
     } catch (error) {
-      if (!_disposed) setState(() => _error = _friendlyError(error));
+      if (!_disposed && identical(_asset, asset)) {
+        _failedFrames.add(index);
+        final scheduler = _scheduler;
+        if (scheduler != null && scheduler.currentIndex == index) {
+          _playRequested = false;
+          if (scheduler.isPlaying) scheduler.pause();
+        }
+        setState(() => _error = _friendlyError(context, error));
+      }
     } finally {
       image?.dispose();
     }
@@ -325,9 +481,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final submissionContext = _currentDownloadContext();
     if (submissionContext == null) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('请先登录后保存 GIF')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_ugoiraText(context, 'ugoiraLoginRequired'))),
+        );
       }
       return;
     }
@@ -346,9 +502,11 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     await subscription.cancel();
     if (!mounted) return;
     final message = switch (result.status) {
-      UgoiraExportStatus.succeeded => 'GIF 已保存',
-      UgoiraExportStatus.canceled => 'GIF 保存已取消',
-      _ => 'GIF 保存失败：${result.error ?? '未知错误'}',
+      UgoiraExportStatus.succeeded => _ugoiraText(context, 'ugoiraSaved'),
+      UgoiraExportStatus.canceled => _ugoiraText(context, 'ugoiraSaveCanceled'),
+      _ => _ugoiraText(context, 'ugoiraSaveFailed', {
+        'error': result.error ?? 'unknown error',
+      }),
     };
     ScaffoldMessenger.of(
       context,
@@ -369,19 +527,28 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     super.dispose();
   }
 
-  static String _friendlyError(Object error) {
-    if (error is UgoiraArchiveException) return '动图压缩包无效：${error.message}';
-    if (error is UgoiraDecodeException) return '动图帧损坏：${error.message}';
-    return '动图加载失败：$error';
+  String _friendlyError(BuildContext context, Object error) {
+    if (error is UgoiraArchiveException) {
+      return _ugoiraText(context, 'ugoiraArchiveInvalid', {
+        'error': error.message,
+      });
+    }
+    if (error is UgoiraDecodeException) {
+      return _ugoiraText(context, 'ugoiraFrameCorrupt', {
+        'error': error.message,
+      });
+    }
+    return _ugoiraText(context, 'ugoiraLoadFailed', {'error': error});
   }
 
   DownloadSubmissionContext? _currentDownloadContext() {
     final accountState = ref.read(accountStoreProvider).asData?.value;
     final account = accountState?.usableCurrent;
     if (accountState == null || account == null) return null;
+    // C4: a token refresh must not change the stable owner identity.
     return DownloadSubmissionContext(
       accountId: account.id,
-      credentialRevision: accountState.credentialRevision,
+      destination: ref.read(downloadDestinationProvider),
     );
   }
 }
@@ -419,7 +586,10 @@ class _ErrorOverlay extends StatelessWidget {
             children: [
               Text(message, style: const TextStyle(color: Colors.white)),
               const SizedBox(height: 8),
-              TextButton(onPressed: onRetry, child: const Text('重试')),
+              TextButton(
+                onPressed: onRetry,
+                child: Text(_ugoiraText(context, 'retry')),
+              ),
             ],
           ),
         ),

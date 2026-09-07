@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
-import '../../core/network/pixiv_http_client.dart';
+
 import '../../core/paging/paged_feed_controller.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
@@ -18,39 +18,18 @@ class ProfileIllustFeedController extends PagedFeedController {
   @override
   String get feedKey => 'profile:illust:$key';
 
+  /// C9: the author's own work list is discovery content; bookmarks,
+  /// follow lists and fan lists are the user's own collections and stay
+  /// unfiltered (the user chose them).
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) =>
-      fetchPageCancellable(cursor, CancelToken());
+  bool get localFilterEnabled =>
+      key.kind == ProfileFeedKind.work && key.workType != UserWorkType.novel;
 
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
-    String? cursor,
-    CancelToken cancelToken,
-  ) async {
-    if (key.workType == UserWorkType.novel) {
-      throw const ApiParseError(
-        'novel profile feeds are provided by the novel-reader task',
-      );
-    }
-    final repository = ref.read(userRepositoryProvider);
-    final page = key.kind == ProfileFeedKind.work
-        ? await repository.fetchWorks(
-            key.userId,
-            type: key.workType,
-            cursor: cursor,
-            cancelToken: cancelToken,
-          )
-        : await repository.fetchBookmarks(
-            key.userId,
-            restrict: key.restrict,
-            cursor: cursor,
-            cancelToken: cancelToken,
-          );
-    return (
-      ids: [for (final item in page.illusts) item.id],
-      nextCursor: page.nextUrl,
-    );
-  }
+  int get filterMinVisible => 24;
+
+  @override
+  int get filterMaxRefillPages => 3;
 
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
@@ -78,6 +57,7 @@ class ProfileIllustFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.illusts) item.id],
       nextCursor: page.nextUrl,
+      incomingIllusts: {for (final item in page.illusts) item.id: item},
       commit: (_) => store.mergeAll(
         page.illusts,
         bookmarkSnapshotRevision: bookmarkRevision,
@@ -120,29 +100,6 @@ class ProfileUserFeedController extends PagedFeedController {
     ProfileFeedKind.myPixiv => UserRelation.myPixiv,
     _ => throw StateError('not a user relation feed: $key'),
   };
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) =>
-      fetchPageCancellable(cursor, CancelToken());
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
-    String? cursor,
-    CancelToken cancelToken,
-  ) async {
-    final repository = ref.read(userRepositoryProvider);
-    final page = await repository.fetchRelation(
-      key.userId,
-      relation: _relation,
-      restrict: key.restrict,
-      cursor: cursor,
-      cancelToken: cancelToken,
-    );
-    return (
-      ids: [for (final user in page.users) user.id],
-      nextCursor: page.nextUrl,
-    );
-  }
 
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {

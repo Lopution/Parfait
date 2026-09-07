@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/network/api_error.dart';
@@ -123,7 +124,19 @@ class _RankingModeBody extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (feed.isEmptyAndReady) {
-          return const Center(child: Text('暂无榜单内容'));
+          return ReplicaEmptyState(
+            message: ReplicaStrings.fromTag(
+              Localizations.localeOf(context).toLanguageTag(),
+              'rankingEmpty',
+            ),
+            retryLabel: ReplicaStrings.fromTag(
+              Localizations.localeOf(context).toLanguageTag(),
+              'retry',
+            ),
+            onRetry: () => ref
+                .read(rankingFeedControllerProvider(mode).notifier)
+                .refresh(),
+          );
         }
 
         final entities = store.getAll(feed.ids);
@@ -197,13 +210,26 @@ class _RankingFeedTail extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('加载更多失败'),
+              Text(
+                ReplicaStrings.fromTag(
+                  Localizations.localeOf(context).toLanguageTag(),
+                  'rankingLoadMoreFailed',
+                ),
+              ),
               Text(
                 '${feed.loadMoreError}',
                 style: Theme.of(context).textTheme.bodySmall,
                 maxLines: 2,
               ),
-              TextButton(onPressed: onRetry, child: const Text('重试')),
+              TextButton(
+                onPressed: onRetry,
+                child: Text(
+                  ReplicaStrings.fromTag(
+                    Localizations.localeOf(context).toLanguageTag(),
+                    'retry',
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -237,7 +263,11 @@ class _RankingInitialError extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off, size: 48),
             const SizedBox(height: 12),
-            Text('${ReplicaStrings.text(language, mode.labelKey)}加载失败'),
+            Text(
+              ReplicaStrings.text(language, 'rankingLoadFailed', {
+                'mode': ReplicaStrings.text(language, mode.labelKey),
+              }),
+            ),
             const SizedBox(height: 8),
             Text(
               '$error',
@@ -245,7 +275,10 @@ class _RankingInitialError extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('重试')),
+            FilledButton(
+              onPressed: onRetry,
+              child: Text(ReplicaStrings.text(language, 'retry')),
+            ),
           ],
         ),
       ),

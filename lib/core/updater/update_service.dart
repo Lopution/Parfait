@@ -28,7 +28,7 @@ class UpdateHttpResponse {
 }
 
 abstract interface class UpdateSignatureVerifier {
-  Future<bool> verify({
+  Future<UpdateManifestVerification> verify({
     required List<int> message,
     required List<int> signature,
   });
@@ -40,7 +40,7 @@ class PlatformUpdateSignatureVerifier implements UpdateSignatureVerifier {
   final UpdatePlatform platform;
 
   @override
-  Future<bool> verify({
+  Future<UpdateManifestVerification> verify({
     required List<int> message,
     required List<int> signature,
   }) =>
@@ -307,7 +307,12 @@ class UpdateService {
         throw const FormatException();
       }
       signature = base64Decode(encoded);
-      if (signature.length != 64 || base64Encode(signature) != encoded) {
+      // ECDSA signatures are ASN.1 DER and therefore variable-length. Keep a
+      // small structural bound without carrying over Ed25519's fixed 64-byte
+      // assumption.
+      if (signature.length < 8 ||
+          signature.length > 128 ||
+          base64Encode(signature) != encoded) {
         throw const FormatException();
       }
     } on Object {
@@ -319,9 +324,9 @@ class UpdateService {
       );
     }
 
-    final bool verified;
+    final UpdateManifestVerification verification;
     try {
-      verified = await _signatureVerifier.verify(
+      verification = await _signatureVerifier.verify(
         message: manifestResponse.body,
         signature: signature,
       );
@@ -335,11 +340,11 @@ class UpdateService {
         ),
       );
     }
-    if (!verified) {
+    if (!verification.valid) {
       return _remember(
-        const UpdateCheckResult(
+        UpdateCheckResult(
           status: UpdateCheckStatus.invalid,
-          errorCode: 'signature_invalid',
+          errorCode: verification.errorCode ?? 'signature_invalid',
         ),
       );
     }

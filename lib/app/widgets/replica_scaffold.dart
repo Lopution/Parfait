@@ -22,13 +22,12 @@ class ReplicaScaffold extends StatelessWidget {
         centerTitle: centerTitle,
         automaticallyImplyLeading: false,
         leading: canPop
-            ? GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).maybePop(),
-                child: const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Icon(Icons.arrow_back_ios_new),
-                ),
+            ? IconButton(
+                tooltip: MaterialLocalizations.of(
+                  context,
+                ).backButtonTooltip,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back_ios_new),
               )
             : null,
       ),

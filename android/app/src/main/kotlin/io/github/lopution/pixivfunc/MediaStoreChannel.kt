@@ -37,7 +37,8 @@ object MediaStoreChannel {
                             val displayName = call.argument<String>("displayName")!!
                             val mimeType = call.argument<String>("mimeType")!!
                             val ownerId = call.argument<String>("ownerId")
-                            result.success(begin(context, displayName, mimeType, ownerId))
+                            val relativePath = call.argument<String>("relativePath")
+                            result.success(begin(context, displayName, mimeType, ownerId, relativePath))
                         }
                         "write" -> {
                             val id = call.argument<Int>("id")!!
@@ -77,6 +78,7 @@ object MediaStoreChannel {
         displayName: String,
         mimeType: String,
         ownerId: String? = null,
+        relativePath: String? = null,
     ): Int {
         requireApi29()
         require(displayName.isNotEmpty() && displayName.length <= 255)
@@ -85,10 +87,21 @@ object MediaStoreChannel {
         if (ownerId != null) {
             require(ownerId.matches(Regex("[A-Za-z0-9_.-]{1,128}")))
         }
+        // D5: custom album destination. Only a normalized `Pictures/<name>`
+        // relative path is accepted; traversal and separators are rejected.
+        val effectiveRelativePath = if (relativePath.isNullOrBlank()) {
+            RELATIVE_PATH
+        } else {
+            require(relativePath.startsWith("Pictures/"))
+            require(!relativePath.contains(".."))
+            require(relativePath.length <= 128)
+            require(!relativePath.split("/").any { it.isEmpty() || it == "." })
+            relativePath
+        }
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-            put(MediaStore.MediaColumns.RELATIVE_PATH, RELATIVE_PATH)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, effectiveRelativePath)
             put(MediaStore.MediaColumns.IS_PENDING, 1)
             if (ownerId != null) {
                 put(MediaStore.MediaColumns.TITLE, OWNER_PREFIX + ownerId)
@@ -170,7 +183,6 @@ object MediaStoreChannel {
             MediaStore.MediaColumns._ID,
             MediaStore.MediaColumns.DISPLAY_NAME,
             MediaStore.MediaColumns.TITLE,
-            MediaStore.MediaColumns.RELATIVE_PATH,
         )
         context.contentResolver.query(
             MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL),
@@ -182,13 +194,14 @@ object MediaStoreChannel {
             val idIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
             val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
             val descriptionIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.TITLE)
-            val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
             while (cursor.moveToNext()) {
-                val path = cursor.getString(pathIndex)
-                if (path != RELATIVE_PATH && path != "$RELATIVE_PATH/") continue
                 val description = cursor.getString(descriptionIndex)
                 val ownerId = description?.takeIf { it.startsWith(OWNER_PREFIX) }
                     ?.removePrefix(OWNER_PREFIX)
+                // Custom album paths are user-selected and cannot be known at
+                // scan time. Return every pending row, but expose only the
+                // opaque owner marker; Dart cleanup still requires an exact
+                // owner match and cannot delete unrelated rows.
                 result += mapOf(
                     "id" to cursor.getLong(idIndex).toInt(),
                     "displayName" to cursor.getString(nameIndex),

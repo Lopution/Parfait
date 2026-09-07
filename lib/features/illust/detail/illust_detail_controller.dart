@@ -61,7 +61,11 @@ class IllustDetailController extends AsyncNotifier<IllustDetailState> {
       // payloads against locally confirmed changes (R2).
       final bookmarkRevision = store.bookmarkRevisionNow();
       final fresh = await ref.read(illustDetailRepositoryProvider).fetch(id);
-      store.mergeAll([fresh], bookmarkSnapshotRevision: bookmarkRevision);
+      store.mergeAll(
+        [fresh],
+        source: EntityMergeSource.detail,
+        bookmarkSnapshotRevision: bookmarkRevision,
+      );
       final merged = store.get(id)!;
       if (!merged.visible) {
         return IllustDetailRestricted(merged);

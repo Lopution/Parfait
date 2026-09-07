@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:image/image.dart' as img;
 
+import '../download/download_destination.dart';
 import '../download/download_request.dart';
 import '../download/download_recovery.dart';
 import '../download/download_sink.dart';
@@ -622,9 +623,14 @@ class UgoiraExportJob {
         request,
         _submission.displayName,
         outputOwner,
+        destination: _submission.destination,
       );
     }
-    return factory.begin(request, _submission.displayName);
+    return factory.begin(
+      request,
+      _submission.displayName,
+      destination: _submission.destination,
+    );
   }
 
   void _checkOwner() {
@@ -636,8 +642,9 @@ class UgoiraExportJob {
     final current = provider == null ? _submissionContext : provider();
     if (current == null ||
         current.accountId != _submission.accountId ||
-        current.credentialRevision != _submission.credentialRevision ||
-        current.destination != _submission.destination) {
+        // C4: destination identity (not a raw path) is the stable boundary;
+        // a credential refresh does not orphan an export.
+        current.destination.identity != _submission.destination.identity) {
       throw const UgoiraExportOwnershipException();
     }
   }
@@ -685,8 +692,7 @@ DownloadSubmissionSnapshot _makeSubmission(
     groupId: null,
     request: request,
     accountId: context?.accountId,
-    credentialRevision: context?.credentialRevision ?? 0,
     submittedAt: DateTime.now().toUtc(),
-    destination: context?.destination ?? kDownloadDestination,
+    destination: context?.destination ?? DownloadDestination.builtin,
   );
 }

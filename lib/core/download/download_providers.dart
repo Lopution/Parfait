@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../platform/media_store_channel.dart';
+import '../platform/saf_tree.dart';
 import '../settings/settings_controller.dart';
 import '../network/compat/network_providers.dart';
 import '../network/compat/policy_download_transport.dart';
@@ -24,7 +25,17 @@ final pixivMediaTransportProvider = Provider<DownloadTransport>((ref) {
 });
 
 final downloadSinkFactoryProvider = Provider<DownloadSinkFactory>((ref) {
-  return MediaStoreSinkFactory(const MethodChannelMediaStoreSession());
+  // D5: the factory routes each submission to its immutable destination
+  // snapshot (built-in/custom album via MediaStore, or the SAF tree).
+  //
+  // This provider must not watch [downloadDestinationProvider]. Watching the
+  // setting would dispose the app-scoped manager whenever the user changes
+  // the destination, losing queued/recoverable jobs. The manager passes the
+  // captured destination to every begin call instead.
+  return DestinationAwareSinkFactory(
+    mediaStore: MediaStoreSinkFactory(const MethodChannelMediaStoreSession()),
+    saf: ref.watch(safDocumentSinkFactoryProvider),
+  );
 });
 
 /// Ugoira post-process records use a separate namespace so a recovered GIF
@@ -42,14 +53,20 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
     sinkFactory: ref.watch(downloadSinkFactoryProvider),
     maxConcurrent: ref.read(maxDownloadCountProvider),
     requireOwnedSubmissions: true,
+    // D5: authenticated product downloads may target the selected custom
+    // album or SAF tree. Account and destination identity checks remain in
+    // force; this flag only removes the obsolete builtin-only guard.
+    enforceDefaultDestination: false,
     recoveryStore: PreferencesDownloadRecoveryStore(),
     submissionContext: () {
       final accountState = ref.read(accountStoreProvider).asData?.value;
       final account = accountState?.usableCurrent;
       if (accountState == null || account == null) return null;
+      // C4: the stable owner is accountId + destination; a token refresh
+      // (credentialRevision) never orphans an in-flight task.
       return DownloadSubmissionContext(
         accountId: account.id,
-        credentialRevision: accountState.credentialRevision,
+        destination: ref.read(downloadDestinationProvider),
       );
     },
   );

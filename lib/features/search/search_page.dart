@@ -91,6 +91,8 @@ class SearchHomePage extends ConsumerWidget {
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                   ),
+                  // Keep the final partial row: every server-provided tag is
+                  // actionable, including the fourth or fifth result.
                   itemCount: tags.length,
                   itemBuilder: (context, index) =>
                       _TrendingTagTile(tag: tags[index]),

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../download/download_manager.dart';
 import '../download/download_recovery.dart';
+import '../download/download_destination.dart';
 import '../download/download_request.dart';
 import '../download/pixiv_download_transport.dart';
 import 'update_download.dart';
@@ -14,8 +15,10 @@ import 'update_service.dart';
 
 const _updaterSubmissionContext = DownloadSubmissionContext(
   accountId: 'pixivfunc-updater',
-  credentialRevision: 0,
-  destination: 'app-private-updates',
+  // The updater never renders in user album lists; the custom identity keeps
+  // its recovery namespace disjoint from product downloads while staying a
+  // valid D5 destination value.
+  destination: DownloadDestination.customAlbum('app-private-updates'),
 );
 
 /// The updater has its own exact-host transport and recovery namespace. It

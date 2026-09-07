@@ -161,6 +161,19 @@ class HistoryRepository {
     });
   }
 
+  /// Removes only the unsent remote-Pixiv history outbox of [accountId]
+  /// (C21). Local history rows stay untouched; a re-added account never
+  /// replays outbox entries from a previous lifecycle.
+  Future<void> clearOutbox(String accountId) async {
+    _validateAccount(accountId);
+    final db = await _database.database;
+    await db.delete(
+      HistoryDatabase.outboxTable,
+      where: 'account_id = ?',
+      whereArgs: [accountId],
+    );
+  }
+
   /// Commits one visibility snapshot and (optionally) the newly observed
   /// duration in one SQLite transaction.
   Future<void> commitView({

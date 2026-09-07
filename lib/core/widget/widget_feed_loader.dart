@@ -15,6 +15,9 @@ import '../network/compat/network_contracts.dart';
 import '../network/compat/network_providers.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
+import '../settings/local_block_filter.dart';
+import '../settings/blocked_tags.dart';
+import '../settings/settings_controller.dart';
 import '../../features/home/recommended/recommended_repository.dart';
 import 'widget_snapshot.dart';
 import 'widget_snapshot_store.dart';
@@ -79,6 +82,9 @@ class WidgetFeedLoader {
     required AccountStore accountStore,
     required CredentialStore credentialStore,
     required FutureOr<WidgetSnapshotStore> Function() storeFactory,
+    this.blockR18 = false,
+    this.blockAI = false,
+    this.blockedTags = const {},
     DateTime Function() now = _defaultNow,
   }) : _apiClient = apiClient,
        _imageClient = imageClient,
@@ -93,6 +99,11 @@ class WidgetFeedLoader {
   final CredentialStore _credentialStore;
   final FutureOr<WidgetSnapshotStore> Function() _storeFactory;
   final DateTime Function() _now;
+
+  /// C9 widget filtering: the same pure predicate as discovery feeds.
+  final bool blockR18;
+  final bool blockAI;
+  final Set<String> blockedTags;
 
   Future<WidgetFeedResult> load() async {
     final AccountState state;
@@ -134,8 +145,20 @@ class WidgetFeedLoader {
       final page = await RecommendedIllustRepository(
         _apiClient,
       ).fetchPage(null);
+      // Widget covers render on the lock screen / desktop; R-18 stays always
+      // filtered there as a baseline privacy guard, and the C9 settings add
+      // AI and blocked-tag filtering through the same pure predicate.
       final candidates = page.illusts
-          .where((illust) => !illust.isR18)
+          .where(
+            (illust) =>
+                !illust.isR18 &&
+                !isLocallyBlocked(
+                  illust,
+                  blockR18: blockR18,
+                  blockAI: blockAI,
+                  blockedTags: blockedTags,
+                ),
+          )
           .take(widgetSnapshotMaxItems)
           .toList(growable: false);
       if (candidates.isEmpty) {
@@ -313,11 +336,16 @@ class WidgetFeedLoader {
 
 final widgetFeedLoaderProvider = Provider<WidgetFeedLoader>((ref) {
   final network = ref.watch(pixivNetworkFactoryProvider);
+  final settings = ref.watch(settingsProvider).value;
+  final blockedTags = ref.watch(blockedTagsProvider);
   return WidgetFeedLoader(
     apiClient: ref.watch(pixivHttpClientProvider),
     imageClient: network.client(PixivDestinationPurpose.image),
     accountStore: ref.watch(accountStoreProvider.notifier),
     credentialStore: ref.watch(credentialStoreProvider),
     storeFactory: WidgetSnapshotStore.standard,
+    blockR18: settings?.enableLocalBlockR18 ?? false,
+    blockAI: settings?.enableLocalBlockAI ?? false,
+    blockedTags: blockedTags,
   );
 });

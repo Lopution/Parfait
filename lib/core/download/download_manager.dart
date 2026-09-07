@@ -4,7 +4,7 @@ import 'dart:io';
 import '../network/compat/network_contracts.dart';
 import '../network/pixiv_client_identity.dart';
 import '../platform/android_platform_interfaces.dart';
-import 'download_recovery.dart';
+import 'download_destination.dart';
 import 'download_request.dart';
 import 'download_sink.dart';
 import 'download_task.dart';
@@ -127,8 +127,7 @@ class DownloadManager {
     }
     if (ownerContext != null &&
         (ownerContext.accountId.isEmpty ||
-            (enforceDefaultDestination &&
-                ownerContext.destination != kDownloadDestination))) {
+            (enforceDefaultDestination && !ownerContext.destination.isBuiltin))) {
       throw const DownloadOwnershipException(
         'submission destination or account owner is invalid',
       );
@@ -147,9 +146,8 @@ class DownloadManager {
       groupId: groupId,
       request: request,
       accountId: ownerContext?.accountId,
-      credentialRevision: ownerContext?.credentialRevision ?? 0,
       submittedAt: _now().toUtc(),
-      destination: ownerContext?.destination ?? kDownloadDestination,
+      destination: ownerContext?.destination ?? DownloadDestination.builtin,
     );
     final owner = DownloadOutputOwner(
       ownerId: 'output_$id',
@@ -256,8 +254,8 @@ class DownloadManager {
   }
 
   /// Scans durable metadata after process start. Only a complete record whose
-  /// account, credential revision, network revision and destination still
-  /// match the current context becomes [DownloadStatus.retryable]. Recovery
+  /// account and destination still match the current context becomes
+  /// [DownloadStatus.retryable]. Recovery
   /// never auto-retries a transfer or post-process operation.
   Future<DownloadRecoveryReport> recover({
     DownloadSubmissionContext? currentContext,
@@ -492,8 +490,7 @@ class DownloadManager {
   ) {
     final owner = context == null
         ? 'unowned'
-        : '${context.accountId}|${context.credentialRevision}|'
-              '${context.destination}';
+        : '${context.accountId}|${context.destination.identity}';
     return '${request.dedupeKey}|$owner';
   }
 
@@ -723,9 +720,14 @@ class DownloadManager {
         job.request,
         job.displayName,
         job.owner,
+        destination: job.submission.destination,
       );
     }
-    return factory.begin(job.request, job.displayName);
+    return factory.begin(
+      job.request,
+      job.displayName,
+      destination: job.submission.destination,
+    );
   }
 
   void _checkOwner(_Job job) {
@@ -744,9 +746,10 @@ class DownloadManager {
     DownloadSubmissionSnapshot snapshot,
     DownloadSubmissionContext context,
   ) {
+    // C4: only the stable owner identity (account + destination) matters;
+    // a token refresh inside the account never orphans a legitimate task.
     return snapshot.accountId == context.accountId &&
-        snapshot.credentialRevision == context.credentialRevision &&
-        snapshot.destination == context.destination;
+        snapshot.destination.identity == context.destination.identity;
   }
 
   DownloadRecoveryRecord _record(_Job job) {

@@ -1,8 +1,12 @@
 package io.github.lopution.pixivfunc
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.github.lopution.pixivfunc.appwidget.RecommendWidgetProvider
+import io.github.lopution.pixivfunc.appwidget.RefreshWidgetProvider
 import io.github.lopution.pixivfunc.appwidget.WidgetRenderer
 import io.github.lopution.pixivfunc.appwidget.WidgetSnapshotReader
 import io.github.lopution.pixivfunc.appwidget.WidgetUpdateCoordinator
@@ -40,8 +44,24 @@ object WidgetForegroundChannel {
                         WidgetUpdateCoordinator.requestOneShotRefresh(context)
                         result.success(null)
                     }
+                    "hasAnyWidget" -> {
+                        result.success(hasAnyWidget(context))
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    /**
+     * True when at least one live instance of either widget provider exists
+     * (C6). Provider metadata alone only says that a receiver is installed;
+     * querying ids is the authoritative way to detect an actual instance.
+     */
+    fun hasAnyWidget(context: Context): Boolean {
+        val manager = AppWidgetManager.getInstance(context)
+        return listOf(
+            ComponentName(context, RecommendWidgetProvider::class.java),
+            ComponentName(context, RefreshWidgetProvider::class.java),
+        ).any { provider -> manager.getAppWidgetIds(provider).isNotEmpty() }
     }
 }

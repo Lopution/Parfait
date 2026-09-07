@@ -5,6 +5,7 @@ import 'account_repository.dart';
 import 'credential.dart';
 import 'credential_store.dart';
 import 'oauth_service.dart';
+import '../history/history_repository.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_providers.dart';
 
@@ -252,6 +253,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
     // The metadata no longer references the secret; cleanup failures are
     // surfaced but do not roll the removal back.
     await credentials.delete(accountId);
+    // C21: only this account's unsent remote-history outbox is dropped.
+    // Local history rows stay; a re-added account never replays outbox
+    // entries from a previous lifecycle.
+    await ref.read(historyRepositoryProvider).clearOutbox(accountId);
   }
 
   Future<List<Account>> _resolveAuthStates(

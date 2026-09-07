@@ -6,6 +6,8 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
+import 'package:pixiv_func/core/download/download_destination.dart';
+import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/download/download_transport.dart';
@@ -19,13 +21,8 @@ DownloadRequest _request({int pageIndex = 0}) => DownloadRequest(
   target: DownloadTarget.illustPage,
 );
 
-DownloadSubmissionContext _context({
-  String accountId = 'account-a',
-  int credentialRevision = 3,
-}) => DownloadSubmissionContext(
-  accountId: accountId,
-  credentialRevision: credentialRevision,
-);
+DownloadSubmissionContext _context({String accountId = 'account-a'}) =>
+    DownloadSubmissionContext(accountId: accountId);
 
 class _Response implements DownloadResponse, DownloadResponseMetadata {
   _Response({
@@ -113,8 +110,9 @@ class _FinalizeGateSinkFactory implements DownloadSinkFactory {
   @override
   Future<DownloadSink> begin(
     DownloadRequest request,
-    String displayName,
-  ) async => sink;
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async => sink;
 }
 
 class _RecoverableSinkFactory extends MemorySinkFactory
@@ -161,7 +159,6 @@ void main() {
         groupId: null,
         request: request,
         accountId: 'account-a',
-        credentialRevision: 3,
         submittedAt: DateTime.utc(2026, 8, 28),
       );
       await store.upsert(
@@ -230,6 +227,51 @@ void main() {
     },
   );
 
+  test('recovery preserves naming metadata across a process restart', () {
+    const namingRule = NamingRule(
+      preset: NamingPreset.custom,
+      template: '{artist}_{title}_{id}_p{page}.{ext}',
+    );
+    final snapshot = DownloadSubmissionSnapshot(
+      snapshotId: 'submission-naming',
+      jobId: 'job-naming',
+      groupId: null,
+      request: DownloadRequest(
+        illustId: 901,
+        pageIndex: 3,
+        url: Uri.parse('https://i.pximg.net/img/901_p3.jpg'),
+        target: DownloadTarget.illustPage,
+        namingRule: namingRule,
+        artist: 'artist',
+        title: 'title',
+        date: DateTime.utc(2026, 9, 3),
+      ),
+      accountId: 'account-a',
+      submittedAt: DateTime.utc(2026, 9, 3),
+    );
+    final record = DownloadRecoveryRecord(
+      jobId: snapshot.jobId,
+      dedupeKey: snapshot.request.dedupeKey,
+      snapshot: snapshot,
+      owner: const DownloadOutputOwner(
+        ownerId: 'output-naming',
+        jobId: 'job-naming',
+        accountId: 'account-a',
+      ),
+      status: DownloadStatus.running,
+    );
+
+    final restored = DownloadRecoveryRecord.fromJson(
+      record.toJson().cast<String, dynamic>(),
+    );
+
+    expect(restored.snapshot.request.namingRule, namingRule);
+    expect(restored.snapshot.request.artist, 'artist');
+    expect(restored.snapshot.request.title, 'title');
+    expect(restored.snapshot.request.date, DateTime.utc(2026, 9, 3));
+    expect(restored.snapshot.displayName, 'artist_title_901_p3.jpg');
+  });
+
   test('classifies rate limiting and preserves Retry-After', () async {
     final manager = DownloadManager(
       transport: _Transport(
@@ -279,7 +321,6 @@ void main() {
       groupId: null,
       request: request,
       accountId: 'account-a',
-      credentialRevision: 3,
       submittedAt: DateTime.utc(2026, 8, 28),
     );
     final store = MemoryDownloadRecoveryStore();
@@ -361,7 +402,6 @@ void main() {
         groupId: null,
         request: request,
         accountId: 'account-a',
-        credentialRevision: 3,
         submittedAt: DateTime.utc(2026, 8, 28),
       );
       final store = MemoryDownloadRecoveryStore();
@@ -421,7 +461,6 @@ void main() {
         groupId: null,
         request: request,
         accountId: 'account-a',
-        credentialRevision: 3,
         submittedAt: DateTime.utc(2026, 8, 28),
       );
       final store = MemoryDownloadRecoveryStore();
@@ -480,7 +519,6 @@ void main() {
       groupId: null,
       request: request,
       accountId: 'account-a',
-      credentialRevision: 3,
       submittedAt: DateTime.utc(2026, 8, 28),
     );
     final store = MemoryDownloadRecoveryStore();
@@ -558,7 +596,6 @@ void main() {
       groupId: groupId,
       request: firstRequest,
       accountId: 'account-a',
-      credentialRevision: 3,
       submittedAt: DateTime.utc(2026, 8, 28),
     );
     final secondSnapshot = DownloadSubmissionSnapshot(
@@ -567,7 +604,6 @@ void main() {
       groupId: groupId,
       request: secondRequest,
       accountId: 'account-a',
-      credentialRevision: 3,
       submittedAt: DateTime.utc(2026, 8, 28),
     );
     final store = MemoryDownloadRecoveryStore();

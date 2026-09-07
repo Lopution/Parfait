@@ -278,6 +278,19 @@ void main() {
     },
   );
 
+  test('concurrent identical GETs share one transport flight', () async {
+    final fixture = _Fixture(apiDelay: const Duration(milliseconds: 20));
+    final (container, client, _, fixtureF) = await _makeWorld(fixture: fixture);
+    addTearDown(container.dispose);
+
+    await Future.wait([
+      client.getJson(Uri.parse(_api)),
+      client.getJson(Uri.parse(_api)),
+    ]);
+
+    expect(fixtureF.apiRequests, hasLength(1));
+  });
+
   test('a single request retries at most once on 401', () async {
     // Everything is rejected, even the refreshed token.
     final fixture = _Fixture(rejectAll: true);

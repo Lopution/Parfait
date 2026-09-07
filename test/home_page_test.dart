@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -44,44 +45,50 @@ void main() {
   });
 
   testWidgets(
-      'U4: exit hint snackbar lifetime equals the root back exit window',
-      (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          credentialStoreProvider.overrideWithValue(
-            const _StaticCredentialStore(),
-          ),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            const _StaticMetadataRepository(
-              AccountMetadataSnapshot(
-                accounts: [Account(id: '100', userId: 100, name: 'tester')],
-                currentId: '100',
+    'U4: exit hint snackbar lifetime equals the root back exit window',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            credentialStoreProvider.overrideWithValue(
+              const _StaticCredentialStore(),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(
+              const _StaticMetadataRepository(
+                AccountMetadataSnapshot(
+                  accounts: [Account(id: '100', userId: 100, name: 'tester')],
+                  currentId: '100',
+                ),
               ),
             ),
+          ],
+          child: const MaterialApp(
+            locale: Locale('zh', 'CN'),
+            supportedLocales: [Locale('zh', 'CN')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            home: HomePage(),
           ),
-        ],
-        child: const MaterialApp(home: HomePage()),
-      ),
-    );
-    await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    // First root back press arms the exit window and shows the hint.
-    await tester.binding.handlePopRoute();
-    await tester.pump();
+      // First root back press arms the exit window and shows the hint.
+      await tester.binding.handlePopRoute();
+      await tester.pump();
 
-    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    // The hint must not outlive the window it describes (U4: the default
-    // 4-second SnackBar was still showing after the window had closed).
-    expect(snackBar.duration, RootBackCoordinator.exitWindow);
-    expect(snackBar.behavior, SnackBarBehavior.floating);
-    expect(find.text('再按一次退出'), findsOneWidget);
+      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+      // The hint must not outlive the window it describes (U4: the default
+      // 4-second SnackBar was still showing after the window had closed).
+      expect(snackBar.duration, RootBackCoordinator.exitWindow);
+      expect(snackBar.behavior, SnackBarBehavior.floating);
+      expect(find.text('再按一次退出'), findsOneWidget);
 
-    // A second press inside the window exits via SystemNavigator.pop; in
-    // the test environment that is a no-op that must not throw.
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-  });
+      // A second press inside the window exits via SystemNavigator.pop; in
+      // the test environment that is a no-op that must not throw.
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+    },
+  );
 
   testWidgets('root back coordinator window is one second', (tester) async {
     expect(RootBackCoordinator.exitWindow, const Duration(seconds: 1));

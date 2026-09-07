@@ -9,11 +9,12 @@ import '../download/download_recovery.dart';
 /// A pending MediaStore insert. Writes go through [handle] and the item only
 /// becomes visible after [MediaStoreSession.finalize]; [abort] removes it.
 abstract class MediaStoreSession {
-  /// Opens a pending item in Pictures/PixivFunc with the given display name
-  /// and MIME type.
+  /// Opens a pending item under [relativePath] (defaults to the built-in
+  /// `Pictures/PixivFunc`) with the given display name and MIME type.
   Future<MediaStoreHandle> begin({
     required String displayName,
     required String mimeType,
+    String? relativePath,
   });
 }
 
@@ -25,6 +26,7 @@ abstract interface class OwnedMediaStoreSession {
     required String displayName,
     required String mimeType,
     required DownloadOutputOwner owner,
+    String? relativePath,
   });
 }
 

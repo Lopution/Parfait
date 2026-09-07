@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/icons/app_icons.dart';
+import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/user/user_entity.dart';
@@ -152,7 +153,9 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
       maxExtent: maxExtent,
     );
     final colors = Theme.of(context).colorScheme;
-    final backgroundHeight = maxExtent - 178;
+    // The artwork band covers the whole expanded header; identity content
+    // sits on a bottom gradient so the text stays readable over any image.
+    final backgroundHeight = maxExtent;
     final canPop = Navigator.of(context).canPop();
     return Material(
       color: colors.surface,
@@ -172,7 +175,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                 height: backgroundHeight,
                 child: Opacity(
                   opacity: geometry.backgroundOpacity,
-                  child: _ProfileBackground(user: user),
+                  child: _ProfileBackground(user: user, withScrim: true),
                 ),
               ),
               if (geometry.showExpandedIdentity)
@@ -271,62 +274,104 @@ class _ExpandedProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          // Keep a clear vertical gap between the avatar and the identity
-          // block. Both are translated together by the delegate, so their
-          // relative positions cannot cross during a collapse.
-          top:
-              backgroundHeight +
-              ReplicaProfileHeaderGeometry._avatarOverhang -
-              ReplicaProfileHeaderGeometry.expandedAvatarRadius * 2,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: KeyedSubtree(
+    // Compact vertical identity: avatar then name/stats/action on the
+    // darkened bottom gradient of the artwork band. Both are translated
+    // together by the delegate (expandedContentOffset), so their relative
+    // positions cannot cross during a collapse.
+    final topInset = MediaQuery.paddingOf(context).top;
+    return Align(
+      alignment: Alignment.center,
+      child: Padding(
+        // Keep the identity block clear of the status bar; the expanded
+        // artwork band starts at the screen top (edge-to-edge).
+        padding: EdgeInsets.fromLTRB(24, topInset + 12, 24, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            KeyedSubtree(
               key: const ValueKey('profile-expanded-avatar'),
               child: _Avatar(
                 user: user,
                 radius: ReplicaProfileHeaderGeometry.expandedAvatarRadius,
               ),
             ),
-          ),
+            const SizedBox(height: 14),
+            IgnorePointer(
+              ignoring: detailsOpacity < 0.99,
+              child: Opacity(
+                opacity: detailsOpacity,
+                child: _ExpandedProfileDetails(
+                  user: user,
+                  isMe: isMe,
+                  onShare: onShare,
+                  onEditProfile: onEditProfile,
+                  profileText: _profileText,
+                ),
+              ),
+            ),
+          ],
         ),
-        Positioned(
-          left: 24,
-          right: 24,
-          top: backgroundHeight + 20,
-          child: IgnorePointer(
-            ignoring: detailsOpacity < 0.99,
-            child: Opacity(
-              opacity: detailsOpacity,
-              child: _ExpandedProfileDetails(
-                user: user,
-                isMe: isMe,
-                onShare: onShare,
-                onEditProfile: onEditProfile,
-                profileText: _profileText,
+      ),
+    );
+  }
+}
+
+class _ProfileBackground extends StatelessWidget {
+  const _ProfileBackground({required this.user, this.withScrim = false});
+
+  final UserEntity user;
+
+  /// When true and the user has an artwork background, a bottom gradient
+  /// keeps the identity text readable over any image.
+  final bool withScrim;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    // Placeholder uses the page surface (not a darker band). A
+    // surfaceContainerHighest block under a background image only reached
+    // part of the header, leaving an obvious grey band between the artwork
+    // and the identity block on every profile.
+    if (user.backgroundImageUrl == null) {
+      return ColoredBox(color: colors.surface);
+    }
+    if (!withScrim) {
+      return PixivImage(
+        url: user.backgroundImageUrl!,
+        fit: BoxFit.cover,
+        // Background images have widely varying aspect ratios; anchoring to
+        // the top keeps the main subject visible when the header crops the
+        // lower part of a tall image.
+        alignment: Alignment.topCenter,
+      );
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PixivImage(
+          url: user.backgroundImageUrl!,
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+        ),
+        // Gradient low enough to keep the name/stat rows legible without
+        // hiding the artwork around the avatar.
+        IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0.45, 1],
+                colors: [
+                  Colors.transparent,
+                  colors.surface.withValues(alpha: 0.94),
+                ],
               ),
             ),
           ),
         ),
       ],
     );
-  }
-}
-
-class _ProfileBackground extends StatelessWidget {
-  const _ProfileBackground({required this.user});
-
-  final UserEntity user;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return user.backgroundImageUrl == null
-        ? ColoredBox(color: colors.surfaceContainerHighest)
-        : PixivImage(url: user.backgroundImageUrl!, fit: BoxFit.cover);
   }
 }
 
@@ -375,7 +420,7 @@ class _ExpandedProfileDetails extends StatelessWidget {
                 right: 0,
                 top: 0,
                 child: IconButton(
-                  tooltip: 'Share',
+                  tooltip: profileText(context, 'profileShare'),
                   onPressed: onShare,
                   icon: const Icon(Icons.share_outlined),
                 ),
@@ -484,43 +529,45 @@ class _CollapsedProfile extends StatelessWidget {
                 )
               : const SizedBox.shrink())
         : IconButton(
-            tooltip: 'Share',
+            tooltip: _text(context, 'profileShare'),
             onPressed: onShare,
             icon: const Icon(Icons.share_outlined),
           );
 
-    return Row(
+    return Stack(
       children: [
-        SizedBox(
-          width: canPop ? kMinInteractiveDimension : 16,
-          child: canPop
-              ? IconButton(
-                  tooltip: 'Back',
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_ios_new),
-                )
-              : null,
-        ),
-        Expanded(
-          child: Center(
-            child: Padding(
-              // The title no longer reserves an avatar slot. Keeping a small
-              // horizontal inset still prevents long names from touching the
-              // edge of the controls.
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                key: const ValueKey('profile-toolbar-title'),
-                user.name,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
+        // The title is genuinely centred on the screen; leading/actions sit
+        // on top, so asymmetric action counts no longer shift the name.
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 64),
+            child: Text(
+              key: const ValueKey('profile-toolbar-title'),
+              user.name,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ),
-        actions,
-        const SizedBox(width: 8),
+        Positioned(
+          left: 8,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: canPop
+                ? IconButton(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).backButtonTooltip,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_ios_new),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ),
+        Positioned(right: 8, top: 0, bottom: 0, child: Center(child: actions)),
       ],
     );
   }
@@ -534,21 +581,10 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CircleAvatar(
+    return PersonAvatar(
+      imageUrl: user.profileImageUrl,
       radius: radius,
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: ClipOval(
-        child: user.profileImageUrl == null
-            ? Icon(Icons.person_outline, size: radius)
-            : SizedBox(
-                width: radius * 2,
-                height: radius * 2,
-                child: PixivImage(
-                  url: user.profileImageUrl!,
-                  fit: BoxFit.cover,
-                ),
-              ),
-      ),
+      ring: true,
     );
   }
 }
@@ -590,7 +626,9 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   double get minExtent => kToolbarHeight;
 
   @override
-  double get maxExtent => kToolbarHeight + (expanded ? 64 : 0);
+  double get maxExtent => kToolbarHeight + (expanded && _isWorkTab ? 64 : 0);
+
+  bool get _isWorkTab => isMe ? controller.index == 4 : controller.index == 0;
 
   String _text(BuildContext context, String key) => ReplicaStrings.fromTag(
     Localizations.localeOf(context).toLanguageTag(),
@@ -617,7 +655,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
             'profileFollowing',
             'profileAbout',
           ];
-    final isWorkTab = isMe ? controller.index == 4 : controller.index == 0;
+    final isWorkTab = _isWorkTab;
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Column(

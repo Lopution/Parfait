@@ -98,11 +98,12 @@ enum NetworkMode { automatic, directOnly }
 /// - [dohRealSni]: DoH addresses + real SNI + full verification
 /// - [noSni]: DoH/fallback addresses + empty SNI + full verification
 ///   (origin hosts only: nginx routes by Host without SNI)
-/// - [insecureNoSni]: same as [noSni] but certificate verification OFF —
-///   ONLY present when the user explicitly enables it; never automatic.
+/// - [insecureNoSni]: same as [noSni] but certificate verification OFF. The
+///   production provider uses this only as its internal PixEz-compatible fast
+///   tier; standalone policies may still opt into it as a fallback.
 ///
-/// `certificateMismatch` stays terminal on every tier; the insecure tier is
-/// a user-gated escape hatch, not a ladder rung.
+/// `certificateMismatch` stays terminal on strict tiers. The production fast
+/// tier is deliberately internal and is not exposed as a user setting.
 enum NetworkRouteKind { direct, ech, dohRealSni, noSni, insecureNoSni }
 
 enum NetworkIpFamily { ipv4, ipv6, unknown }
@@ -199,7 +200,7 @@ class NetworkRoute {
     ttl: ttl,
   );
 
-  /// User-gated insecure fallback: empty SNI + NO certificate verification.
+  /// PixEz-compatible fast route: empty SNI + NO certificate verification.
   factory NetworkRoute.insecureNoSni(
     NetworkRevision revision,
     InternetAddress address, {

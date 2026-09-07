@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
-import '../network/pixiv_http_client.dart';
 import '../paging/paged_feed_controller.dart';
 import 'novel_repository.dart';
 import 'novel_store.dart';
@@ -14,23 +13,20 @@ class UserNovelFeedController extends PagedFeedController {
   final int userId;
 
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) {
-    return fetchPageCancellable(cursor, CancelToken());
-  }
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
-    String? cursor,
-    CancelToken cancelToken,
-  ) async {
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
     final page = await ref
         .read(novelRepositoryProvider)
-        .fetchUserNovels(userId, cursor: cursor, cancelToken: cancelToken);
-    ref.read(novelStoreProvider.notifier).mergeAll(page.novels);
-    return (
+        .fetchUserNovels(
+          userId,
+          cursor: context.cursor,
+          cancelToken: context.cancelToken,
+        );
+    final store = ref.read(novelStoreProvider.notifier);
+    return FeedPage(
       ids: [for (final novel in page.novels) novel.id],
       nextCursor: page.nextUrl,
+      commit: (_) => store.mergeAll(page.novels),
     );
   }
 

@@ -7,7 +7,9 @@ import 'package:http/http.dart' as http;
 
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
+import 'network_fast_route_store.dart';
 import 'rhttp_client_factory.dart';
+import '../rhttp_gate.dart';
 
 /// Builds the transport client for one route.
 ///
@@ -22,11 +24,6 @@ typedef NetworkClientFactory =
       PixivDestinationPurpose purpose,
     );
 
-/// Runs a small, side-effect-free request on a candidate route.  Route
-/// selection owns this callback; business requests are not used as probes.
-typedef NetworkRouteProbe =
-    FutureOr<void> Function(NetworkRoute route, Uri probeUri);
-
 /// One shared policy owner for all native Pixiv HTTP exits. It owns the
 /// revision, resolver, pooled route clients, per-host route memory and
 /// diagnostics.
@@ -38,6 +35,7 @@ class NetworkAccessPolicy {
     NetworkMode mode = NetworkMode.automatic,
     NetworkRevision revision = const NetworkRevision(0),
     NetworkClientFactory? clientFactory,
+    this.fastRouteStore,
     this.echFrontHost = 'cloudflare-ech.com',
     this.insecureNoSniEnabled = false,
     List<String> dohEndpoints = const [
@@ -55,6 +53,14 @@ class NetworkAccessPolicy {
       'https://dns.google/dns-query',
     ],
     Map<String, List<InternetAddress>>? dohHostOverrides,
+    List<String> echDoHEndpoints = const [
+      // PixEz queries the ECH config through Alibaba DNS
+      // (`lookup_alidns_https_ech`): reachable inside the wall, and
+      // `cloudflare-ech.com` HTTPS RR answers are not poisoned there (only
+      // *.pixiv.net A records are). Cloudflare anycast stays as fallback.
+      'https://dns.alidns.com/dns-query',
+      'https://1dot1dot1dot1.cloudflare-dns.com/dns-query',
+    ],
     this.clock = DateTime.now,
   }) : registry = registry ?? PixivDestinationRegistry(),
        _resolver =
@@ -64,6 +70,7 @@ class NetworkAccessPolicy {
                : DohResolver(
                    endpointUrls: dohEndpoints,
                    hostOverrides: dohHostOverrides ?? _defaultDohHostOverrides,
+                   echEndpointUrls: echDoHEndpoints,
                  )),
        diagnostics = diagnostics ?? NetworkDiagnostics(),
        _mode = mode,
@@ -75,12 +82,16 @@ class NetworkAccessPolicy {
   final String echFrontHost;
 
   /// Whether the user explicitly enabled the `insecureNoSni` fallback tier
-  /// (PRD R6). Default false; never auto-enabled by probe failures.
+  /// (PRD R6). In production this is enabled only together with
+  /// [fastRouteStore], which makes it PixEz's persisted compatibility tier;
+  /// tests and standalone callers retain the old opt-in fallback behavior.
   final bool insecureNoSniEnabled;
 
-  /// Cloudflare DoH endpoints' anycast IPs (same values PixEz pins; the
-  /// DNS names themselves are only used for SNI/Host — the TCP peer is
-  /// always one of these).
+  /// Persisted PixEz-compatible host addresses. When present, the
+  /// compatibility tier is attempted before the cold direct probe and does
+  /// not need a DNS lookup or a HEAD request.
+  final PixivFastRouteStore? fastRouteStore;
+
   /// Cloudflare DoH endpoints' anycast IPs (same values PixEz pins; the
   /// DNS names themselves are only used for SNI/Host — the TCP peer is
   /// always one of these). `InternetAddress` has no const constructor, so
@@ -95,6 +106,10 @@ class NetworkAccessPolicy {
       InternetAddress('104.16.249.249'),
     ],
     'dns.google': [InternetAddress('8.8.8.8'), InternetAddress('8.8.4.4')],
+    'dns.alidns.com': [
+      InternetAddress('223.5.5.5'),
+      InternetAddress('223.6.6.6'),
+    ],
   };
 
   final PixivDestinationRegistry registry;
@@ -111,11 +126,16 @@ class NetworkAccessPolicy {
   /// Exposed for the probe page; production requests use [runLadder].
   SecureResolver get resolver => _resolver;
 
-  /// Per-host route memory: a host that reached a success through the strict
-  /// (secure-DNS) tier is remembered so subsequent requests skip the doomed
-  /// direct attempt inside the wall. Bounded, TTL'd, and cleared with the
-  /// same events that close route pools (mode/revision changes).
+  /// Per-host route memory: a host that reached a success through a
+  /// compatibility tier is remembered so subsequent requests skip the cold
+  /// route discovery path. Bounded, TTL'd, and cleared with the same events
+  /// that close route pools (mode/revision changes).
   final Map<String, _HostRouteMemory> _routeMemory = {};
+
+  /// A stale persisted address must not make every request pay the fast-tier
+  /// timeout before reaching a strict route. The cooldown is process-local;
+  /// the persisted address remains available for a later network change.
+  final Map<String, DateTime> _fastRouteCooldownUntil = {};
 
   /// A successful strict route is also remembered for its destination group.
   /// The value changes candidate order only; target addresses remain per-host.
@@ -125,9 +145,62 @@ class NetworkAccessPolicy {
   NetworkMode _mode;
   NetworkRevision _revision;
   bool _disposed = false;
+  Future<void>? _warmupFuture;
 
   NetworkMode get mode => _mode;
   NetworkRevision get revision => _revision;
+
+  bool get _fastCompatibilityEnabled =>
+      insecureNoSniEnabled && fastRouteStore != null;
+
+  /// Loads the persisted PixEz-compatible addresses and eagerly creates the
+  /// corresponding pooled clients. This work is intentionally asynchronous so
+  /// the first screen is not held up by preference I/O.
+  Future<void> warmUp() {
+    if (_disposed) return Future<void>.value();
+    return _warmupFuture ??= _warmUp();
+  }
+
+  Future<void> _warmUp() async {
+    // The warm-up pre-builds native clients; it must wait for rhttp just
+    // like business requests do.
+    final rhttpReady = RhttpGate.ready;
+    if (rhttpReady != null) await rhttpReady;
+    final store = fastRouteStore;
+    if (!_fastCompatibilityEnabled ||
+        store == null ||
+        _mode == NetworkMode.directOnly) {
+      return;
+    }
+    const targets = <({PixivDestinationPurpose purpose, String host})>[
+      (purpose: PixivDestinationPurpose.appApi, host: 'app-api.pixiv.net'),
+      (purpose: PixivDestinationPurpose.oauth, host: 'oauth.secure.pixiv.net'),
+      (purpose: PixivDestinationPurpose.pixivWeb, host: 'www.pixiv.net'),
+      (purpose: PixivDestinationPurpose.image, host: 'i.pximg.net'),
+      (purpose: PixivDestinationPurpose.image, host: 's.pximg.net'),
+    ];
+    for (final target in targets) {
+      if (_disposed) return;
+      final address = await store.addressFor(target.host);
+      if (address == null) continue;
+      clientFor(
+        target.purpose,
+        NetworkRoute.insecureNoSni(
+          _revision,
+          address,
+          dnsSource: DnsSource.doh,
+          ttl: _kRouteMemoryTtl,
+        ),
+        target.host,
+      );
+      // Match PixEz's startup Hoster refresh: keep the bundled/persisted
+      // address available immediately, then update it without delaying the
+      // first screen or first business request.
+      unawaited(
+        store.refresh(target.host, resolver: _resolver, revision: _revision),
+      );
+    }
+  }
 
   /// Whether [host] is currently remembered as non-direct (strict tier).
   /// Exposed for tests; production callers go through [runLadder].
@@ -221,34 +294,31 @@ class NetworkAccessPolicy {
     );
   }
 
-  /// The single route ladder shared by the API and download exits.
+  /// The single route ladder shared by the API, OAuth, image and download
+  /// exits.
   ///
-  /// When [probe] is supplied (all production exits), the order is strictly
-  /// `route probe -> one business attempt`.  A business POST/PATCH/DELETE is
-  /// therefore never used to discover a route and is never transparently
-  /// replayed.  [canReplay] only permits one fresh attempt for an idempotent
-  /// operation after the already-selected route genuinely fails.
-  ///
-  /// The optional no-[probe] form is retained for small legacy/test callers;
-  /// production code must pass a side-effect-free probe callback.
+  /// PixEz-style attempt-first: the business request itself is the route
+  /// attempt, so no credential-free probe round trip is paid before data. If
+  /// the attempt fails with a transport-level error that proves the request
+  /// was never delivered, the ladder re-selects one different route and
+  /// sends it once more (exactly one re-selection per operation).
+  /// [canReplay] selects the retry set: idempotent GET/HEAD/downloads also
+  /// retry on timeout (a repeat is safe), while POST-family and the token
+  /// exchange retry only on delivery-proven failures (DNS, connect, reset,
+  /// TLS handshake), so a request that may have reached the server (HTTP
+  /// response, timeout after send) is never repeated.
   Future<T> runLadder<T>({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
     required bool canReplay,
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
-    NetworkRouteProbe? probe,
   }) async {
     _checkUsable();
-    if (probe != null) {
-      return _runPreflightLadder<T>(
-        destination: destination,
-        cancelSignal: cancelSignal,
-        canReplay: canReplay,
-        attempt: attempt,
-        probe: probe,
-      );
-    }
-    return _runLegacyLadder<T>(
+    // First request after a cold start waits for the Rust transport; this
+    // keeps `main` free to render the boot before rhttp finishes loading.
+    final rhttpReady = RhttpGate.ready;
+    if (rhttpReady != null) await rhttpReady;
+    return _runAttemptLadder<T>(
       destination: destination,
       cancelSignal: cancelSignal,
       canReplay: canReplay,
@@ -256,92 +326,106 @@ class NetworkAccessPolicy {
     );
   }
 
-  /// Selects a route with an independent probe, then sends the business
-  /// request exactly once on that route.  The attempted sets live for the
-  /// whole operation, including the one allowed idempotent re-selection, so
-  /// a failed remembered ECH route cannot be tried again in the same turn.
-  Future<T> _runPreflightLadder<T>({
+  /// Sends the business request on the selected route and, on a retryable
+  /// transport failure, advances to the next route candidate exactly once
+  /// per tier. Each tier is attempted at most once; a delivered outcome
+  /// (HTTP response, timeout after send, auth/parse error) never moves on,
+  /// so a non-idempotent request can only be repeated when every earlier
+  /// failure proved the request never reached the server.
+  Future<T> _runAttemptLadder<T>({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
     required bool canReplay,
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
-    required NetworkRouteProbe probe,
   }) async {
     final host = destination.canonicalHost;
     final attemptedKeys = <String>{};
     final attemptedKinds = <NetworkRouteKind>{};
-    NetworkRoute route;
-    try {
-      route = await _selectRoute(
-        destination: destination,
-        cancelSignal: cancelSignal,
-        probe: probe,
-        attemptedKeys: attemptedKeys,
-        attemptedKinds: attemptedKinds,
-      );
-    } on Object catch (error, stackTrace) {
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-
-    final businessTimer = Stopwatch()..start();
-    try {
-      return await _sendOnRoute(destination, route, attempt, cancelSignal);
-    } on Object catch (error, stackTrace) {
-      policyRecord(destination, route, error, businessTimer.elapsed);
-      final eligible = TransportFailureClassifier.isFallbackEligible(error);
-      if (eligible) {
-        _invalidateRouteMemory(host, route, purpose: destination.purpose);
-      }
-      if (_mode == NetworkMode.directOnly ||
-          (cancelSignal?.isCancelled ?? false) ||
-          !canReplay ||
-          !eligible) {
+    var useMemory = true;
+    while (true) {
+      NetworkRoute route;
+      try {
+        route = await _selectRoute(
+          destination: destination,
+          cancelSignal: cancelSignal,
+          attemptedKeys: attemptedKeys,
+          attemptedKinds: attemptedKinds,
+          useMemory: useMemory,
+        );
+      } on Object catch (error, stackTrace) {
         Error.throwWithStackTrace(error, stackTrace);
       }
+      useMemory = false;
 
-      // One and only one idempotent reselection.  The failed route's kind is
-      // already in [attemptedKinds], so the candidate loop cannot repeat it.
-      final retryRoute = await _selectRoute(
-        destination: destination,
-        cancelSignal: cancelSignal,
-        probe: probe,
-        attemptedKeys: attemptedKeys,
-        attemptedKinds: attemptedKinds,
-        useMemory: false,
-      );
-      final retryTimer = Stopwatch()..start();
+      final businessTimer = Stopwatch()..start();
       try {
-        return await _sendOnRoute(
+        final result = await _sendOnRoute(
           destination,
-          retryRoute,
+          route,
           attempt,
           cancelSignal,
         );
-      } on Object catch (retryError, retryStack) {
-        policyRecord(destination, retryRoute, retryError, retryTimer.elapsed);
-        if (TransportFailureClassifier.isFallbackEligible(retryError)) {
-          _invalidateRouteMemory(
-            host,
-            retryRoute,
-            purpose: destination.purpose,
-          );
+        _clearFastRouteCooldown(host, route);
+        return result;
+      } on Object catch (error, stackTrace) {
+        policyRecord(destination, route, error, businessTimer.elapsed);
+        final eligible = _retryEligible(canReplay, error);
+        if (eligible) {
+          _invalidateRouteMemory(host, route, purpose: destination.purpose);
+          _coolFastRoute(host, route);
         }
-        Error.throwWithStackTrace(retryError, retryStack);
+        if (_mode == NetworkMode.directOnly ||
+            (cancelSignal?.isCancelled ?? false) ||
+            !eligible) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+        // Advance to the next candidate. [attemptedKinds] already contains
+        // this route's kind, so the loop cannot repeat the same tier.
       }
     }
   }
 
-  /// Finds the first candidate whose independent probe succeeds.
+  /// Whether a failed [error] justifies moving on to the next route tier.
+  bool _retryEligible(bool canReplay, Object error) {
+    final kind = TransportFailureClassifier.classify(error).kind;
+    if (canReplay) return _replayEligibleKinds.contains(kind);
+    return _unsentEligibleKinds.contains(kind);
+  }
+
+  /// Idempotent requests may retry on timeout too — repeating a read is safe.
+  static const Set<NetworkFailureKind> _replayEligibleKinds = {
+    NetworkFailureKind.dns,
+    NetworkFailureKind.connect,
+    NetworkFailureKind.timeout,
+    NetworkFailureKind.reset,
+    NetworkFailureKind.tlsHandshake,
+  };
+
+  /// Non-idempotent requests advance only when the failure proves the request
+  /// never reached the server, so a delivered request is never repeated.
+  static const Set<NetworkFailureKind> _unsentEligibleKinds = {
+    NetworkFailureKind.dns,
+    NetworkFailureKind.connect,
+    NetworkFailureKind.reset,
+    NetworkFailureKind.tlsHandshake,
+  };
+
+  /// Finds the first candidate route for the operation. The route is *not*
+  /// verified here: the business request itself is the attempt (PixEz-style),
+  /// so a candidate only needs a usable connect address (fast tier: known
+  /// address; direct: no address; ECH: config+front address; DoH tiers: a
+  /// resolved address).
   Future<NetworkRoute> _selectRoute({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
-    required NetworkRouteProbe probe,
     required Set<String> attemptedKeys,
     required Set<NetworkRouteKind> attemptedKinds,
     bool useMemory = true,
   }) async {
     final host = destination.canonicalHost;
     final now = clock();
+    final fastCompatibilityAvailable =
+        _fastCompatibilityEnabled && !_isFastRouteCooling(host, now);
     final memory = _routeMemory[host];
     if (memory != null && !memory.isUsable(now, _revision.networkIdentity)) {
       _routeMemory.remove(host);
@@ -362,7 +446,9 @@ class NetworkAccessPolicy {
       if (remembered != null &&
           remembered.isUsable(now, _revision.networkIdentity)) {
         final route = remembered.routeFor(_revision);
-        if (!attemptedKinds.contains(route.kind) &&
+        if ((!_isFastRouteCooling(host, now) ||
+                route.kind != NetworkRouteKind.insecureNoSni) &&
+            !attemptedKinds.contains(route.kind) &&
             attemptedKeys.add(route.key)) {
           attemptedKinds.add(route.kind);
           return route;
@@ -380,10 +466,28 @@ class NetworkAccessPolicy {
       destination.purpose,
       now: now,
     );
+    final usablePreferredKind =
+        preferredKind == NetworkRouteKind.insecureNoSni &&
+            !fastCompatibilityAvailable
+        ? null
+        : preferredKind;
+    final fallbackTiers = _fallbackTiersFor(destination.purpose);
+    // Verified-fast-first ordering, driven by real-device probe data:
+    // Cloudflare hosts (API/OAuth) reach the ECH tier inside the wall while
+    // plain SNI is RST; image hosts reach the empty-SNI tier on their origin
+    // addresses. The PixEz bootstrap (insecureNoSni) stays as the very last
+    // fallback: if it happens to work on this network it is remembered and
+    // promoted by route/group memory after one success, but an unverified
+    // address can never again cost the first N requests of a screen.
+    final hasInsecureFallback = fallbackTiers.contains(
+      NetworkRouteKind.insecureNoSni,
+    );
     final kinds = <NetworkRouteKind>[
-      ?preferredKind,
+      ?usablePreferredKind,
+      ...fallbackTiers.where((kind) => kind != NetworkRouteKind.insecureNoSni),
       NetworkRouteKind.direct,
-      ..._fallbackTiersFor(destination.purpose),
+      if (hasInsecureFallback && !_isFastRouteCooling(host, now))
+        NetworkRouteKind.insecureNoSni,
     ];
     for (final kind in kinds) {
       if (attemptedKinds.contains(kind)) continue;
@@ -403,13 +507,13 @@ class NetworkAccessPolicy {
         if (_isCancellation(error, cancelSignal)) {
           Error.throwWithStackTrace(error, stackTrace);
         }
-        if (preferredKind == kind) {
+        if (usablePreferredKind == kind) {
           _invalidateGroupPreference(destination.purpose, kind);
         }
         continue;
       }
       if (route == null) {
-        if (preferredKind == kind) {
+        if (usablePreferredKind == kind) {
           _invalidateGroupPreference(destination.purpose, kind);
         }
         continue;
@@ -425,7 +529,9 @@ class NetworkAccessPolicy {
         if (cancelSignal?.isCancelled ?? false) {
           throw const NetworkFailureException(NetworkFailureKind.cancelled);
         }
-        await probe(route, _probeUri(destination.uri));
+        // PixEz-style: the candidate is not pre-verified. The business
+        // request itself is the attempt; a failure falls through to the
+        // re-selection in the caller. Only cancellations abort here.
         _rememberRoute(host, route, purpose: destination.purpose);
         return route;
       } on Object catch (error, stackTrace) {
@@ -463,14 +569,24 @@ class NetworkAccessPolicy {
       route,
       purpose: destination.purpose,
     );
+    if (route.kind == NetworkRouteKind.insecureNoSni &&
+        fastRouteStore != null) {
+      unawaited(_refreshFastRoute(destination.canonicalHost, route.address!));
+    }
     return result;
   }
 
-  Uri _probeUri(Uri original) => original.replace(
-    path: '/v1/illust/prime',
-    queryParameters: const <String, String>{},
-    fragment: null,
-  );
+  Future<void> _refreshFastRoute(String host, InternetAddress address) async {
+    final store = fastRouteStore;
+    if (store == null) return;
+    try {
+      await store.remember(host, address);
+      await store.refresh(host, resolver: _resolver, revision: _revision);
+    } on Object {
+      // Fast-route persistence is an acceleration layer; the active request
+      // has already completed and must not be changed by a cache write error.
+    }
+  }
 
   void _rememberRoute(
     String host,
@@ -542,82 +658,43 @@ class NetworkAccessPolicy {
     }
   }
 
+  static const _kFastRouteCooldown = Duration(seconds: 30);
+
+  bool _isFastRouteCooling(String host, DateTime now) {
+    final until = _fastRouteCooldownUntil[host];
+    if (until == null) return false;
+    if (now.isBefore(until)) return true;
+    _fastRouteCooldownUntil.remove(host);
+    return false;
+  }
+
+  void _coolFastRoute(String host, NetworkRoute route) {
+    if (route.kind != NetworkRouteKind.insecureNoSni ||
+        !_fastCompatibilityEnabled) {
+      return;
+    }
+    _fastRouteCooldownUntil[host] = clock().add(_kFastRouteCooldown);
+  }
+
+  void _clearFastRouteCooldown(String host, NetworkRoute route) {
+    if (route.kind == NetworkRouteKind.insecureNoSni) {
+      _fastRouteCooldownUntil.remove(host);
+    }
+  }
+
   bool _isCancellation(Object error, NetworkCancelSignal? signal) =>
       signal?.isCancelled == true ||
       TransportFailureClassifier.classify(error).kind ==
           NetworkFailureKind.cancelled;
 
-  /// Compatibility path for callers that have not supplied a separate
-  /// probe. It retains the old replay contract but still deduplicates tiers
-  /// and keeps successful route memory intact. Production clients never use
-  /// this branch.
-  Future<T> _runLegacyLadder<T>({
-    required PixivDestination destination,
-    required NetworkCancelSignal? cancelSignal,
-    required bool canReplay,
-    required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
-  }) async {
-    final host = destination.canonicalHost;
-    final memory = _routeMemory[host];
-    final firstRoute =
-        memory != null && memory.isUsable(clock(), _revision.networkIdentity)
-        ? memory.routeFor(_revision)
-        : NetworkRoute.direct(_revision);
-    final attemptedKinds = <NetworkRouteKind>{firstRoute.kind};
-    final firstTimer = Stopwatch()..start();
-    try {
-      final result = await attempt(firstRoute, destination.uri);
-      _rememberRoute(host, firstRoute, purpose: destination.purpose);
-      return result;
-    } on Object catch (error, stackTrace) {
-      policyRecord(destination, firstRoute, error, firstTimer.elapsed);
-      final eligible = TransportFailureClassifier.isFallbackEligible(error);
-      if (eligible) {
-        _invalidateRouteMemory(host, firstRoute, purpose: destination.purpose);
-      }
-      if (_mode == NetworkMode.directOnly ||
-          (cancelSignal?.isCancelled ?? false) ||
-          !canReplay ||
-          !eligible) {
-        Error.throwWithStackTrace(error, stackTrace);
-      }
-      ResolvedHost? pendingResolved;
-      Future<ResolvedHost> resolveOnce() async => pendingResolved ??=
-          await resolve(destination, cancelSignal: cancelSignal);
-      Object lastError = error;
-      StackTrace lastStack = stackTrace;
-      for (final kind in _fallbackTiersFor(destination.purpose)) {
-        if (attemptedKinds.contains(kind)) continue;
-        attemptedKinds.add(kind);
-        final route = await _routeForTier(
-          kind,
-          destination,
-          resolveHost: resolveOnce,
-          cancelSignal: cancelSignal,
-        );
-        if (route == null) continue;
-        try {
-          final result = await attempt(route, destination.uri);
-          _rememberRoute(host, route, purpose: destination.purpose);
-          return result;
-        } on Object catch (candidateError, candidateStack) {
-          policyRecord(destination, route, candidateError, const Duration());
-          lastError = candidateError;
-          lastStack = candidateStack;
-          if (TransportFailureClassifier.isFallbackEligible(candidateError)) {
-            _invalidateRouteMemory(host, route, purpose: destination.purpose);
-          }
-          if (!TransportFailureClassifier.isFallbackEligible(candidateError)) {
-            break;
-          }
-        }
-      }
-      Error.throwWithStackTrace(lastError, lastStack);
-    }
-  }
-
-  /// Ordered fallback tiers after a direct failure, per destination group.
-  /// [insecureNoSni] is appended only when the user explicitly enabled it.
+  /// Ordered fallback tiers after the group preference, per destination
+  /// group. Cloudflare hosts (API/OAuth) reach ECH inside the wall (real
+  /// SNI is RST) and ECH gives HTTP/2 multiplexing on one connection; image
+  /// hosts answer on the ECH front too (real-device probes return reachable
+  /// 403/404), and the plain empty-SNI tier on their origin addresses is the
+  /// second choice. The PixEz bootstrap (insecureNoSni) is always last: it
+  /// is unverified on a cold network and costs a connect timeout when its
+  /// address cannot be reached.
   List<NetworkRouteKind> _fallbackTiersFor(PixivDestinationPurpose purpose) {
     final isCloudflareHost = switch (purpose) {
       PixivDestinationPurpose.appApi ||
@@ -628,7 +705,11 @@ class NetworkAccessPolicy {
     };
     final tiers = isCloudflareHost
         ? [NetworkRouteKind.ech, NetworkRouteKind.dohRealSni]
-        : [NetworkRouteKind.dohRealSni, NetworkRouteKind.noSni];
+        : [
+            NetworkRouteKind.ech,
+            NetworkRouteKind.noSni,
+            NetworkRouteKind.dohRealSni,
+          ];
     if (insecureNoSniEnabled) {
       tiers.add(NetworkRouteKind.insecureNoSni);
     }
@@ -644,11 +725,13 @@ class NetworkAccessPolicy {
         PixivDestinationPurpose.pixivWeb => _RouteGroup.cloudflare,
       };
 
-  static bool _isGroupPreferenceKind(NetworkRouteKind kind) => switch (kind) {
+  bool _isGroupPreferenceKind(NetworkRouteKind kind) => switch (kind) {
     NetworkRouteKind.ech ||
     NetworkRouteKind.dohRealSni ||
-    NetworkRouteKind.noSni => true,
-    NetworkRouteKind.direct || NetworkRouteKind.insecureNoSni => false,
+    NetworkRouteKind.noSni ||
+    NetworkRouteKind.insecureNoSni =>
+      kind != NetworkRouteKind.insecureNoSni || _fastCompatibilityEnabled,
+    NetworkRouteKind.direct => false,
   };
 
   void _invalidateGroupPreference(
@@ -713,6 +796,17 @@ class NetworkAccessPolicy {
           ttl: resolved.ttl,
         );
       case NetworkRouteKind.insecureNoSni:
+        final store = fastRouteStore;
+        if (store != null) {
+          final fastAddress = await store.addressFor(destination.canonicalHost);
+          if (fastAddress == null) return null;
+          return NetworkRoute.insecureNoSni(
+            _revision,
+            fastAddress,
+            dnsSource: DnsSource.doh,
+            ttl: _kRouteMemoryTtl,
+          );
+        }
         final resolved = await resolveHost();
         return NetworkRoute.insecureNoSni(
           _revision,
@@ -832,6 +926,7 @@ class NetworkAccessPolicy {
     _closeClients();
     _routeMemory.clear();
     _groupMemory.clear();
+    _fastRouteCooldownUntil.clear();
   }
 
   NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
@@ -842,6 +937,7 @@ class NetworkAccessPolicy {
     _closeClients();
     _routeMemory.clear();
     _groupMemory.clear();
+    _fastRouteCooldownUntil.clear();
     return _revision;
   }
 
@@ -861,6 +957,7 @@ class NetworkAccessPolicy {
     _disposed = true;
     _closeClients();
     _groupMemory.clear();
+    _fastRouteCooldownUntil.clear();
     await _resolver.dispose();
   }
 
@@ -936,10 +1033,14 @@ class _RouteGroupMemory {
 
 const _kRouteMemoryTtl = Duration(minutes: 10);
 
-/// A policy-aware `package:http` client. It performs an independent,
-/// credential-free route probe before every first-use business request, then
-/// sends that request once through the selected transport. Only an empty
-/// GET/HEAD may be freshly cloned for one post-selection retry.
+/// A policy-aware `package:http` client. Strict fallback tiers perform an
+/// independent, credential-free route probe before first use; the persisted
+/// PixEz-compatible tier intentionally sends the business request directly.
+/// A policy-aware `package:http` client. The business request is the route
+/// attempt (PixEz-style): selection never pays for a separate probe, and a
+/// retryable transport failure re-selects one other route exactly once. The
+/// request is freshly cloned for each attempt because package:http requests
+/// are single-use after finalize().
 class PixivPolicyHttpClient extends http.BaseClient {
   PixivPolicyHttpClient({required this.policy, required this.purpose});
 
@@ -955,14 +1056,14 @@ class PixivPolicyHttpClient extends http.BaseClient {
     return policy.runLadder<http.StreamedResponse>(
       destination: destination,
       cancelSignal: cancelSignal,
-      canReplay: replayFactory != null,
-      probe: (route, probeUri) =>
-          _probeRoute(route, probeUri, destination, cancelSignal),
+      // canReplay carries operation idempotency, not cloneability: GET/HEAD
+      // may retry on timeout too, while POST-family retries only when the
+      // failure proves the request never reached the server.
+      canReplay: request.method == 'GET' || request.method == 'HEAD',
       attempt: (route, url) async {
-        // A clone is created for each idempotent attempt.  package:http
-        // requests are single-use after finalize(), so reusing one object
-        // would turn the allowed retry into a local "already finalized"
-        // failure.
+        // A clone is created for each attempt. package:http requests are
+        // single-use after finalize(), so reusing one object would turn the
+        // allowed retry into a local "already finalized" failure.
         final outbound = replayFactory?.call() ?? request;
         final response = await policy
             .clientFor(purpose, route, destination.canonicalHost)
@@ -976,49 +1077,13 @@ class PixivPolicyHttpClient extends http.BaseClient {
     );
   }
 
-  Future<void> _probeRoute(
-    NetworkRoute route,
-    Uri probeUri,
-    PixivDestination destination,
-    NetworkCancelSignal? cancelSignal,
-  ) async {
-    if (cancelSignal?.isCancelled ?? false) {
-      throw const NetworkFailureException(NetworkFailureKind.cancelled);
-    }
-    final request =
-        http.AbortableRequest(
-            'HEAD',
-            probeUri,
-            abortTrigger: cancelSignal?.whenCancel,
-          )
-          ..followRedirects = false
-          // Explicitly avoid carrying Authorization/Cookie/body from the
-          // business request into route discovery.
-          ..headers['cache-control'] = 'no-cache';
-    final response = await _raceWithCancellation(
-      policy.clientFor(purpose, route, destination.canonicalHost).send(request),
-      cancelSignal,
-    );
-    try {
-      await _raceWithCancellation(response.stream.drain<void>(), cancelSignal);
-    } catch (_) {
-      // A stream error is a probe transport failure and must reach the route
-      // classifier unchanged.
-      rethrow;
-    }
-    if (response.statusCode == 421) {
-      throw const NetworkRouteProbeException(421);
-    }
-  }
-
+  /// Builds a fresh clone for every attempt (the first and the retry), so
+  /// any request shape — including POST bodies such as the OAuth token
+  /// exchange — can be re-sent exactly once on the re-selected route.
   static http.BaseRequest Function()? _safeReplayFactory(
     http.BaseRequest request,
   ) {
     if (request is! http.Request) return null;
-    final method = request.method.toUpperCase();
-    if ((method != 'GET' && method != 'HEAD') || request.bodyBytes.isNotEmpty) {
-      return null;
-    }
     final headers = Map<String, String>.from(request.headers);
     final body = List<int>.from(request.bodyBytes);
     return () {
@@ -1039,19 +1104,6 @@ class PixivPolicyHttpClient extends http.BaseClient {
       return clone;
     };
   }
-}
-
-Future<T> _raceWithCancellation<T>(
-  Future<T> operation,
-  NetworkCancelSignal? cancelSignal,
-) {
-  if (cancelSignal == null) return operation;
-  return Future.any<T>([
-    operation,
-    cancelSignal.whenCancel.then<T>(
-      (_) => throw const NetworkFailureException(NetworkFailureKind.cancelled),
-    ),
-  ]);
 }
 
 class _RequestCancelSignal implements NetworkCancelSignal {
@@ -1094,6 +1146,7 @@ class PixivNetworkFactory {
   final NetworkAccessPolicy policy;
   final Map<PixivDestinationPurpose, PixivPolicyHttpClient> _clients = {};
   CacheManager? _imageCacheManager;
+  Future<void>? _warmupFuture;
 
   PixivPolicyHttpClient client(PixivDestinationPurpose purpose) {
     return _clients.putIfAbsent(
@@ -1115,6 +1168,19 @@ class PixivNetworkFactory {
         ),
       ),
     );
+  }
+
+  /// Eagerly constructs the shared API/OAuth/image clients and their fast
+  /// route pools. It is idempotent so callers can safely trigger it from the
+  /// app lifecycle and from headless widget startup.
+  Future<void> warmUp() {
+    return _warmupFuture ??= () async {
+      client(PixivDestinationPurpose.appApi);
+      client(PixivDestinationPurpose.oauth);
+      client(PixivDestinationPurpose.image);
+      imageCacheManager;
+      await policy.warmUp();
+    }();
   }
 
   Future<void> dispose() async {

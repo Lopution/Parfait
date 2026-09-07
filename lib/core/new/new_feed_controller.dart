@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/illust_store.dart';
-import '../network/pixiv_http_client.dart';
 import '../novel/novel_store.dart';
 import '../paging/paged_feed_controller.dart';
 import 'new_feed_models.dart';
@@ -17,39 +16,6 @@ class NewFeedController extends PagedFeedController {
   String get feedKey => 'new:${key.scope.name}:${key.type.name}';
 
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor) {
-    return fetchPageCancellable(cursor, CancelToken());
-  }
-
-  @override
-  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
-    String? cursor,
-    CancelToken cancelToken,
-  ) async {
-    final repository = ref.read(newFeedRepositoryProvider);
-    if (key.type == NewFeedType.illust) {
-      final page = await repository.fetchIllust(
-        key,
-        cursor: cursor,
-        cancelToken: cancelToken,
-      );
-      return (
-        ids: [for (final item in page.illusts) item.id],
-        nextCursor: page.nextUrl,
-      );
-    }
-    final page = await repository.fetchNovel(
-      key,
-      cursor: cursor,
-      cancelToken: cancelToken,
-    );
-    return (
-      ids: [for (final item in page.novels) item.id],
-      nextCursor: page.nextUrl,
-    );
-  }
-
-  @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     final repository = ref.read(newFeedRepositoryProvider);
     if (key.type == NewFeedType.illust) {
@@ -63,6 +29,7 @@ class NewFeedController extends PagedFeedController {
       return FeedPage(
         ids: [for (final item in page.illusts) item.id],
         nextCursor: page.nextUrl,
+        incomingIllusts: {for (final item in page.illusts) item.id: item},
         commit: (_) => store.mergeAll(
           page.illusts,
           bookmarkSnapshotRevision: bookmarkRevision,

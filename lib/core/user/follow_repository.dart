@@ -33,7 +33,9 @@ class PixivFollowRepository implements FollowRepository {
       PixivClientIdentity.appApiBase.replace(path: '/v1/user/follow/add'),
       body: {'user_id': '$userId', 'restrict': followRestrictWire(restrict)},
       cancelToken: cancelToken,
-      allowAuthReplay: false,
+      // C2: an explicit auth rejection refreshes the credential and replays
+      // this mutation at most once; other outcomes never replay.
+      allowAuthReplay: true,
     );
   }
 
@@ -43,7 +45,7 @@ class PixivFollowRepository implements FollowRepository {
       PixivClientIdentity.appApiBase.replace(path: '/v1/user/follow/delete'),
       body: {'user_id': '$userId'},
       cancelToken: cancelToken,
-      allowAuthReplay: false,
+      allowAuthReplay: true,
     );
   }
 }

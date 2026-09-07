@@ -115,6 +115,7 @@ abstract final class NetworkProbe {
     required Duration timeoutPerLayer,
   }) async {
     final host = destination.canonicalHost;
+    final probeClock = Stopwatch()..start();
     final steps = <NetworkProbeStep>[];
     final rawSteps = <_ProbeStep>[];
     String? firstError;
@@ -295,6 +296,7 @@ abstract final class NetworkProbe {
       if (!noSni.step.ok) firstError ??= noSni.step.detail;
     }
 
+    probeClock.stop();
     return NetworkProbeReport(
       host: host,
       purpose: destination.purpose,
@@ -302,9 +304,9 @@ abstract final class NetworkProbe {
       conclusion: _classify(steps, dnsDisagrees),
       firstError: firstError,
       dnsDisagrees: dnsDisagrees,
+      totalDuration: probeClock.elapsed,
     );
   }
-
   /// DNS answers from two independent resolvers are usually NOT set-equal
   /// even when both are clean: the system resolver returns the full RRset
   /// (e.g. 10 IPs for s.pximg.net) while DoH answers a single address, and
@@ -414,17 +416,30 @@ abstract final class NetworkProbe {
     String name,
     Future<Object> Function() body,
   ) async {
+    final stopwatch = Stopwatch()..start();
     try {
       final value = await body();
+      stopwatch.stop();
       final addresses = value is _ProbeValue ? value.addresses : null;
       final detail = value is _ProbeValue ? value.detail : '$value';
       return _ProbeStep(
-        NetworkProbeStep(name: name, ok: true, detail: detail),
+        NetworkProbeStep(
+          name: name,
+          ok: true,
+          detail: detail,
+          duration: stopwatch.elapsed,
+        ),
         dnsAddresses: addresses,
       );
     } on Object catch (error) {
+      stopwatch.stop();
       return _ProbeStep(
-        NetworkProbeStep(name: name, ok: false, detail: '$error'),
+        NetworkProbeStep(
+          name: name,
+          ok: false,
+          detail: '$error',
+          duration: stopwatch.elapsed,
+        ),
       );
     }
   }
@@ -506,6 +521,7 @@ class NetworkProbeStep {
     required this.ok,
     required this.detail,
     this.skipped = false,
+    this.duration = Duration.zero,
   });
 
   /// Layer name: `system-dns`, `doh`, `tcp`, `tls`, `http`, `ech`,
@@ -517,7 +533,14 @@ class NetworkProbeStep {
   /// True when the layer was not run (no prober configured). Skipping is
   /// not evidence either way.
   final bool skipped;
-  String toLine() => '$name: ${ok ? 'ok' : 'FAILED'} — $detail';
+
+  /// Wall-clock time this layer consumed (P-NET measurement): DNS vs DoH,
+  /// TCP, TLS and the minimal request each become comparable numbers.
+  /// The probe never adds requests; it only times what it already ran.
+  final Duration duration;
+
+  String toLine() =>
+      '$name: ${ok ? 'ok' : 'FAILED'} — $detail (${duration.inMilliseconds}ms)';
 }
 
 enum NetworkProbeConclusion {
@@ -554,6 +577,7 @@ class NetworkProbeReport {
     required this.conclusion,
     required this.firstError,
     this.dnsDisagrees = false,
+    this.totalDuration = Duration.zero,
   });
 
   final String host;
@@ -567,12 +591,17 @@ class NetworkProbeReport {
   /// transport conclusion.
   final bool dnsDisagrees;
 
+  /// Total wall-clock time of the probe run (P-NET baseline).
+  final Duration totalDuration;
+
   /// Copy-pasteable report (PRD R2: 结果可复制).
   String toCopyableText() {
     final buffer = StringBuffer()
       ..writeln('NetworkProbe $host (${purpose.name})')
       ..writeln('conclusion: ${conclusion.name}')
-      ..writeln('dns-disagrees: $dnsDisagrees');
+      ..writeln(
+        'dns-disagrees: $dnsDisagrees (total ${totalDuration.inMilliseconds}ms)',
+      );
     for (final step in steps) {
       buffer.writeln(step.toLine());
     }

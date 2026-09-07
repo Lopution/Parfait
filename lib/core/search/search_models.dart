@@ -64,6 +64,20 @@ class SearchFilters {
   final DateTime? startDate;
   final DateTime? endDate;
 
+  /// Stable identity for feed/page-storage scopes.
+  ///
+  /// Search filters are part of the query contract, so a changed date range
+  /// must not reuse the previous result surface's identity. Keep this key
+  /// based on the same normalized wire values sent to Pixiv rather than on
+  /// [Object.toString], which is not a semantic representation of filters.
+  String get cacheKey => [
+    target.wireValue,
+    sort.wireValue,
+    duration?.wireValue ?? '',
+    startDate == null ? '' : _formatDate(startDate!),
+    endDate == null ? '' : _formatDate(endDate!),
+  ].join('|');
+
   static const defaults = SearchFilters();
 
   Map<String, String> toQuery({required String word}) {
@@ -136,7 +150,7 @@ sealed class SearchQuery {
 
   Map<String, String> toQuery();
 
-  String get cacheKey => '$type|${keyword.trim()}|$this';
+  String get cacheKey => '$type|${keyword.trim()}';
 
   bool get isEmpty => keyword.trim().isEmpty;
 }
@@ -152,6 +166,9 @@ class IllustSearchQuery extends SearchQuery {
   final SearchResultType type = SearchResultType.illust;
 
   final SearchFilters filters;
+
+  @override
+  String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
 
   @override
   Map<String, String> toQuery() => filters.toQuery(word: keyword);
@@ -186,6 +203,9 @@ class NovelSearchQuery extends SearchQuery {
   final SearchResultType type = SearchResultType.novel;
 
   final SearchFilters filters;
+
+  @override
+  String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
 
   @override
   Map<String, String> toQuery() => filters.toQuery(word: keyword);

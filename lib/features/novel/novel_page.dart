@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/replica_page_route.dart';
 import '../../core/i18n/replica_strings.dart';
@@ -253,22 +254,9 @@ class _NovelMetadata extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ClipOval(
-                    child: SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: novel.user.profileImageUrl == null
-                          ? ColoredBox(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              child: const Icon(Icons.person_outline, size: 18),
-                            )
-                          : PixivImage(
-                              url: novel.user.profileImageUrl!,
-                              fit: BoxFit.cover,
-                            ),
-                    ),
+                  PersonAvatar(
+                    imageUrl: novel.user.profileImageUrl,
+                    radius: 16,
                   ),
                   const SizedBox(width: 8),
                   Text(novel.user.name),

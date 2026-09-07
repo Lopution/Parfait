@@ -13,13 +13,8 @@ class MainActivity : FlutterActivity() {
         AccountTransferClipboardChannel.configure(this, flutterEngine)
         WidgetForegroundChannel.configure(this, flutterEngine)
         DistributionUpdaterChannel.configure(this, flutterEngine)
-        // Login WebView interception (PRD R7): native PlatformView registered
-        // with the engine's platform views controller so Dart can embed it
-        // with AndroidView(viewType: LoginWebViewPlatformView.viewType).
-        flutterEngine.platformViewsController.registry.registerViewFactory(
-            LoginWebViewPlatformView.viewType,
-            LoginWebViewFactory(flutterEngine.dartExecutor.binaryMessenger),
-        )
+        SafTreeChannel.configure(this, flutterEngine)
+        WebProfileChannel.configure(this, flutterEngine)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -30,6 +25,9 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (ReverseImageInputChannel.onActivityResult(this, requestCode, resultCode, data)) {
+            return
+        }
+        if (SafTreeChannel.onActivityResult(requestCode, resultCode, data)) {
             return
         }
         super.onActivityResult(requestCode, resultCode, data)

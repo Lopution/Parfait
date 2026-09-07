@@ -143,6 +143,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     required List<String> endpointUrls,
     http.Client? client,
     this.hostOverrides = const {},
+    List<String>? echEndpointUrls,
     this.maxResponseBytes = 64 * 1024,
     this.maxTtl = const Duration(minutes: 10),
     this.minTtl = const Duration(seconds: 5),
@@ -153,7 +154,8 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   }) : assert(endpointUrls.isNotEmpty, 'at least one DoH endpoint required'),
        _client = client ?? _staticMappedClient(hostOverrides),
        _ownsClient = client == null,
-       _endpoints = List.of(endpointUrls);
+       _endpoints = List.of(endpointUrls),
+       _echEndpoints = List.of(echEndpointUrls ?? endpointUrls);
 
   /// DNS-bootstrap-free endpoint resolution: maps an endpoint's hostname to
   /// fixed public IPs (e.g. Cloudflare DoH `1dot1dot1dot1.cloudflare-dns.com`
@@ -183,9 +185,19 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   final http.Client _client;
   final bool _ownsClient;
   final List<String> _endpoints;
+
+  /// ECH HTTPS-RR endpoints. PixEz queries the ECH config through Alibaba
+  /// DNS (`lookup_alidns_https_ech`), which is reachable inside the wall
+  /// while the Cloudflare anycast endpoints are not; `cloudflare-ech.com`
+  /// answers are not poisoned there (only *.pixiv.net A records are).
+  final List<String> _echEndpoints;
+  int _echEndpointCursor = 0;
   final Map<String, DateTime> _endpointFailedAt = {};
+  final Map<_AddressCacheKey, _AddressCacheEntry> _addressCache = {};
+  final Map<_AddressCacheKey, Future<ResolvedHost>> _addressInflight = {};
   final Map<_EchCacheKey, _EchCacheEntry> _echCache = {};
   final Map<_EchCacheKey, Future<EchConfigResult>> _echInflight = {};
+  static const int _maxAddressCacheEntries = 32;
   static const int _maxEchCacheEntries = 16;
   int _endpointCursor = 0;
   bool _disposed = false;
@@ -204,6 +216,50 @@ class DohResolver implements SecureResolver, EchConfigResolver {
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
     }
 
+    final key = _AddressCacheKey(host, revision);
+    final cached = _addressCache[key];
+    if (cached != null) {
+      if (cached.isUsable(clock())) return _copyResolved(cached.result);
+      _addressCache.remove(key);
+    }
+
+    // An uncancelled caller can share the same DNS flight with API, image,
+    // widget, and background refresh requests. A caller with a cancellation
+    // signal bypasses the shared flight so it can stop independently.
+    if (cancelSignal == null) {
+      final pending = _addressInflight[key];
+      if (pending != null) return _copyResolved(await pending);
+      final future = _resolveUncached(
+        host,
+        revision: revision,
+        cancelSignal: null,
+      );
+      _addressInflight[key] = future;
+      try {
+        final result = await future;
+        _rememberAddress(key, result);
+        return _copyResolved(result);
+      } finally {
+        if (identical(_addressInflight[key], future)) {
+          _addressInflight.remove(key);
+        }
+      }
+    }
+
+    final result = await _resolveUncached(
+      host,
+      revision: revision,
+      cancelSignal: cancelSignal,
+    );
+    _rememberAddress(key, result);
+    return _copyResolved(result);
+  }
+
+  Future<ResolvedHost> _resolveUncached(
+    String host, {
+    required NetworkRevision revision,
+    required NetworkCancelSignal? cancelSignal,
+  }) async {
     // Find a healthy endpoint starting at the cursor (round-robin start).
     final candidates = <String>[];
     for (var i = 0; i < _endpoints.length; i++) {
@@ -235,6 +291,29 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     _endpointCursor = (_endpointCursor + 1) % _endpoints.length;
     throw lastError ??
         const SecureResolutionException('all DoH endpoints failed');
+  }
+
+  static ResolvedHost _copyResolved(ResolvedHost result) => ResolvedHost(
+    host: result.host,
+    addresses: result.addresses,
+    dnsSource: result.dnsSource,
+    revision: result.revision,
+    ttl: result.ttl,
+  );
+
+  void _rememberAddress(_AddressCacheKey key, ResolvedHost result) {
+    if (_disposed) return;
+    _addressCache[key] = _AddressCacheEntry(result, clock());
+    final now = clock();
+    _addressCache.removeWhere((_, entry) => !entry.isUsable(now));
+    if (_addressCache.length <= _maxAddressCacheEntries) return;
+    final oldest = _addressCache.entries.toList()
+      ..sort((a, b) => a.value.createdAt.compareTo(b.value.createdAt));
+    for (final entry in oldest.take(
+      _addressCache.length - _maxAddressCacheEntries,
+    )) {
+      _addressCache.remove(entry.key);
+    }
   }
 
   Future<ResolvedHost> _query(
@@ -399,12 +478,13 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     _checkUsable();
 
     final candidates = <String>[];
-    for (var i = 0; i < _endpoints.length; i++) {
-      final endpoint = _endpoints[(_endpointCursor + i) % _endpoints.length];
+    for (var i = 0; i < _echEndpoints.length; i++) {
+      final endpoint =
+          _echEndpoints[(_echEndpointCursor + i) % _echEndpoints.length];
       if (_isEndpointHealthy(endpoint)) candidates.add(endpoint);
     }
     if (candidates.isEmpty) {
-      candidates.add(_endpoints[_endpointCursor % _endpoints.length]);
+      candidates.add(_echEndpoints[_echEndpointCursor % _echEndpoints.length]);
     }
 
     Object? lastError;
@@ -427,7 +507,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
         }
       }
     }
-    _endpointCursor = (_endpointCursor + 1) % _endpoints.length;
+    _echEndpointCursor = (_echEndpointCursor + 1) % _echEndpoints.length;
     throw lastError ??
         const SecureResolutionException('all DoH endpoints failed');
   }
@@ -573,12 +653,42 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _addressCache.clear();
+    _addressInflight.clear();
     _echCache.clear();
     _echInflight.clear();
     if (_ownsClient) {
       _client.close();
     }
   }
+}
+
+class _AddressCacheKey {
+  const _AddressCacheKey(this.host, this.revision);
+
+  final String host;
+  final NetworkRevision revision;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _AddressCacheKey &&
+      other.host == host &&
+      other.revision.value == revision.value &&
+      other.revision.networkIdentity == revision.networkIdentity;
+
+  @override
+  int get hashCode =>
+      Object.hash(host, revision.value, revision.networkIdentity);
+}
+
+class _AddressCacheEntry {
+  _AddressCacheEntry(this.result, this.createdAt);
+
+  final ResolvedHost result;
+  final DateTime createdAt;
+
+  bool isUsable(DateTime now) =>
+      !now.isBefore(createdAt) && now.difference(createdAt) < result.ttl;
 }
 
 class _EchCacheKey {

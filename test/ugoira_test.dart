@@ -275,6 +275,33 @@ void main() {
       expect(scheduler.currentIndex, 0);
       expect(scheduler.isPlaying, isFalse);
     });
+
+    test('suspend preserves the frame deadline while waiting for decode', () {
+      final frames = <int>[];
+      late UgoiraScheduler scheduler;
+      scheduler = UgoiraScheduler(
+        delays: const [Duration(milliseconds: 80), Duration(milliseconds: 120)],
+        onFrame: (index) {
+          frames.add(index);
+          if (index == 1) scheduler.suspend();
+        },
+        autoTick: false,
+      );
+
+      scheduler.play();
+      scheduler.advance(const Duration(milliseconds: 80));
+
+      expect(frames, [1]);
+      expect(scheduler.currentIndex, 1);
+      expect(scheduler.isPlaying, isTrue);
+      expect(scheduler.isActive, isFalse);
+
+      scheduler.start();
+      scheduler.advance(const Duration(milliseconds: 119));
+      expect(frames, [1]);
+      scheduler.advance(const Duration(milliseconds: 1));
+      expect(frames, [1, 0]);
+    });
   });
 
   group('UgoiraExportJob', () {
@@ -358,7 +385,6 @@ void main() {
         sinkFactory: sinks,
         submissionContext: const DownloadSubmissionContext(
           accountId: 'account-a',
-          credentialRevision: 1,
         ),
         submissionContextProvider: () => null,
         encoderFactory: (_) => _FakeGifEncoder(),

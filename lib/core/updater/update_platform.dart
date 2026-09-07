@@ -7,7 +7,7 @@ abstract interface class UpdatePlatform {
 
   Future<UpdatePlatformInfo> info();
 
-  Future<bool> verifyManifestSignature({
+  Future<UpdateManifestVerification> verifyManifestSignature({
     required List<int> message,
     required List<int> signature,
   });
@@ -71,7 +71,7 @@ class MethodChannelUpdatePlatform implements UpdatePlatform {
   }
 
   @override
-  Future<bool> verifyManifestSignature({
+  Future<UpdateManifestVerification> verifyManifestSignature({
     required List<int> message,
     required List<int> signature,
   }) async {
@@ -80,10 +80,21 @@ class MethodChannelUpdatePlatform implements UpdatePlatform {
           'message': Uint8List.fromList(message),
           'signature': Uint8List.fromList(signature),
         });
-    if (value is! bool) {
+    if (value is! Map) {
       throw const UpdatePlatformException('signature_result_malformed');
     }
-    return value;
+    final map = value.cast<String, dynamic>();
+    final valid = map['valid'];
+    if (valid is! bool) {
+      throw const UpdatePlatformException('signature_result_malformed');
+    }
+    return valid
+        ? const UpdateManifestVerification.valid()
+        : UpdateManifestVerification.invalid(
+            map['errorCode'] is String
+                ? map['errorCode'] as String
+                : 'signature_invalid',
+          );
   }
 
   @override

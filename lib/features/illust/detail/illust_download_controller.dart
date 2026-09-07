@@ -5,6 +5,7 @@ import '../../../core/download/download_task.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/illust_download_coordinator.dart';
+import '../../../core/settings/settings_controller.dart';
 
 /// Per-page download state for the detail download mode, mirroring beta56
 /// IllustSaveState and backed by real DownloadManager tasks (R4 — no
@@ -60,6 +61,9 @@ class IllustDownloadController {
           illustId: entity.id,
           pageIndex: pageIndex,
           url: Uri.parse(url),
+          namingRule: _ref.read(namingRuleProvider),
+          artist: entity.user.name,
+          title: entity.title,
         );
   }
 
@@ -85,6 +89,9 @@ class IllustDownloadController {
     return coordinator.downloadAllPages(
       illustId: entity.id,
       pageUrls: [for (final url in urls) Uri.parse(url)],
+      namingRule: _ref.read(namingRuleProvider),
+      artist: entity.user.name,
+      title: entity.title,
     );
   }
 }

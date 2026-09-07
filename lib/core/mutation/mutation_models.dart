@@ -15,13 +15,9 @@ enum MutationStatus { idle, pending, confirmed, failed, cancelled, superseded }
 /// this boundary.
 @immutable
 class MutationBoundary {
-  const MutationBoundary({
-    required this.accountId,
-    required this.credentialRevision,
-  });
+  const MutationBoundary({required this.accountId});
 
   final String accountId;
-  final int credentialRevision;
 }
 
 /// Lifecycle owner for one in-flight mutation.
@@ -51,7 +47,6 @@ class MutationOwner {
 class MutationEnvelope {
   const MutationEnvelope({
     required this.accountId,
-    required this.credentialRevision,
     required this.entityType,
     required this.entityId,
     required this.operation,
@@ -62,7 +57,6 @@ class MutationEnvelope {
   });
 
   final String accountId;
-  final int credentialRevision;
   final String entityType;
   final String entityId;
   final String operation;
@@ -90,7 +84,7 @@ enum MutationDiscardReason {
   cancelled,
   stale,
   accountChanged,
-  credentialChanged,
+
   disposed,
 }
 
@@ -165,7 +159,6 @@ class MutationLedger {
     );
     final envelope = MutationEnvelope(
       accountId: boundary.accountId,
-      credentialRevision: boundary.credentialRevision,
       entityType: entityType,
       entityId: entityId,
       operation: operation,

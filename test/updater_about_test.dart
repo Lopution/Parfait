@@ -48,7 +48,7 @@ class _FdroidPlatform implements UpdatePlatform {
   Future<UpdatePlatformInfo> info() => throw StateError('not used');
 
   @override
-  Future<bool> verifyManifestSignature({
+  Future<UpdateManifestVerification> verifyManifestSignature({
     required List<int> message,
     required List<int> signature,
   }) => throw StateError('not used');

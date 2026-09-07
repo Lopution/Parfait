@@ -60,6 +60,24 @@ class UgoiraScheduler {
     _deactivate();
   }
 
+  /// Suspends the active ticker without consuming the elapsed time that led
+  /// to the current frame boundary. The current frame keeps its full delay,
+  /// which lets a viewer wait for an asynchronously decoded frame without
+  /// skipping the frame or immediately advancing again when it resumes.
+  ///
+  /// Unlike [stop], this is intended to be called from [onFrame] while the
+  /// scheduler is dispatching a boundary. It deliberately preserves the
+  /// user's play intent in [_isPlaying].
+  void suspend() {
+    _ensureNotDisposed();
+    _timer?.cancel();
+    _timer = null;
+    _stopwatch?.stop();
+    _stopwatch = null;
+    _isActive = false;
+    _remaining = _delays[_currentIndex];
+  }
+
   /// Resumes a previously playing scheduler after visibility/lifecycle
   /// returns. A paused scheduler remains paused.
   void start() {
@@ -86,9 +104,9 @@ class UgoiraScheduler {
     _remaining -= elapsed;
     while (_remaining <= Duration.zero) {
       _currentIndex = (_currentIndex + 1) % _delays.length;
+      _remaining += _delays[_currentIndex];
       _onFrame(_currentIndex);
       if (!_isPlaying || !_isActive) return;
-      _remaining += _delays[_currentIndex];
     }
   }
 

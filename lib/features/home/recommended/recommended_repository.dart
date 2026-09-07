@@ -89,19 +89,6 @@ class RecommendedIllustController extends PagedFeedController {
   String get feedKey => 'recommended:illust';
 
   @override
-  Future<({List<int> ids, String? nextCursor})> fetchPage(
-    String? cursor,
-  ) async {
-    final page = await ref
-        .read(recommendedIllustRepositoryProvider)
-        .fetchPage(cursor);
-    return (
-      ids: [for (final illust in page.illusts) illust.id],
-      nextCursor: page.nextUrl,
-    );
-  }
-
-  @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     final store = ref.read(illustStoreProvider);
     final bookmarkRevision = store.bookmarkRevisionNow();
@@ -111,6 +98,7 @@ class RecommendedIllustController extends PagedFeedController {
     return FeedPage(
       ids: [for (final illust in page.illusts) illust.id],
       nextCursor: page.nextUrl,
+      incomingIllusts: {for (final illust in page.illusts) illust.id: illust},
       commit: (_) => store.mergeAll(
         page.illusts,
         bookmarkSnapshotRevision: bookmarkRevision,

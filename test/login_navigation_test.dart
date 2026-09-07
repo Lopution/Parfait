@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -10,7 +11,7 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
+import 'package:pixiv_func/core/settings/app_settings.dart' hide NetworkMode;
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/app/widgets/replica_button.dart';
@@ -334,7 +335,12 @@ void main() {
           ),
           oauthServiceProvider.overrideWithValue(service),
         ],
-        child: MaterialApp(home: LoginWebViewPage(oauthService: service)),
+        child: MaterialApp(
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: LoginWebViewPage(oauthService: service),
+        ),
       ),
     );
     await tester.pumpAndSettle();

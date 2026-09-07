@@ -3,8 +3,14 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
+import '../entity/illust_entity.dart';
+import '../entity/illust_store.dart';
 import '../network/api_error.dart';
 import '../network/pixiv_http_client.dart';
+import '../settings/app_settings.dart';
+import '../settings/blocked_tags.dart';
+import '../settings/local_block_filter.dart';
+import '../settings/settings_controller.dart';
 import 'feed_request_context.dart';
 
 export 'feed_request_context.dart';
@@ -102,28 +108,163 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// context and never inferred from a late response.
   String get feedKey => runtimeType.toString();
 
-  /// Fetches one page. [cursor] is `null` for the first page.
-  Future<({List<int> ids, String? nextCursor})> fetchPage(String? cursor);
-
-  /// Cancellable fetch hook. Existing feeds can keep using [fetchPage]; feeds
-  /// backed by a transport that supports cancellation override this method.
-  Future<({List<int> ids, String? nextCursor})> fetchPageCancellable(
-    String? cursor,
-    CancelToken cancelToken,
-  ) => fetchPage(cursor);
-
-  /// Fetches and parses a page without committing shared state.
+  /// Fetches and parses one page without committing shared state.
   ///
-  /// Feed implementations that own shared entities override this hook and
-  /// return a [FeedPage] whose [FeedPage.commit] performs the merge. The base
-  /// adapter keeps existing ID-only feeds source compatible while making the
-  /// commit boundary explicit for migrated feeds.
-  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
-    final page = await fetchPageCancellable(
-      context.cursor,
-      context.cancelToken,
+  /// This is the single required fetch hook (C12): every feed implements its
+  /// own transport, cancellation and commit. The former cursor-only
+  /// [fetchPage] contract is gone — a subclass must never throw
+  /// `UnimplementedError('use fetchPageForContext')` to disown it.
+  Future<FeedPage> fetchPageForContext(FeedRequestContext context);
+
+  /// Whether discovery-list filtering (C9) applies to this feed. Feed
+  /// subclasses that render discovery content (recommended, ranking, search,
+  /// user works) return true and implement [filterPageIds] with the shared
+  /// predicate; bookmark/history/detail paths leave this false.
+  bool get localFilterEnabled => false;
+
+  /// Applies the C9 predicate to one server page. Only called when
+  /// [localFilterEnabled] is true. Entities unavailable in the shared store
+  /// are kept (no evidence to hide them).
+  List<int> filterPageIds(
+    List<int> ids, {
+    Map<int, IllustEntity>? incomingIllusts,
+  }) {
+    final store = ref.read(illustStoreProvider);
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return ids;
+    final blockedTags = ref.read(blockedTagsProvider);
+    return [
+      for (final id in ids)
+        if (!_isFilteredId(
+          id,
+          store,
+          settings,
+          blockedTags,
+          incomingIllusts: incomingIllusts,
+        ))
+          id,
+    ];
+  }
+
+  bool _isFilteredId(
+    int id,
+    IllustStore store,
+    AppSettings settings,
+    Set<String> blockedTags, {
+    Map<int, IllustEntity>? incomingIllusts,
+  }) {
+    final entity = incomingIllusts?[id] ?? store.get(id);
+    if (entity == null) return false;
+    return isLocallyBlocked(
+      entity,
+      blockR18: settings.enableLocalBlockR18,
+      blockAI: settings.enableLocalBlockAI,
+      blockedTags: blockedTags,
     );
-    return FeedPage(ids: page.ids, nextCursor: page.nextCursor);
+  }
+
+  /// Minimum visible items after filtering. When a server page leaves fewer
+  /// visible items, the controller keeps fetching subsequent pages (bounded
+  /// by [filterMaxRefillPages]) until the threshold or the server's end.
+  int get filterMinVisible => 0;
+
+  /// Hard cap on consecutive refill requests; prevents an unbounded fetch
+  /// loop when a high block rate leaves every page short.
+  int get filterMaxRefillPages => 3;
+
+  /// Fetches the page and, for filtered discovery feeds, refills from
+  /// subsequent pages until [filterMinVisible] is reached or the server is
+  /// exhausted. Refill pages share the parent request's cancellation token
+  /// and generation but never flip the commit gate's active context: the
+  /// caller still commits through the original [context].
+  Future<FeedPage> fetchRelevantPage(FeedRequestContext context) async {
+    var page = await fetchPageForContext(context);
+    if (!localFilterEnabled || filterMinVisible <= 0) return page;
+    var visible = filterPageIds(
+      page.ids,
+      incomingIllusts: page.incomingIllusts,
+    );
+    // Nothing was filtered out: a short server page is the server's own
+    // shape and must not trigger refill (which would change pagination for
+    // users who never enable blocking).
+    if (visible.length >= page.ids.length) {
+      return page;
+    }
+    if (visible.length >= filterMinVisible) {
+      return FeedPage(
+        ids: visible,
+        nextCursor: page.nextCursor,
+        commit: page.commit,
+      );
+    }
+    var nextCursor = page.nextCursor;
+    final commits = <FeedPageCommit?>[page.commit];
+    for (
+      var refill = 1;
+      visible.length < filterMinVisible &&
+          nextCursor != null &&
+          refill <= filterMaxRefillPages;
+      refill++
+    ) {
+      final refillContext = FeedRequestContext(
+        feedKey: context.feedKey,
+        accountId: context.accountId,
+        generation: context.generation,
+        page: context.page + refill,
+        cursor: nextCursor,
+        cancelToken: context.cancelToken,
+      );
+      try {
+        final nextPage = await fetchPageForContext(refillContext);
+        if (!_isContextActive(context) || context.isCancelled) break;
+        nextCursor = _validatedRefillCursor(nextPage.nextCursor, refillContext);
+        visible = _dedupe(
+          filterPageIds(
+            nextPage.ids,
+            incomingIllusts: nextPage.incomingIllusts,
+          ),
+          visible,
+        );
+        commits.add(nextPage.commit);
+      } on ApiCancelled {
+        break;
+      } on ApiError {
+        // Server ended or a transient refill failure: keep what was already
+        // fetched and present normally — never an unbounded retry loop.
+        break;
+      }
+    }
+    return FeedPage(
+      ids: visible,
+      nextCursor: nextCursor,
+      commit: (finalContext) {
+        for (final commit in commits) {
+          commit?.call(finalContext);
+        }
+      },
+    );
+  }
+
+  /// Validates a refill page cursor without touching the committed-cursor
+  /// ledger; the final cursor recorded by the caller is the last accepted
+  /// one. Returns null (stop refilling) when rejected or repeated.
+  String? _validatedRefillCursor(
+    String? rawCursor,
+    FeedRequestContext context,
+  ) {
+    if (rawCursor == null || rawCursor.isEmpty) return null;
+    String? cursor;
+    try {
+      cursor = validateCursor(rawCursor);
+    } on ApiError {
+      return null;
+    }
+    if (cursor == null ||
+        cursor == context.cursor ||
+        _committedCursors.contains(cursor)) {
+      return null;
+    }
+    return cursor;
   }
 
   /// Validates a server-provided cursor (e.g. the next_url allowlist).
@@ -154,9 +295,22 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     ref.watch(
       accountStoreProvider.select((async) {
         final account = async.asData?.value;
-        return (account?.current?.id, account?.credentialRevision ?? 0);
+        return account?.current?.id;
       }),
     );
+    // C9 R1.4: a settings change in the filter section must invalidate
+    // discovery feeds so the next visit already reflects the new rules.
+    ref.watch(
+      settingsProvider.select(
+        (async) => (
+          async.value?.enableLocalBlockR18 ?? false,
+          async.value?.enableLocalBlockAI ?? false,
+        ),
+      ),
+    );
+    if (localFilterEnabled) {
+      ref.watch(blockedTagsProvider);
+    }
     // Do not await AccountStore here. Public feeds may be rendered before
     // account hydration completes, while authenticated repositories already
     // await the same account future before sending. The watched boundary
@@ -180,7 +334,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       cursor: null,
     );
     try {
-      final page = await fetchPageForContext(context);
+      final page = await fetchRelevantPage(context);
       final nextCursor = _validateCursor(page.nextCursor, context);
       if (!_commitPage(context, page)) {
         return const PagedFeedState(initialPhase: FeedPhase.idle);
@@ -227,7 +381,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       cursor: null,
     );
     try {
-      final page = await fetchPageForContext(context);
+      final page = await fetchRelevantPage(context);
       final nextCursor = _validateCursor(page.nextCursor, context);
       if (!_commitPage(context, page)) {
         _restoreRefreshPhaseIfCurrent(context);
@@ -250,7 +404,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         _commitGate.discard(
           context,
           accountId: _accountIdFor(context),
-          credentialRevision: _credentialRevisionFor(context),
           reason: FeedDiscardReason.cancelled,
         );
         state = AsyncData(current.copyWith(refreshPhase: FeedPhase.idle));
@@ -312,7 +465,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       cursor: cursor,
     );
     try {
-      final page = await fetchPageForContext(context);
+      final page = await fetchRelevantPage(context);
       final nextCursor = _validateCursor(page.nextCursor, context);
       if (!_commitPage(context, page)) {
         _restoreLoadMorePhaseIfCurrent(context);
@@ -335,7 +488,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         _commitGate.discard(
           context,
           accountId: _accountIdFor(context),
-          credentialRevision: _credentialRevisionFor(context),
           reason: FeedDiscardReason.cancelled,
         );
         state = AsyncData(current.copyWith(loadMorePhase: FeedPhase.idle));
@@ -395,7 +547,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     return _commitGate.beginRequest(
       feedKey: feedKey,
       accountId: _accountId,
-      credentialRevision: _credentialRevision,
       generation: generation,
       page: page,
       cursor: cursor,
@@ -407,19 +558,13 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     return _commitGate.commit(
       context,
       accountId: _accountIdFor(context),
-      credentialRevision: _credentialRevisionFor(context),
       disposed: _disposed,
       action: () => page.commit?.call(context),
     );
   }
 
   bool _isContextActive(FeedRequestContext context) {
-    return !_disposed &&
-        _commitGate.isActive(
-          context,
-          accountId: _accountId,
-          credentialRevision: _credentialRevision,
-        );
+    return !_disposed && _commitGate.isActive(context, accountId: _accountId);
   }
 
   void _restoreRefreshPhaseIfCurrent(FeedRequestContext context) {
@@ -440,7 +585,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     _commitGate.discard(
       context,
       accountId: _accountIdFor(context),
-      credentialRevision: _credentialRevisionFor(context),
       disposed: _disposed,
     );
   }
@@ -480,12 +624,6 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   String? get _accountId =>
       ref.read(accountStoreProvider).asData?.value.current?.id;
 
-  int get _credentialRevision =>
-      ref.read(accountStoreProvider).asData?.value.credentialRevision ?? 0;
-
   String? _accountIdFor(FeedRequestContext context) =>
       _disposed ? context.accountId : _accountId;
-
-  int _credentialRevisionFor(FeedRequestContext context) =>
-      _disposed ? context.credentialRevision : _credentialRevision;
 }

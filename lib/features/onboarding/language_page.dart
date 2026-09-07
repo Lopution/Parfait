@@ -6,6 +6,7 @@ import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
+import '../../app/widgets/settings_load_error.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
@@ -23,9 +24,18 @@ class LanguagePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(settingsProvider).when(
-          loading: () => const ReplicaScaffold(child: SizedBox.shrink()),
-          error: (error, stackTrace) => const ReplicaScaffold(child: SizedBox.shrink()),
+    return ref
+        .watch(settingsProvider)
+        .when(
+          loading: () => const ReplicaScaffold(
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, stackTrace) => ReplicaScaffold(
+            child: SettingsLoadError(
+              error: error,
+              onRetry: () => ref.read(settingsProvider.notifier).reload(),
+            ),
+          ),
           data: (settings) => _buildContent(context, ref, settings),
         );
   }
@@ -43,20 +53,27 @@ class LanguagePage extends ConsumerWidget {
         child: Column(
           children: [
             const Spacer(flex: 2),
-            const Text('选择您的语言', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const Text('Select your language', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const Text('言語を選択', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const Text('Выберите свой язык', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(
+              ReplicaStrings.text(language, 'selectLanguage'),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
             const Spacer(),
             for (final item in _items) ...[
               ReplicaSwitchTile(
-                contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 6,
+                  horizontal: 24,
+                ),
                 value: settings.languageTag == item.$2,
                 title: Text(
                   item.$1,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                onTap: () => ref.read(settingsProvider.notifier).selectLanguage(item.$2),
+                onTap: () =>
+                    ref.read(settingsProvider.notifier).selectLanguage(item.$2),
               ),
               const Divider(),
             ],
@@ -67,16 +84,16 @@ class LanguagePage extends ConsumerWidget {
                 label: ReplicaStrings.text(language, 'next'),
                 backgroundColor: FuncTokens.primary,
                 foregroundColor: Colors.white,
-                onPressed: () => Navigator.of(context).push(
-                  replicaRoute((context) => const ThemePage()),
-                ),
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(replicaRoute((context) => const ThemePage())),
               ),
             ),
             const Spacer(),
-            const Text('稍后您可以在设置中进行相应变更', style: TextStyle(fontSize: 14)),
-            const Text('You can change the settings later', style: TextStyle(fontSize: 14)),
-            const Text('後で設定を変更できます', style: TextStyle(fontSize: 14)),
-            const Text('Вы можете изменить его позже в настройках', style: TextStyle(fontSize: 14)),
+            Text(
+              ReplicaStrings.text(language, 'later'),
+              style: const TextStyle(fontSize: 14),
+            ),
             const Spacer(),
           ],
         ),

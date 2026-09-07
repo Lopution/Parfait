@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/replica_page_route.dart';
+import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/history/history_models.dart';
@@ -139,11 +140,13 @@ class _HistoryBodyState extends State<_HistoryBody> {
   }
 
   void _onScroll() {
+    if (!_scrollController.hasClients) return;
     if (_scrollController.position.extentAfter < 400) _loadMore();
   }
 
   Future<void> _reload() async {
     final generation = ++_generation;
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -172,6 +175,7 @@ class _HistoryBodyState extends State<_HistoryBody> {
 
   Future<void> _loadMore() async {
     if (_loading || _loadingMore || !_hasMore) return;
+    final generation = _generation;
     _loadingMore = true;
     try {
       final result = await widget.repository.page(
@@ -179,13 +183,16 @@ class _HistoryBodyState extends State<_HistoryBody> {
         offset: _records.length,
         limit: _pageSize,
       );
-      if (!mounted) return;
+      // A refresh or account switch can replace the list while this request
+      // is in flight. Never append a page belonging to that stale generation
+      // to the newly loaded records.
+      if (!mounted || generation != _generation) return;
       setState(() {
         _records.addAll(result.records);
         _hasMore = result.hasMore;
       });
     } on Object catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() => _error = error);
     } finally {
       _loadingMore = false;
@@ -229,17 +236,11 @@ class _HistoryBodyState extends State<_HistoryBody> {
       return _HistoryError(error: _error!, onRetry: _reload);
     }
     if (_records.isEmpty) {
-      return PullToRefresh(
-        onRefresh: _reload,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.65,
-              child: Center(child: Text(_historyText(context, 'historyEmpty'))),
-            ),
-          ],
-        ),
+      return ReplicaEmptyState(
+        message: _historyText(context, 'historyEmpty'),
+        retryLabel: _historyText(context, 'retry'),
+        onRetry: _reload,
+        icon: Icons.history,
       );
     }
     return PullToRefresh(

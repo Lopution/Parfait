@@ -17,6 +17,35 @@ void main() {
     'networkInsecureNoSniHint',
     'networkInsecureNoSniWarning',
   ];
+  const newUiKeys = [
+    'loginPageClosed',
+    'loginCallbackInvalid',
+    'loginNetworkError',
+    'loginPageLoadFailed',
+    'loginFailed',
+    'loginFailedType',
+    'restrictPublic',
+    'restrictPrivate',
+    'networkProbeConclusionAllReachable',
+    'networkProbeConclusionDnsPolluted',
+    'networkProbeConclusionSniBlocked',
+    'networkProbeConclusionEchAvailable',
+    'networkProbeConclusionNoSniAvailable',
+    'networkProbeConclusionIpBlackholed',
+    'networkProbeConclusionAppLayer',
+    'networkProbeConclusionInconclusive',
+    'networkProbeStepSystemDns',
+    'networkProbeStepDoh',
+    'networkProbeStepTcp',
+    'networkProbeStepTls',
+    'networkProbeStepHttp',
+    'networkProbeStepEch',
+    'networkProbeStepNoSni',
+    'networkProbeStepOk',
+    'networkProbeStepFailed',
+    'networkProbeStepSkipped',
+    'networkProbeHostFailed',
+  ];
 
   test('new network i18n keys exist in all four languages', () {
     for (final language in ReplicaLanguage.values) {
@@ -30,18 +59,26 @@ void main() {
     }
   });
 
-  test('insecureNoSni setting defaults to off when absent from storage', () {
-    // Covered by AppSettings defaults; assert through the provider-level
-    // effective value used by the policy (which reads the same default).
-    // This test guards the R6 gate: no probe failure may flip it.
-    // (The policy ctor is exercised in restricted_compat_network_test;
-    // here we pin the storage default.)
+  test('UI state labels exist in all four languages', () {
+    for (final language in ReplicaLanguage.values) {
+      for (final key in newUiKeys) {
+        expect(
+          ReplicaStrings.fromTag(language.tag, key),
+          isNotEmpty,
+          reason: '$key missing in ${language.tag}',
+        );
+      }
+    }
+  });
+
+  test('insecureNoSni switch is gone: policy default stays off', () {
+    // C17 removed the global insecure-no-SNI production setting. Pin the
+    // storage side: the option no longer exists on AppSettings.
     const settings = AppSettings(
       guideCompleted: true,
       languageTag: 'zh-CN',
       themeCode: 0,
     );
-    expect(settings.insecureNoSniEnabled, isFalse);
     expect(settings.echFrontHost, 'cloudflare-ech.com');
   });
 }
