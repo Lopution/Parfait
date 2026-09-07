@@ -95,6 +95,17 @@ jobs:
           done
           echo "FINGERPRINT=$FINGERPRINT" >> "$GITHUB_ENV"
 
+      - name: Report split APK sizes
+        # Same B7 defaults as ci.yml (measured fdroid bytes + 1_000_000;
+        # github flavor is ~25 KB larger). F 迁 material_ui 后需重测.
+        env:
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28435321' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24226795' }}
+        run: |
+          python3 tool/apk_size_report.py \
+            build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
+            build/app/outputs/flutter-apk/app-armeabi-v7a-github-release.apk
+
       - name: Generate manifest + signature
         env:
           UPDATE_SIGNING_KEY_B64: ${{ secrets.UPDATE_SIGNING_KEY_B64 }}
