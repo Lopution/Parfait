@@ -62,6 +62,10 @@ Not part of this fork (upstream features, out of scope):
   `--target-platform android-arm64` build would otherwise package stale
   `librhttp.so` from a previous 3-ABI run (research §0.2, ~10.4 MB).
   Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `multipart`. The app never sends
+  `HttpBody.multipart` (profile/SauceNAO multipart is built in Dart).
+  `http.rs` returns `RhttpError::RhttpUnknownError` for that body instead of
+  linking `reqwest::multipart` / `mime_guess`. Re-apply on upstream sync.
 
 ## Sync guide
 

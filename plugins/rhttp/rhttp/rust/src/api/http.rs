@@ -411,36 +411,10 @@ async fn make_http_request_helper(
                 request.body(body)
             }
             Some(HttpBody::Form(form)) => request.form(&form),
-            Some(HttpBody::Multipart(body)) => {
-                let mut form = reqwest::multipart::Form::new();
-                for (k, v) in body.parts {
-                    let mut part = match v.value {
-                        MultipartValue::Text(text) => reqwest::multipart::Part::text(text),
-                        MultipartValue::Bytes(bytes) => reqwest::multipart::Part::bytes(bytes),
-                        MultipartValue::File(file) => {
-                            let file = tokio::fs::File::open(file).await.map_err(|_| {
-                                RhttpError::RhttpUnknownError("Failed to open file".to_string())
-                            })?;
-                            reqwest::multipart::Part::stream(reqwest::Body::wrap_stream(
-                                tokio_util::io::ReaderStream::new(file),
-                            ))
-                        }
-                    };
-
-                    if let Some(file_name) = v.file_name {
-                        part = part.file_name(file_name);
-                    }
-
-                    if let Some(content_type) = v.content_type {
-                        part = part
-                            .mime_str(&content_type)
-                            .map_err(|e| RhttpError::RhttpUnknownError(e.to_string()))?;
-                    }
-
-                    form = form.part(k, part);
-                }
-
-                request.multipart(form)
+            Some(HttpBody::Multipart(_)) => {
+                return Err(RhttpError::RhttpUnknownError(
+                    "multipart body is not supported".to_string(),
+                ));
             }
             None => request,
         };

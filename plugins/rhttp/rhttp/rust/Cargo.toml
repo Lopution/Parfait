@@ -40,7 +40,6 @@ features = [
     "query",
     "rustls",
     "stream",
-    "multipart",
     "socks",
 
     # Compression
