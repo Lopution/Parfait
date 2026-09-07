@@ -22,8 +22,9 @@ migrate_working_dir/
 #.vscode/
 
 # Flutter/Dart/Pub related
-# Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
-/rhttp/pubspec.lock
+# Track rhttp/pubspec.lock so the flutter_rust_bridge pin stays 2.12.0
+# (child A A8; tool/frb_check.sh + flutter pub get --enforce-lockfile).
+# /rhttp/pubspec.lock
 **/doc/api/
 .dart_tool/
 build/

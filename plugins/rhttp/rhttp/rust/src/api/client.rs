@@ -425,10 +425,12 @@ fn build_ech_tls_config(
         rustls::pki_types::EchConfigListBytes::from(ech_config_list.to_vec()),
         rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES,
     )
-    .map_err(|e| RhttpError::RhttpUnknownError(format!(
-        "Invalid ECH config (len={}): {e:?}",
-        ech_config_list.len()
-    )))?;
+    .map_err(|e| {
+        RhttpError::RhttpUnknownError(format!(
+            "Invalid ECH config (len={}): {e:?}",
+            ech_config_list.len()
+        ))
+    })?;
 
     let builder = rustls::ClientConfig::builder_with_provider(provider.clone())
         .with_ech(rustls::client::EchMode::from(ech_config))
@@ -454,7 +456,9 @@ fn build_ech_tls_config(
             RootCertSource::Platform => {
                 let verifier = rustls_platform_verifier::Verifier::new(provider.clone())
                     .map_err(|e| RhttpError::RhttpUnknownError(format!("{e:?}")))?;
-                builder.dangerous().with_custom_certificate_verifier(Arc::new(verifier))
+                builder
+                    .dangerous()
+                    .with_custom_certificate_verifier(Arc::new(verifier))
             }
         };
 

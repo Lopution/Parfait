@@ -60,7 +60,11 @@ fn run(ech: bool) -> Result<String, String> {
     // ECH: rustls 用 inner ServerName 构建连接, 从 ECHConfig 的
     // public_name 取 outer SNI 写进 ClientHello。
     // 无 ECH: 直接用 SNI=outer（与 Python 矩阵相同的对照路径）。
-    let server_name = if ech { inner_sni.clone() } else { outer_sni.clone() };
+    let server_name = if ech {
+        inner_sni.clone()
+    } else {
+        outer_sni.clone()
+    };
 
     let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
 

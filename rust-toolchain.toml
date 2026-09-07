@@ -1,0 +1,13 @@
+# Lives at the app root on purpose: cargokit resolves `<app root>/rust-toolchain.toml`
+# when it builds plugins/rhttp/rhttp/rust for the APK, and rustup walks up from
+# that crate directory to the same file, so `cargo test` and the APK build
+# share one pin.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy"]
+targets = [
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+    "x86_64-linux-android",
+    "i686-linux-android",
+]
