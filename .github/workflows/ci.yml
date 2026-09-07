@@ -93,6 +93,28 @@ jobs:
             build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
             build/app/outputs/flutter-apk/app-armeabi-v7a-github-release.apk
 
+      - name: Analyze arm64 code size
+        # Non-blocking archive; Flutter refuses --analyze-size on multi-ABI
+        # builds, so this is a separate single-ABI build (not a release artifact).
+        continue-on-error: true
+        env:
+          PIXIV_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.PIXIV_RELEASE_KEYSTORE_PASSWORD }}
+          PIXIV_RELEASE_KEY_ALIAS: ${{ secrets.PIXIV_RELEASE_KEY_ALIAS }}
+          PIXIV_RELEASE_KEY_PASSWORD: ${{ secrets.PIXIV_RELEASE_KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --flavor github \
+            --target-platform android-arm64 \
+            --analyze-size --code-size-directory=build/analyze-size/github \
+            -PPIXIV_RELEASE_KEYSTORE="$HOME/.pixivfunc-release/pixivfunc-release.jks" \
+            -PPIXIV_RELEASE_KEYSTORE_PASSWORD="$PIXIV_RELEASE_KEYSTORE_PASSWORD" \
+            -PPIXIV_RELEASE_KEY_ALIAS="$PIXIV_RELEASE_KEY_ALIAS" \
+            -PPIXIV_RELEASE_KEY_PASSWORD="$PIXIV_RELEASE_KEY_PASSWORD"
+      - uses: actions/upload-artifact@v7
+        continue-on-error: true
+        with:
+          name: github-analyze-size
+          path: build/analyze-size/github
+
       - uses: actions/upload-artifact@v7
         with:
           name: github-release-symbols
