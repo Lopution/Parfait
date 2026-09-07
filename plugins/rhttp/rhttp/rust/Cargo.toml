@@ -34,7 +34,6 @@ version = "0.13.4"
 default-features = false
 features = [
     "charset",
-    "cookies",
     "http2",
     "query",
     "rustls",
