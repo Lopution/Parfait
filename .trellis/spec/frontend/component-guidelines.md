@@ -102,13 +102,31 @@ Future<void> PixivImage.preload(
 - The source card passes its selected preview URL to the detail route. Both
   sides use the same `PixivImage` headers and cache manager, including the
   first page of a multi-page work.
+- All artwork URL/quality hand-offs go through `PixivImage`; callers must not
+  add a second per-page "ready" flag or replace the old image with a blank
+  loading state. `PixivImage` keeps `useOldImageOnUrlChange` enabled and uses a
+  bounded `transitionKey` URL history for Hero endpoints that are rebuilt
+  while flying. The previous decoded frame remains visible while the new
+  quality resolves, including preview/detail/original changes, every page of
+  a multi-page work, and Ugoira covers.
+- The normal loading fade is still required for a cold URL. It is disabled
+  only when the target provider is already decoded; a cached Hero target must
+  appear immediately rather than fading a translucent frame over the route
+  background. This is the distinction between a useful first-load transition
+  and the white flash regression.
 - A card may call `PixivImage.preload` on pointer down, but must not await it
   before pushing the detail route. The detail frame creates a fixed-size
   avatar provider immediately; a cold avatar may fill after the transition.
-- Hero shuttles are clipped in the global coordinate space of the source and
-  target vertical viewports. The clip is their intersection for the whole
-  flight (not an interpolated boundary), and a sliver's approximate paint clip
-  is used so `NestedScrollView` pinned-header overlap remains protected.
+- Hero shuttles keep their rounded image child through the whole flight. Both
+  push and pop directions use a **progress-aware global clip** interpolated
+  between the source and destination viewport/chrome boundaries. This makes
+  artwork progressively leave or enter behind AppBars, pinned headers,
+  refresh chrome, and bottom navigation instead of suddenly covering them or
+  being hard-cut at the landing frame. Ignore horizontal route-slide
+  transforms when building the boundary; otherwise the two viewports can
+  intersect to an empty rectangle. If an endpoint is temporarily offstage,
+  use a conservative Scaffold/chrome fallback rather than returning an empty
+  clip.
 
 ### 4. Validation & Error Matrix
 
@@ -119,7 +137,7 @@ Future<void> PixivImage.preload(
 | No source card or no snapshot | Normal route/loading state remains observable. |
 | API refresh fails with a snapshot | Snapshot content remains renderable and retry stays available. |
 | Current profile is rendered | No settings icon or `onSettings` navigation hook is present. |
-| Preview URL differs between card and detail | Correct the route input; do not let Hero fly a placeholder or lower-quality image. |
+| Initial preview URL differs between card and detail | Correct the route input; do not let the Hero start with a placeholder or a different first-frame URL. Later detail-quality upgrades use the gapless hand-off contract above. |
 | Avatar cache misses during navigation | Keep the same 48px slot and placeholder; never delay the route push. |
 
 ### 5. Good / Base / Bad Cases
@@ -141,8 +159,10 @@ Future<void> PixivImage.preload(
   icon on the resulting `MePage`.
 - Caption tests assert non-empty captions are visible without a `简介`
   control and preserve rich-link behavior.
-- Hero flight tests cover a partially visible card and a nested pinned header;
-  the shuttle clip must stay within the source/target viewport intersection.
+- Hero flight tests cover a partially visible card, a nested pinned header, and
+  a push from a profile-like feed; both directions must move the global clip
+  continuously between endpoint chrome boundaries. Tests must inspect the
+  actual render-time clip rather than only a widget property.
 - Preview tests assert the source URL and detail index-0 Hero URL are equal;
   first-frame tests assert the avatar slot and provider exist before the detail
   request settles.
@@ -177,6 +197,15 @@ onTapDown: (_) => unawaited(
 onTap: () => Navigator.push(detailRoute); // do not await the preload
 ```
 
+## Tab Navigation Animation Contract
+
+`TabBar` owns the `TabController.animateTo` call for a tap. A tab's `onTap`
+callback may update selected state, lazy-build bookkeeping, or an auxiliary
+selector, but must not call `animateTo` for the same index. Starting a second
+animation from the callback resets the indicator/body flight and produces a
+visible stall on fast taps. Programmatic selection may call `animateTo` only
+when it did not originate from the `TabBar` tap callback.
+
 ## Shared Pull-to-Refresh Contract
 
 ### 1. Scope / Trigger
@@ -201,8 +230,11 @@ const PullToRefresh({
 - `PullToRefresh` is the single shared refresh wrapper. Feeds must not add a
   second per-page refresh implementation.
 - The shared wrapper uses `EasyRefresh` with a `MaterialHeader` configured as
-  `position: IndicatorPosition.above`, `safeArea: true`, and `clamping: true`
-  for ordinary lists. For a tab body inside a `NestedScrollView`, pass
+  `position: IndicatorPosition.above`, `safeArea: true`, and `clamping: false`
+  for ordinary lists. `clamping: false` is required so a reversed pull is
+  represented as real overscroll and retracts the indicator before the list
+  starts scrolling; clamping would pin the indicator while content moves.
+  For a tab body inside a `NestedScrollView`, pass
   `isNested: true`; that path uses `IndicatorPosition.locator`,
   `safeArea: false`, and exactly one `HeaderLocator` as the first list item or
   sliver. Theme colors are passed through; pages do not create a second header
