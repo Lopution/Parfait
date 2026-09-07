@@ -39,8 +39,10 @@ void main() {
     expect(github, contains('object DistributionUpdaterChannel'));
     expect(github, contains('UPDATE_SELF_UPDATER_ENABLED'));
     expect(github, contains('pixivfunc/updater'));
+    expect(github, contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'));
     expect(fdroid, contains('object DistributionUpdaterChannel'));
     expect(fdroid, contains('storeManaged'));
+    expect(fdroid, contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'));
     expect(fdroid, isNot(contains('HttpURLConnection')));
     expect(fdroid, isNot(contains('github.com')));
   });

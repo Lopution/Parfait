@@ -111,6 +111,7 @@ object DistributionUpdaterChannel {
             "version" to (packageInfo.versionName ?: ""),
             "versionCode" to versionCode,
             "signingCertificateSha256" to signerSha256(packageInfo),
+            "supportedAbis" to Build.SUPPORTED_ABIS.toList(),
         )
     }
 
