@@ -242,7 +242,8 @@ final localBlockAIProvider = Provider<bool>((ref) {
 final translationProvider = Provider<TranslationProvider>((ref) {
   return ref.watch(
     settingsProvider.select(
-      (async) => async.value?.translationProvider ?? TranslationProvider.google,
+      (async) =>
+          async.value?.translationProvider ?? TranslationProvider.disabled,
     ),
   );
 });

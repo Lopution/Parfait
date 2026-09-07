@@ -201,7 +201,7 @@ class ReplicaStrings {
       'translateProvider': '翻译服务',
       'translateGoogle': 'Google Translate',
       'translateDisabled': '关闭',
-      'translateBaidu': '百度翻译（需实名认证）',
+      'translateBaidu': '百度翻译',
       'translateLlm': '自定义 LLM（OpenAI 兼容）',
       'translateBaiduCredential': '百度 AppID / 密钥',
       'translateLlmCredential': 'LLM 接口与密钥',
@@ -217,7 +217,7 @@ class ReplicaStrings {
       'translateCredentialsStoreError': '安全存储操作失败',
       'translateCredentialsInvalid': '输入不完整或接口地址不是 HTTPS',
       'translateBaiduHint':
-          '百度翻译普通版需个人实名认证：约 5 万字符/月、每秒 1 次；高级版约 100 万字符/月、每秒 10 次。凭据仅用于翻译请求。',
+          '百度翻译标准版无需认证，但只有 5 万字符/月、每秒 1 次，评论翻译基本不够；高级版需个人实名认证（姓名 + 身份证号），100 万字符/月、每秒 10 次。凭据仅用于翻译请求。',
       'translateLlmCredentialHint':
           '仅允许 HTTPS 接口；翻译使用固定提示词，不开放模型与高级参数。评论正文与译文不会持久化。',
       'translateCredentialHint': '翻译凭据不会写入普通设置；需要时由安全存储管理。',
@@ -659,7 +659,7 @@ class ReplicaStrings {
       'translateProvider': 'Translation service',
       'translateGoogle': 'Google Translate',
       'translateDisabled': 'Disabled',
-      'translateBaidu': 'Baidu Translate (real-name required)',
+      'translateBaidu': 'Baidu Translate',
       'translateLlm': 'Custom LLM (OpenAI-compatible)',
       'translateBaiduCredential': 'Baidu AppID / secret',
       'translateLlmCredential': 'LLM endpoint & key',
@@ -676,7 +676,7 @@ class ReplicaStrings {
       'translateCredentialsInvalid':
           'Incomplete input or endpoint is not HTTPS',
       'translateBaiduHint':
-          'Baidu standard requires personal real-name: about 50k chars/month, 1 QPS; premium about 1M chars/month, 10 QPS. Credentials are used only for translation requests.',
+          'Baidu standard needs no verification but allows only 50k chars/month at 1 QPS, too little for comments; premium requires personal real-name verification (name + ID number) for 1M chars/month at 10 QPS. Credentials are used only for translation requests.',
       'translateLlmCredentialHint':
           'HTTPS endpoints only; translation uses a fixed prompt without model/advanced knobs. Comment text and translations are never persisted.',
       'translateCredentialHint':
@@ -1119,7 +1119,7 @@ class ReplicaStrings {
       'translateProvider': '翻訳サービス',
       'translateGoogle': 'Google Translate',
       'translateDisabled': '無効',
-      'translateBaidu': '百度翻訳（実名認証が必要）',
+      'translateBaidu': '百度翻訳',
       'translateLlm': 'カスタム LLM（OpenAI 互換）',
       'translateBaiduCredential': '百度 AppID / シークレット',
       'translateLlmCredential': 'LLM エンドポイントとキー',
@@ -1135,7 +1135,7 @@ class ReplicaStrings {
       'translateCredentialsStoreError': '安全なストレージの操作に失敗しました',
       'translateCredentialsInvalid': '入力が不完全か、エンドポイントが HTTPS ではありません',
       'translateBaiduHint':
-          '百度翻訳の通常版は個人の実名認証が必要です：月約 5 万文字、毎秒 1 回。高級版は月約 100 万文字、毎秒 10 回。認証情報は翻訳リクエストにのみ使用します。',
+          '百度翻訳の標準版は認証不要ですが月 5 万文字・毎秒 1 回までで、コメント翻訳には足りません。高級版は個人の実名認証（氏名 + 身分証番号）が必要で、月 100 万文字・毎秒 10 回です。認証情報は翻訳リクエストにのみ使用します。',
       'translateLlmCredentialHint':
           'HTTPS エンドポイントのみ。翻訳は固定プロンプトで、モデルや詳細パラメータは変更できません。コメント本文と翻訳は保存されません。',
       'translateCredentialHint': '翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。',
@@ -1578,7 +1578,7 @@ class ReplicaStrings {
       'translateProvider': 'Сервис перевода',
       'translateGoogle': 'Google Translate',
       'translateDisabled': 'Отключено',
-      'translateBaidu': 'Baidu Translate (нужна верификация)',
+      'translateBaidu': 'Baidu Translate',
       'translateLlm': 'Свой LLM (OpenAI-совместимый)',
       'translateBaiduCredential': 'AppID / секрет Baidu',
       'translateLlmCredential': 'Адрес LLM и ключ',
@@ -1594,7 +1594,7 @@ class ReplicaStrings {
       'translateCredentialsStoreError': 'Ошибка защищённого хранилища',
       'translateCredentialsInvalid': 'Неполный ввод или адрес не HTTPS',
       'translateBaiduHint':
-          'Стандартная версия Baidu требует личную верификацию: около 50 тыс. символов/мес, 1 запрос/с; премиум — около 1 млн символов/мес, 10 запросов/с. Данные используются только для запросов перевода.',
+          'Стандартная версия Baidu не требует верификации, но даёт лишь 50 тыс. символов/мес при 1 запросе/с — для комментариев этого мало; премиум требует личную верификацию (имя + номер удостоверения): 1 млн символов/мес, 10 запросов/с. Учётные данные используются только для запросов перевода.',
       'translateLlmCredentialHint':
           'Только HTTPS; перевод использует фиксированный промпт без настроек модели. Текст и перевод не сохраняются.',
       'translateCredentialHint':

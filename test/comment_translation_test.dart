@@ -130,8 +130,11 @@ void main() {
       final cases = {
         '52003': CommentTranslationFailureKind.invalidCredentials,
         '54001': CommentTranslationFailureKind.invalidCredentials,
+        '90107': CommentTranslationFailureKind.invalidCredentials,
+        '54000': CommentTranslationFailureKind.rateLimited,
         '54003': CommentTranslationFailureKind.rateLimited,
         '54004': CommentTranslationFailureKind.rateLimited,
+        '54005': CommentTranslationFailureKind.rateLimited,
         '58002': CommentTranslationFailureKind.other,
       };
       for (final entry in cases.entries) {
