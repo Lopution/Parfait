@@ -27,6 +27,10 @@ import 'widget_snapshot_store.dart';
 /// across widget instances.
 const int widgetSnapshotMaxItems = 8;
 
+/// Extra Recommended pages fetched when the first filtered page is empty.
+/// Same cap as [PagedFeedController.filterMaxRefillPages] (3 extra pages).
+const int widgetFilterMaxRefillPages = 3;
+
 /// Cover byte ceiling applied before the file lands in the snapshot store.
 /// The native renderer additionally bounds decoded pixels per widget size.
 const int widgetCoverMaxBytes = widgetImageMaxBytes;
@@ -142,25 +146,25 @@ class WidgetFeedLoader {
 
     final accountKey = _accountKey(account.id);
     try {
-      final page = await RecommendedIllustRepository(
-        _apiClient,
-      ).fetchPage(null);
+      final repository = RecommendedIllustRepository(_apiClient);
+      var page = await repository.fetchPage(null);
       // Widget covers render on the lock screen / desktop; R-18 stays always
       // filtered there as a baseline privacy guard, and the C9 settings add
       // AI and blocked-tag filtering through the same pure predicate.
-      final candidates = page.illusts
-          .where(
-            (illust) =>
-                !illust.isR18 &&
-                !isLocallyBlocked(
-                  illust,
-                  blockR18: blockR18,
-                  blockAI: blockAI,
-                  blockedTags: blockedTags,
-                ),
-          )
-          .take(widgetSnapshotMaxItems)
-          .toList(growable: false);
+      var candidates = _filterCandidates(page.illusts);
+      // A fully-filtered first page would otherwise become a transient
+      // failure with no retry of later cursors. Match discovery feeds:
+      // fetch up to [widgetFilterMaxRefillPages] extra pages, then stop.
+      for (
+        var refill = 1;
+        candidates.isEmpty &&
+            page.nextUrl != null &&
+            refill <= widgetFilterMaxRefillPages;
+        refill++
+      ) {
+        page = await repository.fetchPage(page.nextUrl);
+        candidates = _filterCandidates(page.illusts);
+      }
       if (candidates.isEmpty) {
         return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
       }
@@ -247,6 +251,22 @@ class WidgetFeedLoader {
       debugPrint('WidgetFeedLoader unexpected: ${error.runtimeType}: $error');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
+  }
+
+  List<IllustEntity> _filterCandidates(List<IllustEntity> illusts) {
+    return illusts
+        .where(
+          (illust) =>
+              !illust.isR18 &&
+              !isLocallyBlocked(
+                illust,
+                blockR18: blockR18,
+                blockAI: blockAI,
+                blockedTags: blockedTags,
+              ),
+        )
+        .take(widgetSnapshotMaxItems)
+        .toList(growable: false);
   }
 
   /// Clearing is best-effort: if the store itself is unreadable the visible
