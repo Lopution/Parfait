@@ -166,9 +166,11 @@ flutter {
 }
 
 dependencies {
+    // 1.19.0 requires compileSdk 37; bumped together with AGP 9.1.1 in child A step A7.
     implementation("androidx.core:core:1.15.0")
     // Home widget background maintenance (08-26-android-home-widgets).
-    implementation("androidx.work:work-runtime-ktx:2.11.2")
+    // work-runtime-ktx is an empty shell since 2.8; Kotlin APIs live here.
+    implementation("androidx.work:work-runtime:2.11.2")
     // Plain JVM tests for widget budget math.
     testImplementation("junit:junit:4.13.2")
 }
