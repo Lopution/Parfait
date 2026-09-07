@@ -81,9 +81,13 @@ jobs:
           done
 
       - name: Report split APK sizes
+        # B7 defaults = measured fdroid split bytes after B1-B6 + 1_000_000
+        # (arm64 27,435,321 / armeabi-v7a 23,226,795, 2026-09-07). Repo
+        # vars override; the arm64 32_000_000 hard cap still applies
+        # (stricter wins). F 迁 material_ui 后需重测.
         env:
-          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A }}
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28435321' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24226795' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
@@ -119,9 +123,13 @@ jobs:
             --split-per-abi --target-platform android-arm64,android-arm \
             --obfuscate --split-debug-info=build/symbols/fdroid
       - name: Report split APK sizes
+        # B7 defaults = measured fdroid split bytes after B1-B6 + 1_000_000
+        # (arm64 27,435,321 / armeabi-v7a 23,226,795, 2026-09-07). Repo
+        # vars override; the arm64 32_000_000 hard cap still applies
+        # (stricter wins). F 迁 material_ui 后需重测.
         env:
-          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A }}
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28435321' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24226795' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-fdroid-release.apk \
