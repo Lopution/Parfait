@@ -55,6 +55,13 @@ Not part of this fork (upstream features, out of scope):
   output is not rustfmt-stable across toolchains and CI runs
   `cargo fmt --check`; skipping the generated module keeps the check
   meaningful for hand-written code.
+- `rhttp/cargokit/gradle/plugin.gradle`: `CargoKitBuildTask.build()` deletes
+  `jniLibs/<buildType>` (`outputDir`) before `execOperations.exec` runs
+  `build-gradle`. Upstream `build_gradle.dart` only `copySync`s the current
+  target set and never removes leftover ABI subdirectories, so a later
+  `--target-platform android-arm64` build would otherwise package stale
+  `librhttp.so` from a previous 3-ABI run (research §0.2, ~10.4 MB).
+  Re-apply on upstream sync.
 
 ## Sync guide
 
