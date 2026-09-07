@@ -158,14 +158,6 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
   );
 });
 
-final imageSourceProvider = Provider<ImageSourceMode>((ref) {
-  return ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.imageSourceMode ?? ImageSourceMode.normal,
-    ),
-  );
-});
-
 final previewQualityProvider = Provider<PreviewQuality>((ref) {
   return ref.watch(
     settingsProvider.select(
