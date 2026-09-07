@@ -396,6 +396,12 @@ paragraph ID plus offset; it is not a copy of the novel body or API JSON.
 - The history page reads the indexed rows, uses `IllustStore`/`NovelStore` when
   a richer entity is already present, and renders the stored snapshot when an
   entity was deleted or is unavailable. Delete and clear are account-scoped.
+- A history page keeps a monotonically increasing request generation for its
+  initial load/refresh and load-more calls. A load-more response may append or
+  publish an error only when its captured generation still matches the active
+  one; refresh, clear, account switch, and widget disposal invalidate older
+  generations. This prevents a late page from the previous account/list from
+  reappearing after the visible list was reset.
 
 #### 4. Validation & Error Matrix
 
@@ -409,6 +415,7 @@ paragraph ID plus offset; it is not a copy of the novel body or API JSON.
 | Account changes during flush | Stop before submitting under the new account; retain old-account outbox |
 | Route covered/backgrounded | Pause the stopwatch and commit the accumulated segment |
 | Concurrent first open/flush | Share the connection/flush tail; never open per operation or double-submit a row |
+| Refresh/clear/account switch while page append is in flight | Drop the stale append and its error; do not mix generations in the visible list |
 
 #### 5. Good / Base / Bad Cases
 
@@ -434,6 +441,9 @@ paragraph ID plus offset; it is not a copy of the novel body or API JSON.
   settings/history entry points. Device checks must distinguish local DB
   persistence from real-account Pixiv submission; no mutation is performed
   without an explicit test account action.
+- History-page tests cover refresh-before-append and account-switch-before-
+  append; assert that the old page neither changes the new records nor leaves
+  a stale load-more error visible.
 
 #### 7. Wrong vs Correct
 
@@ -473,9 +483,11 @@ deleting the source data.
 
 #### 1. Scope / Trigger
 
-This contract applies when a native Pixiv API, OAuth, image-cache or media
-download request needs the mainland compatibility path. The policy is
-app-scoped and must not become a generic proxy or a URL-rewriting service.
+This contract applies when a native Pixiv API, OAuth, image-cache, media
+download or widget-background request needs the mainland compatibility path.
+The policy is app-scoped and must not become a generic proxy or a URL-rewriting
+service. The ordinary platform login WebView and non-Pixiv providers keep
+their own transports.
 
 #### 2. Signatures
 
@@ -500,9 +512,12 @@ consumers.
 
 #### 3. Contracts
 
-- The default mode is `NetworkMode.automatic`: direct HTTPS with system DNS is
-  attempted first. `NetworkMode.directOnly` closes compatibility route pools
-  and prevents resolver fallback.
+- The default mode is `NetworkMode.automatic`: for the four known Pixiv API,
+  OAuth and image hosts, the internal PixEz-compatible tier uses a persisted
+  or bundled public address, empty SNI and a pooled client before any cold
+  resolver/probe work. A failed fast address is cooled for 30 seconds, then
+  the request may use the strict ladder. `NetworkMode.directOnly` closes
+  compatibility route pools and prevents resolver fallback.
 - `PixivDestinationRegistry` matches exact ASCII HTTPS hosts by purpose:
   `app-api.pixiv.net`, `oauth.secure.pixiv.net`, `accounts.pixiv.net`,
   `www.pixiv.net`, `i.pximg.net` and `s.pximg.net` as applicable. Userinfo,
@@ -512,9 +527,23 @@ consumers.
   `NetworkRevision`. A secure-DNS connector changes only the TCP destination;
   the original URI remains responsible for TLS SNI, certificate hostname
   verification and the HTTP `Host` header.
-- Only DNS, connect, timeout and reset failures may try another strict route.
-  Empty GET/HEAD requests may be cloned for replay; POST, token exchange and
-  every request with a possible body send never replay automatically.
+- `PixivFastRouteStore` accepts only the exact four known Pixiv hosts and
+  public IP literals. It persists the last successful address, falls back to
+  the bundled PixEz bootstrap map after restart, and refreshes each host from
+  DoH in the background. Its address is a connection bootstrap, never a URL
+  rewrite.
+- `PixivHttpClient` shares an uncancelled GET in flight only when the URI and
+  bearer token match. Cancellation-aware calls remain independent, and the
+  response is not retained after completion, so pull-to-refresh never receives
+  stale business data from this optimization.
+- Only DNS, connect, timeout, reset and handshake-class failures may move a
+  request to the next route tier. The business request is the route attempt
+  (PixEz-style): no separate probe is paid. Each tier is attempted at most
+  once; GET/HEAD may also retry on timeout, while POST, the token exchange
+  and every request with a possible body advance only when the failure
+  proves the request never reached the server (DNS, connect, reset, TLS
+  handshake) — a delivered outcome (HTTP response, timeout after send,
+  auth/parse/certificate error) is surfaced and never repeated.
 - `DohResolver.lookupEchConfig` caches only validated config bytes and front
   addresses for the clamped HTTPS-RR TTL and current `NetworkRevision`.
   Concurrent calls without cancellation share one in-flight query; a
@@ -523,8 +552,10 @@ consumers.
 - After a verified `ech`, `dohRealSni` or `noSni` success, the policy may put
   that route kind first for the matching destination group. Group memory is
   runtime-only, uses each target host's own addresses, and is cleared on
-  transport failure, expiry, mode changes and revision changes. The explicit
-  insecure tier is never promoted across hosts.
+  transport failure, expiry, mode changes and revision changes. The
+  PixEz-compatible (insecureNoSni) tier is the production first choice for
+  every known Pixiv host with its persisted/bundled address; it is promoted
+  to other hosts only through the allowed four-host map.
 - `NetworkProbeReport.dnsDisagrees` is diagnostic evidence only. A reached ECH
   response (including HTTP 403/404) or a non-421 empty-SNI response remains
   the actionable conclusion; HTTP 421 keeps empty-SNI unavailable.
@@ -540,8 +571,9 @@ consumers.
 |---|---|
 | Non-Pixiv, suffix, IDN, IP, trailing-dot, userinfo, fragment or non-443 URI | Reject before a request or route is created |
 | Direct eligible transport failure in `Automatic` mode | Resolve public candidates for the exact canonical host and try strict candidates |
-| HTTP, auth, rate-limit, parse, cancellation, TLS or certificate failure | Surface the failure; never use compatibility fallback |
-| POST, token exchange, or body possibly sent | Do not replay across routes |
+| Persisted fast address fails with a transport error | Invalidate the address for this process, cool the fast tier for 30 seconds, and move on to the next tier |
+| HTTP, auth, rate-limit, parse, cancellation, timeout-after-send or certificate failure | Surface the failure; never re-send the request on another tier |
+| POST, token exchange, or body possibly sent | Advance to the next tier only on delivery-proven failures (DNS, connect, reset, TLS handshake); never on timeout or HTTP answers |
 | Resolver result has wrong host/revision or no public address | Reject as a secure-resolution failure |
 | Account/network/mode boundary | Advance/replace revision and close pools |
 | ECH config TTL or revision expires | Drop the config and query again; never reuse stale bytes |
@@ -549,18 +581,25 @@ consumers.
 
 #### 5. Good / Base / Bad Cases
 
-- Good: an empty `GET` to `app-api.pixiv.net` tries direct first, then a
-  public resolver candidate while preserving `app-api.pixiv.net` for TLS and
-  `Host`; diagnostics record only route metadata.
+- Good: an empty `GET` to a known Pixiv host in `Automatic` mode uses the
+  persisted/bundled fast address first and preserves the canonical hostname
+  for the HTTP `Host` value; if that transport fails, a replayable request
+  enters the strict route ladder and diagnostics record only route metadata.
 - Base: an API `429` or certificate mismatch is returned immediately, while
   `DirectOnly` uses the original strict HTTPS client without resolver work.
 - Good: after one verified ECH request, a second Cloudflare-host request uses
   its own resolved address with the remembered ECH kind and cached HTTPS-RR
   config inside the same revision.
+- Good: API, OAuth, image-cache, download and widget requests all obtain their
+  client from `PixivNetworkFactory`; the first Automatic request can use the
+  persisted fast address without a DNS lookup or `HEAD` probe.
+- Good: two uncancelled GETs for the same URI and bearer token share one
+  transport flight, while a cancelled caller does not cancel the shared work.
 - Bad: rewriting an image URL to an IP/mirror, accepting
-  `evil.pixiv.net`, logging the request body, or retrying a bookmark `POST`
-  after the socket may have sent its body. Treating a DNS mismatch as the
-  primary conclusion after ECH returned HTTP 404 is also wrong.
+  `evil.pixiv.net`, logging the request body, or re-sending a bookmark `POST`
+  after its socket may have delivered the body (timeout/HTTP response).
+  Treating a DNS mismatch as the primary conclusion after ECH returned HTTP
+  404 is also wrong.
 
 #### 6. Tests Required
 
@@ -584,25 +623,31 @@ consumers.
 - Factory tests prove API, OAuth, image cache and downloads share the policy;
   source audits prove translation, updater and reverse-image paths do not enter
   the Pixiv compatibility connector.
+- Fast-route tests prove the bootstrap map is host-allowlisted, persists across
+  restart, serves API/OAuth/image/download directly without a cold probe,
+  cools a failed address, and refreshes DoH in the background. API client
+  tests prove identical uncancelled GETs are single-flight and cancellation
+  is isolated.
 - Device evidence must distinguish API 35 MuMu emulator coverage from an
   unavailable API 36 matrix and physical-device coverage.
 
 #### 7. Wrong vs Correct
 
-**Wrong**: set `badCertificateCallback` to accept every certificate, rewrite
-the HTTP `Host` to a candidate IP, or use a third-party proxy for every URL.
-A censored path has an on-path adversary by definition, so disabling chain
-verification hands over the refresh token.
+**Wrong**: rewrite a Pixiv URL to an IP, use a fast address for an unlisted host,
+or let a failed bootstrap address delay every subsequent request without a
+cooldown.
 
-**Correct**: allowlist the exact Pixiv destination and purpose, try direct
-HTTPS first, and steer a strict connector to a validated public candidate while
-retaining the original hostname for `Host` and certificate verification.
+**Correct**: allowlist the exact Pixiv destination and purpose, retain the
+original hostname for the HTTP `Host` value, reuse the bounded fast route only
+for the known PixEz host map, and fall through to the strict ladder after a
+transport failure.
 
-Omitting SNI is permitted, because it only moves the hostname check out of the
-TLS stack — but only together with full chain verification and an explicit SAN
-check against the intended hostname. Omitting SNI without that check is the
-same defect as `badCertificateCallback` returning true. A fixed IP table is a
-fallback for resolver failure only and never a security decision.
+The internal PixEz-compatible tier intentionally omits SNI and certificate
+verification, but it is reachable only for the four exact, allowlisted Pixiv
+hosts through `PixivFastRouteStore`; it is not a user-facing global switch and
+does not rewrite URLs or the HTTP `Host` value. All other hosts and the strict
+fallback ladder retain normal hostname and certificate verification. The fixed
+address map is bounded acceleration state, not a generic proxy.
 
 ---
 
@@ -959,11 +1004,15 @@ are owned handles with bounded MIME/signature/dimension/size validation and
 exactly-once cleanup on replacement, cancel, dispose and every terminal
 response.
 
-If no reviewed App API or approved Web adapter exists for a profile mutation,
-the capability is an explicit unavailable outcome. The form may still show the
-beta56 fields and read-only values, but Save must remain disabled or fail with
-the typed unavailable reason; it must not scrape passwords, inject cookies,
-replay a body through another route or synthesize success.
+The approved write path is the in-app `PixivWebProfileEditRepository` transport
+(see `.trellis/spec/backend/in-app-web-profile.md`). `ProfileEditChannel.web`
+names that HTTP adapter, not a profile-edit WebView. The page keeps the native
+form and Save button; the ordinary OAuth login WebView only supplies the
+`www.pixiv.net` session cookie. Save must issue real HTTP through
+`PixivPolicyHttpClient` / `PixivDestinationPurpose.pixivWeb`. Missing
+`PHPSESSID` is an explicit unavailable outcome, never a local-only success,
+mock, or read-only downgrade. Do not open a second WebView for profile
+editing.
 
 ### Android Home Widget Snapshot and Background Contract
 
