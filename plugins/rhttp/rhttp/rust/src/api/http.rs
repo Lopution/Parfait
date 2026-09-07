@@ -410,7 +410,11 @@ async fn make_http_request_helper(
                 let body = reqwest::Body::wrap_stream(stream);
                 request.body(body)
             }
-            Some(HttpBody::Form(form)) => request.form(&form),
+            Some(HttpBody::Form(_)) => {
+                return Err(RhttpError::RhttpUnknownError(
+                    "form body is not supported".to_string(),
+                ));
+            }
             Some(HttpBody::Multipart(_)) => {
                 return Err(RhttpError::RhttpUnknownError(
                     "multipart body is not supported".to_string(),
