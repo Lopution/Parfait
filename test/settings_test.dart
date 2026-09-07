@@ -335,6 +335,48 @@ void main() {
     },
   );
 
+  test('networkModeCode round-trips and missing key defaults to automatic', () {
+    final stored = _baseSettings().copyWith(
+      networkMode: NetworkMode.directOnly,
+    );
+    final encoded = stored.toJson();
+    expect(encoded['networkModeCode'], NetworkMode.directOnly.code);
+    final restored = AppSettings.fromJson(encoded, fallback: _baseSettings());
+    expect(restored.networkMode, NetworkMode.directOnly);
+
+    final missing = AppSettings.fromJson({
+      'guideCompleted': true,
+      'languageTag': 'en-US',
+      'themeCode': AppSettings.lightTheme,
+    }, fallback: _baseSettings());
+    expect(missing.networkMode, NetworkMode.automatic);
+  });
+
+  test('legacy previewQuality true migrates to PreviewQuality.large', () {
+    final settings = AppSettings.fromJson({
+      'previewQuality': true,
+    }, fallback: _baseSettings());
+    expect(settings.previewQuality, PreviewQuality.large);
+  });
+
+  test(
+    'legacy scaleQuality bool migrates per R3 (true→original, false→large)',
+    () {
+      // `false → large` is the discriminating half: the type default is
+      // `original`, so `true → original` alone would also pass if the legacy
+      // key were ignored.
+      final fromFalse = AppSettings.fromJson({
+        'scaleQuality': false,
+      }, fallback: _baseSettings());
+      expect(fromFalse.viewQuality, ViewQuality.large);
+
+      final fromTrue = AppSettings.fromJson({
+        'scaleQuality': true,
+      }, fallback: _baseSettings());
+      expect(fromTrue.viewQuality, ViewQuality.original);
+    },
+  );
+
   test('plain settings JSON never contains translation credentials', () {
     final json = _baseSettings().toJson();
     expect(json.keys, isNot(contains('translateAuthData')));
