@@ -164,9 +164,11 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
   static const _host = 'https://fanyi-api.baidu.com/api/trans/vip/translate';
   static const _timeout = Duration(seconds: 15);
 
-  /// Free tier (verified 2026-09-03): 50k characters/month, QPS 1 for
-  /// personal-certified users. Constants are not displayed anywhere; the
-  /// settings page carries the verified number in its own copy.
+  /// Quotas (re-verified 2026-09-07, see the task research file): the
+  /// standard tier gives 50k characters/month at QPS 1 without real-name
+  /// verification; the premium tier gives 1M characters/month at QPS 10 and
+  /// requires personal real-name verification. Nothing here displays these
+  /// numbers; the settings hint carries its own copy.
   static const int _maxBodyBytes = 512 * 1024;
 
   final http.Client _client;
