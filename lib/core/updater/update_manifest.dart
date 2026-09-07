@@ -12,6 +12,7 @@ const String updateRepository = 'Lopution/Pixiv-func';
 const String updatePackageName = 'io.github.lopution.pixivfunc';
 
 const Set<String> updateReleaseHosts = kUpdateDownloadHosts;
+const Set<String> updateReleaseAbis = {'arm64-v8a', 'armeabi-v7a'};
 
 final Uri defaultUpdateManifestUri = Uri.parse(
   'https://github.com/Lopution/Pixiv-func/releases/latest/download/update-manifest.json',
@@ -118,6 +119,9 @@ class UpdateManifest implements UpdateManifestLike {
     required this.channel,
     required this.version,
     required this.versionCode,
+    required this.packageName,
+    required this.signingCertificateSha256,
+    required this.assets,
     required this.asset,
   });
 
@@ -132,6 +136,9 @@ class UpdateManifest implements UpdateManifestLike {
       throw const UpdateManifestFormatException('manifest_json');
     }
     final map = _object(decoded, 'manifest');
+    if (map['schema'] != 2) {
+      throw const UpdateManifestFormatException('schema');
+    }
     _exactKeys(map, const {
       'schema',
       'repository',
@@ -139,11 +146,10 @@ class UpdateManifest implements UpdateManifestLike {
       'channel',
       'version',
       'versionCode',
-      'asset',
+      'packageName',
+      'signingCertificateSha256',
+      'assets',
     }, 'manifest_keys');
-    if (map['schema'] != 1) {
-      throw const UpdateManifestFormatException('schema');
-    }
     final repository = _string(map['repository'], 'repository');
     if (repository != updateRepository) {
       throw const UpdateManifestFormatException('repository');
@@ -161,15 +167,51 @@ class UpdateManifest implements UpdateManifestLike {
       _ => throw const UpdateManifestFormatException('channel'),
     };
     final versionCode = _positiveInt(map['versionCode'], 'version_code');
-    final asset = _parseAsset(map['asset']);
+    final packageName = _string(map['packageName'], 'package_name');
+    if (packageName != updatePackageName) {
+      throw const UpdateManifestFormatException('package_name');
+    }
+    final certificate = _lowerHex(
+      _string(map['signingCertificateSha256'], 'signing_certificate'),
+      64,
+    );
+    final assets = _parseAssets(map['assets']);
     return UpdateManifest(
       repository: repository,
       tag: tag,
       channel: channel,
       version: version,
       versionCode: versionCode,
-      asset: asset,
+      packageName: packageName,
+      signingCertificateSha256: certificate,
+      assets: assets,
+      asset: _selectedAsset(assets.first, packageName, certificate),
     );
+  }
+
+  UpdateManifest? selectForAbis(List<String> supportedAbis) {
+    for (final abi in supportedAbis) {
+      for (final item in assets) {
+        if (item.abi == abi) {
+          return UpdateManifest(
+            repository: repository,
+            tag: tag,
+            channel: channel,
+            version: version,
+            versionCode: versionCode,
+            packageName: packageName,
+            signingCertificateSha256: signingCertificateSha256,
+            assets: assets,
+            asset: _selectedAsset(
+              item,
+              packageName,
+              signingCertificateSha256,
+            ),
+          );
+        }
+      }
+    }
+    return null;
   }
 
   @override
@@ -182,43 +224,65 @@ class UpdateManifest implements UpdateManifestLike {
   final UpdateVersion version;
   @override
   final int versionCode;
+  final String packageName;
+  final String signingCertificateSha256;
+  final List<UpdateManifestAsset> assets;
   @override
   final UpdateReleaseAsset asset;
 }
 
-UpdateReleaseAsset _parseAsset(Object? value) {
-  final map = _object(value, 'asset');
-  _exactKeys(map, const {
-    'url',
-    'size',
-    'sha256',
-    'packageName',
-    'signingCertificateSha256',
-  }, 'asset_keys');
-  final url = _strictHttpsUri(_string(map['url'], 'asset_url'));
-  if (!isStrictUpdateManifestAssetUrl(url)) {
-    throw const UpdateManifestFormatException('asset_url');
-  }
-  final exactSize = _positiveInt(map['size'], 'asset_size');
-  if (exactSize > updateAssetMaxBytes) {
-    throw const UpdateManifestFormatException('asset_size');
-  }
-  final sha256 = _lowerHex(_string(map['sha256'], 'asset_sha256'), 64);
-  final packageName = _string(map['packageName'], 'package_name');
-  if (packageName != updatePackageName) {
-    throw const UpdateManifestFormatException('package_name');
-  }
-  final certificate = _lowerHex(
-    _string(map['signingCertificateSha256'], 'signing_certificate'),
-    64,
-  );
+UpdateReleaseAsset _selectedAsset(
+  UpdateManifestAsset item,
+  String packageName,
+  String certificate,
+) {
   return UpdateReleaseAsset(
-    url: url,
-    exactSize: exactSize,
-    sha256: sha256,
+    url: item.url,
+    exactSize: item.exactSize,
+    sha256: item.sha256,
     packageName: packageName,
     signingCertificateSha256: certificate,
   );
+}
+
+List<UpdateManifestAsset> _parseAssets(Object? value) {
+  if (value is! List || value.isEmpty) {
+    throw const UpdateManifestFormatException('assets');
+  }
+  final seen = <String>{};
+  final assets = <UpdateManifestAsset>[];
+  for (final item in value) {
+    final map = _object(item, 'asset');
+    _exactKeys(map, const {
+      'abi',
+      'url',
+      'size',
+      'sha256',
+      'versionCode',
+    }, 'asset_keys');
+    final abi = _string(map['abi'], 'asset_abi');
+    if (!updateReleaseAbis.contains(abi) || !seen.add(abi)) {
+      throw const UpdateManifestFormatException('asset_abi');
+    }
+    final url = _strictHttpsUri(_string(map['url'], 'asset_url'));
+    if (!isStrictUpdateManifestAssetUrl(url)) {
+      throw const UpdateManifestFormatException('asset_url');
+    }
+    final exactSize = _positiveInt(map['size'], 'asset_size');
+    if (exactSize > updateAssetMaxBytes) {
+      throw const UpdateManifestFormatException('asset_size');
+    }
+    assets.add(
+      UpdateManifestAsset(
+        abi: abi,
+        url: url,
+        exactSize: exactSize,
+        sha256: _lowerHex(_string(map['sha256'], 'asset_sha256'), 64),
+        versionCode: _positiveInt(map['versionCode'], 'asset_version_code'),
+      ),
+    );
+  }
+  return List<UpdateManifestAsset>.unmodifiable(assets);
 }
 
 Uri _strictHttpsUri(String raw) {

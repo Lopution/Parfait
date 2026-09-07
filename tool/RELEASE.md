@@ -28,10 +28,12 @@ keytool -genkeypair -v \
 chmod 600 pixivfunc-release.jks
 ```
 
-Then build with:
+Then build two split APKs (no fat / universal, no x86_64):
 
 ```bash
 flutter build apk --release --flavor github \
+  --split-per-abi --target-platform android-arm64,android-arm \
+  --obfuscate --split-debug-info=build/symbols/github \
   -PPIXIV_RELEASE_KEYSTORE=$HOME/.pixivfunc-release/pixivfunc-release.jks \
   -PPIXIV_RELEASE_KEYSTORE_PASSWORD=... \
   -PPIXIV_RELEASE_KEY_ALIAS=pixivfunc \
@@ -60,26 +62,42 @@ the `fdroid` flavor keeps it empty because the updater is disabled there).
 
 ## Release procedure (per release)
 
-1. Build the APK: see above, `github` flavor.
-2. Check the signer certificate fingerprint:
+1. Build the two split APKs: see above, `github` flavor. Flutter 3.47.2
+   names them `app-arm64-v8a-github-release.apk` and
+   `app-armeabi-v7a-github-release.apk`.
+2. Check that both signer certificate fingerprints match:
    ```bash
-   apksigner verify --print-certs build/app/outputs/flutter-apk/app-github-release.apk
+   apksigner verify --print-certs \
+     build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk
+   apksigner verify --print-certs \
+     build/app/outputs/flutter-apk/app-armeabi-v7a-github-release.apk
    ```
-3. Generate the manifest + signature:
+3. Generate the schema 2 manifest + signature. Asset URLs are derived from
+   version + ABI; do not pass `--asset-url`:
    ```bash
    python3 tool/update_release.py generate \
-     --apk build/app/outputs/flutter-apk/app-github-release.apk \
+     --apk arm64-v8a=build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
+     --apk armeabi-v7a=build/app/outputs/flutter-apk/app-armeabi-v7a-github-release.apk \
      --version 1.0.0 --version-code 1 \
-     --asset-url "https://github.com/Lopution/Pixiv-func/releases/download/v1.0.0/pixiv-func-v1.0.0-github.apk" \
      --signing-cert-sha256 <hex from step 2> \
      --key-file ~/.pixivfunc-release/update-signing-key.pem \
      --out-dir ~/.pixivfunc-release/assets
    ```
-4. Upload to the GitHub release: APK + `update-manifest.json` +
-   `update-manifest.sig` (Base64 text of the DER signature; see
-   `.github/workflows/release.yml` for the automated path).
-5. Verify on real devices: API 29 and a modern Android; the negative case
-   (tampered manifest/signature) must be rejected with a visible reason.
+   Top-level `versionCode` is the unshifted base `n`. Each asset stores the
+   Flutter offset (`arm64-v8a` = `2000+n`, `armeabi-v7a` = `1000+n`).
+4. Upload to the GitHub draft release exactly these four files (no fat APK):
+   `pixiv-func-v<ver>-github-arm64-v8a.apk`,
+   `pixiv-func-v<ver>-github-armeabi-v7a.apk`,
+   `update-manifest.json`, and `update-manifest.sig`.
+   The derived asset URL is
+   `https://github.com/Lopution/Pixiv-func/releases/download/v<ver>/pixiv-func-v<ver>-github-<abi>.apk`
+   (repository-name case is significant). See
+   `.github/workflows/release.yml` for the automated path. Obfuscation
+   symbols stay on the Actions artifact, not the public release.
+5. Verify on real devices: API 29 and a modern Android, each selecting its
+   ABI asset. The negative case (tampered manifest/signature, or a manifest
+   missing the device ABI) must be rejected with a visible reason — never
+   shown as “already up to date”.
 
 ## Signature algorithm
 
