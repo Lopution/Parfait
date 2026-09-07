@@ -372,10 +372,8 @@ async fn make_http_request_helper(
             HttpVersionPref::All => request,
         };
 
-        if query.is_some() {
-            return Err(RhttpError::RhttpUnknownError(
-                "query parameters are not supported".to_string(),
-            ));
+        if let Some(query) = query {
+            request = request.query(&query);
         }
 
         match headers {

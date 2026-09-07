@@ -77,10 +77,11 @@ Not part of this fork (upstream features, out of scope):
   `CookieSettings`. `client.rs` returns `RhttpError::RhttpUnknownError`
   instead of `ClientBuilder::cookie_store`, dropping `cookie_store` /
   `publicsuffix` / `time` from the lock. Re-apply on upstream sync.
-- `rust/Cargo.toml` reqwest: drop `query`. The app builds query strings
-  into the URL itself. `http.rs` returns `RhttpError::RhttpUnknownError`
-  when the plugin `query` argument is present, dropping
-  `serde_urlencoded`. Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: `query` is **kept** (tried and reverted in
+  child B, B5e). `lib/src/client/io/io_request.dart` strips the query
+  string from the URL and passes `query: uri.queryParameters` on every
+  request, so the app's whole `RhttpCompatibleClient` path depends on
+  `request.query(&query)`. Do not drop it (the saving was 6,080 B arm64).
 - `rust/Cargo.toml` reqwest: drop `charset`. The app never uses plugin
   text decoding (compat layer returns bytes). Drops `encoding_rs` from
   the lock; `.text()` still compiles as UTF-8. Re-apply on upstream sync.
