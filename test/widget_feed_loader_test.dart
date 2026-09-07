@@ -63,10 +63,19 @@ class _MetadataRepository implements AccountMetadataRepository {
   Future<void> save(List<Account> accounts, String? currentId) async {}
 }
 
-String _illustJson(int id, {int xRestrict = 0}) => jsonEncode({
+String _illustJson(
+  int id, {
+  int xRestrict = 0,
+  int aiType = 0,
+  List<String> tags = const [],
+}) => jsonEncode({
   'id': id,
   'title': 't$id',
   'x_restrict': xRestrict,
+  'illust_ai_type': aiType,
+  'tags': [
+    for (final tag in tags) {'name': tag},
+  ],
   'user': {
     'id': 100 + id,
     'name': 'u$id',
@@ -80,19 +89,40 @@ String _illustJson(int id, {int xRestrict = 0}) => jsonEncode({
   },
 });
 
+String _recommendedNextUrl(int offset) =>
+    'https://app-api.pixiv.net/v1/illust/recommended?offset=$offset';
+
+String _pageBody(List<String> illusts, {String? nextUrl}) => jsonEncode({
+  'illusts': [for (final raw in illusts) jsonDecode(raw)],
+  'next_url': nextUrl,
+});
+
 /// Mutable test transport set: the recommended page response and the cover
 /// image responses are reconfigured per test case.
 class _Transports {
   Object? pageBehavior; // String body+200, or an Object to throw.
+  /// Sequential page bodies/errors for refill tests; consumed in order.
+  List<Object>? pageSequence;
   int coverStatus = 200;
   List<int> coverBytes = List.filled(64, 7);
   final pages = <http.Request>[];
   Future<void> Function()? beforeFirstCover;
   bool _firstCoverStarted = false;
 
+  Object? _nextPageBehavior() {
+    final sequence = pageSequence;
+    if (sequence != null) {
+      if (pages.length > sequence.length) {
+        return jsonEncode({'illusts': <Object>[], 'next_url': null});
+      }
+      return sequence[pages.length - 1];
+    }
+    return pageBehavior;
+  }
+
   http.Client api() => MockClient((request) async {
     pages.add(request);
-    final behavior = pageBehavior;
+    final behavior = _nextPageBehavior();
     if (behavior is http.ClientException) throw behavior;
     if (behavior is String) return http.Response(behavior, 200);
     if (behavior is int) return http.Response('{"error":"x"}', behavior);
@@ -128,6 +158,9 @@ _makeWorld({
   ],
   String? currentId = '100',
   WidgetSnapshotStore? snapshotStore,
+  bool blockR18 = false,
+  bool blockAI = false,
+  Set<String> blockedTags = const {},
 }) async {
   final transports = _Transports();
   SharedPreferencesAsyncPlatform.instance =
@@ -179,6 +212,9 @@ _makeWorld({
     accountStore: container.read(accountStoreProvider.notifier),
     credentialStore: credentials,
     storeFactory: () async => store,
+    blockR18: blockR18,
+    blockAI: blockAI,
+    blockedTags: blockedTags,
   );
   return (container, loader, store, transports);
 }
@@ -322,6 +358,89 @@ void main() {
       await loader.load();
       expect(store.read()!.accountKey, hasLength(16));
       expect(store.read()!.accountKey, isNot(contains('100')));
+    },
+  );
+
+  test('AI works are filtered when blockAI is enabled', () async {
+    final (container, loader, store, transports) = await _makeWorld(
+      blockAI: true,
+    );
+    addTearDown(container.dispose);
+    transports.pageBehavior = _pageBody([
+      _illustJson(1, aiType: 2),
+      _illustJson(3),
+    ]);
+    final result = await loader.load();
+    expect(result.outcome, WidgetFeedOutcome.written);
+    expect(store.read()!.items.map((item) => item.illustId), [3]);
+  });
+
+  test('blocked-tag works are filtered from the snapshot', () async {
+    final (container, loader, store, transports) = await _makeWorld(
+      blockedTags: const {'blocked-tag'},
+    );
+    addTearDown(container.dispose);
+    transports.pageBehavior = _pageBody([
+      _illustJson(1, tags: const ['blocked-tag']),
+      _illustJson(3, tags: const ['safe']),
+    ]);
+    final result = await loader.load();
+    expect(result.outcome, WidgetFeedOutcome.written);
+    expect(store.read()!.items.map((item) => item.illustId), [3]);
+  });
+
+  test('a fully-filtered first page refills from the next cursor', () async {
+    final (container, loader, store, transports) = await _makeWorld(
+      blockAI: true,
+    );
+    addTearDown(container.dispose);
+    transports.pageSequence = [
+      _pageBody([
+        _illustJson(1, aiType: 2),
+        _illustJson(2, xRestrict: 1),
+      ], nextUrl: _recommendedNextUrl(30)),
+      _pageBody([_illustJson(8)]),
+    ];
+    final result = await loader.load();
+    expect(result.outcome, WidgetFeedOutcome.written);
+    expect(transports.pages, hasLength(2));
+    expect(store.read()!.items.map((item) => item.illustId), [8]);
+  });
+
+  test(
+    'a fully-filtered first page with no next cursor does not refill',
+    () async {
+      final (container, loader, store, transports) = await _makeWorld(
+        blockAI: true,
+      );
+      addTearDown(container.dispose);
+      transports.pageSequence = [
+        _pageBody([_illustJson(1, aiType: 2), _illustJson(2, xRestrict: 1)]),
+      ];
+      final result = await loader.load();
+      expect(result.outcome, WidgetFeedOutcome.transientFailure);
+      expect(store.read(), isNull);
+      expect(transports.pages, hasLength(1));
+    },
+  );
+
+  test(
+    'refill cap reached with no candidates is a transient failure',
+    () async {
+      final (container, loader, store, transports) = await _makeWorld(
+        blockAI: true,
+      );
+      addTearDown(container.dispose);
+      transports.pageSequence = [
+        for (var offset = 0; offset < widgetFilterMaxRefillPages + 2; offset++)
+          _pageBody([
+            _illustJson(10 + offset, aiType: 2),
+          ], nextUrl: _recommendedNextUrl((offset + 1) * 30)),
+      ];
+      final result = await loader.load();
+      expect(result.outcome, WidgetFeedOutcome.transientFailure);
+      expect(store.read(), isNull);
+      expect(transports.pages, hasLength(1 + widgetFilterMaxRefillPages));
     },
   );
 }

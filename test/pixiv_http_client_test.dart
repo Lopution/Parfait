@@ -15,6 +15,11 @@ import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
+import 'package:pixiv_func/core/network/compat/network_policy.dart';
+import 'package:pixiv_func/core/network/compat/network_providers.dart';
+import 'package:pixiv_func/core/settings/app_settings.dart';
+import 'package:pixiv_func/core/settings/settings_controller.dart';
+import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -52,6 +57,18 @@ class _MetadataRepository implements AccountMetadataRepository {
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
+}
+
+class _SettingsRepository implements SettingsRepository {
+  _SettingsRepository(this.value);
+
+  AppSettings value;
+
+  @override
+  Future<AppSettings> load() async => value;
+
+  @override
+  Future<void> save(AppSettings settings) async => value = settings;
 }
 
 /// Mutable fixture shared between the transports and the assertions.
@@ -132,6 +149,7 @@ _makeWorld({
   ],
   String currentId = '100',
   Duration requestTimeout = PixivHttpClient.defaultRequestTimeout,
+  String languageTag = 'zh-CN',
 }) async {
   final f = fixture ?? _Fixture();
   SharedPreferencesAsyncPlatform.instance =
@@ -162,6 +180,7 @@ _makeWorld({
     accountStore: store,
     credentialStore: credentials,
     oauthService: container.read(oauthServiceProvider),
+    languageTag: languageTag,
     requestTimeout: requestTimeout,
   );
   return (container, client, credentials, f);
@@ -188,6 +207,55 @@ void main() {
       expect(request.headers['Accept-Language'], 'zh-CN');
     },
   );
+
+  test('languageTag ja is sent as Accept-Language', () async {
+    final (container, client, _, fixture) = await _makeWorld(languageTag: 'ja');
+    addTearDown(container.dispose);
+
+    await client.getJson(Uri.parse(_api));
+
+    expect(fixture.apiRequests.single.headers['Accept-Language'], 'ja');
+  });
+
+  test('pixivHttpClientProvider follows settings.languageTag (R6)', () async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    final repository = _SettingsRepository(
+      const AppSettings(
+        guideCompleted: true,
+        languageTag: 'ja',
+        themeCode: AppSettings.systemTheme,
+      ),
+    );
+    final credentials = _CredentialStore();
+    final container = ProviderContainer(
+      overrides: [
+        settingsRepositoryProvider.overrideWithValue(repository),
+        credentialStoreProvider.overrideWithValue(credentials),
+        accountMetadataRepositoryProvider.overrideWithValue(
+          _MetadataRepository(const [], null),
+        ),
+        // No sockets: the policy hands out a canned transport.
+        pixivNetworkFactoryProvider.overrideWithValue(
+          PixivNetworkFactory(
+            NetworkAccessPolicy(
+              clientFactory: (route, host, purpose) =>
+                  MockClient((_) async => http.Response('{}', 200)),
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(settingsProvider.future);
+
+    expect(container.read(pixivHttpClientProvider).languageTag, 'ja');
+
+    await container.read(settingsProvider.notifier).selectLanguage('en-US');
+
+    // The provider watches `settings.languageTag`, so the client is rebuilt.
+    expect(container.read(pixivHttpClientProvider).languageTag, 'en-US');
+  });
 
   test(
     'pre-import verification can use a supplied token without switching stores',

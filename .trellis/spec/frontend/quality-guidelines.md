@@ -153,6 +153,12 @@ test('...', () async {
 
 Symptoms to recognize: `TimeoutException after 0:00:30` from an unrelated-feeling test file while running `flutter test` (full suite); same test green when run alone. Default fix is this pattern, not rerolling the suite.
 
+### On-disk SQLite shared between parallel test files
+
+**Problem**: `HistoryDatabase()` without an injected `databasePath` resolves `databaseFactoryFfi.getDatabasesPath()`, one fixed directory for every `flutter test` isolate. Two test files that reach history through production providers at the same time collide with `SqliteException(5): database is locked` (seen 2026-09-07 in `account_store_test.dart`; green alone).
+
+**Required pattern**: a test that opens the history database must inject `HistoryDatabase(factory: databaseFactoryFfi, databasePath: <per-test temp dir>/history.db)` (or `inMemoryDatabasePath`) through `historyDatabaseProvider`, never rely on the FFI default path. Symptom `database is locked` in a full-suite run is a missing injection in whichever test file opened the shared path, not a flaky engine. Tracked for a sweep in 09-07-spec-test-lint-hardening.
+
 ---
 
 ## Code Review Checklist

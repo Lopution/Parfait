@@ -82,16 +82,6 @@ class ReplicaStrings {
       'networkEchFrontHostHint':
           '查询 HTTPS RR 获取 ECH config 的域名（默认 cloudflare-ech.com）',
       'networkEchHostInvalid': '前置主机名无效',
-      'networkInsecureNoSni': '不校验证书兜底档（不推荐）',
-      'networkInsecureNoSniHint':
-          '启用后阶梯会以「空 SNI + 不校验证书」作为最后尝试。仅当其它方案全部失效且您理解风险时开启。',
-      'networkInsecureNoSniWarning':
-          '警告：此档不校验服务器证书。在当前网络上的中间人可以伪造 Pixiv 证书并读取您的会话。默认关闭，仅在您明确开启后出现。',
-
-      'networkWebViewIntercept': '登录页原生拦截',
-      'networkWebViewInterceptHint':
-          '在 Android 上让登录页 WebView 的请求改走网络策略阶梯（用于大陆直连登录）。默认关闭，使用内置 WebView 的稳定实现。',
-
       'networkProbe': '分层连通性探测',
       'networkProbeTitle': '分层连通性探测',
       'networkProbeHint':
@@ -544,17 +534,6 @@ class ReplicaStrings {
       'networkEchFrontHostHint':
           'Domain queried for the HTTPS RR carrying the ECH config (default cloudflare-ech.com)',
       'networkEchHostInvalid': 'Invalid front host name',
-      'networkInsecureNoSni':
-          'Insecure no-verification fallback tier (not recommended)',
-      'networkInsecureNoSniHint':
-          'When enabled, the ladder adds a final "empty SNI + no certificate verification" attempt. Enable only if every other tier fails and you understand the risk.',
-      'networkInsecureNoSniWarning':
-          'Warning: this tier does not verify the server certificate. A middlebox on your current network could forge a Pixiv certificate and read your session. Disabled by default; appears only after explicit opt-in.',
-
-      'networkWebViewIntercept': 'Native login WebView interception',
-      'networkWebViewInterceptHint':
-          'On Android, routes login WebView requests through the network policy ladder (for mainland direct login). Off by default; uses the stable built-in WebView implementation.',
-
       'networkProbe': 'Layered connectivity probe',
       'networkProbeTitle': 'Layered connectivity probe',
       'networkProbeHint':
@@ -1021,16 +1000,6 @@ class ReplicaStrings {
       'networkEchFrontHostHint':
           'ECH config を含む HTTPS RR を照会するドメイン（デフォルト cloudflare-ech.com）',
       'networkEchHostInvalid': 'フロントホスト名が無効です',
-      'networkInsecureNoSni': '証明書検証なしフォールバック層（非推奨）',
-      'networkInsecureNoSniHint':
-          '有効時、ラダーは最後に「空 SNI + 証明書検証なし」を試します。他の層が全て失敗し、リスクを理解した場合のみ有効にしてください。',
-      'networkInsecureNoSniWarning':
-          '警告：この層はサーバー証明書を検証しません。現在のネットワーク上の中間者は Pixiv 証明書を偽装してセッションを読む可能性があります。デフォルト無効、明示的に有効化した場合のみ存在します。',
-
-      'networkWebViewIntercept': 'ログイン WebView のネイティブ文字',
-      'networkWebViewInterceptHint':
-          'Android でログイン WebView のリクエストをネットワークポリシー経由に回します（大陸直結ログイン用）。デフォルト無効で、安定した組み込み WebView を使用します。',
-
       'networkProbe': '階層接続プローブ',
       'networkProbeTitle': '階層接続プローブ',
       'networkProbeHint':
@@ -1486,17 +1455,6 @@ class ReplicaStrings {
       'networkEchFrontHostHint':
           'Домен, у которого запрашивается HTTPS RR с ECH config (по умолчанию cloudflare-ech.com)',
       'networkEchHostInvalid': 'Неверное имя фронт-хоста',
-      'networkInsecureNoSni':
-          'Небезопасный резервный уровень без проверки (не рекомендуется)',
-      'networkInsecureNoSniHint':
-          'Включено: лестница добавляет финальную попытку «пустой SNI + без проверки сертификатов». Включайте только если все остальные уровни не работают и вы понимаете риск.',
-      'networkInsecureNoSniWarning':
-          'Предупреждение: этот уровень не проверяет сертификат сервера. Посредник в вашей сети может подделать сертификат Pixiv и прочитать сессию. Отключено по умолчанию; появляется только после явного включения.',
-
-      'networkWebViewIntercept': 'Нативный перехват WebView входа',
-      'networkWebViewInterceptHint':
-          'На Android направляет запросы WebView входа через лестницу сетевой политики (для прямого входа из материкового Китая). По умолчанию выключено, используется стабильный встроенный WebView.',
-
       'networkProbe': 'Многоуровневый зонд связи',
       'networkProbeTitle': 'Многоуровневый зонд связи',
       'networkProbeHint':
