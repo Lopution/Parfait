@@ -472,7 +472,7 @@ List<int> _zip(Map<String, List<int>> files) {
   for (final entry in files.entries) {
     archive.addFile(ArchiveFile(entry.key, entry.value.length, entry.value));
   }
-  return ZipEncoder().encode(archive)!;
+  return ZipEncoder().encode(archive);
 }
 
 List<int> _onePixelPng() => Uint8List.fromList([
