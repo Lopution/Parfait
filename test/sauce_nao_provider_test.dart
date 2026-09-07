@@ -153,6 +153,78 @@ void main() {
     );
   });
 
+  test('a real anonymous result page (with the Cloudflare analytics beacon) '
+      'is a webview result, not a challenge', () async {
+    final fixture = File('test/fixtures/saucenao/anonymous_result_page.html')
+        .readAsBytesSync();
+    final client = MockClient(
+      (request) async => http.Response.bytes(
+        fixture,
+        200,
+        headers: {'content-type': 'text/html; charset=UTF-8'},
+      ),
+    );
+    final provider = SauceNaoWebViewProvider(client: client);
+
+    final outcome = await provider.search(input);
+
+    expect(outcome, isA<ReverseImageSearchWebView>());
+    final html = (outcome as ReverseImageSearchWebView).html!;
+    expect(html, contains('resulttable'));
+    expect(html.toLowerCase(), contains('cloudflareinsights'));
+  });
+
+  test('a Cloudflare interstitial is still classified as a challenge', () async {
+    const interstitial =
+        '<!DOCTYPE html><html><head>'
+        '<title>Just a moment...</title></head><body>'
+        '<script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1">'
+        '</script></body></html>';
+    final client = MockClient(
+      (request) async => http.Response(
+        interstitial,
+        200,
+        headers: {'content-type': 'text/html'},
+      ),
+    );
+    final provider = SauceNaoWebViewProvider(client: client);
+
+    final outcome = await provider.search(input);
+
+    expect(outcome, isA<ReverseImageSearchFailure>());
+    expect(
+      (outcome as ReverseImageSearchFailure).code,
+      ReverseImageProviderFailureCode.providerUnavailable,
+    );
+  });
+
+  test(
+    'a rendered daily/rate limit page is rateLimited and retryable',
+    () async {
+      for (final text in const [
+        'Daily Search Limit Exceeded. Your IP has exceeded the unregistered '
+            "user's daily limit of 150 searches.",
+        'Search Rate Too High. Please wait a moment before trying again.',
+      ]) {
+        final client = MockClient(
+          (request) async => http.Response(
+            '<html><body>$text</body></html>',
+            200,
+            headers: {'content-type': 'text/html'},
+          ),
+        );
+        final provider = SauceNaoWebViewProvider(client: client);
+
+        final outcome = await provider.search(input);
+
+        expect(outcome, isA<ReverseImageSearchFailure>(), reason: text);
+        final failure = outcome as ReverseImageSearchFailure;
+        expect(failure.code, ReverseImageProviderFailureCode.rateLimited);
+        expect(failure.retryable, isTrue);
+      }
+    },
+  );
+
   test('decodes UTF-8 result HTML without corrupting non-ASCII text', () async {
     final client = MockClient(
       (request) async => http.Response.bytes(
