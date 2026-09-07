@@ -4,18 +4,21 @@ import 'package:pixiv_func/core/settings/app_settings.dart';
 
 /// Pins i18n key completeness across all four languages (zh/en/ja/ru).
 ///
-/// The network settings schema added new keys (ECH front host, insecure
-/// fallback tier) — this fixture catches a translation landing in only one
-/// language. It additionally asserts the insecureNoSni settings default to
-/// OFF (PRD R6/AC7).
+/// The network settings schema added ECH front-host keys. C16/C17 leftover
+/// keys (`networkWebViewIntercept*`, `networkInsecureNoSni*`) must stay
+/// absent so they cannot reappear in only one locale.
 void main() {
   const newNetworkKeys = [
     'networkEchFrontHost',
     'networkEchFrontHostHint',
     'networkEchHostInvalid',
+  ];
+  const removedNetworkKeys = [
     'networkInsecureNoSni',
     'networkInsecureNoSniHint',
     'networkInsecureNoSniWarning',
+    'networkWebViewIntercept',
+    'networkWebViewInterceptHint',
   ];
   const newUiKeys = [
     'loginPageClosed',
@@ -54,6 +57,18 @@ void main() {
           ReplicaStrings.fromTag(language.tag, key),
           isNotEmpty,
           reason: '$key missing in ${language.tag}',
+        );
+      }
+    }
+  });
+
+  test('C16/C17 leftover network i18n keys are absent from all locales', () {
+    for (final language in ReplicaLanguage.values) {
+      for (final key in removedNetworkKeys) {
+        expect(
+          () => ReplicaStrings.fromTag(language.tag, key),
+          throwsA(isA<TypeError>()),
+          reason: '$key must not exist in ${language.tag}',
         );
       }
     }
