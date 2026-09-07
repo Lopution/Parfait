@@ -69,6 +69,10 @@ Not part of this fork (upstream features, out of scope):
 - `rust/Cargo.toml` reqwest: drop `form`. The app never sends
   `HttpBody.form`. `http.rs` returns `RhttpError::RhttpUnknownError` for that
   body instead of calling `RequestBuilder::form`. Re-apply on upstream sync.
+- `rust/Cargo.toml` reqwest: drop `socks`. The app never passes
+  `ProxySettings`; `socks://` URLs fail at `Proxy::*` construction via the
+  existing `RhttpUnknownError`. http/https proxies still compile. Re-apply
+  on upstream sync.
 
 ## Sync guide
 
