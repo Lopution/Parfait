@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../settings/shared_preferences.dart';
 
 import 'account.dart';
 import 'account_repository.dart';
@@ -309,7 +310,9 @@ Account? _byId(List<Account> accounts, String id) {
 final accountMetadataRepositoryProvider = Provider<AccountMetadataRepository>((
   ref,
 ) {
-  return PreferencesAccountMetadataRepository();
+  return PreferencesAccountMetadataRepository(
+    preferences: ref.watch(sharedPreferencesProvider),
+  );
 });
 
 final credentialStoreProvider = Provider<CredentialStore>((ref) {

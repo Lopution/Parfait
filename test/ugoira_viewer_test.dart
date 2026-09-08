@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/features/illust/detail/ugoira_viewer.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 void main() {
+  installMemoryPreferences();
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
   testWidgets('renders the beta56 cover, play affordance and GIF badge', (

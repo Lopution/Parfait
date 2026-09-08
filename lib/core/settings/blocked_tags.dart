@@ -1,11 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'preference_keys.dart';
+import 'shared_preferences.dart';
 
 /// Blocked tag list (beta56 BlockTagService semantics), persisted in
 /// SharedPreferences under `blocked_tags`. Global (not account-scoped),
 /// matching the original.
 class BlockedTags extends Notifier<Set<String>> {
-  static const _key = 'blocked_tags';
+  static const _key = PreferenceKeys.blockedTags;
 
   @override
   Set<String> build() {
@@ -15,7 +17,7 @@ class BlockedTags extends Notifier<Set<String>> {
 
   Future<void> _restore() async {
     try {
-      final prefs = await SharedPreferencesAsync().getStringList(_key);
+      final prefs = await ref.read(sharedPreferencesProvider).getStringList(_key);
       if (prefs != null && state.isEmpty) {
         state = Set.of(prefs);
       }
@@ -33,7 +35,7 @@ class BlockedTags extends Notifier<Set<String>> {
     final blocked = !next.remove(tag);
     if (blocked) next.add(tag);
     state = next;
-    await SharedPreferencesAsync().setStringList(_key, next.toList());
+    await ref.read(sharedPreferencesProvider).setStringList(_key, next.toList());
     return blocked;
   }
 }

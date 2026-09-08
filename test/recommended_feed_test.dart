@@ -4,6 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -19,7 +21,6 @@ import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_illust_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
@@ -133,7 +134,7 @@ Future<(ProviderContainer, _ApiFixture)> makeWorld({
   bool failApi = false,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   final fixture = _ApiFixture(nextUrlOverride: nextUrlOverride);
   final credentials = _FakeCredentialStore()
     ..seed(
@@ -183,7 +184,7 @@ Future<(ProviderContainer, _ApiFixture)> makeWorld({
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   test('initial load fetches real-shaped pages and merges the store', () async {

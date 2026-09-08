@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
@@ -150,7 +151,7 @@ void main() {
     'preferences recovery store round-trips only bounded metadata',
     () async {
       SharedPreferencesAsyncPlatform.instance =
-          InMemorySharedPreferencesAsync.empty();
+          memoryPreferences();
       final preferences = SharedPreferencesAsync();
       final store = PreferencesDownloadRecoveryStore(preferences: preferences);
       final request = _request();
@@ -192,7 +193,7 @@ void main() {
     'legacy Pictures/PixivFunc destination migrates to the builtin owner',
     () async {
       SharedPreferencesAsyncPlatform.instance =
-          InMemorySharedPreferencesAsync.empty();
+          memoryPreferences();
       final preferences = SharedPreferencesAsync();
       final raw = <String, Object?>{
         'jobId': 'job-legacy-path',

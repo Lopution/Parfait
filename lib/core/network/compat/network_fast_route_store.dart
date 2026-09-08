@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../pixiv_client_identity.dart';
+import '../../settings/preference_keys.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,10 +19,7 @@ import 'secure_resolver.dart';
 /// route-memory TTL means the first request after an app restart does not pay
 /// for polluted system DNS or a route probe.
 class PixivFastRouteStore {
-  PixivFastRouteStore({SharedPreferencesAsync? preferences})
-    : _preferences = preferences;
-
-  static const storageKey = 'pixiv.network.fast_routes.v1';
+  static const storageKey = PreferenceKeys.fastRoutes;
 
   /// PixEz's compatibility bootstrap addresses. They are fallback values only
   /// and are replaced by a successful DoH refresh when the network permits it.
@@ -36,10 +34,10 @@ class PixivFastRouteStore {
       imageHost: InternetAddress('210.140.139.133'),
   };
 
-  SharedPreferencesAsync? _preferences;
+  final SharedPreferencesAsync _preferences;
 
-  SharedPreferencesAsync get _prefs =>
-      _preferences ??= SharedPreferencesAsync();
+  PixivFastRouteStore({required SharedPreferencesAsync preferences})
+    : _preferences = preferences;
   Future<Map<String, InternetAddress>>? _loadFuture;
   Future<void> _writeTail = Future<void>.value();
   final Set<String> _refreshing = <String>{};
@@ -60,7 +58,7 @@ class PixivFastRouteStore {
       final current = await _load();
       if (current[host]?.address == address.address) return;
       current[host] = address;
-      await _prefs.setString(
+      await _preferences.setString(
         storageKey,
         jsonEncode({
           for (final entry in current.entries) entry.key: entry.value.address,
@@ -100,7 +98,7 @@ class PixivFastRouteStore {
 
   Future<Map<String, InternetAddress>> _read() async {
     try {
-      final raw = await _prefs.getString(storageKey);
+      final raw = await _preferences.getString(storageKey);
       if (raw == null || raw.isEmpty) return <String, InternetAddress>{};
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) {

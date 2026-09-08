@@ -5,6 +5,10 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'helpers/test_preferences.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -131,6 +135,7 @@ class _ScriptedClient extends http.BaseClient {
 }
 
 void main() {
+  installMemoryPreferences();
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
@@ -1051,7 +1056,7 @@ void main() {
           frontAddresses: [InternetAddress('1.2.3.46')],
         ),
         insecureNoSniEnabled: true,
-        fastRouteStore: PixivFastRouteStore(),
+        fastRouteStore: PixivFastRouteStore(preferences: SharedPreferencesAsync()),
         clientFactory: (route, canonicalHost, _) =>
             route.kind == NetworkRouteKind.insecureNoSni ? insecure : nowhere,
       );
@@ -1095,7 +1100,7 @@ void main() {
           frontAddresses: [InternetAddress('1.2.3.48')],
         ),
         insecureNoSniEnabled: true,
-        fastRouteStore: PixivFastRouteStore(),
+        fastRouteStore: PixivFastRouteStore(preferences: SharedPreferencesAsync()),
         clientFactory: (route, canonicalHost, _) => switch (route.kind) {
           NetworkRouteKind.insecureNoSni => insecure,
           NetworkRouteKind.direct => direct,

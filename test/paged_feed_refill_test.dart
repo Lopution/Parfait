@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
@@ -7,7 +9,6 @@ import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
@@ -97,7 +98,7 @@ FeedPage _page(List<IllustEntity> illusts, {String? nextCursor}) {
 
 ProviderContainer _container({required bool blockR18}) {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   return ProviderContainer(
     overrides: [
       accountStoreProvider.overrideWith(_StubAccountStore.new),
@@ -111,7 +112,7 @@ ProviderContainer _container({required bool blockR18}) {
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   test(
