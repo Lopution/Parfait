@@ -12,6 +12,7 @@ import '../../core/new/new_feed_models.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 
 /// Beta56 New page: scope tabs are stable while the content type selector is
@@ -194,31 +195,34 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
   Widget build(BuildContext context) {
     final feedAsync = ref.watch(newFeedProvider(widget.feedKey));
     return feedAsync.when(
-      loading: () => _NewStatus(
+      loading: () => FeedEmpty(
         icon: Icons.fiber_new_outlined,
         title: _newText(context, 'newLoading'),
       ),
-      error: (error, _) => _NewError(
-        error: error,
+      error: (error, _) => FeedError(
+        message: '${_newText(context, 'newLoadFailed')}\n$error',
         onRetry: () => ref.invalidate(newFeedProvider(widget.feedKey)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _NewError(
-            error: feed.initialError ?? const ApiParseError('unknown error'),
+          return FeedError(
+            message:
+                '${_newText(context, 'newLoadFailed')}\n${feed.initialError ?? const ApiParseError('unknown error')}',
             onRetry: () => ref
                 .read(newFeedProvider(widget.feedKey).notifier)
                 .retryInitial(),
           );
         }
         if (feed.showInitialSpinner) {
-          return _NewStatus(
+          return FeedEmpty(
             icon: Icons.fiber_new_outlined,
             title: _newText(context, 'newLoading'),
           );
         }
         if (feed.isEmptyAndReady) {
-          return _NewEmpty(
+          return FeedEmpty(
+            icon: Icons.inbox_outlined,
+            title: _newText(context, 'newEmpty'),
             onRefresh: () =>
                 ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
           );
@@ -251,17 +255,29 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
     final tail = <Widget>[
       if (feed.refreshPhase == FeedPhase.error)
         SliverToBoxAdapter(
-          child: _NewRefreshError(
-            onRetry: () =>
-                ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
+          child: Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.errorContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(child: Text(_newText(context, 'newRefreshFailed'))),
+                TextButton(
+                  onPressed: () =>
+                      ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
+                  child: Text(_newText(context, 'newRetry')),
+                ),
+              ],
+            ),
           ),
         ),
       SliverToBoxAdapter(
-        child: _NewFeedTail(
+        child: FeedTail(
           feed: feed,
           onRetry: () => ref
               .read(newFeedProvider(widget.feedKey).notifier)
               .retryLoadMore(),
+          errorTitle: _newText(context, 'newLoadMoreFailed'),
         ),
       ),
     ];
@@ -297,147 +313,6 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
       ),
       ...tail,
     ];
-  }
-}
-
-class _NewStatus extends StatelessWidget {
-  const _NewStatus({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48),
-          const SizedBox(height: 12),
-          Text(title),
-        ],
-      ),
-    );
-  }
-}
-
-class _NewEmpty extends StatelessWidget {
-  const _NewEmpty({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.inbox_outlined, size: 48),
-          const SizedBox(height: 12),
-          Text(_newText(context, 'newEmpty')),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh),
-            label: Text(_newText(context, 'newRetry')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NewError extends StatelessWidget {
-  const _NewError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(_newText(context, 'newLoadFailed')),
-            const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_newText(context, 'newRetry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NewRefreshError extends StatelessWidget {
-  const _NewRefreshError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: Theme.of(context).colorScheme.errorContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(child: Text(_newText(context, 'newRefreshFailed'))),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(_newText(context, 'newRetry')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NewFeedTail extends StatelessWidget {
-  const _NewFeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_newText(context, 'newLoadMoreFailed')),
-            Text(
-              '${feed.loadMoreError}',
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            TextButton(
-              onPressed: onRetry,
-              child: Text(_newText(context, 'newRetry')),
-            ),
-          ],
-        ),
-      );
-    }
-    return const SizedBox.shrink();
   }
 }
 

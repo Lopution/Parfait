@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/widgets/replica_empty_state.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/i18n/replica_strings.dart';
-import '../../../core/paging/paged_feed_controller.dart';
+
 import 'recommended_repository.dart';
 
 /// Recommended Illust tab: real API feed with initial/refresh/load-more
@@ -107,7 +108,7 @@ class RecommendedIllustPage extends ConsumerWidget {
                       ),
 ),
                   SliverToBoxAdapter(
-                    child: _FeedTail(
+                    child: FeedTail(
                       feed: feed,
                       onRetry: () => ref
                           .read(recommendedIllustControllerProvider.notifier)
@@ -121,58 +122,6 @@ class RecommendedIllustPage extends ConsumerWidget {
         );
       },
     );
-  }
-}
-
-class _FeedTail extends StatelessWidget {
-  const _FeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                ReplicaStrings.fromTag(
-                  Localizations.localeOf(context).toLanguageTag(),
-                  'recommendedLoadMoreFailed',
-                ),
-              ),
-              Text(
-                '${feed.loadMoreError}',
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 2,
-              ),
-              TextButton(
-                onPressed: onRetry,
-                child: Text(
-                  ReplicaStrings.fromTag(
-                    Localizations.localeOf(context).toLanguageTag(),
-                    'retry',
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    return const SizedBox.shrink();
   }
 }
 
