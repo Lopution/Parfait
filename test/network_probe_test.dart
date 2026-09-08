@@ -249,7 +249,31 @@ void main() {
       tlsResult: 'handshake reset',
       httpResult: 'not reached',
     ).run();
-    final text = report.toCopyableText();
+    final environment = NetworkProbeEnvironment(
+      probedAtUtc: DateTime.utc(2026, 9, 8, 4, 30),
+      appVersion: '0.1.0+1',
+      operatingSystem: 'linux',
+      operatingSystemVersion: '6.6.test',
+      networkMode: 'automatic',
+      dohEndpoints: [
+        'https://dns.alidns.com/dns-query',
+        'https://1dot1dot1dot1.cloudflare-dns.com/dns-query',
+      ],
+      echFrontHost: 'cloudflare-ech.com',
+    );
+    final text = report.copyWith(environment: environment).toCopyableText();
+    expect(text, contains('env: 2026-09-08T04:30:00.000Z'));
+    expect(text, contains('app-version: 0.1.0+1'));
+    expect(text, contains('os: linux 6.6.test'));
+    expect(text, contains('network-mode: automatic'));
+    expect(
+      text,
+      contains(
+        'doh: https://dns.alidns.com/dns-query, '
+        'https://1dot1dot1dot1.cloudflare-dns.com/dns-query',
+      ),
+    );
+    expect(text, contains('ech-front: cloudflare-ech.com'));
     expect(text, contains('NetworkProbe app-api.pixiv.net (appApi)'));
     expect(text, contains('conclusion: sniBlocked'));
     expect(text, contains('tcp: ok'));
