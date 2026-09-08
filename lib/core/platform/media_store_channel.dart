@@ -18,9 +18,12 @@ abstract final class _MediaStoreMethods {
 }
 
 /// Production [MediaStoreSession] backed by the Android host
-/// (MainActivity.kt). Fails fast (`unsupported`) below API 29 where scoped
-/// MediaStore does not exist; the download pipeline surfaces that as a
-/// failed task instead of silently degrading.
+/// (MainActivity.kt). Native failures use `mediastore_<reason>` codes
+/// (`mediastore_invalid_argument`, `mediastore_insert_failed`,
+/// `mediastore_write_failed`, `mediastore_finalize_failed`,
+/// `mediastore_not_found`, `mediastore_permission`, `mediastore_io_failed`,
+/// `mediastore_unsupported` on the dead pre-29 path). The download pipeline
+/// surfaces any [PlatformException] as a failed task.
 class MethodChannelMediaStoreSession
     implements
         MediaStoreSession,

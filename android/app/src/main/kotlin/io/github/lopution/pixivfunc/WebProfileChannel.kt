@@ -3,6 +3,7 @@ package io.github.lopution.pixivfunc
 import android.content.Context
 import android.webkit.CookieManager
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
@@ -15,35 +16,63 @@ import io.flutter.plugin.common.MethodChannel
  * persisted by the platform), so after the user logs in once in the login
  * page the cookie is available here and stays available across restarts.
  */
+internal interface WebProfileCookies {
+    fun cookie(url: String): String?
+
+    fun clearAll()
+}
+
 object WebProfileChannel {
 
     private const val CHANNEL = "pixivfunc/webprofile"
-    private const val PIXIV_WEB = "https://www.pixiv.net"
+    internal const val PIXIV_WEB = "https://www.pixiv.net"
 
     fun configure(context: Context, engine: FlutterEngine) {
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                try {
-                    when (call.method) {
-                        // Returns the raw Cookie header value for the web
-                        // profile host (e.g. "PHPSESSID=...; device_token=...").
-                        "readSession" -> result.success(
-                            CookieManager.getInstance().getCookie(PIXIV_WEB)
-                        )
-                        // Clears the web session cookies (logout, switch
-                        // account). Also clears the accounts host so the next
-                        // login starts fresh.
-                        "clearSession" -> {
-                            val manager = CookieManager.getInstance()
-                            manager.removeAllCookies(null)
-                            manager.flush()
-                            result.success(true)
-                        }
-                        else -> result.notImplemented()
-                    }
-                } catch (error: Exception) {
-                    result.error("webprofile_error", error.message, null)
-                }
+                handle(call, result, AndroidWebProfileCookies)
             }
+    }
+
+    internal fun handle(
+        call: MethodCall,
+        result: MethodChannel.Result,
+        cookies: WebProfileCookies,
+    ) {
+        try {
+            when (call.method) {
+                // Returns the raw Cookie header value for the web
+                // profile host (e.g. "PHPSESSID=...; device_token=...").
+                "readSession" -> result.success(cookies.cookie(PIXIV_WEB))
+                // Clears the web session cookies (logout, switch
+                // account). Also clears the accounts host so the next
+                // login starts fresh.
+                "clearSession" -> {
+                    cookies.clearAll()
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        } catch (error: Exception) {
+            result.error(webprofileErrorCode(call.method, error), error.message, null)
+        }
+    }
+
+    internal fun webprofileErrorCode(method: String, error: Throwable): String {
+        if (error is SecurityException) return "webprofile_permission"
+        if (method == "readSession") return "webprofile_read_failed"
+        if (method == "clearSession") return "webprofile_clear_failed"
+        return "webprofile_io_failed"
+    }
+
+    private object AndroidWebProfileCookies : WebProfileCookies {
+        override fun cookie(url: String): String? =
+            CookieManager.getInstance().getCookie(url)
+
+        override fun clearAll() {
+            val manager = CookieManager.getInstance()
+            manager.removeAllCookies(null)
+            manager.flush()
+        }
     }
 }
