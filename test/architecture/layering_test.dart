@@ -85,7 +85,6 @@ const _allowListedDataFiles = <String>{
   'lib/features/illust/detail/illust_detail_repository.dart',
   'lib/features/illust/detail/related_illust_repository.dart',
   'lib/features/ranking/ranking_repository.dart',
-  'lib/features/search/tag_search_repository.dart',
   'lib/features/home/recommended/recommended_feed_controller.dart',
   'lib/features/illust/detail/illust_detail_controller.dart',
   'lib/features/illust/detail/illust_download_controller.dart',
