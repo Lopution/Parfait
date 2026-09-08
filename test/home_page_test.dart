@@ -2,13 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
+import 'package:pixiv_func/core/platform/android_intent_channel.dart';
+import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/platform/root_back_coordinator.dart';
 import 'package:pixiv_func/features/home/home_page.dart';
+import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
+import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
+import 'package:pixiv_func/features/new/new_page.dart';
+import 'package:pixiv_func/features/profile/user_page.dart';
+import 'package:pixiv_func/features/ranking/ranking_page.dart';
+import 'package:pixiv_func/features/search/search_page.dart';
+import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -36,6 +46,55 @@ class _StaticMetadataRepository implements AccountMetadataRepository {
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
+}
+
+class _ScriptedIntentSource implements AndroidIntentSource {
+  const _ScriptedIntentSource(this.initial);
+
+  final AndroidIntentResult initial;
+
+  @override
+  Future<AndroidIntentResult> readInitial() async => initial;
+
+  @override
+  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
+}
+
+const _signedInSnapshot = AccountMetadataSnapshot(
+  accounts: [Account(id: '100', userId: 100, name: 'tester')],
+  currentId: '100',
+);
+
+Widget _homeApp({AndroidIntentSource? intentSource}) {
+  return ProviderScope(
+    overrides: [
+      credentialStoreProvider.overrideWithValue(const _StaticCredentialStore()),
+      accountMetadataRepositoryProvider.overrideWithValue(
+        const _StaticMetadataRepository(_signedInSnapshot),
+      ),
+    ],
+    child: MaterialApp(
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [Locale('zh', 'CN')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      home: HomePage(
+        intentSource:
+            intentSource ??
+            const _ScriptedIntentSource(
+              IgnoredAndroidIntent('test: no android intent'),
+            ),
+      ),
+    ),
+  );
+}
+
+Future<void> _pumpHome(
+  WidgetTester tester, {
+  AndroidIntentSource? intentSource,
+}) async {
+  await tester.pumpWidget(_homeApp(intentSource: intentSource));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
 }
 
 void main() {
@@ -93,4 +152,89 @@ void main() {
   testWidgets('root back coordinator window is one second', (tester) async {
     expect(RootBackCoordinator.exitWindow, const Duration(seconds: 1));
   });
+
+  testWidgets('C7: cold start builds only the current tab', (tester) async {
+    await _pumpHome(tester);
+
+    expect(find.byType(RecommendedHomePage), findsOneWidget);
+    // IndexedStack offstages inactive children; search offstage so a
+    // prebuilt tab cannot hide behind skipOffstage: true.
+    expect(find.byType(RankingPage, skipOffstage: false), findsNothing);
+    expect(find.byType(NewPage, skipOffstage: false), findsNothing);
+    expect(find.byType(SearchHomePage, skipOffstage: false), findsNothing);
+    expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
+  });
+
+  testWidgets('C7: visited tabs stay alive and keep the first tab controller', (
+    tester,
+  ) async {
+    await _pumpHome(tester);
+
+    final firstRecommended = tester.state<State<RecommendedHomePage>>(
+      find.byType(RecommendedHomePage),
+    );
+
+    await tester.tap(find.byIcon(AppIcons.ranking));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      find.byType(RecommendedHomePage, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
+    expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
+
+    await tester.tap(find.byIcon(AppIcons.home));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      identical(
+        tester.state<State<RecommendedHomePage>>(
+          find.byType(RecommendedHomePage),
+        ),
+        firstRecommended,
+      ),
+      isTrue,
+    );
+    expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
+    expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
+  });
+
+  testWidgets('C8: UserRoute delivered to home pushes the user page', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      intentSource: const _ScriptedIntentSource(
+        RoutedAndroidIntent(UserRoute(123)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(UserPage), findsOneWidget);
+    expect(tester.widget<UserPage>(find.byType(UserPage)).userId, 123);
+  });
+
+  testWidgets(
+    'C8: UnknownRoute shows the rejection snackbar and does not navigate',
+    (tester) async {
+      final unknown = IntentRouter.routePlatformMessage({
+        'action': AndroidIntentInput.viewAction,
+        'uri': 'https://www.pixiv.net/unknown-path',
+      });
+      expect(unknown, isA<RejectedAndroidIntent>());
+
+      await _pumpHome(tester, intentSource: _ScriptedIntentSource(unknown));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('分享的图片无法使用'), findsOneWidget);
+      expect(find.byType(UserPage), findsNothing);
+      expect(find.byType(IllustDetailPage), findsNothing);
+    },
+  );
 }

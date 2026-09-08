@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -184,6 +185,56 @@ void main() {
       expect(records.single.snapshot.accountId, 'account-a');
       expect(records.single.pendingMediaStoreId, 41);
       expect(records.single.toJson().toString(), isNot(contains('token')));
+    },
+  );
+
+  test(
+    'legacy Pictures/PixivFunc destination migrates to the builtin owner',
+    () async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final preferences = SharedPreferencesAsync();
+      final raw = <String, Object?>{
+        'jobId': 'job-legacy-path',
+        'dedupeKey':
+            'illustPage|900|0|https://i.pximg.net/img-original/img/900_p0.jpg',
+        'snapshot': {
+          'snapshotId': 'snap-legacy-path',
+          'jobId': 'job-legacy-path',
+          'illustId': 900,
+          'pageIndex': 0,
+          'url': 'https://i.pximg.net/img-original/img/900_p0.jpg',
+          'target': 'illustPage',
+          'displayName': '900_p0.jpg',
+          'format': 'image/jpeg',
+          'destination': 'Pictures/PixivFunc',
+          'accountId': 'account-a',
+          'submittedAt': '2026-09-01T00:00:00.000Z',
+        },
+        'owner': {
+          'ownerId': 'output-legacy',
+          'jobId': 'job-legacy-path',
+          'accountId': 'account-a',
+        },
+        'status': 'retryable',
+        'receivedBytes': 0,
+      };
+      await preferences.setStringList(
+        PreferencesDownloadRecoveryStore.defaultStorageKey,
+        [jsonEncode(raw)],
+      );
+
+      final records = await PreferencesDownloadRecoveryStore(
+        preferences: preferences,
+      ).load();
+      expect(records, hasLength(1));
+      expect(records.single.snapshot.destination, DownloadDestination.builtin);
+      const current = DownloadSubmissionContext(accountId: 'account-a');
+      expect(records.single.snapshot.accountId, current.accountId);
+      expect(
+        records.single.snapshot.destination.identity,
+        current.destination.identity,
+      );
     },
   );
 

@@ -203,10 +203,12 @@ class WidgetFeedLoader {
 
       final snapshot = WidgetSnapshot.create(
         accountKey: accountKey,
+        // C1: widget snapshot re-keys on account display state, not a credential epoch.
         accountRevision: state.credentialRevision,
         generatedAt: _now(),
         items: items,
       );
+      // Same display-state re-key used by WidgetCoordinator (see there).
       if (!await _stillOwns(account.id, state.credentialRevision)) {
         return const WidgetFeedResult(WidgetFeedOutcome.superseded);
       }
@@ -328,6 +330,7 @@ class WidgetFeedLoader {
       final current = await _accountStore.resolveState();
       return current.status == AccountStatus.ready &&
           current.usableCurrent?.id == accountId &&
+          // Display-state re-key: profile/re-auth advances revision and supersedes the write.
           current.credentialRevision == revision;
     } on Object catch (error) {
       debugPrint(
