@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../pixiv_client_identity.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'network_contracts.dart';
@@ -24,14 +26,14 @@ class PixivFastRouteStore {
   /// PixEz's compatibility bootstrap addresses. They are fallback values only
   /// and are replaced by a successful DoH refresh when the network permits it.
   static final Map<String, InternetAddress> _bootstrap = {
-    'app-api.pixiv.net': InternetAddress('210.140.139.155'),
-    'oauth.secure.pixiv.net': InternetAddress('210.140.139.155'),
+    PixivClientIdentity.appApiBase.host: InternetAddress('210.140.139.155'),
+    PixivClientIdentity.oauthHost: InternetAddress('210.140.139.155'),
     // The web profile editor uses the same Pixiv/Cloudflare compatibility
     // exit as the API. Keeping this host in the shared store avoids falling
     // back to a polluted system-DNS request before the SPA save call.
-    'www.pixiv.net': InternetAddress('104.18.42.239'),
-    'i.pximg.net': InternetAddress('210.140.139.133'),
-    's.pximg.net': InternetAddress('210.140.139.133'),
+    PixivClientIdentity.webHost: InternetAddress('104.18.42.239'),
+    for (final imageHost in PixivClientIdentity.downloadHosts)
+      imageHost: InternetAddress('210.140.139.133'),
   };
 
   SharedPreferencesAsync? _preferences;

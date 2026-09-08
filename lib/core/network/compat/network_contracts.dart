@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../pixiv_client_identity.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 
@@ -52,13 +54,15 @@ class PixivDestinationRegistry {
 
   static bool _allows(String host, PixivDestinationPurpose purpose) {
     return switch (purpose) {
-      PixivDestinationPurpose.appApi => host == 'app-api.pixiv.net',
-      PixivDestinationPurpose.oauth => host == 'oauth.secure.pixiv.net',
+      PixivDestinationPurpose.appApi =>
+        host == PixivClientIdentity.appApiBase.host,
+      PixivDestinationPurpose.oauth => host == PixivClientIdentity.oauthHost,
       PixivDestinationPurpose.accountsWeb =>
-        host == 'app-api.pixiv.net' || host == 'accounts.pixiv.net',
-      PixivDestinationPurpose.pixivWeb => host == 'www.pixiv.net',
+        host == PixivClientIdentity.appApiBase.host ||
+            host == PixivClientIdentity.accountsHost,
+      PixivDestinationPurpose.pixivWeb => host == PixivClientIdentity.webHost,
       PixivDestinationPurpose.image =>
-        host == 'i.pximg.net' || host == 's.pximg.net',
+        PixivClientIdentity.downloadHosts.contains(host),
     };
   }
 }

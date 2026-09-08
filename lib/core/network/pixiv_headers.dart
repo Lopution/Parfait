@@ -28,6 +28,14 @@ abstract final class PixivHeaders {
     };
   }
 
+  /// Headers for image/CDN downloads. i.pximg.net answers image requests
+  /// without the app-API Referer with 403; this is the same visible identity
+  /// the download layer already sends, not a policy bypass.
+  static Map<String, String> image({bool userAgent = false}) => {
+        if (userAgent) 'User-Agent': PixivClientIdentity.userAgent,
+        'Referer': PixivClientIdentity.downloadReferer.toString(),
+      };
+
   /// Content type for OAuth form posts.
   static const String oauthFormContentType =
       'application/x-www-form-urlencoded';
