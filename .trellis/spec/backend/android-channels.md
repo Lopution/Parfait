@@ -18,10 +18,26 @@
 - Payload: `Map<String, Any?>` (or a scalar for `pixivfunc/widget`
   `notifySnapshotChanged`). Bytes are `ByteArray` / Dart `Uint8List`. No JSON
   strings on the channel.
-- Registration: `MethodChannel(messenger, name).setMethodCallHandler { … }`
-  with **no** `BinaryMessenger.TaskQueue`. Every handler runs on the **main**
-  thread today. There is no `makeBackgroundTaskQueue` and no business
-  coroutine.
+- Registration (D3): IO channels register with a **serial** background
+  `BinaryMessenger.TaskQueue`:
+  `MethodChannel(messenger, name, StandardMethodCodec.INSTANCE, messenger.makeBackgroundTaskQueue())`.
+  Handlers on that queue run one at a time, so MediaStore
+  `begin` → N×`write` → `finalize`/`abort` and SAF `create` → `write` →
+  `close`/`delete` stay ordered. `MethodChannel.Result` may be completed from
+  the TaskQueue thread or the main thread (Flutter documents `Result` as
+  any-thread). Activity-bound methods are posted back to the main looper
+  through `MainThreadPoster` (`AndroidMainThreadPoster` in `configure`;
+  `ImmediateMainThreadPoster` in JVM `handle(...)` tests).
+  Channels on a background TaskQueue: `pixivfunc/mediastore` (all methods),
+  `pixivfunc/saf_tree` (`pickTree` posted to main),
+  `pixivfunc/reverse_image_input` (`pickImage` / `openExternal` posted to
+  main), github `pixivfunc/updater` (`installApk` `startActivity` posted to
+  main). Staying on main: fdroid `pixivfunc/updater` (no archive IO),
+  `pixivfunc/webprofile` (`CookieManager.getCookie` / `flush` are **not**
+  documented as thread-safe — official docs only say a null callback on
+  `setCookie` / `removeAllCookies` is safe from a thread without a Looper;
+  see https://developer.android.com/reference/android/webkit/CookieManager),
+  clipboard, intents, widget, `widget_background`.
 - Bindings: 9 MethodChannels + 1 EventChannel
   (`pixivfunc/android_intents/events`). No `pixivfunc/notification*`. Share and
   deeplink are not independent channels (`ACTION_SEND` / VIEW go through
@@ -50,18 +66,18 @@
 
 ## Channel index
 
-| # | Channel | Kind | Kotlin handler | Dart caller | Thread (D0) |
-|---|---------|------|----------------|-------------|-------------|
-| 1 | `pixivfunc/mediastore` | Method | `MediaStoreChannel.kt` | `lib/core/platform/media_store_channel.dart` | main |
-| 2 | `pixivfunc/saf_tree` | Method | `SafTreeChannel.kt` | `lib/core/platform/saf_tree.dart` | main |
-| 3 | `pixivfunc/reverse_image_input` | Method | `ReverseImageInputChannel.kt` | `lib/core/reverse_image/reverse_image_platform.dart`, `reverse_image_external.dart` | main |
+| # | Channel | Kind | Kotlin handler | Dart caller | Thread |
+|---|---------|------|----------------|-------------|--------|
+| 1 | `pixivfunc/mediastore` | Method | `MediaStoreChannel.kt` | `lib/core/platform/media_store_channel.dart` | background TaskQueue |
+| 2 | `pixivfunc/saf_tree` | Method | `SafTreeChannel.kt` | `lib/core/platform/saf_tree.dart` | background TaskQueue; `pickTree` → main |
+| 3 | `pixivfunc/reverse_image_input` | Method | `ReverseImageInputChannel.kt` | `lib/core/reverse_image/reverse_image_platform.dart`, `reverse_image_external.dart` | background TaskQueue; `pickImage` / `openExternal` → main |
 | 4 | `pixivfunc/account_transfer_clipboard` | Method | `AccountTransferClipboardChannel.kt` | `lib/core/platform/account_transfer_clipboard.dart` | main |
 | 5 | `pixivfunc/android_intents` | Method | `AndroidIntentChannel.kt` | `lib/core/platform/android_intent_channel.dart` | main |
 | 6 | `pixivfunc/android_intents/events` | Event | `AndroidIntentChannel.kt` | `android_intent_channel.dart` (`onNewIntent`) | main |
-| 7 | `pixivfunc/webprofile` | Method | `WebProfileChannel.kt` | `lib/core/profile/web_profile_session.dart` | main |
+| 7 | `pixivfunc/webprofile` | Method | `WebProfileChannel.kt` | `lib/core/profile/web_profile_session.dart` | main (`CookieManager` not documented thread-safe) |
 | 8 | `pixivfunc/widget` | Method | `WidgetForegroundChannel.kt` | `lib/core/widget/widget_channel.dart` | main |
 | 9 | `pixivfunc/widget_background` | Method (**direction reversed**) | `appwidget/WidgetHeadlessRunner.kt` | `lib/core/widget/widget_background.dart` | main (engine setup) |
-| 10 | `pixivfunc/updater` | Method | `android/app/src/{github,fdroid}/…/DistributionUpdaterChannel.kt` | `lib/core/updater/update_platform.dart` | main |
+| 10 | `pixivfunc/updater` | Method | `android/app/src/{github,fdroid}/…/DistributionUpdaterChannel.kt` | `lib/core/updater/update_platform.dart` | github: background TaskQueue (`installApk` → main); fdroid: main |
 
 Unknown method on every MethodChannel: `result.notImplemented()`.
 
@@ -72,8 +88,10 @@ Unknown method on every MethodChannel: `result.notImplemented()`.
 - **Handler:** `MediaStoreChannel.kt` (`configure` registers the channel).
 - **Dart:** `MediaStoreMethods` / `MethodChannelMediaStoreSession` in
   `lib/core/platform/media_store_channel.dart`.
-- **Thread (D0):** main. `write` does `OutputStream.write` on the platform
-  thread (D3 will move IO off main).
+- **Thread:** serial background TaskQueue (all methods: `begin` / `write` /
+  `finalize` / `abort` / `listPending` / `abortPending` hit
+  `ContentResolver`). Stream/`Uri` `LruCache`s are handler-only. No Activity
+  work.
 - **SDK_INT:** `requireApi29()` and abort paths still contain `< Q` branches
   (dead at `minSdk = 29`; D4 deletes them). Do not change those branches in D2.
 
@@ -122,8 +140,12 @@ All codes match `^[a-z_]+$` and start with `mediastore_`.
 
 - **Handler:** `SafTreeChannel.kt`.
 - **Dart:** `MethodChannelSafTree` in `lib/core/platform/saf_tree.dart`.
-- **Thread (D0):** main. `write` does `OutputStream.write` on the platform
-  thread (D3).
+- **Thread:** serial background TaskQueue for `create` / `write` / `close` /
+  `delete` (`ContentResolver` / `DocumentsContract`). `pickTree` posts
+  `Activity.startActivityForResult` to the main looper. `onActivityResult`
+  is always main. `pendingResult` is synchronized between the handler and
+  `onActivityResult`; `appContext` is `@Volatile`. The open-stream
+  `mutableMapOf` is handler-only.
 - **`create` / `ownerId`:** Dart `create` may pass `ownerId`
   (`saf_tree.dart`). Kotlin **does not read** `ownerId`. Behaviour is
   intentional and unchanged.
@@ -178,7 +200,11 @@ All newly emitted codes match `^[a-z_]+$` and start with `saf_`.
 - **Handler:** `ReverseImageInputChannel.kt`.
 - **Dart:** `lib/core/reverse_image/reverse_image_platform.dart`,
   `lib/core/reverse_image/reverse_image_external.dart`.
-- **Thread (D0):** main. `copyToTemp` copies with a 64 KiB buffer (D3).
+- **Thread:** serial background TaskQueue for `copyToTemp` (64 KiB file
+  copy) and `deleteTemp`. `pickImage` (`startActivityForResult`) and
+  `openExternal` (`startActivity`) are posted to the main looper.
+  `onActivityResult` (including `encodeReference` metadata reads) stays on
+  main. `pendingPickerResult` is synchronized.
 
 | Method | Arguments | Required | Return |
 |--------|-----------|----------|--------|
@@ -214,7 +240,7 @@ no userInfo / port / fragment.
 
 - **Handler:** `AccountTransferClipboardChannel.kt`.
 - **Dart:** `lib/core/platform/account_transfer_clipboard.dart`.
-- **Thread (D0):** main.
+- **Thread:** main.
 
 | Method | Arguments | Required | Return |
 |--------|-----------|----------|--------|
@@ -239,7 +265,7 @@ no userInfo / port / fragment.
 
 - **Handler:** `AndroidIntentChannel.kt`.
 - **Dart:** `lib/core/platform/android_intent_channel.dart`.
-- **Thread (D0):** main.
+- **Thread:** main.
 
 | Method | Arguments | Required | Return |
 |--------|-----------|----------|--------|
@@ -261,7 +287,7 @@ no userInfo / port / fragment.
 
 - **Handler:** same `AndroidIntentChannel.kt` (`EventChannel.StreamHandler`).
 - **Dart:** `MethodChannelAndroidIntentSource.onNewIntent`.
-- **Thread (D0):** main.
+- **Thread:** main.
 - **Direction:** native **pushes** on `onNewIntent` via
   `AndroidIntentChannel.dispatch`.
 - **Event payload** (same as `getInitialIntent`):
@@ -286,8 +312,14 @@ No `result.error` on the event stream.
 - **Host:** `https://www.pixiv.net`. Session predicate is Dart-side
   `hasWebProfileSession` (non-empty `PHPSESSID`); see
   [in-app-web-profile.md](./in-app-web-profile.md).
-- **Thread (D0):** main. `CookieManager.flush()` is extra main-thread IO
-  (D3 may move it).
+- **Thread:** main. D3 did **not** move this channel.
+  `android.webkit.CookieManager` official docs do not mark `getCookie` or
+  `flush` `@AnyThread` / thread-safe. They only document that
+  `setCookie` / `removeAllCookies` with a **null** callback may be called
+  from a thread without a Looper. `flush()` “will block the caller until it
+  is done and may perform I/O” but gives no thread contract. Stay on the
+  platform thread.
+  https://developer.android.com/reference/android/webkit/CookieManager
 - **Arguments:** none on either method. There is no D2
   `webprofile_invalid_argument` path today.
 
@@ -320,7 +352,7 @@ All codes match `^[a-z_]+$` and start with `webprofile_`.
 
 - **Handler:** `WidgetForegroundChannel.kt`.
 - **Dart:** `lib/core/widget/widget_channel.dart`.
-- **Thread (D0):** main.
+- **Thread:** main.
 - **No `result.error` today.** Dart treats `PlatformException` as best-effort
   (`debugPrint` / `hasAnyWidget` → `false`).
 
@@ -370,8 +402,13 @@ thread (`FlutterJNI` `@UiThread`).
   `android/app/src/fdroid/kotlin/…/DistributionUpdaterChannel.kt`.
 - **Dart:** `lib/core/updater/update_platform.dart`.
   `PlatformException.code` is copied onto `UpdatePlatformException`.
-- **Thread (D0):** main. github `getPackageArchiveInfo` is main-thread IO
-  (D3). D2 must **not** edit these files (D5 dedups helpers).
+- **Thread:** github registers a serial background TaskQueue so
+  `getPackageArchiveInfo` / APK hashing in `verifyApk` (and `deleteApk`
+  file IO) leave the main thread. `installApk` validates the path on that
+  queue, then posts `startActivity` to the main looper; Map results stay
+  `{valid:false, errorCode}` / `{status:failed, errorCode}` byte-identical.
+  fdroid has no archive IO and stays on main. D5 still owns helper dedup;
+  do not change signing/verifier codes here.
 
 ### Methods (both flavors)
 
@@ -490,11 +527,15 @@ code** above. Remaining child steps:
   Every new code is `^[a-z_]+$` and starts with `mediastore_` / `saf_` /
   `webprofile_`. Handlers are dispatchable without an Activity
   (`handle(call, result, deps)` + JVM tests).
-- **D3:** MediaStore `write`, SAF `write`, reverse-image copy, github
-  `getPackageArchiveInfo` (and `CookieManager.flush`) leave the main
-  thread (`BinaryMessenger.makeBackgroundTaskQueue` or IO + main-thread
-  `result`). begin/write/finalize stay ordered per stream id. The **Thread**
-  column in this file still says `main` until D3 updates it.
+- **D3 (done):** MediaStore, SAF, reverse-image, and github updater
+  register with `makeBackgroundTaskQueue`. Per-stream begin/write/finalize
+  (and SAF create/write/close) stay ordered because the queue is serial.
+  Activity work (`pickTree`, `pickImage`, `openExternal`, github
+  `installApk`) is posted to main; picker `pendingResult` state is
+  synchronized. fdroid updater stays on main (no archive IO).
+  `pixivfunc/webprofile` stays on main — `CookieManager.getCookie`/`flush`
+  are not documented thread-safe. The **Thread** column above is the
+  current fact.
 - **D4:** Delete 12 dead `SDK_INT < Q/P/O` branches; keep 3× `TIRAMISU`.
   Delete `drawable-v21/launch_background.xml` and debug/profile redundant
   `INTERNET`. Do not change `http://pixiv.net` deep-link filters.

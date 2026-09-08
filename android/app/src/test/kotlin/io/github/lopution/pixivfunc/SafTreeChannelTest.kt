@@ -5,6 +5,7 @@ import io.flutter.plugin.common.MethodCall
 import java.io.IOException
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -172,6 +173,106 @@ class SafTreeChannelTest {
         ) { _, _ -> }
         assertNull(result.successValue)
         assertNull(result.errorCode)
+    }
+
+    @Test
+    fun `pickTree is posted to main`() {
+        val poster = RecordingMainThreadPoster()
+        var started = 0
+        val result = RecordingMethodResult()
+        SafTreeChannel.handle(
+            MethodCall("pickTree", emptyMap<String, Any?>()),
+            result,
+            FakeSafOps(),
+            SafTreeLauncher {
+                started += 1
+                true
+            },
+            poster,
+        )
+        assertEquals(0, started)
+        assertEquals(1, poster.posted.size)
+        assertNull(result.errorCode)
+        assertFalse(result.hasSuccess())
+        poster.runAll()
+        assertEquals(1, started)
+        assertNull(result.errorCode)
+        assertFalse(result.hasSuccess())
+    }
+
+    @Test
+    fun `pickTree while pending is saf_busy before main runs`() {
+        val poster = RecordingMainThreadPoster()
+        val first = RecordingMethodResult()
+        SafTreeChannel.handle(
+            MethodCall("pickTree", emptyMap<String, Any?>()),
+            first,
+            FakeSafOps(),
+            SafTreeLauncher { true },
+            poster,
+        )
+        val second = dispatch("pickTree", emptyMap())
+        assertEquals("saf_busy", second.errorCode)
+        assertNull(first.errorCode)
+        assertEquals(1, poster.posted.size)
+    }
+
+    @Test
+    fun `failed pickTree on main clears pending so the next pick can start`() {
+        val poster = RecordingMainThreadPoster()
+        val first = RecordingMethodResult()
+        SafTreeChannel.handle(
+            MethodCall("pickTree", emptyMap<String, Any?>()),
+            first,
+            FakeSafOps(),
+            SafTreeLauncher { false },
+            poster,
+        )
+        poster.runAll()
+        assertEquals("saf_unavailable", first.errorCode)
+        var started = 0
+        val second = RecordingMethodResult()
+        SafTreeChannel.handle(
+            MethodCall("pickTree", emptyMap<String, Any?>()),
+            second,
+            FakeSafOps(),
+            SafTreeLauncher {
+                started += 1
+                true
+            },
+            ImmediateMainThreadPoster,
+        )
+        assertEquals(1, started)
+        assertNull(second.errorCode)
+    }
+
+    @Test
+    fun `onActivityResult clears pending so the next pick can start`() {
+        val first = RecordingMethodResult()
+        SafTreeChannel.handle(
+            MethodCall("pickTree", emptyMap<String, Any?>()),
+            first,
+            FakeSafOps(),
+            SafTreeLauncher { true },
+            ImmediateMainThreadPoster,
+        )
+        assertTrue(SafTreeChannel.onActivityResult(0x53AF, Activity.RESULT_CANCELED, null))
+        assertNull(first.errorCode)
+        assertNull(first.successValue)
+        var started = 0
+        val second = RecordingMethodResult()
+        SafTreeChannel.handle(
+            MethodCall("pickTree", emptyMap<String, Any?>()),
+            second,
+            FakeSafOps(),
+            SafTreeLauncher {
+                started += 1
+                true
+            },
+            ImmediateMainThreadPoster,
+        )
+        assertEquals(1, started)
+        assertNull(second.errorCode)
     }
 
     private fun dispatch(

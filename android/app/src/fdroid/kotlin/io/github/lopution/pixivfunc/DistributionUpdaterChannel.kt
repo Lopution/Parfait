@@ -14,6 +14,7 @@ object DistributionUpdaterChannel {
     private const val CHANNEL = "pixivfunc/updater"
 
     fun configure(context: Context, engine: FlutterEngine) {
+        // No archive IO on this flavor; stay on the platform thread.
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
