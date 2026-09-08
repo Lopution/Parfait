@@ -8,6 +8,7 @@ import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import 'comment_models.dart';
+import '../entity/json_read.dart';
 
 /// JSON boundary for Pixiv comments and replies.
 abstract interface class CommentRepository {
@@ -170,7 +171,7 @@ class PixivCommentRepository implements CommentRepository {
       }
       return CommentPage(
         comments: comments,
-        nextUrl: _nextUrl(json['next_url']),
+        nextUrl: requireNextUrl(json['next_url']),
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
@@ -213,12 +214,6 @@ class PixivCommentRepository implements CommentRepository {
   Uri _target(NextPageRequest request) => PixivClientIdentity.appApiBase
       .replace(path: request.uri.path, queryParameters: request.query);
 
-  static String? _nextUrl(Object? value) {
-    if (value == null) return null;
-    if (value is String && value.isNotEmpty) return value;
-    if (value is String) return null;
-    throw const FormatException('next_url must be a string or null');
-  }
 
   static Map<String, dynamic> _successObject(
     dynamic response, {

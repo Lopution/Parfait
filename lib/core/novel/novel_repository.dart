@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../entity/json_read.dart';
+
 import '../network/api_error.dart';
 import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
@@ -264,7 +266,7 @@ class PixivNovelRepository implements NovelRepository {
             else
               throw const FormatException('novels contains a non-object'),
         ],
-        nextUrl: _nextUrl(json['next_url']),
+        nextUrl: readNextUrl(json['next_url']),
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
@@ -279,15 +281,15 @@ class PixivNovelRepository implements NovelRepository {
     if (raw is! List) {
       throw const ApiParseError('series novels list is missing or malformed');
     }
-    final detail = _map(json['novel_series_detail']);
-    final parsedSeriesId = _positiveInt(detail['id']) ?? requestedSeriesId;
-    final title = _optionalString(detail['title']);
+    final detail = readMap(json['novel_series_detail']);
+    final parsedSeriesId = readPositiveInt(detail['id']) ?? requestedSeriesId;
+    final title = readOptionalString(detail['title']);
     try {
       return NovelSeriesPage(
         seriesId: parsedSeriesId,
         title: title,
         entries: [for (final item in raw) _parseSeriesEntry(item)],
-        nextUrl: _nextUrl(json['next_url']),
+        nextUrl: readNextUrl(json['next_url']),
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
@@ -298,8 +300,8 @@ class PixivNovelRepository implements NovelRepository {
     if (value is! Map<String, dynamic>) {
       throw const FormatException('series novels contains a non-object');
     }
-    final id = _positiveInt(value['id']);
-    final title = _optionalString(value['title']);
+    final id = readPositiveInt(value['id']);
+    final title = readOptionalString(value['title']);
     if (id == null || title == null) {
       throw const FormatException('series novel is missing id or title');
     }
@@ -307,8 +309,8 @@ class PixivNovelRepository implements NovelRepository {
       id: id,
       title: title,
       viewable: value['visible'] is! bool || value['visible'] == true,
-      contentOrder: _optionalString(value['content_order']),
-      viewableMessage: _optionalString(value['viewable_message']),
+      contentOrder: readOptionalString(value['content_order']),
+      viewableMessage: readOptionalString(value['viewable_message']),
     );
   }
 
@@ -316,19 +318,6 @@ class PixivNovelRepository implements NovelRepository {
     if (value <= 0) throw ArgumentError.value(value, field);
   }
 
-  static int? _positiveInt(Object? value) {
-    final parsed = value is int ? value : int.tryParse('$value');
-    return parsed == null || parsed <= 0 ? null : parsed;
-  }
-
-  static String? _optionalString(Object? value) =>
-      value is String && value.isNotEmpty ? value : null;
-
-  static Map<String, dynamic> _map(Object? value) =>
-      value is Map<String, dynamic> ? value : const <String, dynamic>{};
-
-  static String? _nextUrl(Object? value) =>
-      value is String && value.isNotEmpty ? value : null;
 }
 
 final novelRepositoryProvider = Provider<NovelRepository>((ref) {

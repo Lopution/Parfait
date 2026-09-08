@@ -9,6 +9,7 @@ import '../network/pixiv_http_client.dart';
 import '../novel/novel_entity.dart';
 import '../user/user_entity.dart';
 import 'search_models.dart';
+import '../entity/json_read.dart';
 
 class SearchIllustPage {
   const SearchIllustPage({required this.illusts, required this.nextUrl});
@@ -263,7 +264,7 @@ class PixivSearchRepository implements SearchRepository {
             else
               throw const FormatException('novels contains a non-object'),
         ],
-        nextUrl: _nextUrl(json['next_url']),
+        nextUrl: readNextUrl(json['next_url']),
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
@@ -288,7 +289,7 @@ class PixivSearchRepository implements SearchRepository {
                 'user_previews contains a non-object',
               ),
         ],
-        nextUrl: _nextUrl(json['next_url']),
+        nextUrl: readNextUrl(json['next_url']),
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
@@ -300,11 +301,11 @@ class PixivSearchRepository implements SearchRepository {
       return SearchSuggestion(keyword: value.trim());
     }
     if (value is Map<String, dynamic>) {
-      final keyword = _firstString(value, const ['word', 'tag', 'name']);
+      final keyword = readFirstTrimmedString(value, const ['word', 'tag', 'name']);
       if (keyword != null) {
         return SearchSuggestion(
           keyword: keyword,
-          translatedName: _firstString(value, const [
+          translatedName: readFirstTrimmedString(value, const [
             'translated_name',
             'translatedName',
           ]),
@@ -318,9 +319,9 @@ class PixivSearchRepository implements SearchRepository {
     if (value is! Map<String, dynamic>) {
       throw const FormatException('trend tag is not an object');
     }
-    final name = _firstString(value, const ['tag', 'name']);
+    final name = readFirstTrimmedString(value, const ['tag', 'name']);
     if (name == null) throw const FormatException('trend tag name is missing');
-    final translated = _firstString(value, const [
+    final translated = readFirstTrimmedString(value, const [
       'translated_name',
       'translatedName',
     ]);
@@ -347,17 +348,6 @@ class PixivSearchRepository implements SearchRepository {
           path: request.uri.path,
           query: request.uri.query,
         );
-
-  static String? _nextUrl(Object? value) =>
-      value is String && value.isNotEmpty ? value : null;
-}
-
-String? _firstString(Map<String, dynamic> value, List<String> keys) {
-  for (final key in keys) {
-    final item = value[key];
-    if (item is String && item.trim().isNotEmpty) return item.trim();
-  }
-  return null;
 }
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {

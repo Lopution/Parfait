@@ -7,6 +7,7 @@ import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../novel/novel_entity.dart';
 import 'new_feed_models.dart';
+import '../entity/json_read.dart';
 
 class NewIllustPage {
   const NewIllustPage({required this.illusts, required this.nextUrl});
@@ -90,7 +91,7 @@ class PixivNewFeedRepository implements NewFeedRepository {
             else
               throw const FormatException('novels contains a non-object'),
         ],
-        nextUrl: _nextUrl(json['next_url']),
+        nextUrl: readNextUrl(json['next_url']),
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
@@ -187,9 +188,6 @@ class PixivNewFeedRepository implements NewFeedRepository {
           path: request.uri.path,
           query: request.uri.query,
         );
-
-  static String? _nextUrl(Object? value) =>
-      value is String && value.isNotEmpty ? value : null;
 }
 
 final newFeedRepositoryProvider = Provider<NewFeedRepository>((ref) {

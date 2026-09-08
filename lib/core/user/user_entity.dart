@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../entity/json_read.dart';
 
 /// Non-secret, account-scoped user data shared by profile and relationship
 /// surfaces.
@@ -68,9 +69,9 @@ class UserEntity {
   final bool hasDetail;
 
   factory UserEntity.fromUserJson(Map<String, dynamic> json) {
-    final id = _positiveInt(json['id'], 'user.id');
-    final name = _requiredString(json['name'], 'user.name');
-    final account = _optionalString(json['account']) ?? '';
+    final id = requirePositiveInt(json['id'], 'user.id');
+    final name = requireString(json['name'], 'user.name');
+    final account = readOptionalString(json['account']) ?? '';
     final imageUrls = _map(json['profile_image_urls']);
     final visible =
         _boolFromKeys(json, const ['is_access_blocking_user', 'is_blocked']) !=
@@ -79,12 +80,12 @@ class UserEntity {
       id: id,
       name: name,
       account: account,
-      profileImageUrl: _firstString(imageUrls, const [
+      profileImageUrl: readFirstString(imageUrls, const [
         'medium',
         'px_170x170',
         'px_50x50',
       ]),
-      comment: _optionalString(json['comment']),
+      comment: readOptionalString(json['comment']),
       isFollowed: _optionalBool(json['is_followed']),
       visible: visible,
       isMuted: _optionalBool(json['is_muted']) ?? false,
@@ -107,39 +108,39 @@ class UserEntity {
     final profile = _map(json['profile']);
     final parsed = UserEntity.fromUserJson(user);
     return parsed.copyWith(
-      backgroundImageUrl: _optionalString(profile['background_image_url']),
-      webpage: _optionalString(profile['webpage']),
-      twitterUrl: _optionalString(profile['twitter_url']),
-      pawooUrl: _optionalString(profile['pawoo_url']),
-      totalFollowUsers: _nonNegativeInt(
+      backgroundImageUrl: readOptionalString(profile['background_image_url']),
+      webpage: readOptionalString(profile['webpage']),
+      twitterUrl: readOptionalString(profile['twitter_url']),
+      pawooUrl: readOptionalString(profile['pawoo_url']),
+      totalFollowUsers: requireNonNegativeInt(
         profile['total_follow_users'],
         'profile.total_follow_users',
       ),
-      totalMyPixivUsers: _nonNegativeInt(
+      totalMyPixivUsers: requireNonNegativeInt(
         profile['total_mypixiv_users'],
         'profile.total_mypixiv_users',
       ),
-      totalIllusts: _nonNegativeInt(
+      totalIllusts: requireNonNegativeInt(
         profile['total_illusts'],
         'profile.total_illusts',
       ),
-      totalManga: _nonNegativeInt(
+      totalManga: requireNonNegativeInt(
         profile['total_manga'],
         'profile.total_manga',
       ),
-      totalNovels: _nonNegativeInt(
+      totalNovels: requireNonNegativeInt(
         profile['total_novels'],
         'profile.total_novels',
       ),
-      totalIllustBookmarksPublic: _nonNegativeInt(
+      totalIllustBookmarksPublic: requireNonNegativeInt(
         profile['total_illust_bookmarks_public'],
         'profile.total_illust_bookmarks_public',
       ),
-      totalIllustSeries: _nonNegativeInt(
+      totalIllustSeries: requireNonNegativeInt(
         profile['total_illust_series'],
         'profile.total_illust_series',
       ),
-      totalNovelSeries: _nonNegativeInt(
+      totalNovelSeries: requireNonNegativeInt(
         profile['total_novel_series'],
         'profile.total_novel_series',
       ),
@@ -251,24 +252,6 @@ Map<String, dynamic> _map(Object? value) {
   throw const FormatException('user payload object is missing');
 }
 
-int _positiveInt(Object? value, String field) {
-  if (value is int && value > 0) return value;
-  throw FormatException('$field must be a positive integer');
-}
-
-int _nonNegativeInt(Object? value, String field) {
-  if (value is int && value >= 0) return value;
-  throw FormatException('$field must be a non-negative integer');
-}
-
-String _requiredString(Object? value, String field) {
-  if (value is String && value.isNotEmpty) return value;
-  throw FormatException('$field must be a non-empty string');
-}
-
-String? _optionalString(Object? value) =>
-    value is String && value.isNotEmpty ? value : null;
-
 bool? _optionalBool(Object? value) => value is bool ? value : null;
 
 bool? _boolFromKeys(Map<String, dynamic> json, List<String> keys) {
@@ -279,11 +262,3 @@ bool? _boolFromKeys(Map<String, dynamic> json, List<String> keys) {
   return null;
 }
 
-String? _firstString(Map<String, dynamic>? json, List<String> keys) {
-  if (json == null) return null;
-  for (final key in keys) {
-    final value = _optionalString(json[key]);
-    if (value != null) return value;
-  }
-  return null;
-}
