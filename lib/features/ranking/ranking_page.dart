@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
@@ -8,7 +9,7 @@ import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/network/api_error.dart';
 import '../../core/paging/paged_feed_controller.dart';
-import '../home/recommended/recommended_illust_page.dart';
+import '../../app/widgets/feed/illust_card.dart';
 import 'ranking_repository.dart';
 
 /// Ranking page with beta56's horizontally scrollable 11-mode tab bar.
@@ -157,19 +158,16 @@ class _RankingModeBody extends ConsumerWidget {
               controller: scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  sliver: SliverMasonryGrid.count(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 10,
-                    itemBuilder: (context, index) => IllustCard(
+                IllustFeedGrid(
+  padding: const EdgeInsets.symmetric(horizontal: 10),
+  mainAxisSpacing: 5,
+  crossAxisSpacing: 10,
+  itemCount: entities.length,
+  itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],
                       heroScope: 'ranking:${mode.name}',
                     ),
-                    childCount: entities.length,
-                  ),
-                ),
+),
                 SliverToBoxAdapter(
                   child: _RankingFeedTail(
                     feed: feed,

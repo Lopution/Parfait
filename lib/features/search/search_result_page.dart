@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/person_avatar.dart';
 import '../../app/widgets/novel_card.dart';
@@ -14,7 +15,7 @@ import '../../core/search/search_feed_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
-import '../home/recommended/recommended_illust_page.dart';
+import '../../app/widgets/feed/illust_card.dart';
 import '../profile/follow_switch_button.dart';
 import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
@@ -138,19 +139,16 @@ class _IllustSearchFeed extends ConsumerWidget {
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.all(10),
-              sliver: SliverMasonryGrid.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 5,
-                crossAxisSpacing: 10,
-                itemBuilder: (context, index) => IllustCard(
+            IllustFeedGrid(
+  padding: const EdgeInsets.all(10),
+  mainAxisSpacing: 5,
+  crossAxisSpacing: 10,
+  itemCount: entities.length,
+  itemBuilder: (context, index) => IllustCard(
                   entity: entities[index],
                   heroScope: 'search:${query.cacheKey}',
                 ),
-                childCount: entities.length,
-              ),
-            ),
+),
             SliverToBoxAdapter(
               child: _SearchFeedTail(
                 feed: feed,

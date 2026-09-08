@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+
+import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/entity/illust_store.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import '../../home/recommended/recommended_illust_page.dart';
+import '../../../app/widgets/feed/illust_card.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../search/search_text.dart';
@@ -122,13 +123,12 @@ class RelatedIllustsSlivers extends ConsumerWidget {
             child: SizedBox.shrink(),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          sliver: SliverMasonryGrid.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            itemBuilder: (context, index) => IllustCard(
+        IllustFeedGrid(
+  padding: const EdgeInsets.symmetric(horizontal: 10),
+  mainAxisSpacing: 10,
+  crossAxisSpacing: 10,
+  itemCount: illusts.length,
+  itemBuilder: (context, index) => IllustCard(
               entity: illusts[index],
               // Same heroScope the detail page receives when a tile is
               // pushed: the flight lands on a card shaped exactly like the
@@ -136,9 +136,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
               // fixed-square crop flash.
               heroScope: 'related:$illustId:${illusts[index].id}',
             ),
-            childCount: illusts.length,
-          ),
-        ),
+),
         SliverToBoxAdapter(
           child: _LoadMoreFooter(state: state, onLoadMore: controller.loadMore),
         ),

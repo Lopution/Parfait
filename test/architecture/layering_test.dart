@@ -30,17 +30,9 @@ const _allowListedEdges = <String>{
   'lib/core/widget/widget_feed_loader.dart -> lib/features/home/recommended/recommended_repository.dart',
 
   // R2: features a != b (C2 facade / C3 components / C4 move: 44 edges)
-  'lib/features/home/recommended/recommended_illust_page.dart -> lib/features/bookmark/bookmark_switch_button.dart',
-  'lib/features/home/recommended/recommended_illust_page.dart -> lib/features/illust/detail/illust_detail_page.dart',
-  'lib/features/illust/detail/illust_detail_page.dart -> lib/features/bookmark/bookmark_switch_button.dart',
-  'lib/features/illust/detail/related_illusts_section.dart -> lib/features/home/recommended/recommended_illust_page.dart',
   'lib/features/illust/detail/related_illusts_section.dart -> lib/features/search/search_text.dart',
-  'lib/features/new/new_page.dart -> lib/features/home/recommended/recommended_illust_page.dart',
   'lib/features/onboarding/startup_gate.dart -> lib/features/home/home_page.dart',
   'lib/features/onboarding/startup_gate.dart -> lib/features/login/login_page.dart',
-  'lib/features/profile/user_page.dart -> lib/features/home/recommended/recommended_illust_page.dart',
-  'lib/features/ranking/ranking_page.dart -> lib/features/home/recommended/recommended_illust_page.dart',
-  'lib/features/search/search_result_page.dart -> lib/features/home/recommended/recommended_illust_page.dart',
   'lib/features/search/search_result_page.dart -> lib/features/profile/follow_switch_button.dart',
   'lib/features/settings/settings_page.dart -> lib/features/profile/user_page.dart',
 

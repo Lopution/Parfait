@@ -17,6 +17,7 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_illust_page.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_repository.dart'
     hide RecommendedIllustPage;

@@ -26,7 +26,7 @@ import '../../app/navigation/routes.dart';
 import '../../core/updater/update_providers.dart';
 import '../../core/updater/update_service.dart';
 import '../profile/user_page.dart' as profile;
-import '../../app/navigation/routes.dart' show openLogin, openProfileEdit;
+import '../../app/navigation/routes.dart' show openHistory, openLogin, openProfileEdit;
 import 'network_settings_page.dart';
 
 String _settingsText(BuildContext context, String key) {

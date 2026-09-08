@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../app/icons/app_icons.dart';
@@ -18,7 +19,7 @@ import '../../core/paging/paged_feed_controller.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
-import '../home/recommended/recommended_illust_page.dart';
+import '../../app/widgets/feed/illust_card.dart';
 import 'follow_switch_button.dart';
 import 'profile_feed_controller.dart';
 import 'profile_header_delegate.dart';
@@ -434,21 +435,18 @@ class _ProfileIllustFeed extends ConsumerWidget {
                     ),
                   )
                 else
-                  SliverPadding(
-                    padding: const EdgeInsets.all(10),
-                    sliver: SliverMasonryGrid.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 5,
-                      crossAxisSpacing: 10,
-                      itemBuilder: (context, index) => IllustCard(
+                  IllustFeedGrid(
+  padding: const EdgeInsets.all(10),
+  mainAxisSpacing: 5,
+  crossAxisSpacing: 10,
+  itemCount: entities.length,
+  itemBuilder: (context, index) => IllustCard(
                         entity: entities[index],
                         heroScope:
                             'profile:${feedKey.userId}:${feedKey.kind.name}:'
                             '${feedKey.workType.name}:${feedKey.restrict.name}',
                       ),
-                      childCount: entities.length,
-                    ),
-                  ),
+),
                 SliverToBoxAdapter(
                   child: _ProfileFeedTail(
                     feed: feed,
