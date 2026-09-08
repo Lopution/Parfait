@@ -39,10 +39,28 @@ void main() {
     expect(github, contains('object DistributionUpdaterChannel'));
     expect(github, contains('UPDATE_SELF_UPDATER_ENABLED'));
     expect(github, contains('pixivfunc/updater'));
-    expect(github, contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'));
+    expect(
+      github,
+      contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'),
+    );
+    // API 29-safe verifier: SHA256withECDSA over the raw manifest bytes, and
+    // every failure is one of the five diagnosable codes the Dart side maps.
+    expect(github, contains('"SHA256withECDSA"'));
+    for (final code in const [
+      'public_key_missing',
+      'algorithm_unavailable',
+      'signature_mismatch',
+      'message_missing',
+      'signature_missing',
+    ]) {
+      expect(github, contains('"$code"'), reason: code);
+    }
     expect(fdroid, contains('object DistributionUpdaterChannel'));
     expect(fdroid, contains('storeManaged'));
-    expect(fdroid, contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'));
+    expect(
+      fdroid,
+      contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'),
+    );
     expect(fdroid, isNot(contains('HttpURLConnection')));
     expect(fdroid, isNot(contains('github.com')));
   });
