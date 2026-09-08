@@ -339,6 +339,9 @@ class ReplicaStrings {
       'searchReverseOpenExternal': '打开来源',
       'searchReverseOpenFailed': '无法打开来源链接',
       'searchReverseRateLimited': '搜索过于频繁，请稍后再试',
+      'searchReverseRateLimitedWait': '约 {seconds} 秒后可重试',
+      'searchReverseDailyLimit': '今日匿名搜索额度已用完，明天再试',
+      'searchReverseChallenge': 'SauceNAO 要求人机验证，本次搜索未完成，请稍后再试',
       'searchReversePageLoadFailed': '结果页加载失败',
       'searchReverseIntro': '选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。',
       'searchNoRepresentative': '该标签暂无代表作品',
@@ -807,6 +810,11 @@ class ReplicaStrings {
       'searchReverseOpenExternal': 'Open source',
       'searchReverseOpenFailed': 'Could not open the source link',
       'searchReverseRateLimited': 'Too many searches, try again later',
+      'searchReverseRateLimitedWait': 'Try again in about {seconds} seconds',
+      'searchReverseDailyLimit':
+          "Today's anonymous search quota is used up. Try again tomorrow.",
+      'searchReverseChallenge':
+          'SauceNAO requires human verification. This search did not finish. Try again later.',
       'searchReversePageLoadFailed': 'The result page failed to load',
       'searchReverseIntro':
           'The selected image is uploaded anonymously to SauceNAO; the result page opens inside the app.',
@@ -1260,6 +1268,10 @@ class ReplicaStrings {
       'searchReverseOpenExternal': 'ソースを開く',
       'searchReverseOpenFailed': 'ソースリンクを開けません',
       'searchReverseRateLimited': '検索が混み合っています。しばらくしてからお試しください',
+      'searchReverseRateLimitedWait': '約 {seconds} 秒後に再試行できます',
+      'searchReverseDailyLimit': '本日の匿名検索回数の上限に達しました。明日もう一度お試しください',
+      'searchReverseChallenge':
+          'SauceNAO が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください',
       'searchReversePageLoadFailed': '結果ページの読み込みに失敗しました',
       'searchReverseIntro': '選択した画像は匿名で SauceNAO に送信され、結果ページがアプリ内で開きます。',
       'searchNoRepresentative': 'このタグには代表作品がありません',
@@ -1725,6 +1737,12 @@ class ReplicaStrings {
       'searchReverseOpenExternal': 'Открыть источник',
       'searchReverseOpenFailed': 'Не удалось открыть ссылку источника',
       'searchReverseRateLimited': 'Слишком много запросов, попробуйте позже',
+      'searchReverseRateLimitedWait':
+          'Повторите попытку примерно через {seconds} с',
+      'searchReverseDailyLimit':
+          'Дневной лимит анонимного поиска исчерпан. Попробуйте завтра.',
+      'searchReverseChallenge':
+          'SauceNAO требует проверку человека. Этот поиск не завершён. Попробуйте позже.',
       'searchReversePageLoadFailed':
           'Не удалось загрузить страницу результатов',
       'searchReverseIntro':

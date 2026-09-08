@@ -44,9 +44,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
     super.initState();
     _controller = ReverseImageSearchController(
       platform: widget.platform ?? MethodChannelReverseImageInputPlatform(),
-      provider:
-          widget.provider ??
-          SauceNaoWebViewProvider(),
+      provider: widget.provider ?? SauceNaoWebViewProvider(),
     )..addListener(_onControllerChanged);
     _externalLauncher =
         widget.externalLauncher ?? MethodChannelReverseImageExternalLauncher();
@@ -111,9 +109,10 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
       ),
       ReverseImageFlowStatus.ready => _ready(context, state),
       ReverseImageFlowStatus.failure => _failure(context, state),
-      ReverseImageFlowStatus.success => state.webView != null
-          ? _sauceNaoWebView(context, state.webView!)
-          : _results(context, state),
+      ReverseImageFlowStatus.success =>
+        state.webView != null
+            ? _sauceNaoWebView(context, state.webView!)
+            : _results(context, state),
     };
   }
 
@@ -250,9 +249,18 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
 
   Widget _failure(BuildContext context, ReverseImageFlowState state) {
     final failure = state.failure!;
-    final message =
-        failure.code == ReverseImageProviderFailureCode.providerUnavailable
+    final seconds = failure.retryAfter?.inSeconds;
+    final message = failure.code == ReverseImageProviderFailureCode.challenge
+        ? searchText(context, 'searchReverseChallenge')
+        : failure.code == ReverseImageProviderFailureCode.providerUnavailable
         ? searchText(context, 'searchReverseUnavailableDetail')
+        : failure.code == ReverseImageProviderFailureCode.dailyLimit
+        ? searchText(context, 'searchReverseDailyLimit')
+        : failure.code == ReverseImageProviderFailureCode.rateLimited &&
+              seconds != null
+        ? searchText(context, 'searchReverseRateLimitedWait', {
+            'seconds': seconds,
+          })
         : failure.code == ReverseImageProviderFailureCode.rateLimited
         ? searchText(context, 'searchReverseRateLimited')
         : failure.message;

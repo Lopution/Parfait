@@ -134,7 +134,7 @@ void main() {
     );
   });
 
-  test('a 200 challenge or no-match HTML page is a visible failure', () async {
+  test('a 200 captcha page is a visible challenge failure', () async {
     final client = MockClient(
       (request) async => http.Response(
         '<html><body>captcha: verify you are human</body></html>',
@@ -149,9 +149,144 @@ void main() {
     expect(outcome, isA<ReverseImageSearchFailure>());
     expect(
       (outcome as ReverseImageSearchFailure).code,
-      ReverseImageProviderFailureCode.providerUnavailable,
+      ReverseImageProviderFailureCode.challenge,
     );
   });
+
+  test('a real anonymous result page (with the Cloudflare analytics beacon) '
+      'is a webview result, not a challenge', () async {
+    final fixture = File(
+      'test/fixtures/saucenao/anonymous_result_page.html',
+    ).readAsBytesSync();
+    final client = MockClient(
+      (request) async => http.Response.bytes(
+        fixture,
+        200,
+        headers: {'content-type': 'text/html; charset=UTF-8'},
+      ),
+    );
+    final provider = SauceNaoWebViewProvider(client: client);
+
+    final outcome = await provider.search(input);
+
+    expect(outcome, isA<ReverseImageSearchWebView>());
+    final html = (outcome as ReverseImageSearchWebView).html!;
+    expect(html, contains('resulttable'));
+    expect(html.toLowerCase(), contains('cloudflareinsights'));
+  });
+
+  test('a Cloudflare interstitial is still classified as a challenge', () async {
+    const interstitial =
+        '<!DOCTYPE html><html><head>'
+        '<title>Just a moment...</title></head><body>'
+        '<script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1">'
+        '</script></body></html>';
+    final client = MockClient(
+      (request) async => http.Response(
+        interstitial,
+        200,
+        headers: {'content-type': 'text/html'},
+      ),
+    );
+    final provider = SauceNaoWebViewProvider(client: client);
+
+    final outcome = await provider.search(input);
+
+    expect(outcome, isA<ReverseImageSearchFailure>());
+    expect(
+      (outcome as ReverseImageSearchFailure).code,
+      ReverseImageProviderFailureCode.challenge,
+    );
+  });
+
+  test(
+    'an Attention Required Cloudflare page is classified as a challenge',
+    () async {
+      const interstitial =
+          '<!DOCTYPE html><html><head>'
+          '<title>Attention Required! | Cloudflare</title></head><body>'
+          '<form class="cf-turnstile"></form>'
+          '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js">'
+          '</script></body></html>';
+      final client = MockClient(
+        (request) async => http.Response(
+          interstitial,
+          200,
+          headers: {'content-type': 'text/html'},
+        ),
+      );
+      final provider = SauceNaoWebViewProvider(client: client);
+
+      final outcome = await provider.search(input);
+
+      expect(outcome, isA<ReverseImageSearchFailure>());
+      expect(
+        (outcome as ReverseImageSearchFailure).code,
+        ReverseImageProviderFailureCode.challenge,
+      );
+    },
+  );
+
+  test('a 403 response is classified as a challenge', () async {
+    final client = MockClient(
+      (request) async => http.Response('forbidden', 403),
+    );
+    final provider = SauceNaoWebViewProvider(client: client);
+
+    final outcome = await provider.search(input);
+
+    expect(outcome, isA<ReverseImageSearchFailure>());
+    expect(
+      (outcome as ReverseImageSearchFailure).code,
+      ReverseImageProviderFailureCode.challenge,
+    );
+  });
+
+  test('a rendered daily limit page is dailyLimit and retryable', () async {
+    const text =
+        'Daily Search Limit Exceeded. Your IP has exceeded the unregistered '
+        "user's daily limit of 150 searches.";
+    final client = MockClient(
+      (request) async => http.Response(
+        '<html><body>$text</body></html>',
+        200,
+        headers: {'content-type': 'text/html'},
+      ),
+    );
+    final provider = SauceNaoWebViewProvider(client: client);
+
+    final outcome = await provider.search(input);
+
+    expect(outcome, isA<ReverseImageSearchFailure>());
+    final failure = outcome as ReverseImageSearchFailure;
+    expect(failure.code, ReverseImageProviderFailureCode.dailyLimit);
+    expect(failure.retryable, isTrue);
+    expect(failure.retryAfter, isNull);
+  });
+
+  test(
+    'a Search Rate Too High page is rateLimited with a 30s retryAfter',
+    () async {
+      const text =
+          'Search Rate Too High. Please wait a moment before trying again.';
+      final client = MockClient(
+        (request) async => http.Response(
+          '<html><body>$text</body></html>',
+          200,
+          headers: {'content-type': 'text/html'},
+        ),
+      );
+      final provider = SauceNaoWebViewProvider(client: client);
+
+      final outcome = await provider.search(input);
+
+      expect(outcome, isA<ReverseImageSearchFailure>());
+      final failure = outcome as ReverseImageSearchFailure;
+      expect(failure.code, ReverseImageProviderFailureCode.rateLimited);
+      expect(failure.retryable, isTrue);
+      expect(failure.retryAfter, const Duration(seconds: 30));
+    },
+  );
 
   test('decodes UTF-8 result HTML without corrupting non-ASCII text', () async {
     final client = MockClient(
@@ -169,7 +304,7 @@ void main() {
     expect((outcome as ReverseImageSearchWebView).html, contains('结果：你好'));
   });
 
-  test('rejects a no-match HTML page', () async {
+  test('a no-match HTML page is an explicit empty success', () async {
     final client = MockClient(
       (request) async => http.Response.bytes(
         utf8.encode('<html><body>没有匹配结果</body></html>'),
@@ -181,11 +316,8 @@ void main() {
 
     final outcome = await provider.search(input);
 
-    expect(outcome, isA<ReverseImageSearchFailure>());
-    expect(
-      (outcome as ReverseImageSearchFailure).code,
-      ReverseImageProviderFailureCode.malformedResponse,
-    );
+    expect(outcome, isA<ReverseImageSearchSuccess>());
+    expect((outcome as ReverseImageSearchSuccess).hits, isEmpty);
   });
 
   test('provider belongs to interactiveWebView and is enabled', () {
