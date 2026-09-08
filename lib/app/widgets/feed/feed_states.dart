@@ -11,6 +11,7 @@ class FeedTail extends StatelessWidget {
     required this.feed,
     this.onRetry,
     this.errorTitle,
+    this.retryLabel = 'Retry',
     this.endMessage,
     this.padding = const EdgeInsets.all(16),
   });
@@ -20,48 +21,40 @@ class FeedTail extends StatelessWidget {
 
   /// Optional translated title shown above the load-more error row.
   final String? errorTitle;
+  final String retryLabel;
+
+  /// Optional translated marker rendered when the feed is exhausted.
   final String? endMessage;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     if (feed.showLoadMoreSpinner) {
-      return Padding(
-        padding: padding,
-        child: const Center(child: CircularProgressIndicator()),
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(),
+        ),
       );
     }
     if (feed.showLoadMoreError) {
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (errorTitle != null) ...[
-              Text(errorTitle!, style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 4),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (errorTitle != null) Text(errorTitle!),
+              Text(
+                '${feed.loadMoreError}',
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+              ),
+              TextButton(onPressed: onRetry, child: Text(retryLabel)),
             ],
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  color: Theme.of(context).colorScheme.error,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    feed.loadMoreError?.message ?? '',
-                    style: Theme.of(context).textTheme.bodySmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (onRetry != null) ...[SizedBox(width: 8), TextButton(onPressed: onRetry, child: const Text('Retry'))],
-              ],
-            ),
-          ],
+          ),
         ),
       );
     }
@@ -80,99 +73,94 @@ class FeedTail extends StatelessWidget {
   }
 }
 
-/// Shared empty-state widget for a feed with no content.
+/// Shared empty/status widget for a feed with no content (or a transient
+/// status such as loading/restricted). Renders icon + title, plus an optional
+/// refresh button when [onRefresh] is provided.
 class FeedEmpty extends StatelessWidget {
   const FeedEmpty({
     super.key,
     this.icon = Icons.inbox_outlined,
     required this.title,
     this.onRefresh,
-    this.onRetry,
+    this.retryLabel = 'Refresh',
   });
 
   final IconData icon;
   final String title;
-  final VoidCallback? onRefresh;
-  final VoidCallback? onRetry;
+  final Future<void> Function()? onRefresh;
+  final String retryLabel;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
+          const SizedBox(height: 12),
+          Text(title),
+          if (onRefresh != null) ...[
             const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+            OutlinedButton.icon(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh),
+              label: Text(retryLabel),
             ),
-            if (onRefresh != null || onRetry != null) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: onRefresh ?? onRetry,
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Refresh'),
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
 /// Shared feed error state (initial-load failure). Callers keep their own
-/// error mapping; [message] is already translated.
+/// error mapping: [title] and [retryLabel] are already translated, [error]
+/// is rendered as its string form below the title.
 class FeedError extends StatelessWidget {
   const FeedError({
     super.key,
-    required this.message,
+    required this.title,
     required this.onRetry,
+    this.retryLabel = 'Retry',
+    this.error,
     this.scrollable = true,
   });
 
-  final String message;
+  final String title;
+  final Object? error;
   final VoidCallback onRetry;
+  final String retryLabel;
   final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
-    final content = Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
+    final column = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.cloud_off, size: 48),
+        const SizedBox(height: 12),
+        Text(title),
+        if (error != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            '$error',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: 12),
+        FilledButton(onPressed: onRetry, child: Text(retryLabel)),
+      ],
     );
-    if (!scrollable) return content;
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [SliverFillRemaining(hasScrollBody: false, child: content)],
+    if (!scrollable) {
+      return Center(child: Padding(padding: const EdgeInsets.all(24), child: column));
+    }
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: column,
+      ),
     );
   }
 }

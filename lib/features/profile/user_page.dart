@@ -15,10 +15,10 @@ import '../../core/i18n/replica_strings.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_feed_controller.dart';
 import '../../core/novel/novel_store.dart';
-import '../../core/paging/paged_feed_controller.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import 'follow_switch_button.dart';
 import 'profile_feed_controller.dart';
@@ -385,16 +385,20 @@ class _ProfileIllustFeed extends ConsumerWidget {
     final async = ref.watch(profileIllustFeedProvider(feedKey));
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _ProfileFeedError(
+      error: (error, _) => FeedError(
+        title: _profileText(context, 'profileLoadFailed'),
         error: error,
+        retryLabel: _profileText(context, 'profileRetry'),
         onRetry: () => ref
             .read(profileIllustFeedProvider(feedKey).notifier)
             .retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _ProfileFeedError(
+          return FeedError(
+            title: _profileText(context, 'profileLoadFailed'),
             error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: _profileText(context, 'profileRetry'),
             onRetry: () => ref
                 .read(profileIllustFeedProvider(feedKey).notifier)
                 .retryInitial(),
@@ -428,11 +432,14 @@ class _ProfileIllustFeed extends ConsumerWidget {
                 if (entities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
-                    child: _ProfileEmpty(
-                      onRetry: () => ref
+                    child: FeedEmpty(
+        icon: Icons.inbox_outlined,
+        title: _profileText(context, 'profileItemsEmpty'),
+        retryLabel: _profileText(context, 'profileRetry'),
+        onRefresh: () => ref
                           .read(profileIllustFeedProvider(feedKey).notifier)
                           .refresh(),
-                    ),
+      )
                   )
                 else
                   IllustFeedGrid(
@@ -448,12 +455,14 @@ class _ProfileIllustFeed extends ConsumerWidget {
                       ),
 ),
                 SliverToBoxAdapter(
-                  child: _ProfileFeedTail(
-                    feed: feed,
-                    onRetry: () => ref
+                  child: FeedTail(
+        feed: feed,
+        onRetry: () => ref
                         .read(profileIllustFeedProvider(feedKey).notifier)
                         .retryLoadMore(),
-                  ),
+        errorTitle: _profileText(context, 'profileLoadMoreFailed'),
+        retryLabel: _profileText(context, 'profileRetry'),
+      ),
                 ),
               ],
             ),
@@ -474,15 +483,19 @@ class _ProfileUserFeed extends ConsumerWidget {
     final async = ref.watch(profileUserFeedProvider(feedKey));
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _ProfileFeedError(
+      error: (error, _) => FeedError(
+        title: _profileText(context, 'profileLoadFailed'),
         error: error,
+        retryLabel: _profileText(context, 'profileRetry'),
         onRetry: () =>
             ref.read(profileUserFeedProvider(feedKey).notifier).retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _ProfileFeedError(
+          return FeedError(
+            title: _profileText(context, 'profileLoadFailed'),
             error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: _profileText(context, 'profileRetry'),
             onRetry: () => ref
                 .read(profileUserFeedProvider(feedKey).notifier)
                 .retryInitial(),
@@ -517,19 +530,23 @@ class _ProfileUserFeed extends ConsumerWidget {
                 if (index == 0) return const HeaderLocator();
                 final itemIndex = index - 1;
                 if (users.isEmpty) {
-                  return _ProfileEmpty(
-                    onRetry: () => ref
+                  return FeedEmpty(
+                    icon: Icons.inbox_outlined,
+                    title: _profileText(context, 'profileItemsEmpty'),
+                    onRefresh: () => ref
                         .read(profileUserFeedProvider(feedKey).notifier)
                         .refresh(),
                   );
                 }
                 if (itemIndex == users.length) {
-                  return _ProfileFeedTail(
-                    feed: feed,
-                    onRetry: () => ref
+                  return FeedTail(
+        feed: feed,
+        onRetry: () => ref
                         .read(profileUserFeedProvider(feedKey).notifier)
                         .retryLoadMore(),
-                  );
+        errorTitle: _profileText(context, 'profileLoadMoreFailed'),
+        retryLabel: _profileText(context, 'profileRetry'),
+      );
                 }
                 return _UserPreviewCard(user: users[itemIndex]);
               },
@@ -652,15 +669,19 @@ class _ProfileNovelFeed extends ConsumerWidget {
     final async = ref.watch(userNovelFeedProvider(userId));
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _ProfileFeedError(
+      error: (error, _) => FeedError(
+        title: _profileText(context, 'profileLoadFailed'),
         error: error,
+        retryLabel: _profileText(context, 'profileRetry'),
         onRetry: () =>
             ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _ProfileFeedError(
+          return FeedError(
+            title: _profileText(context, 'profileLoadFailed'),
             error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: _profileText(context, 'profileRetry'),
             onRetry: () =>
                 ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
           );
@@ -694,19 +715,23 @@ class _ProfileNovelFeed extends ConsumerWidget {
                 if (index == 0) return const HeaderLocator();
                 final itemIndex = index - 1;
                 if (novels.isEmpty) {
-                  return _ProfileEmpty(
-                    onRetry: () => ref
+                  return FeedEmpty(
+                    icon: Icons.inbox_outlined,
+                    title: _profileText(context, 'profileItemsEmpty'),
+                    onRefresh: () => ref
                         .read(userNovelFeedProvider(userId).notifier)
                         .refresh(),
                   );
                 }
                 if (itemIndex == novels.length) {
-                  return _ProfileFeedTail(
-                    feed: feed,
-                    onRetry: () => ref
+                  return FeedTail(
+        feed: feed,
+        onRetry: () => ref
                         .read(userNovelFeedProvider(userId).notifier)
                         .retryLoadMore(),
-                  );
+        errorTitle: _profileText(context, 'profileLoadMoreFailed'),
+        retryLabel: _profileText(context, 'profileRetry'),
+      );
                 }
                 return NovelCard(entity: novels[itemIndex]);
               },
@@ -756,105 +781,6 @@ class _ProfileAvatar extends StatelessWidget {
   }
 }
 
-class _ProfileFeedTail extends StatelessWidget {
-  const _ProfileFeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.all(18),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_profileText(context, 'profileLoadMoreFailed')),
-            TextButton(
-              onPressed: onRetry,
-              child: Text(_profileText(context, 'profileRetry')),
-            ),
-          ],
-        ),
-      );
-    }
-    return const SizedBox(height: 24);
-  }
-}
-
-class _ProfileEmpty extends StatelessWidget {
-  const _ProfileEmpty({required this.onRetry});
-
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 240,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 42,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _profileText(context, 'profileItemsEmpty'),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: Text(_profileText(context, 'profileRetry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileFeedError extends StatelessWidget {
-  const _ProfileFeedError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 42),
-            const SizedBox(height: 8),
-            Text(_profileText(context, 'profileLoadFailed')),
-            const SizedBox(height: 6),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_profileText(context, 'profileRetry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _ProfileStatusPage extends StatelessWidget {
   const _ProfileStatusPage({

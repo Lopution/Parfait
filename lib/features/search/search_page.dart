@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_repository.dart';
 import '../../core/search/search_trending_controller.dart';
-import '../../core/network/api_error.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
 
@@ -63,10 +63,12 @@ class SearchHomePage extends ConsumerWidget {
               ),
             ),
             error: (error, _) => SliverToBoxAdapter(
-              child: _SearchInlineError(
+              child: FeedError(
                 title: searchText(context, 'searchTrendingFailed'),
                 error: error,
+                retryLabel: searchText(context, 'searchRetry'),
                 onRetry: () => ref.invalidate(trendingTagsProvider),
+                scrollable: false,
               ),
             ),
             data: (tags) {
@@ -427,11 +429,13 @@ class SearchAutocompletePanel extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.error != null) {
-      return _SearchInlineError(
+      return FeedError(
         title: searchText(context, 'searchLoadFailed'),
         error: state.error!,
+        retryLabel: searchText(context, 'searchRetry'),
         onRetry: () =>
             ref.read(searchAutocompleteProvider.notifier).update(state.keyword),
+        scrollable: false,
       );
     }
     if (state.suggestions.isEmpty) {
@@ -456,43 +460,3 @@ class SearchAutocompletePanel extends ConsumerWidget {
   }
 }
 
-class _SearchInlineError extends StatelessWidget {
-  const _SearchInlineError({
-    required this.title,
-    required this.error,
-    required this.onRetry,
-  });
-
-  final String title;
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 42),
-            const SizedBox(height: 10),
-            Text(title),
-            const SizedBox(height: 6),
-            Text(
-              error is ApiError ? error.toString() : '$error',
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(searchText(context, 'searchRetry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

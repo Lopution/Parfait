@@ -160,14 +160,17 @@ class RecommendedFeedView extends ConsumerWidget {
     return feedAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => FeedError(
-        message: '${_recommendedText(context, 'recommendedLoadFailed')}\n$error',
+        title: _recommendedText(context, 'recommendedLoadFailed'),
+        error: error,
+        retryLabel: _recommendedText(context, 'retry'),
         onRetry: () => ref.invalidate(recommendedFeedProvider(key)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
           return FeedError(
-            message:
-                '${_recommendedText(context, 'recommendedLoadFailed')}\n${feed.initialError ?? const ApiParseError('unknown error')}',
+            title: _recommendedText(context, 'recommendedLoadFailed'),
+            error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: _recommendedText(context, 'retry'),
             onRetry: () =>
                 ref.read(recommendedFeedProvider(key).notifier).retryInitial(),
           );
@@ -224,6 +227,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
           child: FeedTail(
             feed: feed.copyWith(loadMorePhase: FeedPhase.error),
             onRetry: onRetryRefresh,
+            retryLabel: _recommendedText(context, 'retry'),
           ),
         ),
       SliverToBoxAdapter(
@@ -231,6 +235,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
           feed: feed,
           onRetry: onRetryLoadMore,
           endMessage: _recommendedText(context, 'recommendedEnd'),
+          retryLabel: _recommendedText(context, 'retry'),
         ),
       ),
     ];

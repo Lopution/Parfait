@@ -15,6 +15,7 @@ import '../../core/search/search_feed_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../profile/follow_switch_button.dart';
 import '../../app/navigation/routes.dart';
@@ -72,21 +73,25 @@ class SearchResultPage extends ConsumerWidget {
       ),
       body: async.when(
         loading: () =>
-            _SearchStatus(title: searchText(context, 'searchLoading')),
-        error: (error, _) => _SearchResultError(
+            FeedEmpty(icon: Icons.search, title: searchText(context, 'searchLoading')),
+        error: (error, _) => FeedError(
+          title: searchText(context, 'searchLoadFailed'),
           error: error,
+          retryLabel: searchText(context, 'searchRetry'),
           onRetry: () => ref.invalidate(searchFeedProvider(query)),
         ),
         data: (feed) {
           if (feed.showInitialError) {
-            return _SearchResultError(
+            return FeedError(
+              title: searchText(context, 'searchLoadFailed'),
               error: feed.initialError ?? const ApiParseError('unknown error'),
+              retryLabel: searchText(context, 'searchRetry'),
               onRetry: () =>
                   ref.read(searchFeedProvider(query).notifier).retryInitial(),
             );
           }
           if (feed.showInitialSpinner) {
-            return _SearchStatus(title: searchText(context, 'searchLoading'));
+            return FeedEmpty(icon: Icons.search, title: searchText(context, 'searchLoading'));
           }
           return _SearchFeedContent(query: query, feed: feed);
         },
@@ -121,7 +126,10 @@ class _IllustSearchFeed extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
     if (entities.isEmpty) {
-      return _SearchEmpty(
+      return FeedEmpty(
+        icon: Icons.search,
+        title: searchText(context, 'searchNoResults'),
+        retryLabel: searchText(context, 'searchRetry'),
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -150,11 +158,13 @@ class _IllustSearchFeed extends ConsumerWidget {
                 ),
 ),
             SliverToBoxAdapter(
-              child: _SearchFeedTail(
+              child: FeedTail(
                 feed: feed,
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
+                errorTitle: searchText(context, 'searchLoadMoreFailed'),
+                  retryLabel: searchText(context, 'searchRetry'),
               ),
             ),
           ],
@@ -178,7 +188,10 @@ class _NovelSearchFeed extends ConsumerWidget {
         if (stored[id] != null) stored[id]!,
     ];
     if (entities.isEmpty) {
-      return _SearchEmpty(
+      return FeedEmpty(
+        icon: Icons.search,
+        title: searchText(context, 'searchNoResults'),
+        retryLabel: searchText(context, 'searchRetry'),
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -198,11 +211,13 @@ class _NovelSearchFeed extends ConsumerWidget {
           itemCount: entities.length + 1,
           itemBuilder: (context, index) {
             if (index == entities.length) {
-              return _SearchFeedTail(
+              return FeedTail(
                 feed: feed,
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
+                errorTitle: searchText(context, 'searchLoadMoreFailed'),
+                  retryLabel: searchText(context, 'searchRetry'),
               );
             }
             return NovelCard(entity: entities[index]);
@@ -227,7 +242,10 @@ class _UserSearchFeed extends ConsumerWidget {
         if (stored[id] != null) stored[id]!,
     ];
     if (users.isEmpty) {
-      return _SearchEmpty(
+      return FeedEmpty(
+        icon: Icons.search,
+        title: searchText(context, 'searchNoResults'),
+        retryLabel: searchText(context, 'searchRetry'),
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -247,11 +265,13 @@ class _UserSearchFeed extends ConsumerWidget {
           itemCount: users.length + 1,
           itemBuilder: (context, index) {
             if (index == users.length) {
-              return _SearchFeedTail(
+              return FeedTail(
                 feed: feed,
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
+                errorTitle: searchText(context, 'searchLoadMoreFailed'),
+                  retryLabel: searchText(context, 'searchRetry'),
               );
             }
             return _SearchUserCard(user: users[index]);
@@ -291,129 +311,3 @@ class _SearchUserCard extends StatelessWidget {
   }
 }
 
-class _SearchStatus extends StatelessWidget {
-  const _SearchStatus({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.search, size: 44),
-          const SizedBox(height: 12),
-          Text(title),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchEmpty extends StatelessWidget {
-  const _SearchEmpty({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.search, size: 44),
-          const SizedBox(height: 12),
-          Text(searchText(context, 'searchNoResults')),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh),
-            label: Text(searchText(context, 'searchRetry')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchResultError extends StatelessWidget {
-  const _SearchResultError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(searchText(context, 'searchLoadFailed')),
-            const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(searchText(context, 'searchRetry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchFeedTail extends StatelessWidget {
-  const _SearchFeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(searchText(context, 'searchLoadMoreFailed')),
-              Text(
-                '${feed.loadMoreError}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              TextButton(
-                onPressed: onRetry,
-                child: Text(searchText(context, 'searchRetry')),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (feed.refreshPhase == FeedPhase.error) {
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          searchText(context, 'searchRefreshFailed'),
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-}
