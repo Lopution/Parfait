@@ -267,6 +267,34 @@ void main() {
     },
   );
 
+  test(
+    'strict updater transport accepts the measured release-assets CDN hop',
+    () async {
+      // The chain measured on 2026-09-07 (task 09-01-release-blockers,
+      // research/github-redirect.md): github.com 302 -> one hop to
+      // release-assets.githubusercontent.com whose path has no .apk suffix.
+      final transport = _ScriptedUpdaterTransport([
+        _ScriptedHop(
+          statusCode: 302,
+          location:
+              'https://release-assets.githubusercontent.com/github-production-release-asset/1347042509/0f4d2c1e-0000-4000-8000-000000000000',
+        ),
+        _ScriptedHop(statusCode: 200),
+      ]);
+      addTearDown(transport.dispose);
+
+      final response = await transport.open(
+        Uri.parse(
+          'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+        ),
+        headers: const {},
+        cancelToken: DownloadCancelToken(),
+      );
+
+      expect(response.statusCode, 200);
+    },
+  );
+
   test('strict updater transport accepts a GitHub release redirect hop', () async {
     final transport = _ScriptedUpdaterTransport([
       _ScriptedHop(
