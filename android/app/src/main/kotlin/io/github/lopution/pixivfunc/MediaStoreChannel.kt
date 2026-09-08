@@ -7,7 +7,9 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.LruCache
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.FileNotFoundException
 import java.io.OutputStream
 
 /**
@@ -15,13 +17,33 @@ import java.io.OutputStream
  * (task 08-26-download-manager-mediastore).
  *
  * Requires API 29+ (scoped MediaStore with IS_PENDING/RELATIVE_PATH).
- * On older APIs the channel returns error "unsupported"; the Dart side
- * surfaces a failed task rather than requesting broad legacy storage
+ * On older APIs the channel returns error "mediastore_unsupported"; the Dart
+ * side surfaces a failed task rather than requesting broad legacy storage
  * permissions.
  */
+internal interface MediaStoreOperations {
+    fun begin(
+        displayName: String,
+        mimeType: String,
+        ownerId: String?,
+        relativePath: String?,
+    ): Int
+
+    fun write(id: Int, bytes: ByteArray)
+
+    fun finalize(id: Int): String
+
+    fun abort(id: Int)
+
+    fun listPending(): List<Map<String, Any?>>
+
+    fun abortPending(id: Int, ownerId: String): Boolean
+}
+
 object MediaStoreChannel {
 
     private const val CHANNEL = "pixivfunc/mediastore"
+    private const val PREFIX = "mediastore_"
     private const val RELATIVE_PATH = "Pictures/PixivFunc"
     private const val OWNER_PREFIX = "pixivfunc-owner:"
 
@@ -29,42 +51,115 @@ object MediaStoreChannel {
     private val uris = object : LruCache<Int, Uri>(32) {}
 
     fun configure(context: Context, engine: FlutterEngine) {
+        val ops = AndroidMediaStoreOperations(context)
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                try {
-                    when (call.method) {
-                        "begin" -> {
-                            val displayName = call.argument<String>("displayName")!!
-                            val mimeType = call.argument<String>("mimeType")!!
-                            val ownerId = call.argument<String>("ownerId")
-                            val relativePath = call.argument<String>("relativePath")
-                            result.success(begin(context, displayName, mimeType, ownerId, relativePath))
-                        }
-                        "write" -> {
-                            val id = call.argument<Int>("id")!!
-                            val bytes = call.argument<ByteArray>("bytes")!!
-                            write(id, bytes)
-                            result.success(null)
-                        }
-                        "finalize" -> result.success(finalize(context, call.argument<Int>("id")!!))
-                        "abort" -> {
-                            abort(context, call.argument<Int>("id")!!)
-                            result.success(null)
-                        }
-                        "listPending" -> result.success(listPending(context))
-                        "abortPending" -> {
-                            result.success(abortPending(
-                                context,
-                                call.argument<Int>("id")!!,
-                                call.argument<String>("ownerId")!!,
-                            ))
-                        }
-                        else -> result.notImplemented()
-                    }
-                } catch (error: Exception) {
-                    result.error("mediastore_error", error.message, null)
-                }
+                handle(call, result, ops)
             }
+    }
+
+    internal fun handle(
+        call: MethodCall,
+        result: MethodChannel.Result,
+        ops: MediaStoreOperations,
+    ) {
+        try {
+            when (call.method) {
+                "begin" -> {
+                    val displayName = ChannelArgs.requiredString(
+                        call, result, "displayName", PREFIX,
+                    ) ?: return
+                    val mimeType = ChannelArgs.requiredString(
+                        call, result, "mimeType", PREFIX,
+                    ) ?: return
+                    val ownerId = ChannelArgs.optionalString(
+                        call, result, "ownerId", PREFIX,
+                    )
+                    if (!ownerId.ok) return
+                    val relativePath = ChannelArgs.optionalString(
+                        call, result, "relativePath", PREFIX,
+                    )
+                    if (!relativePath.ok) return
+                    result.success(
+                        ops.begin(
+                            displayName,
+                            mimeType,
+                            ownerId.value,
+                            relativePath.value,
+                        ),
+                    )
+                }
+                "write" -> {
+                    val id = ChannelArgs.requiredInt(call, result, "id", PREFIX) ?: return
+                    val bytes = ChannelArgs.requiredBytes(
+                        call, result, "bytes", PREFIX,
+                    ) ?: return
+                    ops.write(id, bytes)
+                    result.success(null)
+                }
+                "finalize" -> {
+                    val id = ChannelArgs.requiredInt(call, result, "id", PREFIX) ?: return
+                    result.success(ops.finalize(id))
+                }
+                "abort" -> {
+                    val id = ChannelArgs.requiredInt(call, result, "id", PREFIX) ?: return
+                    ops.abort(id)
+                    result.success(null)
+                }
+                "listPending" -> result.success(ops.listPending())
+                "abortPending" -> {
+                    val id = ChannelArgs.requiredInt(call, result, "id", PREFIX) ?: return
+                    val ownerId = ChannelArgs.requiredString(
+                        call, result, "ownerId", PREFIX,
+                    ) ?: return
+                    result.success(ops.abortPending(id, ownerId))
+                }
+                else -> result.notImplemented()
+            }
+        } catch (error: Exception) {
+            result.error(mediastoreErrorCode(call.method, error), error.message, null)
+        }
+    }
+
+    internal fun mediastoreErrorCode(method: String, error: Throwable): String {
+        if (error is SecurityException) return "mediastore_permission"
+        if (error is UnsupportedOperationException) return "mediastore_unsupported"
+        if (error is IllegalArgumentException) return "mediastore_invalid_argument"
+        if (error is FileNotFoundException) return "mediastore_not_found"
+        val message = error.message.orEmpty()
+        if (error is IllegalStateException) {
+            if (message.contains("no open stream") || message.contains("no pending")) {
+                return "mediastore_not_found"
+            }
+            if (method == "begin") return "mediastore_insert_failed"
+            if (method == "finalize") return "mediastore_finalize_failed"
+        }
+        if (method == "write") return "mediastore_write_failed"
+        if (method == "finalize") return "mediastore_finalize_failed"
+        if (method == "begin") return "mediastore_insert_failed"
+        return "mediastore_io_failed"
+    }
+
+    private class AndroidMediaStoreOperations(
+        private val context: Context,
+    ) : MediaStoreOperations {
+        override fun begin(
+            displayName: String,
+            mimeType: String,
+            ownerId: String?,
+            relativePath: String?,
+        ): Int = beginPending(context, displayName, mimeType, ownerId, relativePath)
+
+        override fun write(id: Int, bytes: ByteArray) = writePending(id, bytes)
+
+        override fun finalize(id: Int): String = finalizePending(context, id)
+
+        override fun abort(id: Int) = abortPendingRow(context, id)
+
+        override fun listPending(): List<Map<String, Any?>> = listPendingRows(context)
+
+        override fun abortPending(id: Int, ownerId: String): Boolean =
+            abortOwnedPending(context, id, ownerId)
     }
 
     private fun requireApi29() {
@@ -73,7 +168,7 @@ object MediaStoreChannel {
         }
     }
 
-    private fun begin(
+    private fun beginPending(
         context: Context,
         displayName: String,
         mimeType: String,
@@ -128,13 +223,13 @@ object MediaStoreChannel {
         return id
     }
 
-    private fun write(id: Int, bytes: ByteArray) {
+    private fun writePending(id: Int, bytes: ByteArray) {
         val stream = streams.get(id)
             ?: throw IllegalStateException("no open stream for item $id")
         stream.write(bytes)
     }
 
-    private fun finalize(context: Context, id: Int): String {
+    private fun finalizePending(context: Context, id: Int): String {
         requireApi29()
         val uri = pendingUri(context, id)
             ?: throw IllegalStateException("no pending item $id")
@@ -150,7 +245,7 @@ object MediaStoreChannel {
         return uri.toString()
     }
 
-    private fun abort(context: Context, id: Int) {
+    private fun abortPendingRow(context: Context, id: Int) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             return
         }
@@ -164,7 +259,7 @@ object MediaStoreChannel {
         uris.remove(id)
     }
 
-    private fun abortPending(context: Context, id: Int, ownerId: String): Boolean {
+    private fun abortOwnedPending(context: Context, id: Int, ownerId: String): Boolean {
         require(ownerId.matches(Regex("[A-Za-z0-9_.-]{1,128}")))
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         val uri = pendingUri(context, id, ownerId) ?: return false
@@ -176,7 +271,7 @@ object MediaStoreChannel {
         return deleted
     }
 
-    private fun listPending(context: Context): List<Map<String, Any?>> {
+    private fun listPendingRows(context: Context): List<Map<String, Any?>> {
         requireApi29()
         val result = mutableListOf<Map<String, Any?>>()
         val projection = arrayOf(

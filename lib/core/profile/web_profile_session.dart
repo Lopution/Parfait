@@ -22,6 +22,8 @@ class MethodChannelWebProfileSession implements WebProfileSession {
     } on MissingPluginException {
       return null;
     } on PlatformException {
+      // Any `webprofile_<reason>` (read/clear/permission/io) is treated as
+      // no session — the profile editor falls back to unavailable.
       return null;
     }
   }
@@ -36,6 +38,8 @@ class MethodChannelWebProfileSession implements WebProfileSession {
     } on MissingPluginException {
       return false;
     } on PlatformException {
+      // Same family as [readSessionCookie]: every native code is "cleared
+      // failed" → report false so logout can continue.
       return false;
     }
   }

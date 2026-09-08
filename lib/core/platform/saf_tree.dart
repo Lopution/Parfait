@@ -35,7 +35,12 @@ abstract class SafDocumentSinkFactory {
 }
 
 /// Production implementation backed by the Android host.
-class MethodChannelSafTree implements _SafTreePicker, SafDocumentSinkFactory {
+/// Native failures use `saf_<reason>` (`saf_invalid_argument`,
+/// `saf_busy`, `saf_unavailable`, `saf_launch_failed`, `saf_permission`,
+/// `saf_create_failed`, `saf_write_failed`, `saf_not_found`,
+/// `saf_delete_failed`, `saf_io_failed`). [create] may send `ownerId`;
+/// the Kotlin handler does not read it.
+class MethodChannelSafTree implements SafTreePicker, SafDocumentSinkFactory {
   const MethodChannelSafTree([
     this._channel = const MethodChannel('pixivfunc/saf_tree'),
   ]);
