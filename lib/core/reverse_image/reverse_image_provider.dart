@@ -27,6 +27,8 @@ enum ReverseImageProviderFailureCode {
   cancelled,
   network,
   rateLimited,
+  dailyLimit,
+  challenge,
   malformedResponse,
   unsafeResultUrl,
 }

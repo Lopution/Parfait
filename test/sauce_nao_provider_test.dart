@@ -149,14 +149,15 @@ void main() {
     expect(outcome, isA<ReverseImageSearchFailure>());
     expect(
       (outcome as ReverseImageSearchFailure).code,
-      ReverseImageProviderFailureCode.providerUnavailable,
+      ReverseImageProviderFailureCode.challenge,
     );
   });
 
   test('a real anonymous result page (with the Cloudflare analytics beacon) '
       'is a webview result, not a challenge', () async {
-    final fixture = File('test/fixtures/saucenao/anonymous_result_page.html')
-        .readAsBytesSync();
+    final fixture = File(
+      'test/fixtures/saucenao/anonymous_result_page.html',
+    ).readAsBytesSync();
     final client = MockClient(
       (request) async => http.Response.bytes(
         fixture,
@@ -194,34 +195,96 @@ void main() {
     expect(outcome, isA<ReverseImageSearchFailure>());
     expect(
       (outcome as ReverseImageSearchFailure).code,
-      ReverseImageProviderFailureCode.providerUnavailable,
+      ReverseImageProviderFailureCode.challenge,
     );
   });
 
   test(
-    'a rendered daily/rate limit page is rateLimited and retryable',
+    'an Attention Required Cloudflare page is classified as a challenge',
     () async {
-      for (final text in const [
+      const interstitial =
+          '<!DOCTYPE html><html><head>'
+          '<title>Attention Required! | Cloudflare</title></head><body>'
+          '<form class="cf-turnstile"></form>'
+          '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js">'
+          '</script></body></html>';
+      final client = MockClient(
+        (request) async => http.Response(
+          interstitial,
+          200,
+          headers: {'content-type': 'text/html'},
+        ),
+      );
+      final provider = SauceNaoWebViewProvider(client: client);
+
+      final outcome = await provider.search(input);
+
+      expect(outcome, isA<ReverseImageSearchFailure>());
+      expect(
+        (outcome as ReverseImageSearchFailure).code,
+        ReverseImageProviderFailureCode.challenge,
+      );
+    },
+  );
+
+  test('a 403 response is classified as a challenge', () async {
+    final client = MockClient(
+      (request) async => http.Response('forbidden', 403),
+    );
+    final provider = SauceNaoWebViewProvider(client: client);
+
+    final outcome = await provider.search(input);
+
+    expect(outcome, isA<ReverseImageSearchFailure>());
+    expect(
+      (outcome as ReverseImageSearchFailure).code,
+      ReverseImageProviderFailureCode.challenge,
+    );
+  });
+
+  test('a rendered daily limit page is dailyLimit and retryable', () async {
+    const text =
         'Daily Search Limit Exceeded. Your IP has exceeded the unregistered '
-            "user's daily limit of 150 searches.",
-        'Search Rate Too High. Please wait a moment before trying again.',
-      ]) {
-        final client = MockClient(
-          (request) async => http.Response(
-            '<html><body>$text</body></html>',
-            200,
-            headers: {'content-type': 'text/html'},
-          ),
-        );
-        final provider = SauceNaoWebViewProvider(client: client);
+        "user's daily limit of 150 searches.";
+    final client = MockClient(
+      (request) async => http.Response(
+        '<html><body>$text</body></html>',
+        200,
+        headers: {'content-type': 'text/html'},
+      ),
+    );
+    final provider = SauceNaoWebViewProvider(client: client);
 
-        final outcome = await provider.search(input);
+    final outcome = await provider.search(input);
 
-        expect(outcome, isA<ReverseImageSearchFailure>(), reason: text);
-        final failure = outcome as ReverseImageSearchFailure;
-        expect(failure.code, ReverseImageProviderFailureCode.rateLimited);
-        expect(failure.retryable, isTrue);
-      }
+    expect(outcome, isA<ReverseImageSearchFailure>());
+    final failure = outcome as ReverseImageSearchFailure;
+    expect(failure.code, ReverseImageProviderFailureCode.dailyLimit);
+    expect(failure.retryable, isTrue);
+    expect(failure.retryAfter, isNull);
+  });
+
+  test(
+    'a Search Rate Too High page is rateLimited with a 30s retryAfter',
+    () async {
+      const text =
+          'Search Rate Too High. Please wait a moment before trying again.';
+      final client = MockClient(
+        (request) async => http.Response(
+          '<html><body>$text</body></html>',
+          200,
+          headers: {'content-type': 'text/html'},
+        ),
+      );
+      final provider = SauceNaoWebViewProvider(client: client);
+
+      final outcome = await provider.search(input);
+
+      expect(outcome, isA<ReverseImageSearchFailure>());
+      final failure = outcome as ReverseImageSearchFailure;
+      expect(failure.code, ReverseImageProviderFailureCode.rateLimited);
+      expect(failure.retryable, isTrue);
+      expect(failure.retryAfter, const Duration(seconds: 30));
     },
   );
 
@@ -253,11 +316,8 @@ void main() {
 
     final outcome = await provider.search(input);
 
-    expect(outcome, isA<ReverseImageSearchFailure>());
-    expect(
-      (outcome as ReverseImageSearchFailure).code,
-      ReverseImageProviderFailureCode.malformedResponse,
-    );
+    expect(outcome, isA<ReverseImageSearchSuccess>());
+    expect((outcome as ReverseImageSearchSuccess).hits, isEmpty);
   });
 
   test('provider belongs to interactiveWebView and is enabled', () {

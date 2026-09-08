@@ -24,11 +24,13 @@ class ReverseImageFlowFailure {
     required this.code,
     required this.message,
     this.retryable = false,
+    this.retryAfter,
   });
 
   final Object code;
   final String message;
   final bool retryable;
+  final Duration? retryAfter;
 }
 
 @immutable
@@ -229,6 +231,7 @@ class ReverseImageSearchController extends ChangeNotifier {
         :final code,
         :final message,
         :final retryable,
+        :final retryAfter,
       ):
         _setState(
           ReverseImageFlowState(
@@ -237,6 +240,7 @@ class ReverseImageSearchController extends ChangeNotifier {
               code: code,
               message: message,
               retryable: retryable,
+              retryAfter: retryAfter,
             ),
           ),
         );

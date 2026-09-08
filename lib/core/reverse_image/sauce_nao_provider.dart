@@ -154,8 +154,8 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
           );
         }
         final html = utf8.decode(body, allowMalformed: true);
-        final htmlFailure = _classifyHtml(html);
-        if (htmlFailure != null) return htmlFailure;
+        final classified = _classifyHtml(html);
+        if (classified != null) return classified;
         return ReverseImageSearchWebView(
           html: html,
           observedAt: _now().toIso8601String(),
@@ -194,7 +194,7 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
         );
       case 403:
         return const ReverseImageSearchFailure(
-          code: ReverseImageProviderFailureCode.providerUnavailable,
+          code: ReverseImageProviderFailureCode.challenge,
           message: 'SauceNAO rejected anonymous search',
         );
       default:
@@ -235,21 +235,33 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
     return normalized == 'saucenao.com' || normalized == 'www.saucenao.com';
   }
 
-  /// A 200 HTML response can still be a CAPTCHA/rate-limit/no-match page.
-  /// Those pages are not a successful search result and must remain visible
-  /// as a classified failure instead of entering the WebView success state.
-  static ReverseImageSearchFailure? _classifyHtml(String html) {
+  /// A 200 HTML response can still be a CAPTCHA, rate-limit, or no-match
+  /// page. Challenge and limit pages stay classified failures; a no-match
+  /// page is an explicit empty success so the UI can show "no results"
+  /// instead of a red failure.
+  static ReverseImageSearchOutcome? _classifyHtml(String html) {
     final normalized = html.toLowerCase();
-    // "Daily Search Limit Exceeded." / "Search Rate Too High." are the
-    // strings SauceNAO renders for the per-day and per-30-second limits.
+    // "Daily Search Limit Exceeded." is SauceNAO's per-day anonymous
+    // quota page: retryable, no countdown (try again tomorrow).
+    if (normalized.contains('daily search limit') ||
+        normalized.contains('search limit')) {
+      return const ReverseImageSearchFailure(
+        code: ReverseImageProviderFailureCode.dailyLimit,
+        message: 'SauceNAO daily search limit reached',
+        retryable: true,
+      );
+    }
+    // "Search Rate Too High." is SauceNAO's documented 30-second
+    // anonymous window (4 searches / 30 s). See
+    // research/anonymous-policy.md.
     if (normalized.contains('too many requests') ||
         normalized.contains('rate limit') ||
-        normalized.contains('search limit') ||
         normalized.contains('search rate too high')) {
       return const ReverseImageSearchFailure(
         code: ReverseImageProviderFailureCode.rateLimited,
         message: 'SauceNAO anonymous rate limit reached',
         retryable: true,
+        retryAfter: Duration(seconds: 30),
       );
     }
     // Only challenge-page markers. A genuine result page embeds the
@@ -259,6 +271,8 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
     final challenge =
         normalized.contains('cf-chl-') ||
         normalized.contains('cf_chl_opt') ||
+        normalized.contains('cf-turnstile') ||
+        normalized.contains('challenges.cloudflare.com') ||
         normalized.contains('/cdn-cgi/challenge-platform/') ||
         normalized.contains('<title>just a moment...') ||
         normalized.contains('attention required! | cloudflare') ||
@@ -269,7 +283,7 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
                 normalized.contains('human')));
     if (challenge) {
       return const ReverseImageSearchFailure(
-        code: ReverseImageProviderFailureCode.providerUnavailable,
+        code: ReverseImageProviderFailureCode.challenge,
         message: 'SauceNAO returned a challenge page',
       );
     }
@@ -279,10 +293,7 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
         normalized.contains('no image match') ||
         normalized.contains('没有匹配') ||
         normalized.contains('没有结果')) {
-      return const ReverseImageSearchFailure(
-        code: ReverseImageProviderFailureCode.malformedResponse,
-        message: 'SauceNAO found no matching results',
-      );
+      return const ReverseImageSearchSuccess([]);
     }
     return null;
   }
