@@ -58,6 +58,43 @@ void main() {
         IntentRouter.route(Uri.parse('https://www.pixiv.net/user.php?id=5')),
         isA<UserRoute>().having((r) => r.userId, 'userId', 5),
       );
+      // Changed: /en/artworks/<id> was previously UnknownRoute (unmapped).
+      expect(
+        IntentRouter.route(Uri.parse('https://www.pixiv.net/en/artworks/1')),
+        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 1),
+      );
+      expect(
+        IntentRouter.route(Uri.parse('https://www.pixiv.net/en/users/9')),
+        isA<UserRoute>().having((r) => r.userId, 'userId', 9),
+      );
+      expect(
+        IntentRouter.route(Uri.parse('https://www.pixiv.net/en/i/3')),
+        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 3),
+      );
+      expect(
+        IntentRouter.route(Uri.parse('https://www.pixiv.net/ja/u/4')),
+        isA<UserRoute>().having((r) => r.userId, 'userId', 4),
+      );
+      expect(
+        IntentRouter.route(
+          Uri.parse(
+            'https://www.pixiv.net/member_illust.php?mode=medium&illust_id=88',
+          ),
+        ),
+        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 88),
+      );
+      expect(
+        IntentRouter.route(
+          Uri.parse(
+            'https://www.pixiv.net/member_illust.php?mode=manga&illust_id=7',
+          ),
+        ),
+        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 7),
+      );
+      expect(
+        IntentRouter.route(Uri.parse('https://www.pixiv.net/member.php?id=5')),
+        isA<UserRoute>().having((r) => r.userId, 'userId', 5),
+      );
     });
   });
 
@@ -105,20 +142,30 @@ void main() {
       );
     });
 
-    test(
-      'rejects extra path segments, fragments and ambiguous query routes',
-      () {
-        for (final uri in [
-          Uri.parse('pixiv://users/1/extra'),
-          Uri.parse('pixivfunc://illusts/1?unexpected=true'),
-          Uri.parse('https://www.pixiv.net/foo/u/1'),
-          Uri.parse('https://www.pixiv.net/u/1/extra'),
-          Uri.parse('https://www.pixiv.net/u/1#fragment'),
-          Uri.parse('https://www.pixiv.net/jump.php?illust_id=1&id=2'),
-        ]) {
-          expect(IntentRouter.route(uri), isA<UnknownRoute>(), reason: '$uri');
-        }
-      },
-    );
+    test('rejects extra path segments, fragments and ambiguous query routes', () {
+      for (final uri in [
+        Uri.parse('pixiv://users/1/extra'),
+        Uri.parse('pixivfunc://illusts/1?unexpected=true'),
+        Uri.parse('https://www.pixiv.net/foo/u/1'),
+        Uri.parse('https://www.pixiv.net/u/1/extra'),
+        Uri.parse('https://www.pixiv.net/u/1#fragment'),
+        Uri.parse('https://www.pixiv.net/jump.php?illust_id=1&id=2'),
+        Uri.parse('https://www.pixiv.net/EN/artworks/1'),
+        Uri.parse('https://www.pixiv.net/eng/artworks/1'),
+        Uri.parse('https://www.pixiv.net/en/artworks/1/extra'),
+        Uri.parse('https://www.pixiv.net/member_illust.php?illust_id=1&foo=2'),
+        Uri.parse('https://www.pixiv.net/member_illust.php?mode=medium'),
+        Uri.parse('https://www.pixiv.net/member.php?id=1&x=2'),
+        Uri.parse('https://www.pixiv.net/member.php?id=0'),
+        Uri.parse('https://www.pixiv.net/en/en/artworks/1'),
+        Uri.parse('https://www.pixiv.net/en/artworks/12345?p=1'),
+        Uri.parse(
+          'https://www.pixiv.net/member_illust.php?mode=medium&mode=manga&illust_id=1',
+        ),
+        Uri.parse('https://user:pass@www.pixiv.net/artworks/1'),
+      ]) {
+        expect(IntentRouter.route(uri), isA<UnknownRoute>(), reason: '$uri');
+      }
+    });
   });
 }

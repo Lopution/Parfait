@@ -6,8 +6,8 @@ sealed class DeepLinkRoute {
 }
 
 /// Open a user page: `pixiv://users/<id>`, `pixivfunc://users/<id>`,
-/// `https://www.pixiv.net/u/<id>`, `/users/<id>`, or `?id=<id>` on a user
-/// page.
+/// `https://www.pixiv.net/u/<id>`, `/users/<id>`, `/en/users/<id>`,
+/// `member.php?id=<id>`, or `?id=<id>` on a user page.
 class UserRoute extends DeepLinkRoute {
   const UserRoute(this.userId);
 
@@ -15,7 +15,9 @@ class UserRoute extends DeepLinkRoute {
 }
 
 /// Open an illust page: `pixiv://illusts/<id>`, `pixivfunc://illusts/<id>`,
-/// `https://www.pixiv.net/i/<id>`, `/artworks/<id>`, or `?illust_id=<id>`.
+/// `https://www.pixiv.net/i/<id>`, `/artworks/<id>`, `/en/artworks/<id>`,
+/// `member_illust.php?illust_id=<id>` (optional `mode=`), or
+/// `?illust_id=<id>`.
 class IllustRoute extends DeepLinkRoute {
   const IllustRoute(this.illustId);
 
@@ -299,10 +301,14 @@ abstract final class IntentRouter {
       return const UnknownRoute('web link has an invalid URI shape');
     }
     final segments = uri.pathSegments;
-    if (segments.length == 2 && uri.query.isEmpty) {
-      final id = int.tryParse(segments[1]);
+    var typed = segments;
+    if (segments.length == 3 && _isTwoLetterLanguagePrefix(segments[0])) {
+      typed = segments.sublist(1);
+    }
+    if (typed.length == 2 && uri.query.isEmpty) {
+      final id = int.tryParse(typed[1]);
       if (id != null && id > 0) {
-        switch (segments[0]) {
+        switch (typed[0]) {
           case 'u':
           case 'users':
             return UserRoute(id);
@@ -317,21 +323,44 @@ abstract final class IntentRouter {
       if (segments.single == 'jump.php') {
         return _queryIdRoute(uri, 'illust_id', IllustRoute.new);
       }
-      if (segments.single == 'user.php') {
+      if (segments.single == 'user.php' || segments.single == 'member.php') {
         return _queryIdRoute(uri, 'id', UserRoute.new);
+      }
+      if (segments.single == 'member_illust.php') {
+        return _queryIdRoute(
+          uri,
+          'illust_id',
+          IllustRoute.new,
+          extraKey: 'mode',
+        );
       }
     }
     return UnknownRoute('unmapped web path: ${uri.path}');
   }
 
+  static bool _isTwoLetterLanguagePrefix(String segment) {
+    if (segment.length != 2) return false;
+    final first = segment.codeUnitAt(0);
+    final second = segment.codeUnitAt(1);
+    return first >= 0x61 && first <= 0x7a && second >= 0x61 && second <= 0x7a;
+  }
+
   static DeepLinkRoute _queryIdRoute(
     Uri uri,
     String key,
-    DeepLinkRoute Function(int) build,
-  ) {
+    DeepLinkRoute Function(int) build, {
+    String? extraKey,
+  }) {
     final keys = uri.queryParametersAll.keys.toSet();
-    if (keys.length != 1 || !keys.contains(key)) {
+    final allowed = {key, ?extraKey};
+    if (!keys.contains(key) || !keys.every(allowed.contains)) {
       return const UnknownRoute('ambiguous or unexpected query parameters');
+    }
+    if (extraKey != null && keys.contains(extraKey)) {
+      final extras = uri.queryParametersAll[extraKey];
+      if (extras == null || extras.length != 1 || extras.single.isEmpty) {
+        return const UnknownRoute('ambiguous or unexpected query parameters');
+      }
     }
     final values = uri.queryParametersAll[key];
     if (values == null || values.length != 1 || values.single.isEmpty) {
