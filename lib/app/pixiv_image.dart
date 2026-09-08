@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import 'motion/motion_tokens.dart';
 import '../core/network/pixiv_client_identity.dart';
 import '../core/network/compat/network_providers.dart';
 
@@ -187,7 +188,7 @@ class PixivImage extends ConsumerWidget {
       // appear instantly — a translucent fade over the page background is
       // the white flash.
       fadeInDuration: fade && !imageCompleted && !isUrlTransition
-          ? const Duration(milliseconds: 350)
+          ? MotionTokens.imageFade
           : Duration.zero,
       // Gapless playback already keeps the previous decoded frame visible
       // while a new quality URL is pending. Never fade that frame out: a

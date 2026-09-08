@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
-import '../../../app/navigation/replica_page_route.dart';
+import '../../../app/motion/replica_page_route.dart';
 
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart'
