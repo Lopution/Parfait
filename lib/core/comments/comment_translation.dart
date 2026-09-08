@@ -6,6 +6,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../network/http_client_providers.dart';
+
 import '../settings/app_settings.dart';
 import '../settings/settings_controller.dart';
 import 'translation_credentials.dart';
@@ -534,8 +536,7 @@ class DisabledCommentTranslationService implements CommentTranslationService {
 final commentTranslationServiceProvider = Provider<CommentTranslationService>((
   ref,
 ) {
-  final client = http.Client();
-  ref.onDispose(client.close);
+  final client = ref.watch(thirdPartyHttpClientProvider);
   final store = ref.watch(translationCredentialStoreProvider);
   return ConfiguredCommentTranslationService(
     resolveProvider: () => ref.read(translationSelectionProvider),

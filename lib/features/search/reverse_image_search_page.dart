@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/platform/intent_router.dart';
@@ -15,8 +16,9 @@ import '../../core/reverse_image/sauce_nao_provider.dart';
 import '../../app/navigation/routes.dart';
 import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import 'package:pixiv_func/core/network/http_client_providers.dart';
 
-class ReverseImageSearchPage extends StatefulWidget {
+class ReverseImageSearchPage extends ConsumerStatefulWidget {
   const ReverseImageSearchPage({
     super.key,
     this.initialReference,
@@ -31,10 +33,10 @@ class ReverseImageSearchPage extends StatefulWidget {
   final ReverseImageExternalLauncher? externalLauncher;
 
   @override
-  State<ReverseImageSearchPage> createState() => _ReverseImageSearchPageState();
+  ConsumerState<ReverseImageSearchPage> createState() => _ReverseImageSearchPageState();
 }
 
-class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
+class _ReverseImageSearchPageState extends ConsumerState<ReverseImageSearchPage> {
   late final ReverseImageSearchController _controller;
   late final ReverseImageExternalLauncher _externalLauncher;
 
@@ -43,7 +45,8 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
     super.initState();
     _controller = ReverseImageSearchController(
       platform: widget.platform ?? MethodChannelReverseImageInputPlatform(),
-      provider: widget.provider ?? SauceNaoWebViewProvider(),
+      provider: widget.provider ??
+          SauceNaoWebViewProvider(client: ref.watch(thirdPartyHttpClientProvider)),
     )..addListener(_onControllerChanged);
     _externalLauncher =
         widget.externalLauncher ?? MethodChannelReverseImageExternalLauncher();
