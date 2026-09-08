@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
-import '../../../app/widgets/replica_empty_state.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/i18n/replica_strings.dart';
@@ -17,6 +16,7 @@ import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/user/user_entity.dart';
 import '../../../core/user/user_store.dart';
 import 'recommended_feed_controller.dart';
+import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import 'recommended_repository.dart';
 
@@ -159,14 +159,15 @@ class RecommendedFeedView extends ConsumerWidget {
 
     return feedAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _RecommendedError(
-        error: error,
+      error: (error, _) => FeedError(
+        message: '${_recommendedText(context, 'recommendedLoadFailed')}\n$error',
         onRetry: () => ref.invalidate(recommendedFeedProvider(key)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _RecommendedError(
-            error: feed.initialError ?? const ApiParseError('unknown error'),
+          return FeedError(
+            message:
+                '${_recommendedText(context, 'recommendedLoadFailed')}\n${feed.initialError ?? const ApiParseError('unknown error')}',
             onRetry: () =>
                 ref.read(recommendedFeedProvider(key).notifier).retryInitial(),
           );
@@ -175,8 +176,8 @@ class RecommendedFeedView extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (feed.isEmptyAndReady) {
-          return _RecommendedEmptyFeed(
-            message: _recommendedText(context, 'recommendedEmpty'),
+          return FeedEmpty(
+            title: _recommendedText(context, 'recommendedEmpty'),
             onRefresh: () =>
                 ref.read(recommendedFeedProvider(key).notifier).refresh(),
           );
@@ -219,9 +220,18 @@ class _RecommendedFeedBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tail = <Widget>[
       if (feed.refreshPhase == FeedPhase.error)
-        SliverToBoxAdapter(child: _TailError(onRetry: onRetryRefresh)),
+        SliverToBoxAdapter(
+          child: FeedTail(
+            feed: feed.copyWith(loadMorePhase: FeedPhase.error),
+            onRetry: onRetryRefresh,
+          ),
+        ),
       SliverToBoxAdapter(
-        child: _FeedTail(feed: feed, onRetry: onRetryLoadMore),
+        child: FeedTail(
+          feed: feed,
+          onRetry: onRetryLoadMore,
+          endMessage: _recommendedText(context, 'recommendedEnd'),
+        ),
       ),
     ];
 
@@ -317,21 +327,6 @@ class _RecommendedFeedBody extends ConsumerWidget {
   }
 }
 
-class _RecommendedEmptyFeed extends StatelessWidget {
-  const _RecommendedEmptyFeed({required this.message, required this.onRefresh});
-
-  final String message;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return ReplicaEmptyState(
-      message: message,
-      retryLabel: _recommendedText(context, 'retry'),
-      onRetry: onRefresh,
-    );
-  }
-}
 
 class _NovelRowCard extends StatelessWidget {
   const _NovelRowCard({required this.entity});
@@ -466,89 +461,3 @@ class _UserRowCard extends StatelessWidget {
   }
 }
 
-class _FeedTail extends StatelessWidget {
-  const _FeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 12, bottom: 24),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return _TailError(onRetry: onRetry);
-    }
-    if (feed.exhausted && feed.ids.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 24),
-        child: Center(
-          child: Text(
-            _recommendedText(context, 'recommendedEnd'),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-      );
-    }
-    return const SizedBox(height: 24);
-  }
-}
-
-class _TailError extends StatelessWidget {
-  const _TailError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Center(
-        child: OutlinedButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
-          label: Text(_recommendedText(context, 'retry')),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecommendedError extends StatelessWidget {
-  const _RecommendedError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(_recommendedText(context, 'recommendedLoadFailed')),
-            const SizedBox(height: 8),
-            Text(
-              '$error',
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_recommendedText(context, 'retry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
