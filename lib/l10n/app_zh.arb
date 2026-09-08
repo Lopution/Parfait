@@ -1,0 +1,567 @@
+{
+  "@@locale": "zh",
+  "networkDohEndpointsInvalid": "DoH 地址列表无效",
+  "welcome1": "感谢使用Pixiv Func",
+  "welcome2": "下面将进行首次启动设置",
+  "start": "开始",
+  "selectLanguage": "选择您的语言",
+  "selectTheme": "选择喜欢的主题",
+  "next": "下一步",
+  "later": "稍后您可以在设置中进行相应变更",
+  "dark": "黑暗",
+  "light": "明亮",
+  "system": "跟随系统",
+  "loginTitle": "注册 或 登录",
+  "register": "注册",
+  "login": "登录",
+  "loginPageClosed": "页面已关闭，请重新打开",
+  "loginCallbackInvalid": "登录回调无效: {reason}",
+  "@loginCallbackInvalid": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "loginNetworkError": "网络错误 (HTTP {status})",
+  "@loginNetworkError": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "loginPageLoadFailed": "页面加载失败 ({error})",
+  "@loginPageLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginFailed": "登录失败: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginFailedType": "登录失败 ({type})",
+  "@loginFailedType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "networkCompatibility": "自动兼容网络",
+  "getMoreHelp": "获取更多帮助 >>",
+  "useLoginWithClipboardHint": "或使用\\n长按头像复制账号数据",
+  "useLoginWithClipboard": "使用剪贴板数据登录",
+  "accountTransferWarning": "剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。",
+  "accountTransferCopied": "账号迁移数据已复制，请尽快在目标设备粘贴。",
+  "accountTransferImported": "账号迁移成功",
+  "accountTransferClipboardReplaced": "账号已导入；剪贴板已被其他内容替换，未执行清除。",
+  "accountTransferCorrupt": "剪贴板账号数据损坏或格式不受支持",
+  "accountTransferCredentialInvalid": "账号凭据无效，请重新登录或重新复制",
+  "accountTransferVerificationUnavailable": "暂时无法向 Pixiv 验证账号凭据",
+  "accountTransferNoAccount": "当前没有可复制的已登录账号",
+  "accountTransferCredentialUnavailable": "当前账号凭据不可用，请重新登录",
+  "accountTransferClipboardUnavailable": "剪贴板当前不可用",
+  "accountTransferStorageFailure": "账号迁移记录无法安全保存",
+  "loginAgree": "登录即表示您同意",
+  "userAgreement": "《Pixiv Func用户使用协议》",
+  "settingsTitle": "设置",
+  "accountSettings": "账号",
+  "networkSettings": "网络",
+  "networkMode": "自动兼容网络",
+  "networkModeListTitle": "网络模式",
+  "networkModeAutomatic": "自动",
+  "networkModeAutomaticHint": "标准网络栈：按各主机组选择可达且畅通的路线。",
+  "networkModeDirectOnly": "仅直连",
+  "networkModeDirectOnlyHint": "使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。",
+  "networkAdvanced": "高级设置",
+  "networkAdvancedHint": "DoH 端点、ECH 前置主机等实现细节。",
+  "networkAdvancedReset": "恢复默认值",
+  "networkDoh": "严格回退使用 DoH 解析",
+  "networkDohEndpoints": "DoH 端点（逗号分隔，https URL）",
+  "networkEchFrontHost": "ECH 前置主机",
+  "networkEchHostInvalid": "前置主机名无效",
+  "networkProbe": "分层连通性探测",
+  "networkProbeTitle": "分层连通性探测",
+  "networkProbeRun": "开始探测",
+  "networkProbeRunning": "探测中…",
+  "networkProbeNotRun": "尚未运行",
+  "networkProbeHostFailed": "主机探测失败",
+  "networkProbeCopied": "报告已复制",
+  "networkProbeDnsDiff": "附加信息：系统 DNS 与 DoH 的公共地址没有交集。",
+  "networkProbeStepSystemDns": "系统 DNS",
+  "networkProbeStepDoh": "DoH",
+  "networkProbeStepTcp": "TCP",
+  "networkProbeStepTls": "TLS",
+  "networkProbeStepHttp": "最小请求",
+  "networkProbeStepEch": "ECH",
+  "networkProbeStepNoSni": "空 SNI",
+  "networkProbeStepOk": "成功",
+  "networkProbeStepFailed": "失败",
+  "networkProbeStepSkipped": "跳过",
+  "networkProbeConclusionAllReachable": "可访问",
+  "networkProbeConclusionDnsPolluted": "DNS 污染",
+  "networkProbeConclusionSniBlocked": "SNI 被封",
+  "networkProbeConclusionEchAvailable": "应选 ECH",
+  "networkProbeConclusionNoSniAvailable": "应选空 SNI",
+  "networkProbeConclusionIpBlackholed": "IP 黑洞",
+  "networkProbeConclusionAppLayer": "应用层",
+  "networkProbeConclusionInconclusive": "不确定",
+  "copy": "复制",
+  "themeSettings": "主题",
+  "languageSettings": "语言",
+  "translateSettings": "翻译",
+  "browseSettings": "浏览设置",
+  "downloadSettings": "下载设置",
+  "historySettings": "历史记录",
+  "historyView": "查看浏览历史",
+  "historyEmpty": "暂无浏览历史",
+  "historyLoadFailed": "历史记录加载失败",
+  "historyDelete": "删除历史记录",
+  "historyDeleteAll": "删除全部历史记录",
+  "historyDeleteHint": "删除后将不可恢复",
+  "blockTagSettings": "屏蔽标签",
+  "downloaderSettings": "下载任务",
+  "aboutSettings": "关于",
+  "signedOut": "未登录",
+  "currentAccount": "当前账号",
+  "accountId": "账号 ID",
+  "reauthRequired": "需要重新登录",
+  "accountProfile": "个人资料",
+  "accountReadFailed": "读取账号状态失败",
+  "reopen": "重新打开",
+  "dismiss": "知道了",
+  "profileEditTitle": "编辑个人资料",
+  "profileEditLoadFailed": "个人资料加载失败",
+  "profileEditUnavailable": "当前没有可用的应用内资料编辑通道。",
+  "profileEditPending": "资料已提交，等待验证后才会生效。",
+  "profileEditConfirmed": "资料已确认并同步。",
+  "profileEditDisplayName": "昵称",
+  "profileEditComment": "自我介绍",
+  "profileEditWebpage": "网页",
+  "profileEditAvatar": "头像",
+  "profileEditBackground": "背景图",
+  "profileEditCurrentPassword": "当前密码",
+  "profileEditFieldUnsupported": "当前通道不支持此字段",
+  "profileEditImageChoose": "选择一张受支持的图片",
+  "profileEditChooseImage": "选择图片",
+  "profileEditSave": "保存资料",
+  "profileEditLeaveTitle": "放弃未保存的修改？",
+  "profileEditLeaveDetail": "当前修改尚未提交，离开后会丢失。",
+  "profileEditLeaveConfirm": "放弃修改",
+  "accountManagement": "账号管理",
+  "addAccount": "添加账号",
+  "switchAccount": "切换账号",
+  "removeAccount": "移除账号",
+  "removeAccountConfirm": "确定移除这个账号？",
+  "noAccounts": "暂无账号",
+  "profileReadOnly": "这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。",
+  "imageSource": "图片源",
+  "imageSourceNormal": "官方 CDN（系统 DNS / HTTPS）",
+  "previewQuality": "预览质量",
+  "viewQuality": "查看质量",
+  "detailQuality": "详情质量",
+  "qualityMedium": "中图",
+  "qualityLarge": "大图",
+  "qualityOriginal": "原图",
+  "scaleQuality": "查看质量（原图）",
+  "localHistory": "本地浏览历史",
+  "pixivHistory": "Pixiv 浏览历史",
+  "blockR18": "本地屏蔽 R-18 作品",
+  "blockAI": "本地屏蔽 AI 作品",
+  "maxDownloadCount": "最大并行下载数",
+  "namingRule": "文件命名规则",
+  "namingRuleHint": "留空使用默认命名",
+  "saveFolder": "保存目录",
+  "saveLocation": "保存位置",
+  "saveLocationAlbum": "相册",
+  "saveLocationPixivAlbum": "PixivFunc 相册（默认）",
+  "saveLocationCustomAlbum": "自定义相册名称",
+  "saveLocationCustomAlbumHint": "仅字母、数字、中文与下划线",
+  "saveLocationUseCustomAlbum": "使用自定义相册",
+  "saveLocationAlbumInvalid": "相册名称无效",
+  "saveLocationSafFolder": "文件夹（系统目录选择）",
+  "saveLocationSafFolderHint": "通过系统 SAF 选择目录并持久授权",
+  "saveLocationSafPicked": "已选择文件夹",
+  "namingPreset": "文件命名预设",
+  "namingPresetId": "作品 ID（默认）",
+  "namingPresetArtistTitleId": "作者 - 标题 - ID",
+  "namingPresetTitleId": "标题 - ID",
+  "namingPresetCustom": "自定义模板",
+  "namingTemplate": "命名模板",
+  "namingTemplateHint": "{artist}_{title}_{id}_p{page}.{ext}",
+  "@namingTemplateHint": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      }
+    }
+  },
+  "namingTemplateInvalid": "模板包含不支持的变量或非法字符",
+  "namingPreview": "预览",
+  "notConfigured": "未配置",
+  "translateProvider": "翻译服务",
+  "translateGoogle": "Google Translate",
+  "translateDisabled": "关闭",
+  "translateBaidu": "百度翻译",
+  "translateLlm": "自定义 LLM（OpenAI 兼容）",
+  "translateBaiduCredential": "百度 AppID / 密钥",
+  "translateLlmCredential": "LLM 接口与密钥",
+  "translateBaiduAppId": "AppID",
+  "translateBaiduSecret": "密钥 (Secret)",
+  "translateLlmBaseUrl": "接口地址（HTTPS）",
+  "translateLlmApiKey": "API Key",
+  "translateLlmModel": "模型名（可选）",
+  "translateCredentialsSave": "保存到安全存储",
+  "translateCredentialsClear": "清除凭据",
+  "translateCredentialsSaved": "已保存到安全存储",
+  "translateCredentialsCleared": "凭据已清除",
+  "translateCredentialsStoreError": "安全存储操作失败",
+  "translateCredentialsInvalid": "输入不完整或接口地址不是 HTTPS",
+  "translateCredentialHint": "翻译凭据不会写入普通设置；需要时由安全存储管理。",
+  "historySettingsHint": "历史记录开关由历史模块读取；关闭后不会新增对应记录。",
+  "blockTagInputHint": "输入标签后添加",
+  "noBlockedTags": "暂无屏蔽标签",
+  "downloaderSettingsHint": "下载任务由共享 DownloadManager 实时维护。",
+  "downloadTasksEmpty": "暂无下载任务",
+  "downloadQueued": "排队中",
+  "downloadRunning": "下载中",
+  "downloadCanceling": "取消中",
+  "downloadSucceeded": "已完成",
+  "downloadFailed": "失败",
+  "downloadCanceled": "已取消",
+  "retryDownload": "重试",
+  "cancelDownload": "取消",
+  "aboutVersion": "版本",
+  "aboutCheckUpdate": "检查更新",
+  "aboutCheckingUpdate": "正在检查更新…",
+  "aboutUpdateAvailable": "发现新版本",
+  "aboutUpdateNoUpdate": "已是最新版本",
+  "aboutUpdatePrerelease": "发现预发布版本，当前稳定通道不会安装",
+  "aboutUpdateDownload": "下载并安装",
+  "aboutUpdateDownloading": "正在下载并验证…",
+  "aboutUpdateConfirmTitle": "确认更新",
+  "aboutUpdateConfirmDetail": "只会安装通过签名、大小、哈希、包名和签名证书校验的 APK。是否继续？",
+  "aboutUpdatePermission": "需要允许此来源安装应用，然后再次确认安装。",
+  "aboutUpdateStarted": "已打开系统安装器",
+  "aboutUpdateStore": "此构建由 F-Droid 管理更新。",
+  "aboutUpdateUnavailable": "更新检查当前不可用",
+  "aboutUpdateFailed": "更新检查或安装失败，请稍后重试",
+  "aboutLicense": "许可证",
+  "aboutAttribution": "归属",
+  "aboutSource": "项目源码",
+  "aboutLicenseText": "本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。",
+  "aboutAttributionText": "原项目作者：git-xiaocao（小草）。",
+  "settingsReadFailed": "读取设置失败",
+  "settingsWriteFailed": "设置保存失败",
+  "add": "添加",
+  "viewerNoImages": "没有可显示的图片",
+  "downloadAll": "下载全部",
+  "downloadQueuedMessage": "已加入下载队列",
+  "downloadSubmissionFailed": "下载失败：{error}",
+  "@downloadSubmissionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraSaveGif": "保存 GIF",
+  "ugoiraLoadCanceled": "加载已取消",
+  "ugoiraLoginRequired": "请先登录后保存 GIF",
+  "ugoiraSaved": "GIF 已保存",
+  "ugoiraSaveCanceled": "GIF 保存已取消",
+  "ugoiraSaveFailed": "GIF 保存失败：{error}",
+  "@ugoiraSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraArchiveInvalid": "动图压缩包无效：{error}",
+  "@ugoiraArchiveInvalid": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraFrameCorrupt": "动图帧损坏：{error}",
+  "@ugoiraFrameCorrupt": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraLoadFailed": "动图加载失败：{error}",
+  "@ugoiraLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeExitHint": "再按一次退出",
+  "bookmarkIllust": "收藏插画",
+  "bookmarkNovel": "收藏小说",
+  "bookmarkOperationFailed": "收藏操作失败：{error}",
+  "@bookmarkOperationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "save": "保存",
+  "saved": "已保存",
+  "retry": "重试",
+  "relatedWorks": "相关作品",
+  "cancel": "取消",
+  "confirm": "确定",
+  "rankingDay": "每日",
+  "rankingDayR18": "每日(R-18)",
+  "rankingDayMale": "每日(男性欢迎)",
+  "rankingDayMaleR18": "每日(男性欢迎 & R-18)",
+  "rankingDayFemale": "每日(女性欢迎)",
+  "rankingDayFemaleR18": "每日(女性欢迎 & R-18)",
+  "rankingWeek": "每周",
+  "rankingWeekR18": "每周(R-18)",
+  "rankingWeekOriginal": "每周(原创)",
+  "rankingWeekRookie": "每周(新人)",
+  "rankingMonth": "每月",
+  "rankingEmpty": "暂无榜单内容",
+  "rankingLoadFailed": "{mode}加载失败",
+  "@rankingLoadFailed": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "rankingLoadMoreFailed": "加载更多失败",
+  "profileWork": "作品",
+  "profileBookmarked": "收藏",
+  "profileFollowing": "关注",
+  "profileFans": "粉丝",
+  "profileMyPixiv": "好P友",
+  "profileAbout": "关于",
+  "profileIllust": "插画",
+  "profileManga": "漫画",
+  "profileNovel": "小说",
+  "searchTitle": "搜索",
+  "searchHint": "搜索作品、用户或标签",
+  "searchReverseImage": "反向搜图",
+  "searchTrending": "热门标签",
+  "searchNoTrending": "暂无热门标签",
+  "searchTrendingFailed": "热门标签加载失败",
+  "searchIllustManga": "插画 & 漫画",
+  "searchNovel": "小说",
+  "searchUser": "用户",
+  "searchCancel": "取消",
+  "searchSubmit": "搜索",
+  "searchClear": "清除",
+  "searchLoading": "正在搜索",
+  "searchNoResults": "暂无搜索结果",
+  "searchLoadFailed": "搜索失败",
+  "searchLoadMoreFailed": "加载更多搜索结果失败",
+  "searchRetry": "重试",
+  "searchRefreshFailed": "刷新失败",
+  "searchInputEmpty": "请输入搜索内容",
+  "searchReverseUnavailable": "反向搜图暂不可用",
+  "searchReversePick": "选择图片",
+  "searchReversePrivacy": "隐私提示",
+  "searchReversePrivacyDetail": "图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。",
+  "searchReversePreparing": "正在准备图片…",
+  "searchReverseSearching": "正在搜索…",
+  "searchReverseCancel": "取消",
+  "searchReverseUse": "开始反向搜图",
+  "searchReverseRetry": "重新选择",
+  "searchReverseReady": "图片已准备好",
+  "searchReverseNoResults": "没有找到匹配结果",
+  "searchReverseIntentFailed": "分享的图片无法使用",
+  "searchReverseOpenExternal": "打开来源",
+  "searchReverseOpenFailed": "无法打开来源链接",
+  "searchReverseRateLimited": "搜索过于频繁，请稍后再试",
+  "searchReverseRateLimitedWait": "约 {seconds} 秒后可重试",
+  "@searchReverseRateLimitedWait": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "searchReverseDailyLimit": "今日匿名搜索额度已用完，明天再试",
+  "searchReverseChallenge": "SauceNAO 要求人机验证，本次搜索未完成，请稍后再试",
+  "searchReversePageLoadFailed": "结果页加载失败",
+  "searchReverseIntro": "选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。",
+  "searchNoRepresentative": "该标签暂无代表作品",
+  "searchFilters": "筛选",
+  "searchReset": "重置",
+  "searchApply": "应用",
+  "searchTarget": "搜索范围",
+  "searchPartialTags": "标签部分匹配",
+  "searchExactTags": "标签完全匹配",
+  "searchTitleCaption": "标题和简介",
+  "searchSort": "排序",
+  "searchDateDesc": "最新发布",
+  "searchDateAsc": "最早发布",
+  "searchPopularDesc": "热门排序",
+  "searchDuration": "发布时间",
+  "searchAllTime": "不限时间",
+  "searchWithinDay": "一天内",
+  "searchWithinWeek": "一周内",
+  "searchWithinMonth": "一个月内",
+  "searchStartDate": "开始日期",
+  "searchEndDate": "结束日期",
+  "searchNoSuggestions": "没有匹配建议",
+  "searchUserAccount": "账号",
+  "illustDetailTitle": "作品详情",
+  "illustDetailCreateDateUnknown": "投稿日期未知",
+  "illustDetailCreateDate": "投稿日期：{date}",
+  "@illustDetailCreateDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailSize": "尺寸：{width}x{height}",
+  "@illustDetailSize": {
+    "placeholders": {
+      "width": {
+        "type": "String"
+      },
+      "height": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailOpenLinkFailed": "无法打开链接：{error}",
+  "@illustDetailOpenLinkFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailRestricted": "该作品已被删除或受限（ID: {id}）",
+  "@illustDetailRestricted": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailNotFound": "作品不存在或已被删除",
+  "illustDetailLoadFailed": "作品加载失败",
+  "commentTitle": "评论",
+  "commentInput": "添加评论",
+  "commentReply": "回复",
+  "commentReplyTo": "回复给",
+  "commentCancelReply": "取消回复",
+  "commentSend": "发送",
+  "commentDelete": "删除评论",
+  "commentDeleteConfirm": "确定删除这条评论吗？",
+  "commentDeleteFailed": "删除评论失败",
+  "commentSendFailed": "发送评论失败",
+  "commentLoadFailed": "评论加载失败",
+  "relatedLoadFailed": "相关作品加载失败",
+  "commentLoadMoreFailed": "加载更多评论失败",
+  "commentNoResults": "暂无评论",
+  "commentReplies": "回复",
+  "commentTranslate": "翻译",
+  "commentTranslation": "翻译结果",
+  "commentTranslationUnavailable": "翻译服务不可用，请在设置中开启。",
+  "commentTranslationFailed": "翻译失败",
+  "commentTranslationInvalidCredentials": "翻译凭据无效，请在设置中检查。",
+  "commentTranslationRateLimited": "翻译过于频繁或额度已用完",
+  "commentEmoji": "Emoji",
+  "commentStamps": "Stamp",
+  "commentPermissionDenied": "只能删除自己的评论",
+  "newTitle": "新作",
+  "newFollowing": "关注",
+  "newEveryone": "大家",
+  "newMyPixiv": "好P友",
+  "newIllust": "插画",
+  "newNovel": "小说",
+  "recommendedIllust": "插画",
+  "recommendedManga": "漫画",
+  "recommendedNovel": "小说",
+  "recommendedUser": "用户",
+  "recommendedEmpty": "暂无推荐内容",
+  "recommendedLoadFailed": "推荐加载失败",
+  "recommendedLoadMoreFailed": "加载更多失败",
+  "recommendedEnd": "没有更多了",
+  "newLoading": "正在加载新作",
+  "newEmpty": "暂无内容",
+  "newLoadFailed": "新作加载失败",
+  "newLoadMoreFailed": "加载更多新作失败",
+  "newRetry": "重试",
+  "newRefreshFailed": "刷新失败",
+  "profileId": "用户 ID",
+  "profileAccount": "账号",
+  "profileIntroduction": "简介",
+  "profileBirthday": "生日",
+  "profileGender": "性别",
+  "profileRegion": "地区",
+  "profileJob": "职业",
+  "profileWebsite": "主页",
+  "profileWorkspace": "工作环境",
+  "profileStats": "统计",
+  "profileLoading": "正在加载用户资料",
+  "profileNotFound": "用户不存在或已被删除",
+  "profileBlocked": "该用户资料不可见",
+  "profileLoadFailed": "用户资料加载失败",
+  "profileItemsEmpty": "暂无内容",
+  "profileLoadMoreFailed": "加载更多失败",
+  "profileRetry": "重试",
+  "profileNovelPending": "小说列表将在 Novel Reader 模块接入",
+  "profileShare": "分享用户",
+  "profileShareHint": "可分享以下用户链接",
+  "profileShareClose": "关闭",
+  "profileSettings": "设置",
+  "restrictSelector": "选择公开范围",
+  "restrictPublic": "公开",
+  "restrictPrivate": "私密",
+  "follow": "关注",
+  "followed": "已关注",
+  "followUser": "关注用户",
+  "followFailed": "关注操作失败",
+  "userPreviewFollow": "关注",
+  "novelLoading": "正在加载小说",
+  "novelNotFound": "小说不存在或已被删除",
+  "novelRestricted": "该小说受限，无法阅读",
+  "novelContentUnavailable": "当前 API 未提供小说正文",
+  "novelLoadFailed": "小说加载失败",
+  "novelRetry": "重试",
+  "novelNoContent": "暂无正文",
+  "novelWords": "字",
+  "novelSeries": "系列",
+  "novelSeriesUnavailable": "系列信息暂不可用",
+  "novelPrevious": "上一篇",
+  "novelNext": "下一篇",
+  "novelDecreaseFont": "减小字号",
+  "novelIncreaseFont": "增大字号",
+  "novelReadingProgress": "阅读进度"
+}

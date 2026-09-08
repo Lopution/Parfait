@@ -20,6 +20,7 @@ enum ReplicaLanguage {
 class ReplicaStrings {
   static const _values = {
     ReplicaLanguage.zhCN: {
+      'networkDohEndpointsInvalid': 'DoH 地址列表无效',
       'welcome1': '感谢使用Pixiv Func',
       'welcome2': '下面将进行首次启动设置',
       'start': '开始',
@@ -464,6 +465,7 @@ class ReplicaStrings {
       'novelReadingProgress': '阅读进度',
     },
     ReplicaLanguage.enUS: {
+      'networkDohEndpointsInvalid': 'Invalid DoH endpoint list',
       'welcome1': 'Thank you for using Pixiv Func',
       'welcome2': 'Initial setup will begin now',
       'start': 'Start',
@@ -944,6 +946,7 @@ class ReplicaStrings {
       'novelReadingProgress': 'Reading progress',
     },
     ReplicaLanguage.jaJP: {
+      'networkDohEndpointsInvalid': 'DoHエンドポイントリストが無効です',
       'welcome1': 'Pixiv Funcをご利用ありがとうございます',
       'welcome2': '初期設定を開始します',
       'start': '開始',
@@ -1394,6 +1397,8 @@ class ReplicaStrings {
       'novelReadingProgress': '読書進捗',
     },
     ReplicaLanguage.ruRU: {
+      'networkDohEndpointsInvalid': 'Недопустимый список DoH-адресов',
+      'detailQuality': 'Качество картинки в детальной странице',
       'welcome1': 'Спасибо за использование Pixiv Func',
       'welcome2': 'Начнется первоначальная настройка',
       'start': 'Начать',

@@ -1,0 +1,567 @@
+{
+  "@@locale": "en",
+  "networkDohEndpointsInvalid": "Invalid DoH endpoint list",
+  "welcome1": "Thank you for using Pixiv Func",
+  "welcome2": "Initial setup will begin now",
+  "start": "Start",
+  "selectLanguage": "Select your language",
+  "selectTheme": "Choose your favorite theme",
+  "next": "Next",
+  "later": "You can change it later in the settings",
+  "dark": "Dark",
+  "light": "Light",
+  "system": "Follow the System",
+  "loginTitle": "Register or Login",
+  "register": "Register",
+  "login": "Log in",
+  "loginPageClosed": "The page was closed. Reopen it to try again.",
+  "loginCallbackInvalid": "Invalid login callback: {reason}",
+  "@loginCallbackInvalid": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "loginNetworkError": "Network error (HTTP {status})",
+  "@loginNetworkError": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "loginPageLoadFailed": "Page load failed ({error})",
+  "@loginPageLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginFailed": "Login failed: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginFailedType": "Login failed ({type})",
+  "@loginFailedType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "networkCompatibility": "Automatic compatibility network",
+  "getMoreHelp": "Get more help >>",
+  "useLoginWithClipboardHint": "或使用\\n长按头像复制账号数据",
+  "useLoginWithClipboard": "Login with clipboard data",
+  "accountTransferWarning": "剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。",
+  "accountTransferCopied": "账号迁移数据已复制，请尽快在目标设备粘贴。",
+  "accountTransferImported": "Account transfer succeeded",
+  "accountTransferClipboardReplaced": "账号已导入；剪贴板已被其他内容替换，未执行清除。",
+  "accountTransferCorrupt": "剪贴板账号数据损坏或格式不受支持",
+  "accountTransferCredentialInvalid": "账号凭据无效，请重新登录或重新复制",
+  "accountTransferVerificationUnavailable": "暂时无法向 Pixiv 验证账号凭据",
+  "accountTransferNoAccount": "There is no signed-in account to copy",
+  "accountTransferCredentialUnavailable": "当前账号凭据不可用，请重新登录",
+  "accountTransferClipboardUnavailable": "The clipboard is unavailable",
+  "accountTransferStorageFailure": "账号迁移记录无法安全保存",
+  "loginAgree": "By logging in you agree",
+  "userAgreement": "《Pixiv Func User Agreement》",
+  "settingsTitle": "Settings",
+  "accountSettings": "Account",
+  "networkSettings": "Network",
+  "networkMode": "Auto compatibility mode",
+  "networkModeListTitle": "Network mode",
+  "networkModeAutomatic": "Automatic",
+  "networkModeAutomaticHint": "标准网络栈：按各主机组选择可达且畅通的路线。",
+  "networkModeDirectOnly": "Direct only",
+  "networkModeDirectOnlyHint": "使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。",
+  "networkAdvanced": "Advanced",
+  "networkAdvancedHint": "DoH endpoints, ECH front host and other details.",
+  "networkAdvancedReset": "Reset to defaults",
+  "networkDoh": "Use DoH for strict fallback",
+  "networkDohEndpoints": "DoH endpoints (comma-separated, https URLs)",
+  "networkEchFrontHost": "ECH front host",
+  "networkEchHostInvalid": "Invalid front host name",
+  "networkProbe": "Layered connectivity probe",
+  "networkProbeTitle": "Layered connectivity probe",
+  "networkProbeRun": "Run probe",
+  "networkProbeRunning": "Probing…",
+  "networkProbeNotRun": "Not run yet",
+  "networkProbeHostFailed": "Host probe failed",
+  "networkProbeCopied": "Report copied",
+  "networkProbeDnsDiff": "附加信息：系统 DNS 与 DoH 的公共地址没有交集。",
+  "networkProbeStepSystemDns": "System DNS",
+  "networkProbeStepDoh": "DoH",
+  "networkProbeStepTcp": "TCP",
+  "networkProbeStepTls": "TLS",
+  "networkProbeStepHttp": "Minimal request",
+  "networkProbeStepEch": "ECH",
+  "networkProbeStepNoSni": "Empty SNI",
+  "networkProbeStepOk": "OK",
+  "networkProbeStepFailed": "Failed",
+  "networkProbeStepSkipped": "Skipped",
+  "networkProbeConclusionAllReachable": "Reachable",
+  "networkProbeConclusionDnsPolluted": "DNS polluted",
+  "networkProbeConclusionSniBlocked": "SNI blocked",
+  "networkProbeConclusionEchAvailable": "Use ECH",
+  "networkProbeConclusionNoSniAvailable": "Use empty SNI",
+  "networkProbeConclusionIpBlackholed": "IP blackholed",
+  "networkProbeConclusionAppLayer": "Application layer",
+  "networkProbeConclusionInconclusive": "Inconclusive",
+  "copy": "Copy",
+  "themeSettings": "Theme",
+  "languageSettings": "Language",
+  "translateSettings": "Translate",
+  "browseSettings": "Browse settings",
+  "downloadSettings": "Download settings",
+  "historySettings": "History",
+  "historyView": "View browsing history",
+  "historyEmpty": "No browsing history",
+  "historyLoadFailed": "Failed to load history",
+  "historyDelete": "Delete history",
+  "historyDeleteAll": "Delete all history",
+  "historyDeleteHint": "Deleted history cannot be recovered.",
+  "blockTagSettings": "Blocked tags",
+  "downloaderSettings": "Download tasks",
+  "aboutSettings": "About",
+  "signedOut": "Not signed in",
+  "currentAccount": "Current account",
+  "accountId": "Account ID",
+  "reauthRequired": "Re-authentication required",
+  "accountProfile": "Profile",
+  "accountReadFailed": "Failed to read account state",
+  "reopen": "Reopen",
+  "dismiss": "Dismiss",
+  "profileEditTitle": "Edit profile",
+  "profileEditLoadFailed": "Failed to load profile",
+  "profileEditUnavailable": "No in-app profile-edit route is available.",
+  "profileEditPending": "Changes were submitted and await verification.",
+  "profileEditConfirmed": "Profile confirmed and synchronized.",
+  "profileEditDisplayName": "Display name",
+  "profileEditComment": "Bio",
+  "profileEditWebpage": "Web page",
+  "profileEditAvatar": "Avatar",
+  "profileEditBackground": "Background image",
+  "profileEditCurrentPassword": "Current password",
+  "profileEditFieldUnsupported": "当前通道不支持此字段",
+  "profileEditImageChoose": "Choose a supported image",
+  "profileEditChooseImage": "Choose image",
+  "profileEditSave": "Save profile",
+  "profileEditLeaveTitle": "Discard unsaved changes?",
+  "profileEditLeaveDetail": "当前修改尚未提交，离开后会丢失。",
+  "profileEditLeaveConfirm": "Discard changes",
+  "accountManagement": "Account management",
+  "addAccount": "Add account",
+  "switchAccount": "Switch account",
+  "removeAccount": "Remove account",
+  "removeAccountConfirm": "Remove this account?",
+  "noAccounts": "No accounts",
+  "profileReadOnly": "这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。",
+  "imageSource": "Image source",
+  "imageSourceNormal": "Official CDN (system DNS / HTTPS)",
+  "previewQuality": "Preview quality",
+  "viewQuality": "Viewer quality",
+  "detailQuality": "Detail quality",
+  "qualityMedium": "Medium",
+  "qualityLarge": "Large",
+  "qualityOriginal": "Original",
+  "scaleQuality": "Viewer quality (original)",
+  "localHistory": "Local browsing history",
+  "pixivHistory": "Pixiv browsing history",
+  "blockR18": "Locally block R-18 works",
+  "blockAI": "Locally block AI works",
+  "maxDownloadCount": "Maximum concurrent downloads",
+  "namingRule": "File naming rule",
+  "namingRuleHint": "Leave empty to use the default name",
+  "saveFolder": "Save folder",
+  "saveLocation": "Save location",
+  "saveLocationAlbum": "Album",
+  "saveLocationPixivAlbum": "PixivFunc album (default)",
+  "saveLocationCustomAlbum": "Custom album name",
+  "saveLocationCustomAlbumHint": "Letters, digits, CJK and underscore only",
+  "saveLocationUseCustomAlbum": "Use custom album",
+  "saveLocationAlbumInvalid": "Invalid album name",
+  "saveLocationSafFolder": "Folder (system directory picker)",
+  "saveLocationSafFolderHint": "通过系统 SAF 选择目录并持久授权",
+  "saveLocationSafPicked": "Folder selected",
+  "namingPreset": "File naming preset",
+  "namingPresetId": "Work ID (default)",
+  "namingPresetArtistTitleId": "Artist - title - ID",
+  "namingPresetTitleId": "Title - ID",
+  "namingPresetCustom": "Custom template",
+  "namingTemplate": "Naming template",
+  "namingTemplateHint": "{artist}_{title}_{id}_p{page}.{ext}",
+  "@namingTemplateHint": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      }
+    }
+  },
+  "namingTemplateInvalid": "模板包含不支持的变量或非法字符",
+  "namingPreview": "Preview",
+  "notConfigured": "Not configured",
+  "translateProvider": "Translation service",
+  "translateGoogle": "Google Translate",
+  "translateDisabled": "Disabled",
+  "translateBaidu": "Baidu Translate",
+  "translateLlm": "Custom LLM (OpenAI-compatible)",
+  "translateBaiduCredential": "Baidu AppID / secret",
+  "translateLlmCredential": "LLM endpoint & key",
+  "translateBaiduAppId": "AppID",
+  "translateBaiduSecret": "Secret",
+  "translateLlmBaseUrl": "Base URL (HTTPS)",
+  "translateLlmApiKey": "API key",
+  "translateLlmModel": "Model (optional)",
+  "translateCredentialsSave": "Save to secure storage",
+  "translateCredentialsClear": "Clear credentials",
+  "translateCredentialsSaved": "Saved to secure storage",
+  "translateCredentialsCleared": "Credentials cleared",
+  "translateCredentialsStoreError": "Secure storage operation failed",
+  "translateCredentialsInvalid": "输入不完整或接口地址不是 HTTPS",
+  "translateCredentialHint": "翻译凭据不会写入普通设置；需要时由安全存储管理。",
+  "historySettingsHint": "历史记录开关由历史模块读取；关闭后不会新增对应记录。",
+  "blockTagInputHint": "Enter a tag to add it",
+  "noBlockedTags": "No blocked tags",
+  "downloaderSettingsHint": "下载任务由共享 DownloadManager 实时维护。",
+  "downloadTasksEmpty": "No download tasks",
+  "downloadQueued": "Queued",
+  "downloadRunning": "Downloading",
+  "downloadCanceling": "Canceling",
+  "downloadSucceeded": "Completed",
+  "downloadFailed": "Failed",
+  "downloadCanceled": "Canceled",
+  "retryDownload": "Retry",
+  "cancelDownload": "Cancel",
+  "aboutVersion": "Version",
+  "aboutCheckUpdate": "Check for updates",
+  "aboutCheckingUpdate": "Checking for updates…",
+  "aboutUpdateAvailable": "Update available",
+  "aboutUpdateNoUpdate": "You are up to date",
+  "aboutUpdatePrerelease": "发现预发布版本，当前稳定通道不会安装",
+  "aboutUpdateDownload": "Download and install",
+  "aboutUpdateDownloading": "Downloading and verifying…",
+  "aboutUpdateConfirmTitle": "Confirm update",
+  "aboutUpdateConfirmDetail": "只会安装通过签名、大小、哈希、包名和签名证书校验的 APK。是否继续？",
+  "aboutUpdatePermission": "需要允许此来源安装应用，然后再次确认安装。",
+  "aboutUpdateStarted": "The system installer was opened",
+  "aboutUpdateStore": "Updates for this build are managed by F-Droid.",
+  "aboutUpdateUnavailable": "Update checks are currently unavailable",
+  "aboutUpdateFailed": "更新检查或安装失败，请稍后重试",
+  "aboutLicense": "License",
+  "aboutAttribution": "Attribution",
+  "aboutSource": "Source code",
+  "aboutLicenseText": "本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。",
+  "aboutAttributionText": "Original author: git-xiaocao.",
+  "settingsReadFailed": "Failed to read settings",
+  "settingsWriteFailed": "Failed to save settings",
+  "add": "Add",
+  "viewerNoImages": "No images to display",
+  "downloadAll": "Download All",
+  "downloadQueuedMessage": "Added to the download queue",
+  "downloadSubmissionFailed": "Download failed: {error}",
+  "@downloadSubmissionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraSaveGif": "Save GIF",
+  "ugoiraLoadCanceled": "Loading was canceled",
+  "ugoiraLoginRequired": "Sign in before saving the GIF",
+  "ugoiraSaved": "GIF saved",
+  "ugoiraSaveCanceled": "GIF save canceled",
+  "ugoiraSaveFailed": "GIF save failed: {error}",
+  "@ugoiraSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraArchiveInvalid": "The animation archive is invalid: {error}",
+  "@ugoiraArchiveInvalid": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraFrameCorrupt": "An animation frame is corrupt: {error}",
+  "@ugoiraFrameCorrupt": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraLoadFailed": "Animation failed to load: {error}",
+  "@ugoiraLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeExitHint": "Press back again to exit",
+  "bookmarkIllust": "Bookmark illustration",
+  "bookmarkNovel": "Bookmark novel",
+  "bookmarkOperationFailed": "Bookmark operation failed: {error}",
+  "@bookmarkOperationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "save": "Save",
+  "saved": "Saved",
+  "retry": "Retry",
+  "relatedWorks": "Related works",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "rankingDay": "Daily",
+  "rankingDayR18": "Daily (R-18)",
+  "rankingDayMale": "Daily (Male favorite)",
+  "rankingDayMaleR18": "Daily (Male favorite & R-18)",
+  "rankingDayFemale": "Daily (Female favorite)",
+  "rankingDayFemaleR18": "Daily (Female favorite & R-18)",
+  "rankingWeek": "Weekly",
+  "rankingWeekR18": "Weekly (R-18)",
+  "rankingWeekOriginal": "Weekly (Original)",
+  "rankingWeekRookie": "Weekly (Rookie)",
+  "rankingMonth": "Monthly",
+  "rankingEmpty": "No ranking content",
+  "rankingLoadFailed": "{mode} failed to load",
+  "@rankingLoadFailed": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "rankingLoadMoreFailed": "Failed to load more",
+  "profileWork": "Works",
+  "profileBookmarked": "Bookmarked",
+  "profileFollowing": "Following",
+  "profileFans": "Fans",
+  "profileMyPixiv": "My Pixiv",
+  "profileAbout": "About",
+  "profileIllust": "Illustration",
+  "profileManga": "Manga",
+  "profileNovel": "Novel",
+  "searchTitle": "Search",
+  "searchHint": "Search works, users or tags",
+  "searchReverseImage": "Reverse image",
+  "searchTrending": "Trending tags",
+  "searchNoTrending": "No trending tags",
+  "searchTrendingFailed": "Failed to load trending tags",
+  "searchIllustManga": "Illust & Manga",
+  "searchNovel": "Novel",
+  "searchUser": "User",
+  "searchCancel": "Cancel",
+  "searchSubmit": "Search",
+  "searchClear": "Clear",
+  "searchLoading": "Searching",
+  "searchNoResults": "No search results",
+  "searchLoadFailed": "Search failed",
+  "searchLoadMoreFailed": "Failed to load more results",
+  "searchRetry": "Retry",
+  "searchRefreshFailed": "Refresh failed",
+  "searchInputEmpty": "Enter a search term",
+  "searchReverseUnavailable": "Reverse image search unavailable",
+  "searchReversePick": "Choose image",
+  "searchReversePrivacy": "Privacy notice",
+  "searchReversePrivacyDetail": "图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。",
+  "searchReversePreparing": "Preparing image…",
+  "searchReverseSearching": "Searching…",
+  "searchReverseCancel": "Cancel",
+  "searchReverseUse": "Start reverse search",
+  "searchReverseRetry": "Choose another image",
+  "searchReverseReady": "Image is ready",
+  "searchReverseNoResults": "No matching results",
+  "searchReverseIntentFailed": "The shared image cannot be used",
+  "searchReverseOpenExternal": "Open source",
+  "searchReverseOpenFailed": "Could not open the source link",
+  "searchReverseRateLimited": "Too many searches, try again later",
+  "searchReverseRateLimitedWait": "Try again in about {seconds} seconds",
+  "@searchReverseRateLimitedWait": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "searchReverseDailyLimit": "今日匿名搜索额度已用完，明天再试",
+  "searchReverseChallenge": "SauceNAO 要求人机验证，本次搜索未完成，请稍后再试",
+  "searchReversePageLoadFailed": "The result page failed to load",
+  "searchReverseIntro": "选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。",
+  "searchNoRepresentative": "This tag has no representative work",
+  "searchFilters": "Filters",
+  "searchReset": "Reset",
+  "searchApply": "Apply",
+  "searchTarget": "Search target",
+  "searchPartialTags": "Partial tag match",
+  "searchExactTags": "Exact tag match",
+  "searchTitleCaption": "Title and caption",
+  "searchSort": "Sort",
+  "searchDateDesc": "Newest",
+  "searchDateAsc": "Oldest",
+  "searchPopularDesc": "Popular",
+  "searchDuration": "Published",
+  "searchAllTime": "Any time",
+  "searchWithinDay": "Within a day",
+  "searchWithinWeek": "Within a week",
+  "searchWithinMonth": "Within a month",
+  "searchStartDate": "Start date",
+  "searchEndDate": "End date",
+  "searchNoSuggestions": "No suggestions",
+  "searchUserAccount": "Account",
+  "illustDetailTitle": "Artwork",
+  "illustDetailCreateDateUnknown": "Upload date unknown",
+  "illustDetailCreateDate": "Uploaded on {date}",
+  "@illustDetailCreateDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailSize": "Size: {width}x{height}",
+  "@illustDetailSize": {
+    "placeholders": {
+      "width": {
+        "type": "String"
+      },
+      "height": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailOpenLinkFailed": "Could not open the link: {error}",
+  "@illustDetailOpenLinkFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailRestricted": "该作品已被删除或受限（ID: {id}）",
+  "@illustDetailRestricted": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailNotFound": "This artwork does not exist or was deleted",
+  "illustDetailLoadFailed": "Failed to load the artwork",
+  "commentTitle": "Comments",
+  "commentInput": "Add a comment",
+  "commentReply": "Reply",
+  "commentReplyTo": "Reply to",
+  "commentCancelReply": "Cancel reply",
+  "commentSend": "Send",
+  "commentDelete": "Delete comment",
+  "commentDeleteConfirm": "Delete this comment?",
+  "commentDeleteFailed": "Failed to delete comment",
+  "commentSendFailed": "Failed to send comment",
+  "commentLoadFailed": "Failed to load comments",
+  "relatedLoadFailed": "Failed to load related works",
+  "commentLoadMoreFailed": "Failed to load more comments",
+  "commentNoResults": "No comments",
+  "commentReplies": "Replies",
+  "commentTranslate": "Translate",
+  "commentTranslation": "Translation",
+  "commentTranslationUnavailable": "翻译服务不可用，请在设置中开启。",
+  "commentTranslationFailed": "Translation failed",
+  "commentTranslationInvalidCredentials": "翻译凭据无效，请在设置中检查。",
+  "commentTranslationRateLimited": "翻译过于频繁或额度已用完",
+  "commentEmoji": "Emoji",
+  "commentStamps": "Stamps",
+  "commentPermissionDenied": "You can only delete your own comments",
+  "newTitle": "New",
+  "newFollowing": "Following",
+  "newEveryone": "Everyone",
+  "newMyPixiv": "My Pixiv",
+  "newIllust": "Illust",
+  "newNovel": "Novel",
+  "recommendedIllust": "Illust",
+  "recommendedManga": "Manga",
+  "recommendedNovel": "Novel",
+  "recommendedUser": "Users",
+  "recommendedEmpty": "No recommendations",
+  "recommendedLoadFailed": "Failed to load recommendations",
+  "recommendedLoadMoreFailed": "Failed to load more",
+  "recommendedEnd": "No more",
+  "newLoading": "Loading new works",
+  "newEmpty": "No content",
+  "newLoadFailed": "Failed to load new works",
+  "newLoadMoreFailed": "Failed to load more",
+  "newRetry": "Retry",
+  "newRefreshFailed": "Refresh failed",
+  "profileId": "User ID",
+  "profileAccount": "Account",
+  "profileIntroduction": "Introduction",
+  "profileBirthday": "Birthday",
+  "profileGender": "Gender",
+  "profileRegion": "Region",
+  "profileJob": "Job",
+  "profileWebsite": "Website",
+  "profileWorkspace": "Workspace",
+  "profileStats": "Statistics",
+  "profileLoading": "Loading user profile",
+  "profileNotFound": "User does not exist or was removed",
+  "profileBlocked": "This user profile is unavailable",
+  "profileLoadFailed": "Failed to load user profile",
+  "profileItemsEmpty": "No content",
+  "profileLoadMoreFailed": "Failed to load more",
+  "profileRetry": "Retry",
+  "profileNovelPending": "小说列表将在 Novel Reader 模块接入",
+  "profileShare": "Share user",
+  "profileShareHint": "Share this user link",
+  "profileShareClose": "Close",
+  "profileSettings": "Settings",
+  "restrictSelector": "Choose visibility",
+  "restrictPublic": "Public",
+  "restrictPrivate": "Private",
+  "follow": "Follow",
+  "followed": "Following",
+  "followUser": "Follow user",
+  "followFailed": "Follow action failed",
+  "userPreviewFollow": "Follow",
+  "novelLoading": "Loading novel",
+  "novelNotFound": "Novel does not exist or was removed",
+  "novelRestricted": "This novel is restricted",
+  "novelContentUnavailable": "当前 API 未提供小说正文",
+  "novelLoadFailed": "Failed to load novel",
+  "novelRetry": "Retry",
+  "novelNoContent": "No body text",
+  "novelWords": "words",
+  "novelSeries": "Series",
+  "novelSeriesUnavailable": "Series information unavailable",
+  "novelPrevious": "Previous novel",
+  "novelNext": "Next novel",
+  "novelDecreaseFont": "Decrease font size",
+  "novelIncreaseFont": "Increase font size",
+  "novelReadingProgress": "Reading progress"
+}
