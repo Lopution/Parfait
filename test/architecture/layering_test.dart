@@ -28,13 +28,9 @@ final _partRegExp = RegExp(r'''^\s*part\s+['"]([^'"]+)['"]''', multiLine: true);
 const _allowListedEdges = <String>{
   // R2: features a != b (C2 facade / C3 components / C4 move: 44 edges)
   'lib/features/illust/detail/related_illusts_section.dart -> lib/features/search/search_text.dart',
-  'lib/features/onboarding/startup_gate.dart -> lib/features/home/home_page.dart',
-  'lib/features/onboarding/startup_gate.dart -> lib/features/login/login_page.dart',
   'lib/features/search/search_result_page.dart -> lib/features/profile/follow_switch_button.dart',
   'lib/features/settings/settings_page.dart -> lib/features/profile/user_page.dart',
 
-  // R3: app -> features (C2/C4: startup_gate moves to lib/app/)
-  'lib/app/app.dart -> lib/features/onboarding/startup_gate.dart',
 };
 
 /// R4: data-layer files still under lib/features/ (C4 moves them to lib/core/).
@@ -43,7 +39,6 @@ const _allowListedDataFiles = <String>{};
 /// R5: files defining shared-component private widgets (C3/C8 replaces them).
 const _allowListedWidgetFiles = <String>{
   'lib/features/comments/comments_page.dart',
-  'lib/features/onboarding/startup_gate.dart',
   'lib/features/new/new_page.dart',
   'lib/features/settings/settings_page.dart',
   'lib/features/settings/network_probe_page.dart',

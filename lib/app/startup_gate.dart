@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/auth/account_store.dart';
-import '../../core/i18n/replica_strings.dart';
-import '../../core/settings/app_settings.dart';
-import '../home/home_page.dart';
-import '../login/login_page.dart';
-import 'welcome_page.dart';
+import 'navigation/routes.dart';
+
+import '../core/auth/account_store.dart';
+import '../core/i18n/replica_strings.dart';
+import '../core/settings/app_settings.dart';
 
 /// Cold-start router driven by real settings and account state.
 ///
@@ -25,7 +24,7 @@ class StartupGate extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountStoreProvider);
     if (!settings.guideCompleted) {
-      return const WelcomePage();
+      return startupGateWelcomePage();
     }
     return accounts.when(
       loading: () => const _StartupProgress(),
@@ -35,8 +34,8 @@ class StartupGate extends ConsumerWidget {
           return _StartupError(error: state.error ?? 'unknown account error');
         }
         return state.usableCurrent == null
-            ? const LoginPage(returnToHomeOnSuccess: true)
-            : const HomePage();
+            ? startupGateLoginPage()
+            : startupGateHomePage();
       },
     );
   }
