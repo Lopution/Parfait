@@ -129,6 +129,31 @@ void main() {
     expect(find.byIcon(Icons.error_outline), findsNothing);
   });
 
+  testWidgets('daily-limit failure shows the quota copy without countdown', (
+    tester,
+  ) async {
+    await _pumpPage(
+      tester,
+      platform: platform,
+      provider: const _OutcomeProvider(
+        ReverseImageSearchFailure(
+          code: ReverseImageProviderFailureCode.dailyLimit,
+          message: 'SauceNAO daily search limit reached',
+          retryable: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选择图片'));
+    await _pumpUntilVisible(tester, find.text('开始反向搜图'));
+    await tester.ensureVisible(find.text('开始反向搜图'));
+    await tester.tap(find.text('开始反向搜图'));
+    await _pumpUntilVisible(tester, find.text('今日匿名搜索额度已用完，明天再试'));
+
+    expect(find.text('今日匿名搜索额度已用完，明天再试'), findsOneWidget);
+    expect(find.textContaining('秒后可重试'), findsNothing);
+  });
+
   testWidgets('challenge failure shows the human-verification copy', (
     tester,
   ) async {

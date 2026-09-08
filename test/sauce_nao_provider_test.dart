@@ -134,7 +134,7 @@ void main() {
     );
   });
 
-  test('a 200 challenge or no-match HTML page is a visible failure', () async {
+  test('a 200 captcha page is a visible challenge failure', () async {
     final client = MockClient(
       (request) async => http.Response(
         '<html><body>captcha: verify you are human</body></html>',
@@ -304,7 +304,7 @@ void main() {
     expect((outcome as ReverseImageSearchWebView).html, contains('结果：你好'));
   });
 
-  test('rejects a no-match HTML page', () async {
+  test('a no-match HTML page is an explicit empty success', () async {
     final client = MockClient(
       (request) async => http.Response.bytes(
         utf8.encode('<html><body>没有匹配结果</body></html>'),
