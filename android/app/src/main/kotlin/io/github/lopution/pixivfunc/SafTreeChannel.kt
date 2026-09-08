@@ -37,12 +37,15 @@ object SafTreeChannel {
     private const val PREFIX = "saf_"
     private const val REQUEST_OPEN_TREE = 0x53AF
 
+    private val pendingLock = Any()
     private var pendingResult: MethodChannel.Result? = null
+
+    @Volatile
     private var appContext: android.content.Context? = null
 
     fun configure(context: android.content.Context, engine: FlutterEngine) {
         appContext = context.applicationContext
-        val ops = AndroidSafTreeOperations(context)
+        val ops = AndroidSafTreeOperations(context.applicationContext)
         val launcher = SafTreeLauncher {
             val activity = context as? Activity ?: return@SafTreeLauncher false
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
@@ -56,9 +59,9 @@ object SafTreeChannel {
             activity.startActivityForResult(intent, REQUEST_OPEN_TREE)
             true
         }
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                handle(call, result, ops, launcher)
+                handle(call, result, ops, launcher, AndroidMainThreadPoster)
             }
     }
 
@@ -67,23 +70,32 @@ object SafTreeChannel {
         result: MethodChannel.Result,
         ops: SafTreeOperations,
         launcher: SafTreeLauncher,
+        mainThread: MainThreadPoster = ImmediateMainThreadPoster,
     ) {
         try {
             when (call.method) {
                 "pickTree" -> {
-                    if (pendingResult != null) {
-                        result.error("saf_busy", "a picker is already open", null)
-                        return
-                    }
-                    pendingResult = result
-                    try {
-                        if (!launcher.start()) {
-                            pendingResult = null
-                            result.error("saf_unavailable", "no activity to start picker", null)
+                    synchronized(pendingLock) {
+                        if (pendingResult != null) {
+                            result.error("saf_busy", "a picker is already open", null)
+                            return
                         }
-                    } catch (error: Exception) {
-                        pendingResult = null
-                        result.error("saf_launch_failed", error.message, null)
+                        pendingResult = result
+                    }
+                    mainThread.post {
+                        try {
+                            if (!launcher.start()) {
+                                clearPendingIfSame(result)
+                                result.error(
+                                    "saf_unavailable",
+                                    "no activity to start picker",
+                                    null,
+                                )
+                            }
+                        } catch (error: Exception) {
+                            clearPendingIfSame(result)
+                            result.error("saf_launch_failed", error.message, null)
+                        }
                     }
                 }
                 "create" -> {
@@ -176,6 +188,8 @@ object SafTreeChannel {
         override fun delete(uri: String) = deleteDocument(context, uri)
     }
 
+    // Handler-only: serial background TaskQueue. pickTree / onActivityResult
+    // do not touch this map.
     private val streams = mutableMapOf<String, java.io.OutputStream>()
 
     private fun createDocument(
@@ -218,14 +232,27 @@ object SafTreeChannel {
         context.contentResolver.delete(Uri.parse(uri), null, null)
     }
 
+    private fun clearPendingIfSame(expected: MethodChannel.Result) {
+        synchronized(pendingLock) {
+            if (pendingResult === expected) {
+                pendingResult = null
+            }
+        }
+    }
+
     internal fun abandonPendingPicker() {
-        pendingResult = null
+        synchronized(pendingLock) {
+            pendingResult = null
+        }
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode != REQUEST_OPEN_TREE) return false
-        val result = pendingResult ?: return true
-        pendingResult = null
+        val result = synchronized(pendingLock) {
+            val pending = pendingResult
+            pendingResult = null
+            pending
+        } ?: return true
         completePickTree(result, resultCode, data) { uri, intent ->
             val flags = intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION or
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION

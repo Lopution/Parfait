@@ -34,7 +34,7 @@ object DistributionUpdaterChannel {
     private const val ERR_SIGNATURE_MISSING = "signature_missing"
 
     fun configure(context: Context, engine: FlutterEngine) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getCapability" -> result.success(
@@ -47,7 +47,7 @@ object DistributionUpdaterChannel {
                     "getPlatformInfo" -> result.success(platformInfo(context))
                     "verifyManifestSignature" -> result.success(verifyManifestSignature(call))
                     "verifyApk" -> result.success(verifyApk(context, call))
-                    "installApk" -> result.success(installApk(context, call))
+                    "installApk" -> installApk(context, call, result)
                     "deleteApk" -> result.success(deleteApk(context, call))
                     else -> result.notImplemented()
                 }
@@ -143,10 +143,29 @@ object DistributionUpdaterChannel {
         }
     }
 
-    private fun installApk(context: Context, call: MethodCall): Map<String, Any> {
-        val path = call.argument<String>("path") ?: return installFailed("apk_path_invalid")
-        val apk = ownedApk(context, path) ?: return installFailed("apk_path_invalid")
-        if (!apk.isFile) return installFailed("apk_missing")
+    private fun installApk(
+        context: Context,
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
+        val path = call.argument<String>("path") ?: run {
+            result.success(installFailed("apk_path_invalid"))
+            return
+        }
+        val apk = ownedApk(context, path) ?: run {
+            result.success(installFailed("apk_path_invalid"))
+            return
+        }
+        if (!apk.isFile) {
+            result.success(installFailed("apk_missing"))
+            return
+        }
+        AndroidMainThreadPoster.post {
+            result.success(launchInstall(context, apk))
+        }
+    }
+
+    private fun launchInstall(context: Context, apk: File): Map<String, Any> {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                 !context.packageManager.canRequestPackageInstalls()

@@ -28,6 +28,9 @@ object WebProfileChannel {
     internal const val PIXIV_WEB = "https://www.pixiv.net"
 
     fun configure(context: Context, engine: FlutterEngine) {
+        // CookieManager.getCookie / flush are not documented as thread-safe
+        // (https://developer.android.com/reference/android/webkit/CookieManager).
+        // Stay on the platform thread.
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 handle(call, result, AndroidWebProfileCookies)

@@ -47,12 +47,14 @@ object MediaStoreChannel {
     private const val RELATIVE_PATH = "Pictures/PixivFunc"
     private const val OWNER_PREFIX = "pixivfunc-owner:"
 
+    // Handler-only: the channel TaskQueue is serial, so these caches are
+    // never touched from onActivityResult or another thread.
     private val streams = object : LruCache<Int, OutputStream>(32) {}
     private val uris = object : LruCache<Int, Uri>(32) {}
 
     fun configure(context: Context, engine: FlutterEngine) {
-        val ops = AndroidMediaStoreOperations(context)
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        val ops = AndroidMediaStoreOperations(context.applicationContext)
+        backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 handle(call, result, ops)
             }
