@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/widgets/feed/feed_grid.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
@@ -226,7 +227,12 @@ class _HistoryBodyState extends State<_HistoryBody> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null && _records.isEmpty) {
-      return _HistoryError(error: _error!, onRetry: _reload);
+      return FeedError(
+          title: _historyText(context, 'historyLoadFailed'),
+          error: _error!,
+          retryLabel: _historyText(context, 'retry'),
+          onRetry: _reload,
+        );
     }
     if (_records.isEmpty) {
       return ReplicaEmptyState(
@@ -505,37 +511,6 @@ class _SnapshotCover extends StatelessWidget {
               child: Icon(icon, size: 42),
             )
           : PixivImage(url: record.snapshot.coverUrl!, fit: BoxFit.cover),
-    );
-  }
-}
-
-class _HistoryError extends StatelessWidget {
-  const _HistoryError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.history_toggle_off, size: 48),
-            const SizedBox(height: 12),
-            Text(_historyText(context, 'historyLoadFailed')),
-            const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_historyText(context, 'retry')),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

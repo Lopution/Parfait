@@ -8,7 +8,8 @@ import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/network/api_error.dart';
-import '../../core/paging/paged_feed_controller.dart';
+
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import 'ranking_repository.dart';
 
@@ -104,18 +105,32 @@ class _RankingModeBody extends ConsumerWidget {
     final store = ref.watch(illustStoreProvider);
     return state.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _RankingInitialError(
-        mode: mode,
+      error: (error, _) => FeedError(
+        title: ReplicaStrings.fromTag(
+          Localizations.localeOf(context).toLanguageTag(),
+          'rankingLoadFailed',
+        ),
         error: error,
+        retryLabel: ReplicaStrings.fromTag(
+          Localizations.localeOf(context).toLanguageTag(),
+          'retry',
+        ),
         onRetry: () => ref
             .read(rankingFeedControllerProvider(mode).notifier)
             .retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _RankingInitialError(
-            mode: mode,
+          return FeedError(
+            title: ReplicaStrings.fromTag(
+              Localizations.localeOf(context).toLanguageTag(),
+              'rankingLoadFailed',
+            ),
             error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: ReplicaStrings.fromTag(
+              Localizations.localeOf(context).toLanguageTag(),
+              'retry',
+            ),
             onRetry: () => ref
                 .read(rankingFeedControllerProvider(mode).notifier)
                 .retryInitial(),
@@ -169,11 +184,19 @@ class _RankingModeBody extends ConsumerWidget {
                     ),
 ),
                 SliverToBoxAdapter(
-                  child: _RankingFeedTail(
+                  child: FeedTail(
                     feed: feed,
                     onRetry: () => ref
                         .read(rankingFeedControllerProvider(mode).notifier)
                         .retryLoadMore(),
+                    errorTitle: ReplicaStrings.fromTag(
+                      Localizations.localeOf(context).toLanguageTag(),
+                      'rankingLoadMoreFailed',
+                    ),
+                    retryLabel: ReplicaStrings.fromTag(
+                      Localizations.localeOf(context).toLanguageTag(),
+                      'retry',
+                    ),
                   ),
                 ),
               ],
@@ -185,101 +208,3 @@ class _RankingModeBody extends ConsumerWidget {
   }
 }
 
-class _RankingFeedTail extends StatelessWidget {
-  const _RankingFeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                ReplicaStrings.fromTag(
-                  Localizations.localeOf(context).toLanguageTag(),
-                  'rankingLoadMoreFailed',
-                ),
-              ),
-              Text(
-                '${feed.loadMoreError}',
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 2,
-              ),
-              TextButton(
-                onPressed: onRetry,
-                child: Text(
-                  ReplicaStrings.fromTag(
-                    Localizations.localeOf(context).toLanguageTag(),
-                    'retry',
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-}
-
-class _RankingInitialError extends StatelessWidget {
-  const _RankingInitialError({
-    required this.mode,
-    required this.error,
-    required this.onRetry,
-  });
-
-  final RankingMode mode;
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final language = ReplicaLanguage.fromTag(
-      Localizations.localeOf(context).toLanguageTag(),
-    );
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(
-              ReplicaStrings.text(language, 'rankingLoadFailed', {
-                'mode': ReplicaStrings.text(language, mode.labelKey),
-              }),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$error',
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(ReplicaStrings.text(language, 'retry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

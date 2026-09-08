@@ -200,14 +200,17 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
         title: _newText(context, 'newLoading'),
       ),
       error: (error, _) => FeedError(
-        message: '${_newText(context, 'newLoadFailed')}\n$error',
+        title: _newText(context, 'newLoadFailed'),
+        error: error,
+        retryLabel: _newText(context, 'newRetry'),
         onRetry: () => ref.invalidate(newFeedProvider(widget.feedKey)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
           return FeedError(
-            message:
-                '${_newText(context, 'newLoadFailed')}\n${feed.initialError ?? const ApiParseError('unknown error')}',
+            title: _newText(context, 'newLoadFailed'),
+            error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: _newText(context, 'newRetry'),
             onRetry: () => ref
                 .read(newFeedProvider(widget.feedKey).notifier)
                 .retryInitial(),
@@ -223,6 +226,7 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
           return FeedEmpty(
             icon: Icons.inbox_outlined,
             title: _newText(context, 'newEmpty'),
+            retryLabel: _newText(context, 'newRetry'),
             onRefresh: () =>
                 ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
           );
@@ -278,6 +282,7 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
               .read(newFeedProvider(widget.feedKey).notifier)
               .retryLoadMore(),
           errorTitle: _newText(context, 'newLoadMoreFailed'),
+          retryLabel: _newText(context, 'newRetry'),
         ),
       ),
     ];

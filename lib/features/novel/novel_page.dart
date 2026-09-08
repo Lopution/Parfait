@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/person_avatar.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/navigation/replica_page_route.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/i18n/replica_strings.dart';
@@ -66,23 +67,30 @@ class NovelPage extends ConsumerWidget {
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
       body: async.when(
-        loading: () => _NovelStatus(
+        loading: () => FeedEmpty(
           icon: Icons.menu_book_outlined,
           title: _novelText(context, 'novelLoading'),
         ),
-        error: (error, _) => _NovelError(
-          error: error,
-          onRetry: () => ref.invalidate(novelDetailProvider(novelId)),
-        ),
+        error: (error, _) {
+          final isNotFound = error is ApiHttpError && error.statusCode == 404;
+          return FeedError(
+            title: isNotFound
+                ? _novelText(context, 'novelNotFound')
+                : _novelText(context, 'novelLoadFailed'),
+            error: error,
+            retryLabel: _novelText(context, 'novelRetry'),
+            onRetry: () => ref.invalidate(novelDetailProvider(novelId)),
+          );
+        },
         data: (novel) {
           if (novel.isRestricted) {
-            return _NovelStatus(
+            return FeedEmpty(
               icon: Icons.lock_outline,
               title: _novelText(context, 'novelRestricted'),
             );
           }
           if (!novel.contentAvailable) {
-            return _NovelStatus(
+            return FeedEmpty(
               icon: Icons.text_snippet_outlined,
               title: _novelText(context, 'novelContentUnavailable'),
             );
@@ -260,63 +268,6 @@ class _NovelSeriesBar extends ConsumerWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _NovelStatus extends StatelessWidget {
-  const _NovelStatus({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48),
-          const SizedBox(height: 12),
-          Text(title),
-        ],
-      ),
-    );
-  }
-}
-
-class _NovelError extends StatelessWidget {
-  const _NovelError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final isNotFound =
-        error is ApiHttpError && (error as ApiHttpError).statusCode == 404;
-    final title = isNotFound
-        ? _novelText(context, 'novelNotFound')
-        : _novelText(context, 'novelLoadFailed');
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(title),
-            const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_novelText(context, 'novelRetry')),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
