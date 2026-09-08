@@ -62,9 +62,10 @@ account credential store; apply the same shape to any new secret.
 
 ## Testing Requirements
 
-<!-- What level of testing is expected -->
-
-(To be filled by the team)
+When a guard is removed, delete the tests that froze the wrong behaviour in
+the same commit (no leftover `skip:`). The full rule lives in
+`.trellis/spec/frontend/quality-guidelines.md`
+（删除 guard 时，同步删除固化该错误行为的测试）.
 
 ---
 

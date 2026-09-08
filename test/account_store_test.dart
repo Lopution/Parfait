@@ -5,6 +5,8 @@ import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
+import 'package:pixiv_func/core/history/history_database.dart';
+import 'package:pixiv_func/core/history/history_repository.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -66,7 +68,10 @@ class InMemoryMetadataRepository implements AccountMetadataRepository {
   }
 }
 
-Account account(String id, {AccountAuthState state = AccountAuthState.authenticated}) {
+Account account(
+  String id, {
+  AccountAuthState state = AccountAuthState.authenticated,
+}) {
   return Account(
     id: id,
     userId: int.parse(id),
@@ -76,13 +81,30 @@ Account account(String id, {AccountAuthState state = AccountAuthState.authentica
 }
 
 Credential credential(String id) => Credential(
-      accessToken: 'access-token-$id',
-      refreshToken: 'refresh-token-$id',
-      cookie: 'cookie-$id',
-    );
+  accessToken: 'access-token-$id',
+  refreshToken: 'refresh-token-$id',
+  cookie: 'cookie-$id',
+);
+
+class _SpyHistoryRepository extends HistoryRepository {
+  _SpyHistoryRepository() : super(database: HistoryDatabase());
+
+  final clearedOutbox = <String>[];
+  final clearedLocal = <String>[];
+
+  @override
+  Future<void> clearOutbox(String accountId) async {
+    clearedOutbox.add(accountId);
+  }
+
+  @override
+  Future<void> clear(String accountId) async {
+    clearedLocal.add(accountId);
+  }
+}
 
 (ProviderContainer, InMemoryCredentialStore, InMemoryMetadataRepository)
-    makeContainer() {
+makeContainer() {
   final credentials = InMemoryCredentialStore();
   final metadata = InMemoryMetadataRepository();
   final container = ProviderContainer(
@@ -130,8 +152,10 @@ void main() {
     await container.read(accountStoreProvider.future);
 
     await store.upsertAccount(account('100'), credential('100'));
-    await store.upsertAccount(account('100'),
-        const Credential(accessToken: 'new-access', refreshToken: 'new-refresh'));
+    await store.upsertAccount(
+      account('100'),
+      const Credential(accessToken: 'new-access', refreshToken: 'new-refresh'),
+    );
 
     final state = container.read(accountStoreProvider).requireValue;
     expect(state.accounts, hasLength(1));
@@ -140,8 +164,7 @@ void main() {
     expect(stored.refreshToken, 'new-refresh');
   });
 
-  test('switchAccount changes current and persists across hydration',
-      () async {
+  test('switchAccount changes current and persists across hydration', () async {
     final (container, credentials, metadata) = makeContainer();
     final store = container.read(accountStoreProvider.notifier);
     await container.read(accountStoreProvider.future);
@@ -153,10 +176,12 @@ void main() {
 
     // Simulate an app restart: fresh container over the same repositories.
     final (restarted, _, _) = (
-      ProviderContainer(overrides: [
-        credentialStoreProvider.overrideWithValue(credentials),
-        accountMetadataRepositoryProvider.overrideWithValue(metadata),
-      ]),
+      ProviderContainer(
+        overrides: [
+          credentialStoreProvider.overrideWithValue(credentials),
+          accountMetadataRepositoryProvider.overrideWithValue(metadata),
+        ],
+      ),
       credentials,
       metadata,
     );
@@ -166,21 +191,23 @@ void main() {
     expect(state.usableCurrent!.id, '100');
   });
 
-  test('removeAccount drops current reference and deletes the secret',
-      () async {
-    final (container, credentials, _) = makeContainer();
-    final store = container.read(accountStoreProvider.notifier);
-    await container.read(accountStoreProvider.future);
+  test(
+    'removeAccount drops current reference and deletes the secret',
+    () async {
+      final (container, credentials, _) = makeContainer();
+      final store = container.read(accountStoreProvider.notifier);
+      await container.read(accountStoreProvider.future);
 
-    await store.upsertAccount(account('100'), credential('100'));
-    await store.upsertAccount(account('200'), credential('200'));
-    await store.removeAccount('200');
+      await store.upsertAccount(account('100'), credential('100'));
+      await store.upsertAccount(account('200'), credential('200'));
+      await store.removeAccount('200');
 
-    final state = container.read(accountStoreProvider).requireValue;
-    expect(state.accounts.map((a) => a.id), ['100']);
-    expect(state.currentId, '100');
-    expect(await credentials.read('200'), isNull);
-  });
+      final state = container.read(accountStoreProvider).requireValue;
+      expect(state.accounts.map((a) => a.id), ['100']);
+      expect(state.currentId, '100');
+      expect(await credentials.read('200'), isNull);
+    },
+  );
 
   test('removing the last account clears current', () async {
     final (container, _, _) = makeContainer();
@@ -195,21 +222,23 @@ void main() {
     expect(state.currentId, isNull);
   });
 
-  test('failed credential write leaves no half-added metadata account',
-      () async {
-    final (container, credentials, metadata) = makeContainer();
-    credentials.failWritesFor('300');
-    final store = container.read(accountStoreProvider.notifier);
-    await container.read(accountStoreProvider.future);
+  test(
+    'failed credential write leaves no half-added metadata account',
+    () async {
+      final (container, credentials, metadata) = makeContainer();
+      credentials.failWritesFor('300');
+      final store = container.read(accountStoreProvider.notifier);
+      await container.read(accountStoreProvider.future);
 
-    await store.upsertAccount(account('100'), credential('100'));
-    await store.upsertAccount(account('300'), credential('300'));
+      await store.upsertAccount(account('100'), credential('100'));
+      await store.upsertAccount(account('300'), credential('300'));
 
-    final state = container.read(accountStoreProvider).requireValue;
-    expect(state.accounts.map((a) => a.id), ['100']);
-    expect(state.status, AccountStatus.failure);
-    expect(metadata.stored!.map((a) => a.id), ['100']);
-  });
+      final state = container.read(accountStoreProvider).requireValue;
+      expect(state.accounts.map((a) => a.id), ['100']);
+      expect(state.status, AccountStatus.failure);
+      expect(metadata.stored!.map((a) => a.id), ['100']);
+    },
+  );
 
   test('failed metadata commit rolls the credential back', () async {
     final (container, credentials, metadata) = makeContainer();
@@ -222,8 +251,11 @@ void main() {
 
     final state = container.read(accountStoreProvider).requireValue;
     expect(state.accounts.map((a) => a.id), ['100']);
-    expect(await credentials.read('400'), isNull,
-        reason: 'credential must be rolled back when metadata fails');
+    expect(
+      await credentials.read('400'),
+      isNull,
+      reason: 'credential must be rolled back when metadata fails',
+    );
   });
 
   test('failed metadata refresh restores the previous credential', () async {
@@ -244,29 +276,33 @@ void main() {
     );
   });
 
-  test('unreadable credential on hydration marks reauthRequired, not absent',
-      () async {
-    final (container, credentials, metadata) = makeContainer();
-    final store = container.read(accountStoreProvider.notifier);
-    await container.read(accountStoreProvider.future);
-    await store.upsertAccount(account('100'), credential('100'));
+  test(
+    'unreadable credential on hydration marks reauthRequired, not absent',
+    () async {
+      final (container, credentials, metadata) = makeContainer();
+      final store = container.read(accountStoreProvider.notifier);
+      await container.read(accountStoreProvider.future);
+      await store.upsertAccount(account('100'), credential('100'));
 
-    credentials.breakAccount('100');
+      credentials.breakAccount('100');
 
-    final (restarted, _, _) = (
-      ProviderContainer(overrides: [
-        credentialStoreProvider.overrideWithValue(credentials),
-        accountMetadataRepositoryProvider.overrideWithValue(metadata),
-      ]),
-      credentials,
-      metadata,
-    );
-    addTearDown(restarted.dispose);
-    final state = await restarted.read(accountStoreProvider.future);
-    expect(state.accounts, hasLength(1));
-    expect(state.accounts.single.authState, AccountAuthState.reauthRequired);
-    expect(state.usableCurrent, isNull);
-  });
+      final (restarted, _, _) = (
+        ProviderContainer(
+          overrides: [
+            credentialStoreProvider.overrideWithValue(credentials),
+            accountMetadataRepositoryProvider.overrideWithValue(metadata),
+          ],
+        ),
+        credentials,
+        metadata,
+      );
+      addTearDown(restarted.dispose);
+      final state = await restarted.read(accountStoreProvider.future);
+      expect(state.accounts, hasLength(1));
+      expect(state.accounts.single.authState, AccountAuthState.reauthRequired);
+      expect(state.usableCurrent, isNull);
+    },
+  );
 
   test('corrupt metadata surfaces an explicit failure state', () async {
     final (container, credentials, metadata) = makeContainer();
@@ -289,8 +325,7 @@ void main() {
 
     final state = container.read(accountStoreProvider).requireValue;
     expect(state.accounts.single.authState, AccountAuthState.reauthRequired);
-    expect(metadata.stored!.single.authState,
-        AccountAuthState.reauthRequired);
+    expect(metadata.stored!.single.authState, AccountAuthState.reauthRequired);
   });
 
   test('metadata serialization never contains secret fields', () async {
@@ -301,7 +336,10 @@ void main() {
     await store.upsertAccount(account('100'), credential('100'));
 
     final json = account('100').toJson();
-    expect(json.keys, isNot(contains(anyOf('accessToken', 'refreshToken', 'cookie'))));
+    expect(
+      json.keys,
+      isNot(contains(anyOf('accessToken', 'refreshToken', 'cookie'))),
+    );
   });
 
   test('credential toString is redacted', () {
@@ -310,4 +348,39 @@ void main() {
     expect(value.contains('refresh-token-100'), isFalse);
     expect(value.contains('cookie-100'), isFalse);
   });
+
+  test(
+    'removeAccount clears remote history outbox and keeps local history',
+    () async {
+      final credentials = InMemoryCredentialStore();
+      final metadata = InMemoryMetadataRepository();
+      final history = _SpyHistoryRepository();
+      final container = ProviderContainer(
+        overrides: [
+          credentialStoreProvider.overrideWithValue(credentials),
+          accountMetadataRepositoryProvider.overrideWithValue(metadata),
+          historyRepositoryProvider.overrideWithValue(history),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final store = container.read(accountStoreProvider.notifier);
+      await container.read(accountStoreProvider.future);
+      await store.upsertAccount(account('100'), credential('100'));
+      await store.upsertAccount(account('200'), credential('200'));
+      await store.removeAccount('200');
+
+      expect(history.clearedOutbox, ['200']);
+      expect(history.clearedLocal, isEmpty);
+      expect(await credentials.read('200'), isNull);
+      expect(
+        container
+            .read(accountStoreProvider)
+            .requireValue
+            .accounts
+            .map((a) => a.id),
+        ['100'],
+      );
+    },
+  );
 }
