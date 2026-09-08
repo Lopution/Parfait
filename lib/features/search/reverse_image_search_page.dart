@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../app/replica_page_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/reverse_image/reverse_image_controller.dart';

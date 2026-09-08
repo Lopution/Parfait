@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/replica_page_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import 'recommended/recommended_home_page.dart';
 
 import '../../app/icons/app_icons.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/platform/android_intent_channel.dart';
-import '../../core/navigation/home_shell_metrics.dart';
+import '../../app/navigation/home_shell_metrics.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../core/reverse_image/image_input.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../app/replica_page_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../core/search/search_models.dart';
 import '../illust/detail/illust_detail_page.dart';
 import '../novel/novel_page.dart';

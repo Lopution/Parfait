@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
-import '../../app/replica_page_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../app/navigation/replica_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -64,7 +64,7 @@ class WelcomePage extends StatelessWidget {
                         backgroundColor: FuncTokens.primary,
                         foregroundColor: Colors.white,
                         onPressed: () => Navigator.of(context).push(
-                          replicaRoute((context) => const LanguagePage()),
+                          ReplicaPageRoute<void>(builder: (_) => const LanguagePage()),
                         ),
                       ),
                     ),

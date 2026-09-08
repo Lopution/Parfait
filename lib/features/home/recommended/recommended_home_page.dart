@@ -6,7 +6,7 @@ import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/widgets/replica_empty_state.dart';
-import '../../../app/replica_page_route.dart';
+import '../../../app/navigation/replica_page_route.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/i18n/replica_strings.dart';
 import '../../../core/network/api_error.dart';
