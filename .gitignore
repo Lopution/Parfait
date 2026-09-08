@@ -54,3 +54,4 @@ app.*.map.json
 *.keystore
 *.p12
 *.pem
+test/failures/
