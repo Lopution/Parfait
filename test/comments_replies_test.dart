@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -26,7 +28,6 @@ import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/features/comments/comment_input.dart';
 import 'package:pixiv_func/features/comments/comment_item.dart';
 import 'package:pixiv_func/features/comments/comments_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _StubAccountStore extends AccountStore {
@@ -77,7 +78,7 @@ Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   final credentials = _CredentialStore();
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer(

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/io_client.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
@@ -129,6 +131,7 @@ class _FakeResponse implements DownloadResponse {
 }
 
 void main() {
+  installMemoryPreferences();
   group('DownloadRequest normalization (R4)', () {
     test('display name is traversal-safe and mime mapped', () {
       expect(request().displayName, '42_p0.jpg');

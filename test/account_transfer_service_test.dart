@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -172,6 +174,7 @@ Map<String, dynamic> _authoritativeDetail({int id = 42}) => {
 };
 
 void main() {
+  installMemoryPreferences();
   test(
     'successful import uses server-authoritative metadata and clears owned clipboard',
     () async {

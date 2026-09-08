@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../settings/preference_keys.dart';
+import '../settings/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -46,7 +48,8 @@ final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
     sinkFactory: UpdateFileSinkFactory(updateDirectory),
     maxConcurrent: 1,
     recoveryStore: PreferencesDownloadRecoveryStore(
-      storageKey: 'pixivfunc.update.manager.recovery.v1',
+      preferences: ref.watch(sharedPreferencesProvider),
+      storageKey: PreferenceKeys.updateManagerRecovery,
     ),
     submissionContext: () => _updaterSubmissionContext,
     enforceDefaultDestination: false,
@@ -64,7 +67,9 @@ final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
     manager: manager,
     platform: platform,
     directory: updateDirectory,
-    stateStore: PreferencesUpdateDownloadStateStore(),
+    stateStore: PreferencesUpdateDownloadStateStore(
+      preferences: ref.watch(sharedPreferencesProvider),
+    ),
   );
   return UpdateService(
     manifestTransport: manifestTransport,

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -25,7 +27,6 @@ import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'download_manager_test.dart';
@@ -39,7 +40,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Map<int, List<Map<String, dynamic>>>? relatedOverrides,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   final transport = FakeTransport();
   for (var i = 0; i < scriptedResponses; i++) {
     transport.responses.add(
@@ -194,9 +195,10 @@ Future<void> longPressImage(WidgetTester tester) async {
 }
 
 void main() {
+  installMemoryPreferences();
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   group('ImageViewerPage (R3)', () {

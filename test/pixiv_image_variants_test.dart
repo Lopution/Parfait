@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
 
 Widget _host(Widget child) =>
@@ -12,6 +14,7 @@ int? _memCacheWidthOf(WidgetTester tester) =>
         .memCacheWidth;
 
 void main() {
+  installMemoryPreferences();
   test('decodeWidthFor: DPR width, capped at 1.5x logical pixels', () {
     // DPR 1 below the cap: pure logical width.
     expect(PixivImage.decodeWidthFor(200, devicePixelRatio: 1), 200);

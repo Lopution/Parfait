@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/preference_keys.dart';
+
 import 'download_destination.dart';
 import 'naming_rule.dart';
 import 'download_request.dart';
@@ -367,12 +369,12 @@ class MemoryDownloadRecoveryStore implements DownloadRecoveryStore {
 /// long-lived app cannot turn task history into an unbounded queue.
 class PreferencesDownloadRecoveryStore implements DownloadRecoveryStore {
   PreferencesDownloadRecoveryStore({
-    SharedPreferencesAsync? preferences,
-    String storageKey = defaultStorageKey,
-  }) : _preferences = preferences ?? SharedPreferencesAsync(),
+    required SharedPreferencesAsync preferences,
+    String storageKey = PreferenceKeys.downloadRecovery,
+  }) : _preferences = preferences,
        _storageKey = _validateStorageKey(storageKey);
 
-  static const defaultStorageKey = 'pixivfunc.download.recovery.v1';
+  static const defaultStorageKey = PreferenceKeys.downloadRecovery;
   static const _maxRecords = 128;
 
   final SharedPreferencesAsync _preferences;

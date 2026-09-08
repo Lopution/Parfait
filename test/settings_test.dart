@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -24,7 +26,6 @@ import 'package:pixiv_func/features/settings/network_settings_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _FakeRepository implements SettingsRepository {
@@ -199,7 +200,7 @@ AppSettings _baseSettings() => const AppSettings(
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   test('defaults use safe modern values and beta56 setting names', () {

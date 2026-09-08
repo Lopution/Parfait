@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
@@ -10,7 +12,6 @@ import 'package:pixiv_func/core/bookmark/bookmark_repository.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/widgets/bookmark_switch_button.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _StubAccountStore extends AccountStore {
@@ -49,7 +50,7 @@ Future<(ProviderContainer, _RecordingRepository)> _pump(
   Widget? child,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   final repository = _RecordingRepository();
   final container = ProviderContainer(
     overrides: [
@@ -86,7 +87,7 @@ Future<(ProviderContainer, _RecordingRepository)> _pump(
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   testWidgets('unknown state shows outline heart; tap sends public add (R3)', (

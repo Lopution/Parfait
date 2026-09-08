@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -22,6 +24,7 @@ import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_edit_page.dart';
 
 void main() {
+  installMemoryPreferences();
   test('builds a minimal patch from dirty supported fields only', () {
     final user = _user();
     final capabilities = ProfileCapabilities(

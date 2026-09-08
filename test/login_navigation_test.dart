@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -18,7 +20,6 @@ import 'package:pixiv_func/app/widgets/replica_button.dart';
 import 'package:pixiv_func/app/widgets/replica_switch_tile.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
 import 'package:pixiv_func/features/login/login_webview_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
@@ -181,7 +182,7 @@ class _EmptyMetadataRepository implements AccountMetadataRepository {
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
     WebViewPlatform.instance = _FakeWebViewPlatform();
     _FakeNavigationDelegate.latest = null;
   });

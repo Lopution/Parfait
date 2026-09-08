@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -14,7 +16,6 @@ import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
@@ -131,7 +132,7 @@ class _ApiFixture {
 
 Future<(ProviderContainer, _ApiFixture)> _makeWorld() async {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   final fixture = _ApiFixture();
   final credentials = _FakeCredentialStore()
     ..seed(
@@ -173,7 +174,7 @@ Future<(ProviderContainer, _ApiFixture)> _makeWorld() async {
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   testWidgets('home shows four type chips and defaults to illust',

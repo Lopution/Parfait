@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -13,7 +15,6 @@ import 'package:pixiv_func/features/home/home_page.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
 import 'package:pixiv_func/app/startup_gate.dart';
 import 'package:pixiv_func/features/onboarding/welcome_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _StaticCredentialStore implements CredentialStore {
@@ -89,7 +90,7 @@ class _FailingCredentialStore implements CredentialStore {
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   testWidgets('guide not completed shows the welcome shell', (tester) async {
