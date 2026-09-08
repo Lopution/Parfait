@@ -280,6 +280,72 @@ void main() {
     expect(retryPlatform.deletedPaths, [file.path]);
   });
 
+  test('rate-limit retryAfter is preserved on the flow failure', () async {
+    final file = File('${tempDirectory.path}/image.png')
+      ..writeAsBytesSync(_pngHeader(12, 8));
+    final platform = _FakeReverseImageInputPlatform(file);
+    final controller = ReverseImageSearchController(
+      platform: platform,
+      provider: _OutcomeProvider(
+        const ReverseImageSearchFailure(
+          code: ReverseImageProviderFailureCode.rateLimited,
+          message: 'provider is rate limited',
+          retryable: true,
+          retryAfter: Duration(seconds: 27),
+        ),
+      ),
+    );
+    addTearDown(controller.dispose);
+    const reference = ReverseImageInputReference(
+      contentUri: 'content://share/1',
+      mimeType: 'image/png',
+      sizeBytes: 128,
+      hasReadUriPermission: true,
+      source: ReverseImageInputSource.picker,
+    );
+
+    await controller.prepare(reference);
+    await controller.search();
+
+    expect(controller.state.status, ReverseImageFlowStatus.failure);
+    expect(
+      controller.state.failure?.code,
+      ReverseImageProviderFailureCode.rateLimited,
+    );
+    expect(controller.state.failure?.retryAfter, const Duration(seconds: 27));
+    expect(platform.deletedPaths, [file.path]);
+  });
+
+  test('webview success releases the owned input exactly once', () async {
+    final file = File('${tempDirectory.path}/image.png')
+      ..writeAsBytesSync(_pngHeader(12, 8));
+    final platform = _FakeReverseImageInputPlatform(file);
+    final controller = ReverseImageSearchController(
+      platform: platform,
+      provider: _OutcomeProvider(
+        const ReverseImageSearchWebView(
+          html: '<html><body>results</body></html>',
+          observedAt: 'test',
+        ),
+      ),
+    );
+    addTearDown(controller.dispose);
+    const reference = ReverseImageInputReference(
+      contentUri: 'content://share/1',
+      mimeType: 'image/png',
+      sizeBytes: 128,
+      hasReadUriPermission: true,
+      source: ReverseImageInputSource.picker,
+    );
+
+    await controller.prepare(reference);
+    await controller.search();
+
+    expect(controller.state.status, ReverseImageFlowStatus.success);
+    expect(controller.state.webView, isNotNull);
+    expect(platform.deletedPaths, [file.path]);
+  });
+
   test(
     'picker and SEND references share preparation and terminal cleanup',
     () async {
