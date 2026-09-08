@@ -11,7 +11,8 @@ import '../../core/network/api_error.dart';
 
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
-import 'ranking_repository.dart';
+import '../../core/illust/ranking_repository.dart';
+import '../../core/illust/ranking_feed_controller.dart';
 
 /// Ranking page with beta56's horizontally scrollable 11-mode tab bar.
 /// Only the selected mode is built, while controllers and scroll positions

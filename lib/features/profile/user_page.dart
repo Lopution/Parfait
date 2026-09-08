@@ -21,10 +21,10 @@ import '../../core/user/user_store.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import 'follow_switch_button.dart';
-import 'profile_feed_controller.dart';
+import '../../core/profile/profile_feed_controller.dart';
 import 'profile_header_delegate.dart';
-import 'profile_models.dart';
-import 'user_detail_controller.dart';
+import '../../core/profile/profile_models.dart';
+import '../../core/user/user_detail_controller.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.

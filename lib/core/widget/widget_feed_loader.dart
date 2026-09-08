@@ -18,7 +18,7 @@ import '../network/pixiv_http_client.dart';
 import '../settings/local_block_filter.dart';
 import '../settings/blocked_tags.dart';
 import '../settings/settings_controller.dart';
-import '../../features/home/recommended/recommended_repository.dart';
+import '../../core/illust/recommended_repository.dart';
 import 'widget_snapshot.dart';
 import 'widget_snapshot_store.dart';
 

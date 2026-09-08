@@ -8,9 +8,10 @@ import '../../../app/widgets/feed/illust_card.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../search/search_text.dart';
-import 'related_illust_repository.dart';
+import '../../../core/illust/related_illust_controller.dart';
 
-export 'related_illust_repository.dart';
+export '../../../core/illust/related_illust_controller.dart';
+export '../../../core/illust/related_illust_repository.dart';
 
 /// "関連作品" section slivers for the detail page, mirroring the official
 /// Pixiv client: a two-column grid of related works (square cover + title +

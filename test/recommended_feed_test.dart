@@ -19,12 +19,11 @@ import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_illust_page.dart';
-import 'package:pixiv_func/features/home/recommended/recommended_repository.dart'
-    hide RecommendedIllustPage;
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
+import 'package:pixiv_func/core/illust/recommended_illust_controller.dart';
 
 String _illustJson(int id, {bool bookmarked = false}) => jsonEncode({
   'id': id,
