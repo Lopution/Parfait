@@ -36,13 +36,6 @@ class DnsAnswer {
   final Uint8List? rdata;
 }
 
-/// DNS record type constants used by this codec.
-class DnsRecordType {
-  static const int a = 1;
-  static const int https = 65;
-  static const int aaaa = 28;
-}
-
 /// A decoded DNS response.
 class DnsResponse {
   const DnsResponse({

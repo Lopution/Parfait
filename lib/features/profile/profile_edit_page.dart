@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
-import '../../app/replica_page_route.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/profile/profile_edit_controller.dart';
@@ -566,8 +565,3 @@ class _StatusBody extends StatelessWidget {
   }
 }
 
-void showProfileEditPage(BuildContext context, int userId) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(builder: (_) => ProfileEditPage(userId: userId)),
-  );
-}

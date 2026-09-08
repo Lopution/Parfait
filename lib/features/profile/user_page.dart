@@ -102,14 +102,6 @@ void showUserPage(BuildContext context, int userId) {
   );
 }
 
-void showMePage(BuildContext context, {VoidCallback? onEditProfile}) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(
-      builder: (_) => MePage(onEditProfile: onEditProfile),
-    ),
-  );
-}
-
 String _profileText(BuildContext context, String key) => ReplicaStrings.fromTag(
   Localizations.localeOf(context).toLanguageTag(),
   key,

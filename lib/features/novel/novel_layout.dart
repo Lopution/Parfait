@@ -121,8 +121,6 @@ class NovelAnchor {
   String toString() => 'NovelAnchor($paragraphId, $offset)';
 }
 
-typedef StableAnchor = NovelAnchor;
-
 @immutable
 class NovelLayoutKey {
   const NovelLayoutKey({
