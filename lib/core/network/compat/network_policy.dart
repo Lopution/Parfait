@@ -300,8 +300,9 @@ class NetworkAccessPolicy {
   /// PixEz-style attempt-first: the business request itself is the route
   /// attempt, so no credential-free probe round trip is paid before data. If
   /// the attempt fails with a transport-level error that proves the request
-  /// was never delivered, the ladder re-selects one different route and
-  /// sends it once more (exactly one re-selection per operation).
+  /// was never delivered, the ladder walks the remaining unused kinds (ECH
+  /// first on a cold start; `insecureNoSni` always last) and sends each
+  /// unused kind at most once.
   /// [canReplay] selects the retry set: idempotent GET/HEAD/downloads also
   /// retry on timeout (a repeat is safe), while POST-family and the token
   /// exchange retry only on delivery-proven failures (DNS, connect, reset,
@@ -327,11 +328,11 @@ class NetworkAccessPolicy {
   }
 
   /// Sends the business request on the selected route and, on a retryable
-  /// transport failure, advances to the next route candidate exactly once
-  /// per tier. Each tier is attempted at most once; a delivered outcome
-  /// (HTTP response, timeout after send, auth/parse error) never moves on,
-  /// so a non-idempotent request can only be repeated when every earlier
-  /// failure proved the request never reached the server.
+  /// transport failure, walks the remaining unused kinds. Each tier is
+  /// attempted at most once; a delivered outcome (HTTP response, timeout
+  /// after send, auth/parse error) never moves on, so a non-idempotent
+  /// request can only be repeated when every earlier failure proved the
+  /// request never reached the server.
   Future<T> _runAttemptLadder<T>({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
@@ -1033,14 +1034,12 @@ class _RouteGroupMemory {
 
 const _kRouteMemoryTtl = Duration(minutes: 10);
 
-/// A policy-aware `package:http` client. Strict fallback tiers perform an
-/// independent, credential-free route probe before first use; the persisted
-/// PixEz-compatible tier intentionally sends the business request directly.
 /// A policy-aware `package:http` client. The business request is the route
-/// attempt (PixEz-style): selection never pays for a separate probe, and a
-/// retryable transport failure re-selects one other route exactly once. The
-/// request is freshly cloned for each attempt because package:http requests
-/// are single-use after finalize().
+/// attempt (PixEz-style): selection never pays for a separate probe. A
+/// retryable undelivered failure walks the remaining unused kinds (ECH
+/// first on a cold start; `insecureNoSni` always last). The request is
+/// freshly cloned for each attempt because package:http requests are
+/// single-use after finalize().
 class PixivPolicyHttpClient extends http.BaseClient {
   PixivPolicyHttpClient({required this.policy, required this.purpose});
 
@@ -1077,9 +1076,9 @@ class PixivPolicyHttpClient extends http.BaseClient {
     );
   }
 
-  /// Builds a fresh clone for every attempt (the first and the retry), so
-  /// any request shape — including POST bodies such as the OAuth token
-  /// exchange — can be re-sent exactly once on the re-selected route.
+  /// Builds a fresh clone for every attempt, so any request shape —
+  /// including POST bodies such as the OAuth token exchange — can be
+  /// re-sent on each unused kind the ladder still walks.
   static http.BaseRequest Function()? _safeReplayFactory(
     http.BaseRequest request,
   ) {
