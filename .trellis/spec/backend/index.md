@@ -21,6 +21,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
 | [In-App Web Profile](./in-app-web-profile.md) | Native profile save via Pixiv SPA AJAX | Filled |
 | [Release Artifacts](./release-artifacts.md) | Per-ABI APKs, size gate, updater schema 2, rhttp feature rules | Filled |
+| [Android Channels](./android-channels.md) | 10 Method/Event channels: methods, args, returns, error codes, threads, snapshot file, updater Map errors | Filled |
 
 ---
 
