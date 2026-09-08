@@ -6,6 +6,7 @@ import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import 'user_entity.dart';
+import '../entity/json_read.dart';
 
 enum UserWorkType { illust, manga, novel }
 
@@ -345,15 +346,12 @@ class PixivUserRepository implements UserRepository {
       }
       return UserRelationPage(
         users: users,
-        nextUrl: _nextUrl(json['next_url']),
+        nextUrl: readNextUrl(json['next_url']),
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
     }
   }
-
-  String? _nextUrl(Object? value) =>
-      value is String && value.isNotEmpty ? value : null;
 }
 
 enum UserRestrict { public, private }

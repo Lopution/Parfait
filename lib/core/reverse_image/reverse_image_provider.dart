@@ -217,14 +217,14 @@ abstract final class ReverseImageResultMapper {
     return ReverseImageSearchSuccess([for (final entry in sorted) entry.hit]);
   }
 
-  static Map<String, dynamic> _map(Object? value) {
+  static Map<String, Object?> _map(Object? value) {
     if (value is! Map) {
       throw const ReverseImageProviderException(
         ReverseImageProviderFailureCode.malformedResponse,
         'reverse image result object is malformed',
       );
     }
-    final result = <String, dynamic>{};
+    final result = <String, Object?>{};
     for (final entry in value.entries) {
       if (entry.key is! String) {
         throw const ReverseImageProviderException(

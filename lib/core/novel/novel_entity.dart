@@ -7,6 +7,7 @@ import '../network/api_error.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/pixiv_http_client.dart';
 import '../user/user_entity.dart';
+import '../entity/json_read.dart';
 
 /// A piece of inline formatting understood by the novel reader.
 ///
@@ -618,8 +619,8 @@ class NovelEntity {
   /// Parses either a list/detail novel object.  The parser never accepts an
   /// HTML body; only JSON `content` or a structured JSON content list is used.
   factory NovelEntity.fromJson(Map<String, dynamic> json) {
-    final id = _positiveInt(json['id'], 'novel.id');
-    final title = _requiredString(json['title'], 'novel.title');
+    final id = requireParsedPositiveInt(json['id'], 'novel.id');
+    final title = requireString(json['title'], 'novel.title');
     final userJson = json['user'];
     if (userJson is! Map<String, dynamic>) {
       throw const FormatException('novel.user is missing or malformed');
@@ -633,18 +634,18 @@ class NovelEntity {
         ? NovelContentMapper.parse(rawContent)
         : null;
     final paragraphs = markup?.paragraphs ?? const <NovelParagraph>[];
-    final series = _map(json['series']);
-    final imageUrls = _map(json['image_urls']);
+    final series = readMap(json['series']);
+    final imageUrls = readMap(json['image_urls']);
     final contentSeed = rawContent == null
         ? 'metadata:$id:${json['text_length'] ?? 0}'
         : jsonEncode(rawContent);
     final contentVersion = sha256.convert(utf8.encode(contentSeed)).toString();
-    final apiTextLength = _nonNegativeInt(json['text_length']);
+    final apiTextLength = readNonNegativeIntOrZero(json['text_length']);
 
     return NovelEntity(
       id: id,
       title: title,
-      caption: _optionalString(json['caption']) ?? '',
+      caption: readOptionalString(json['caption']) ?? '',
       user: user,
       tags: _tags(json['tags']),
       textLength: apiTextLength == 0 && contentAvailable
@@ -652,27 +653,27 @@ class NovelEntity {
           : apiTextLength,
       contentVersion: contentVersion,
       paragraphs: List.unmodifiable(paragraphs),
-      seriesId: _nullablePositiveInt(series['id']),
-      seriesTitle: _optionalString(series['title']),
-      coverImageUrl: _firstString(imageUrls, const [
+      seriesId: readPositiveInt(series['id']),
+      seriesTitle: readOptionalString(series['title']),
+      coverImageUrl: readFirstString(imageUrls, const [
         'medium',
         'large',
         'square_medium',
       ]),
       markup: markup,
-      restrict: _nonNegativeInt(json['restrict']),
-      xRestrict: _nonNegativeInt(json['x_restrict']),
+      restrict: readNonNegativeIntOrZero(json['restrict']),
+      xRestrict: readNonNegativeIntOrZero(json['x_restrict']),
       isOriginal: json['is_original'] == true,
       isBookmarked: json['is_bookmarked'] == true,
-      totalBookmarks: _nonNegativeInt(json['total_bookmarks']),
-      totalView: _nonNegativeInt(json['total_view']),
-      totalComments: _nonNegativeInt(json['total_comments']),
+      totalBookmarks: readNonNegativeIntOrZero(json['total_bookmarks']),
+      totalView: readNonNegativeIntOrZero(json['total_view']),
+      totalComments: readNonNegativeIntOrZero(json['total_comments']),
       visible: json['visible'] is! bool || json['visible'] == true,
       isMuted: json['is_muted'] == true,
       isMyPixivOnly: json['is_mypixiv_only'] == true,
       isXRestricted: json['is_x_restricted'] == true,
-      novelAiType: _nonNegativeInt(json['novel_ai_type']),
-      createDate: _optionalString(json['create_date']),
+      novelAiType: readNonNegativeIntOrZero(json['novel_ai_type']),
+      createDate: readOptionalString(json['create_date']),
       contentAvailable: contentAvailable,
     );
   }
@@ -1507,45 +1508,6 @@ class _NovelScanResult {
   final bool budgetExceeded;
 }
 
-int _positiveInt(Object? value, String field) {
-  final parsed = value is int ? value : int.tryParse('$value');
-  if (parsed == null || parsed <= 0) {
-    throw FormatException('$field must be a positive integer');
-  }
-  return parsed;
-}
-
-int? _nullablePositiveInt(Object? value) {
-  final parsed = value is int ? value : int.tryParse('$value');
-  return parsed == null || parsed <= 0 ? null : parsed;
-}
-
-int _nonNegativeInt(Object? value) {
-  final parsed = value is int ? value : int.tryParse('$value');
-  return parsed == null || parsed < 0 ? 0 : parsed;
-}
-
-String _requiredString(Object? value, String field) {
-  if (value is! String || value.isEmpty) {
-    throw FormatException('$field must be a non-empty string');
-  }
-  return value;
-}
-
-String? _optionalString(Object? value) =>
-    value is String && value.isNotEmpty ? value : null;
-
-Map<String, dynamic> _map(Object? value) =>
-    value is Map<String, dynamic> ? value : const <String, dynamic>{};
-
-String? _firstString(Map<String, dynamic> values, List<String> keys) {
-  for (final key in keys) {
-    final value = _optionalString(values[key]);
-    if (value != null) return value;
-  }
-  return null;
-}
-
 List<NovelTag> _tags(Object? value) {
   if (value is! List) return const [];
   return [
@@ -1553,7 +1515,7 @@ List<NovelTag> _tags(Object? value) {
       if (item is Map<String, dynamic> && item['name'] is String)
         NovelTag(
           name: item['name'] as String,
-          translatedName: _optionalString(item['translated_name']),
+          translatedName: readOptionalString(item['translated_name']),
         ),
   ];
 }

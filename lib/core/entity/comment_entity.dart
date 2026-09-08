@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../user/user_entity.dart';
+import 'json_read.dart';
 
 /// The canonical identity and thread relationship of one Pixiv comment.
 ///
@@ -60,7 +61,7 @@ class CommentEntity {
     required int illustId,
     int? rootCommentId,
   }) {
-    final id = _positiveInt(json['id'], 'comment.id');
+    final id = requireParsedPositiveInt(json['id'], 'comment.id');
     final parent = _optionalPositiveInt(
       json['parent_comment_id'],
       'comment.parent_comment_id',
@@ -102,7 +103,7 @@ class CommentEntity {
         : replyCount > 0;
     return CommentEntity(
       id: id,
-      illustId: _positiveInt(illustId, 'illustId'),
+      illustId: requireParsedPositiveInt(illustId, 'illustId'),
       parentCommentId: effectiveParent,
       rootCommentId: effectiveRoot,
       user: UserEntity.fromUserJson(userJson),
@@ -173,15 +174,9 @@ class CommentEntity {
 
 const _unset = Object();
 
-int _positiveInt(Object? value, String field) {
-  final parsed = value is int ? value : int.tryParse('$value');
-  if (parsed != null && parsed > 0) return parsed;
-  throw FormatException('$field must be a positive integer');
-}
-
 int? _optionalPositiveInt(Object? value, String field) {
   if (value == null) return null;
-  return _positiveInt(value, field);
+  return requireParsedPositiveInt(value, field);
 }
 
 DateTime _date(Object? value) {
@@ -197,7 +192,7 @@ DateTime _date(Object? value) {
   if (value is! Map<String, dynamic>) {
     throw const FormatException('comment.stamp must be an object');
   }
-  final id = _positiveInt(value['stamp_id'], 'comment.stamp.stamp_id');
+  final id = requireParsedPositiveInt(value['stamp_id'], 'comment.stamp.stamp_id');
   final url = value['stamp_url'];
   if (url != null && url is! String) {
     throw const FormatException('comment.stamp.stamp_url must be a string');
