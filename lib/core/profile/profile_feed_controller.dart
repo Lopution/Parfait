@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/entity/illust_store.dart';
-import '../../core/network/api_error.dart';
+import '../entity/illust_store.dart';
+import '../network/api_error.dart';
 
-import '../../core/paging/paged_feed_controller.dart';
-import '../../core/user/user_repository.dart';
-import '../../core/user/user_store.dart';
+import '../paging/paged_feed_controller.dart';
+import '../user/user_repository.dart';
+import '../user/user_store.dart';
 import 'profile_models.dart';
 
 /// Paged illustration/manga work feeds. The feed owns only IDs; payloads live

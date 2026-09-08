@@ -11,7 +11,7 @@ import '../../../app/widgets/replica_empty_state.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/i18n/replica_strings.dart';
 
-import 'recommended_repository.dart';
+import '../../../core/illust/recommended_illust_controller.dart';
 
 /// Recommended Illust tab: real API feed with initial/refresh/load-more
 /// states, card badges matching beta56 IllustPreviewer, and retained state

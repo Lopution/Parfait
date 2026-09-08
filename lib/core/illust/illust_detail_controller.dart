@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/entity/illust_entity.dart';
-import '../../../core/entity/illust_store.dart';
-import '../../../core/network/api_error.dart';
-import '../../../core/network/pixiv_http_client.dart';
+import '../entity/illust_entity.dart';
+import '../entity/illust_store.dart';
+import '../network/api_error.dart';
+import '../network/pixiv_http_client.dart';
 import 'illust_detail_repository.dart';
 
 /// Sealed detail state: snapshot-first (R1) with explicit terminal states.

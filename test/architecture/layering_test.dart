@@ -26,9 +26,6 @@ final _partRegExp = RegExp(r'''^\s*part\s+['"]([^'"]+)['"]''', multiLine: true);
 /// (from-file, to-file) edges that are known violations, allow-listed until
 /// the owning refactor lands. Format: "lib/... -> lib/...".
 const _allowListedEdges = <String>{
-  // R1: core -> features (C4: widget_feed_loader depends on recommended_repository)
-  'lib/core/widget/widget_feed_loader.dart -> lib/features/home/recommended/recommended_repository.dart',
-
   // R2: features a != b (C2 facade / C3 components / C4 move: 44 edges)
   'lib/features/illust/detail/related_illusts_section.dart -> lib/features/search/search_text.dart',
   'lib/features/onboarding/startup_gate.dart -> lib/features/home/home_page.dart',
@@ -41,18 +38,7 @@ const _allowListedEdges = <String>{
 };
 
 /// R4: data-layer files still under lib/features/ (C4 moves them to lib/core/).
-const _allowListedDataFiles = <String>{
-  'lib/features/home/recommended/recommended_repository.dart',
-  'lib/features/illust/detail/illust_detail_repository.dart',
-  'lib/features/illust/detail/related_illust_repository.dart',
-  'lib/features/ranking/ranking_repository.dart',
-  'lib/features/home/recommended/recommended_feed_controller.dart',
-  'lib/features/illust/detail/illust_detail_controller.dart',
-  'lib/features/illust/detail/illust_download_controller.dart',
-  'lib/features/profile/profile_feed_controller.dart',
-  'lib/features/profile/user_detail_controller.dart',
-  'lib/features/profile/profile_models.dart',
-};
+const _allowListedDataFiles = <String>{};
 
 /// R5: files defining shared-component private widgets (C3/C8 replaces them).
 const _allowListedWidgetFiles = <String>{

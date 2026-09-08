@@ -1,6 +1,6 @@
-import '../../../core/entity/illust_entity.dart';
-import '../../../core/network/api_error.dart';
-import '../../../core/network/pixiv_http_client.dart';
+import '../entity/illust_entity.dart';
+import '../network/api_error.dart';
+import '../network/pixiv_http_client.dart';
 
 /// Detail data source: `GET /v1/illust/detail?illust_id=` through the shared
 /// authenticated client.

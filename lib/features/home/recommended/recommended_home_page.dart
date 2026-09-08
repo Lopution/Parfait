@@ -15,10 +15,10 @@ import '../../../core/novel/novel_store.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/user/user_entity.dart';
 import '../../../core/user/user_store.dart';
-import 'recommended_feed_controller.dart';
+import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
-import 'recommended_repository.dart';
+import '../../../core/illust/recommended_repository.dart';
 
 String _recommendedText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(

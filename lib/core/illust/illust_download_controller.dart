@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/download/download_manager.dart';
-import '../../../core/download/download_task.dart';
-import '../../../core/entity/illust_entity.dart';
-import '../../../core/download/download_providers.dart';
-import '../../../core/download/illust_download_coordinator.dart';
-import '../../../core/settings/settings_controller.dart';
+import '../download/download_manager.dart';
+import '../download/download_task.dart';
+import '../entity/illust_entity.dart';
+import '../download/download_providers.dart';
+import '../download/illust_download_coordinator.dart';
+import '../settings/settings_controller.dart';
 
 /// Per-page download state for the detail download mode, mirroring beta56
 /// IllustSaveState and backed by real DownloadManager tasks (R4 — no

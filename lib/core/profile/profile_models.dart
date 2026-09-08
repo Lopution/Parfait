@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../../core/user/user_repository.dart';
+import '../user/user_repository.dart';
 
 enum ProfileFeedKind { work, bookmarks, following, fans, myPixiv }
 

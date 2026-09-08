@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/auth/account_store.dart';
-import '../../core/network/api_error.dart';
-import '../../core/user/user_entity.dart';
-import '../../core/user/user_repository.dart';
-import '../../core/user/user_store.dart';
+import '../auth/account_store.dart';
+import '../network/api_error.dart';
+import '../user/user_entity.dart';
+import '../user/user_repository.dart';
+import '../user/user_store.dart';
 
 sealed class UserDetailState {
   const UserDetailState();

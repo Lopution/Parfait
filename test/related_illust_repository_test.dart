@@ -10,7 +10,7 @@ import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/features/illust/detail/related_illust_repository.dart';
+import 'package:pixiv_func/core/illust/related_illust_repository.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 

@@ -1,13 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/auth/account_store.dart';
-import '../../core/entity/illust_entity.dart';
-import '../../core/entity/illust_store.dart';
-import '../../core/network/api_error.dart';
-import '../../core/network/next_page_parser.dart';
-import '../../core/network/pixiv_client_identity.dart';
-import '../../core/network/pixiv_http_client.dart';
-import '../../core/paging/paged_feed_controller.dart';
+import '../entity/illust_entity.dart';
+import '../network/api_error.dart';
+import '../network/next_page_parser.dart';
+import '../network/pixiv_client_identity.dart';
+import '../network/pixiv_http_client.dart';
 
 /// The fixed beta56 order is part of the visible contract. API values are
 /// explicit so a future enum reorder cannot silently change a request.
@@ -63,7 +60,7 @@ class RankingRepository {
               'mode': mode.apiValue,
             })
           : NextPageParser.parse(cursor)!;
-      _validateModeCursor(request, mode);
+      validateModeCursor(request, mode);
     } on NextPageParseError catch (error) {
       throw ApiParseError(error);
     }
@@ -83,7 +80,7 @@ class RankingRepository {
     }
   }
 
-  static void _validateModeCursor(NextPageRequest request, RankingMode mode) {
+  static void validateModeCursor(NextPageRequest request, RankingMode mode) {
     if (request.uri.path != '/v1/illust/ranking') {
       throw NextPageParseError('cursor endpoint is not ranking');
     }
@@ -107,68 +104,3 @@ class RankingRepository {
 final rankingRepositoryProvider = Provider<RankingRepository>((ref) {
   return RankingRepository(ref.watch(pixivHttpClientProvider));
 });
-
-/// One independent cursor/state machine per ranking mode.
-class RankingFeedController extends PagedFeedController {
-  RankingFeedController(this.mode);
-
-  final RankingMode mode;
-
-  @override
-  String get feedKey => 'ranking:${mode.apiValue}';
-
-  /// C9: ranking is discovery content.
-  @override
-  bool get localFilterEnabled => true;
-
-  @override
-  int get filterMinVisible => 24;
-
-  @override
-  int get filterMaxRefillPages => 3;
-
-  @override
-  Future<PagedFeedState> build() {
-    // A provider family instance must reset when the current account changes;
-    // otherwise a cached mode/cursor from account A can leak into account B.
-    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
-    return super.build();
-  }
-
-  @override
-  Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
-    final store = ref.read(illustStoreProvider);
-    final bookmarkRevision = store.bookmarkRevisionNow();
-    final page = await ref
-        .read(rankingRepositoryProvider)
-        .fetchPage(mode, context.cursor, cancelToken: context.cancelToken);
-    return FeedPage(
-      ids: [for (final illust in page.illusts) illust.id],
-      nextCursor: page.nextUrl,
-      incomingIllusts: {for (final illust in page.illusts) illust.id: illust},
-      commit: (_) => store.mergeAll(
-        page.illusts,
-        bookmarkSnapshotRevision: bookmarkRevision,
-      ),
-    );
-  }
-
-  @override
-  String? validateCursor(String? rawCursor) {
-    if (rawCursor == null || rawCursor.isEmpty) return null;
-    try {
-      final request = NextPageParser.parse(rawCursor)!;
-      RankingRepository._validateModeCursor(request, mode);
-      return rawCursor;
-    } on NextPageParseError {
-      return null;
-    }
-  }
-}
-
-final rankingFeedControllerProvider =
-    AsyncNotifierProvider.family<
-      RankingFeedController,
-      PagedFeedState,
-      RankingMode
-    >(RankingFeedController.new);
