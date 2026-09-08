@@ -307,6 +307,7 @@ abstract final class NetworkProbe {
       totalDuration: probeClock.elapsed,
     );
   }
+
   /// DNS answers from two independent resolvers are usually NOT set-equal
   /// even when both are clean: the system resolver returns the full RRset
   /// (e.g. 10 IPs for s.pximg.net) while DoH answers a single address, and
@@ -569,6 +570,43 @@ enum NetworkProbeConclusion {
   inconclusive,
 }
 
+/// Offline-available measurement environment for a copyable probe report.
+///
+/// The page assembles this from settings, [Platform], and the in-effect
+/// policy; the model stays free of Flutter and settings imports.
+class NetworkProbeEnvironment {
+  const NetworkProbeEnvironment({
+    required this.probedAtUtc,
+    required this.appVersion,
+    required this.operatingSystem,
+    required this.operatingSystemVersion,
+    required this.networkMode,
+    required this.dohEndpoints,
+    required this.echFrontHost,
+  });
+
+  final DateTime probedAtUtc;
+  final String appVersion;
+  final String operatingSystem;
+  final String operatingSystemVersion;
+  final String networkMode;
+  final List<String> dohEndpoints;
+  final String echFrontHost;
+
+  /// Diagnostic header lines (English keys; not user-facing UI labels).
+  List<String> toHeaderLines() {
+    final doh = dohEndpoints.isEmpty ? 'none' : dohEndpoints.join(', ');
+    return [
+      'env: ${probedAtUtc.toUtc().toIso8601String()}',
+      'app-version: $appVersion',
+      'os: $operatingSystem $operatingSystemVersion',
+      'network-mode: $networkMode',
+      'doh: $doh',
+      'ech-front: $echFrontHost',
+    ];
+  }
+}
+
 class NetworkProbeReport {
   const NetworkProbeReport({
     required this.host,
@@ -578,6 +616,7 @@ class NetworkProbeReport {
     required this.firstError,
     this.dnsDisagrees = false,
     this.totalDuration = Duration.zero,
+    this.environment,
   });
 
   final String host;
@@ -594,9 +633,32 @@ class NetworkProbeReport {
   /// Total wall-clock time of the probe run (P-NET baseline).
   final Duration totalDuration;
 
+  /// Session metadata assembled by the probe page. Null in unit harnesses
+  /// that only assert reachability lines.
+  final NetworkProbeEnvironment? environment;
+
+  NetworkProbeReport copyWith({NetworkProbeEnvironment? environment}) {
+    return NetworkProbeReport(
+      host: host,
+      purpose: purpose,
+      steps: steps,
+      conclusion: conclusion,
+      firstError: firstError,
+      dnsDisagrees: dnsDisagrees,
+      totalDuration: totalDuration,
+      environment: environment ?? this.environment,
+    );
+  }
+
   /// Copy-pasteable report (PRD R2: 结果可复制).
   String toCopyableText() {
-    final buffer = StringBuffer()
+    final buffer = StringBuffer();
+    if (environment != null) {
+      for (final line in environment!.toHeaderLines()) {
+        buffer.writeln(line);
+      }
+    }
+    buffer
       ..writeln('NetworkProbe $host (${purpose.name})')
       ..writeln('conclusion: ${conclusion.name}')
       ..writeln(

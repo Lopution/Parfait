@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,10 @@ import '../../core/network/compat/network_policy.dart';
 import '../../core/network/compat/network_probe.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/network/compat/secure_resolver.dart';
+import '../../core/settings/settings_controller.dart';
+
+/// Same string as the About page (pubspec `version: 0.1.0+1`).
+const _kAppVersion = '0.1.0+1';
 
 String _probeText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -65,6 +71,21 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
 
   NetworkAccessPolicy get _policy => ref.read(networkAccessPolicyProvider);
 
+  NetworkProbeEnvironment _probeEnvironment() {
+    final dohEnabled = ref.read(dohEnabledProvider);
+    return NetworkProbeEnvironment(
+      probedAtUtc: DateTime.now().toUtc(),
+      appVersion: _kAppVersion,
+      operatingSystem: Platform.operatingSystem,
+      operatingSystemVersion: Platform.operatingSystemVersion,
+      networkMode: _policy.mode.name,
+      dohEndpoints: dohEnabled
+          ? List<String>.from(ref.read(dohEndpointsProvider))
+          : const [],
+      echFrontHost: _policy.echFrontHost,
+    );
+  }
+
   Future<void> _runAll() async {
     if (_running) return;
     setState(() {
@@ -72,10 +93,11 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
       _finished.clear();
       _errors.clear();
     });
+    final environment = _probeEnvironment();
     try {
       await Future.wait([
         for (final target in _targets)
-          _runOne(target).catchError((Object error) {
+          _runOne(target, environment).catchError((Object error) {
             debugPrint('probe ${target.host} failed: $error');
             if (mounted) {
               setState(() => _errors[target.host] = error);
@@ -89,6 +111,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
 
   Future<void> _runOne(
     ({String host, PixivDestinationPurpose purpose}) target,
+    NetworkProbeEnvironment environment,
   ) async {
     final resolver = _policy.resolver;
     final report = await NetworkProbe.run(
@@ -205,7 +228,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
     if (mounted) {
       setState(() {
         _errors.remove(target.host);
-        _finished[target.host] = report;
+        _finished[target.host] = report.copyWith(environment: environment);
       });
     }
   }
