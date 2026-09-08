@@ -55,6 +55,17 @@ Questions to answer:
   all one root cause).
 - **Layering a patch on an erroneous guard.** When a guard blocks correct
   behavior, delete or relax it. Do not add a condition in front of it.
+- **A setting without a real consumer（设置项必须有真实消费者）.** Every
+  ordinary setting must name the product behaviour it changes, and that
+  consumer must be code outside the settings page itself (a feed filter, a
+  request header, a download path, a network route…). Reading the value only
+  to render it back in settings, or only in one detail-page label, is not a
+  consumer. A setting that has none is removed, not hidden and not kept "for
+  later" — with one exception: a persisted field whose UI is gated on a
+  concrete future data source (09-01 settings R7 `imageSource`, hidden while
+  `sources.length <= 1`) may stay as a field but must not be shown. Origin:
+  09-01 settings-productization (C9 content filter and D6 file naming had no
+  consumer; `imageSourceProvider` was deleted in `e6ec619`).
 
 ---
 
