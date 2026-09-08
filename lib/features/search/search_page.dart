@@ -2,17 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
-import '../../app/navigation/replica_page_route.dart';
+import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_repository.dart';
 import '../../core/search/search_trending_controller.dart';
 import '../../core/network/api_error.dart';
-import '../illust/detail/illust_detail_page.dart';
 import 'search_filter_sheet.dart';
-import 'search_router.dart';
 import 'search_text.dart';
-import 'reverse_image_search_page.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 class SearchHomePage extends ConsumerWidget {
@@ -28,7 +25,7 @@ class SearchHomePage extends ConsumerWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
             sliver: SliverToBoxAdapter(
-              child: _SearchGuideBox(onTap: () => showSearchInput(context)),
+              child: _SearchGuideBox(onTap: () => openSearchInput(context)),
             ),
           ),
           SliverPadding(
@@ -40,7 +37,7 @@ class SearchHomePage extends ConsumerWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
-                  onPressed: () => showReverseImageSearch(context),
+                  onPressed: () => openReverseImageSearch(context),
                   icon: const Icon(Icons.image_search_outlined),
                   label: Text(searchText(context, 'searchReverseImage')),
                 ),
@@ -162,13 +159,10 @@ class _TrendingTagTile extends StatelessWidget {
       );
       return;
     }
-    Navigator.of(context).push<void>(
-      ReplicaPageRoute<void>(
-        builder: (_) => IllustDetailPage(
-          illustId: representative.id,
-          initialEntity: representative,
-        ),
-      ),
+    openIllust(
+      context,
+      representative.id,
+      initialEntity: representative,
     );
   }
 
@@ -180,7 +174,7 @@ class _TrendingTagTile extends StatelessWidget {
       // Tapping still means "search this tag" — the image is context, not a
       // new primary action. Opening the representative work stays secondary.
       onTap: () =>
-          showSearchResults(context, IllustSearchQuery(keyword: tag.name)),
+          openSearchResults(context, IllustSearchQuery(keyword: tag.name)),
       onLongPress: () => _openRepresentative(context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
@@ -308,7 +302,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       return;
     }
     ref.read(searchAutocompleteProvider.notifier).cancel();
-    showSearchResults(context, _query(keyword));
+    openSearchResults(context, _query(keyword));
   }
 
   SearchQuery _query(String keyword) => switch (_types[_selectedIndex]) {

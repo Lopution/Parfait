@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../app/navigation/replica_page_route.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/reverse_image/reverse_image_controller.dart';
@@ -13,8 +12,7 @@ import '../../core/reverse_image/reverse_image_platform.dart';
 import '../../core/reverse_image/reverse_image_provider.dart';
 import '../../core/reverse_image/sauce_nao_navigation_policy.dart';
 import '../../core/reverse_image/sauce_nao_provider.dart';
-import '../illust/detail/illust_detail_page.dart';
-import '../profile/user_page.dart' show showUserPage;
+import '../../app/navigation/routes.dart';
 import 'search_text.dart';
 
 class ReverseImageSearchPage extends StatefulWidget {
@@ -322,11 +320,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
                   ),
             onTap: hit.pixivId == null
                 ? () => _openExternal(hit.externalUrl!)
-                : () => Navigator.of(context).push<void>(
-                    ReplicaPageRoute<void>(
-                      builder: (_) => IllustDetailPage(illustId: hit.pixivId!),
-                    ),
-                  ),
+                : () => openIllust(context, hit.pixivId!),
           ),
         );
       },
@@ -417,11 +411,7 @@ class _ControlledSauceNaoWebViewState
       case SauceNaoNavigationAction.openIllust:
         final id = _illustId(request.url);
         if (id != null) {
-          Navigator.of(context).push<void>(
-            ReplicaPageRoute<void>(
-              builder: (_) => IllustDetailPage(illustId: id),
-            ),
-          );
+          openIllust(context, id);
         } else {
           unawaited(widget.onOpenExternal(Uri.parse(request.url)));
         }
@@ -429,7 +419,7 @@ class _ControlledSauceNaoWebViewState
       case SauceNaoNavigationAction.openUser:
         final id = _userId(request.url);
         if (id != null) {
-          showUserPage(context, id);
+          openUser(context, id);
         } else {
           unawaited(widget.onOpenExternal(Uri.parse(request.url)));
         }
@@ -486,14 +476,3 @@ class _ControlledSauceNaoWebViewState
   }
 }
 
-void showReverseImageSearch(
-  BuildContext context, {
-  ReverseImageInputReference? initialReference,
-}) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(
-      builder: (_) =>
-          ReverseImageSearchPage(initialReference: initialReference),
-    ),
-  );
-}

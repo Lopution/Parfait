@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/person_avatar.dart';
-import '../../app/pixiv_image.dart';
 import '../../app/navigation/replica_page_route.dart';
+import '../../app/navigation/routes.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
@@ -15,7 +15,6 @@ import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/settings/settings_controller.dart';
-import '../profile/user_page.dart';
 import 'novel_reader.dart';
 import 'novel_layout.dart';
 
@@ -95,91 +94,6 @@ class NovelPage extends ConsumerWidget {
   }
 }
 
-class NovelCard extends StatelessWidget {
-  const NovelCard({super.key, required this.entity});
-
-  final NovelEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: InkWell(
-        onTap: () => showNovelPage(context, entity.id),
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _NovelCover(entity: entity),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entity.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      entity.user.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (entity.seriesTitle != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        entity.seriesTitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      '${entity.textLength} ${_novelText(context, 'novelWords')}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NovelCover extends StatelessWidget {
-  const _NovelCover({required this.entity});
-
-  final NovelEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: SizedBox(
-        width: 68,
-        height: 88,
-        child: entity.coverImageUrl == null
-            ? ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: const Icon(Icons.menu_book_outlined),
-              )
-            : PixivImage(url: entity.coverImageUrl!, fit: BoxFit.cover),
-      ),
-    );
-  }
-}
-
 class _NovelDetailBody extends ConsumerStatefulWidget {
   const _NovelDetailBody({required this.novel});
 
@@ -250,7 +164,7 @@ class _NovelMetadata extends StatelessWidget {
             Text(novel.title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 7),
             InkWell(
-              onTap: () => showUserPage(context, novel.user.id),
+              onTap: () => openUser(context, novel.user.id),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

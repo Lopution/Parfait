@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/navigation/replica_page_route.dart';
+import '../../app/navigation/routes.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -10,7 +10,6 @@ import '../../app/widgets/settings_load_error.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
-import '../login/login_page.dart';
 
 class ThemePage extends ConsumerWidget {
   const ThemePage({super.key});
@@ -107,13 +106,10 @@ class ThemePage extends ConsumerWidget {
                 onPressed: () async {
                   await ref.read(settingsProvider.notifier).completeGuide();
                   if (!context.mounted) return;
-                  await Navigator.of(context).push(
-                    ReplicaPageRoute<void>(
-                      builder: (_) => const LoginPage(
-                        isFirst: true,
-                        returnToHomeOnSuccess: true,
-                      ),
-                    ),
+                  await openLogin(
+                    context,
+                    isFirst: true,
+                    returnToHomeOnSuccess: true,
                   );
                 },
               ),

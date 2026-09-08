@@ -6,7 +6,7 @@ import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/widgets/replica_empty_state.dart';
-import '../../../app/navigation/replica_page_route.dart';
+import '../../../app/navigation/routes.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/i18n/replica_strings.dart';
 import '../../../core/network/api_error.dart';
@@ -15,8 +15,6 @@ import '../../../core/novel/novel_store.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/user/user_entity.dart';
 import '../../../core/user/user_store.dart';
-import '../../../features/novel/novel_page.dart';
-import '../../../features/profile/user_page.dart';
 import 'recommended_feed_controller.dart';
 import 'recommended_illust_page.dart';
 import 'recommended_repository.dart';
@@ -347,7 +345,7 @@ class _NovelRowCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: InkWell(
-        onTap: () => showNovelPage(context, entity.id),
+        onTap: () => openNovel(context, entity.id),
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.all(10),
@@ -433,9 +431,7 @@ class _UserRowCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: InkWell(
-        onTap: () => Navigator.of(context).push<void>(
-          ReplicaPageRoute<void>(builder: (_) => UserPage(userId: entity.id)),
-        ),
+        onTap: () => openUser(context, entity.id),
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.all(10),

@@ -6,7 +6,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
-import '../../../app/navigation/replica_page_route.dart';
+import '../../../app/navigation/routes.dart';
 import '../../../app/widgets/replica_empty_state.dart';
 import '../../bookmark/bookmark_switch_button.dart';
 import '../../illust/detail/illust_detail_page.dart';
@@ -262,15 +262,12 @@ class IllustCard extends ConsumerWidget {
                   _preloadTransitionImages(context, ref, previewUrl),
               onTap: () {
                 _preloadTransitionImages(context, ref, previewUrl);
-                Navigator.of(context).push(
-                  ReplicaPageRoute<void>(
-                    builder: (_) => IllustDetailPage(
-                      illustId: entity.id,
-                      initialEntity: entity,
-                      heroScope: heroScope,
-                      heroImageUrl: previewUrl,
-                    ),
-                  ),
+                openIllust(
+                  context,
+                  entity.id,
+                  initialEntity: entity,
+                  heroScope: heroScope,
+                  heroImageUrl: previewUrl,
                 );
               },
               child: ClipRRect(

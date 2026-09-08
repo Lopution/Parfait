@@ -4,9 +4,10 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../app/icons/app_icons.dart';
+import '../../app/widgets/novel_card.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pull_to_refresh.dart';
-import '../../app/navigation/replica_page_route.dart';
+import '../../app/navigation/routes.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_strings.dart';
@@ -18,7 +19,6 @@ import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../home/recommended/recommended_illust_page.dart';
-import '../novel/novel_page.dart';
 import 'follow_switch_button.dart';
 import 'profile_feed_controller.dart';
 import 'profile_header_delegate.dart';
@@ -86,20 +86,6 @@ class MePage extends ConsumerWidget {
       },
     );
   }
-}
-
-/// Opens a typed user route using the same right-in navigation rhythm as
-/// detail/ranking pages.
-void showUserPage(BuildContext context, int userId) {
-  if (userId <= 0) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(_profileText(context, 'profileNotFound'))),
-    );
-    return;
-  }
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(builder: (_) => UserPage(userId: userId)),
-  );
 }
 
 String _profileText(BuildContext context, String key) => ReplicaStrings.fromTag(
@@ -567,7 +553,7 @@ class _UserPreviewCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
-        onTap: () => showUserPage(context, user.id),
+        onTap: () => openUser(context, user.id),
         leading: _ProfileAvatar(user: user, radius: 26),
         title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: user.account.isEmpty ? null : Text('@${user.account}'),

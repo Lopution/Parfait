@@ -32,14 +32,12 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/settings/blocked_tags.dart';
 import '../../bookmark/bookmark_switch_button.dart';
-import '../../comments/comments_page.dart';
-import '../../profile/user_page.dart' show showUserPage;
-import '../../search/tag_search_page.dart';
 import '../../../core/i18n/replica_strings.dart';
 import '../viewer/image_viewer_page.dart';
 import 'illust_detail_controller.dart';
 import 'illust_download_controller.dart';
 import '../../../app/navigation/home_shell_metrics.dart';
+import '../../../app/navigation/routes.dart';
 import 'related_illusts_section.dart';
 import 'ugoira_viewer.dart';
 
@@ -298,12 +296,21 @@ double _heroBottomEdge(BuildContext heroContext, Size size) {
   // HomePage publishes the actual global edge of its BottomAppBar. Unlike a
   // height-plus-safe-area calculation this cannot double-count the gesture or
   // three-button navigation inset.
-  final measuredTop = HomeShellMetrics.bottomNavTop;
+  HomeShellMetrics? metrics;
+  try {
+    metrics = ProviderScope.containerOf(heroContext, listen: false)
+        .read(homeShellMetricsProvider);
+  } on StateError {
+    // Hero flights may run under a plain MaterialApp (no ProviderScope) in
+    // tests; fall back to the conservative constant, matching pre-provider
+    // behaviour.
+  }
+  final measuredTop = metrics?.bottomNavTop;
   if (measuredTop != null && measuredTop > 0 && measuredTop < size.height) {
     return measuredTop;
   }
   final measuredHeight =
-      HomeShellMetrics.bottomNavHeight ?? kHomeBottomNavHeight;
+      metrics?.bottomNavHeight ?? kHomeBottomNavHeight;
   return (size.height - measuredHeight).clamp(0.0, size.height).toDouble();
 }
 
@@ -996,7 +1003,7 @@ class _InfoBlock extends ConsumerWidget {
           // page. Wrapping happens outside the Row so the avatar keeps its
           // 48px slot and the existing key/spacing stay untouched.
           InkWell(
-            onTap: () => showUserPage(context, entity.user.id),
+            onTap: () => openUser(context, entity.user.id),
             borderRadius: BorderRadius.circular(8),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1096,7 +1103,7 @@ class _InfoBlock extends ConsumerWidget {
                     if (blockMode) {
                       blockedController.toggle(tag.name);
                     } else {
-                      showTagSearch(context, tag.name);
+                      openTagSearch(context, tag.name);
                     }
                   },
                   onLongPress: onToggleBlockMode,
@@ -1105,7 +1112,7 @@ class _InfoBlock extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
           OutlinedButton.icon(
-            onPressed: () => showIllustComments(context, entity.id),
+            onPressed: () => openIllustComments(context, entity.id),
             icon: const Icon(Icons.comment_outlined),
             label: Text(_detailText(context, 'commentTitle')),
           ),
@@ -1297,12 +1304,10 @@ void _openPixivRoute(BuildContext context, ({String kind, String id}) target) {
   if (id == null || id <= 0) return;
   switch (target.kind) {
     case 'user':
-      // showUserPage pushes its own route with the right-in rhythm.
-      showUserPage(context, id);
+      // The facade pushes its own route with the right-in rhythm.
+      openUser(context, id);
     case 'illust':
-      Navigator.of(context).push<void>(
-        ReplicaPageRoute<void>(builder: (_) => IllustDetailPage(illustId: id)),
-      );
+      openIllust(context, id);
   }
 }
 
