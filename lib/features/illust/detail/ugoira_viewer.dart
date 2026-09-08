@@ -20,6 +20,7 @@ import '../../../core/ugoira/ugoira_providers.dart';
 import '../../../core/ugoira/ugoira_repository.dart';
 import '../../../core/ugoira/ugoira_scheduler.dart';
 import '../../../core/ugoira/ugoira_zip.dart';
+import '../../../app/widgets/app_snack_bar.dart';
 
 String _ugoiraText(
   BuildContext context,
@@ -480,9 +481,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final submissionContext = _currentDownloadContext();
     if (submissionContext == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_ugoiraText(context, 'ugoiraLoginRequired'))),
-        );
+        showAppSnackBar(context, _ugoiraText(context, 'ugoiraLoginRequired'));
       }
       return;
     }
@@ -507,9 +506,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
         'error': result.error ?? 'unknown error',
       }),
     };
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showAppSnackBar(context, message);
   }
 
   @override

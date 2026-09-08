@@ -24,6 +24,7 @@ import '../../features/search/search_page.dart';
 import '../../features/search/search_result_page.dart';
 import '../../features/search/tag_search_page.dart';
 import '../motion/replica_page_route.dart';
+import '../widgets/app_snack_bar.dart';
 
 /// Root tabs of the home shell. The shell (app layer) must not import feature
 /// pages directly, so the tab list lives here next to the navigation facade.
@@ -82,16 +83,10 @@ Future<void> openSearchInput(BuildContext context, {String initialKeyword = ''})
 Future<void> openSearchResults(BuildContext context, SearchQuery query) {
   final keyword = query.keyword.trim();
   if (keyword.isEmpty) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(
-          ReplicaStrings.fromTag(
+    showAppSnackBar(context, ReplicaStrings.fromTag(
             Localizations.localeOf(context).toLanguageTag(),
             'searchInputEmpty',
-          ),
-        ),
-      ),
-    );
+          ),);
     return Future<void>.value();
   }
   final id = _positiveNumericId(keyword);

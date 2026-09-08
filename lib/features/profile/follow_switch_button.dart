@@ -6,6 +6,7 @@ import '../../core/i18n/replica_strings.dart';
 import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 /// Shared beta56-style follow button for profile/user-preview surfaces.
 ///
@@ -122,9 +123,7 @@ class FollowSwitchButton extends ConsumerWidget {
       followStoreProvider.select((state) => state[userId]?.error),
       (previous, next) {
         if (next != null && previous != next) {
-          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-            SnackBar(content: Text('${_text(context, 'followFailed')}: $next')),
-          );
+          showAppSnackBar(context, '${_text(context, 'followFailed')}: $next');
         }
       },
     );

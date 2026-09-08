@@ -31,6 +31,7 @@ import '../../../app/motion/hero_transition.dart';
 import '../../../app/navigation/routes.dart';
 import 'related_illusts_section.dart';
 import 'ugoira_viewer.dart';
+import '../../../app/widgets/app_snack_bar.dart';
 
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
@@ -155,15 +156,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // Any submission failure must be visible on device: the
                 // manager/ownership/channel errors that are not
                 // FormatException otherwise vanish with no UI feedback.
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      _detailText(context, 'downloadSubmissionFailed', {
+                showAppSnackBar(context, _detailText(context, 'downloadSubmissionFailed', {
                         'error': error,
-                      }),
-                    ),
-                  ),
-                );
+                      }),);
               }
             },
             icon: const Icon(Icons.file_download_outlined),
@@ -485,26 +480,14 @@ class _PageImageState extends ConsumerState<_PageImage> {
                       // Immediate visual feedback: the spinner shows before
                       // the coordinator/task notification round trip.
                       setState(() => _optimisticDownloading = true);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            _detailText(context, 'downloadQueuedMessage'),
-                          ),
-                        ),
-                      );
+                      showAppSnackBar(context, _detailText(context, 'downloadQueuedMessage'),);
                     } catch (error) {
                       // Any submission failure must be visible on device: the
                       // manager/ownership/channel errors that are not
                       // FormatException otherwise vanish with no UI feedback.
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            _detailText(context, 'downloadSubmissionFailed', {
+                      showAppSnackBar(context, _detailText(context, 'downloadSubmissionFailed', {
                               'error': error,
-                            }),
-                          ),
-                        ),
-                      );
+                            }),);
                     }
                   },
                 ),
@@ -855,17 +838,11 @@ class _CaptionRichText extends ConsumerWidget {
                   unawaited(
                     opener.openExternal(href).catchError((Object error) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              _detailText(
+                        showAppSnackBar(context, _detailText(
                                 context,
                                 'illustDetailOpenLinkFailed',
                                 {'error': error},
-                              ),
-                            ),
-                          ),
-                        );
+                              ),);
                       }
                     }),
                   );

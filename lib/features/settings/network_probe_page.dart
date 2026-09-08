@@ -14,6 +14,8 @@ import '../../core/network/compat/network_providers.dart';
 import '../../core/network/compat/secure_resolver.dart';
 import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../app/widgets/app_snack_bar.dart';
+import '../../core/log.dart';
 
 /// Same string as the About page (pubspec `version: 0.1.0+1`).
 const _kAppVersion = '0.1.0+1';
@@ -105,7 +107,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
       await Future.wait([
         for (final target in _targets)
           _runOne(target, environment).catchError((Object error) {
-            debugPrint('probe ${target.host} failed: $error');
+            log('probe ${target.host} failed: $error');
             if (mounted) {
               setState(() => _errors[target.host] = error);
             }
@@ -148,7 +150,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
                   revision: _policy.revision,
                 );
               } on Object catch (error) {
-                debugPrint('ech config lookup failed: ${error.runtimeType}');
+                log('ech config lookup failed: ${error.runtimeType}');
                 // Keep the original error visible in the report: swallowing
                 // it as null collapses every failure mode (endpoint down,
                 // no SvcParam, parse error) into the same misleading
@@ -366,13 +368,7 @@ class _HostProbeCard extends StatelessWidget {
                     Clipboard.setData(
                       ClipboardData(text: body.toCopyableText()),
                     );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          _probeText(context, 'networkProbeCopied'),
-                        ),
-                      ),
-                    );
+                    showAppSnackBar(context, _probeText(context, 'networkProbeCopied'),);
                   },
                   icon: const Icon(Icons.copy, size: 16),
                   label: Text(_probeText(context, 'copy')),

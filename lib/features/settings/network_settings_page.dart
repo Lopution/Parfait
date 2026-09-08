@@ -7,6 +7,7 @@ import '../../core/i18n/replica_strings.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import 'network_probe_page.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 String _networkText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -24,13 +25,7 @@ Future<bool> _persistNetwork(
     return true;
   } on Object catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${_networkText(context, 'settingsWriteFailed')}: $error',
-          ),
-        ),
-      );
+      showAppSnackBar(context, '${_networkText(context, 'settingsWriteFailed')}: $error',);
     }
     return false;
   }
@@ -200,11 +195,7 @@ class _NetworkAdvancedSettingsPageState
     if (!_dohDirty) return;
     if (value.isNotEmpty && !_validEndpointList(value)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_networkText(context, 'networkDohEndpointsInvalid')),
-          ),
-        );
+        showAppSnackBar(context, _networkText(context, 'networkDohEndpointsInvalid'));
       }
       return;
     }
@@ -216,9 +207,7 @@ class _NetworkAdvancedSettingsPageState
     );
     if (saved && mounted) {
       setState(() => _dohDirty = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_networkText(context, 'saved'))));
+      showAppSnackBar(context, _networkText(context, 'saved'));
     }
   }
 
@@ -249,11 +238,7 @@ class _NetworkAdvancedSettingsPageState
     if (!_echHostDirty) return;
     if (value.isNotEmpty && !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(value)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_networkText(context, 'networkEchHostInvalid')),
-          ),
-        );
+        showAppSnackBar(context, _networkText(context, 'networkEchHostInvalid'));
       }
       return;
     }
@@ -263,9 +248,7 @@ class _NetworkAdvancedSettingsPageState
     );
     if (saved && mounted) {
       setState(() => _echHostDirty = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_networkText(context, 'saved'))));
+      showAppSnackBar(context, _networkText(context, 'saved'));
     }
   }
 
@@ -284,9 +267,7 @@ class _NetworkAdvancedSettingsPageState
         _dohDirty = false;
         _echHostDirty = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_networkText(context, 'saved'))));
+      showAppSnackBar(context, _networkText(context, 'saved'));
     }
   }
 

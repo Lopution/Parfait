@@ -16,6 +16,7 @@ import '../../core/reverse_image/reverse_image_platform.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 String _profileEditText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -272,9 +273,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
     } on Object catch (error) {
       if (selection != null) await selection.dispose();
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text('$error')));
+      showAppSnackBar(context, '$error');
     }
   }
 

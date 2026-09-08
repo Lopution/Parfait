@@ -18,6 +18,7 @@ import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import 'login_webview_page.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({
@@ -82,11 +83,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         await ref.read(settingsProvider.notifier).setNetworkMode(mode);
       } on Object catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${_loginText('settingsWriteFailed')}: $error'),
-          ),
-        );
+        showAppSnackBar(context, '${_loginText('settingsWriteFailed')}: $error');
       }
     }());
   }
@@ -100,21 +97,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             .read(accountTransferServiceProvider)
             .importFromClipboard();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_loginText('accountTransferImported'))),
-        );
+        showAppSnackBar(context, _loginText('accountTransferImported'));
         if (!result.clipboardCleared) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_loginText('accountTransferClipboardReplaced')),
-            ),
-          );
+          showAppSnackBar(context, _loginText('accountTransferClipboardReplaced'));
         }
       } on AccountTransferException catch (error) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_loginTransferErrorText(error.code))),
-          );
+          showAppSnackBar(context, _loginTransferErrorText(error.code));
         }
       } finally {
         if (mounted) setState(() => _clipboardBusy = false);

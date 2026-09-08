@@ -15,6 +15,7 @@ import '../../core/history/history_repository.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/i18n/replica_strings.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 String _historyText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -73,15 +74,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       await repository.clear(accountId);
       if (context.mounted) {
         setState(() => _clearGeneration++);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_historyText(context, 'historyDeleteAll'))),
-        );
+        showAppSnackBar(context, _historyText(context, 'historyDeleteAll'));
       }
     } on Object catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$error')));
+        showAppSnackBar(context, '$error');
       }
     }
   }
@@ -215,9 +212,7 @@ class _HistoryBodyState extends State<_HistoryBody> {
       );
     } on Object catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$error')));
+      showAppSnackBar(context, '$error');
     }
   }
 

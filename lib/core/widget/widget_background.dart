@@ -11,6 +11,7 @@ import '../network/compat/network_providers.dart';
 import '../network/pixiv_http_client.dart';
 import 'widget_feed_loader.dart';
 import 'widget_snapshot_store.dart';
+import '../log.dart';
 
 /// Method channel the headless entrypoint reports through. The native worker
 /// listens for exactly one result message per run.
@@ -33,7 +34,7 @@ Future<void> runWidgetBackground() async {
   // funnels through the rhttp transport. `Rhttp.init` is idempotent per
   // engine, so the widget pass and the UI pass are independent.
   await rhttp.Rhttp.init();
-  debugPrint('WidgetBackground: entered');
+  log('WidgetBackground: entered');
   final container = ProviderContainer();
   try {
     final network = container.read(pixivNetworkFactoryProvider);
@@ -45,9 +46,9 @@ Future<void> runWidgetBackground() async {
       credentialStore: container.read(credentialStoreProvider),
       storeFactory: WidgetSnapshotStore.standard,
     );
-    debugPrint('WidgetBackground: loader built');
+    log('WidgetBackground: loader built');
     final result = await loader.load().timeout(const Duration(minutes: 4));
-    debugPrint('WidgetBackground: outcome ${result.outcome.name}');
+    log('WidgetBackground: outcome ${result.outcome.name}');
     await _report(result.outcome.name);
   } on TimeoutException {
     await _report('transientFailure');
@@ -55,7 +56,7 @@ Future<void> runWidgetBackground() async {
     // The worker must always receive a classification; any unexpected
     // failure is treated as transient so the bounded retry path stays the
     // single recovery story.
-    debugPrint('WidgetBackground: failed ${error.runtimeType}: $error');
+    log('WidgetBackground: failed ${error.runtimeType}: $error');
     await _report('transientFailure');
   } finally {
     container.dispose();
@@ -70,9 +71,9 @@ Future<void> _report(String outcome) async {
   } on MissingPluginException {
     // A non-Android test or a worker that has already been torn down has no
     // native receiver; keep the condition observable without leaking data.
-    debugPrint('WidgetBackground: result channel unavailable');
+    log('WidgetBackground: result channel unavailable');
   } on PlatformException catch (error) {
-    debugPrint(
+    log(
       'WidgetBackground: result channel failed: ${error.code}: ${error.message}',
     );
   }

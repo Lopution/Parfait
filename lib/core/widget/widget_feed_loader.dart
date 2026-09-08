@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../network/pixiv_headers.dart';
 import 'package:http/http.dart' as http;
@@ -21,6 +20,7 @@ import '../settings/settings_controller.dart';
 import '../../core/illust/recommended_repository.dart';
 import 'widget_snapshot.dart';
 import 'widget_snapshot_store.dart';
+import '../log.dart';
 
 /// Item count per snapshot. Each recommend widget instance renders
 /// item[slotIndex % items.length]; beta56 kept a shared pool and consumed it
@@ -116,13 +116,13 @@ class WidgetFeedLoader {
     } on Object catch (error) {
       // An unreadable account store is not proof of logout. Keep the
       // same-account last-good snapshot and let the bounded retry recover.
-      debugPrint(
+      log(
         'WidgetFeedLoader account state unavailable: ${error.runtimeType}',
       );
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
     if (state.status != AccountStatus.ready) {
-      debugPrint('WidgetFeedLoader account state is not ready');
+      log('WidgetFeedLoader account state is not ready');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
     final account = state.usableCurrent;
@@ -134,7 +134,7 @@ class WidgetFeedLoader {
     try {
       credential = await _credentialStore.read(account.id);
     } on Object catch (error) {
-      debugPrint(
+      log(
         'WidgetFeedLoader credential unavailable: ${error.runtimeType}',
       );
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
@@ -178,12 +178,12 @@ class WidgetFeedLoader {
         if (bytes == null) {
           // One failed cover aborts this pass; the last-good snapshot stays
           // active for the same account and the caller schedules a retry.
-          debugPrint('WidgetFeedLoader cover failed: ${illust.id}');
+          log('WidgetFeedLoader cover failed: ${illust.id}');
           return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
         }
         totalImageBytes += bytes.length;
         if (totalImageBytes > widgetSnapshotMaxTotalImageBytes) {
-          debugPrint('WidgetFeedLoader total cover budget exceeded');
+          log('WidgetFeedLoader total cover budget exceeded');
           return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
         }
         // A generation-specific name means an in-flight writer never
@@ -250,7 +250,7 @@ class WidgetFeedLoader {
       // Any other failure (storage backend, unexpected platform error) is
       // still surfaced as a classified outcome and a bounded retry — never
       // silently dropped.
-      debugPrint('WidgetFeedLoader unexpected: ${error.runtimeType}: $error');
+      log('WidgetFeedLoader unexpected: ${error.runtimeType}: $error');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
   }
@@ -278,7 +278,7 @@ class WidgetFeedLoader {
       final store = await _storeFactory();
       await store.clear();
     } on Object catch (error) {
-      debugPrint('WidgetFeedLoader.clear unavailable: ${error.runtimeType}');
+      log('WidgetFeedLoader.clear unavailable: ${error.runtimeType}');
     }
   }
 
@@ -297,17 +297,17 @@ class WidgetFeedLoader {
           )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
-        debugPrint('WidgetFeedLoader cover http ${response.statusCode}');
+        log('WidgetFeedLoader cover http ${response.statusCode}');
         return null;
       }
       final bytes = response.bodyBytes;
       if (bytes.isEmpty || bytes.length > widgetCoverMaxBytes) {
-        debugPrint('WidgetFeedLoader cover size rejected: ${bytes.length}');
+        log('WidgetFeedLoader cover size rejected: ${bytes.length}');
         return null;
       }
       return bytes;
     } on Exception catch (error) {
-      debugPrint('WidgetFeedLoader cover error ${error.runtimeType}: $error');
+      log('WidgetFeedLoader cover error ${error.runtimeType}: $error');
       return null;
     }
   }
@@ -331,7 +331,7 @@ class WidgetFeedLoader {
           // Display-state re-key: profile/re-auth advances revision and supersedes the write.
           current.credentialRevision == revision;
     } on Object catch (error) {
-      debugPrint(
+      log(
         'WidgetFeedLoader ownership check unavailable: ${error.runtimeType}',
       );
       return false;
@@ -347,7 +347,7 @@ class WidgetFeedLoader {
       return current.status == AccountStatus.ready &&
           current.current?.id == accountId;
     } on Object catch (error) {
-      debugPrint(
+      log(
         'WidgetFeedLoader account check unavailable: ${error.runtimeType}',
       );
       return false;
