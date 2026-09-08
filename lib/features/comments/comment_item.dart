@@ -213,8 +213,9 @@ class _CommentBody extends StatelessWidget {
             )
           : comment.stampUrl == null
           ? const Icon(Icons.image_not_supported_outlined)
-          : PixivImage(
-              url: comment.stampUrl!,
+          : PixivImage.feed(
+              comment.stampUrl!,
+              layoutWidth: 180,
               width: 180,
               height: 110,
               fit: BoxFit.contain,

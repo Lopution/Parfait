@@ -407,8 +407,9 @@ class _NovelCover extends StatelessWidget {
       child: SizedBox(
         width: 56,
         height: 72,
-        child: PixivImage(
-          url: url,
+        child: PixivImage.feed(
+          url,
+          layoutWidth: 56,
           fit: BoxFit.cover,
           placeholderColor: Theme.of(
             context,

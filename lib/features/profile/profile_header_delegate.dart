@@ -336,8 +336,8 @@ class _ProfileBackground extends StatelessWidget {
       return ColoredBox(color: colors.surface);
     }
     if (!withScrim) {
-      return PixivImage(
-        url: user.backgroundImageUrl!,
+      return PixivImage.detail(
+        user.backgroundImageUrl!,
         fit: BoxFit.cover,
         // Background images have widely varying aspect ratios; anchoring to
         // the top keeps the main subject visible when the header crops the
@@ -348,8 +348,8 @@ class _ProfileBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        PixivImage(
-          url: user.backgroundImageUrl!,
+        PixivImage.detail(
+          user.backgroundImageUrl!,
           fit: BoxFit.cover,
           alignment: Alignment.topCenter,
         ),

@@ -457,10 +457,9 @@ class _PageImageState extends ConsumerState<_PageImage> {
               Hero(
                 tag: widget.heroTag,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                child: PixivImage(
-                  url: previewUrl,
+                child: PixivImage.detail(
+                  previewUrl,
                   fit: BoxFit.contain,
-                  width: double.infinity,
                   transitionKey: widget.heroTag,
                   // Keep the loading transition for cold detail images. A
                   // cached Hero hand-off is still instantaneous because

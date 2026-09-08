@@ -352,9 +352,9 @@ class _KnownIllustCard extends StatelessWidget {
             child: SizedBox(
               height: previewHeight,
               width: double.infinity,
-              child: PixivImage(
-                url: entity.imageUrls.medium,
-                fit: BoxFit.cover,
+              child: PixivImage.feed(
+                entity.imageUrls.medium,
+                layoutWidth: MediaQuery.sizeOf(context).width / 2,
               ),
             ),
           ),
@@ -510,7 +510,10 @@ class _SnapshotCover extends StatelessWidget {
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Icon(icon, size: 42),
             )
-          : PixivImage(url: record.snapshot.coverUrl!, fit: BoxFit.cover),
+          : PixivImage.feed(
+              record.snapshot.coverUrl!,
+              layoutWidth: MediaQuery.sizeOf(context).width / 2,
+            ),
     );
   }
 }

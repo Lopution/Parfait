@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,21 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'motion/motion_tokens.dart';
 import '../core/network/pixiv_client_identity.dart';
 import '../core/network/compat/network_providers.dart';
+
+/// Decode policy of a [PixivImage] variant (R8 performance boundary).
+enum PixivImageSize {
+  /// Feed cards and row cards: decode at the layout width.
+  feed,
+
+  /// Detail pages and wide headers: decode at the screen width.
+  detail,
+
+  /// Full-screen viewer: no decode limit.
+  viewer,
+
+  /// Avatars: decode at the avatar box size.
+  avatar,
+}
 
 /// Shared Pixiv CDN image widget: every i.pximg.net request must carry the
 /// app-API Referer or the CDN answers 403 (beta56 PixivImage semantics).
@@ -25,7 +41,106 @@ class PixivImage extends ConsumerWidget {
     this.transitionKey,
     this.filterColor,
     this.filterBlendMode,
+    this.memCacheWidth,
   });
+
+  /// Feed/row card variant: decode width derives from [layoutWidth] (the
+  /// box the image paints into), capped at 1.5x logical pixels.
+  PixivImage.feed(
+    String url, {
+    Key? key,
+    required double layoutWidth,
+    BoxFit fit = BoxFit.cover,
+    double? width,
+    double? height,
+    Color placeholderColor = const Color(0x33343838),
+    Widget? placeholderWidget,
+    Object? transitionKey,
+  }) : this(
+         key: key,
+         url: url,
+         fit: fit,
+         width: width,
+         height: height,
+         placeholderColor: placeholderColor,
+         placeholderWidget: placeholderWidget,
+         transitionKey: transitionKey,
+         memCacheWidth: decodeWidthFor(layoutWidth),
+       );
+
+  /// Avatar variant: decode width derives from the avatar box [size].
+  PixivImage.avatar(
+    String url, {
+    Key? key,
+    required double size,
+    BoxFit fit = BoxFit.cover,
+    Widget? placeholderWidget,
+  }) : this(
+         key: key,
+         url: url,
+         fit: fit,
+         placeholderWidget: placeholderWidget,
+         memCacheWidth: decodeWidthFor(size),
+       );
+
+  /// Detail variant: decode at the screen width.
+  PixivImage.detail(
+    String url, {
+    Key? key,
+    BoxFit fit = BoxFit.cover,
+    Alignment alignment = Alignment.center,
+    Color? filterColor,
+    BlendMode? filterBlendMode,
+    Object? transitionKey,
+  }) : this(
+         key: key,
+         url: url,
+         fit: fit,
+         alignment: alignment,
+         filterColor: filterColor,
+         filterBlendMode: filterBlendMode,
+         transitionKey: transitionKey,
+         memCacheWidth: _screenDecodeWidth,
+       );
+
+  /// Hero hand-off variant: keeps the transition history keyed by [tag] so a
+  /// rebuilt endpoint reuses the last displayed quality as its placeholder.
+  const PixivImage.hero(
+    String url, {
+    Key? key,
+    required Object? tag,
+    BoxFit fit = BoxFit.cover,
+    Alignment alignment = Alignment.center,
+    Color placeholderColor = const Color(0x33343838),
+  }) : this(
+         key: key,
+         url: url,
+         fit: fit,
+         alignment: alignment,
+         placeholderColor: placeholderColor,
+         transitionKey: tag,
+       );
+
+  /// Decode width for a logical [layoutWidth] box: layout width x DPR,
+  /// capped at 1.5x logical pixels (R8: never decode more than that for
+  /// feed/avatar art). [devicePixelRatio] overrides the platform view's DPR
+  /// (tests).
+  static int decodeWidthFor(double layoutWidth, {double? devicePixelRatio}) {
+    final dpr =
+        devicePixelRatio ?? PlatformDispatcher.instance.views.first.devicePixelRatio;
+    final physical = layoutWidth * dpr;
+    final cap = layoutWidth * 1.5;
+    return (physical < cap ? physical : cap).round().clamp(1, 100000);
+  }
+
+  /// Screen-width decode target for detail images.
+  static int get _screenDecodeWidth {
+    final view = PlatformDispatcher.instance.views.first;
+    final dpr = view.devicePixelRatio;
+    return (view.physicalSize.width / (dpr == 0 ? 1 : dpr) * dpr)
+        .round()
+        .clamp(1, 100000);
+  }
 
   final String url;
   final BoxFit fit;
@@ -57,6 +172,10 @@ class PixivImage extends ConsumerWidget {
   final Object? transitionKey;
   final Color? filterColor;
   final BlendMode? filterBlendMode;
+
+  /// Decode-width cap in pixels for this image, or null for unlimited
+  /// (viewer). See [PixivImageSize] and R8.
+  final int? memCacheWidth;
 
   // Keep this bounded: a long feed can create many Hero tags over time.
   static final LinkedHashMap<Object, List<String>> _transitionHistory =
@@ -181,6 +300,7 @@ class PixivImage extends ConsumerWidget {
       height: height,
       fit: fit,
       alignment: alignment,
+      memCacheWidth: memCacheWidth,
       color: filterColor,
       colorBlendMode: filterBlendMode,
       // Crossfade only for artwork that has not completed decoding yet:
