@@ -92,8 +92,8 @@ Unknown method on every MethodChannel: `result.notImplemented()`.
   `finalize` / `abort` / `listPending` / `abortPending` hit
   `ContentResolver`). Stream/`Uri` `LruCache`s are handler-only. No Activity
   work.
-- **SDK_INT:** `requireApi29()` and abort paths still contain `< Q` branches
-  (dead at `minSdk = 29`; D4 deletes them). Do not change those branches in D2.
+- **SDK_INT:** none. `minSdk = 29` is scoped MediaStore (`IS_PENDING` /
+  `RELATIVE_PATH`); the pre-Q `requireApi29()` / abort early-returns are gone.
 
 ### Methods
 
@@ -111,8 +111,8 @@ Unknown method on every MethodChannel: `result.notImplemented()`.
 Only `result.error("mediastore_error", <exception.message>, null)` from the
 outer `catch (Exception)` — including `!!` NPE, `require()`
 `IllegalArgumentException`, `IllegalStateException` from insert / open /
-finalize, `SecurityException`, and `UnsupportedOperationException("unsupported")`
-from `requireApi29()`.
+finalize, and `SecurityException`. The D0 `UnsupportedOperationException`
+/`requireApi29()` path is gone (minSdk 29).
 
 Dart does **not** switch on `mediastore_error`. `abort()` swallows any
 `PlatformException`. Other methods let `PlatformException` propagate.
@@ -125,7 +125,6 @@ Dart does **not** switch on `mediastore_error`. `abort()` swallows any
 | Required argument wrong type | `mediastore_invalid_argument` | `<name> has wrong type` |
 | `require()` / `IllegalArgumentException` (bad value) | `mediastore_invalid_argument` | exception message |
 | `SecurityException` | `mediastore_permission` | exception message |
-| `UnsupportedOperationException` (`requireApi29`) | `mediastore_unsupported` | exception message |
 | `begin` insert / id-parse / begin-time `IllegalStateException` | `mediastore_insert_failed` | exception message |
 | `write` failure (`IOException` or write-time `IllegalStateException` other than missing stream) | `mediastore_write_failed` | exception message |
 | Missing pending stream / missing pending row / `FileNotFoundException` | `mediastore_not_found` | exception message |
@@ -257,7 +256,8 @@ no userInfo / port / fragment.
 | `too_large` | `read` text empty or `> 32768` |
 | `invalid_fingerprint` | `clearIfCurrent` fingerprint blank |
 
-`SDK_INT >= P` clear path is a D4 dead-true branch; do not touch in D2.
+`clear()` always uses `ClipboardManager.clearPrimaryClip()` (API 28; minSdk 29).
+The two `TIRAMISU` sites (`capabilities`, sensitive `ClipData` extras) stay.
 
 ---
 
@@ -536,9 +536,15 @@ code** above. Remaining child steps:
   `pixivfunc/webprofile` stays on main — `CookieManager.getCookie`/`flush`
   are not documented thread-safe. The **Thread** column above is the
   current fact.
-- **D4:** Delete 12 dead `SDK_INT < Q/P/O` branches; keep 3× `TIRAMISU`.
-  Delete `drawable-v21/launch_background.xml` and debug/profile redundant
-  `INTERNET`. Do not change `http://pixiv.net` deep-link filters.
+- **D4 (done):** 12 dead `SDK_INT < Q/P/O` branches are gone; 3× `TIRAMISU`
+  remain (`AndroidIntentChannel` `getParcelableExtra`, clipboard
+  `capabilities` + sensitive extras). Launch splash is
+  `drawable-v21/launch_background.xml` only: AAPT2 rejects
+  `?android:colorBackground` in unqualified `drawable/`, so the unused
+  `drawable/launch_background.xml` duplicate was removed instead of the
+  v21 file. debug/profile redundant `INTERNET` overlays are gone; main
+  still declares it. `http://pixiv.net` deep-link filters are unchanged.
+  `mediastore_unsupported` is not emitted.
 - **D5:** Shared `updater/UpdaterPlatformInfo.kt` for
   `platformInfo` / `packageInfo` / `signerSha256`. Flavor files keep only
   differences. Map `{valid:false, errorCode}` / `{status:failed, errorCode}`

@@ -37,12 +37,7 @@ object DistributionUpdaterChannel {
 
     private fun platformInfo(context: Context): Map<String, Any> {
         val packageInfo = packageInfo(context.packageManager, context.packageName)
-        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            packageInfo.longVersionCode.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-        } else {
-            @Suppress("DEPRECATION")
-            packageInfo.versionCode
-        }
+        val versionCode = packageInfo.longVersionCode.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
         return mapOf(
             "packageName" to context.packageName,
             "version" to (packageInfo.versionName ?: ""),
@@ -53,21 +48,11 @@ object DistributionUpdaterChannel {
     }
 
     private fun packageInfo(manager: PackageManager, packageName: String): PackageInfo {
-        @Suppress("DEPRECATION")
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            manager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
-        } else {
-            manager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
-        }
+        return manager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
     }
 
     private fun signerSha256(info: PackageInfo): String {
-        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            info.signingInfo?.apkContentsSigners ?: emptyArray()
-        } else {
-            @Suppress("DEPRECATION")
-            info.signatures ?: emptyArray()
-        }
+        val signatures = info.signingInfo?.apkContentsSigners ?: emptyArray()
         val signature = signatures.singleOrNull() ?: return ""
         return MessageDigest.getInstance("SHA-256")
             .digest(signature.toByteArray())

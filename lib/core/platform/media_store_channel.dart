@@ -21,8 +21,8 @@ abstract final class _MediaStoreMethods {
 /// (MainActivity.kt). Native failures use `mediastore_<reason>` codes
 /// (`mediastore_invalid_argument`, `mediastore_insert_failed`,
 /// `mediastore_write_failed`, `mediastore_finalize_failed`,
-/// `mediastore_not_found`, `mediastore_permission`, `mediastore_io_failed`,
-/// `mediastore_unsupported` on the dead pre-29 path). The download pipeline
+/// `mediastore_not_found`, `mediastore_permission`, `mediastore_io_failed`).
+/// The download pipeline
 /// surfaces any [PlatformException] as a failed task.
 class MethodChannelMediaStoreSession
     implements
