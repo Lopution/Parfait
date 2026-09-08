@@ -21,6 +21,7 @@ import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';

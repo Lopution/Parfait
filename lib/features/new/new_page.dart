@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/novel_card.dart';
@@ -11,7 +12,7 @@ import '../../core/new/new_feed_models.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
-import '../home/recommended/recommended_illust_page.dart';
+import '../../app/widgets/feed/illust_card.dart';
 
 /// Beta56 New page: scope tabs are stable while the content type selector is
 /// exposed by tapping the selected tab a second time.
@@ -268,20 +269,17 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
       final store = ref.watch(illustStoreProvider);
       final entities = store.getAll(feed.ids);
       return [
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          sliver: SliverMasonryGrid.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: 5,
-            crossAxisSpacing: 10,
-            itemBuilder: (context, index) => IllustCard(
+        IllustFeedGrid(
+  padding: const EdgeInsets.symmetric(horizontal: 10),
+  mainAxisSpacing: 5,
+  crossAxisSpacing: 10,
+  itemCount: entities.length,
+  itemBuilder: (context, index) => IllustCard(
               entity: entities[index],
               heroScope:
                   'new:${widget.feedKey.scope.name}:${widget.feedKey.type.name}',
             ),
-            childCount: entities.length,
-          ),
-        ),
+),
         ...tail,
       ];
     }

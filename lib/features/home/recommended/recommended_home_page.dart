@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
@@ -16,7 +17,7 @@ import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/user/user_entity.dart';
 import '../../../core/user/user_store.dart';
 import 'recommended_feed_controller.dart';
-import 'recommended_illust_page.dart';
+import '../../../app/widgets/feed/illust_card.dart';
 import 'recommended_repository.dart';
 
 String _recommendedText(BuildContext context, String key) {
@@ -257,19 +258,16 @@ class _RecommendedFeedBody extends ConsumerWidget {
     final store = ref.watch(illustStoreProvider);
     final entities = store.getAll(feed.ids);
     return [
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-        sliver: SliverMasonryGrid.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 5,
-          crossAxisSpacing: 10,
-          itemBuilder: (context, index) => IllustCard(
+      IllustFeedGrid(
+  padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+  mainAxisSpacing: 5,
+  crossAxisSpacing: 10,
+  itemCount: entities.length,
+  itemBuilder: (context, index) => IllustCard(
             entity: entities[index],
             heroScope: 'recommended:${type.name}',
           ),
-          childCount: entities.length,
-        ),
-      ),
+),
       ...tail,
     ];
   }

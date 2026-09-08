@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+
+import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
@@ -240,19 +241,16 @@ class _HistoryBodyState extends State<_HistoryBody> {
       child: CustomScrollView(
         controller: _scrollController,
         slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(10),
-            sliver: SliverMasonryGrid.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childCount: _records.length,
-              itemBuilder: (context, index) => _HistoryCard(
+          IllustFeedGrid(
+  padding: const EdgeInsets.all(10),
+  mainAxisSpacing: 10,
+  crossAxisSpacing: 10,
+  itemCount: _records.length,
+  itemBuilder: (context, index) => _HistoryCard(
                 record: _records[index],
                 onLongPress: () => _delete(_records[index]),
               ),
-            ),
-          ),
+),
           SliverToBoxAdapter(
             child: _loadingMore
                 ? const Padding(

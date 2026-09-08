@@ -9,7 +9,7 @@ import '../../features/comments/comments_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
 import '../../features/new/new_page.dart';
 import '../../features/ranking/ranking_page.dart';
-import '../../features/search/search_page.dart' show SearchHomePage;
+
 import '../../features/settings/settings_page.dart';
 import '../../features/history/history_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
