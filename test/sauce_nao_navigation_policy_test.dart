@@ -29,6 +29,17 @@ void main() {
       decide('https://www.pixiv.net/i/99'),
       SauceNaoNavigationAction.openIllust,
     );
+    // Changed: /en/artworks/<id> was previously openExternal (unmapped).
+    expect(
+      decide('https://www.pixiv.net/en/artworks/1'),
+      SauceNaoNavigationAction.openIllust,
+    );
+    expect(
+      decide(
+        'https://www.pixiv.net/member_illust.php?mode=medium&illust_id=99',
+      ),
+      SauceNaoNavigationAction.openIllust,
+    );
   });
 
   test('Pixiv user links open the app user page', () {
@@ -40,6 +51,10 @@ void main() {
       decide('https://www.pixiv.net/u/7'),
       SauceNaoNavigationAction.openUser,
     );
+    expect(
+      decide('https://www.pixiv.net/member.php?id=42'),
+      SauceNaoNavigationAction.openUser,
+    );
   });
 
   test('other HTTPS hosts go to the external launcher', () {
@@ -48,8 +63,8 @@ void main() {
       SauceNaoNavigationAction.openExternal,
     );
     expect(
-      decide('https://www.pixiv.net/en/artworks/1'),
-    SauceNaoNavigationAction.openExternal,
+      decide('https://www.pixiv.net/help'),
+      SauceNaoNavigationAction.openExternal,
     );
   });
 
