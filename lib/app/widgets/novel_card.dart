@@ -73,7 +73,10 @@ class _NovelCover extends StatelessWidget {
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 child: const Icon(Icons.menu_book_outlined),
               )
-            : PixivImage(url: entity.coverImageUrl!, fit: BoxFit.cover),
+            : PixivImage.feed(
+                entity.coverImageUrl!,
+                layoutWidth: 68,
+              ),
       ),
     );
   }

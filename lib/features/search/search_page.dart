@@ -186,8 +186,9 @@ class _TrendingTagTile extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (representative != null)
-                PixivImage(
-                  url: representative.imageUrls.squareMedium,
+                PixivImage.feed(
+                  representative.imageUrls.squareMedium,
+                  layoutWidth: MediaQuery.sizeOf(context).width / 2,
                   fit: BoxFit.cover,
                 ),
               if (representative != null)

@@ -466,12 +466,7 @@ class _ImageField extends StatelessWidget {
     final preview = selection == null
         ? currentUrl == null || currentUrl!.isEmpty
               ? const Icon(Icons.image_outlined, size: 42)
-              : PixivImage(
-                  url: currentUrl!,
-                  width: 54,
-                  height: 54,
-                  fit: BoxFit.cover,
-                )
+              : PixivImage.avatar(currentUrl!, size: 54, fit: BoxFit.cover)
         : Image.file(
             File(selection!.path),
             width: 54,

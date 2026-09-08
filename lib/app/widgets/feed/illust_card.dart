@@ -77,8 +77,9 @@ class IllustCard extends ConsumerWidget {
                           borderRadius: const BorderRadius.all(
                             Radius.circular(12),
                           ),
-                          child: PixivImage(
-                            url: previewUrl,
+                          child: PixivImage.feed(
+                            previewUrl,
+                            layoutWidth: constraints.maxWidth,
                             fit: BoxFit.fitWidth,
                             transitionKey: heroTag,
                           ),

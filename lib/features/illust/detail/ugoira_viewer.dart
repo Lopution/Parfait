@@ -196,11 +196,10 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       fit: StackFit.expand,
       children: [
         Positioned.fill(
-          child: PixivImage(
-            url: widget.previewUrl,
+          child: PixivImage.hero(
+            widget.previewUrl,
+            tag: widget.heroTag,
             fit: BoxFit.fitWidth,
-            width: double.infinity,
-            transitionKey: widget.heroTag,
           ),
         ),
         if (currentImage != null)
