@@ -42,19 +42,19 @@ Questions to answer:
 
 ### Shared Entity Store Merge Contract (`IllustStore.mergeAll`)
 
-**What**: `IllustStore` (lib/core/entity/illust_store.dart) is the single account-scoped copy of illust entities; feeds hold only ordered ID lists, so Recommended cards, Detail page and Viewer must observe identical data. `mergeAll` is the only write path for API payloads.
+**What**: `IllustStore` (`lib/core/entity/illust_store.dart`) is the single account-scoped copy of illust entities; feeds hold only ordered ID lists, so Recommended cards, Detail page and Viewer must observe identical data. `mergeAll` is the only write path for API payloads. Callers pass `EntityMergeSource.feed` (default) or `EntityMergeSource.detail` (`illust_detail_controller.dart` is the only authoritative site).
 
-**Merge direction is per-field and monotonic** — newer parse wins by default, EXCEPT these regression guards:
+**Merge direction depends on [EntityMergeSource]** (`illust_store.dart` `mergeAll`):
 
-| Field | Direction | Why |
-|---|---|---|
-| `isBookmarked` | BookmarkStore authority, gated by `bookmarkSnapshotRevision` | BookmarkStore owns all bookmark mutations (see below); fetches must capture `bookmarks.revisionNow()` BEFORE the request and pass it as `bookmarkSnapshotRevision` — a snapshot older than the store's confirmed revision is ignored so it cannot overwrite a local mutation; when the snapshot is current, its value is authoritative (covers server-side deletes made elsewhere) |
-| `metaPages` / `metaSinglePageOriginalUrl` | keep old when incoming empty | detail → feed refresh must not strip viewer/download URLs |
-| `caption` / `tags` | keep old non-empty when incoming empty | trimmed payloads must not erase richer values already rendered (parent AC: 详情字段不倒退) |
-| `visible` | `new && old` (AND) | `visible: false` sticks once seen |
-| `pageCount` | `max(new, old)` | a feed's `page_count=1` must not erase a detail multi-page count |
+| Field | `EntityMergeSource.feed` | `EntityMergeSource.detail` | Why |
+|---|---|---|---|
+| `isBookmarked` | BookmarkStore authority when bound; else new OR old | same BookmarkStore authority | BookmarkStore owns mutations; neither source writes the flag directly |
+| `metaPages` / `metaSinglePageOriginalUrl` | keep old when incoming empty | incoming wins | feed refresh must not strip viewer/download URLs |
+| `caption` / `tags` | keep old non-empty when incoming empty | incoming may be empty and overwrite | feed is sparse; detail empty values are real server state (C3) |
+| `visible` | `new && old` (AND; `false` sticks) | incoming may set `visible=false` | shipped feed still ANDs; a feed `visible=false` hides a previously visible work. Detail `false` is the authoritative overwrite (C3) |
+| `pageCount` | `max(new, old)` | incoming may shrink | a feed `page_count=1` must not erase a detail multi-page count; detail may reduce it |
 
-**Rule for new `IllustEntity` fields**: every field added to `IllustEntity` MUST get an explicit merge decision in `mergeAll` plus a merge test in test/illust_store_test.dart asserting the no-regression direction. Fields defaulting to "newer wins" are acceptable only when a real endpoint always re-sends them.
+**Rule for new `IllustEntity` fields**: every field added to `IllustEntity` MUST get an explicit merge decision in `mergeAll` (for both sources) plus a merge test in `test/illust_store_test.dart`. Fields defaulting to "newer wins" are acceptable only when a real endpoint always re-sends them.
 
 **Wrong**: calling `store.mergeAll([fresh])` then rendering a captured pre-merge entity — read back via `store.get(id)` after merging (detail controller does exactly this so Ready state shows merged data).
 
@@ -94,9 +94,11 @@ objects or follow booleans.
 ### Cancellable Paged Feed Contract (`PagedFeedController`, `lib/core/paging/`)
 
 **What**: every feed keeps only ordered entity IDs and owns an independent
-cursor/state machine. A transport-aware feed may override
-`fetchPageCancellable(String? cursor, CancelToken cancelToken)`; the default
-delegates to `fetchPage` for feeds whose transport has no cancellation hook.
+cursor/state machine. The single fetch hook is
+`fetchPageForContext(FeedRequestContext context)` (`paged_feed_controller.dart`).
+There is no `fetchPage` / `fetchPageCancellable` pair; a subclass must never
+throw `UnimplementedError('use fetchPageForContext')` to disown a second
+contract (C12). Cancellation lives on `context.cancelToken`.
 
 **State rules**:
 
@@ -137,7 +139,6 @@ feeds.
 class FeedRequestContext {
   final String feedKey;
   final String? accountId;
-  final int credentialRevision;
   final int generation;
   final int page;
   final String? cursor;
@@ -148,7 +149,6 @@ Future<FeedPage> fetchPageForContext(FeedRequestContext context);
 bool FeedCommitGate.commit(
   FeedRequestContext context, {
   required String? accountId,
-  required int credentialRevision,
   required void Function() action,
 });
 ```
@@ -161,8 +161,9 @@ merge into `IllustStore`, `NovelStore`, or `UserStore`.
 
 - A controller creates the immutable context before issuing the request. Its
   `feedKey` includes every family selector (mode, query, filter, sort, or
-  profile key); account ID and credential revision are
-  captured from the same boundary snapshot.
+  profile key); account ID is captured from the same boundary snapshot.
+  There is no `credentialRevision` on the context (C1): overlapping work is
+  fenced by generation plus `cancelToken`.
 - A repository parses/normalizes into `FeedPage` and performs no shared-store
   write. The controller validates `next_url` before invoking the callback, then
   commits entity merge, stable ID dedupe, cursor, page, and phase from the same
@@ -171,10 +172,11 @@ merge into `IllustStore`, `NovelStore`, or `UserStore`.
   cursor set, and cancels old append work. A repeated current or previously
   committed cursor is an `ApiParseError`; its page cannot merge or advance the
   cursor.
-- Account or credential boundary changes are watched synchronously by the
+- Account boundary changes are watched synchronously by the
   provider, so a family instance rebuilds and old entity ownership/list/cursor
   state is not reused. Disposal invalidates the gate even when transport
-  cancellation cannot physically stop the response.
+  cancellation cannot physically stop the response. Token refresh does not
+  rebuild the feed (C1).
 - A rejected active response leaves existing list/cursor/entity data intact and
   surfaces the appropriate initial, refresh, or load-more error. A stale or
   cancelled response records bounded metadata-only telemetry and cannot alter
@@ -184,7 +186,7 @@ merge into `IllustStore`, `NovelStore`, or `UserStore`.
 
 | Condition | Required behavior |
 |---|---|
-| Feed key, generation, account, or credential revision is inactive | Reject commit; record stale/boundary telemetry; do not merge or update cursor/state |
+| Feed key, generation, or account is inactive | Reject commit; record stale/boundary telemetry; do not merge or update cursor/state |
 | Cancellation or provider disposal | Reject commit; record cancellation/disposed telemetry; do not publish a network error or entity |
 | Unknown/foreign/invalid cursor | Raise `ApiParseError` before the page callback; preserve current list and cursor |
 | Current or previously committed cursor repeats | Raise `ApiParseError` before entity merge or cursor advance |
@@ -786,7 +788,6 @@ a durable offline queue.
 ```dart
 class MutationEnvelope {
   final String accountId;
-  final int credentialRevision;
   final String entityType;
   final String entityId;
   final String operation;
@@ -815,15 +816,15 @@ events; it never persists request bodies or credentials.
 
 #### 3. Contracts
 
-- A begin is allowed only with the current usable account, credential
-  revision and network policy revision. The exact dedupe key is
-  `(accountId, entityType, entityId, operation)`; an active exact duplicate is
+- A begin is allowed only with the current usable account. The exact dedupe
+  key is `(accountId, entityType, entityId, operation)` (C1: no
+  `credentialRevision` on the envelope — same-account token refresh does not
+  invalidate an in-flight write). An active exact duplicate is
   suppressed, while another operation on the same target cancels and records
   the old owner as `superseded` before registering the new revision.
 - Feature stores keep the last server-confirmed value separate from pending
   presentation state. Only a still-active envelope can commit; a late result
-  cannot update the confirmed value, another account, an old credential
-  boundary or a disposed provider.
+  cannot update the confirmed value, another account, or a disposed provider.
 - Terminal status is observable as `idle`, `pending`, `confirmed`, `failed`,
   `cancelled` or `superseded`. Cancellation clears the pending marker without
   manufacturing a server-confirmed change; ordinary failures preserve the
@@ -833,9 +834,12 @@ events; it never persists request bodies or credentials.
   reopen an empty ledger to retain bounded discard telemetry, but it never
   resurrects a pending request.
 - Bookmark, Follow and Comment repository calls pass the envelope's
-  `CancelToken` and set `allowAuthReplay: false`. A token refresh may run once
-  through the shared account policy, but an operation whose body may have been
-  sent is never silently replayed.
+  `CancelToken` and set `allowAuthReplay: true` (C2). `PixivHttpClient.post`
+  defaults to `allowAuthReplay: false`. On an explicit auth rejection (401, or
+  400 `invalid_grant`) the opted-in mutation may refresh once and replay the
+  original body exactly once (`maxRetries = 1`); a second 401 is surfaced
+  without another replay. Timeout, reset, or an unknown outcome never replay
+  here. Transport `canReplay` remains GET/HEAD with an empty body only.
 
 #### 4. Validation & Error Matrix
 
@@ -844,7 +848,7 @@ events; it never persists request bodies or credentials.
 | no usable account or invalid entity ID | reject before registering a mutation; surface the normal typed error |
 | exact active duplicate | return `null`; keep the original request and pending state |
 | opposite operation on the same target | cancel old owner, record `superseded`, and accept only the new envelope's result |
-| account/credential/network boundary changed | cancel and discard the old envelope; never write the new account's store |
+| account/network boundary changed | cancel and discard the old envelope; never write the new account's store |
 | provider/page disposed | cancel owner; late completion is discarded and does not publish an API error |
 | 401 or invalid refresh | use shared auth policy; invalid refresh becomes observable `ApiUnauthorized` and no mutation replay |
 | 403/404/429/network/5xx | preserve classified error (`ApiRateLimited.retryAfter` included), clear pending, retain confirmed state |
@@ -854,9 +858,9 @@ events; it never persists request bodies or credentials.
 - Good: a delayed bookmark add carries account A's envelope, a reverse delete
   supersedes it, and only the delete's server confirmation updates the shared
   bookmark/entity stores.
-- Base: a 401 refreshes the credential once, then a non-idempotent Comment
-  POST terminates with an observable auth error rather than sending its body a
-  second time.
+- Base: a Bookmark/Follow/Comment POST with `allowAuthReplay: true` refreshes
+  once and replays the original body exactly once; a second 401 is surfaced.
+  The default (`allowAuthReplay: false`) still never replays a body.
 - Bad: mark a bookmark true when the request starts, retry a possibly-sent
   comment body after refreshing, or keep an unscoped pending map that becomes
   visible after switching from account A to B.
@@ -869,9 +873,10 @@ events; it never persists request bodies or credentials.
   server-confirmed commit, failed/429/401 state, cancellation, disposal,
   account switch, late response suppression, cancel-token forwarding and
   cross-page synchronization for Bookmark, Follow and Comments.
-- HTTP client tests assert one shared refresh and that a POST with a possible
-  body does not replay after refresh; error tests retain `Retry-After` and
-  classified 403/404/5xx/network outcomes.
+- HTTP client tests assert one shared refresh; a POST with the default
+  `allowAuthReplay: false` does not replay its body; an opted-in mutation
+  (`allowAuthReplay: true`) replays once then surfaces a second 401. Error
+  tests retain `Retry-After` and classified 403/404/5xx/network outcomes.
 - Full test, analyze, task validation and `git diff --check` are required;
   Android evidence must state `MuMu emulator-tested, not physical-device-tested`
   and distinguish API 35 coverage from any unavailable API 36 coverage.
@@ -890,11 +895,14 @@ or discard telemetry visible without persisting a pending write.
 ### Download and Ugoira Job Recovery Contract (`DownloadManager`, `UgoiraExportJob`, `lib/core/download/`)
 
 Download work is an account- and policy-scoped job, not a widget-local future.
-Every submission captures an immutable `(account, credential revision, network
-revision, illust/page/frame, destination, format)` snapshot. A product
-submission must have a usable account and the fixed `Pictures/PixivFunc`
-destination; legacy in-memory test submissions may remain unowned only when
-the manager is explicitly configured for that test boundary.
+Every submission captures an immutable `(accountId, DownloadDestination,
+illust/page/frame, format)` snapshot. The recovery owner is
+`accountId + DownloadDestination.identity` (C4); it does not include a
+process-local `credentialRevision`. A product submission must have a usable
+account. The built-in destination identity is `album:pixivfunc`; a persisted
+legacy `'Pictures/PixivFunc'` path migrates to `DownloadDestination.builtin`
+and matches that same owner. Legacy in-memory test submissions may remain
+unowned only when the manager is explicitly configured for that test boundary.
 
 The manager exposes `queued`, `running`, `canceling`, `finalizing`,
 `succeeded`, `failed`, `canceled`, `retryable` and `orphaned`. Only the first
@@ -913,12 +921,14 @@ creation, before transport/write/finalize, and while streaming. A provider
 returning `null` after logout is a boundary change, not permission to fall
 back to the submission-time context.
 
-On process recovery, only a record whose job, owner, account, credential
-revision and destination exactly match the current context
-may be restored as `retryable`; recovery does not auto-start it. Mismatched,
-invalid or unknown records become observable `orphaned` records, and known
-pending MediaStore rows are cleaned only through their opaque owner. Cleanup
-failure remains visible in recovery diagnostics. A crash observed in
+On process recovery, only a record whose job, owner, account and
+destination identity exactly match the current context may be restored as
+`retryable`; recovery does not auto-start it (C5). Mismatched, invalid or
+unknown records become observable `orphaned` records. Pending MediaStore rows
+are cleaned only through an exact owner match (C22); unmatched pending rows
+are reported and never blindly deleted. Cleanup failure remains visible in
+recovery diagnostics and in Settings → Downloader (`DownloadTasksPage`),
+where `retryable` and `orphaned` jobs stay user-visible. A crash observed in
 `finalizing` is treated as `orphaned` rather than retried, because the output
 may already have become visible. Group membership is rebuilt from child
 snapshots before the recovered group status is exposed. HTTP `Retry-After` and the
@@ -930,6 +940,47 @@ budgets, cancellation checks and one pending output. It emits `finalizing`
 before the sink finalize call and publishes success only after finalize
 returns. API 29+ pending-row behavior is verified through the Android bridge;
 API 35 MuMu evidence must remain separate from any unavailable API 36 run.
+
+### Startup, navigation, and residual `credentialRevision` (09-01 C)
+
+**C1 residual surface**: `credentialRevision` is not a global world version.
+It is defined and incremented on `AccountStore` (`account_store.dart`) and
+consumed only by the home-widget domain as an account *display-state* re-key
+(name/avatar/set; see `widget_coordinator.dart` and `widget_feed_loader.dart`).
+Feeds use generation + cancel. Mutations use `accountId` + operation identity.
+Download/Ugoira use `accountId + DownloadDestination.identity`. Profile drafts
+are account-id scoped.
+
+**C5 bootstrap**: `PixivFuncApp.initState` reads `downloadManagerProvider`
+(`app.dart`). That constructs the manager and fires a one-time recovery scan.
+Recovery never auto-resends a download; the user retries from Settings →
+Downloader.
+
+**C6 widget gate**: `WidgetCoordinator.start` / `ensureStarted` consult
+`WidgetInstanceGate` (`hasAnyWidget` on Android). No live instance means no
+account subscription, no feed load, and no WorkManager schedule. App lifecycle
+resume re-checks the gate so a widget added while the app is alive starts
+without a restart.
+
+**C7 lazy home tabs**: `HomePage` keeps `_visitedTabs` + `_tabChildren`. Cold
+start builds only the current tab. The first visit to another tab inserts it
+into the `IndexedStack` and keeps it alive, so scroll position and controller
+state survive a switch back. Unvisited tabs are `SizedBox.shrink()` and issue
+no feed requests.
+
+**C8 user deep links**: a `UserRoute` delivered to `HomePage` calls
+`showUserPage`. An `UnknownRoute` from a VIEW intent is rejected by
+`IntentRouter` as `RejectedAndroidIntent`; the home page shows the existing
+rejection snackbar and stays on the current page.
+
+**C14 ladder**: `_runLegacyLadder` is deleted. `runLadder` is attempt-first
+and has no `probe` parameter. Route-order and replay rules live in the
+Restricted Pixiv Network Policy Contract above — do not duplicate them here.
+
+**C21 account removal**: `AccountStore.removeAccount` calls
+`HistoryRepository.clearOutbox(accountId)` only. Local history rows stay;
+the user still clears them through the existing history UI. Re-adding the
+same account must not flush an outbox left from the previous lifecycle.
 
 ### Android Platform Boundary Contract (`IntentRouter`)
 
@@ -994,13 +1045,14 @@ new upload may not reuse a previous flow's temporary file.
 ### Profile Edit Contract (`ProfileEditController`, `lib/core/profile/`)
 
 Profile editing is an account-scoped draft, not a second user cache. A draft
-captures the account id, credential revision, authoritative
+captures the account id, authoritative
 base values and the typed `ProfileCapabilities` returned by the selected
-official route. `ProfilePatch` contains only fields that differ from that base;
+official route (C1: no `credentialRevision` on the draft). `ProfilePatch`
+contains only fields that differ from that base;
 unsupported dirty fields remain visible as field errors and are never sent.
 
 The controller checks the owner before loading, submitting and committing a
-response. Account or credential revision changes cancel the request,
+response. Account-id changes cancel the request,
 release owned image selections and discard late results. A confirmed response
 is committed persistence-first to `AccountStore`, then merged into the
 canonical `UserStore`; verification-pending, field-error, cancellation and

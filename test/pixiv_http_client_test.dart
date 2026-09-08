@@ -450,6 +450,67 @@ void main() {
     },
   );
 
+  test(
+    'opt-in POST refreshes once and replays the original body exactly once',
+    () async {
+      // C2: bookmark/follow/comment repositories pass allowAuthReplay: true.
+      // An explicit 401 may refresh and resend the original mutation once.
+      final fixture = _Fixture(rejectStaleSeed: true);
+      final (container, client, _, fixtureF) = await _makeWorld(
+        fixture: fixture,
+      );
+      addTearDown(container.dispose);
+
+      final response = await client.post(
+        Uri.parse('https://$_apiHost/v2/illust/bookmark/add'),
+        body: const {'illust_id': '42', 'restrict': 'public'},
+        allowAuthReplay: true,
+      );
+
+      expect(response.statusCode, 200);
+      expect(fixtureF.refreshCalls, 1);
+      expect(fixtureF.apiRequests, hasLength(2));
+      expect(fixtureF.apiRequests.map((request) => request.method), [
+        'POST',
+        'POST',
+      ]);
+      expect(
+        fixtureF.apiRequests.first.headers['Authorization'],
+        'Bearer old-access',
+      );
+      expect(
+        fixtureF.apiRequests.last.headers['Authorization'],
+        'Bearer new-access',
+      );
+      expect(fixtureF.apiRequests.last.bodyFields['illust_id'], '42');
+      expect(fixtureF.apiRequests.last.bodyFields['restrict'], 'public');
+    },
+  );
+
+  test('opt-in POST surfaces a second 401 without another replay', () async {
+    // maxRetries = 1: refresh + one replay, then the second 401 is final.
+    final fixture = _Fixture(rejectAll: true);
+    final (container, client, _, fixtureF) = await _makeWorld(fixture: fixture);
+    addTearDown(container.dispose);
+
+    await expectLater(
+      client.post(
+        Uri.parse('https://$_apiHost/v2/illust/bookmark/add'),
+        body: const {'illust_id': '42', 'restrict': 'public'},
+        allowAuthReplay: true,
+      ),
+      throwsA(isA<ApiUnauthorized>()),
+    );
+
+    expect(PixivHttpClient.maxRetries, 1);
+    expect(fixtureF.refreshCalls, 1);
+    expect(fixtureF.apiRequests, hasLength(2));
+    expect(
+      fixtureF.apiRequests.last.headers['Authorization'],
+      'Bearer new-access',
+    );
+  });
+
   test('plain 400 without invalid_grant never triggers refresh', () async {
     final fixture = _Fixture(rejectStaleSeed: true, plain400: true)
       ..staleRejectionStatus = 400;

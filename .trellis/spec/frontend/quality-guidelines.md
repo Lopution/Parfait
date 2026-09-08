@@ -106,6 +106,13 @@ interaction ends, not just how things moved during it. "Indicator stuck on
 screen" passed the old suite because every assertion stopped at the moment of
 release.
 
+### 删除 guard 时，同步删除固化该错误行为的测试
+
+When a guard that blocked correct behaviour is removed or relaxed, the tests
+that froze that wrong behaviour are deleted in the **same commit**. Do not
+leave `skip:` behind to hide them, and do not keep an assertion that encodes
+the defect the guard used to enforce.
+
 ### A test that cannot fail proves nothing
 
 When a case depends on a condition being reached (an overscroll actually

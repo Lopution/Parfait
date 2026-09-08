@@ -3,34 +3,53 @@ import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/next_page_parser.dart';
 
-IllustEntity entity(int id, {bool bookmarked = false, String? createDate}) =>
-    IllustEntity(
-      id: id,
-      title: 'title-$id',
-      type: IllustType.illust,
-      imageUrls: const IllustImageUrls(
-        squareMedium: 'https://i.pximg.net/s.png',
-        medium: 'https://i.pximg.net/m.png',
-        large: 'https://i.pximg.net/l.png',
-      ),
-      caption: '',
-      user: const IllustUser(
-        id: 1,
-        name: 'author',
-        account: 'author',
-        profileImageUrl: null,
-      ),
-      tags: const [],
-      pageCount: 1,
-      width: 100,
-      height: 200,
-      xRestrict: 0,
-      aiType: 0,
-      isBookmarked: bookmarked,
-      totalView: 10,
-      totalBookmarks: 5,
-      createDate: createDate,
-    );
+IllustEntity entity(
+  int id, {
+  bool bookmarked = false,
+  String? createDate,
+  String caption = '',
+  List<IllustTag> tags = const [],
+  bool visible = true,
+  int pageCount = 1,
+}) => IllustEntity(
+  id: id,
+  title: 'title-$id',
+  type: IllustType.illust,
+  imageUrls: const IllustImageUrls(
+    squareMedium: 'https://i.pximg.net/s.png',
+    medium: 'https://i.pximg.net/m.png',
+    large: 'https://i.pximg.net/l.png',
+  ),
+  caption: caption,
+  user: const IllustUser(
+    id: 1,
+    name: 'author',
+    account: 'author',
+    profileImageUrl: null,
+  ),
+  tags: tags,
+  pageCount: pageCount,
+  width: 100,
+  height: 200,
+  xRestrict: 0,
+  aiType: 0,
+  isBookmarked: bookmarked,
+  totalView: 10,
+  totalBookmarks: 5,
+  visible: visible,
+  createDate: createDate,
+);
+
+IllustEntity _richSparseTarget() => entity(
+  1,
+  bookmarked: true,
+  caption: 'detail caption',
+  tags: const [IllustTag(name: 'original')],
+  pageCount: 4,
+);
+
+IllustEntity _emptyAuthoritative() =>
+    entity(1, caption: '', tags: const [], visible: false, pageCount: 1);
 
 void main() {
   group('IllustStore', () {
@@ -41,8 +60,11 @@ void main() {
 
       final all = store.getAll([1, 2, 3, 4]);
       expect(all.map((e) => e.id), [1, 2, 3]);
-      expect(store.get(2)!.isBookmarked, isTrue,
-          reason: 'bookmarked state must not regress');
+      expect(
+        store.get(2)!.isBookmarked,
+        isTrue,
+        reason: 'bookmarked state must not regress',
+      );
     });
 
     test('updateBookmark applies changes and clear resets everything', () {
@@ -82,6 +104,54 @@ void main() {
         );
       },
     );
+
+    test(
+      'detail merge may overwrite empty caption/tags, visible=false, smaller pageCount',
+      () {
+        // C3: EntityMergeSource.detail is authoritative — empty caption/tags,
+        // visible=false and a reduced page count are real server state.
+        final store = IllustStore();
+        store.mergeAll([_richSparseTarget()]);
+        store.mergeAll([
+          _emptyAuthoritative(),
+        ], source: EntityMergeSource.detail);
+        final merged = store.get(1)!;
+        expect(merged.caption, isEmpty);
+        expect(merged.tags, isEmpty);
+        expect(merged.visible, isFalse);
+        expect(merged.pageCount, 1);
+      },
+    );
+
+    test('feed merge does not regress caption/tags/pageCount', () {
+      final store = IllustStore();
+      store.mergeAll([_richSparseTarget()]);
+      store.mergeAll([_emptyAuthoritative()]);
+      final merged = store.get(1)!;
+      expect(merged.caption, 'detail caption');
+      expect(merged.tags.single.name, 'original');
+      expect(merged.pageCount, 4);
+      // Feed still uses `visible: new && old` (false sticks). That is not
+      // the C3 "sparse does not apply visible=false" wording; do not freeze
+      // either reading here — see the implementation report.
+    });
+
+    test('bookmark fields stay under BookmarkStore for feed and detail', () {
+      final store = IllustStore();
+      store.bindBookmarks(
+        observeRemote: (id, bookmarked, restrict, snapshotRevision) {},
+        authorityOf: (id) => true,
+        revisionNow: () => 1,
+      );
+      store.mergeAll([_richSparseTarget()]);
+      expect(store.get(1)!.isBookmarked, isTrue);
+
+      store.mergeAll([_emptyAuthoritative()], source: EntityMergeSource.detail);
+      expect(store.get(1)!.isBookmarked, isTrue);
+
+      store.mergeAll([entity(1, bookmarked: false)]);
+      expect(store.get(1)!.isBookmarked, isTrue);
+    });
 
     test('copyWith exposes every constructor field (createDate included)', () {
       final original = entity(1);
@@ -141,7 +211,11 @@ void main() {
   group('PagedFeedController (via RecommendedIllustController behaviour)', () {
     test('page parse errors surface as ApiParseError, not empty success', () {
       expect(
-        () => IllustEntity.parsePage({'illusts': [{'id': 'not-int'}]}),
+        () => IllustEntity.parsePage({
+          'illusts': [
+            {'id': 'not-int'},
+          ],
+        }),
         throwsA(isA<FormatException>()),
       );
       expect(
@@ -153,13 +227,9 @@ void main() {
           {
             'id': 1,
             'title': 't',
-            'image_urls': {
-              'square_medium': 'a',
-              'medium': 'b',
-              'large': 'c',
-            },
+            'image_urls': {'square_medium': 'a', 'medium': 'b', 'large': 'c'},
             'user': {'id': 1, 'name': 'n', 'account': 'a'},
-          }
+          },
         ],
         'next_url': null,
       });
