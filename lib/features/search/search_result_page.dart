@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/person_avatar.dart';
+import '../../app/widgets/novel_card.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/replica_page_route.dart';
 import '../../core/entity/illust_store.dart';
@@ -14,9 +15,8 @@ import '../../core/search/search_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
 import '../home/recommended/recommended_illust_page.dart';
-import '../novel/novel_page.dart';
 import '../profile/follow_switch_button.dart';
-import '../profile/user_page.dart';
+import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
 
@@ -274,7 +274,7 @@ class _SearchUserCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
-        onTap: () => showUserPage(context, user.id),
+        onTap: () => openUser(context, user.id),
         leading: PersonAvatar(imageUrl: user.profileImageUrl, radius: 26),
         title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: user.account.isEmpty

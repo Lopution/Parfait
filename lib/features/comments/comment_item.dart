@@ -7,7 +7,7 @@ import '../../core/auth/account_store.dart';
 import '../../core/comments/comment_assets.dart';
 import '../../core/comments/comment_translation.dart';
 import '../../core/entity/comment_entity.dart';
-import '../profile/user_page.dart';
+import '../../app/navigation/routes.dart';
 import 'comment_text.dart';
 
 /// One comment row. Replying is an explicit action icon; no long-press reply
@@ -186,7 +186,7 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        showUserPage(context, comment.user.id);
+        openUser(context, comment.user.id);
       },
       // Keep comment/profile avatars on the same placeholder, cache and ring
       // contract as every other user surface.

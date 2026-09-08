@@ -22,12 +22,11 @@ import '../../core/comments/translation_credentials.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/blocked_tags.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../app/navigation/routes.dart';
 import '../../core/updater/update_providers.dart';
 import '../../core/updater/update_service.dart';
-import '../login/login_page.dart';
-import '../profile/profile_edit_page.dart' as profile_edit;
 import '../profile/user_page.dart' as profile;
-import '../history/history_page.dart';
+import '../../app/navigation/routes.dart' show openLogin, openProfileEdit;
 import 'network_settings_page.dart';
 
 String _settingsText(BuildContext context, String key) {
@@ -297,10 +296,7 @@ class _AccountCard extends StatelessWidget {
             : () => _openSettingsPage(
                 context,
                 profile.MePage(
-                  onEditProfile: () => _openSettingsPage(
-                    context,
-                    profile_edit.ProfileEditPage(userId: value.userId),
-                  ),
+                  onEditProfile: () => openProfileEdit(context, value.userId),
                 ),
               ),
         onLongPress: onLongPress,
@@ -432,7 +428,7 @@ class AccountSettingsPage extends ConsumerWidget {
           IconButton(
             tooltip: _settingsText(context, 'addAccount'),
             icon: const Icon(Icons.add),
-            onPressed: () => _openSettingsPage(context, const LoginPage()),
+            onPressed: () => openLogin(context),
           ),
         ],
       ),
@@ -1552,7 +1548,7 @@ class HistorySettingsPage extends ConsumerWidget {
             leading: const Icon(Icons.history_outlined),
             title: Text(_settingsText(context, 'historyView')),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => showHistoryPage(context),
+            onTap: () => openHistory(context),
           ),
           Padding(
             padding: const EdgeInsets.all(16),

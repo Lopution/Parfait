@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/pull_to_refresh.dart';
-import '../../app/navigation/replica_page_route.dart';
+import '../../app/navigation/routes.dart';
 import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
@@ -13,14 +13,6 @@ import '../../core/history/history_repository.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/i18n/replica_strings.dart';
-import '../illust/detail/illust_detail_page.dart';
-import '../novel/novel_page.dart';
-
-void showHistoryPage(BuildContext context) {
-  Navigator.of(
-    context,
-  ).push<void>(ReplicaPageRoute<void>(builder: (_) => const HistoryPage()));
-}
 
 String _historyText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -326,11 +318,7 @@ class _IllustHistoryCard extends StatelessWidget {
     return _HistoryCardFrame(
       lastViewedAt: record.lastViewedAt,
       child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          ReplicaPageRoute<void>(
-            builder: (_) => IllustDetailPage(illustId: record.contentId),
-          ),
-        ),
+        onTap: () => openIllust(context, record.contentId),
         child: _SnapshotCard(record: record, icon: Icons.image_outlined),
       ),
     );
@@ -351,11 +339,7 @@ class _KnownIllustCard extends StatelessWidget {
               entity.height
         : 140.0;
     return InkWell(
-      onTap: () => Navigator.of(context).push(
-        ReplicaPageRoute<void>(
-          builder: (_) => IllustDetailPage(illustId: entity.id),
-        ),
-      ),
+      onTap: () => openIllust(context, entity.id),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -404,14 +388,14 @@ class _NovelHistoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final snapshot = entity == null
         ? InkWell(
-            onTap: () => showNovelPage(context, record.contentId),
+            onTap: () => openNovel(context, record.contentId),
             child: _SnapshotCard(
               record: record,
               icon: Icons.menu_book_outlined,
             ),
           )
         : InkWell(
-            onTap: () => showNovelPage(context, record.contentId),
+            onTap: () => openNovel(context, record.contentId),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/navigation/replica_page_route.dart';
+import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
 import '../../core/comments/comment_actions.dart';
@@ -17,22 +17,6 @@ import 'comment_input.dart';
 import 'comment_item.dart';
 import 'comment_text.dart';
 
-void showIllustComments(BuildContext context, int illustId) {
-  if (illustId <= 0) return;
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(
-      builder: (_) => IllustCommentsPage(illustId: illustId),
-    ),
-  );
-}
-
-void showCommentReplies(BuildContext context, CommentEntity rootComment) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(
-      builder: (_) => CommentRepliesPage(rootComment: rootComment),
-    ),
-  );
-}
 
 class IllustCommentsPage extends ConsumerStatefulWidget {
   const IllustCommentsPage({super.key, required this.illustId});
@@ -62,7 +46,7 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
             child: _CommentFeedView(
               query: _query,
               onReply: (comment) => setState(() => _replyTarget = comment),
-              onOpenReplies: (comment) => showCommentReplies(context, comment),
+              onOpenReplies: (comment) => openCommentReplies(context, comment),
               onDelete: _deleteComment,
             ),
           ),

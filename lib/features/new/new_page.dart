@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/novel_card.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/new/new_feed_controller.dart';
@@ -11,7 +12,6 @@ import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../home/recommended/recommended_illust_page.dart';
-import '../novel/novel_page.dart';
 
 /// Beta56 New page: scope tabs are stable while the content type selector is
 /// exposed by tapping the selected tab a second time.

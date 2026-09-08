@@ -1,27 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/navigation/replica_page_route.dart';
-import 'recommended/recommended_home_page.dart';
 
 import '../../app/icons/app_icons.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/platform/android_intent_channel.dart';
 import '../../app/navigation/home_shell_metrics.dart';
+import '../../app/navigation/routes.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../core/reverse_image/image_input.dart';
-import '../profile/user_page.dart' show showUserPage;
-import '../illust/detail/illust_detail_page.dart';
-import '../new/new_page.dart';
-import '../ranking/ranking_page.dart';
-import '../search/search_page.dart';
-import '../search/reverse_image_search_page.dart';
-import '../search/search_text.dart';
-import '../settings/settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.intentSource});
@@ -147,21 +139,16 @@ class _HomePageState extends State<HomePage>
         if (_externalPageOpen) return;
         _externalPageOpen = true;
         unawaited(
-          Navigator.of(context)
-              .push<void>(
-                ReplicaPageRoute<void>(
-                  builder: (_) => ReverseImageSearchPage(
-                    initialReference: ReverseImageInputReference(
-                      contentUri: contentUri.toString(),
-                      mimeType: mimeType,
-                      sizeBytes: sizeBytes,
-                      hasReadUriPermission: true,
-                      source: ReverseImageInputSource.androidSend,
-                    ),
-                  ),
-                ),
-              )
-              .whenComplete(() => _externalPageOpen = false),
+          openReverseImageSearch(
+            context,
+            initialReference: ReverseImageInputReference(
+              contentUri: contentUri.toString(),
+              mimeType: mimeType,
+              sizeBytes: sizeBytes,
+              hasReadUriPermission: true,
+              source: ReverseImageInputSource.androidSend,
+            ),
+          ).whenComplete(() => _externalPageOpen = false),
         );
       case RejectedAndroidIntent():
         _showExternalIntentFailure();
@@ -172,17 +159,13 @@ class _HomePageState extends State<HomePage>
         // page instead of navigating somewhere unvalidated.
         if (route is IllustRoute && mounted) {
           unawaited(
-            Navigator.of(context).push<void>(
-              ReplicaPageRoute<void>(
-                builder: (_) => IllustDetailPage(illustId: route.illustId),
-              ),
-            ),
+            openIllust(context, route.illustId),
           );
         } else if (route is UserRoute && mounted) {
           // C8: user deep links (pixivfunc://users/<id>, /u/<id>,
           // /users/<id>, user.php?id=<id>) were parsed but silently dropped;
           // route them into the existing user page like the detail page does.
-          showUserPage(context, route.userId);
+          openUser(context, route.userId);
         }
       case IgnoredAndroidIntent():
         break;
@@ -193,8 +176,9 @@ class _HomePageState extends State<HomePage>
     final box = _bottomNavKey.currentContext?.findRenderObject() as RenderBox?;
     if (box != null && box.hasSize && box.size.height > 0) {
       final origin = box.localToGlobal(Offset.zero);
-      HomeShellMetrics.bottomNavTop = origin.dy;
-      HomeShellMetrics.bottomNavHeight = box.size.height;
+      ProviderScope.containerOf(context)
+          .read(homeShellMetricsProvider.notifier)
+          .publish(origin.dy, box.size.height);
     }
   }
 
@@ -221,7 +205,12 @@ class _HomePageState extends State<HomePage>
       if (!mounted) return;
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
-          content: Text(searchText(context, 'searchReverseIntentFailed')),
+          content: Text(
+          ReplicaStrings.fromTag(
+            Localizations.localeOf(context).toLanguageTag(),
+            'searchReverseIntentFailed',
+          ),
+        ),
         ),
       );
     });
@@ -264,13 +253,7 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  static const pages = [
-    RecommendedHomePage(),
-    RankingPage(),
-    NewPage(),
-    SearchHomePage(),
-    SettingsPage(),
-  ];
+  static const pages = homeShellTabs;
 
   static const icons = [
     AppIcons.home,
