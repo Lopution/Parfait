@@ -400,6 +400,9 @@ thread (`FlutterJNI` `@UiThread`).
 - **Handlers:** flavor source sets
   `android/app/src/github/kotlin/…/DistributionUpdaterChannel.kt` and
   `android/app/src/fdroid/kotlin/…/DistributionUpdaterChannel.kt`.
+  Shared `platformInfo` / `packageInfo` / `signerSha256` live in
+  `android/app/src/main/kotlin/io/github/lopution/pixivfunc/updater/UpdaterPlatformInfo.kt`.
+  `packageInfoFromArchive` stays on the github flavor (`verifyApk` only).
 - **Dart:** `lib/core/updater/update_platform.dart`.
   `PlatformException.code` is copied onto `UpdatePlatformException`.
 - **Thread:** github registers a serial background TaskQueue so
@@ -407,8 +410,8 @@ thread (`FlutterJNI` `@UiThread`).
   file IO) leave the main thread. `installApk` validates the path on that
   queue, then posts `startActivity` to the main looper; Map results stay
   `{valid:false, errorCode}` / `{status:failed, errorCode}` byte-identical.
-  fdroid has no archive IO and stays on main. D5 still owns helper dedup;
-  do not change signing/verifier codes here.
+  fdroid has no archive IO and stays on main. Do not change
+  signing/verifier codes here.
 
 ### Methods (both flavors)
 
@@ -545,11 +548,12 @@ code** above. Remaining child steps:
   v21 file. debug/profile redundant `INTERNET` overlays are gone; main
   still declares it. `http://pixiv.net` deep-link filters are unchanged.
   `mediastore_unsupported` is not emitted.
-- **D5:** Shared `updater/UpdaterPlatformInfo.kt` for
+- **D5 (done):** Shared `updater/UpdaterPlatformInfo.kt` holds
   `platformInfo` / `packageInfo` / `signerSha256`. Flavor files keep only
-  differences. Map `{valid:false, errorCode}` / `{status:failed, errorCode}`
-  and fdroid `disabled` stay. Do not change `SHA256withECDSA` or the five
-  manifest codes.
+  differences (`packageInfoFromArchive` + verify/install/delete on
+  github; `disabled` on fdroid). Map `{valid:false, errorCode}` /
+  `{status:failed, errorCode}` and fdroid `disabled` stay. Do not change
+  `SHA256withECDSA` or the five manifest codes.
 
 Channel names, method names, payload keys, and return shapes stay as in the
 tables above through D2–D5.

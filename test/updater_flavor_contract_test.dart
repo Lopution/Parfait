@@ -39,10 +39,7 @@ void main() {
     expect(github, contains('object DistributionUpdaterChannel'));
     expect(github, contains('UPDATE_SELF_UPDATER_ENABLED'));
     expect(github, contains('pixivfunc/updater'));
-    expect(
-      github,
-      contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'),
-    );
+    expect(github, contains('UpdaterPlatformInfo.platformInfo'));
     // API 29-safe verifier: SHA256withECDSA over the raw manifest bytes, and
     // every failure is one of the five diagnosable codes the Dart side maps.
     expect(github, contains('"SHA256withECDSA"'));
@@ -57,12 +54,17 @@ void main() {
     }
     expect(fdroid, contains('object DistributionUpdaterChannel'));
     expect(fdroid, contains('storeManaged'));
-    expect(
-      fdroid,
-      contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'),
-    );
+    expect(fdroid, contains('UpdaterPlatformInfo.platformInfo'));
     expect(fdroid, isNot(contains('HttpURLConnection')));
     expect(fdroid, isNot(contains('github.com')));
+
+    final shared = read(
+      'android/app/src/main/kotlin/io/github/lopution/pixivfunc/updater/UpdaterPlatformInfo.kt',
+    );
+    expect(
+      shared,
+      contains('"supportedAbis" to Build.SUPPORTED_ABIS.toList()'),
+    );
   });
 
   test('the installer is limited to the app-private updates path', () {
