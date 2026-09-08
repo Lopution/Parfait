@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'motion_tokens.dart';
+
 /// Replica navigation rhythm (detail-viewer R8): pages slide in from the
 /// right and slide back out to the right on pop — no Material default
 /// vertical/zoom drift.
@@ -11,7 +13,7 @@ class ReplicaPageRoute<T> extends PageRouteBuilder<T> {
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             final curved = CurvedAnimation(
               parent: animation,
-              curve: Curves.easeInOutCubic,
+              curve: MotionTokens.pageCurve,
             );
             return SlideTransition(
               position: Tween<Offset>(
@@ -21,7 +23,7 @@ class ReplicaPageRoute<T> extends PageRouteBuilder<T> {
               child: child,
             );
           },
-          transitionDuration: const Duration(milliseconds: 300),
-          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionDuration: MotionTokens.pageTransition,
+          reverseTransitionDuration: MotionTokens.pageTransition,
         );
 }

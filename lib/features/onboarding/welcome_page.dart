@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../app/navigation/replica_page_route.dart';
+import '../../app/motion/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';

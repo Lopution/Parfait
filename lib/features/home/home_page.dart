@@ -9,6 +9,7 @@ import '../../app/icons/app_icons.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/platform/android_intent_channel.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/platform/intent_router.dart';
@@ -244,8 +245,8 @@ class _HomePageState extends State<HomePage>
               // animation only paints ~72ms of fade — read as "no
               // animation" on device. 200ms keeps the whole hint within the
               // 1s exit window while the fade is perceptible.
-              duration: Duration(milliseconds: 200),
-              reverseDuration: Duration(milliseconds: 180),
+              duration: MotionTokens.medium,
+              reverseDuration: MotionTokens.fast,
             ),
           );
       case RootBackAction.exit:

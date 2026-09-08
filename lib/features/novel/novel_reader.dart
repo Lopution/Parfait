@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_error.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
@@ -418,8 +419,8 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (!_pageController.hasClients) return;
     _pageController.animateToPage(
       _reader.currentPage,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
+      duration: MotionTokens.fast,
+      curve: MotionTokens.fastCurve,
     );
     _notifyAnchor();
   }

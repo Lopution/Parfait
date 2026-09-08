@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:pixiv_func/app/navigation/replica_page_route.dart';
+import 'package:pixiv_func/app/motion/replica_page_route.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 
 void main() {

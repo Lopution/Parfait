@@ -21,7 +21,7 @@ import '../../features/search/reverse_image_search_page.dart';
 import '../../features/search/search_page.dart';
 import '../../features/search/search_result_page.dart';
 import '../../features/search/tag_search_page.dart';
-import 'replica_page_route.dart';
+import '../motion/replica_page_route.dart';
 
 /// Root tabs of the home shell. The shell (app layer) must not import feature
 /// pages directly, so the tab list lives here next to the navigation facade.

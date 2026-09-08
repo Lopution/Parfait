@@ -12,6 +12,7 @@ import '../../core/new/new_feed_models.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 
@@ -100,7 +101,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       body: Column(
         children: [
           AnimatedSize(
-            duration: const Duration(milliseconds: 180),
+            duration: MotionTokens.fast,
             alignment: Alignment.topCenter,
             child: _selectorExpanded
                 ? _NewTypeSelector(type: _type, onChanged: _selectType)

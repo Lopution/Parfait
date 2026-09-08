@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/navigation/replica_page_route.dart';
+import '../../app/motion/replica_page_route.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../../core/settings/app_settings.dart';
