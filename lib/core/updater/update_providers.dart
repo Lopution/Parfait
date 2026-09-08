@@ -14,6 +14,7 @@ import '../download/download_request.dart';
 import '../download/pixiv_download_transport.dart';
 import 'update_download.dart';
 import 'update_service.dart';
+import '../network/http_client_providers.dart';
 
 const _updaterSubmissionContext = DownloadSubmissionContext(
   accountId: 'pixivfunc-updater',
@@ -38,8 +39,11 @@ final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
   }
   final supportDirectory = await getApplicationSupportDirectory();
   final updateDirectory = Directory(p.join(supportDirectory.path, 'updates'));
-  final manifestTransport = HttpUpdateManifestTransport();
+  final manifestTransport = HttpUpdateManifestTransport(
+    client: ref.watch(resolverHttpClientProvider),
+  );
   final apkTransport = HttpDownloadTransport(
+    httpClient: ref.watch(thirdPartyHttpClientProvider),
     allowedHosts: kUpdateDownloadHosts,
     strictUrlPolicy: true,
   );
