@@ -512,11 +512,18 @@ consumers.
 
 #### 3. Contracts
 
-- The default mode is `NetworkMode.automatic`: for the four known Pixiv API,
-  OAuth and image hosts, the internal PixEz-compatible tier uses a persisted
-  or bundled public address, empty SNI and a pooled client before any cold
-  resolver/probe work. A failed fast address is cooled for 30 seconds, then
-  the request may use the strict ladder. `NetworkMode.directOnly` closes
+- The default mode is `NetworkMode.automatic`. Cold order is decided by
+  `NetworkAccessPolicy._fallbackTiersFor`
+  (`lib/core/network/compat/network_policy.dart`): Cloudflare hosts
+  (appApi/oauth/accountsWeb/pixivWeb) use
+  `ech → dohRealSni → direct → insecureNoSni`; image hosts (`i.pximg.net` /
+  `s.pximg.net`) use `ech → noSni → dohRealSni → direct → insecureNoSni`.
+  Host/group memory promotes the last successful kind. `insecureNoSni`
+  (empty SNI, no certificate verification, persisted/bundled PixEz
+  bootstrap 210.140.139.155/133) is always the last fallback. Production
+  forces `insecureNoSniEnabled: true` with no user switch
+  (`network_providers.dart:29`). A failed fast address is cooled for 30
+  seconds (`_kFastRouteCooldown`). `NetworkMode.directOnly` closes
   compatibility route pools and prevents resolver fallback.
 - `PixivDestinationRegistry` matches exact ASCII HTTPS hosts by purpose:
   `app-api.pixiv.net`, `oauth.secure.pixiv.net`, `accounts.pixiv.net`,
@@ -527,11 +534,11 @@ consumers.
   `NetworkRevision`. A secure-DNS connector changes only the TCP destination;
   the original URI remains responsible for TLS SNI, certificate hostname
   verification and the HTTP `Host` header.
-- `PixivFastRouteStore` accepts only the exact four known Pixiv hosts and
-  public IP literals. It persists the last successful address, falls back to
-  the bundled PixEz bootstrap map after restart, and refreshes each host from
-  DoH in the background. Its address is a connection bootstrap, never a URL
-  rewrite.
+- `PixivFastRouteStore` (`network_fast_route_store.dart`) accepts only the
+  allowlisted Pixiv hosts and public IP literals. It persists the last
+  successful address, falls back to the bundled PixEz bootstrap map after
+  restart, and refreshes each host from DoH in the background. Its address
+  is a last-fallback connection bootstrap, never a URL rewrite.
 - `PixivHttpClient` shares an uncancelled GET in flight only when the URI and
   bearer token match. Cancellation-aware calls remain independent, and the
   response is not retained after completion, so pull-to-refresh never receives
@@ -544,18 +551,20 @@ consumers.
   proves the request never reached the server (DNS, connect, reset, TLS
   handshake) — a delivered outcome (HTTP response, timeout after send,
   auth/parse/certificate error) is surfaced and never repeated.
-- `DohResolver.lookupEchConfig` caches only validated config bytes and front
-  addresses for the clamped HTTPS-RR TTL and current `NetworkRevision`.
-  Concurrent calls without cancellation share one in-flight query; a
-  cancellation-aware call remains independently cancellable and only a
-  completed success populates the cache.
+- `DohResolver.lookupEchConfig` (`secure_resolver.dart`) caches only
+  validated config bytes and front addresses for the clamped HTTPS-RR TTL
+  and current `NetworkRevision`. Concurrent calls without cancellation
+  share one in-flight query (single-flight); a cancellation-aware call
+  remains independently cancellable and only a completed success populates
+  the cache. ECH config is queried via Alibaba DoH
+  (`https://dns.alidns.com/dns-query`, 223.5.5.5/223.6.6.6) then Cloudflare.
 - After a verified `ech`, `dohRealSni` or `noSni` success, the policy may put
   that route kind first for the matching destination group. Group memory is
   runtime-only, uses each target host's own addresses, and is cleared on
-  transport failure, expiry, mode changes and revision changes. The
-  PixEz-compatible (insecureNoSni) tier is the production first choice for
-  every known Pixiv host with its persisted/bundled address; it is promoted
-  to other hosts only through the allowed four-host map.
+  transport failure, expiry, mode changes and revision changes.
+  `insecureNoSni` is never a cold-start first choice; after one success it
+  may be promoted by host/group memory like any other kind. The bootstrap
+  address map is allowlisted in `network_fast_route_store.dart`.
 - `NetworkProbeReport.dnsDisagrees` is diagnostic evidence only. A reached ECH
   response (including HTTP 403/404) or a non-421 empty-SNI response remains
   the actionable conclusion; HTTP 421 keeps empty-SNI unavailable.
@@ -581,18 +590,19 @@ consumers.
 
 #### 5. Good / Base / Bad Cases
 
-- Good: an empty `GET` to a known Pixiv host in `Automatic` mode uses the
-  persisted/bundled fast address first and preserves the canonical hostname
-  for the HTTP `Host` value; if that transport fails, a replayable request
-  enters the strict route ladder and diagnostics record only route metadata.
+- Good: an empty `GET` to a known Pixiv host in `Automatic` mode starts on
+  the ECH tier (or the remembered kind), preserves the canonical hostname
+  for the HTTP `Host` value, and walks remaining undelivered kinds on
+  transport failure; `insecureNoSni` is last. Diagnostics record only route
+  metadata.
 - Base: an API `429` or certificate mismatch is returned immediately, while
   `DirectOnly` uses the original strict HTTPS client without resolver work.
 - Good: after one verified ECH request, a second Cloudflare-host request uses
   its own resolved address with the remembered ECH kind and cached HTTPS-RR
   config inside the same revision.
 - Good: API, OAuth, image-cache, download and widget requests all obtain their
-  client from `PixivNetworkFactory`; the first Automatic request can use the
-  persisted fast address without a DNS lookup or `HEAD` probe.
+  client from `PixivNetworkFactory`; the first Automatic request is
+  attempt-first (no preflight) and does not require a `HEAD` probe.
 - Good: two uncancelled GETs for the same URI and bearer token share one
   transport flight, while a cancelled caller does not cancel the shared work.
 - Bad: rewriting an image URL to an IP/mirror, accepting
@@ -607,7 +617,7 @@ consumers.
   cases.
 - Resolver tests cover public A/AAAA filtering, answer-name/type matching,
   TTL bounds, response-size limits, cancellation and revision binding.
-- Policy tests cover direct-first selection, eligible-only fallback,
+- Policy tests cover ECH-first cold selection, eligible-only fallback,
   original-host requests, no POST replay, pool invalidation and
   diagnostics redaction.
 - ECH resolver tests cover TTL/revision invalidation, defensive result copies,
@@ -623,11 +633,10 @@ consumers.
 - Factory tests prove API, OAuth, image cache and downloads share the policy;
   source audits prove translation, updater and reverse-image paths do not enter
   the Pixiv compatibility connector.
-- Fast-route tests prove the bootstrap map is host-allowlisted, persists across
-  restart, serves API/OAuth/image/download directly without a cold probe,
-  cools a failed address, and refreshes DoH in the background. API client
-  tests prove identical uncancelled GETs are single-flight and cancellation
-  is isolated.
+- Fast-route tests prove the bootstrap map is host-allowlisted, persists
+  across restart, cools a failed address, and refreshes DoH in the
+  background. API client tests prove identical uncancelled GETs are
+  single-flight and cancellation is isolated.
 - Device evidence must distinguish API 35 MuMu emulator coverage from an
   unavailable API 36 matrix and physical-device coverage.
 
@@ -639,15 +648,16 @@ cooldown.
 
 **Correct**: allowlist the exact Pixiv destination and purpose, retain the
 original hostname for the HTTP `Host` value, reuse the bounded fast route only
-for the known PixEz host map, and fall through to the strict ladder after a
-transport failure.
+for the known PixEz host map as the last Automatic fallback, and walk the
+remaining undelivered kinds after a transport failure.
 
-The internal PixEz-compatible tier intentionally omits SNI and certificate
-verification, but it is reachable only for the four exact, allowlisted Pixiv
-hosts through `PixivFastRouteStore`; it is not a user-facing global switch and
-does not rewrite URLs or the HTTP `Host` value. All other hosts and the strict
-fallback ladder retain normal hostname and certificate verification. The fixed
-address map is bounded acceleration state, not a generic proxy.
+The internal PixEz-compatible `insecureNoSni` tier intentionally omits SNI
+and certificate verification. It is the last Automatic fallback for the
+allowlisted Pixiv hosts in `PixivFastRouteStore`, forced on in production
+(`network_providers.dart:29`) with no user-facing switch, and does not
+rewrite URLs or the HTTP `Host` value. All other hosts and the earlier
+strict ladder tiers retain normal hostname and certificate verification.
+The fixed address map is bounded bootstrap state, not a generic proxy.
 
 ---
 
