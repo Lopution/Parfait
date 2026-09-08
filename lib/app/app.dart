@@ -11,7 +11,7 @@ import '../core/settings/settings_controller.dart';
 import '../core/widget/widget_coordinator.dart';
 import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
-import '../features/onboarding/startup_gate.dart';
+import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
 import 'widgets/settings_load_error.dart';
 

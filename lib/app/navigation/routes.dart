@@ -13,7 +13,9 @@ import '../../features/ranking/ranking_page.dart';
 import '../../features/settings/settings_page.dart';
 import '../../features/history/history_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
+import '../../features/home/home_page.dart';
 import '../../features/login/login_page.dart';
+import '../../features/onboarding/welcome_page.dart';
 import '../../features/novel/novel_page.dart';
 import '../../features/profile/profile_edit_page.dart';
 import '../../features/profile/user_page.dart';
@@ -180,3 +182,11 @@ Future<void> openTagSearch(BuildContext context, String keyword) {
     ),
   );
 }
+
+/// Startup gate destinations (C4b): the gate itself lives in lib/app/ and
+/// cannot import feature pages directly, so it resolves them here.
+Widget startupGateWelcomePage() => const WelcomePage();
+
+Widget startupGateLoginPage() => const LoginPage(returnToHomeOnSuccess: true);
+
+Widget startupGateHomePage() => const HomePage();
