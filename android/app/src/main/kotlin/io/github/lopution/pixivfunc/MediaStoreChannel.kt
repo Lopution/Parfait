@@ -3,7 +3,6 @@ package io.github.lopution.pixivfunc
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.provider.MediaStore
 import android.util.LruCache
 import io.flutter.embedding.engine.FlutterEngine
@@ -17,9 +16,7 @@ import java.io.OutputStream
  * (task 08-26-download-manager-mediastore).
  *
  * Requires API 29+ (scoped MediaStore with IS_PENDING/RELATIVE_PATH).
- * On older APIs the channel returns error "mediastore_unsupported"; the Dart
- * side surfaces a failed task rather than requesting broad legacy storage
- * permissions.
+ * minSdk is 29, so the pre-Q unsupported path is gone.
  */
 internal interface MediaStoreOperations {
     fun begin(
@@ -125,7 +122,6 @@ object MediaStoreChannel {
 
     internal fun mediastoreErrorCode(method: String, error: Throwable): String {
         if (error is SecurityException) return "mediastore_permission"
-        if (error is UnsupportedOperationException) return "mediastore_unsupported"
         if (error is IllegalArgumentException) return "mediastore_invalid_argument"
         if (error is FileNotFoundException) return "mediastore_not_found"
         val message = error.message.orEmpty()
@@ -164,12 +160,6 @@ object MediaStoreChannel {
             abortOwnedPending(context, id, ownerId)
     }
 
-    private fun requireApi29() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            throw UnsupportedOperationException("unsupported")
-        }
-    }
-
     private fun beginPending(
         context: Context,
         displayName: String,
@@ -177,7 +167,6 @@ object MediaStoreChannel {
         ownerId: String? = null,
         relativePath: String? = null,
     ): Int {
-        requireApi29()
         require(displayName.isNotEmpty() && displayName.length <= 255)
         require(!displayName.contains('/') && !displayName.contains('\\'))
         require(mimeType.isNotEmpty())
@@ -232,7 +221,6 @@ object MediaStoreChannel {
     }
 
     private fun finalizePending(context: Context, id: Int): String {
-        requireApi29()
         val uri = pendingUri(context, id)
             ?: throw IllegalStateException("no pending item $id")
         streams.remove(id)?.close()
@@ -248,9 +236,6 @@ object MediaStoreChannel {
     }
 
     private fun abortPendingRow(context: Context, id: Int) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return
-        }
         val uri = pendingUri(context, id)
         streams.remove(id)?.let {
             runCatching { it.close() }
@@ -263,7 +248,6 @@ object MediaStoreChannel {
 
     private fun abortOwnedPending(context: Context, id: Int, ownerId: String): Boolean {
         require(ownerId.matches(Regex("[A-Za-z0-9_.-]{1,128}")))
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         val uri = pendingUri(context, id, ownerId) ?: return false
         streams.remove(id)?.let {
             runCatching { it.close() }
@@ -274,7 +258,6 @@ object MediaStoreChannel {
     }
 
     private fun listPendingRows(context: Context): List<Map<String, Any?>> {
-        requireApi29()
         val result = mutableListOf<Map<String, Any?>>()
         val projection = arrayOf(
             MediaStore.MediaColumns._ID,
