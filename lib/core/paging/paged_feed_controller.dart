@@ -87,10 +87,6 @@ class PagedFeedState {
   }
 }
 
-/// Contract for one page of results.
-typedef PageFetcher<T> =
-    Future<({List<int> ids, String? nextCursor})> Function(String? cursor);
-
 /// Base controller for ID-based paginated feeds.
 ///
 /// - initial load: spinner -> data | error (retry re-runs initial).

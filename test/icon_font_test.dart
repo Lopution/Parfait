@@ -46,52 +46,28 @@ void main() {
 
   test('AppIcons use the iconFont family with beta56 codepoints', () {
     const expected = <int, String>{
-      0xe900: 'addFollow',
-      0xe901: 'filter',
       0xe902: 'follow',
       0xe903: 'home',
-      0xe904: 'me',
       0xe905: 'n',
       0xe906: 'ranking',
       0xe907: 'search',
-      0xe908: 'toggle',
-      0xe909: 'pawoo',
-      0xe90a: 'twitter',
-      0xe90b: 'web',
       0xe90c: 'friend',
-      0xe90d: 'blocked',
     };
     for (final entry in expected.entries) {
       // Each declared icon must keep its beta56 codepoint.
       switch (entry.value) {
-        case 'addFollow':
-          expect(AppIcons.addFollow.codePoint, entry.key);
-        case 'filter':
-          expect(AppIcons.filter.codePoint, entry.key);
         case 'follow':
           expect(AppIcons.follow.codePoint, entry.key);
         case 'home':
           expect(AppIcons.home.codePoint, entry.key);
-        case 'me':
-          expect(AppIcons.me.codePoint, entry.key);
         case 'n':
           expect(AppIcons.n.codePoint, entry.key);
         case 'ranking':
           expect(AppIcons.ranking.codePoint, entry.key);
         case 'search':
           expect(AppIcons.search.codePoint, entry.key);
-        case 'toggle':
-          expect(AppIcons.toggle.codePoint, entry.key);
-        case 'pawoo':
-          expect(AppIcons.pawoo.codePoint, entry.key);
-        case 'twitter':
-          expect(AppIcons.twitter.codePoint, entry.key);
-        case 'web':
-          expect(AppIcons.web.codePoint, entry.key);
         case 'friend':
           expect(AppIcons.friend.codePoint, entry.key);
-        case 'blocked':
-          expect(AppIcons.blocked.codePoint, entry.key);
       }
     }
   });

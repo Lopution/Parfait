@@ -223,22 +223,6 @@ final pixivHistoryEnabledProvider = Provider<bool>((ref) {
   );
 });
 
-final localBlockR18Provider = Provider<bool>((ref) {
-  return ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.enableLocalBlockR18 ?? false,
-    ),
-  );
-});
-
-final localBlockAIProvider = Provider<bool>((ref) {
-  return ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.enableLocalBlockAI ?? false,
-    ),
-  );
-});
-
 final translationProvider = Provider<TranslationProvider>((ref) {
   return ref.watch(
     settingsProvider.select(
