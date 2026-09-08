@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
-import '../../app/replica_page_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_repository.dart';

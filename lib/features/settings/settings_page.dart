@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/person_avatar.dart';
-import '../../app/replica_page_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';

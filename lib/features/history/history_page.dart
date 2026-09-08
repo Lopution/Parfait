@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/pull_to_refresh.dart';
-import '../../app/replica_page_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';

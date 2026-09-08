@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/navigation/replica_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -108,8 +108,8 @@ class ThemePage extends ConsumerWidget {
                   await ref.read(settingsProvider.notifier).completeGuide();
                   if (!context.mounted) return;
                   await Navigator.of(context).push(
-                    replicaRoute(
-                      (context) => const LoginPage(
+                    ReplicaPageRoute<void>(
+                      builder: (_) => const LoginPage(
                         isFirst: true,
                         returnToHomeOnSuccess: true,
                       ),

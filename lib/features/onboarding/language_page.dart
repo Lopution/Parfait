@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/navigation/replica_route.dart';
+import '../../app/navigation/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -86,7 +86,7 @@ class LanguagePage extends ConsumerWidget {
                 foregroundColor: Colors.white,
                 onPressed: () => Navigator.of(
                   context,
-                ).push(replicaRoute((context) => const ThemePage())),
+                ).push(ReplicaPageRoute<void>(builder: (_) => const ThemePage())),
               ),
             ),
             const Spacer(),

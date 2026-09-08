@@ -15,7 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
-import '../../../app/replica_page_route.dart';
+import '../../../app/navigation/replica_page_route.dart';
 
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart'
@@ -39,7 +39,7 @@ import '../../../core/i18n/replica_strings.dart';
 import '../viewer/image_viewer_page.dart';
 import 'illust_detail_controller.dart';
 import 'illust_download_controller.dart';
-import '../../../core/navigation/home_shell_metrics.dart';
+import '../../../app/navigation/home_shell_metrics.dart';
 import 'related_illusts_section.dart';
 import 'ugoira_viewer.dart';
 

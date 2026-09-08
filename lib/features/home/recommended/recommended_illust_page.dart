@@ -6,7 +6,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
-import '../../../app/replica_page_route.dart';
+import '../../../app/navigation/replica_page_route.dart';
 import '../../../app/widgets/replica_empty_state.dart';
 import '../../bookmark/bookmark_switch_button.dart';
 import '../../illust/detail/illust_detail_page.dart';
