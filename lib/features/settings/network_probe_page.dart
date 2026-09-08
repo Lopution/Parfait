@@ -12,6 +12,7 @@ import '../../core/network/compat/network_policy.dart';
 import '../../core/network/compat/network_probe.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/network/compat/secure_resolver.dart';
+import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import '../../core/settings/settings_controller.dart';
 
 /// Same string as the About page (pubspec `version: 0.1.0+1`).
@@ -58,11 +59,17 @@ class NetworkProbePage extends ConsumerStatefulWidget {
 }
 
 class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
-  final List<({String host, PixivDestinationPurpose purpose})> _targets = [
-    (host: 'app-api.pixiv.net', purpose: PixivDestinationPurpose.appApi),
-    (host: 'oauth.secure.pixiv.net', purpose: PixivDestinationPurpose.oauth),
-    (host: 'i.pximg.net', purpose: PixivDestinationPurpose.image),
-    (host: 's.pximg.net', purpose: PixivDestinationPurpose.image),
+  late final List<({String host, PixivDestinationPurpose purpose})> _targets = [
+    (
+      host: PixivClientIdentity.appApiBase.host,
+      purpose: PixivDestinationPurpose.appApi,
+    ),
+    (
+      host: PixivClientIdentity.oauthHost,
+      purpose: PixivDestinationPurpose.oauth,
+    ),
+    for (final imageHost in PixivClientIdentity.downloadHosts)
+      (host: imageHost, purpose: PixivDestinationPurpose.image),
   ];
 
   final Map<String, NetworkProbeReport?> _finished = {};

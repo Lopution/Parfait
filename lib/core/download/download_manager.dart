@@ -1,8 +1,8 @@
 import 'dart:async';
+import '../network/pixiv_headers.dart';
 import 'dart:io';
 
 import '../network/compat/network_contracts.dart';
-import '../network/pixiv_client_identity.dart';
 import '../platform/android_platform_interfaces.dart';
 import 'download_destination.dart';
 import 'download_request.dart';
@@ -558,10 +558,7 @@ class DownloadManager {
       _checkOwner(job);
       final openedResponse = await _transport.open(
         job.request.url,
-        headers: {
-          'User-Agent': PixivClientIdentity.userAgent,
-          'Referer': PixivClientIdentity.downloadReferer.toString(),
-        },
+        headers: PixivHeaders.image(userAgent: true),
         cancelToken: job.cancelToken,
       );
       response = openedResponse;

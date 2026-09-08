@@ -1,5 +1,6 @@
 import '../entity/illust_entity.dart';
 import '../network/api_error.dart';
+import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 
 /// Detail data source: `GET /v1/illust/detail?illust_id=` through the shared
@@ -14,8 +15,8 @@ class IllustDetailRepository {
   Future<IllustEntity> fetch(int illustId) async {
     final json = await _client.getJson(
       Uri(
-        scheme: 'https',
-        host: 'app-api.pixiv.net',
+        scheme: PixivClientIdentity.appApiBase.scheme,
+        host: PixivClientIdentity.appApiBase.host,
         path: _path,
         queryParameters: {'illust_id': '$illustId'},
       ),

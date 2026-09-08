@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../network/pixiv_headers.dart';
 import 'package:http/http.dart' as http;
 
 import '../auth/account_store.dart';
@@ -13,7 +14,6 @@ import '../entity/illust_entity.dart';
 import '../network/api_error.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_providers.dart';
-import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../settings/local_block_filter.dart';
 import '../settings/blocked_tags.dart';
@@ -293,9 +293,7 @@ class WidgetFeedLoader {
             // i.pximg.net answers image requests without the standard
             // Pixiv origin with 403; this is the same visible identity the
             // download layer already sends, not a policy bypass.
-            headers: <String, String>{
-              'Referer': PixivClientIdentity.downloadReferer.toString(),
-            },
+            headers: PixivHeaders.image(),
           )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {

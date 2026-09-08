@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import 'motion/motion_tokens.dart';
-import '../core/network/pixiv_client_identity.dart';
+import '../core/network/pixiv_headers.dart';
 import '../core/network/compat/network_providers.dart';
 
 /// Decode policy of a [PixivImage] variant (R8 performance boundary).
@@ -183,9 +183,7 @@ class PixivImage extends ConsumerWidget {
   static const _maxTransitionKeys = 256;
   static const _maxUrlsPerKey = 4;
 
-  static Map<String, String> get headers => {
-    'Referer': PixivClientIdentity.downloadReferer.toString(),
-  };
+  static Map<String, String> get headers => PixivHeaders.image();
 
   static CachedNetworkImageProvider provider(
     String url, {

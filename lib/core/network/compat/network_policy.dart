@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../pixiv_client_identity.dart';
+
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
@@ -172,12 +174,21 @@ class NetworkAccessPolicy {
         _mode == NetworkMode.directOnly) {
       return;
     }
-    const targets = <({PixivDestinationPurpose purpose, String host})>[
-      (purpose: PixivDestinationPurpose.appApi, host: 'app-api.pixiv.net'),
-      (purpose: PixivDestinationPurpose.oauth, host: 'oauth.secure.pixiv.net'),
-      (purpose: PixivDestinationPurpose.pixivWeb, host: 'www.pixiv.net'),
-      (purpose: PixivDestinationPurpose.image, host: 'i.pximg.net'),
-      (purpose: PixivDestinationPurpose.image, host: 's.pximg.net'),
+    final targets = <({PixivDestinationPurpose purpose, String host})>[
+      (
+        purpose: PixivDestinationPurpose.appApi,
+        host: PixivClientIdentity.appApiBase.host,
+      ),
+      (
+        purpose: PixivDestinationPurpose.oauth,
+        host: PixivClientIdentity.oauthHost,
+      ),
+      (
+        purpose: PixivDestinationPurpose.pixivWeb,
+        host: PixivClientIdentity.webHost,
+      ),
+      for (final imageHost in PixivClientIdentity.downloadHosts)
+        (purpose: PixivDestinationPurpose.image, host: imageHost),
     ];
     for (final target in targets) {
       if (_disposed) return;
