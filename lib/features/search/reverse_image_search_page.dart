@@ -14,6 +14,7 @@ import '../../core/reverse_image/sauce_nao_navigation_policy.dart';
 import '../../core/reverse_image/sauce_nao_provider.dart';
 import '../../app/navigation/routes.dart';
 import 'search_text.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 class ReverseImageSearchPage extends StatefulWidget {
   const ReverseImageSearchPage({
@@ -332,9 +333,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
       await _externalLauncher.open(uri);
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(searchText(context, 'searchReverseOpenFailed'))),
-      );
+      showAppSnackBar(context, searchText(context, 'searchReverseOpenFailed'));
     }
   }
 }

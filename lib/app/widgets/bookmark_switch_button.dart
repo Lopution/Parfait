@@ -6,6 +6,7 @@ import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
 import '../../core/i18n/replica_strings.dart';
+import '../widgets/app_snack_bar.dart';
 
 String _bookmarkText(
   BuildContext context,
@@ -189,15 +190,9 @@ class BookmarkSwitchButton extends ConsumerWidget {
       next,
     ) {
       if (next != null && previous != next) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(
-            content: Text(
-              _bookmarkText(context, 'bookmarkOperationFailed', {
+        showAppSnackBar(context, _bookmarkText(context, 'bookmarkOperationFailed', {
                 'error': next,
-              }),
-            ),
-          ),
-        );
+              }),);
       }
     });
 

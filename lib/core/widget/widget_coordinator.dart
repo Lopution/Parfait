@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import 'widget_channel.dart';
 import 'widget_feed_loader.dart';
+import '../log.dart';
 
 /// Foreground widget maintenance: runs one generation pass at startup and
 /// after every account change, mirroring the outcome to the native side.
@@ -97,7 +97,7 @@ class WidgetCoordinator {
     } on Object catch (error) {
       // The loader classifies every expected failure; reaching here means
       // the load itself could not run, which is transient by definition.
-      debugPrint(
+      log(
         'WidgetCoordinator.runPass failed: ${error.runtimeType}: $error',
       );
       await WidgetChannel.requestRefresh();
@@ -131,7 +131,7 @@ class WidgetCoordinator {
       return operation();
     });
     _passTail = next.catchError((Object error, StackTrace stackTrace) {
-      debugPrint(
+      log(
         'WidgetCoordinator queued pass failed: ${error.runtimeType}: $error',
       );
     });

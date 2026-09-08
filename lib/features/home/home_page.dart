@@ -15,6 +15,7 @@ import '../../app/navigation/routes.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../core/reverse_image/image_input.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.intentSource});
@@ -204,16 +205,10 @@ class _HomePageState extends State<HomePage>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(
-          ReplicaStrings.fromTag(
+      showAppSnackBar(context, ReplicaStrings.fromTag(
             Localizations.localeOf(context).toLanguageTag(),
             'searchReverseIntentFailed',
-          ),
-        ),
-        ),
-      );
+          ),);
     });
   }
 

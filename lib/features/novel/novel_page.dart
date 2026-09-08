@@ -18,14 +18,13 @@ import '../../core/novel/novel_store.dart';
 import '../../core/settings/settings_controller.dart';
 import 'novel_reader.dart';
 import 'novel_layout.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 /// Opens the JSON Novel detail route. Save/share are intentionally absent:
 /// this task does not claim those operations without a real API contract.
 void showNovelPage(BuildContext context, int novelId) {
   if (novelId <= 0) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(_novelText(context, 'novelNotFound'))),
-    );
+    showAppSnackBar(context, _novelText(context, 'novelNotFound'));
     return;
   }
   Navigator.of(context).push<void>(

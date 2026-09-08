@@ -28,6 +28,7 @@ import '../../core/updater/update_service.dart';
 import '../profile/user_page.dart' as profile;
 import '../../app/navigation/routes.dart' show openHistory, openLogin, openProfileEdit;
 import 'network_settings_page.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 String _settingsText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -45,13 +46,7 @@ Future<bool> _persistSettings(
     return true;
   } on Object catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${_settingsText(context, 'settingsWriteFailed')}: $error',
-          ),
-        ),
-      );
+      showAppSnackBar(context, '${_settingsText(context, 'settingsWriteFailed')}: $error',);
     }
     return false;
   }
@@ -213,11 +208,7 @@ class _SettingsList extends ConsumerWidget {
             .read(accountTransferServiceProvider)
             .exportCurrentToClipboard();
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_settingsText(context, 'accountTransferCopied')),
-          ),
-        );
+        showAppSnackBar(context, _settingsText(context, 'accountTransferCopied'));
         // Android <13 cannot mark the clipboard entry as sensitive; the
         // credential sits in the system clipboard in plaintext. Never do
         // this silently (R4: 安全降级，不能静默少做一件事).
@@ -225,20 +216,11 @@ class _SettingsList extends ConsumerWidget {
             .read(transferClipboardProvider)
             .capabilities();
         if (!capabilities.sensitiveMarkSupported && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                _settingsText(context, 'accountTransferSensitiveWarning'),
-              ),
-              duration: const Duration(seconds: 5),
-            ),
-          );
+          showAppSnackBar(context, _settingsText(context, 'accountTransferSensitiveWarning'), duration: const Duration(seconds: 5));
         }
       } on AccountTransferException catch (error) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_transferErrorText(context, error.code))),
-        );
+        showAppSnackBar(context, _transferErrorText(context, error.code));
       }
     }());
   }
@@ -1284,9 +1266,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                       ),
                 );
                 if (saved && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(_settingsText(context, 'saved'))),
-                  );
+                  showAppSnackBar(context, _settingsText(context, 'saved'));
                 }
               },
               child: Text(_settingsText(context, 'save')),
@@ -1440,13 +1420,7 @@ class _DownloadDestinationPageState
                   _albumController.text,
                 );
                 if (name == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        _settingsText(context, 'saveLocationAlbumInvalid'),
-                      ),
-                    ),
-                  );
+                  showAppSnackBar(context, _settingsText(context, 'saveLocationAlbumInvalid'),);
                   return;
                 }
                 final saved = await _persistSettings(
@@ -1458,9 +1432,7 @@ class _DownloadDestinationPageState
                       ),
                 );
                 if (saved && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(_settingsText(context, 'saved'))),
-                  );
+                  showAppSnackBar(context, _settingsText(context, 'saved'));
                 }
               },
               child: Text(_settingsText(context, 'saveLocationUseCustomAlbum')),
@@ -1499,9 +1471,7 @@ class _DownloadDestinationPageState
           .setDownloadDestination(DownloadDestination.safFolder(uri)),
     );
     if (saved && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_settingsText(context, 'saved'))));
+      showAppSnackBar(context, _settingsText(context, 'saved'));
     }
   }
 }
@@ -1595,9 +1565,7 @@ class _BlockedTagsPageState extends ConsumerState<BlockedTagsPage> {
         _controller.clear();
       } on Object catch (error) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('$error')));
+          showAppSnackBar(context, '$error');
         }
       }
     }

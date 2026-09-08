@@ -10,6 +10,7 @@ import '../../core/search/search_repository.dart';
 import '../../core/search/search_trending_controller.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 class SearchHomePage extends ConsumerWidget {
@@ -156,9 +157,7 @@ class _TrendingTagTile extends StatelessWidget {
   void _openRepresentative(BuildContext context) {
     final representative = tag.representative;
     if (representative == null) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(searchText(context, 'searchNoRepresentative'))),
-      );
+      showAppSnackBar(context, searchText(context, 'searchNoRepresentative'));
       return;
     }
     openIllust(
@@ -299,9 +298,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   void _submit() {
     final keyword = _textController.text.trim();
     if (keyword.isEmpty) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(searchText(context, 'searchInputEmpty'))),
-      );
+      showAppSnackBar(context, searchText(context, 'searchInputEmpty'));
       return;
     }
     ref.read(searchAutocompleteProvider.notifier).cancel();

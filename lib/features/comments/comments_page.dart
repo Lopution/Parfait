@@ -16,6 +16,7 @@ import '../../core/network/api_error.dart';
 import 'comment_input.dart';
 import 'comment_item.dart';
 import 'comment_text.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 
 class IllustCommentsPage extends ConsumerStatefulWidget {
@@ -87,9 +88,7 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
     final key = error is CommentPermissionException
         ? 'commentPermissionDenied'
         : 'commentSendFailed';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(commentText(context, key))));
+    showAppSnackBar(context, commentText(context, key));
   }
 
   void _deleteComment(CommentEntity comment) {
@@ -119,9 +118,7 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
       await ref.read(commentActionsProvider).delete(comment);
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(commentText(context, 'commentDeleteFailed'))),
-      );
+      showAppSnackBar(context, commentText(context, 'commentDeleteFailed'));
     }
   }
 }
@@ -212,9 +209,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
 
   void _showMutationError(Object error) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(commentText(context, 'commentSendFailed'))),
-    );
+    showAppSnackBar(context, commentText(context, 'commentSendFailed'));
   }
 
   void _deleteComment(CommentEntity comment) {
@@ -247,9 +242,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
       }
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(commentText(context, 'commentDeleteFailed'))),
-      );
+      showAppSnackBar(context, commentText(context, 'commentDeleteFailed'));
     }
   }
 }

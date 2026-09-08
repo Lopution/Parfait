@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../log.dart';
 
 /// Dart → native widget maintenance channel.
 ///
@@ -31,7 +31,7 @@ abstract final class WidgetChannel {
     } on PlatformException catch (error) {
       // Foreground scheduling is best-effort, but the failure remains
       // observable; the background worker path owns authoritative retries.
-      debugPrint(
+      log(
         'WidgetChannel $method failed: ${error.code}: ${error.message}',
       );
     }
