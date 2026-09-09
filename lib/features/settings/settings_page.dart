@@ -15,7 +15,6 @@ import '../../core/download/download_manager.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/download/download_task.dart';
 import '../../core/download/naming_rule.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/platform/saf_tree.dart';
 import '../../core/comments/comment_translation.dart';
 import '../../core/comments/translation_credentials.dart';
@@ -30,12 +29,10 @@ import '../../app/navigation/routes.dart' show openHistory, openLogin, openProfi
 import 'network_settings_page.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 String _settingsText(BuildContext context, String key) {
-  return ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  return l10nLookup(context.l10n, key);
 }
 
 Future<bool> _persistSettings(

@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-import '../../core/i18n/replica_strings.dart';
 import '../../core/network/compat/network_contracts.dart';
 import '../../core/network/compat/network_policy.dart';
 import '../../core/network/compat/network_probe.dart';
@@ -17,15 +16,13 @@ import '../../core/settings/settings_controller.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../core/log.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Same string as the About page (pubspec `version: 0.1.0+1`).
 const _kAppVersion = '0.1.0+1';
 
 String _probeText(BuildContext context, String key) {
-  return ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  return l10nLookup(context.l10n, key);
 }
 
 String _probeStepLine(BuildContext context, NetworkProbeStep step) {

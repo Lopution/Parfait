@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/novel_card.dart';
 import '../../core/entity/illust_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/new/new_feed_controller.dart';
 import '../../core/new/new_feed_models.dart';
 import '../../core/network/api_error.dart';
@@ -16,6 +15,7 @@ import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Beta56 New page: scope tabs are stable while the content type selector is
 /// exposed by tapping the selected tab a second time.
@@ -323,7 +323,4 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
   }
 }
 
-String _newText(BuildContext context, String key) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-);
+String _newText(BuildContext context, String key) => l10nLookup(context.l10n, key);

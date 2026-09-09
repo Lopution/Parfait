@@ -27,7 +27,7 @@
   "@loginNetworkError": {
     "placeholders": {
       "status": {
-        "type": "int"
+        "type": "String"
       }
     }
   },

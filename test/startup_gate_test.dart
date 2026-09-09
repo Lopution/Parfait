@@ -8,7 +8,6 @@ import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
-import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/features/home/home_page.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
@@ -214,11 +213,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text(ReplicaStrings.text(ReplicaLanguage.zhCN, 'accountReadFailed')),
+      find.text('读取账号状态失败'),
       findsOneWidget,
     );
     expect(
-      find.text(ReplicaStrings.text(ReplicaLanguage.zhCN, 'retry')),
+      find.text('重试'),
       findsOneWidget,
     );
     expect(find.byType(LoginPage), findsNothing);

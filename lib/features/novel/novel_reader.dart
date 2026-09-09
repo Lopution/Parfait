@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_error.dart';
 import '../../app/motion/motion_tokens.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import 'novel_layout.dart';
+import '../../l10n/lookup.dart';
 
 enum NovelTapZone { previous, center, next }
 
@@ -499,18 +499,9 @@ class _ReaderControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = (percent / 100).clamp(0.0, 1.0);
     final languageTag = Localizations.localeOf(context).toLanguageTag();
-    final decreaseLabel = ReplicaStrings.fromTag(
-      languageTag,
-      'novelDecreaseFont',
-    );
-    final increaseLabel = ReplicaStrings.fromTag(
-      languageTag,
-      'novelIncreaseFont',
-    );
-    final progressLabel = ReplicaStrings.fromTag(
-      languageTag,
-      'novelReadingProgress',
-    );
+    final decreaseLabel = l10nLookupFor(parseAppLocale(languageTag), 'novelDecreaseFont');
+    final increaseLabel = l10nLookupFor(parseAppLocale(languageTag), 'novelIncreaseFont');
+    final progressLabel = l10nLookupFor(parseAppLocale(languageTag), 'novelReadingProgress');
     return SafeArea(
       top: false,
       child: Column(

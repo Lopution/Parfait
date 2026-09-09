@@ -12,7 +12,6 @@ import 'package:pixiv_func/core/auth/account_transfer.dart';
 import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
-import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
@@ -27,6 +26,8 @@ import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/l10n/lookup.dart';
+import 'package:pixiv_func/l10n/app_localizations_zh.dart';
 
 class _FakeRepository implements SettingsRepository {
   _FakeRepository(this.value, {this.failLoad = false});
@@ -467,14 +468,11 @@ void main() {
       'accountTransferClipboardUnavailable',
       'accountTransferStorageFailure',
     ];
-    for (final language in ReplicaLanguage.values) {
-      for (final key in keys) {
-        expect(
-          ReplicaStrings.text(language, key),
-          isNotEmpty,
-          reason: '$language/$key',
-        );
-      }
+    // Four-language presence is compile-time enforced by gen-l10n; this
+    // smoke check keeps the transfer-error key list honest against zh.
+    final zh = AppLocalizationsZh();
+    for (final key in keys) {
+      expect(l10nLookup(zh, key), isNotEmpty, reason: key);
     }
   });
 

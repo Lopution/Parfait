@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_store.dart';
-import '../../core/i18n/replica_strings.dart';
+import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
 
 import '../../app/widgets/feed/feed_states.dart';
@@ -14,6 +14,7 @@ import '../../app/widgets/feed/illust_card.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/ranking_feed_controller.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Ranking page with beta56's horizontally scrollable 11-mode tab bar.
 /// Only the selected mode is built, while controllers and scroll positions
@@ -78,7 +79,7 @@ class _RankingPageState extends State<RankingPage>
           labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           tabs: [
             for (final item in RankingMode.values)
-              Tab(text: ReplicaStrings.text(language, item.labelKey)),
+              Tab(text: l10nLookupFor(language.locale, item.labelKey)),
           ],
         ),
       ),
@@ -108,10 +109,7 @@ class _RankingModeBody extends ConsumerWidget {
     return state.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => FeedError(
-        title: ReplicaStrings.fromTag(
-          Localizations.localeOf(context).toLanguageTag(),
-          'rankingLoadFailed',
-        ),
+        title: l10nLookup(context.l10n, 'rankingLoadFailed'),
         error: error,
         retryLabel: context.l10n.retry,
         onRetry: () => ref
@@ -121,10 +119,7 @@ class _RankingModeBody extends ConsumerWidget {
       data: (feed) {
         if (feed.showInitialError) {
           return FeedError(
-            title: ReplicaStrings.fromTag(
-              Localizations.localeOf(context).toLanguageTag(),
-              'rankingLoadFailed',
-            ),
+            title: l10nLookup(context.l10n, 'rankingLoadFailed'),
             error: feed.initialError ?? const ApiParseError('unknown error'),
             retryLabel: context.l10n.retry,
             onRetry: () => ref

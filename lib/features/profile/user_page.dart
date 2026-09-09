@@ -11,7 +11,6 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_feed_controller.dart';
 import '../../core/novel/novel_store.dart';
@@ -26,6 +25,7 @@ import 'profile_header_delegate.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/user/user_detail_controller.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
@@ -90,10 +90,7 @@ class MePage extends ConsumerWidget {
   }
 }
 
-String _profileText(BuildContext context, String key) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-);
+String _profileText(BuildContext context, String key) => l10nLookup(context.l10n, key);
 
 class _UserPageState extends ConsumerState<UserPage>
     with SingleTickerProviderStateMixin {

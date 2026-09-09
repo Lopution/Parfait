@@ -12,13 +12,15 @@ import '../../app/motion/replica_page_route.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
-import '../../core/i18n/replica_strings.dart';
+import '../../core/i18n/replica_language.dart';
 import '../../core/network/compat/network_contracts.dart' as network_contracts;
 import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import 'login_webview_page.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/lookup.dart';
+import '../../l10n/context.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({
@@ -111,10 +113,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }());
   }
 
-  String _loginText(String key) => ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  String _loginText(String key) => l10nLookup(context.l10n, key);
 
   String _loginTransferErrorText(AccountTransferErrorCode code) {
     final key = switch (code) {
@@ -150,7 +149,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
           data: (settings) {
             final language = ReplicaLanguage.fromTag(settings.languageTag);
-            String text(String key) => ReplicaStrings.text(language, key);
+            String text(String key) => l10nLookupFor(language.locale, key);
             final onClipboardLogin =
                 widget.onClipboardLogin ?? _importFromClipboard;
             final title = Text(

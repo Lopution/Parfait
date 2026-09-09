@@ -24,7 +24,6 @@ INT_SLOTS = {
     'illustDetailSize': {'width', 'height'},
     'illustDetailRestricted': {'id'},
     'searchReverseRateLimitedWait': {'seconds'},
-    'loginNetworkError': {'status'},
 }
 
 

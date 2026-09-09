@@ -59,7 +59,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String loginNetworkError(int status) {
+  String loginNetworkError(String status) {
     return 'Network error (HTTP $status)';
   }
 

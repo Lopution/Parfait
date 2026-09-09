@@ -8,7 +8,6 @@ import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../core/entity/illust_store.dart';
-import '../../../core/i18n/replica_strings.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/novel/novel_entity.dart';
 import '../../../core/novel/novel_store.dart';
@@ -20,12 +19,10 @@ import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
+import '../../../l10n/lookup.dart';
 
 String _recommendedText(BuildContext context, String key) {
-  return ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  return l10nLookup(context.l10n, key);
 }
 
 /// Home recommended tab with the beta56 content selector:
