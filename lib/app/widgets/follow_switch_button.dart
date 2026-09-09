@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
-import '../../app/theme/func_tokens.dart';
-import '../../app/widgets/app_snack_bar.dart';
+import '../theme/func_tokens.dart';
+import 'app_snack_bar.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
 

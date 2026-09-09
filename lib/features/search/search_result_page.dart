@@ -17,7 +17,7 @@ import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
-import '../profile/follow_switch_button.dart';
+import '../../app/widgets/follow_switch_button.dart';
 import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
 import '../../l10n/context.dart';
@@ -274,7 +274,7 @@ class _UserSearchFeed extends ConsumerWidget {
                   retryLabel: context.l10n.searchRetry,
               );
             }
-            return _SearchUserCard(user: users[index]);
+            return _SearchUserTile(user: users[index]);
           },
         ),
       ),
@@ -282,8 +282,8 @@ class _UserSearchFeed extends ConsumerWidget {
   }
 }
 
-class _SearchUserCard extends StatelessWidget {
-  const _SearchUserCard({required this.user});
+class _SearchUserTile extends StatelessWidget {
+  const _SearchUserTile({required this.user});
 
   final UserEntity user;
 
@@ -310,4 +310,3 @@ class _SearchUserCard extends StatelessWidget {
     );
   }
 }
-

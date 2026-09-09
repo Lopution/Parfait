@@ -179,7 +179,7 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
                 itemCount: records.length,
-                itemBuilder: (context, index) => _HistoryCard(
+                itemBuilder: (context, index) => _HistoryEntry(
                   record: records[index],
                   onLongPress: () => _delete(records[index]),
                 ),
@@ -216,8 +216,8 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
           .recordFor(key);
 }
 
-class _HistoryCard extends ConsumerWidget {
-  const _HistoryCard({required this.record, required this.onLongPress});
+class _HistoryEntry extends ConsumerWidget {
+  const _HistoryEntry({required this.record, required this.onLongPress});
 
   final HistoryRecord record;
   final VoidCallback onLongPress;
@@ -225,11 +225,11 @@ class _HistoryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final child = switch (record.contentType) {
-      HistoryContentType.illust => _IllustHistoryCard(
+      HistoryContentType.illust => _IllustHistoryEntry(
         record: record,
         entity: ref.watch(illustStoreProvider).get(record.contentId),
       ),
-      HistoryContentType.novel => _NovelHistoryCard(
+      HistoryContentType.novel => _NovelHistoryEntry(
         record: record,
         entity: ref.watch(novelStoreProvider)[record.contentId],
       ),
@@ -242,8 +242,8 @@ class _HistoryCard extends ConsumerWidget {
   }
 }
 
-class _IllustHistoryCard extends StatelessWidget {
-  const _IllustHistoryCard({required this.record, required this.entity});
+class _IllustHistoryEntry extends StatelessWidget {
+  const _IllustHistoryEntry({required this.record, required this.entity});
 
   final HistoryRecord record;
   final IllustEntity? entity;
@@ -253,21 +253,21 @@ class _IllustHistoryCard extends StatelessWidget {
     if (entity != null) {
       return _HistoryCardFrame(
         lastViewedAt: record.lastViewedAt,
-        child: _KnownIllustCard(entity: entity!),
+        child: _KnownIllustEntry(entity: entity!),
       );
     }
     return _HistoryCardFrame(
       lastViewedAt: record.lastViewedAt,
       child: InkWell(
         onTap: () => openIllust(context, record.contentId),
-        child: _SnapshotCard(record: record, icon: Icons.image_outlined),
+        child: _SnapshotEntry(record: record, icon: Icons.image_outlined),
       ),
     );
   }
 }
 
-class _KnownIllustCard extends StatelessWidget {
-  const _KnownIllustCard({required this.entity});
+class _KnownIllustEntry extends StatelessWidget {
+  const _KnownIllustEntry({required this.entity});
 
   final IllustEntity entity;
 
@@ -319,8 +319,8 @@ class _KnownIllustCard extends StatelessWidget {
   }
 }
 
-class _NovelHistoryCard extends StatelessWidget {
-  const _NovelHistoryCard({required this.record, required this.entity});
+class _NovelHistoryEntry extends StatelessWidget {
+  const _NovelHistoryEntry({required this.record, required this.entity});
 
   final HistoryRecord record;
   final NovelEntity? entity;
@@ -330,7 +330,7 @@ class _NovelHistoryCard extends StatelessWidget {
     final snapshot = entity == null
         ? InkWell(
             onTap: () => openNovel(context, record.contentId),
-            child: _SnapshotCard(
+            child: _SnapshotEntry(
               record: record,
               icon: Icons.menu_book_outlined,
             ),
@@ -397,8 +397,8 @@ class _HistoryCardFrame extends StatelessWidget {
   }
 }
 
-class _SnapshotCard extends StatelessWidget {
-  const _SnapshotCard({required this.record, required this.icon});
+class _SnapshotEntry extends StatelessWidget {
+  const _SnapshotEntry({required this.record, required this.icon});
 
   final HistoryRecord record;
   final IconData icon;

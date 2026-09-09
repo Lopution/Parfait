@@ -308,26 +308,26 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           if (!capabilities.isAvailable)
-            _NoticeCard(
+            _Notice(
               icon: Icons.info_outline,
               text:
                   capabilities.reason ??
                   context.l10n.profileEditUnavailable,
             ),
           if (state.failure != null)
-            _NoticeCard(
+            _Notice(
               icon: Icons.error_outline,
               text: state.failure!.message,
             ),
           if (state.status == ProfileEditStatus.verificationPending)
-            _NoticeCard(
+            _Notice(
               icon: Icons.mark_email_unread_outlined,
               text:
                   state.verificationMessage ??
                   context.l10n.profileEditPending,
             ),
           if (state.status == ProfileEditStatus.confirmed)
-            _NoticeCard(
+            _Notice(
               icon: Icons.check_circle_outline,
               text: context.l10n.profileEditConfirmed,
             ),
@@ -500,8 +500,8 @@ class _ImageField extends StatelessWidget {
   }
 }
 
-class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({required this.icon, required this.text});
+class _Notice extends StatelessWidget {
+  const _Notice({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -564,4 +564,3 @@ class _StatusBody extends StatelessWidget {
     );
   }
 }
-

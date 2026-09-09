@@ -8,7 +8,7 @@ import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
-import 'follow_switch_button.dart';
+import '../../app/widgets/follow_switch_button.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 

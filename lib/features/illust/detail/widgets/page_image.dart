@@ -112,7 +112,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
             // (see illustHeroFlightShuttleBuilder), so occlusion follows the
             // route chrome continuously instead of hard-cutting at landing.
             if (isPagePlaceholder)
-              _PagePlaceholder()
+              _DetailImageFallback()
             else
               Hero(
                 tag: widget.heroTag,
@@ -187,7 +187,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
 /// Rendering the feed snapshot's first-page URL in every slot made a strip
 /// appear as duplicated artwork and allowed tapping a page that had no viewer
 /// URL yet.
-class _PagePlaceholder extends StatelessWidget {
+class _DetailImageFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;

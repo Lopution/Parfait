@@ -300,7 +300,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 8),
         sliver: SliverList.builder(
           itemCount: novels.length,
-          itemBuilder: (context, index) => _NovelRowCard(entity: novels[index]),
+          itemBuilder: (context, index) => _NovelRow(entity: novels[index]),
         ),
       ),
       ...tail,
@@ -322,7 +322,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 8),
         sliver: SliverList.builder(
           itemCount: users.length,
-          itemBuilder: (context, index) => _UserRowCard(entity: users[index]),
+          itemBuilder: (context, index) => _UserRow(entity: users[index]),
         ),
       ),
       ...tail,
@@ -330,8 +330,8 @@ class _RecommendedFeedBody extends ConsumerWidget {
   }
 }
 
-class _NovelRowCard extends StatelessWidget {
-  const _NovelRowCard({required this.entity});
+class _NovelRow extends StatelessWidget {
+  const _NovelRow({required this.entity});
 
   final NovelEntity entity;
 
@@ -417,8 +417,8 @@ class _NovelCover extends StatelessWidget {
   }
 }
 
-class _UserRowCard extends StatelessWidget {
-  const _UserRowCard({required this.entity});
+class _UserRow extends StatelessWidget {
+  const _UserRow({required this.entity});
 
   final UserEntity entity;
 
