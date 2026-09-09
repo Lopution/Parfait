@@ -249,10 +249,12 @@ void main() {
     await tester.pump();
 
     final scrollable = tester.state<ScrollableState>(
-      find.descendant(
-        of: find.byKey(const PageStorageKey('search-home')),
-        matching: find.byType(Scrollable),
-      ),
+      find
+          .descendant(
+            of: find.byKey(const PageStorageKey('search-home')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     scrollable.position.jumpTo(260);
     await tester.pump();
@@ -262,10 +264,12 @@ void main() {
     await tester.pumpAndSettle();
 
     final restoredScrollable = tester.state<ScrollableState>(
-      find.descendant(
-        of: find.byKey(const PageStorageKey('search-home')),
-        matching: find.byType(Scrollable),
-      ),
+      find
+          .descendant(
+            of: find.byKey(const PageStorageKey('search-home')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     expect(restoredScrollable.position.pixels, 260);
   });
