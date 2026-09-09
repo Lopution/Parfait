@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import '../platform/android_platform_interfaces.dart';
 import '../platform/saf_tree.dart';
@@ -44,6 +45,47 @@ abstract interface class OwnedDownloadSinkFactory {
 /// Optional sink metadata used to persist/recover a pending platform row.
 abstract interface class DownloadSinkOutputMetadata {
   int? get pendingOutputId;
+}
+
+/// Minimum payload sent for a platform-channel download write.
+const downloadChannelWriteSize = 256 * 1024;
+
+class _CoalescingChannelWriter {
+  _CoalescingChannelWriter(this._write);
+
+  final Future<void> Function(List<int> bytes) _write;
+  final BytesBuilder _pending = BytesBuilder(copy: false);
+  var _pendingLength = 0;
+
+  Future<void> write(List<int> bytes) async {
+    var offset = 0;
+    while (offset < bytes.length) {
+      final capacity = downloadChannelWriteSize - _pendingLength;
+      final remaining = bytes.length - offset;
+      final count = remaining < capacity ? remaining : capacity;
+      _pending.add(bytes.sublist(offset, offset + count));
+      _pendingLength += count;
+      offset += count;
+
+      if (_pendingLength == downloadChannelWriteSize) {
+        final chunk = _pending.takeBytes();
+        _pendingLength = 0;
+        await _write(chunk);
+      }
+    }
+  }
+
+  Future<void> flush() async {
+    if (_pendingLength == 0) return;
+    final chunk = _pending.takeBytes();
+    _pendingLength = 0;
+    await _write(chunk);
+  }
+
+  void discard() {
+    _pending.takeBytes();
+    _pendingLength = 0;
+  }
 }
 
 /// Optional factory capability for process-restart orphan cleanup.
@@ -141,9 +183,12 @@ class MediaStoreSinkFactory
 }
 
 class _MediaStoreSink implements DownloadSink, DownloadSinkOutputMetadata {
-  _MediaStoreSink(this._handle);
+  _MediaStoreSink(MediaStoreHandle handle)
+    : _handle = handle,
+      _writer = _CoalescingChannelWriter(handle.write);
 
   final MediaStoreHandle _handle;
+  final _CoalescingChannelWriter _writer;
   bool _finished = false;
   bool _finalizing = false;
 
@@ -151,7 +196,7 @@ class _MediaStoreSink implements DownloadSink, DownloadSinkOutputMetadata {
   int? get pendingOutputId => _finished ? null : _handle.id;
 
   @override
-  Future<void> write(List<int> bytes) => _handle.write(bytes);
+  Future<void> write(List<int> bytes) => _writer.write(bytes);
 
   @override
   Future<String> finalize() async {
@@ -160,6 +205,7 @@ class _MediaStoreSink implements DownloadSink, DownloadSinkOutputMetadata {
     }
     _finalizing = true;
     try {
+      await _writer.flush();
       final uri = await _handle.finalize();
       _finished = true;
       return uri.toString();
@@ -174,6 +220,7 @@ class _MediaStoreSink implements DownloadSink, DownloadSinkOutputMetadata {
       return;
     }
     _finished = true;
+    _writer.discard();
     try {
       await _handle.abort();
     } catch (_) {
@@ -240,21 +287,25 @@ class MemorySinkFactory
 
 /// SAF-backed sink writing into a persisted tree URI (D5).
 class SafDownloadSink implements DownloadSink {
-  SafDownloadSink(this._doc, {required this.owner});
+  SafDownloadSink(SafDocumentSink doc, {required this.owner})
+    : _doc = doc,
+      _writer = _CoalescingChannelWriter(doc.write);
 
   final SafDocumentSink _doc;
+  final _CoalescingChannelWriter _writer;
   final DownloadOutputOwner? owner;
   bool _closed = false;
 
   @override
   Future<void> write(List<int> bytes) {
     if (_closed) throw StateError('saf sink is closed');
-    return _doc.write(bytes);
+    return _writer.write(bytes);
   }
 
   @override
   Future<String> finalize() async {
     if (_closed) throw StateError('saf sink is closed');
+    await _writer.flush();
     await _doc.close();
     _closed = true;
     // A SAF document has no MediaStore pending row; the document URI itself
@@ -266,6 +317,7 @@ class SafDownloadSink implements DownloadSink {
   Future<void> abort() async {
     if (_closed) return;
     _closed = true;
+    _writer.discard();
     // Best effort: remove the document so cancellation/failure cannot leave a
     // partial file in the user's selected tree.
     try {

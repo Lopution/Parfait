@@ -649,14 +649,15 @@ void main() {
       final factory = MediaStoreSinkFactory(session);
       final sink = await factory.begin(request(), '42_p0.jpg');
       await sink.write([1]);
+      expect(session.written, isEmpty);
       await sink.write([2, 3]);
+      expect(session.written, isEmpty);
       final uri = await sink.finalize();
       expect(uri, 'content://fake/1');
       expect(session.begins.single.displayName, '42_p0.jpg');
       expect(session.begins.single.mimeType, 'image/jpeg');
       expect(session.written, [
-        [1],
-        [2, 3],
+        [1, 2, 3],
       ]);
       expect(session.finalized, [1]);
       await sink.abort();

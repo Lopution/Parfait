@@ -5,10 +5,26 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.UUID
+
+internal interface ReverseImageOperations {
+    fun copyToTemp(uri: String): Map<String, Any>
+
+    fun deleteTemp(path: String): Boolean
+}
+
+internal fun interface ReverseImagePickerLauncher {
+    /** Starts the image picker. Throws if the intent cannot be launched. */
+    fun start()
+}
+
+internal fun interface ReverseImageExternalOpener {
+    fun open(url: String): Boolean
+}
 
 /**
  * Controlled image picker/content-URI copier for reverse image search.
@@ -23,46 +39,85 @@ object ReverseImageInputChannel {
     private const val MAX_BYTES = 10L * 1024L * 1024L
     private const val CONTENT_SCHEME = "content"
 
+    private val pickerLock = Any()
     private var pendingPickerResult: MethodChannel.Result? = null
 
     fun configure(activity: MainActivity, engine: FlutterEngine) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        val appContext = activity.applicationContext
+        val ops = object : ReverseImageOperations {
+            override fun copyToTemp(uri: String): Map<String, Any> =
+                copyToTemp(appContext, uri)
+
+            override fun deleteTemp(path: String): Boolean =
+                deleteTemp(appContext, path)
+        }
+        val picker = ReverseImagePickerLauncher {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "image/*"
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            activity.startActivityForResult(intent, PICK_IMAGE_REQUEST)
+        }
+        val external = ReverseImageExternalOpener { url ->
+            openExternal(activity, url)
+        }
+        backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "pickImage" -> pickImage(activity, result)
-                    "copyToTemp" -> {
-                        val rawUri = call.argument<String>("uri")
-                        if (rawUri.isNullOrBlank()) {
-                            result.error("invalid_uri", "image reference is invalid", null)
-                        } else {
-                            runCatching { copyToTemp(activity, rawUri) }
-                                .onSuccess(result::success)
-                                .onFailure { result.error(codeFor(it), messageFor(it), null) }
-                        }
-                    }
-                    "deleteTemp" -> {
-                        val path = call.argument<String>("path")
-                        if (path.isNullOrBlank()) {
-                            result.error("invalid_path", "temporary image path is invalid", null)
-                        } else {
-                            runCatching { deleteTemp(activity, path) }
-                                .onSuccess(result::success)
-                                .onFailure { result.error("cleanup_failed", messageFor(it), null) }
-                        }
-                    }
-                    "openExternal" -> {
-                        val rawUrl = call.argument<String>("url")
-                        if (rawUrl.isNullOrBlank()) {
-                            result.error("invalid_url", "external URL is invalid", null)
-                        } else {
-                            runCatching { openExternal(activity, rawUrl) }
-                                .onSuccess(result::success)
-                                .onFailure { result.error("external_unavailable", "external browser is unavailable", null) }
-                        }
-                    }
-                    else -> result.notImplemented()
+                handle(call, result, ops, picker, external, AndroidMainThreadPoster)
+            }
+    }
+
+    internal fun handle(
+        call: MethodCall,
+        result: MethodChannel.Result,
+        ops: ReverseImageOperations,
+        picker: ReverseImagePickerLauncher,
+        external: ReverseImageExternalOpener,
+        mainThread: MainThreadPoster = ImmediateMainThreadPoster,
+    ) {
+        when (call.method) {
+            "pickImage" -> pickImage(result, picker, mainThread)
+            "copyToTemp" -> {
+                val rawUri = call.argument<String>("uri")
+                if (rawUri.isNullOrBlank()) {
+                    result.error("invalid_uri", "image reference is invalid", null)
+                } else {
+                    runCatching { ops.copyToTemp(rawUri) }
+                        .onSuccess(result::success)
+                        .onFailure { result.error(codeFor(it), messageFor(it), null) }
                 }
             }
+            "deleteTemp" -> {
+                val path = call.argument<String>("path")
+                if (path.isNullOrBlank()) {
+                    result.error("invalid_path", "temporary image path is invalid", null)
+                } else {
+                    runCatching { ops.deleteTemp(path) }
+                        .onSuccess(result::success)
+                        .onFailure { result.error("cleanup_failed", messageFor(it), null) }
+                }
+            }
+            "openExternal" -> {
+                val rawUrl = call.argument<String>("url")
+                if (rawUrl.isNullOrBlank()) {
+                    result.error("invalid_url", "external URL is invalid", null)
+                } else {
+                    mainThread.post {
+                        runCatching { external.open(rawUrl) }
+                            .onSuccess(result::success)
+                            .onFailure {
+                                result.error(
+                                    "external_unavailable",
+                                    "external browser is unavailable",
+                                    null,
+                                )
+                            }
+                    }
+                }
+            }
+            else -> result.notImplemented()
+        }
     }
 
     fun onActivityResult(
@@ -72,8 +127,11 @@ object ReverseImageInputChannel {
         data: Intent?,
     ): Boolean {
         if (requestCode != PICK_IMAGE_REQUEST) return false
-        val result = pendingPickerResult
-        pendingPickerResult = null
+        val result = synchronized(pickerLock) {
+            val pending = pendingPickerResult
+            pendingPickerResult = null
+            pending
+        }
         if (result == null) return true
         if (resultCode != Activity.RESULT_OK) {
             result.success(null)
@@ -90,22 +148,39 @@ object ReverseImageInputChannel {
         return true
     }
 
-    private fun pickImage(activity: MainActivity, result: MethodChannel.Result) {
-        if (pendingPickerResult != null) {
-            result.error("picker_busy", "image picker is already active", null)
-            return
+    private fun pickImage(
+        result: MethodChannel.Result,
+        picker: ReverseImagePickerLauncher,
+        mainThread: MainThreadPoster,
+    ) {
+        synchronized(pickerLock) {
+            if (pendingPickerResult != null) {
+                result.error("picker_busy", "image picker is already active", null)
+                return
+            }
+            pendingPickerResult = result
         }
-        pendingPickerResult = result
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "image/*"
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        mainThread.post {
+            try {
+                picker.start()
+            } catch (error: Exception) {
+                clearPendingIfSame(result)
+                result.error("picker_failed", "image picker could not be opened", null)
+            }
         }
-        try {
-            activity.startActivityForResult(intent, PICK_IMAGE_REQUEST)
-        } catch (error: Exception) {
+    }
+
+    private fun clearPendingIfSame(expected: MethodChannel.Result) {
+        synchronized(pickerLock) {
+            if (pendingPickerResult === expected) {
+                pendingPickerResult = null
+            }
+        }
+    }
+
+    internal fun abandonPendingPicker() {
+        synchronized(pickerLock) {
             pendingPickerResult = null
-            result.error("picker_failed", "image picker could not be opened", null)
         }
     }
 
