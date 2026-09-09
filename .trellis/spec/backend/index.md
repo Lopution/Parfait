@@ -14,11 +14,11 @@ This directory contains guidelines for backend development. Fill in each file wi
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns; secrets handling filled | Partial |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+| [Directory Structure](./directory-structure.md) | Module organization and file layout | ✅ Active |
+| [Database Guidelines](./database-guidelines.md) | SQLite schema, queries, migrations | ✅ Active |
+| [Error Handling](./error-handling.md) | Error types, propagation, UI mapping | ✅ Active |
+| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns, secrets handling | ✅ Active |
+| [Logging Guidelines](./logging-guidelines.md) | Application logging outlet and message policy | ✅ Active |
 | [In-App Web Profile](./in-app-web-profile.md) | Native profile save via Pixiv SPA AJAX | Filled |
 | [Release Artifacts](./release-artifacts.md) | Per-ABI APKs, size gate, updater schema 2, rhttp feature rules | Filled |
 | [Android Channels](./android-channels.md) | 10 Method/Event channels: methods, args, returns, error codes, threads, snapshot file, updater Map errors | Filled |
@@ -26,16 +26,11 @@ This directory contains guidelines for backend development. Fill in each file wi
 
 ---
 
-## How to Fill These Guidelines
+## Documentation Conventions
 
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
+Active guides describe the shipped owner, boundary, and verification command
+for the code they cover. Keep cross-layer contracts linked to their executable
+spec or test, and update the guide when a verified implementation changes.
 
 ---
 
