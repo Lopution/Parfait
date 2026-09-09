@@ -3,9 +3,8 @@
 > Executable contracts for the 10 Android channels registered from
 > `android/app/src/main/kotlin/io/github/lopution/pixivfunc/`. Fact source:
 > `.trellis/tasks/09-07-native-rust-hygiene/research/native-audit-recount.md`
-> A.2 (HEAD `8c91c37`). This file is written as **shipped state at D0**, then
-> the three blanket `*_error` channels are updated in place when D2 lands in
-> the same worktree so a check agent can diff code against the tables.
+> A.2. This document records the target/shipped state after D2–D5 so a check
+> agent can diff the channel code against the tables.
 >
 > Do not change channel names, method names, or payload keys without a design
 > decision. Do not change the updater signing/verifier contract in
@@ -13,7 +12,7 @@
 
 ---
 
-## Conventions (shipped)
+## Conventions (target state after D2–D5)
 
 - Payload: `Map<String, Any?>` (or a scalar for `pixivfunc/widget`
   `notifySnapshotChanged`). Bytes are `ByteArray` / Dart `Uint8List`. No JSON
@@ -43,22 +42,21 @@
   deeplink are not independent channels (`ACTION_SEND` / VIEW go through
   intents). `getPlatformInfo` belongs to `pixivfunc/updater`.
 - `login_webview_intercept` / `LoginWebViewPlatformView`: **gone** (0 hits).
-- Three error styles coexist today:
-  1. Blanket `result.error("<channel>_error", message, null)` +
-     `catch (Exception)` — mediastore / saf_tree (non-specific path) /
-     webprofile.
-  2. Specific `result.error("<code>", …)` — reverse-image, intents, clipboard,
-     SAF busy/unavailable/launch/permission.
+- Error styles are explicit and remain part of each channel's contract:
+  1. Channel-prefixed `result.error("<channel>_<reason>", …)` codes for
+     MediaStore, SAF, and web profile, including early argument validation.
+  2. Specific unprefixed `result.error("<code>", …)` codes for reverse-image,
+     intents, clipboard, and other pre-existing contracts.
   3. **Updater exception (keep):** github methods return
      `result.success({valid:false, errorCode})` or
-     `{status:failed, errorCode}` — not `result.error`. fdroid uses style 2
-     with code `disabled` for every method other than `getCapability` /
+     `{status:failed, errorCode}` — not `result.error`. fdroid uses code
+     `disabled` for every method other than `getCapability` /
      `getPlatformInfo`.
-- `call.argument<T>()!!` (D0): 8 sites in `MediaStoreChannel.kt`, 7 in
-  `SafTreeChannel.kt`. A missing required argument throws
-  `KotlinNullPointerException`, which the blanket `catch` turns into
-  `mediastore_error` / `saf_error`. D2 replaces this with an early
-  `result.error("<channel>_invalid_argument", "<name> missing", null)`.
+- Required MediaStore/SAF arguments are read through `ChannelArgs`; missing or
+  mistyped values complete with `<channel>_invalid_argument` before the
+  operation runs. No force-unwrapped `call.argument<T>()!!` remains. Other
+  nullable `call.argument` reads are intentional parts of the updater and
+  pre-existing result contracts.
 - `SafTreeChannel.create` **ignores** Dart `ownerId` (Dart may send it;
   Kotlin does not read it). Keep this behaviour.
 
@@ -106,18 +104,7 @@ Unknown method on every MethodChannel: `result.notImplemented()`.
 | `listPending` | _(none)_ | — | `List<Map>` with `id: Int`, `displayName: String?`, `ownerId: String?` | Every pending row; Dart cleanup still requires an exact owner match. |
 | `abortPending` | `id: Int`, `ownerId: String` | both | `Boolean` | Owner-checked delete. |
 
-### Errors (D0 shipped)
-
-Only `result.error("mediastore_error", <exception.message>, null)` from the
-outer `catch (Exception)` — including `!!` NPE, `require()`
-`IllegalArgumentException`, `IllegalStateException` from insert / open /
-finalize, and `SecurityException`. The D0 `UnsupportedOperationException`
-/`requireApi29()` path is gone (minSdk 29).
-
-Dart does **not** switch on `mediastore_error`. `abort()` swallows any
-`PlatformException`. Other methods let `PlatformException` propagate.
-
-### Errors (D2 — check against code)
+### Errors
 
 | Situation | Code | Message |
 |-----------|------|---------|
@@ -159,22 +146,11 @@ All codes match `^[a-z_]+$` and start with `mediastore_`.
 | `close` | `uri: String` | `uri` | `null` | |
 | `delete` | `uri: String` | `uri` | `null` | Closes then `ContentResolver.delete`. |
 
-### Errors (D0 shipped)
-
-| Code | When |
-|------|------|
-| `saf_busy` | Second `pickTree` while a picker is open. |
-| `saf_unavailable` | `context` is not an `Activity`. |
-| `saf_launch_failed` | `startActivityForResult` threw. |
-| `saf_permission` | `takePersistableUriPermission` threw `SecurityException`. |
-| `saf_error` | Outer `catch (Exception)` for create/write/close/delete (and `!!` NPE). |
-
 `onActivityResult`: `RESULT_OK` with a tree URI → persist + `success(uri)`;
-user cancel (`RESULT_OK` false **or** `data.data == null` at D0) →
-`success(null)`. D0 uses `data.data!!` after the null check. D2: `RESULT_OK`
-with a null URI is `saf_launch_failed` (not silent cancel).
+non-OK user cancellation → `success(null)`. `RESULT_OK` with a null URI is
+`saf_launch_failed`.
 
-### Errors (D2 — check against code)
+### Errors
 
 Keep `saf_busy`, `saf_unavailable`, `saf_launch_failed`, `saf_permission`.
 
@@ -328,14 +304,7 @@ No `result.error` on the event stream.
 | `readSession` | _(none)_ | `String?` raw Cookie header |
 | `clearSession` | _(none)_ | `true` |
 
-### Errors (D0 shipped)
-
-Only `result.error("webprofile_error", <exception.message>, null)`.
-
-Dart maps **any** `PlatformException` (and `MissingPluginException`) to
-`null` / `false`. Classification stays the same if the code changes.
-
-### Errors (D2 — check against code)
+### Errors
 
 | Situation | Code |
 |-----------|------|
@@ -502,7 +471,6 @@ URLs may enter this file.
 
 ## Pre-existing codes kept without a channel prefix
 
-D2 only rewrites `mediastore_error`, `saf_error`, and `webprofile_error`.
 These codes stay because Dart already switches on them (or copies
 `PlatformException.code`):
 
@@ -519,10 +487,9 @@ already match `saf_<reason>` and stay.
 
 ---
 
-## 目标状态（D2–D5 后）
+## Current target state (after D2–D5)
 
-D2 (this task) applies the error-code tables marked **D2 — check against
-code** above. Remaining child steps:
+The tables above are the authoritative channel contracts after D2–D5:
 
 - **D2:** No more `call.argument<T>()!!`. Missing / wrong-type arguments
   emit `<channel>_invalid_argument` with the argument name in the message.
