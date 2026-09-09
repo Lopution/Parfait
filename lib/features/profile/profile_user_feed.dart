@@ -12,7 +12,7 @@ import '../../core/profile/profile_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
 import '../../l10n/context.dart';
-import 'follow_switch_button.dart';
+import '../../app/widgets/follow_switch_button.dart';
 
 class ProfileUserFeed extends ConsumerWidget {
   const ProfileUserFeed({super.key, required this.feedKey});
@@ -89,7 +89,7 @@ class ProfileUserFeed extends ConsumerWidget {
                     retryLabel: context.l10n.profileRetry,
                   );
                 }
-                return _UserPreviewCard(user: users[itemIndex]);
+                return _UserPreviewTile(user: users[itemIndex]);
               },
             ),
           ),
@@ -99,8 +99,8 @@ class ProfileUserFeed extends ConsumerWidget {
   }
 }
 
-class _UserPreviewCard extends StatelessWidget {
-  const _UserPreviewCard({required this.user});
+class _UserPreviewTile extends StatelessWidget {
+  const _UserPreviewTile({required this.user});
 
   final UserEntity user;
 

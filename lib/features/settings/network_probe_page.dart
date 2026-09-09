@@ -270,7 +270,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
           ),
           const SizedBox(height: 16),
           for (final target in _targets)
-            _HostProbeCard(
+            _HostProbePanel(
               host: target.host,
               report: _finished[target.host],
               error: _errors[target.host],
@@ -282,8 +282,8 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   }
 }
 
-class _HostProbeCard extends StatelessWidget {
-  const _HostProbeCard({
+class _HostProbePanel extends StatelessWidget {
+  const _HostProbePanel({
     required this.host,
     required this.report,
     required this.error,
