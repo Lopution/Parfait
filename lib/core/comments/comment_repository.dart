@@ -8,6 +8,7 @@ import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import 'comment_models.dart';
+import '../entity/json_read.dart';
 
 /// JSON boundary for Pixiv comments and replies.
 abstract interface class CommentRepository {
@@ -35,8 +36,8 @@ abstract interface class CommentRepository {
 }
 
 /// Pixiv app-api implementation for the beta56 comment contract.
-class PixivCommentRepository implements CommentRepository {
-  PixivCommentRepository(this._client);
+class _PixivCommentRepository implements CommentRepository {
+  _PixivCommentRepository(this._client);
 
   static const _commentsPath = '/v3/illust/comments';
   static const _repliesPath = '/v2/illust/comment/replies';
@@ -170,7 +171,7 @@ class PixivCommentRepository implements CommentRepository {
       }
       return CommentPage(
         comments: comments,
-        nextUrl: _nextUrl(json['next_url']),
+        nextUrl: requireNextUrl(json['next_url']),
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
@@ -213,13 +214,6 @@ class PixivCommentRepository implements CommentRepository {
   Uri _target(NextPageRequest request) => PixivClientIdentity.appApiBase
       .replace(path: request.uri.path, queryParameters: request.query);
 
-  static String? _nextUrl(Object? value) {
-    if (value == null) return null;
-    if (value is String && value.isNotEmpty) return value;
-    if (value is String) return null;
-    throw const FormatException('next_url must be a string or null');
-  }
-
   static Map<String, dynamic> _successObject(
     dynamic response, {
     bool allowEmpty = false,
@@ -251,5 +245,5 @@ class PixivCommentRepository implements CommentRepository {
 }
 
 final commentRepositoryProvider = Provider<CommentRepository>((ref) {
-  return PixivCommentRepository(ref.watch(pixivHttpClientProvider));
+  return _PixivCommentRepository(ref.watch(pixivHttpClientProvider));
 });

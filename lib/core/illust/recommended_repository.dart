@@ -1,0 +1,82 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../entity/illust_entity.dart';
+import '../network/api_error.dart';
+import '../network/next_page_parser.dart';
+import '../network/pixiv_client_identity.dart';
+import '../network/pixiv_http_client.dart';
+
+class RecommendedIllustPage {
+  const RecommendedIllustPage({required this.illusts, required this.nextUrl});
+
+  final List<IllustEntity> illusts;
+  final String? nextUrl;
+}
+
+/// Beta56 home feed content types: 插画 / 漫画 / 小说 / 用户.
+enum RecommendedContentType { illust, manga, novel, user }
+
+/// Wire `content_type` for the illust/manga share of `/v1/illust/recommended`.
+String recommendedIllustContentType(RecommendedContentType type) {
+  return switch (type) {
+    RecommendedContentType.illust => 'illust',
+    RecommendedContentType.manga => 'manga',
+    RecommendedContentType.novel || RecommendedContentType.user =>
+      throw ArgumentError('$type is not an illust/manga content type'),
+  };
+}
+
+/// Fetches and normalizes Recommended Illust pages.
+///
+/// Entity writes belong to the feed controller's generation commit, not this
+/// repository, so a late response cannot mutate shared state before the gate
+/// checks its context.
+class RecommendedIllustRepository {
+  RecommendedIllustRepository(this._client);
+
+  final PixivHttpClient _client;
+
+  /// Fetches one page. [cursor] is the validated next_url or `null` for the
+  /// first page. [contentType] selects illust vs manga (beta56 home tabs).
+  Future<RecommendedIllustPage> fetchPage(
+    String? cursor, {
+    String contentType = 'illust',
+    CancelToken? cancelToken,
+  }) async {
+    final NextPageRequest request;
+    try {
+      request = cursor == null
+          ? NextPageParser.firstPage('/v1/illust/recommended', {
+              'content_type': contentType,
+              'include_ranking_illusts': 'true',
+              'filter': 'for_ios',
+            })
+          : NextPageParser.parse(cursor)!;
+    } on NextPageParseError catch (error) {
+      throw ApiParseError(error);
+    }
+    // Relative next_page requests bind to the verified API base; absolute
+    // (already validated) requests pass through unchanged.
+    final target = request.uri.hasScheme
+        ? request.uri
+        : PixivClientIdentity.appApiBase.replace(
+            path: request.uri.path,
+            query: request.uri.query,
+          );
+    try {
+      final json = await _client.getJson(target, cancelToken: cancelToken);
+      final page = IllustEntity.parsePage(json);
+      return RecommendedIllustPage(
+        illusts: page.illusts,
+        nextUrl: page.nextUrl,
+      );
+    } on FormatException catch (error) {
+      throw ApiParseError(error);
+    }
+  }
+}
+
+final recommendedIllustRepositoryProvider =
+    Provider<RecommendedIllustRepository>((ref) {
+      return RecommendedIllustRepository(ref.watch(pixivHttpClientProvider));
+    });

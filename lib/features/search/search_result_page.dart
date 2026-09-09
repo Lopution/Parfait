@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
+import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/person_avatar.dart';
+import '../../app/widgets/novel_card.dart';
 import '../../app/pull_to_refresh.dart';
-import '../../app/replica_page_route.dart';
+import '../../app/motion/replica_page_route.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
@@ -13,12 +15,12 @@ import '../../core/search/search_feed_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
-import '../home/recommended/recommended_illust_page.dart';
-import '../novel/novel_page.dart';
-import '../profile/follow_switch_button.dart';
-import '../profile/user_page.dart';
+import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/feed/illust_card.dart';
+import '../../app/widgets/follow_switch_button.dart';
+import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
-import 'search_text.dart';
+import '../../l10n/context.dart';
 
 class SearchResultPage extends ConsumerWidget {
   const SearchResultPage({super.key, required this.query});
@@ -63,7 +65,7 @@ class SearchResultPage extends ConsumerWidget {
         actions: [
           if (_filters != null)
             IconButton(
-              tooltip: searchText(context, 'searchFilters'),
+              tooltip: context.l10n.searchFilters,
               onPressed: () => _editFilters(context),
               icon: const Icon(Icons.tune),
             ),
@@ -71,21 +73,25 @@ class SearchResultPage extends ConsumerWidget {
       ),
       body: async.when(
         loading: () =>
-            _SearchStatus(title: searchText(context, 'searchLoading')),
-        error: (error, _) => _SearchResultError(
+            FeedEmpty(icon: Icons.search, title: context.l10n.searchLoading),
+        error: (error, _) => FeedError(
+          title: context.l10n.searchLoadFailed,
           error: error,
+          retryLabel: context.l10n.searchRetry,
           onRetry: () => ref.invalidate(searchFeedProvider(query)),
         ),
         data: (feed) {
           if (feed.showInitialError) {
-            return _SearchResultError(
+            return FeedError(
+              title: context.l10n.searchLoadFailed,
               error: feed.initialError ?? const ApiParseError('unknown error'),
+              retryLabel: context.l10n.searchRetry,
               onRetry: () =>
                   ref.read(searchFeedProvider(query).notifier).retryInitial(),
             );
           }
           if (feed.showInitialSpinner) {
-            return _SearchStatus(title: searchText(context, 'searchLoading'));
+            return FeedEmpty(icon: Icons.search, title: context.l10n.searchLoading);
           }
           return _SearchFeedContent(query: query, feed: feed);
         },
@@ -120,7 +126,10 @@ class _IllustSearchFeed extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
     if (entities.isEmpty) {
-      return _SearchEmpty(
+      return FeedEmpty(
+        icon: Icons.search,
+        title: context.l10n.searchNoResults,
+        retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -138,25 +147,24 @@ class _IllustSearchFeed extends ConsumerWidget {
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.all(10),
-              sliver: SliverMasonryGrid.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 5,
-                crossAxisSpacing: 10,
-                itemBuilder: (context, index) => IllustCard(
+            IllustFeedGrid(
+  padding: const EdgeInsets.all(10),
+  mainAxisSpacing: 5,
+  crossAxisSpacing: 10,
+  itemCount: entities.length,
+  itemBuilder: (context, index) => IllustCard(
                   entity: entities[index],
                   heroScope: 'search:${query.cacheKey}',
                 ),
-                childCount: entities.length,
-              ),
-            ),
+),
             SliverToBoxAdapter(
-              child: _SearchFeedTail(
+              child: FeedTail(
                 feed: feed,
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
+                errorTitle: context.l10n.searchLoadMoreFailed,
+                  retryLabel: context.l10n.searchRetry,
               ),
             ),
           ],
@@ -180,7 +188,10 @@ class _NovelSearchFeed extends ConsumerWidget {
         if (stored[id] != null) stored[id]!,
     ];
     if (entities.isEmpty) {
-      return _SearchEmpty(
+      return FeedEmpty(
+        icon: Icons.search,
+        title: context.l10n.searchNoResults,
+        retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -200,11 +211,13 @@ class _NovelSearchFeed extends ConsumerWidget {
           itemCount: entities.length + 1,
           itemBuilder: (context, index) {
             if (index == entities.length) {
-              return _SearchFeedTail(
+              return FeedTail(
                 feed: feed,
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
+                errorTitle: context.l10n.searchLoadMoreFailed,
+                  retryLabel: context.l10n.searchRetry,
               );
             }
             return NovelCard(entity: entities[index]);
@@ -229,7 +242,10 @@ class _UserSearchFeed extends ConsumerWidget {
         if (stored[id] != null) stored[id]!,
     ];
     if (users.isEmpty) {
-      return _SearchEmpty(
+      return FeedEmpty(
+        icon: Icons.search,
+        title: context.l10n.searchNoResults,
+        retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -249,14 +265,16 @@ class _UserSearchFeed extends ConsumerWidget {
           itemCount: users.length + 1,
           itemBuilder: (context, index) {
             if (index == users.length) {
-              return _SearchFeedTail(
+              return FeedTail(
                 feed: feed,
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
+                errorTitle: context.l10n.searchLoadMoreFailed,
+                  retryLabel: context.l10n.searchRetry,
               );
             }
-            return _SearchUserCard(user: users[index]);
+            return _SearchUserTile(user: users[index]);
           },
         ),
       ),
@@ -264,8 +282,8 @@ class _UserSearchFeed extends ConsumerWidget {
   }
 }
 
-class _SearchUserCard extends StatelessWidget {
-  const _SearchUserCard({required this.user});
+class _SearchUserTile extends StatelessWidget {
+  const _SearchUserTile({required this.user});
 
   final UserEntity user;
 
@@ -274,13 +292,13 @@ class _SearchUserCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
-        onTap: () => showUserPage(context, user.id),
+        onTap: () => openUser(context, user.id),
         leading: PersonAvatar(imageUrl: user.profileImageUrl, radius: 26),
         title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: user.account.isEmpty
             ? null
             : Text(
-                '${searchText(context, 'searchUserAccount')}: ${user.account}',
+                '${context.l10n.searchUserAccount}: ${user.account}',
               ),
         trailing: FollowSwitchButton(
           userId: user.id,
@@ -290,132 +308,5 @@ class _SearchUserCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _SearchStatus extends StatelessWidget {
-  const _SearchStatus({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.search, size: 44),
-          const SizedBox(height: 12),
-          Text(title),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchEmpty extends StatelessWidget {
-  const _SearchEmpty({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.search, size: 44),
-          const SizedBox(height: 12),
-          Text(searchText(context, 'searchNoResults')),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh),
-            label: Text(searchText(context, 'searchRetry')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchResultError extends StatelessWidget {
-  const _SearchResultError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(searchText(context, 'searchLoadFailed')),
-            const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(searchText(context, 'searchRetry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchFeedTail extends StatelessWidget {
-  const _SearchFeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(searchText(context, 'searchLoadMoreFailed')),
-              Text(
-                '${feed.loadMoreError}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              TextButton(
-                onPressed: onRetry,
-                child: Text(searchText(context, 'searchRetry')),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (feed.refreshPhase == FeedPhase.error) {
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          searchText(context, 'searchRefreshFailed'),
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-    return const SizedBox.shrink();
   }
 }

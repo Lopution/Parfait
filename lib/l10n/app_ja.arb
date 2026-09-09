@@ -1,0 +1,599 @@
+{
+  "@@locale": "ja",
+  "networkDohEndpointsInvalid": "DoHエンドポイントリストが無効です",
+  "welcome1": "Pixiv Funcをご利用ありがとうございます",
+  "welcome2": "初期設定を開始します",
+  "start": "開始",
+  "selectLanguage": "言語の選択",
+  "selectTheme": "テーマの選択",
+  "next": "次へ",
+  "later": "後で設定を変更できます",
+  "dark": "ダーク",
+  "light": "ライト",
+  "system": "システムのデフォルト",
+  "loginTitle": "登録･ログイン",
+  "register": "登録",
+  "login": "ログイン",
+  "loginPageClosed": "ページが閉じられました。再度開いてください。",
+  "loginCallbackInvalid": "ログインコールバックが無効です: {reason}",
+  "@loginCallbackInvalid": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "loginNetworkError": "ネットワークエラー (HTTP {status})",
+  "@loginNetworkError": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "loginPageLoadFailed": "ページの読み込みに失敗しました ({error})",
+  "@loginPageLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginFailed": "ログインに失敗しました: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginFailedType": "ログインに失敗しました ({type})",
+  "@loginFailedType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "networkCompatibility": "自動互換ネットワーク",
+  "networkCompatibilityHint": "まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。",
+  "getMoreHelp": "詳細なヘルプ >>",
+  "useLoginWithClipboardHint": "もしくは\\nプロフィール画像を長押ししてアカウントデータをコピー",
+  "useLoginWithClipboard": "クリップボードに保存されたデータでログイン",
+  "accountTransferWarning": "クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。",
+  "accountTransferSensitiveWarning": "この端末はクリップボードの機密マーク（Android 13+）未対応です。認証情報は平文でシステムクリップボードに置かれます。すぐに貼り付けてください。5分後に自動クリアされます。",
+  "accountTransferCopied": "アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。",
+  "accountTransferImported": "アカウント移行に成功しました",
+  "accountTransferClipboardReplaced": "アカウントを取り込みました。クリップボードが置き換えられたため消去していません。",
+  "accountTransferCorrupt": "クリップボードのアカウントデータが壊れているか未対応です",
+  "accountTransferCredentialInvalid": "アカウント認証情報が無効です。再ログインまたは再コピーしてください",
+  "accountTransferVerificationUnavailable": "Pixiv の認証情報を一時的に確認できません",
+  "accountTransferNoAccount": "コピーできるログイン済みアカウントがありません",
+  "accountTransferCredentialUnavailable": "現在の認証情報を利用できません。再ログインしてください",
+  "accountTransferClipboardUnavailable": "クリップボードを利用できません",
+  "accountTransferStorageFailure": "アカウント移行記録を安全に保存できません",
+  "loginAgree": "ログインすると利用規約に同意したものとみなします",
+  "userAgreement": "《Pixiv Func利用規約》",
+  "settingsTitle": "設定",
+  "accountSettings": "アカウント",
+  "networkSettings": "ネットワーク",
+  "networkMode": "自動互換ネットワーク",
+  "networkModeHint": "デフォルトは直結。Pixiv 公式ドメインのみ、明確な転送失敗時に厳格 HTTPS 候補を試します。他トラフィックはプロキシせず、証明書検証は無効化しません。",
+  "networkModeListTitle": "ネットワークモード",
+  "networkModeAutomatic": "自動",
+  "networkModeAutomaticHint": "標準ネットワークスタック：ホストグループごとに到達可能な経路を選択します。",
+  "networkModeDirectOnly": "直結のみ",
+  "networkModeDirectOnlyHint": "システム DNS + 実 SNI で直結します。直結で利用可能なネットワーク向け。",
+  "networkAdvanced": "詳細設定",
+  "networkAdvancedHint": "DoH エンドポイント、ECH フロントホストなどの詳細。",
+  "networkAdvancedReset": "デフォルトに戻す",
+  "networkDoh": "厳格フォールバックで DoH を使用",
+  "networkDohHint": "有効時、フォールバック層は DoH（デフォルト Cloudflare DoH：ドメイン端点を静的 Anycast IP にピン留め — 汚染されたシステム DNS を回避；カスタム端点は自身のホスト名を解決）で解決します。無効時はシステム DNS を使用します。",
+  "networkDohEndpoints": "DoH エンドポイント（カンマ区切り、https URL）",
+  "networkEchFrontHost": "ECH フロントホスト",
+  "networkEchFrontHostHint": "ECH config を含む HTTPS RR を照会するドメイン（デフォルト cloudflare-ech.com）",
+  "networkEchHostInvalid": "フロントホスト名が無効です",
+  "networkProbe": "階層接続プローブ",
+  "networkProbeTitle": "階層接続プローブ",
+  "networkProbeHint": "Pixiv の4公式ホストを層ごとにテスト：システム DNS → DoH → TCP → TLS(実SNI) → 最小リクエスト。TCP 成功でも TLS ハンドシェイク失敗 = SNI ブロック。",
+  "networkProbeRun": "プローブ開始",
+  "networkProbeRunning": "実行中…",
+  "networkProbeNotRun": "未実行",
+  "networkProbeHostFailed": "ホストのプローブに失敗しました",
+  "networkProbeCopied": "レポートをコピーしました",
+  "networkProbeDnsDiff": "追加情報：システム DNS と DoH の公開アドレスが一致しません。",
+  "networkProbeStepSystemDns": "システム DNS",
+  "networkProbeStepDoh": "DoH",
+  "networkProbeStepTcp": "TCP",
+  "networkProbeStepTls": "TLS",
+  "networkProbeStepHttp": "最小リクエスト",
+  "networkProbeStepEch": "ECH",
+  "networkProbeStepNoSni": "空 SNI",
+  "networkProbeStepOk": "成功",
+  "networkProbeStepFailed": "失敗",
+  "networkProbeStepSkipped": "スキップ",
+  "networkProbeConclusionAllReachable": "到達可能",
+  "networkProbeConclusionDnsPolluted": "DNS 汚染",
+  "networkProbeConclusionSniBlocked": "SNI ブロック",
+  "networkProbeConclusionEchAvailable": "ECH を使用",
+  "networkProbeConclusionNoSniAvailable": "空 SNI を使用",
+  "networkProbeConclusionIpBlackholed": "IP ブラックホール",
+  "networkProbeConclusionAppLayer": "アプリ層",
+  "networkProbeConclusionInconclusive": "不明",
+  "copy": "コピー",
+  "themeSettings": "テーマ",
+  "languageSettings": "言語",
+  "translateSettings": "翻訳",
+  "browseSettings": "ブラウズ設定",
+  "downloadSettings": "ダウンロード設定",
+  "historySettings": "履歴",
+  "historyView": "閲覧履歴を見る",
+  "historyEmpty": "閲覧履歴はありません",
+  "historyLoadFailed": "履歴の読み込みに失敗しました",
+  "historyDelete": "履歴を削除",
+  "historyDeleteAll": "履歴をすべて削除",
+  "historyDeleteHint": "削除した履歴は復元できません。",
+  "blockTagSettings": "ブロックタグ",
+  "downloaderSettings": "ダウンロード状況",
+  "aboutSettings": "このアプリについて",
+  "signedOut": "未ログイン",
+  "currentAccount": "現在のアカウント",
+  "accountId": "アカウント ID",
+  "reauthRequired": "再ログインが必要です",
+  "accountProfile": "プロフィール",
+  "accountReadFailed": "アカウント状態を読み込めませんでした",
+  "reopen": "開き直す",
+  "dismiss": "閉じる",
+  "profileEditTitle": "プロフィールを編集",
+  "profileEditLoadFailed": "プロフィールを読み込めませんでした",
+  "profileEditUnavailable": "アプリ内プロフィール編集経路はありません。",
+  "profileEditPending": "変更を送信しました。確認後に反映されます。",
+  "profileEditConfirmed": "プロフィールを確認して同期しました。",
+  "profileEditDisplayName": "表示名",
+  "profileEditComment": "自己紹介",
+  "profileEditWebpage": "ウェブページ",
+  "profileEditAvatar": "アバター",
+  "profileEditBackground": "背景画像",
+  "profileEditCurrentPassword": "現在のパスワード",
+  "profileEditFieldUnsupported": "現在の経路ではこの項目に対応していません",
+  "profileEditImageChoose": "対応する画像を選択してください",
+  "profileEditChooseImage": "画像を選択",
+  "profileEditSave": "プロフィールを保存",
+  "profileEditLeaveTitle": "未保存の変更を破棄しますか？",
+  "profileEditLeaveDetail": "変更はまだ送信されていないため、離れると失われます。",
+  "profileEditLeaveConfirm": "変更を破棄",
+  "accountManagement": "アカウント管理",
+  "addAccount": "アカウントを追加",
+  "switchAccount": "アカウントを切り替え",
+  "removeAccount": "アカウントを削除",
+  "removeAccountConfirm": "このアカウントを削除しますか？",
+  "noAccounts": "アカウントがありません",
+  "profileReadOnly": "保存されたアカウント情報を表示しています。プロフィール編集はプロフィール機能で提供します。",
+  "imageSource": "画像ソース",
+  "imageSourceNormal": "公式 CDN（システム DNS / HTTPS）",
+  "previewQuality": "プレビュー画質",
+  "viewQuality": "ビューア画質",
+  "detailQuality": "詳細画質",
+  "qualityMedium": "中サイズ",
+  "qualityLarge": "大サイズ",
+  "qualityOriginal": "オリジナル",
+  "scaleQuality": "ビューア画質（オリジナル）",
+  "localHistory": "ローカル閲覧履歴",
+  "pixivHistory": "Pixiv 閲覧履歴",
+  "blockR18": "R-18作品をローカルで非表示",
+  "blockAI": "AI作品をローカルで非表示",
+  "maxDownloadCount": "同時ダウンロード数の上限",
+  "namingRule": "ファイル名規則",
+  "namingRuleHint": "空欄で標準の名前を使用",
+  "saveFolder": "保存フォルダー",
+  "saveLocation": "保存先",
+  "saveLocationAlbum": "アルバム",
+  "saveLocationPixivAlbum": "PixivFunc アルバム（デフォルト）",
+  "saveLocationCustomAlbum": "カスタムアルバム名",
+  "saveLocationCustomAlbumHint": "英数字・日本語・アンダースコアのみ",
+  "saveLocationUseCustomAlbum": "カスタムアルバムを使用",
+  "saveLocationAlbumInvalid": "アルバム名が無効です",
+  "saveLocationSafFolder": "フォルダー（システムディレクトリ選択）",
+  "saveLocationSafFolderHint": "システム SAF でフォルダーを選択し、権限を永続化",
+  "saveLocationSafPicked": "フォルダーを選択済み",
+  "namingPreset": "ファイル名プリセット",
+  "namingPresetId": "作品 ID（デフォルト）",
+  "namingPresetArtistTitleId": "作者 - タイトル - ID",
+  "namingPresetTitleId": "タイトル - ID",
+  "namingPresetCustom": "カスタムテンプレート",
+  "namingTemplate": "命名テンプレート",
+  "namingTemplateHint": "{artist}_{title}_{id}_p{page}.{ext}",
+  "@namingTemplateHint": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      }
+    }
+  },
+  "namingTemplateInvalid": "未対応の変数または不正な文字を含みます",
+  "namingPreview": "プレビュー",
+  "namingTemplateVariables": "変数：{artist} {title} {id} {page} {ext} {date}。不正な文字は _ に置換され、長い名前は切り詰められます。",
+  "@namingTemplateVariables": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "notConfigured": "未設定",
+  "translateProvider": "翻訳サービス",
+  "translateGoogle": "Google Translate",
+  "translateDisabled": "無効",
+  "translateBaidu": "百度翻訳",
+  "translateLlm": "カスタム LLM（OpenAI 互換）",
+  "translateBaiduCredential": "百度 AppID / シークレット",
+  "translateLlmCredential": "LLM エンドポイントとキー",
+  "translateBaiduAppId": "AppID",
+  "translateBaiduSecret": "シークレット",
+  "translateLlmBaseUrl": "ベース URL（HTTPS）",
+  "translateLlmApiKey": "API キー",
+  "translateLlmModel": "モデル名（任意）",
+  "translateCredentialsSave": "安全なストレージに保存",
+  "translateCredentialsClear": "認証情報を削除",
+  "translateCredentialsSaved": "安全なストレージに保存しました",
+  "translateCredentialsCleared": "認証情報を削除しました",
+  "translateCredentialsStoreError": "安全なストレージの操作に失敗しました",
+  "translateCredentialsInvalid": "入力が不完全か、エンドポイントが HTTPS ではありません",
+  "translateBaiduHint": "百度翻訳の標準版は認証不要ですが月 5 万文字・毎秒 1 回までで、コメント翻訳には足りません。高級版は個人の実名認証（氏名 + 身分証番号）が必要で、月 100 万文字・毎秒 10 回です。認証情報は翻訳リクエストにのみ使用します。",
+  "translateLlmCredentialHint": "HTTPS エンドポイントのみ。翻訳は固定プロンプトで、モデルや詳細パラメータは変更できません。コメント本文と翻訳は保存されません。",
+  "translateCredentialHint": "翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。",
+  "historySettingsHint": "履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。",
+  "blockTagInputHint": "タグを入力して追加",
+  "noBlockedTags": "ブロックタグはありません",
+  "downloaderSettingsHint": "ダウンロード状況は共有 DownloadManager がリアルタイムで管理します。",
+  "downloadTasksEmpty": "ダウンロードタスクはありません",
+  "downloadQueued": "待機中",
+  "downloadRunning": "ダウンロード中",
+  "downloadCanceling": "キャンセル中",
+  "downloadSucceeded": "完了",
+  "downloadFailed": "失敗",
+  "downloadCanceled": "キャンセル済み",
+  "retryDownload": "再試行",
+  "cancelDownload": "キャンセル",
+  "aboutVersion": "バージョン",
+  "aboutCheckUpdate": "更新を確認",
+  "aboutCheckingUpdate": "更新を確認中…",
+  "aboutUpdateAvailable": "新しいバージョンがあります",
+  "aboutUpdateNoUpdate": "最新バージョンです",
+  "aboutUpdatePrerelease": "プレリリースがあります。安定版チャンネルではインストールしません",
+  "aboutUpdateDownload": "ダウンロードしてインストール",
+  "aboutUpdateDownloading": "ダウンロードと検証中…",
+  "aboutUpdateConfirmTitle": "更新を確認",
+  "aboutUpdateConfirmDetail": "署名、サイズ、ハッシュ、パッケージ名、証明書を検証した APK のみインストールします。続行しますか？",
+  "aboutUpdatePermission": "この提供元からのアプリのインストールを許可してから、もう一度確認してください。",
+  "aboutUpdateStarted": "システムインストーラーを開きました",
+  "aboutUpdateStore": "このビルドの更新は F-Droid が管理します。",
+  "aboutUpdateUnavailable": "現在、更新を確認できません",
+  "aboutUpdateFailed": "更新の確認またはインストールに失敗しました。後でもう一度お試しください",
+  "aboutLicense": "ライセンス",
+  "aboutAttribution": "帰属表示",
+  "aboutSource": "ソースコード",
+  "aboutLicenseText": "このプロジェクトは公開された Pixiv Func のソースを基にし、GNU AGPL v3.0 に従います。",
+  "aboutAttributionText": "原作者：git-xiaocao。",
+  "settingsReadFailed": "設定の読み込みに失敗しました",
+  "settingsWriteFailed": "設定の保存に失敗しました",
+  "add": "追加",
+  "viewerNoImages": "表示できる画像がありません",
+  "downloadAll": "すべてダウンロード",
+  "downloadQueuedMessage": "ダウンロードキューに追加しました",
+  "downloadSubmissionFailed": "ダウンロードに失敗しました: {error}",
+  "@downloadSubmissionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraSaveGif": "GIFを保存",
+  "ugoiraLoadCanceled": "読み込みをキャンセルしました",
+  "ugoiraLoginRequired": "GIFを保存するにはログインしてください",
+  "ugoiraSaved": "GIFを保存しました",
+  "ugoiraSaveCanceled": "GIFの保存をキャンセルしました",
+  "ugoiraSaveFailed": "GIFの保存に失敗しました: {error}",
+  "@ugoiraSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraArchiveInvalid": "アニメーションのアーカイブが無効です: {error}",
+  "@ugoiraArchiveInvalid": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraFrameCorrupt": "アニメーションフレームが壊れています: {error}",
+  "@ugoiraFrameCorrupt": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraLoadFailed": "アニメーションを読み込めませんでした: {error}",
+  "@ugoiraLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeExitHint": "もう一度戻ると終了します",
+  "bookmarkIllust": "イラストをブックマーク",
+  "bookmarkNovel": "小説をブックマーク",
+  "bookmarkOperationFailed": "ブックマーク操作に失敗しました: {error}",
+  "@bookmarkOperationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "save": "保存",
+  "saved": "保存しました",
+  "retry": "再試行",
+  "relatedWorks": "関連作品",
+  "cancel": "キャンセル",
+  "confirm": "確認",
+  "rankingDay": "デイリー",
+  "rankingDayR18": "デイリー (R-18)",
+  "rankingDayMale": "デイリー (男子に人気)",
+  "rankingDayMaleR18": "デイリー (男子に人気 & R-18)",
+  "rankingDayFemale": "デイリー (女子に人気)",
+  "rankingDayFemaleR18": "デイリー (女子に人気 & R-18)",
+  "rankingWeek": "ウィークリー",
+  "rankingWeekR18": "ウィークリー (R-18)",
+  "rankingWeekOriginal": "ウィークリー (オリジナル)",
+  "rankingWeekRookie": "ウィークリー (ルーキー)",
+  "rankingMonth": "マンスリー",
+  "rankingEmpty": "ランキングの内容はありません",
+  "rankingLoadFailed": "{mode}の読み込みに失敗しました",
+  "@rankingLoadFailed": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "rankingLoadMoreFailed": "追加コンテンツの読み込みに失敗しました",
+  "profileWork": "作品",
+  "profileBookmarked": "ブックマーク",
+  "profileFollowing": "フォロー",
+  "profileFans": "フォロワー",
+  "profileMyPixiv": "マイピク",
+  "profileAbout": "概要",
+  "profileIllust": "イラスト",
+  "profileManga": "マンガ",
+  "profileNovel": "小説",
+  "searchTitle": "検索",
+  "searchHint": "作品、ユーザー、タグを検索",
+  "searchReverseImage": "画像で検索",
+  "searchTrending": "人気タグ",
+  "searchNoTrending": "人気タグはありません",
+  "searchTrendingFailed": "人気タグの読み込みに失敗しました",
+  "searchIllustManga": "イラスト・マンガ",
+  "searchNovel": "小説",
+  "searchUser": "ユーザー",
+  "searchCancel": "キャンセル",
+  "searchSubmit": "検索",
+  "searchClear": "クリア",
+  "searchLoading": "検索中",
+  "searchNoResults": "検索結果はありません",
+  "searchLoadFailed": "検索に失敗しました",
+  "searchLoadMoreFailed": "追加結果の読み込みに失敗しました",
+  "searchRetry": "再試行",
+  "searchRefreshFailed": "更新に失敗しました",
+  "searchInputEmpty": "検索語を入力してください",
+  "searchReverseUnavailable": "画像検索は利用できません",
+  "searchReverseUnavailableDetail": "認証情報、利用規約、プライバシー審査を通過した構造化サービスがないため、画像のアップロードやウェブページのスクレイピングは行いません。",
+  "searchReversePick": "画像を選択",
+  "searchReversePrivacy": "プライバシーに関する注意",
+  "searchReversePrivacyDetail": "検索を確認した後だけ画像を承認済みサービスへ送信し、キャンセルまたは失敗時に一時データを削除します。",
+  "searchReversePreparing": "画像を準備中…",
+  "searchReverseSearching": "検索中…",
+  "searchReverseCancel": "キャンセル",
+  "searchReverseUse": "画像で検索を開始",
+  "searchReverseRetry": "別の画像を選択",
+  "searchReverseReady": "画像の準備が完了しました",
+  "searchReverseNoResults": "一致する結果はありません",
+  "searchReverseIntentFailed": "共有された画像を使用できません",
+  "searchReverseOpenExternal": "ソースを開く",
+  "searchReverseOpenFailed": "ソースリンクを開けません",
+  "searchReverseRateLimited": "検索が混み合っています。しばらくしてからお試しください",
+  "searchReverseRateLimitedWait": "約 {seconds} 秒後に再試行できます",
+  "@searchReverseRateLimitedWait": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseDailyLimit": "本日の匿名検索回数の上限に達しました。明日もう一度お試しください",
+  "searchReverseChallenge": "SauceNAO が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください",
+  "searchReversePageLoadFailed": "結果ページの読み込みに失敗しました",
+  "searchReverseIntro": "選択した画像は匿名で SauceNAO に送信され、結果ページがアプリ内で開きます。",
+  "searchNoRepresentative": "このタグには代表作品がありません",
+  "searchFilters": "フィルター",
+  "searchReset": "リセット",
+  "searchApply": "適用",
+  "searchTarget": "検索対象",
+  "searchPartialTags": "タグ部分一致",
+  "searchExactTags": "タグ完全一致",
+  "searchTitleCaption": "タイトルとキャプション",
+  "searchSort": "並び順",
+  "searchDateDesc": "新着順",
+  "searchDateAsc": "古い順",
+  "searchPopularDesc": "人気順",
+  "searchDuration": "投稿日",
+  "searchAllTime": "指定なし",
+  "searchWithinDay": "1日以内",
+  "searchWithinWeek": "1週間以内",
+  "searchWithinMonth": "1か月以内",
+  "searchStartDate": "開始日",
+  "searchEndDate": "終了日",
+  "searchNoSuggestions": "候補はありません",
+  "searchUserAccount": "アカウント",
+  "illustDetailTitle": "作品詳細",
+  "illustDetailCreateDateUnknown": "投稿日不明",
+  "illustDetailCreateDate": "投稿日：{date}",
+  "@illustDetailCreateDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailSize": "サイズ：{width}x{height}",
+  "@illustDetailSize": {
+    "placeholders": {
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      }
+    }
+  },
+  "illustDetailOpenLinkFailed": "リンクを開けませんでした：{error}",
+  "@illustDetailOpenLinkFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailRestricted": "この作品は削除または非公開になりました（ID: {id}）",
+  "@illustDetailRestricted": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "illustDetailNotFound": "作品が存在しないか削除されました",
+  "illustDetailLoadFailed": "作品の読み込みに失敗しました",
+  "commentTitle": "コメント",
+  "commentInput": "コメントを追加",
+  "commentReply": "返信",
+  "commentReplyTo": "返信先",
+  "commentCancelReply": "返信をキャンセル",
+  "commentSend": "送信",
+  "commentDelete": "コメントを削除",
+  "commentDeleteConfirm": "このコメントを削除しますか？",
+  "commentDeleteFailed": "コメントの削除に失敗しました",
+  "commentSendFailed": "コメントの送信に失敗しました",
+  "commentLoadFailed": "コメントの読み込みに失敗しました",
+  "relatedLoadFailed": "関連作品の読み込みに失敗しました",
+  "commentLoadMoreFailed": "コメントをさらに読み込めませんでした",
+  "commentNoResults": "コメントはありません",
+  "commentReplies": "返信",
+  "commentTranslate": "翻訳",
+  "commentTranslation": "翻訳結果",
+  "commentTranslationUnavailable": "翻訳は利用できません。設定で有効にしてください。",
+  "commentTranslationFailed": "翻訳に失敗しました",
+  "commentTranslationInvalidCredentials": "翻訳の認証情報が無効です。設定を確認してください。",
+  "commentTranslationRateLimited": "翻訳が混み合っているか、上限に達しました",
+  "commentEmoji": "Emoji",
+  "commentStamps": "Stamp",
+  "commentPermissionDenied": "自分のコメントのみ削除できます",
+  "newTitle": "新着",
+  "newFollowing": "フォロー中",
+  "newEveryone": "みんな",
+  "newMyPixiv": "マイピク",
+  "newIllust": "イラスト",
+  "newNovel": "小説",
+  "recommendedIllust": "イラスト",
+  "recommendedManga": "漫画",
+  "recommendedNovel": "小説",
+  "recommendedUser": "ユーザー",
+  "recommendedEmpty": "おすすめはありません",
+  "recommendedLoadFailed": "おすすめの読み込みに失敗しました",
+  "recommendedLoadMoreFailed": "追加コンテンツの読み込みに失敗しました",
+  "recommendedEnd": "これ以上はありません",
+  "newLoading": "新着作品を読み込み中",
+  "newEmpty": "コンテンツはありません",
+  "newLoadFailed": "新着作品の読み込みに失敗しました",
+  "newLoadMoreFailed": "追加読み込みに失敗しました",
+  "newRetry": "再試行",
+  "newRefreshFailed": "更新に失敗しました",
+  "profileId": "ユーザー ID",
+  "profileAccount": "アカウント",
+  "profileIntroduction": "紹介",
+  "profileBirthday": "誕生日",
+  "profileGender": "性別",
+  "profileRegion": "地域",
+  "profileJob": "職業",
+  "profileWebsite": "ホームページ",
+  "profileWorkspace": "作業環境",
+  "profileStats": "統計",
+  "profileLoading": "プロフィールを読み込み中",
+  "profileNotFound": "ユーザーが存在しないか削除されています",
+  "profileBlocked": "このユーザーのプロフィールは表示できません",
+  "profileLoadFailed": "プロフィールの読み込みに失敗しました",
+  "profileItemsEmpty": "コンテンツはありません",
+  "profileLoadMoreFailed": "追加読み込みに失敗しました",
+  "profileRetry": "再試行",
+  "profileNovelPending": "小説一覧は Novel Reader モジュールで接続されます",
+  "profileShare": "ユーザーを共有",
+  "profileShareHint": "次のユーザーリンクを共有できます",
+  "profileShareClose": "閉じる",
+  "profileSettings": "設定",
+  "restrictSelector": "公開範囲を選択",
+  "restrictPublic": "公開",
+  "restrictPrivate": "非公開",
+  "follow": "フォロー",
+  "followed": "フォロー中",
+  "followUser": "ユーザーをフォロー",
+  "followFailed": "フォロー操作に失敗しました",
+  "userPreviewFollow": "フォロー",
+  "novelLoading": "小説を読み込み中",
+  "novelNotFound": "小説が存在しないか削除されています",
+  "novelRestricted": "この小説は制限されています",
+  "novelContentUnavailable": "現在の API は小説本文を返しませんでした",
+  "novelLoadFailed": "小説の読み込みに失敗しました",
+  "novelRetry": "再試行",
+  "novelNoContent": "本文はありません",
+  "novelWords": "文字",
+  "novelSeries": "シリーズ",
+  "novelSeriesUnavailable": "シリーズ情報を利用できません",
+  "novelPrevious": "前の小説",
+  "novelNext": "次の小説",
+  "novelDecreaseFont": "文字を小さく",
+  "novelIncreaseFont": "文字を大きく",
+  "novelReadingProgress": "読書進捗"
+}

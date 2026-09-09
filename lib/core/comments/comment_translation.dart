@@ -6,6 +6,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../network/http_client_providers.dart';
+
 import '../settings/app_settings.dart';
 import '../settings/settings_controller.dart';
 import 'translation_credentials.dart';
@@ -45,7 +47,7 @@ class CommentTranslationError implements Exception {
   String toString() => 'CommentTranslationError($reason)';
 }
 
-abstract interface class CommentTranslationService {
+abstract interface class _CommentTranslationService {
   Future<String> translate(String text, {required String targetLanguage});
 }
 
@@ -517,8 +519,8 @@ class LlmCommentTranslationService implements CommentTranslationTransport {
   }
 }
 
-class DisabledCommentTranslationService implements CommentTranslationService {
-  const DisabledCommentTranslationService();
+class _DisabledCommentTranslationService implements _CommentTranslationService {
+  const _DisabledCommentTranslationService();
 
   @override
   Future<String> translate(
@@ -531,14 +533,13 @@ class DisabledCommentTranslationService implements CommentTranslationService {
   }
 }
 
-final commentTranslationServiceProvider = Provider<CommentTranslationService>((
+final commentTranslationServiceProvider = Provider<_CommentTranslationService>((
   ref,
 ) {
-  final client = http.Client();
-  ref.onDispose(client.close);
+  final client = ref.watch(thirdPartyHttpClientProvider);
   final store = ref.watch(translationCredentialStoreProvider);
   return ConfiguredCommentTranslationService(
-    resolveProvider: () => ref.read(translationSelectionProvider),
+    resolveProvider: () => ref.read(_translationSelectionProvider),
     store: store,
     google: GoogleCommentTranslationService(client),
     baidu: BaiduCommentTranslationService(client, DateTime.now, store),
@@ -555,12 +556,13 @@ final translationCredentialStoreProvider = Provider<TranslationCredentialStore>(
 /// Live translation provider selection (non-secret). A cleared credential is
 /// observed on the next tap because selection and credentials are read per
 /// request.
-final translationSelectionProvider = Provider<TranslationProvider>((ref) {
+final _translationSelectionProvider = Provider<TranslationProvider>((ref) {
   return ref.watch(settingsProvider).value?.translationProvider ??
       TranslationProvider.disabled;
 });
 
-class ConfiguredCommentTranslationService implements CommentTranslationService {
+class ConfiguredCommentTranslationService
+    implements _CommentTranslationService {
   ConfiguredCommentTranslationService({
     required this.resolveProvider,
     required this.store,
@@ -580,7 +582,7 @@ class ConfiguredCommentTranslationService implements CommentTranslationService {
     final provider = resolveProvider();
     switch (provider) {
       case TranslationProvider.disabled:
-        return const DisabledCommentTranslationService().translate(
+        return const _DisabledCommentTranslationService().translate(
           text,
           targetLanguage: targetLanguage,
         );

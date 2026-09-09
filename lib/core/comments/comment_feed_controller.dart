@@ -7,8 +7,8 @@ import 'comment_repository.dart';
 import 'comment_store.dart';
 
 /// One cancellable paginated state per work/thread and account.
-class CommentFeedController extends PagedFeedController {
-  CommentFeedController(this.query);
+class _CommentFeedController extends PagedFeedController {
+  _CommentFeedController(this.query);
 
   final CommentFeedQuery query;
 
@@ -71,7 +71,7 @@ class CommentFeedController extends PagedFeedController {
 
 final commentFeedProvider =
     AsyncNotifierProvider.family<
-      CommentFeedController,
+      _CommentFeedController,
       PagedFeedState,
       CommentFeedQuery
-    >(CommentFeedController.new);
+    >(_CommentFeedController.new);

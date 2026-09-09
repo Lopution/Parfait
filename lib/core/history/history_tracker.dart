@@ -13,7 +13,7 @@ abstract interface class HistoryElapsedClock {
   void reset();
 }
 
-class StopwatchHistoryClock implements HistoryElapsedClock {
+class _StopwatchHistoryClock implements HistoryElapsedClock {
   final Stopwatch _stopwatch = Stopwatch();
 
   @override
@@ -57,7 +57,7 @@ class HistoryTracker {
        _pixivHistoryEnabled = pixivHistoryEnabled,
        _remote = remote,
        _isAccountCurrent = isAccountCurrent,
-       _clock = clock ?? StopwatchHistoryClock(),
+       _clock = clock ?? _StopwatchHistoryClock(),
        _now = now ?? DateTime.now;
 
   static const pixivMinimumDuration = HistoryRepository.pixivMinimumDuration;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'shared_preferences.dart';
 
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
@@ -141,7 +142,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
 }
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
-  return PreferencesSettingsRepository();
+  return PreferencesSettingsRepository(
+    preferences: ref.watch(sharedPreferencesProvider),
+  );
 });
 
 final settingsProvider = AsyncNotifierProvider<SettingsController, AppSettings>(
@@ -220,22 +223,6 @@ final localHistoryEnabledProvider = Provider<bool>((ref) {
 final pixivHistoryEnabledProvider = Provider<bool>((ref) {
   return ref.watch(
     settingsProvider.select((async) => async.value?.enablePixivHistory ?? true),
-  );
-});
-
-final localBlockR18Provider = Provider<bool>((ref) {
-  return ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.enableLocalBlockR18 ?? false,
-    ),
-  );
-});
-
-final localBlockAIProvider = Provider<bool>((ref) {
-  return ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.enableLocalBlockAI ?? false,
-    ),
   );
 });
 

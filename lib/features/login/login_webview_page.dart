@@ -4,9 +4,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/auth/oauth_service.dart';
 import '../../core/auth/pkce.dart';
+import '../../l10n/context.dart';
 
 /// OAuth login WebView.
 ///
@@ -47,13 +47,6 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// using the same login page.
   bool _fatal = false;
   Uri? _mainFrameUri;
-
-  String _text(String key, [Map<String, Object?> args = const {}]) =>
-      ReplicaStrings.fromTag(
-        Localizations.localeOf(context).toLanguageTag(),
-        key,
-        args,
-      );
 
   @override
   void initState() {
@@ -115,7 +108,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     // Discarding the PKCE session there makes the login unusable on return.
     // Only a detached engine can no longer complete the flow.
     if (state != AppLifecycleState.detached) return;
-    _abortLogin(_text('loginPageClosed'));
+    _abortLogin(context.l10n.loginPageClosed);
   }
 
   NavigationDecision _onSignupNavigationRequest(NavigationRequest request) {
@@ -149,7 +142,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       case PixivCallbackInvalid(:final reason):
         // The callback was consumed with unusable parameters; the verifier
         // cannot be reused for another attempt.
-        _abortLogin(_text('loginCallbackInvalid', {'reason': reason}));
+        _abortLogin(context.l10n.loginCallbackInvalid(reason.toString()));
         return true;
       case PixivCallbackOther():
         // Every other destination is the login page doing its own work.
@@ -185,7 +178,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     // A main-document 4xx is routinely a form-validation or risk-control
     // response that the user can retry in place.
     _reportRecoverable(
-      _text('loginNetworkError', {'status': error.response?.statusCode}),
+      context.l10n.loginNetworkError('${error.response?.statusCode}'),
     );
   }
 
@@ -194,9 +187,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     // Only a main-frame failure is worth reporting, and it stays retryable.
     if (error.isForMainFrame == false) return;
     _reportRecoverable(
-      _text('loginPageLoadFailed', {
-        'error': error.errorType ?? error.errorCode,
-      }),
+      context.l10n.loginPageLoadFailed('${error.errorType ?? error.errorCode}'),
     );
   }
 
@@ -234,9 +225,9 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       Navigator.of(context).pop(true);
     } on OAuthException catch (error) {
       // The authorization code was already consumed by this exchange.
-      _abortLogin(_text('loginFailed', {'error': error}));
+      _abortLogin(context.l10n.loginFailed(error.toString()));
     } on Object catch (error) {
-      _abortLogin(_text('loginFailedType', {'type': error.runtimeType}));
+      _abortLogin(context.l10n.loginFailedType(error.runtimeType.toString()));
     }
   }
 
@@ -283,6 +274,8 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
         children: [
           WebViewWidget(controller: _controller!),
           if (_exchanging)
+            // This opaque black scrim is a deliberate replica loading
+            // surface, independent of the app theme brightness.
             const ColoredBox(
               color: Colors.black38,
               child: Center(child: CircularProgressIndicator()),
@@ -307,12 +300,12 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
                               ? TextButton(
                                   onPressed: () =>
                                       Navigator.of(context).pop(false),
-                                  child: Text(_text('reopen')),
+                                  child: Text(context.l10n.reopen),
                                 )
                               : TextButton(
                                   onPressed: () =>
                                       setState(() => _error = null),
-                                  child: Text(_text('dismiss')),
+                                  child: Text(context.l10n.dismiss),
                                 ),
                         ],
                       ),

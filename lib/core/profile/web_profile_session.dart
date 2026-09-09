@@ -8,7 +8,7 @@ abstract class WebProfileSession {
 
 class MethodChannelWebProfileSession implements WebProfileSession {
   const MethodChannelWebProfileSession([
-    this._channel = const MethodChannel(WebProfileMethods.channel),
+    this._channel = const MethodChannel(_WebProfileMethods.channel),
   ]);
 
   final MethodChannel _channel;
@@ -16,7 +16,9 @@ class MethodChannelWebProfileSession implements WebProfileSession {
   @override
   Future<String?> readSessionCookie() async {
     try {
-      return await _channel.invokeMethod<String>(WebProfileMethods.readSession);
+      return await _channel.invokeMethod<String>(
+        _WebProfileMethods.readSession,
+      );
     } on MissingPluginException {
       return null;
     } on PlatformException {
@@ -28,7 +30,7 @@ class MethodChannelWebProfileSession implements WebProfileSession {
   Future<bool> clearSession() async {
     try {
       return await _channel.invokeMethod<bool>(
-            WebProfileMethods.clearSession,
+            _WebProfileMethods.clearSession,
           ) ??
           false;
     } on MissingPluginException {
@@ -39,7 +41,7 @@ class MethodChannelWebProfileSession implements WebProfileSession {
   }
 }
 
-abstract final class WebProfileMethods {
+abstract final class _WebProfileMethods {
   static const channel = 'pixivfunc/webprofile';
   static const readSession = 'readSession';
   static const clearSession = 'clearSession';

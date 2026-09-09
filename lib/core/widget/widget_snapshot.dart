@@ -8,8 +8,8 @@ const int widgetSnapshotSchemaVersion = 1;
 /// loader currently stays below these limits, but the parser must also be
 /// safe when an older process or a manually damaged file supplies input.
 const int widgetSnapshotMaxItems = 8;
-const int widgetSnapshotMaxTextLength = 512;
-const int widgetSnapshotMaxAccountKeyLength = 128;
+const int _widgetSnapshotMaxTextLength = 512;
+const int _widgetSnapshotMaxAccountKeyLength = 128;
 
 /// Versioned, secret-free render model handed to the Android home widgets.
 ///
@@ -60,8 +60,8 @@ class WidgetSnapshotItem {
     }
     if (illustId <= 0 ||
         userId <= 0 ||
-        title.length > widgetSnapshotMaxTextLength ||
-        userName.length > widgetSnapshotMaxTextLength ||
+        title.length > _widgetSnapshotMaxTextLength ||
+        userName.length > _widgetSnapshotMaxTextLength ||
         imageFile.isEmpty ||
         imageFile.contains('/') ||
         imageFile.contains('\\') ||
@@ -149,7 +149,7 @@ class WidgetSnapshot {
       throw const WidgetSnapshotFormatError();
     }
     if (accountKey.isEmpty ||
-        accountKey.length > widgetSnapshotMaxAccountKeyLength ||
+        accountKey.length > _widgetSnapshotMaxAccountKeyLength ||
         accountRevision < 0 ||
         items.length > widgetSnapshotMaxItems) {
       throw const WidgetSnapshotFormatError();

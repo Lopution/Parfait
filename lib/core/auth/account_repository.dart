@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/preference_keys.dart';
+
 import 'account.dart';
 
 /// Raised when persisted account metadata cannot be trusted.
@@ -34,12 +36,13 @@ abstract class AccountMetadataRepository {
 ///
 /// Only [Account] metadata (never credentials) passes through here.
 class PreferencesAccountMetadataRepository implements AccountMetadataRepository {
-  PreferencesAccountMetadataRepository({SharedPreferencesAsync? preferences})
-      : _preferences = preferences ?? SharedPreferencesAsync();
+  PreferencesAccountMetadataRepository({
+    required SharedPreferencesAsync preferences,
+  }) : _preferences = preferences;
 
   static const int schemaVersion = 1;
-  static const String _accountsKey = 'replica.accounts.v1';
-  static const String _currentKey = 'replica.accounts.current.v1';
+  static const String _accountsKey = PreferenceKeys.accounts;
+  static const String _currentKey = PreferenceKeys.accountsCurrent;
 
   final SharedPreferencesAsync _preferences;
 

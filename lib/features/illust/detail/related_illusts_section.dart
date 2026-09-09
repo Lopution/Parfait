@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+
+import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/entity/illust_store.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import '../../home/recommended/recommended_illust_page.dart';
+import '../../../app/widgets/feed/illust_card.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/paging/paged_feed_controller.dart';
-import '../../search/search_text.dart';
-import 'related_illust_repository.dart';
+import '../../../core/illust/related_illust_controller.dart';
+import '../../../l10n/context.dart';
 
-export 'related_illust_repository.dart';
+export '../../../core/illust/related_illust_controller.dart';
+export '../../../core/illust/related_illust_repository.dart';
 
 /// "関連作品" section slivers for the detail page, mirroring the official
 /// Pixiv client: a two-column grid of related works (square cover + title +
@@ -40,7 +42,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  searchText(context, 'relatedWorks'),
+                  context.l10n.relatedWorks,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
@@ -50,7 +52,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                     const SizedBox(width: 12),
                     TextButton(
                       onPressed: controller.refresh,
-                      child: Text(searchText(context, 'retry')),
+                      child: Text(context.l10n.retry),
                     ),
                   ],
                 ),
@@ -80,7 +82,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                searchText(context, 'relatedWorks'),
+                context.l10n.relatedWorks,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
@@ -90,7 +92,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                   const SizedBox(width: 12),
                   TextButton(
                     onPressed: controller.refresh,
-                    child: Text(searchText(context, 'retry')),
+                    child: Text(context.l10n.retry),
                   ),
                 ],
               ),
@@ -111,7 +113,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
             child: Text(
-              searchText(context, 'relatedWorks'),
+              context.l10n.relatedWorks,
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
@@ -122,13 +124,12 @@ class RelatedIllustsSlivers extends ConsumerWidget {
             child: SizedBox.shrink(),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          sliver: SliverMasonryGrid.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            itemBuilder: (context, index) => IllustCard(
+        IllustFeedGrid(
+  padding: const EdgeInsets.symmetric(horizontal: 10),
+  mainAxisSpacing: 10,
+  crossAxisSpacing: 10,
+  itemCount: illusts.length,
+  itemBuilder: (context, index) => IllustCard(
               entity: illusts[index],
               // Same heroScope the detail page receives when a tile is
               // pushed: the flight lands on a card shaped exactly like the
@@ -136,9 +137,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
               // fixed-square crop flash.
               heroScope: 'related:$illustId:${illusts[index].id}',
             ),
-            childCount: illusts.length,
-          ),
-        ),
+),
         SliverToBoxAdapter(
           child: _LoadMoreFooter(state: state, onLoadMore: controller.loadMore),
         ),
@@ -149,7 +148,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
   String _errorText(BuildContext context, Object? error) {
     final message = error is ApiError ? error.message : null;
     if (message != null && message.isNotEmpty) return message;
-    if (error == null) return searchText(context, 'relatedLoadFailed');
+    if (error == null) return context.l10n.relatedLoadFailed;
     // Provider-level failures (parse/type errors) carry no ApiError
     // message: surface the runtime type + short description so a device
     // failure is diagnosable instead of a silent fallback.
@@ -185,7 +184,7 @@ class _LoadMoreFooter extends ConsumerWidget {
         child: Center(
           child: TextButton(
             onPressed: () => onLoadMore(),
-            child: Text(searchText(context, 'retry')),
+            child: Text(context.l10n.retry),
           ),
         ),
       );

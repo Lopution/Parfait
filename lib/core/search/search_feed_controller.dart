@@ -9,8 +9,8 @@ import 'search_models.dart';
 import 'search_repository.dart';
 
 /// One independent result state for one typed query and account.
-class SearchFeedController extends PagedFeedController {
-  SearchFeedController(this.query);
+class _SearchFeedController extends PagedFeedController {
+  _SearchFeedController(this.query);
 
   final SearchQuery query;
 
@@ -130,7 +130,7 @@ class SearchFeedController extends PagedFeedController {
 
 final searchFeedProvider =
     AsyncNotifierProvider.family<
-      SearchFeedController,
+      _SearchFeedController,
       PagedFeedState,
       SearchQuery
-    >(SearchFeedController.new);
+    >(_SearchFeedController.new);

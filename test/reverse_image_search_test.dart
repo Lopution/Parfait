@@ -1,12 +1,32 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/reverse_image/image_input.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_controller.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_provider.dart';
+
+
+ReverseImageFlowState _stateOf(
+  ProviderContainer container,
+  ReverseImageSearchSession session,
+) => container.read(reverseImageSearchControllerProvider(session));
+
+ProviderContainer _flowContainer(ReverseImageSearchSession session) {
+  final container = ProviderContainer();
+  addTearDown(container.dispose);
+  // Keep the autoDispose family member alive for the whole test: a bare
+  // container.read would dispose it at the first await gap and reset state.
+  final sub = container.listen(
+    reverseImageSearchControllerProvider(session),
+    (_, _) {},
+  );
+  addTearDown(sub.close);
+  return container;
+}
 
 void main() {
   late Directory tempDirectory;
@@ -203,11 +223,14 @@ void main() {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(1, 1));
     final platform = _FakeReverseImageInputPlatform(file);
-    final controller = ReverseImageSearchController(
+    final sessionController = ReverseImageSearchSession(
       platform: platform,
       provider: UnavailableReverseImageProvider(reason: 'not approved'),
     );
-    addTearDown(controller.dispose);
+    final containerController = _flowContainer(sessionController);
+    final controller = containerController.read(
+      reverseImageSearchControllerProvider(sessionController).notifier,
+    );
 
     await controller.prepare(
       const ReverseImageInputReference(
@@ -219,9 +242,9 @@ void main() {
       ),
     );
 
-    expect(controller.state.status, ReverseImageFlowStatus.failure);
+    expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.failure);
     expect(
-      controller.state.failure?.code,
+      _stateOf(containerController, sessionController).failure?.code,
       ReverseImageInputFailureCode.missingReadPermission,
     );
     expect(platform.copyCount, 0);
@@ -232,7 +255,7 @@ void main() {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
-    final controller = ReverseImageSearchController(
+    final sessionController = ReverseImageSearchSession(
       platform: platform,
       provider: _OutcomeProvider(
         const ReverseImageSearchFailure(
@@ -242,7 +265,10 @@ void main() {
         ),
       ),
     );
-    addTearDown(controller.dispose);
+    final containerController = _flowContainer(sessionController);
+    final controller = containerController.read(
+      reverseImageSearchControllerProvider(sessionController).notifier,
+    );
     const reference = ReverseImageInputReference(
       contentUri: 'content://share/1',
       mimeType: 'image/png',
@@ -253,11 +279,11 @@ void main() {
 
     await controller.prepare(reference);
     await controller.cancel();
-    expect(controller.state.status, ReverseImageFlowStatus.canceled);
+    expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.canceled);
     expect(platform.deletedPaths, [file.path]);
 
     final retryPlatform = _FakeReverseImageInputPlatform(file);
-    final retryController = ReverseImageSearchController(
+    final sessionRetryController = ReverseImageSearchSession(
       platform: retryPlatform,
       provider: _OutcomeProvider(
         const ReverseImageSearchFailure(
@@ -267,16 +293,19 @@ void main() {
         ),
       ),
     );
-    addTearDown(retryController.dispose);
+    final containerRetryController = _flowContainer(sessionRetryController);
+    final retryController = containerRetryController.read(
+      reverseImageSearchControllerProvider(sessionRetryController).notifier,
+    );
     await retryController.prepare(reference);
     await retryController.search();
 
-    expect(retryController.state.status, ReverseImageFlowStatus.failure);
+    expect(_stateOf(containerRetryController, sessionRetryController).status, ReverseImageFlowStatus.failure);
     expect(
-      retryController.state.failure?.code,
+      _stateOf(containerRetryController, sessionRetryController).failure?.code,
       ReverseImageProviderFailureCode.rateLimited,
     );
-    expect(retryController.state.failure?.retryable, isTrue);
+    expect(_stateOf(containerRetryController, sessionRetryController).failure?.retryable, isTrue);
     expect(retryPlatform.deletedPaths, [file.path]);
   });
 
@@ -284,7 +313,7 @@ void main() {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
-    final controller = ReverseImageSearchController(
+    final sessionController = ReverseImageSearchSession(
       platform: platform,
       provider: _OutcomeProvider(
         const ReverseImageSearchFailure(
@@ -295,7 +324,10 @@ void main() {
         ),
       ),
     );
-    addTearDown(controller.dispose);
+    final containerController = _flowContainer(sessionController);
+    final controller = containerController.read(
+      reverseImageSearchControllerProvider(sessionController).notifier,
+    );
     const reference = ReverseImageInputReference(
       contentUri: 'content://share/1',
       mimeType: 'image/png',
@@ -307,12 +339,12 @@ void main() {
     await controller.prepare(reference);
     await controller.search();
 
-    expect(controller.state.status, ReverseImageFlowStatus.failure);
+    expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.failure);
     expect(
-      controller.state.failure?.code,
+      _stateOf(containerController, sessionController).failure?.code,
       ReverseImageProviderFailureCode.rateLimited,
     );
-    expect(controller.state.failure?.retryAfter, const Duration(seconds: 27));
+    expect(_stateOf(containerController, sessionController).failure?.retryAfter, const Duration(seconds: 27));
     expect(platform.deletedPaths, [file.path]);
   });
 
@@ -320,7 +352,7 @@ void main() {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
-    final controller = ReverseImageSearchController(
+    final sessionController = ReverseImageSearchSession(
       platform: platform,
       provider: _OutcomeProvider(
         const ReverseImageSearchWebView(
@@ -329,7 +361,10 @@ void main() {
         ),
       ),
     );
-    addTearDown(controller.dispose);
+    final containerController = _flowContainer(sessionController);
+    final controller = containerController.read(
+      reverseImageSearchControllerProvider(sessionController).notifier,
+    );
     const reference = ReverseImageInputReference(
       contentUri: 'content://share/1',
       mimeType: 'image/png',
@@ -341,8 +376,8 @@ void main() {
     await controller.prepare(reference);
     await controller.search();
 
-    expect(controller.state.status, ReverseImageFlowStatus.success);
-    expect(controller.state.webView, isNotNull);
+    expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.success);
+    expect(_stateOf(containerController, sessionController).webView, isNotNull);
     expect(platform.deletedPaths, [file.path]);
   });
 
@@ -352,11 +387,14 @@ void main() {
       final file = File('${tempDirectory.path}/image.png')
         ..writeAsBytesSync(_pngHeader(12, 8));
       final platform = _FakeReverseImageInputPlatform(file);
-      final controller = ReverseImageSearchController(
+      final sessionController = ReverseImageSearchSession(
         platform: platform,
         provider: UnavailableReverseImageProvider(reason: 'not approved'),
       );
-      addTearDown(controller.dispose);
+      final containerController = _flowContainer(sessionController);
+      final controller = containerController.read(
+        reverseImageSearchControllerProvider(sessionController).notifier,
+      );
       const reference = ReverseImageInputReference(
         contentUri: 'content://share/1',
         mimeType: 'image/png',
@@ -366,11 +404,11 @@ void main() {
       );
 
       await controller.prepare(reference);
-      expect(controller.state.status, ReverseImageFlowStatus.ready);
+      expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.ready);
       await controller.search();
-      expect(controller.state.status, ReverseImageFlowStatus.failure);
+      expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.failure);
       expect(
-        controller.state.failure?.code,
+        _stateOf(containerController, sessionController).failure?.code,
         ReverseImageProviderFailureCode.providerUnavailable,
       );
       expect(platform.deletedPaths, [file.path]);

@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -15,7 +17,6 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/widget/widget_feed_loader.dart';
 import 'package:pixiv_func/core/widget/widget_snapshot.dart';
 import 'package:pixiv_func/core/widget/widget_snapshot_store.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _CredentialStore implements CredentialStore {
@@ -164,7 +165,7 @@ _makeWorld({
 }) async {
   final transports = _Transports();
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
 
   final credentials = _CredentialStore();
   for (final account in accounts) {
@@ -220,9 +221,10 @@ _makeWorld({
 }
 
 void main() {
+  installMemoryPreferences();
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   test('writes a renderable snapshot filtering R-18 covers', () async {

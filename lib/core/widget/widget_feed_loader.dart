@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../network/pixiv_headers.dart';
 import 'package:http/http.dart' as http;
 
 import '../auth/account_store.dart';
@@ -13,14 +13,14 @@ import '../entity/illust_entity.dart';
 import '../network/api_error.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_providers.dart';
-import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../settings/local_block_filter.dart';
 import '../settings/blocked_tags.dart';
 import '../settings/settings_controller.dart';
-import '../../features/home/recommended/recommended_repository.dart';
+import '../../core/illust/recommended_repository.dart';
 import 'widget_snapshot.dart';
 import 'widget_snapshot_store.dart';
+import '../log.dart';
 
 /// Item count per snapshot. Each recommend widget instance renders
 /// item[slotIndex % items.length]; beta56 kept a shared pool and consumed it
@@ -33,12 +33,12 @@ const int widgetFilterMaxRefillPages = 3;
 
 /// Cover byte ceiling applied before the file lands in the snapshot store.
 /// The native renderer additionally bounds decoded pixels per widget size.
-const int widgetCoverMaxBytes = widgetImageMaxBytes;
+const int _widgetCoverMaxBytes = widgetImageMaxBytes;
 
 /// Keep the complete generation bounded before it is published. This is a
 /// download/storage budget, separate from the native decoded bitmap budget.
-const int widgetSnapshotMaxTotalImageBytes =
-    widgetCoverMaxBytes * widgetSnapshotMaxItems;
+const int _widgetSnapshotMaxTotalImageBytes =
+    _widgetCoverMaxBytes * widgetSnapshotMaxItems;
 
 /// Outcome of one widget feed generation pass.
 enum WidgetFeedOutcome {
@@ -116,13 +116,11 @@ class WidgetFeedLoader {
     } on Object catch (error) {
       // An unreadable account store is not proof of logout. Keep the
       // same-account last-good snapshot and let the bounded retry recover.
-      debugPrint(
-        'WidgetFeedLoader account state unavailable: ${error.runtimeType}',
-      );
+      log('WidgetFeedLoader account state unavailable: ${error.runtimeType}');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
     if (state.status != AccountStatus.ready) {
-      debugPrint('WidgetFeedLoader account state is not ready');
+      log('WidgetFeedLoader account state is not ready');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
     final account = state.usableCurrent;
@@ -134,9 +132,7 @@ class WidgetFeedLoader {
     try {
       credential = await _credentialStore.read(account.id);
     } on Object catch (error) {
-      debugPrint(
-        'WidgetFeedLoader credential unavailable: ${error.runtimeType}',
-      );
+      log('WidgetFeedLoader credential unavailable: ${error.runtimeType}');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
     if (credential == null) {
@@ -178,12 +174,12 @@ class WidgetFeedLoader {
         if (bytes == null) {
           // One failed cover aborts this pass; the last-good snapshot stays
           // active for the same account and the caller schedules a retry.
-          debugPrint('WidgetFeedLoader cover failed: ${illust.id}');
+          log('WidgetFeedLoader cover failed: ${illust.id}');
           return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
         }
         totalImageBytes += bytes.length;
-        if (totalImageBytes > widgetSnapshotMaxTotalImageBytes) {
-          debugPrint('WidgetFeedLoader total cover budget exceeded');
+        if (totalImageBytes > _widgetSnapshotMaxTotalImageBytes) {
+          log('WidgetFeedLoader total cover budget exceeded');
           return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
         }
         // A generation-specific name means an in-flight writer never
@@ -250,7 +246,7 @@ class WidgetFeedLoader {
       // Any other failure (storage backend, unexpected platform error) is
       // still surfaced as a classified outcome and a bounded retry — never
       // silently dropped.
-      debugPrint('WidgetFeedLoader unexpected: ${error.runtimeType}: $error');
+      log('WidgetFeedLoader unexpected: ${error.runtimeType}: $error');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
   }
@@ -278,7 +274,7 @@ class WidgetFeedLoader {
       final store = await _storeFactory();
       await store.clear();
     } on Object catch (error) {
-      debugPrint('WidgetFeedLoader.clear unavailable: ${error.runtimeType}');
+      log('WidgetFeedLoader.clear unavailable: ${error.runtimeType}');
     }
   }
 
@@ -293,23 +289,21 @@ class WidgetFeedLoader {
             // i.pximg.net answers image requests without the standard
             // Pixiv origin with 403; this is the same visible identity the
             // download layer already sends, not a policy bypass.
-            headers: <String, String>{
-              'Referer': PixivClientIdentity.downloadReferer.toString(),
-            },
+            headers: PixivHeaders.image(),
           )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
-        debugPrint('WidgetFeedLoader cover http ${response.statusCode}');
+        log('WidgetFeedLoader cover http ${response.statusCode}');
         return null;
       }
       final bytes = response.bodyBytes;
-      if (bytes.isEmpty || bytes.length > widgetCoverMaxBytes) {
-        debugPrint('WidgetFeedLoader cover size rejected: ${bytes.length}');
+      if (bytes.isEmpty || bytes.length > _widgetCoverMaxBytes) {
+        log('WidgetFeedLoader cover size rejected: ${bytes.length}');
         return null;
       }
       return bytes;
     } on Exception catch (error) {
-      debugPrint('WidgetFeedLoader cover error ${error.runtimeType}: $error');
+      log('WidgetFeedLoader cover error ${error.runtimeType}: $error');
       return null;
     }
   }
@@ -333,9 +327,7 @@ class WidgetFeedLoader {
           // Display-state re-key: profile/re-auth advances revision and supersedes the write.
           current.credentialRevision == revision;
     } on Object catch (error) {
-      debugPrint(
-        'WidgetFeedLoader ownership check unavailable: ${error.runtimeType}',
-      );
+      log('WidgetFeedLoader ownership check unavailable: ${error.runtimeType}');
       return false;
     }
   }
@@ -349,9 +341,7 @@ class WidgetFeedLoader {
       return current.status == AccountStatus.ready &&
           current.current?.id == accountId;
     } on Object catch (error) {
-      debugPrint(
-        'WidgetFeedLoader account check unavailable: ${error.runtimeType}',
-      );
+      log('WidgetFeedLoader account check unavailable: ${error.runtimeType}');
       return false;
     }
   }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/comments/comment_assets.dart';
-import 'comment_text.dart';
+import '../../l10n/context.dart';
 
-enum CommentComposerPanel { emoji, stamps }
+enum _CommentComposerPanel { emoji, stamps }
 
 /// Beta56-compatible comment composer: text, a 10-column emoji picker and a
 /// 5-column stamp picker. A reply context is explicit and can be cancelled.
@@ -32,7 +32,7 @@ class CommentComposer extends StatefulWidget {
 class _CommentComposerState extends State<CommentComposer> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  CommentComposerPanel? _panel;
+  _CommentComposerPanel? _panel;
   bool _busy = false;
 
   bool get _disabled => widget.sending || _busy;
@@ -62,14 +62,14 @@ class _CommentComposerState extends State<CommentComposer> {
                   children: [
                     Expanded(
                       child: Text(
-                        '${commentText(context, 'commentReplyTo')}: ${widget.replyTo}',
+                        '${context.l10n.commentReplyTo}: ${widget.replyTo}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
                     IconButton(
-                      tooltip: commentText(context, 'commentCancelReply'),
+                      tooltip: context.l10n.commentCancelReply,
                       onPressed: _disabled ? null : widget.onCancelReply,
                       icon: const Icon(Icons.close, size: 18),
                     ),
@@ -91,7 +91,7 @@ class _CommentComposerState extends State<CommentComposer> {
                       textInputAction: TextInputAction.newline,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        hintText: commentText(context, 'commentInput'),
+                        hintText: context.l10n.commentInput,
                         isDense: true,
                         filled: true,
                         fillColor: theme.colorScheme.surfaceContainerHighest,
@@ -107,32 +107,32 @@ class _CommentComposerState extends State<CommentComposer> {
                     ),
                   ),
                   IconButton(
-                    tooltip: commentText(context, 'commentEmoji'),
+                    tooltip: context.l10n.commentEmoji,
                     onPressed: _disabled
                         ? null
-                        : () => _togglePanel(CommentComposerPanel.emoji),
+                        : () => _togglePanel(_CommentComposerPanel.emoji),
                     icon: Icon(
                       Icons.emoji_emotions_outlined,
-                      color: _panel == CommentComposerPanel.emoji
+                      color: _panel == _CommentComposerPanel.emoji
                           ? theme.colorScheme.primary
                           : null,
                     ),
                   ),
                   if (_controller.text.trim().isEmpty)
                     IconButton(
-                      tooltip: commentText(context, 'commentStamps'),
+                      tooltip: context.l10n.commentStamps,
                       onPressed: _disabled
                           ? null
-                          : () => _togglePanel(CommentComposerPanel.stamps),
+                          : () => _togglePanel(_CommentComposerPanel.stamps),
                       icon: Icon(
                         Icons.image_outlined,
-                        color: _panel == CommentComposerPanel.stamps
+                        color: _panel == _CommentComposerPanel.stamps
                             ? theme.colorScheme.primary
                             : null,
                       ),
                     ),
                   IconButton(
-                    tooltip: commentText(context, 'commentSend'),
+                    tooltip: context.l10n.commentSend,
                     onPressed: _disabled || _controller.text.trim().isEmpty
                         ? null
                         : _sendText,
@@ -149,7 +149,7 @@ class _CommentComposerState extends State<CommentComposer> {
   }
 
   Widget _buildPanel(BuildContext context) {
-    final isEmoji = _panel == CommentComposerPanel.emoji;
+    final isEmoji = _panel == _CommentComposerPanel.emoji;
     return SizedBox(
       height: isEmoji ? 210 : 250,
       child: GridView.builder(
@@ -182,7 +182,7 @@ class _CommentComposerState extends State<CommentComposer> {
     );
   }
 
-  void _togglePanel(CommentComposerPanel panel) {
+  void _togglePanel(_CommentComposerPanel panel) {
     _focusNode.unfocus();
     setState(() => _panel = _panel == panel ? null : panel);
   }

@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../app/replica_page_route.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/reverse_image/reverse_image_controller.dart';
@@ -13,11 +13,12 @@ import '../../core/reverse_image/reverse_image_platform.dart';
 import '../../core/reverse_image/reverse_image_provider.dart';
 import '../../core/reverse_image/sauce_nao_navigation_policy.dart';
 import '../../core/reverse_image/sauce_nao_provider.dart';
-import '../illust/detail/illust_detail_page.dart';
-import '../profile/user_page.dart' show showUserPage;
-import 'search_text.dart';
+import '../../app/navigation/routes.dart';
+import '../../app/widgets/app_snack_bar.dart';
+import 'package:pixiv_func/core/network/http_client_providers.dart';
+import '../../l10n/context.dart';
 
-class ReverseImageSearchPage extends StatefulWidget {
+class ReverseImageSearchPage extends ConsumerStatefulWidget {
   const ReverseImageSearchPage({
     super.key,
     this.initialReference,
@@ -32,40 +33,54 @@ class ReverseImageSearchPage extends StatefulWidget {
   final ReverseImageExternalLauncher? externalLauncher;
 
   @override
-  State<ReverseImageSearchPage> createState() => _ReverseImageSearchPageState();
+  ConsumerState<ReverseImageSearchPage> createState() => _ReverseImageSearchPageState();
 }
 
-class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
-  late final ReverseImageSearchController _controller;
+class _ReverseImageSearchPageState
+    extends ConsumerState<ReverseImageSearchPage> {
+  late final ReverseImageSearchSession _session;
   late final ReverseImageExternalLauncher _externalLauncher;
+  ProviderSubscription<ReverseImageFlowState>? _flowSubscription;
 
   @override
   void initState() {
     super.initState();
-    _controller = ReverseImageSearchController(
+    _session = ReverseImageSearchSession(
       platform: widget.platform ?? MethodChannelReverseImageInputPlatform(),
-      provider: widget.provider ?? SauceNaoWebViewProvider(),
-    )..addListener(_onControllerChanged);
+      provider: widget.provider ??
+          SauceNaoWebViewProvider(
+            client: ref.read(thirdPartyHttpClientProvider),
+          ),
+    );
     _externalLauncher =
         widget.externalLauncher ?? MethodChannelReverseImageExternalLauncher();
+    _flowSubscription = ref.listenManual(
+      reverseImageSearchControllerProvider(_session),
+      (_, _) {
+        if (mounted) setState(() {});
+      },
+    );
     final reference = widget.initialReference;
     if (reference != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_controller.prepare(reference));
+        if (mounted) {
+          unawaited(
+            ref
+                .read(reverseImageSearchControllerProvider(_session).notifier)
+                .prepare(reference),
+          );
+        }
       });
     }
   }
 
+  ReverseImageSearchController get _controller =>
+      ref.read(reverseImageSearchControllerProvider(_session).notifier);
+
   @override
   void dispose() {
-    _controller
-      ..removeListener(_onControllerChanged)
-      ..dispose();
+    _flowSubscription?.close();
     super.dispose();
-  }
-
-  void _onControllerChanged() {
-    if (mounted) setState(() {});
   }
 
   Future<void> _cancelAndPop() async {
@@ -77,12 +92,12 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = _controller.state;
+    final state = ref.watch(reverseImageSearchControllerProvider(_session));
     return Scaffold(
       appBar: AppBar(
-        title: Text(searchText(context, 'searchReverseImage')),
+        title: Text(context.l10n.searchReverseImage),
         leading: IconButton(
-          tooltip: searchText(context, 'searchReverseCancel'),
+          tooltip: context.l10n.searchReverseCancel,
           onPressed: _cancelAndPop,
           icon: const Icon(Icons.arrow_back),
         ),
@@ -97,15 +112,15 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
       ReverseImageFlowStatus.canceled => _idle(context),
       ReverseImageFlowStatus.picking => _progress(
         context,
-        searchText(context, 'searchReversePreparing'),
+        context.l10n.searchReversePreparing,
       ),
       ReverseImageFlowStatus.preparing => _progress(
         context,
-        searchText(context, 'searchReversePreparing'),
+        context.l10n.searchReversePreparing,
       ),
       ReverseImageFlowStatus.searching => _progress(
         context,
-        searchText(context, 'searchReverseSearching'),
+        context.l10n.searchReverseSearching,
       ),
       ReverseImageFlowStatus.ready => _ready(context, state),
       ReverseImageFlowStatus.failure => _failure(context, state),
@@ -136,7 +151,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
           const Icon(Icons.image_search_outlined, size: 72),
           const SizedBox(height: 18),
           Text(
-            searchText(context, 'searchReverseIntro'),
+            context.l10n.searchReverseIntro,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -145,7 +160,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
           FilledButton.icon(
             onPressed: _controller.pick,
             icon: const Icon(Icons.photo_library_outlined),
-            label: Text(searchText(context, 'searchReversePick')),
+            label: Text(context.l10n.searchReversePick),
           ),
         ],
       ),
@@ -166,11 +181,11 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    searchText(context, 'searchReversePrivacy'),
+                    context.l10n.searchReversePrivacy,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
-                  Text(searchText(context, 'searchReversePrivacyDetail')),
+                  Text(context.l10n.searchReversePrivacyDetail),
                 ],
               ),
             ),
@@ -193,7 +208,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
             const SizedBox(height: 18),
             OutlinedButton(
               onPressed: _cancelAndPop,
-              child: Text(searchText(context, 'searchReverseCancel')),
+              child: Text(context.l10n.searchReverseCancel),
             ),
           ],
         ),
@@ -211,7 +226,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
           _privacyCard(context),
           const SizedBox(height: 16),
           Text(
-            searchText(context, 'searchReverseReady'),
+            context.l10n.searchReverseReady,
             style: Theme.of(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),
@@ -240,7 +255,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
           FilledButton.icon(
             onPressed: _search,
             icon: const Icon(Icons.search),
-            label: Text(searchText(context, 'searchReverseUse')),
+            label: Text(context.l10n.searchReverseUse),
           ),
         ],
       ),
@@ -251,18 +266,16 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
     final failure = state.failure!;
     final seconds = failure.retryAfter?.inSeconds;
     final message = failure.code == ReverseImageProviderFailureCode.challenge
-        ? searchText(context, 'searchReverseChallenge')
+        ? context.l10n.searchReverseChallenge
         : failure.code == ReverseImageProviderFailureCode.providerUnavailable
-        ? searchText(context, 'searchReverseUnavailableDetail')
+        ? context.l10n.searchReverseUnavailableDetail
         : failure.code == ReverseImageProviderFailureCode.dailyLimit
-        ? searchText(context, 'searchReverseDailyLimit')
+        ? context.l10n.searchReverseDailyLimit
         : failure.code == ReverseImageProviderFailureCode.rateLimited &&
               seconds != null
-        ? searchText(context, 'searchReverseRateLimitedWait', {
-            'seconds': seconds,
-          })
+        ? context.l10n.searchReverseRateLimitedWait(seconds)
         : failure.code == ReverseImageProviderFailureCode.rateLimited
-        ? searchText(context, 'searchReverseRateLimited')
+        ? context.l10n.searchReverseRateLimited
         : failure.message;
     return Center(
       child: Padding(
@@ -282,7 +295,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
             FilledButton.icon(
               onPressed: _controller.pick,
               icon: const Icon(Icons.photo_library_outlined),
-              label: Text(searchText(context, 'searchReverseRetry')),
+              label: Text(context.l10n.searchReverseRetry),
             ),
           ],
         ),
@@ -292,7 +305,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
 
   Widget _results(BuildContext context, ReverseImageFlowState state) {
     if (state.results.isEmpty) {
-      return Center(child: Text(searchText(context, 'searchReverseNoResults')));
+      return Center(child: Text(context.l10n.searchReverseNoResults));
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
@@ -317,16 +330,12 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
                 : OutlinedButton(
                     onPressed: () => _openExternal(hit.externalUrl!),
                     child: Text(
-                      searchText(context, 'searchReverseOpenExternal'),
+                      context.l10n.searchReverseOpenExternal,
                     ),
                   ),
             onTap: hit.pixivId == null
                 ? () => _openExternal(hit.externalUrl!)
-                : () => Navigator.of(context).push<void>(
-                    ReplicaPageRoute<void>(
-                      builder: (_) => IllustDetailPage(illustId: hit.pixivId!),
-                    ),
-                  ),
+                : () => openIllust(context, hit.pixivId!),
           ),
         );
       },
@@ -338,9 +347,7 @@ class _ReverseImageSearchPageState extends State<ReverseImageSearchPage> {
       await _externalLauncher.open(uri);
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(searchText(context, 'searchReverseOpenFailed'))),
-      );
+      showAppSnackBar(context, context.l10n.searchReverseOpenFailed);
     }
   }
 }
@@ -391,7 +398,7 @@ class _ControlledSauceNaoWebViewState
             if (error.isForMainFrame == true && mounted) {
               setState(() {
                 _error =
-                    '${searchText(context, 'searchReversePageLoadFailed')} '
+                    '${context.l10n.searchReversePageLoadFailed} '
                     '(${error.errorType})';
               });
             }
@@ -417,11 +424,7 @@ class _ControlledSauceNaoWebViewState
       case SauceNaoNavigationAction.openIllust:
         final id = _illustId(request.url);
         if (id != null) {
-          Navigator.of(context).push<void>(
-            ReplicaPageRoute<void>(
-              builder: (_) => IllustDetailPage(illustId: id),
-            ),
-          );
+          openIllust(context, id);
         } else {
           unawaited(widget.onOpenExternal(Uri.parse(request.url)));
         }
@@ -429,7 +432,7 @@ class _ControlledSauceNaoWebViewState
       case SauceNaoNavigationAction.openUser:
         final id = _userId(request.url);
         if (id != null) {
-          showUserPage(context, id);
+          openUser(context, id);
         } else {
           unawaited(widget.onOpenExternal(Uri.parse(request.url)));
         }
@@ -486,14 +489,3 @@ class _ControlledSauceNaoWebViewState
   }
 }
 
-void showReverseImageSearch(
-  BuildContext context, {
-  ReverseImageInputReference? initialReference,
-}) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(
-      builder: (_) =>
-          ReverseImageSearchPage(initialReference: initialReference),
-    ),
-  );
-}

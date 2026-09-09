@@ -1,9 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -19,16 +20,17 @@ import 'package:pixiv_func/core/download/download_providers.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
-import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'download_manager_test.dart';
 import 'helpers/illust_fixtures.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/core/i18n/replica_language.dart';
 
 /// Widget test host: real DownloadManager over a scripted transport +
 /// memory sinks, detail API over a MockClient — no platform channels.
@@ -38,7 +40,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Map<int, List<Map<String, dynamic>>>? relatedOverrides,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   final transport = FakeTransport();
   for (var i = 0; i < scriptedResponses; i++) {
     transport.responses.add(
@@ -167,14 +169,14 @@ Future<void> pumpDetail(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: const [
             Locale('zh', 'CN'),
             Locale('en', 'US'),
             Locale('ja', 'JP'),
             Locale('ru', 'RU'),
           ],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          locale: locale,
           home: IllustDetailPage(illustId: illustId),
         ),
       ),
@@ -193,16 +195,20 @@ Future<void> longPressImage(WidgetTester tester) async {
 }
 
 void main() {
+  installMemoryPreferences();
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   group('ImageViewerPage (R3)', () {
     testWidgets('shows n / total and honors the initial page', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
+          MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: ImageViewerPage(
               urls: [
                 'https://i.pximg.net/1/original.jpg',
@@ -224,7 +230,10 @@ void main() {
     testWidgets('zoom clamps to 0.9–6.0 via InteractiveViewer', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
+          MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
           ),
         );
@@ -244,16 +253,16 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: ImageViewerPage(urls: []),
         ),
       );
       await tester.pump();
       expect(
-        find.text(ReplicaStrings.text(ReplicaLanguage.zhCN, 'viewerNoImages')),
+        find.text('没有可显示的图片'),
         findsOneWidget,
       );
       expect(find.text('1 / 0'), findsOneWidget);
@@ -264,7 +273,10 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
+            MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
               home: ImageViewerPage(
                 urls: ['https://i.pximg.net/1/original.jpg'],
               ),
@@ -338,7 +350,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.tap(
           find.byTooltip(
-            ReplicaStrings.text(ReplicaLanguage.enUS, 'downloadAll'),
+            'Download All',
           ),
         );
         await tester.pump();
@@ -453,9 +465,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       expect(
         find.text(
-          ReplicaStrings.text(ReplicaLanguage.zhCN, 'illustDetailRestricted', {
-            'id': 42,
-          }),
+          '该作品已被删除或受限（ID: 42）',
         ),
         findsOneWidget,
       );
@@ -516,7 +526,10 @@ void main() {
           await tester.pumpWidget(
             UncontrolledProviderScope(
               container: container,
-              child: MaterialApp(
+              child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
                 home: IllustDetailPage(
                   illustId: 42,
                   initialEntity: entity,
@@ -698,10 +711,10 @@ void main() {
         // The size row is the one always-present interpolated string.
         expect(
           find.text(
-            ReplicaStrings.text(language, 'illustDetailSize', {
-              'width': 800,
-              'height': 600,
-            }),
+            switch (language) {
+              ReplicaLanguage.jaJP => 'サイズ：800x600',
+              _ => 'Size: 800x600',
+            },
           ),
           findsOneWidget,
           reason: 'size row must render in ${language.tag}',
@@ -710,10 +723,7 @@ void main() {
         for (final key in keys) {
           expect(
             find.textContaining(
-              ReplicaStrings.text(ReplicaLanguage.zhCN, key, {
-                'width': 800,
-                'height': 600,
-              }),
+              '尺寸：800x600',
             ),
             findsNothing,
             reason: '$key must not fall back to zh under ${language.tag}',

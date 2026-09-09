@@ -1,9 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -11,7 +12,6 @@ import 'package:pixiv_func/core/auth/account_transfer.dart';
 import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
-import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
@@ -24,8 +24,10 @@ import 'package:pixiv_func/features/settings/network_settings_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/l10n/lookup.dart';
+import 'package:pixiv_func/l10n/app_localizations_zh.dart';
 
 class _FakeRepository implements SettingsRepository {
   _FakeRepository(this.value, {this.failLoad = false});
@@ -199,7 +201,7 @@ AppSettings _baseSettings() => const AppSettings(
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   test('defaults use safe modern values and beta56 setting names', () {
@@ -466,14 +468,11 @@ void main() {
       'accountTransferClipboardUnavailable',
       'accountTransferStorageFailure',
     ];
-    for (final language in ReplicaLanguage.values) {
-      for (final key in keys) {
-        expect(
-          ReplicaStrings.text(language, key),
-          isNotEmpty,
-          reason: '$language/$key',
-        );
-      }
+    // Four-language presence is compile-time enforced by gen-l10n; this
+    // smoke check keeps the transfer-error key list honest against zh.
+    final zh = AppLocalizationsZh();
+    for (final key in keys) {
+      expect(l10nLookup(zh, key), isNotEmpty, reason: key);
     }
   });
 
@@ -482,10 +481,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: ThemeSettingsPage(),
         ),
       ),
@@ -508,10 +507,10 @@ void main() {
           ),
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
         ],
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: AccountSettingsPage(),
         ),
       ),
@@ -534,10 +533,10 @@ void main() {
           ),
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
         ],
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: SettingsPage(),
         ),
       ),
@@ -572,10 +571,10 @@ void main() {
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
           userRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
         ],
-        child: MaterialApp(
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
           navigatorObservers: [observer],
           home: const SettingsPage(),
         ),
@@ -616,10 +615,10 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: SettingsPage(),
         ),
       ),
@@ -662,10 +661,10 @@ void main() {
               _TransferClipboard()..sensitiveMarkSupported = false,
             ),
           ],
-          child: const MaterialApp(
-            locale: Locale('zh', 'CN'),
-            supportedLocales: [Locale('zh', 'CN')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
             home: SettingsPage(),
           ),
         ),
@@ -707,10 +706,10 @@ void main() {
           ),
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
         ],
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: NetworkSettingsPage(),
         ),
       ),

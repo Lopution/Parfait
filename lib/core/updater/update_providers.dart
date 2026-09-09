@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../settings/preference_keys.dart';
+import '../settings/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -12,6 +14,7 @@ import '../download/download_request.dart';
 import '../download/pixiv_download_transport.dart';
 import 'update_download.dart';
 import 'update_service.dart';
+import '../network/http_client_providers.dart';
 
 const _updaterSubmissionContext = DownloadSubmissionContext(
   accountId: 'pixivfunc-updater',
@@ -36,8 +39,11 @@ final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
   }
   final supportDirectory = await getApplicationSupportDirectory();
   final updateDirectory = Directory(p.join(supportDirectory.path, 'updates'));
-  final manifestTransport = HttpUpdateManifestTransport();
+  final manifestTransport = HttpUpdateManifestTransport(
+    client: ref.watch(resolverHttpClientProvider),
+  );
   final apkTransport = HttpDownloadTransport(
+    httpClient: ref.watch(thirdPartyHttpClientProvider),
     allowedHosts: kUpdateDownloadHosts,
     strictUrlPolicy: true,
   );
@@ -46,7 +52,8 @@ final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
     sinkFactory: UpdateFileSinkFactory(updateDirectory),
     maxConcurrent: 1,
     recoveryStore: PreferencesDownloadRecoveryStore(
-      storageKey: 'pixivfunc.update.manager.recovery.v1',
+      preferences: ref.watch(sharedPreferencesProvider),
+      storageKey: PreferenceKeys.updateManagerRecovery,
     ),
     submissionContext: () => _updaterSubmissionContext,
     enforceDefaultDestination: false,
@@ -64,7 +71,9 @@ final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
     manager: manager,
     platform: platform,
     directory: updateDirectory,
-    stateStore: PreferencesUpdateDownloadStateStore(),
+    stateStore: PreferencesUpdateDownloadStateStore(
+      preferences: ref.watch(sharedPreferencesProvider),
+    ),
   );
   return UpdateService(
     manifestTransport: manifestTransport,

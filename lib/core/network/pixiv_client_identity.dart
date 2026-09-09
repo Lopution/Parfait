@@ -17,6 +17,12 @@ abstract final class PixivClientIdentity {
   /// OAuth token endpoint host.
   static const String oauthHost = 'oauth.secure.pixiv.net';
 
+  /// Web site host (profile editor, page scrapes).
+  static const String webHost = 'www.pixiv.net';
+
+  /// Account portal host (login flow redirects).
+  static const String accountsHost = 'accounts.pixiv.net';
+
   /// OAuth token endpoint.
   static final Uri oauthTokenEndpoint = Uri(
     scheme: 'https',

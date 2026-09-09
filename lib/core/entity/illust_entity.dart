@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../settings/app_settings.dart';
+import 'json_read.dart';
 
 /// Non-secret value objects describing one Pixiv illust.
 ///
@@ -303,7 +304,7 @@ class IllustEntity {
       account: userJson['account'] is String
           ? userJson['account'] as String
           : '',
-      profileImageUrl: _optionalString(
+      profileImageUrl: readOptionalString(
         (userJson['profile_image_urls'] as Map<String, dynamic>?)?['medium'],
       ),
     );
@@ -322,7 +323,7 @@ class IllustEntity {
           if (tag is Map<String, dynamic> && tag['name'] is String)
             IllustTag(
               name: tag['name'] as String,
-              translatedName: _optionalString(tag['translated_name']),
+              translatedName: readOptionalString(tag['translated_name']),
             ),
     ];
     final typeValue = switch (json['type']) {
@@ -338,9 +339,9 @@ class IllustEntity {
         squareMedium: requiredUrl('square_medium'),
         medium: requiredUrl('medium'),
         large: requiredUrl('large'),
-        original: _optionalString(imageUrlsJson['original']),
+        original: readOptionalString(imageUrlsJson['original']),
       ),
-      caption: _optionalString(json['caption']) ?? '',
+      caption: readOptionalString(json['caption']) ?? '',
       user: user,
       tags: tags,
       pageCount: json['page_count'] is int ? json['page_count'] as int : 1,
@@ -364,12 +365,12 @@ class IllustEntity {
                 height: page['height'] is int ? page['height'] as int : null,
               ),
       ],
-      metaSinglePageOriginalUrl: _optionalString(
+      metaSinglePageOriginalUrl: readOptionalString(
         (json['meta_single_page']
             as Map<String, dynamic>?)?['original_image_url'],
       ),
       visible: json['visible'] is! bool || (json['visible'] as bool),
-      createDate: _optionalString(json['create_date']),
+      createDate: readOptionalString(json['create_date']),
     );
   }
 
@@ -415,14 +416,11 @@ class IllustEntity {
       squareMedium: requiredUrl('square_medium'),
       medium: requiredUrl('medium'),
       large: requiredUrl('large'),
-      original: _optionalString(json['original']),
+      original: readOptionalString(json['original']),
       width: width,
       height: height,
     );
   }
-
-  static String? _optionalString(Object? value) =>
-      value is String && value.isNotEmpty ? value : null;
 
   @override
   String toString() =>

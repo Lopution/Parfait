@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
-import '../../app/replica_page_route.dart';
+import '../../app/theme/func_tokens.dart';
+import '../../app/widgets/feed/feed_states.dart';
+import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_repository.dart';
 import '../../core/search/search_trending_controller.dart';
-import '../../core/network/api_error.dart';
-import '../illust/detail/illust_detail_page.dart';
 import 'search_filter_sheet.dart';
-import 'search_router.dart';
 import 'search_text.dart';
-import 'reverse_image_search_page.dart';
+import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 class SearchHomePage extends ConsumerWidget {
@@ -22,13 +22,13 @@ class SearchHomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(searchText(context, 'searchTitle'))),
+      appBar: AppBar(title: Text(context.l10n.searchTitle)),
       body: CustomScrollView(
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
             sliver: SliverToBoxAdapter(
-              child: _SearchGuideBox(onTap: () => showSearchInput(context)),
+              child: _SearchGuideBox(onTap: () => openSearchInput(context)),
             ),
           ),
           SliverPadding(
@@ -40,9 +40,9 @@ class SearchHomePage extends ConsumerWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
-                  onPressed: () => showReverseImageSearch(context),
+                  onPressed: () => openReverseImageSearch(context),
                   icon: const Icon(Icons.image_search_outlined),
-                  label: Text(searchText(context, 'searchReverseImage')),
+                  label: Text(context.l10n.searchReverseImage),
                 ),
               ),
             ),
@@ -51,7 +51,7 @@ class SearchHomePage extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
             sliver: SliverToBoxAdapter(
               child: Text(
-                searchText(context, 'searchTrending'),
+                context.l10n.searchTrending,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
@@ -66,10 +66,12 @@ class SearchHomePage extends ConsumerWidget {
               ),
             ),
             error: (error, _) => SliverToBoxAdapter(
-              child: _SearchInlineError(
-                title: searchText(context, 'searchTrendingFailed'),
+              child: FeedError(
+                title: context.l10n.searchTrendingFailed,
                 error: error,
+                retryLabel: context.l10n.searchRetry,
                 onRetry: () => ref.invalidate(trendingTagsProvider),
+                scrollable: false,
               ),
             ),
             data: (tags) {
@@ -77,9 +79,7 @@ class SearchHomePage extends ConsumerWidget {
                 return SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(28),
-                    child: Center(
-                      child: Text(searchText(context, 'searchNoTrending')),
-                    ),
+                    child: Center(child: Text(context.l10n.searchNoTrending)),
                   ),
                 );
               }
@@ -134,7 +134,7 @@ class _SearchGuideBox extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  searchText(context, 'searchHint'),
+                  context.l10n.searchHint,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -157,19 +157,10 @@ class _TrendingTagTile extends StatelessWidget {
   void _openRepresentative(BuildContext context) {
     final representative = tag.representative;
     if (representative == null) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(searchText(context, 'searchNoRepresentative'))),
-      );
+      showAppSnackBar(context, context.l10n.searchNoRepresentative);
       return;
     }
-    Navigator.of(context).push<void>(
-      ReplicaPageRoute<void>(
-        builder: (_) => IllustDetailPage(
-          illustId: representative.id,
-          initialEntity: representative,
-        ),
-      ),
-    );
+    openIllust(context, representative.id, initialEntity: representative);
   }
 
   @override
@@ -180,7 +171,7 @@ class _TrendingTagTile extends StatelessWidget {
       // Tapping still means "search this tag" — the image is context, not a
       // new primary action. Opening the representative work stays secondary.
       onTap: () =>
-          showSearchResults(context, IllustSearchQuery(keyword: tag.name)),
+          openSearchResults(context, IllustSearchQuery(keyword: tag.name)),
       onLongPress: () => _openRepresentative(context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
@@ -190,8 +181,9 @@ class _TrendingTagTile extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (representative != null)
-                PixivImage(
-                  url: representative.imageUrls.squareMedium,
+                PixivImage.feed(
+                  representative.imageUrls.squareMedium,
+                  layoutWidth: MediaQuery.sizeOf(context).width / 2,
                   fit: BoxFit.cover,
                 ),
               if (representative != null)
@@ -226,7 +218,7 @@ class _TrendingTagTile extends StatelessWidget {
                     style: TextStyle(
                       color: representative == null
                           ? scheme.onSurface
-                          : Colors.white,
+                          : FuncTokens.lightBackground,
                       fontWeight: FontWeight.w600,
                       shadows: representative == null
                           ? null
@@ -302,13 +294,11 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   void _submit() {
     final keyword = _textController.text.trim();
     if (keyword.isEmpty) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(searchText(context, 'searchInputEmpty'))),
-      );
+      showAppSnackBar(context, context.l10n.searchInputEmpty);
       return;
     }
     ref.read(searchAutocompleteProvider.notifier).cancel();
-    showSearchResults(context, _query(keyword));
+    openSearchResults(context, _query(keyword));
   }
 
   SearchQuery _query(String keyword) => switch (_types[_selectedIndex]) {
@@ -335,7 +325,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: searchText(context, 'searchCancel'),
+          tooltip: context.l10n.searchCancel,
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.arrow_back),
         ),
@@ -351,12 +341,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           },
           onSubmitted: (_) => _submit(),
           decoration: InputDecoration(
-            hintText: searchText(context, 'searchHint'),
+            hintText: context.l10n.searchHint,
             border: InputBorder.none,
             suffixIcon: _textController.text.isEmpty
                 ? null
                 : IconButton(
-                    tooltip: searchText(context, 'searchClear'),
+                    tooltip: context.l10n.searchClear,
                     onPressed: () {
                       _textController.clear();
                       ref.read(searchAutocompleteProvider.notifier).update('');
@@ -368,7 +358,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
         ),
         actions: [
           IconButton(
-            tooltip: searchText(context, 'searchSubmit'),
+            tooltip: context.l10n.searchSubmit,
             onPressed: _submit,
             icon: const Icon(Icons.search),
           ),
@@ -391,12 +381,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
                 child: OutlinedButton.icon(
                   onPressed: _editFilters,
                   icon: const Icon(Icons.tune, size: 18),
-                  label: Text(searchText(context, 'searchFilters')),
+                  label: Text(context.l10n.searchFilters),
                 ),
               ),
             ),
           Expanded(
-            child: SearchAutocompletePanel(
+            child: _SearchAutocompletePanel(
               onSelected: (suggestion) {
                 _textController
                   ..text = suggestion.keyword
@@ -413,8 +403,8 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   }
 }
 
-class SearchAutocompletePanel extends ConsumerWidget {
-  const SearchAutocompletePanel({super.key, required this.onSelected});
+class _SearchAutocompletePanel extends ConsumerWidget {
+  const _SearchAutocompletePanel({required this.onSelected});
 
   final ValueChanged<SearchSuggestion> onSelected;
 
@@ -424,7 +414,7 @@ class SearchAutocompletePanel extends ConsumerWidget {
     if (state.keyword.isEmpty) {
       return Center(
         child: Text(
-          searchText(context, 'searchHint'),
+          context.l10n.searchHint,
           style: Theme.of(context).textTheme.bodyLarge,
         ),
       );
@@ -433,15 +423,17 @@ class SearchAutocompletePanel extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.error != null) {
-      return _SearchInlineError(
-        title: searchText(context, 'searchLoadFailed'),
+      return FeedError(
+        title: context.l10n.searchLoadFailed,
         error: state.error!,
+        retryLabel: context.l10n.searchRetry,
         onRetry: () =>
             ref.read(searchAutocompleteProvider.notifier).update(state.keyword),
+        scrollable: false,
       );
     }
     if (state.suggestions.isEmpty) {
-      return Center(child: Text(searchText(context, 'searchNoSuggestions')));
+      return Center(child: Text(context.l10n.searchNoSuggestions));
     }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -458,47 +450,6 @@ class SearchAutocompletePanel extends ConsumerWidget {
           onTap: () => onSelected(suggestion),
         );
       },
-    );
-  }
-}
-
-class _SearchInlineError extends StatelessWidget {
-  const _SearchInlineError({
-    required this.title,
-    required this.error,
-    required this.onRetry,
-  });
-
-  final String title;
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 42),
-            const SizedBox(height: 10),
-            Text(title),
-            const SizedBox(height: 6),
-            Text(
-              error is ApiError ? error.toString() : '$error',
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(searchText(context, 'searchRetry')),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

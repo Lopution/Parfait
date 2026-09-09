@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -13,7 +15,6 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/widget/widget_channel.dart';
 import 'package:pixiv_func/core/widget/widget_coordinator.dart';
 import 'package:pixiv_func/core/widget/widget_feed_loader.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _CredentialStore implements CredentialStore {
@@ -107,7 +108,7 @@ _makeWorld({
   String? currentId = '100',
 }) async {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   final credentials = _CredentialStore();
   for (final account in accounts) {
     credentials.seed(
@@ -158,7 +159,7 @@ void main() {
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
     channelCalls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_widgetChannel, (call) async {

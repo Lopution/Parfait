@@ -67,11 +67,11 @@ class DownloadRequest {
     );
   }
 
-  String get mimeType => mimeTypeForExtension(extension);
+  String get mimeType => _mimeTypeForExtension(extension);
 }
 
 /// Extensions a download may write; anything else is rejected before queueing.
-const Set<String> kDownloadExtensions = {
+const Set<String> _kDownloadExtensions = {
   'jpg',
   'jpeg',
   'png',
@@ -81,7 +81,7 @@ const Set<String> kDownloadExtensions = {
   'apk',
 };
 
-String mimeTypeForExtension(String extension) {
+String _mimeTypeForExtension(String extension) {
   switch (extension) {
     case 'jpg':
     case 'jpeg':
@@ -102,7 +102,7 @@ String mimeTypeForExtension(String extension) {
 }
 
 String _safeExtension(String raw) {
-  if (!kDownloadExtensions.contains(raw)) {
+  if (!_kDownloadExtensions.contains(raw)) {
     throw FormatException('unsupported download extension: $raw');
   }
   return raw == 'jpeg' ? 'jpg' : raw;
@@ -196,7 +196,7 @@ bool isStrictUpdateRedirectUrl(Uri url) {
     return isStrictUpdateManifestAssetUrl(url);
   }
   return _isStrictUpdateHost(url) &&
-      kUpdateCdnHosts.contains(url.host.toLowerCase());
+      _kUpdateCdnHosts.contains(url.host.toLowerCase());
 }
 
 bool _isStrictUpdateHost(Uri url) {
@@ -210,7 +210,7 @@ bool _isStrictUpdateHost(Uri url) {
       !url.host.codeUnits.any((value) => value > 0x7f);
 }
 
-const Set<String> kUpdateCdnHosts = <String>{
+const Set<String> _kUpdateCdnHosts = <String>{
   'objects.githubusercontent.com',
   'github-releases.githubusercontent.com',
   'release-assets.githubusercontent.com',

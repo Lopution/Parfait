@@ -6,22 +6,24 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
-import '../../core/i18n/replica_strings.dart';
 import '../../core/network/compat/network_contracts.dart';
 import '../../core/network/compat/network_policy.dart';
 import '../../core/network/compat/network_probe.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/network/compat/secure_resolver.dart';
+import '../../app/theme/func_tokens.dart';
+import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../app/widgets/app_snack_bar.dart';
+import '../../core/log.dart';
+import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Same string as the About page (pubspec `version: 0.1.0+1`).
 const _kAppVersion = '0.1.0+1';
 
 String _probeText(BuildContext context, String key) {
-  return ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  return l10nLookup(context.l10n, key);
 }
 
 String _probeStepLine(BuildContext context, NetworkProbeStep step) {
@@ -58,11 +60,17 @@ class NetworkProbePage extends ConsumerStatefulWidget {
 }
 
 class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
-  final List<({String host, PixivDestinationPurpose purpose})> _targets = [
-    (host: 'app-api.pixiv.net', purpose: PixivDestinationPurpose.appApi),
-    (host: 'oauth.secure.pixiv.net', purpose: PixivDestinationPurpose.oauth),
-    (host: 'i.pximg.net', purpose: PixivDestinationPurpose.image),
-    (host: 's.pximg.net', purpose: PixivDestinationPurpose.image),
+  late final List<({String host, PixivDestinationPurpose purpose})> _targets = [
+    (
+      host: PixivClientIdentity.appApiBase.host,
+      purpose: PixivDestinationPurpose.appApi,
+    ),
+    (
+      host: PixivClientIdentity.oauthHost,
+      purpose: PixivDestinationPurpose.oauth,
+    ),
+    for (final imageHost in PixivClientIdentity.downloadHosts)
+      (host: imageHost, purpose: PixivDestinationPurpose.image),
   ];
 
   final Map<String, NetworkProbeReport?> _finished = {};
@@ -98,7 +106,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
       await Future.wait([
         for (final target in _targets)
           _runOne(target, environment).catchError((Object error) {
-            debugPrint('probe ${target.host} failed: $error');
+            log('probe ${target.host} failed: $error');
             if (mounted) {
               setState(() => _errors[target.host] = error);
             }
@@ -141,7 +149,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
                   revision: _policy.revision,
                 );
               } on Object catch (error) {
-                debugPrint('ech config lookup failed: ${error.runtimeType}');
+                log('ech config lookup failed: ${error.runtimeType}');
                 // Keep the original error visible in the report: swallowing
                 // it as null collapses every failure mode (endpoint down,
                 // no SvcParam, parse error) into the same misleading
@@ -236,12 +244,12 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_probeText(context, 'networkProbeTitle'))),
+      appBar: AppBar(title: Text(context.l10n.networkProbeTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            _probeText(context, 'networkProbeHint'),
+            context.l10n.networkProbeHint,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -256,13 +264,13 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
                 : const Icon(Icons.play_arrow),
             label: Text(
               _running
-                  ? _probeText(context, 'networkProbeRunning')
-                  : _probeText(context, 'networkProbeRun'),
+                  ? context.l10n.networkProbeRunning
+                  : context.l10n.networkProbeRun,
             ),
           ),
           const SizedBox(height: 16),
           for (final target in _targets)
-            _HostProbeCard(
+            _HostProbePanel(
               host: target.host,
               report: _finished[target.host],
               error: _errors[target.host],
@@ -274,8 +282,8 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   }
 }
 
-class _HostProbeCard extends StatelessWidget {
-  const _HostProbeCard({
+class _HostProbePanel extends StatelessWidget {
+  const _HostProbePanel({
     required this.host,
     required this.report,
     required this.error,
@@ -318,7 +326,7 @@ class _HostProbeCard extends StatelessWidget {
             const SizedBox(height: 8),
             if (error != null)
               Text(
-                '${_probeText(context, 'networkProbeHostFailed')}: $error',
+                '${context.l10n.networkProbeHostFailed}: $error',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.error,
                 ),
@@ -326,8 +334,8 @@ class _HostProbeCard extends StatelessWidget {
             else if (body == null)
               Text(
                 running
-                    ? _probeText(context, 'networkProbeRunning')
-                    : _probeText(context, 'networkProbeNotRun'),
+                    ? context.l10n.networkProbeRunning
+                    : context.l10n.networkProbeNotRun,
                 style: theme.textTheme.bodySmall,
               )
             else ...[
@@ -335,9 +343,9 @@ class _HostProbeCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    _probeText(context, 'networkProbeDnsDiff'),
+                    context.l10n.networkProbeDnsDiff,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.orange.shade800,
+                      color: FuncTokens.networkProbeDnsWarning,
                     ),
                   ),
                 ),
@@ -359,16 +367,10 @@ class _HostProbeCard extends StatelessWidget {
                     Clipboard.setData(
                       ClipboardData(text: body.toCopyableText()),
                     );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          _probeText(context, 'networkProbeCopied'),
-                        ),
-                      ),
-                    );
+                    showAppSnackBar(context, context.l10n.networkProbeCopied);
                   },
                   icon: const Icon(Icons.copy, size: 16),
-                  label: Text(_probeText(context, 'copy')),
+                  label: Text(context.l10n.copy),
                 ),
               ),
             ],
@@ -390,38 +392,38 @@ class _ConclusionBadge extends StatelessWidget {
     final (key, color) = switch (conclusion) {
       NetworkProbeConclusion.allReachable => (
         'networkProbeConclusionAllReachable',
-        Colors.green,
+        FuncTokens.networkProbeSuccess,
       ),
       NetworkProbeConclusion.dnsPolluted => (
         'networkProbeConclusionDnsPolluted',
-        Colors.orange,
+        FuncTokens.networkProbeWarning,
       ),
       NetworkProbeConclusion.sniBlocked => (
         'networkProbeConclusionSniBlocked',
-        Colors.red,
+        FuncTokens.networkProbeError,
       ),
       NetworkProbeConclusion.echAvailable => (
         'networkProbeConclusionEchAvailable',
-        Colors.teal,
+        FuncTokens.networkProbeEch,
       ),
       NetworkProbeConclusion.noSniAvailable => (
         'networkProbeConclusionNoSniAvailable',
-        Colors.indigo,
+        FuncTokens.networkProbeNoSni,
       ),
       NetworkProbeConclusion.ipBlackholed => (
         'networkProbeConclusionIpBlackholed',
-        Colors.red,
+        FuncTokens.networkProbeError,
       ),
       NetworkProbeConclusion.appLayer => (
         'networkProbeConclusionAppLayer',
-        Colors.orange,
+        FuncTokens.networkProbeWarning,
       ),
       NetworkProbeConclusion.inconclusive => (
         'networkProbeConclusionInconclusive',
-        Colors.grey,
+        FuncTokens.networkProbeNeutral,
       ),
     };
-    final resolvedColor = color.shade700;
+    final resolvedColor = color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(

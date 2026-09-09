@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/navigation/replica_route.dart';
+import '../../app/motion/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
-import '../../core/i18n/replica_strings.dart';
+import '../../core/i18n/replica_language.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import 'theme_page.dart';
+import '../../l10n/lookup.dart';
 
 class LanguagePage extends ConsumerWidget {
   const LanguagePage({super.key});
@@ -54,7 +55,7 @@ class LanguagePage extends ConsumerWidget {
           children: [
             const Spacer(flex: 2),
             Text(
-              ReplicaStrings.text(language, 'selectLanguage'),
+              l10nLookupFor(language.locale, 'selectLanguage'),
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const Spacer(),
@@ -81,17 +82,17 @@ class LanguagePage extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: ReplicaButton(
-                label: ReplicaStrings.text(language, 'next'),
+                label: l10nLookupFor(language.locale, 'next'),
                 backgroundColor: FuncTokens.primary,
-                foregroundColor: Colors.white,
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(replicaRoute((context) => const ThemePage())),
+                foregroundColor: FuncTokens.lightBackground,
+                onPressed: () => Navigator.of(context).push(
+                  ReplicaPageRoute<void>(builder: (_) => const ThemePage()),
+                ),
               ),
             ),
             const Spacer(),
             Text(
-              ReplicaStrings.text(language, 'later'),
+              l10nLookupFor(language.locale, 'later'),
               style: const TextStyle(fontSize: 14),
             ),
             const Spacer(),

@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
-import '../../app/replica_page_route.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/profile/profile_edit_controller.dart';
 import '../../core/profile/profile_edit_models.dart';
 import '../../core/profile/profile_edit_repository.dart';
@@ -17,12 +15,12 @@ import '../../core/reverse_image/reverse_image_platform.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
+import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 String _profileEditText(BuildContext context, String key) {
-  return ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  return l10nLookup(context.l10n, key);
 }
 
 /// The current-account beta56 profile editor. The repository is injectable so
@@ -36,34 +34,39 @@ class ProfileEditPage extends ConsumerStatefulWidget {
     this.initialUser,
     this.repository,
     this.imagePlatform,
-    this.controller,
+    this.session,
   });
 
   final int userId;
   final UserEntity? initialUser;
   final ProfileEditRepository? repository;
   final ReverseImageInputPlatform? imagePlatform;
-  final ProfileEditController? controller;
+
+  /// Pre-built editing session (tests). When provided, account hydration is
+  /// skipped and the editor renders from this session's provider directly.
+  final ProfileEditSession? session;
 
   @override
   ConsumerState<ProfileEditPage> createState() => _ProfileEditPageState();
 }
 
 class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
-  ProfileEditController? _controller;
+  ProfileEditSession? _session;
   ProviderSubscription<AsyncValue<AccountState>>? _accountSubscription;
   Object? _initializationError;
-  bool _ownsController = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller;
-    if (_controller != null) return;
-    _ownsController = true;
+    _session = widget.session;
+    if (_session != null) return;
     _accountSubscription = ref.listenManual<AsyncValue<AccountState>>(
       accountStoreProvider,
-      (_, _) => _controller?.checkOwner(),
+      (_, _) => _session == null
+          ? null
+          : ref
+                .read(profileEditControllerProvider(_session!).notifier)
+                .checkOwner(),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_initialize());
@@ -73,7 +76,6 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   @override
   void dispose() {
     _accountSubscription?.close();
-    if (_ownsController) _controller?.dispose();
     super.dispose();
   }
 
@@ -91,7 +93,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
           ref.read(userStoreProvider)[widget.userId] ??
           await ref.read(userRepositoryProvider).fetchDetail(widget.userId);
       if (!mounted) return;
-      final controller = ProfileEditController(
+      final session = ProfileEditSession(
         repository:
             widget.repository ?? ref.read(profileEditRepositoryProvider),
         owner: _readOwner(),
@@ -102,8 +104,10 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
           userStore: ref.read(userStoreProvider.notifier),
         ).commit(confirmed),
       );
-      setState(() => _controller = controller);
-      unawaited(controller.load());
+      setState(() => _session = session);
+      unawaited(
+        ref.read(profileEditControllerProvider(session).notifier).load(),
+      );
     } on Object catch (error) {
       if (!mounted) return;
       setState(() => _initializationError = error);
@@ -116,24 +120,25 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   }
 
   Future<void> _attemptPop() async {
-    final controller = _controller;
-    if (!mounted || controller == null || !controller.state.hasUnsavedChanges) {
+    final session = _session;
+    if (!mounted || session == null) {
       if (mounted) Navigator.of(context).pop();
       return;
     }
+    final controller = ref.read(profileEditControllerProvider(session).notifier);
     final leave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_profileEditText(context, 'profileEditLeaveTitle')),
-        content: Text(_profileEditText(context, 'profileEditLeaveDetail')),
+        title: Text(context.l10n.profileEditLeaveTitle),
+        content: Text(context.l10n.profileEditLeaveDetail),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(_profileEditText(context, 'cancel')),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(_profileEditText(context, 'profileEditLeaveConfirm')),
+            child: Text(context.l10n.profileEditLeaveConfirm),
           ),
         ],
       ),
@@ -146,33 +151,35 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
+    final session = _session;
+    final hasUnsaved =
+        session != null &&
+        ref
+            .watch(profileEditControllerProvider(session))
+            .hasUnsavedChanges;
     return PopScope(
-      canPop: controller == null || !controller.state.hasUnsavedChanges,
+      canPop: session == null || !hasUnsaved,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_attemptPop());
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_profileEditText(context, 'profileEditTitle')),
+          title: Text(context.l10n.profileEditTitle),
           leading: IconButton(
-            tooltip: _profileEditText(context, 'cancel'),
+            tooltip: context.l10n.cancel,
             onPressed: _attemptPop,
             icon: const Icon(Icons.arrow_back),
           ),
         ),
-        body: controller == null
+        body: session == null
             ? _initializationError == null
                   ? const Center(child: CircularProgressIndicator())
                   : _InitializationFailure(error: _initializationError!)
-            : AnimatedBuilder(
-                animation: controller,
-                builder: (context, _) => _ProfileEditBody(
-                  controller: controller,
-                  imagePlatform:
-                      widget.imagePlatform ??
-                      MethodChannelReverseImageInputPlatform(),
-                ),
+            : _ProfileEditBody(
+                session: session,
+                imagePlatform:
+                    widget.imagePlatform ??
+                    MethodChannelReverseImageInputPlatform(),
               ),
       ),
     );
@@ -194,7 +201,7 @@ class _InitializationFailure extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off, size: 52),
             const SizedBox(height: 12),
-            Text(_profileEditText(context, 'profileEditLoadFailed')),
+            Text(context.l10n.profileEditLoadFailed),
             const SizedBox(height: 8),
             Text('$error', textAlign: TextAlign.center),
           ],
@@ -204,27 +211,28 @@ class _InitializationFailure extends StatelessWidget {
   }
 }
 
-class _ProfileEditBody extends StatefulWidget {
+class _ProfileEditBody extends ConsumerStatefulWidget {
   const _ProfileEditBody({
-    required this.controller,
+    required this.session,
     required this.imagePlatform,
   });
 
-  final ProfileEditController controller;
+  final ProfileEditSession session;
   final ReverseImageInputPlatform imagePlatform;
 
   @override
-  State<_ProfileEditBody> createState() => _ProfileEditBodyState();
+  ConsumerState<_ProfileEditBody> createState() => _ProfileEditBodyState();
 }
 
-class _ProfileEditBodyState extends State<_ProfileEditBody> {
+class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
   late final TextEditingController _displayName;
   late final TextEditingController _comment;
   late final TextEditingController _webpage;
   late final TextEditingController _password;
   bool _textInitialized = false;
 
-  ProfileEditController get _controller => widget.controller;
+  ProfileEditController get _controller =>
+      ref.read(profileEditControllerProvider(widget.session).notifier);
 
   @override
   void initState() {
@@ -233,23 +241,22 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
     _comment = TextEditingController();
     _webpage = TextEditingController();
     _password = TextEditingController();
-    _controller.addListener(_onControllerChanged);
-    _syncText(_controller.state.draft);
+    ref.listenManual(
+      profileEditControllerProvider(
+        widget.session,
+      ).select((state) => state.draft),
+      (_, draft) => _syncText(draft),
+      fireImmediately: true,
+    );
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_onControllerChanged);
     _displayName.dispose();
     _comment.dispose();
     _webpage.dispose();
     _password.dispose();
     super.dispose();
-  }
-
-  void _onControllerChanged() {
-    _syncText(_controller.state.draft);
-    if (mounted) setState(() {});
   }
 
   void _syncText(ProfileDraft? draft) {
@@ -273,9 +280,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
     } on Object catch (error) {
       if (selection != null) await selection.dispose();
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text('$error')));
+      showAppSnackBar(context, '$error');
     }
   }
 
@@ -288,7 +293,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
 
   @override
   Widget build(BuildContext context) {
-    final state = _controller.state;
+    final state = ref.watch(profileEditControllerProvider(widget.session));
     final draft = state.draft;
     if (draft == null) {
       return _StatusBody(state: state, onRetry: _controller.load);
@@ -303,28 +308,28 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           if (!capabilities.isAvailable)
-            _NoticeCard(
+            _Notice(
               icon: Icons.info_outline,
               text:
                   capabilities.reason ??
-                  _profileEditText(context, 'profileEditUnavailable'),
+                  context.l10n.profileEditUnavailable,
             ),
           if (state.failure != null)
-            _NoticeCard(
+            _Notice(
               icon: Icons.error_outline,
               text: state.failure!.message,
             ),
           if (state.status == ProfileEditStatus.verificationPending)
-            _NoticeCard(
+            _Notice(
               icon: Icons.mark_email_unread_outlined,
               text:
                   state.verificationMessage ??
-                  _profileEditText(context, 'profileEditPending'),
+                  context.l10n.profileEditPending,
             ),
           if (state.status == ProfileEditStatus.confirmed)
-            _NoticeCard(
+            _Notice(
               icon: Icons.check_circle_outline,
-              text: _profileEditText(context, 'profileEditConfirmed'),
+              text: context.l10n.profileEditConfirmed,
             ),
           TextFormField(
             controller: _displayName,
@@ -376,7 +381,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
           ),
           const SizedBox(height: 8),
           _ImageField(
-            title: _profileEditText(context, 'profileEditAvatar'),
+            title: context.l10n.profileEditAvatar,
             currentUrl: draft.values.avatarUrl,
             selection: draft.avatar,
             enabled:
@@ -386,7 +391,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
           ),
           const SizedBox(height: 8),
           _ImageField(
-            title: _profileEditText(context, 'profileEditBackground'),
+            title: context.l10n.profileEditBackground,
             currentUrl: draft.values.backgroundUrl,
             selection: draft.background,
             enabled:
@@ -402,10 +407,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
               enabled: editingEnabled,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: _profileEditText(
-                  context,
-                  'profileEditCurrentPassword',
-                ),
+                labelText: context.l10n.profileEditCurrentPassword,
                 errorText: state.currentPasswordError,
               ),
             ),
@@ -419,7 +421,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.save_outlined),
-            label: Text(_profileEditText(context, 'profileEditSave')),
+            label: Text(context.l10n.profileEditSave),
           ),
         ],
       ),
@@ -432,12 +434,14 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
     ProfileField field,
     ProfileEditState state,
   ) {
-    final unsupported = !_controller.state.draft!.capabilities.supports(field);
+    final draft =
+        ref.watch(profileEditControllerProvider(widget.session)).draft;
+    final unsupported = !draft!.capabilities.supports(field);
     return InputDecoration(
       labelText: _profileEditText(context, labelKey),
       errorText: state.fieldErrors[field],
       helperText: unsupported
-          ? _profileEditText(context, 'profileEditFieldUnsupported')
+          ? context.l10n.profileEditFieldUnsupported
           : null,
       alignLabelWithHint: field == ProfileField.comment,
       border: const OutlineInputBorder(),
@@ -467,12 +471,7 @@ class _ImageField extends StatelessWidget {
     final preview = selection == null
         ? currentUrl == null || currentUrl!.isEmpty
               ? const Icon(Icons.image_outlined, size: 42)
-              : PixivImage(
-                  url: currentUrl!,
-                  width: 54,
-                  height: 54,
-                  fit: BoxFit.cover,
-                )
+              : PixivImage.avatar(currentUrl!, size: 54, fit: BoxFit.cover)
         : Image.file(
             File(selection!.path),
             width: 54,
@@ -487,22 +486,22 @@ class _ImageField extends StatelessWidget {
         title: Text(title),
         subtitle: Text(
           unsupported
-              ? _profileEditText(context, 'profileEditFieldUnsupported')
+              ? context.l10n.profileEditFieldUnsupported
               : selection == null
-              ? _profileEditText(context, 'profileEditImageChoose')
+              ? context.l10n.profileEditImageChoose
               : '${selection!.width} × ${selection!.height}',
         ),
         trailing: OutlinedButton(
           onPressed: enabled ? onPick : null,
-          child: Text(_profileEditText(context, 'profileEditChooseImage')),
+          child: Text(context.l10n.profileEditChooseImage),
         ),
       ),
     );
   }
 }
 
-class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({required this.icon, required this.text});
+class _Notice extends StatelessWidget {
+  const _Notice({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -549,14 +548,14 @@ class _StatusBody extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               failure?.message ??
-                  _profileEditText(context, 'profileEditLoadFailed'),
+                  context.l10n.profileEditLoadFailed,
               textAlign: TextAlign.center,
             ),
             if (failure?.retryable == true) ...[
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: onRetry,
-                child: Text(_profileEditText(context, 'retry')),
+                child: Text(context.l10n.retry),
               ),
             ],
           ],
@@ -564,10 +563,4 @@ class _StatusBody extends StatelessWidget {
       ),
     );
   }
-}
-
-void showProfileEditPage(BuildContext context, int userId) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(builder: (_) => ProfileEditPage(userId: userId)),
-  );
 }

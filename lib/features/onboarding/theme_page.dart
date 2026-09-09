@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/navigation/replica_route.dart';
+import '../../app/navigation/routes.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
-import '../../core/i18n/replica_strings.dart';
+import '../../core/i18n/replica_language.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
-import '../login/login_page.dart';
+import '../../l10n/lookup.dart';
 
 class ThemePage extends ConsumerWidget {
   const ThemePage({super.key});
@@ -40,7 +40,7 @@ class ThemePage extends ConsumerWidget {
   ) {
     final width = MediaQuery.sizeOf(context).width;
     final language = ReplicaLanguage.fromTag(settings.languageTag);
-    String text(String key) => ReplicaStrings.text(language, key);
+    String text(String key) => l10nLookupFor(language.locale, key);
 
     return ReplicaScaffold(
       child: Padding(
@@ -103,17 +103,14 @@ class ThemePage extends ConsumerWidget {
               child: ReplicaButton(
                 label: text('next'),
                 backgroundColor: FuncTokens.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: FuncTokens.lightBackground,
                 onPressed: () async {
                   await ref.read(settingsProvider.notifier).completeGuide();
                   if (!context.mounted) return;
-                  await Navigator.of(context).push(
-                    replicaRoute(
-                      (context) => const LoginPage(
-                        isFirst: true,
-                        returnToHomeOnSuccess: true,
-                      ),
-                    ),
+                  await openLogin(
+                    context,
+                    isFirst: true,
+                    returnToHomeOnSuccess: true,
                   );
                 },
               ),

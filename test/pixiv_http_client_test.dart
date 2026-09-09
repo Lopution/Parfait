@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -15,12 +17,12 @@ import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
+import 'package:pixiv_func/core/network/compat/pixiv_network_factory.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 const String _apiHost = 'app-api.pixiv.net';
@@ -153,7 +155,7 @@ _makeWorld({
 }) async {
   final f = fixture ?? _Fixture();
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
 
   final credentials = _CredentialStore();
   credentials.seed(
@@ -189,7 +191,7 @@ _makeWorld({
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   test(
@@ -219,7 +221,7 @@ void main() {
 
   test('pixivHttpClientProvider follows settings.languageTag (R6)', () async {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
     final repository = _SettingsRepository(
       const AppSettings(
         guideCompleted: true,

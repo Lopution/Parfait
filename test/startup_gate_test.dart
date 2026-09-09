@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
-import 'package:pixiv_func/core/i18n/replica_strings.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/features/home/home_page.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
-import 'package:pixiv_func/features/onboarding/startup_gate.dart';
+import 'package:pixiv_func/app/startup_gate.dart';
 import 'package:pixiv_func/features/onboarding/welcome_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _StaticCredentialStore implements CredentialStore {
   const _StaticCredentialStore();
@@ -63,10 +63,10 @@ Widget _wrap({
         _StaticMetadataRepository(snapshot, corrupt: corruptMetadata),
       ),
     ],
-    child: MaterialApp(
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
       home: StartupGate(settings: settings),
     ),
   );
@@ -89,7 +89,7 @@ class _FailingCredentialStore implements CredentialStore {
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
-        InMemorySharedPreferencesAsync.empty();
+        memoryPreferences();
   });
 
   testWidgets('guide not completed shows the welcome shell', (tester) async {
@@ -213,11 +213,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text(ReplicaStrings.text(ReplicaLanguage.zhCN, 'accountReadFailed')),
+      find.text('读取账号状态失败'),
       findsOneWidget,
     );
     expect(
-      find.text(ReplicaStrings.text(ReplicaLanguage.zhCN, 'retry')),
+      find.text('重试'),
       findsOneWidget,
     );
     expect(find.byType(LoginPage), findsNothing);

@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../core/i18n/replica_strings.dart';
+import '../../l10n/lookup.dart';
+import '../../l10n/context.dart';
 
-String searchText(
-  BuildContext context,
-  String key, [
-  Map<String, Object?> args = const {},
-]) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-  args,
-);
+/// Dynamic label resolution for the search enums (tab/filter labelKeys).
+String searchText(BuildContext context, String key) =>
+    l10nLookup(context.l10n, key);

@@ -12,8 +12,8 @@ import 'web_profile_session.dart';
 /// Explicit unavailable fallback used when the app cannot access the
 /// same-origin Pixiv session needed by the in-app update adapter. It never
 /// pretends that a local-only change was saved.
-class PixivProfileEditRepository implements ProfileEditRepository {
-  PixivProfileEditRepository(this._userRepository);
+class _PixivProfileEditRepository implements ProfileEditRepository {
+  _PixivProfileEditRepository(this._userRepository);
 
   static const unavailableReason =
       'No in-app Pixiv session is available; profile updates cannot be submitted.';
@@ -125,6 +125,6 @@ class _SelectingProfileEditRepository implements ProfileEditRepository {
         policy: policy,
       );
     }
-    return PixivProfileEditRepository(userRepository);
+    return _PixivProfileEditRepository(userRepository);
   }
 }

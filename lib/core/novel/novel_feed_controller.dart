@@ -7,8 +7,8 @@ import 'novel_store.dart';
 
 /// User work feed for Novel previews. Only IDs live in feed state; cards and
 /// the reader observe [novelStoreProvider].
-class UserNovelFeedController extends PagedFeedController {
-  UserNovelFeedController(this.userId);
+class _UserNovelFeedController extends PagedFeedController {
+  _UserNovelFeedController(this.userId);
 
   final int userId;
 
@@ -42,6 +42,6 @@ class UserNovelFeedController extends PagedFeedController {
 }
 
 final userNovelFeedProvider =
-    AsyncNotifierProvider.family<UserNovelFeedController, PagedFeedState, int>(
-      UserNovelFeedController.new,
+    AsyncNotifierProvider.family<_UserNovelFeedController, PagedFeedState, int>(
+      _UserNovelFeedController.new,
     );

@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/replica_page_route.dart';
+import '../../app/navigation/routes.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
 import '../../core/comments/comment_actions.dart';
@@ -12,27 +13,12 @@ import '../../core/comments/comment_models.dart';
 import '../../core/comments/comment_store.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/network/api_error.dart';
-import '../../core/paging/paged_feed_controller.dart';
 import 'comment_input.dart';
 import 'comment_item.dart';
 import 'comment_text.dart';
+import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
-void showIllustComments(BuildContext context, int illustId) {
-  if (illustId <= 0) return;
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(
-      builder: (_) => IllustCommentsPage(illustId: illustId),
-    ),
-  );
-}
-
-void showCommentReplies(BuildContext context, CommentEntity rootComment) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(
-      builder: (_) => CommentRepliesPage(rootComment: rootComment),
-    ),
-  );
-}
 
 class IllustCommentsPage extends ConsumerStatefulWidget {
   const IllustCommentsPage({super.key, required this.illustId});
@@ -55,14 +41,14 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
     final mutationKey = 'send:${widget.illustId}:${_replyTarget?.id ?? 'root'}';
     final sending = store.mutations[mutationKey]?.pending == true;
     return Scaffold(
-      appBar: AppBar(title: Text(commentText(context, 'commentTitle'))),
+      appBar: AppBar(title: Text(context.l10n.commentTitle)),
       body: Column(
         children: [
           Expanded(
             child: _CommentFeedView(
               query: _query,
               onReply: (comment) => setState(() => _replyTarget = comment),
-              onOpenReplies: (comment) => showCommentReplies(context, comment),
+              onOpenReplies: (comment) => openCommentReplies(context, comment),
               onDelete: _deleteComment,
             ),
           ),
@@ -103,9 +89,7 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
     final key = error is CommentPermissionException
         ? 'commentPermissionDenied'
         : 'commentSendFailed';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(commentText(context, key))));
+    showAppSnackBar(context, commentText(context, key));
   }
 
   void _deleteComment(CommentEntity comment) {
@@ -116,16 +100,16 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(commentText(context, 'commentDelete')),
-        content: Text(commentText(context, 'commentDeleteConfirm')),
+        title: Text(context.l10n.commentDelete),
+        content: Text(context.l10n.commentDeleteConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(commentText(context, 'cancel')),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(commentText(context, 'confirm')),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -135,9 +119,7 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
       await ref.read(commentActionsProvider).delete(comment);
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(commentText(context, 'commentDeleteFailed'))),
-      );
+      showAppSnackBar(context, context.l10n.commentDeleteFailed);
     }
   }
 }
@@ -167,7 +149,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
     final sending = store.mutations[mutationKey]?.pending == true;
     final root = store.get(widget.rootComment.id) ?? widget.rootComment;
     return Scaffold(
-      appBar: AppBar(title: Text(commentText(context, 'commentReplies'))),
+      appBar: AppBar(title: Text(context.l10n.commentReplies)),
       body: Column(
         children: [
           Expanded(
@@ -183,7 +165,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      commentText(context, 'commentReplies'),
+                      context.l10n.commentReplies,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
@@ -228,9 +210,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
 
   void _showMutationError(Object error) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(commentText(context, 'commentSendFailed'))),
-    );
+    showAppSnackBar(context, context.l10n.commentSendFailed);
   }
 
   void _deleteComment(CommentEntity comment) {
@@ -241,16 +221,16 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(commentText(context, 'commentDelete')),
-        content: Text(commentText(context, 'commentDeleteConfirm')),
+        title: Text(context.l10n.commentDelete),
+        content: Text(context.l10n.commentDeleteConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(commentText(context, 'cancel')),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(commentText(context, 'confirm')),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -263,9 +243,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
       }
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(commentText(context, 'commentDeleteFailed'))),
-      );
+      showAppSnackBar(context, context.l10n.commentDeleteFailed);
     }
   }
 }
@@ -289,15 +267,18 @@ class _CommentFeedView extends ConsumerWidget {
     final store = ref.watch(commentStoreProvider);
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _CommentError(
-        error: error,
+      error: (error, _) => FeedError(
+        title: context.l10n.commentLoadFailed,
+        retryLabel: context.l10n.retry,
         onRetry: () => ref.invalidate(commentFeedProvider(query)),
       ),
       data: (feed) {
         final comments = store.getAll(store.idsFor(query));
         if (feed.showInitialError && comments.isEmpty) {
-          return _CommentError(
+          return FeedError(
+            title: context.l10n.commentLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: context.l10n.retry,
             onRetry: () =>
                 ref.read(commentFeedProvider(query).notifier).retryInitial(),
           );
@@ -307,8 +288,8 @@ class _CommentFeedView extends ConsumerWidget {
         }
         if (comments.isEmpty && feed.isEmptyAndReady) {
           return ReplicaEmptyState(
-            message: commentText(context, 'commentNoResults'),
-            retryLabel: commentText(context, 'retry'),
+            message: context.l10n.commentNoResults,
+            retryLabel: context.l10n.retry,
             onRetry: () =>
                 ref.read(commentFeedProvider(query).notifier).refresh(),
             icon: Icons.comment_outlined,
@@ -330,11 +311,12 @@ class _CommentFeedView extends ConsumerWidget {
               itemCount: comments.length + 1,
               itemBuilder: (context, index) {
                 if (index == comments.length) {
-                  return _CommentFeedTail(
+                  return FeedTail(
                     feed: feed,
                     onRetry: () => ref
                         .read(commentFeedProvider(query).notifier)
                         .retryLoadMore(),
+                    retryLabel: context.l10n.commentLoadMoreFailed,
                   );
                 }
                 final comment = comments[index];
@@ -356,72 +338,3 @@ class _CommentFeedView extends ConsumerWidget {
   }
 }
 
-class _CommentFeedTail extends StatelessWidget {
-  const _CommentFeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: OutlinedButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
-          label: Text(commentText(context, 'commentLoadMoreFailed')),
-        ),
-      );
-    }
-    return const SizedBox(height: 12);
-  }
-}
-
-class _CommentError extends StatelessWidget {
-  const _CommentError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_outlined, size: 42),
-            const SizedBox(height: 10),
-            Text(
-              commentText(context, 'commentLoadFailed'),
-              textAlign: TextAlign.center,
-            ),
-            if (error is ApiError) ...[
-              const SizedBox(height: 6),
-              Text(
-                error.toString(),
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: onRetry,
-              child: Text(commentText(context, 'retry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

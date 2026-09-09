@@ -6,10 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../app/theme/func_tokens.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_recovery.dart';
-import '../../../core/i18n/replica_strings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
@@ -20,16 +20,8 @@ import '../../../core/ugoira/ugoira_providers.dart';
 import '../../../core/ugoira/ugoira_repository.dart';
 import '../../../core/ugoira/ugoira_scheduler.dart';
 import '../../../core/ugoira/ugoira_zip.dart';
-
-String _ugoiraText(
-  BuildContext context,
-  String key, [
-  Map<String, Object?> args = const {},
-]) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-  args,
-);
+import '../../../app/widgets/app_snack_bar.dart';
+import '../../../l10n/context.dart';
 
 /// Inline beta56-compatible Ugoira surface. The cover, play affordance and
 /// paused overlay stay in the detail page; ZIP/decode/export resources are
@@ -150,7 +142,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                   ),
                   child: const Icon(
                     Icons.gif_box_outlined,
-                    color: Colors.white,
+                    color: FuncTokens.lightBackground,
                     size: 30,
                   ),
                 ),
@@ -163,7 +155,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                     color: Theme.of(context).colorScheme.surface,
                     shape: const CircleBorder(),
                     child: IconButton(
-                      tooltip: _ugoiraText(context, 'ugoiraSaveGif'),
+                      tooltip: context.l10n.ugoiraSaveGif,
                       onPressed: _export,
                       icon:
                           _exportJob?.snapshot.status ==
@@ -196,11 +188,10 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       fit: StackFit.expand,
       children: [
         Positioned.fill(
-          child: PixivImage(
-            url: widget.previewUrl,
+          child: PixivImage.hero(
+            widget.previewUrl,
+            tag: widget.heroTag,
             fit: BoxFit.fitWidth,
-            width: double.infinity,
-            transitionKey: widget.heroTag,
           ),
         ),
         if (currentImage != null)
@@ -317,7 +308,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       }
     } on ApiCancelled {
       if (!_disposed) {
-        setState(() => _error = _ugoiraText(context, 'ugoiraLoadCanceled'));
+        setState(() => _error = context.l10n.ugoiraLoadCanceled);
       }
     } catch (error) {
       if (!_disposed) {
@@ -481,9 +472,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final submissionContext = _currentDownloadContext();
     if (submissionContext == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_ugoiraText(context, 'ugoiraLoginRequired'))),
-        );
+        showAppSnackBar(context, context.l10n.ugoiraLoginRequired);
       }
       return;
     }
@@ -502,15 +491,11 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     await subscription.cancel();
     if (!mounted) return;
     final message = switch (result.status) {
-      UgoiraExportStatus.succeeded => _ugoiraText(context, 'ugoiraSaved'),
-      UgoiraExportStatus.canceled => _ugoiraText(context, 'ugoiraSaveCanceled'),
-      _ => _ugoiraText(context, 'ugoiraSaveFailed', {
-        'error': result.error ?? 'unknown error',
-      }),
+      UgoiraExportStatus.succeeded => context.l10n.ugoiraSaved,
+      UgoiraExportStatus.canceled => context.l10n.ugoiraSaveCanceled,
+      _ => context.l10n.ugoiraSaveFailed(result.error ?? 'unknown error'),
     };
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showAppSnackBar(context, message);
   }
 
   @override
@@ -529,16 +514,12 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
 
   String _friendlyError(BuildContext context, Object error) {
     if (error is UgoiraArchiveException) {
-      return _ugoiraText(context, 'ugoiraArchiveInvalid', {
-        'error': error.message,
-      });
+      return context.l10n.ugoiraArchiveInvalid(error.message);
     }
     if (error is UgoiraDecodeException) {
-      return _ugoiraText(context, 'ugoiraFrameCorrupt', {
-        'error': error.message,
-      });
+      return context.l10n.ugoiraFrameCorrupt(error.message);
     }
-    return _ugoiraText(context, 'ugoiraLoadFailed', {'error': error});
+    return context.l10n.ugoiraLoadFailed(error.toString());
   }
 
   DownloadSubmissionContext? _currentDownloadContext() {
@@ -562,7 +543,7 @@ class _PlayOverlay extends StatelessWidget {
       child: Icon(
         Icons.play_circle_outline_outlined,
         size: 70,
-        color: Colors.white,
+        color: FuncTokens.lightBackground,
       ),
     );
   }
@@ -584,12 +565,12 @@ class _ErrorOverlay extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(message, style: const TextStyle(color: Colors.white)),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: onRetry,
-                child: Text(_ugoiraText(context, 'retry')),
+              Text(
+                message,
+                style: TextStyle(color: FuncTokens.lightBackground),
               ),
+              const SizedBox(height: 8),
+              TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
             ],
           ),
         ),

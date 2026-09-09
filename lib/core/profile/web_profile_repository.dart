@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../network/api_error.dart';
 import '../network/compat/network_contracts.dart';
+import '../network/compat/pixiv_network_factory.dart';
 import '../network/compat/network_policy.dart';
 import '../network/pixiv_http_client.dart';
 import '../user/user_entity.dart';
