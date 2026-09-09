@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../navigation/home_shell_metrics.dart';
+import 'hero_rect_clip.dart';
 
 /// Hero flight geometry shared by the feed cards and the detail page.
 /// The Hero tag and shuttle builder are the single artwork transition
@@ -50,7 +51,7 @@ Widget illustHeroFlightShuttleBuilder(
     animation: animation,
     child: child,
     builder: (context, child) {
-      return _GlobalRectClip(
+      return HeroRectClip(
         globalRect: _heroFlightClipRect(
           flightContext,
           fromHeroContext,
@@ -315,66 +316,3 @@ double _pinnedHeaderChrome(BuildContext context, double statusInset) {
 }
 
 const _illustHeroBorderRadius = BorderRadius.all(Radius.circular(12));
-
-class _GlobalRectClip extends SingleChildRenderObjectWidget {
-  const _GlobalRectClip({required this.globalRect, required super.child});
-
-  final Rect globalRect;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderGlobalRectClip(globalRect);
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    covariant _RenderGlobalRectClip renderObject,
-  ) {
-    renderObject.globalRect = globalRect;
-  }
-}
-
-class _RenderGlobalRectClip extends RenderProxyBox {
-  _RenderGlobalRectClip(this._globalRect);
-
-  Rect _globalRect;
-  Rect? _lastPaintClipRect;
-
-  Rect get globalRect => _globalRect;
-
-  /// Actual global clip used by the last paint pass. Tests use this to catch
-  /// render-time changes that are invisible if they only inspect the widget's
-  /// input rectangle.
-  Rect? get debugLastPaintClipRect => _lastPaintClipRect;
-
-  set globalRect(Rect value) {
-    if (value == _globalRect) return;
-    _globalRect = value;
-    markNeedsPaint();
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    if (child == null || size.isEmpty) {
-      _lastPaintClipRect = Rect.zero;
-      return;
-    }
-    final globalOrigin = localToGlobal(Offset.zero);
-    final clipRect = _globalRect;
-    // Keep the boundary itself rather than intersecting it with the current
-    // shuttle bounds. The latter changes every frame by design; the former
-    // is the UI occlusion contract we need to keep stable in both directions.
-    _lastPaintClipRect = clipRect;
-    final localClip = clipRect
-        .shift(-globalOrigin)
-        .intersect(Offset.zero & size);
-    if (localClip.isEmpty) return;
-    context.pushClipRect(
-      needsCompositing,
-      offset,
-      localClip,
-      super.paint,
-      clipBehavior: Clip.hardEdge,
-    );
-  }
-}
