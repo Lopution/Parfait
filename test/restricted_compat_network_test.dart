@@ -15,6 +15,7 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/download/download_transport.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_fast_route_store.dart';
+import 'package:pixiv_func/core/network/compat/pixiv_network_factory.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/compat/policy_download_transport.dart';
