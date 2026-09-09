@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
@@ -17,8 +18,9 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.intentSource});
+  const HomePage({super.key, required this.navigationShell, this.intentSource});
 
+  final StatefulNavigationShell navigationShell;
   final AndroidIntentSource? intentSource;
 
   @override
@@ -26,24 +28,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage>
-    with WidgetsBindingObserver, RouteAware, SingleTickerProviderStateMixin {
-  late final TabController _navController;
-
-  /// C7: only tabs the user actually opened are built (and kept alive).
-  /// IndexedStack still preserves the scroll position and controller state
-  /// of every visited tab; unvisited tabs issue no feed requests at cold
-  /// start.
-  final Set<int> _visitedTabs = {0};
-  late final List<Widget?> _tabChildren = List<Widget?>.filled(
-    pages.length,
-    null,
-  );
-
+    with WidgetsBindingObserver, RouteAware {
   late final RootBackCoordinator _backCoordinator;
   final GlobalKey _bottomNavKey = GlobalKey();
   bool _bottomNavMeasureScheduled = false;
   late final AndroidIntentSource _intentSource;
   StreamSubscription<AndroidIntentResult>? _intentSubscription;
+  RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
   bool _routeSubscribed = false;
   bool _externalPageOpen = false;
 
@@ -51,13 +42,6 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
     _backCoordinator = RootBackCoordinator();
-    // Keep the existing TabController as the body-selection owner while the
-    // bottom chrome uses Material 3 NavigationBar destinations.
-    _navController = TabController(
-      length: pages.length,
-      vsync: this,
-      initialIndex: 0,
-    )..addListener(_onNavChanged);
     _intentSource =
         widget.intentSource ?? const MethodChannelAndroidIntentSource();
     WidgetsBinding.instance.addObserver(this);
@@ -74,10 +58,15 @@ class _HomePageState extends State<HomePage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_routeSubscribed) return;
+    final observer =
+        RouteObserverScope.maybeOf(context) ?? replicaRouteObserver;
     final route = ModalRoute.of(context);
+    if (_routeSubscribed && identical(observer, _routeObserver)) return;
+    if (_routeSubscribed) _routeObserver.unsubscribe(this);
+    _routeObserver = observer;
+    _routeSubscribed = false;
     if (route != null) {
-      replicaRouteObserver.subscribe(this, route);
+      _routeObserver.subscribe(this, route);
       _routeSubscribed = true;
     }
   }
@@ -95,17 +84,11 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
-    if (_routeSubscribed) replicaRouteObserver.unsubscribe(this);
+    if (_routeSubscribed) _routeObserver.unsubscribe(this);
     unawaited(_intentSubscription?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     _backCoordinator.dispose();
-    _navController.dispose();
     super.dispose();
-  }
-
-  void _onNavChanged() {
-    if (!mounted) return;
-    setState(() {});
   }
 
   Future<void> _readInitialIntent() async {
@@ -189,12 +172,6 @@ class _HomePageState extends State<HomePage>
     });
   }
 
-  void _selectTab(int i) {
-    // The destination callback owns the single TabController animation. This
-    // callback only owns lazy construction bookkeeping.
-    if (_visitedTabs.add(i) && mounted) setState(() {});
-  }
-
   void _showExternalIntentFailure() {
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -235,8 +212,6 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  static const pages = homeShellTabs;
-
   static const icons = [
     AppIcons.home,
     AppIcons.ranking,
@@ -248,19 +223,12 @@ class _HomePageState extends State<HomePage>
   @override
   Widget build(BuildContext context) {
     _scheduleBottomNavMeasure();
-    for (final i in _visitedTabs) {
-      _tabChildren[i] ??= pages[i];
-    }
-    final index = _navController.index;
-    final children = [
-      for (var i = 0; i < pages.length; i++)
-        _tabChildren[i] ?? const SizedBox.shrink(),
-    ];
+    final index = widget.navigationShell.currentIndex;
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
       child: Scaffold(
-        body: IndexedStack(index: index, children: children),
+        body: widget.navigationShell,
         bottomNavigationBar: SizedBox(
           key: _bottomNavKey,
           child: Padding(
@@ -270,10 +238,7 @@ class _HomePageState extends State<HomePage>
             padding: const EdgeInsets.only(bottom: 8),
             child: NavigationBar(
               selectedIndex: index,
-              onDestinationSelected: (i) {
-                _navController.animateTo(i);
-                _selectTab(i);
-              },
+              onDestinationSelected: widget.navigationShell.goBranch,
               destinations: [
                 NavigationDestination(
                   icon: Icon(icons[0], size: 30),

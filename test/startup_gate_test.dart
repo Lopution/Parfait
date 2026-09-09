@@ -11,6 +11,7 @@ import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/features/home/home_page.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/startup_gate.dart';
 import 'package:pixiv_func/features/onboarding/welcome_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -53,6 +54,9 @@ Widget _wrap({
   bool brokenStore = false,
   bool corruptMetadata = false,
 }) {
+  final router = createPixivRouter(
+    initialLocation: settings.guideCompleted ? '/recommended' : '/welcome',
+  );
   return ProviderScope(
     overrides: [
       credentialStoreProvider.overrideWithValue(
@@ -64,12 +68,13 @@ Widget _wrap({
         _StaticMetadataRepository(snapshot, corrupt: corruptMetadata),
       ),
     ],
-    child: MaterialApp(
+    child: MaterialApp.router(
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('zh', 'CN'),
-
-      home: StartupGate(settings: settings),
+      routerConfig: router,
+      builder: (context, child) =>
+          StartupGate(settings: settings, router: router, child: child!),
     ),
   );
 }

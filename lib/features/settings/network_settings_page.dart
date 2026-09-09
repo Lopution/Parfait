@@ -23,7 +23,7 @@ Future<bool> _persistNetwork(
     return true;
   } on Object catch (error) {
     if (context.mounted) {
-      showAppSnackBar(context, '${context.l10n.settingsWriteFailed}: $error',);
+      showAppSnackBar(context, '${context.l10n.settingsWriteFailed}: $error');
     }
     return false;
   }
@@ -112,7 +112,7 @@ class NetworkSettingsPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push<void>(
               ReplicaPageRoute<void>(
-                builder: (_) => const _NetworkAdvancedSettingsPage(),
+                builder: (_) => const NetworkAdvancedSettingsPage(),
               ),
             ),
           ),
@@ -153,16 +153,16 @@ Widget _modeTile(
 /// Only DoH endpoint override, ECH front host and reset-to-default survive
 /// after C17 removed the global insecure switch and C16 removed the native
 /// login WebView intercept.
-class _NetworkAdvancedSettingsPage extends ConsumerStatefulWidget {
-  const _NetworkAdvancedSettingsPage();
+class NetworkAdvancedSettingsPage extends ConsumerStatefulWidget {
+  const NetworkAdvancedSettingsPage({super.key});
 
   @override
-  ConsumerState<_NetworkAdvancedSettingsPage> createState() =>
+  ConsumerState<NetworkAdvancedSettingsPage> createState() =>
       _NetworkAdvancedSettingsPageState();
 }
 
 class _NetworkAdvancedSettingsPageState
-    extends ConsumerState<_NetworkAdvancedSettingsPage> {
+    extends ConsumerState<NetworkAdvancedSettingsPage> {
   late final TextEditingController _dohController;
   late final FocusNode _dohFocusNode;
   bool _dohDirty = false;
