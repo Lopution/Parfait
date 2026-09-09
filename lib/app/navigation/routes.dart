@@ -7,6 +7,7 @@ import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/navigation/route_observer.dart';
+import '../../core/illust/ranking_repository.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
@@ -76,7 +77,17 @@ class _ImageViewerRoute extends ConsumerWidget {
     final entity =
         extra?.entity ?? ref.watch(illustStoreProvider).get(illustId);
     final urls = extra?.urls ?? entity?.viewerUrls(quality) ?? const <String>[];
-    return ImageViewerPage(urls: urls, initialPage: page);
+    return ImageViewerPage(
+      urls: urls,
+      initialPage: page,
+      onPageChanged: (page) => replaceImageViewerPage(
+        context,
+        illustId: illustId,
+        page: page,
+        quality: quality,
+        extra: extra,
+      ),
+    );
   }
 }
 
@@ -84,11 +95,15 @@ Widget _scoped(RouteObserver<ModalRoute<dynamic>> observer, Widget child) =>
     RouteObserverScope(observer: observer, child: child);
 
 Page<dynamic> _page(
+  BuildContext context,
   GoRouterState state,
   RouteObserver<ModalRoute<dynamic>> observer,
   Widget child,
 ) => CustomTransitionPage<dynamic>(
   key: state.pageKey,
+  restorationId: RestorationScope.maybeOf(context) == null
+      ? null
+      : state.pageKey.value,
   child: _scoped(observer, child),
   transitionDuration: MotionTokens.pageTransition,
   reverseTransitionDuration: MotionTokens.pageTransition,
@@ -109,6 +124,11 @@ Page<dynamic> _page(
 
 int _pathId(GoRouterState state, String name) =>
     int.parse(state.pathParameters[name]!);
+
+RankingMode _rankingMode(String? raw) => RankingMode.values.firstWhere(
+  (mode) => mode.name == raw,
+  orElse: () => RankingMode.day,
+);
 
 SearchResultType _searchType(String? raw) => SearchResultType.values.firstWhere(
   (value) => value.name == raw,
@@ -209,6 +229,7 @@ List<RouteBase> _commonBranchRoutes(
           ? extra
           : null;
       return _page(
+        context,
         state,
         branchObserver,
         IllustDetailPage(
@@ -231,6 +252,7 @@ List<RouteBase> _commonBranchRoutes(
               ? state.extra! as ImageViewerRouteExtra
               : null;
           return _page(
+            context,
             state,
             rootObserver,
             _ImageViewerRoute(
@@ -245,6 +267,7 @@ List<RouteBase> _commonBranchRoutes(
       GoRoute(
         path: 'comments',
         pageBuilder: (context, state) => _page(
+          context,
           state,
           branchObserver,
           IllustCommentsPage(illustId: _pathId(state, 'illustId')),
@@ -253,6 +276,7 @@ List<RouteBase> _commonBranchRoutes(
       GoRoute(
         path: 'comments/:rootCommentId',
         pageBuilder: (context, state) => _page(
+          context,
           state,
           branchObserver,
           CommentRepliesPage(
@@ -269,6 +293,7 @@ List<RouteBase> _commonBranchRoutes(
   GoRoute(
     path: 'user/:userId',
     pageBuilder: (context, state) => _page(
+      context,
       state,
       branchObserver,
       UserPage(userId: _pathId(state, 'userId')),
@@ -277,11 +302,12 @@ List<RouteBase> _commonBranchRoutes(
   GoRoute(
     path: 'me',
     pageBuilder: (context, state) =>
-        _page(state, branchObserver, const MePage()),
+        _page(context, state, branchObserver, const MePage()),
   ),
   GoRoute(
     path: 'profile/:userId/edit',
     pageBuilder: (context, state) => _page(
+      context,
       state,
       branchObserver,
       ProfileEditPage(userId: _pathId(state, 'userId')),
@@ -290,6 +316,7 @@ List<RouteBase> _commonBranchRoutes(
   GoRoute(
     path: 'novel/:novelId',
     pageBuilder: (context, state) => _page(
+      context,
       state,
       branchObserver,
       NovelPage(novelId: _pathId(state, 'novelId')),
@@ -298,13 +325,14 @@ List<RouteBase> _commonBranchRoutes(
   GoRoute(
     path: 'history',
     pageBuilder: (context, state) =>
-        _page(state, branchObserver, const HistoryPage()),
+        _page(context, state, branchObserver, const HistoryPage()),
   ),
 ];
 
 StatefulShellBranch _branch({
   required String path,
   required Widget home,
+  Widget Function(BuildContext context, GoRouterState state)? homeBuilder,
   required GlobalKey<NavigatorState> navigatorKey,
   required RouteObserver<ModalRoute<dynamic>> observer,
   required GlobalKey<NavigatorState> rootNavigatorKey,
@@ -331,7 +359,12 @@ StatefulShellBranch _branch({
     routes: [
       GoRoute(
         path: path,
-        pageBuilder: (context, state) => _page(state, observer, home),
+        pageBuilder: (context, state) => _page(
+          context,
+          state,
+          observer,
+          homeBuilder?.call(context, state) ?? home,
+        ),
         routes: [...commonRoutes, ...routes],
       ),
     ],
@@ -367,23 +400,28 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
       GoRoute(
         path: '/welcome',
         pageBuilder: (context, state) =>
-            _page(state, appRootRouteObserver, const WelcomePage()),
+            _page(context, state, appRootRouteObserver, const WelcomePage()),
         routes: [
           GoRoute(
             path: 'language',
-            pageBuilder: (context, state) =>
-                _page(state, appRootRouteObserver, const LanguagePage()),
+            pageBuilder: (context, state) => _page(
+              context,
+              state,
+              appRootRouteObserver,
+              const LanguagePage(),
+            ),
           ),
           GoRoute(
             path: 'theme',
             pageBuilder: (context, state) =>
-                _page(state, appRootRouteObserver, const ThemePage()),
+                _page(context, state, appRootRouteObserver, const ThemePage()),
           ),
         ],
       ),
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) => _page(
+          context,
           state,
           appRootRouteObserver,
           LoginPage(
@@ -396,6 +434,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
           GoRoute(
             path: 'web',
             pageBuilder: (context, state) => _page(
+              context,
               state,
               appRootRouteObserver,
               LoginWebViewPage(
@@ -409,6 +448,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
           GoRoute(
             path: 'callback',
             pageBuilder: (context, state) => _page(
+              context,
               state,
               appRootRouteObserver,
               LoginPage(
@@ -424,6 +464,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
       GoRoute(
         path: '/reverse-image',
         pageBuilder: (context, state) => _page(
+          context,
           state,
           appRootRouteObserver,
           ReverseImageSearchPage(
@@ -435,6 +476,16 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
       ),
       StatefulShellRoute.indexedStack(
         restorationScopeId: 'home-shell',
+        pageBuilder: (context, state, navigationShell) => NoTransitionPage(
+          key: state.pageKey,
+          restorationId: RestorationScope.maybeOf(context) == null
+              ? null
+              : 'home-shell-page',
+          child: _scoped(
+            appRootRouteObserver,
+            HomePage(navigationShell: navigationShell),
+          ),
+        ),
         branches: [
           _branch(
             path: '/recommended',
@@ -448,6 +499,10 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
           _branch(
             path: '/ranking',
             home: const RankingPage(),
+            homeBuilder: (context, state) => RankingPage(
+              initialMode: _rankingMode(state.uri.queryParameters['mode']),
+              onModeChanged: (mode) => replaceRankingMode(context, mode),
+            ),
             navigatorKey: rankingNavigatorKey,
             observer: rankingRouteObserver,
             rootNavigatorKey: appRootNavigatorKey,
@@ -475,16 +530,24 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'input',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   searchRouteObserver,
                   SearchInputPage(
                     initialKeyword: state.uri.queryParameters['q'] ?? '',
+                    initialType: _searchType(state.uri.queryParameters['type']),
+                    onTypeChanged: (keyword, type) => replaceSearchInput(
+                      context,
+                      keyword: keyword,
+                      type: type,
+                    ),
                   ),
                 ),
               ),
               GoRoute(
                 path: 'results',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   searchRouteObserver,
                   SearchResultPage(query: _searchQuery(state)),
@@ -493,6 +556,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'tag/:keyword',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   searchRouteObserver,
                   TagSearchPage(keyword: state.pathParameters['keyword']!),
@@ -513,6 +577,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'account',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const AccountSettingsPage(),
@@ -521,6 +586,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'theme',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const ThemeSettingsPage(),
@@ -529,6 +595,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'language',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const LanguageSettingsPage(),
@@ -537,6 +604,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'translate',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const TranslateSettingsPage(),
@@ -545,6 +613,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                   GoRoute(
                     path: 'credentials/:provider',
                     pageBuilder: (context, state) => _page(
+                      context,
                       state,
                       settingsRouteObserver,
                       TranslationCredentialsPage(
@@ -557,6 +626,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'network',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const NetworkSettingsPage(),
@@ -565,6 +635,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                   GoRoute(
                     path: 'probe',
                     pageBuilder: (context, state) => _page(
+                      context,
                       state,
                       settingsRouteObserver,
                       const NetworkProbePage(),
@@ -573,6 +644,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                   GoRoute(
                     path: 'advanced',
                     pageBuilder: (context, state) => _page(
+                      context,
                       state,
                       settingsRouteObserver,
                       const NetworkAdvancedSettingsPage(),
@@ -583,6 +655,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'browse',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const BrowseSettingsPage(),
@@ -591,6 +664,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'download',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const DownloadSettingsPage(),
@@ -599,6 +673,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                   GoRoute(
                     path: 'destination',
                     pageBuilder: (context, state) => _page(
+                      context,
                       state,
                       settingsRouteObserver,
                       const DownloadDestinationPage(),
@@ -609,6 +684,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'history',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const HistorySettingsPage(),
@@ -617,6 +693,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                   GoRoute(
                     path: 'view',
                     pageBuilder: (context, state) => _page(
+                      context,
                       state,
                       settingsRouteObserver,
                       const HistoryPage(),
@@ -627,6 +704,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'blocked',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const BlockedTagsPage(),
@@ -635,6 +713,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'tasks',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const DownloadTasksPage(),
@@ -643,6 +722,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               GoRoute(
                 path: 'about',
                 pageBuilder: (context, state) => _page(
+                  context,
                   state,
                   settingsRouteObserver,
                   const AboutSettingsPage(),
@@ -651,6 +731,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                   GoRoute(
                     path: 'licenses',
                     pageBuilder: (context, state) => _page(
+                      context,
                       state,
                       settingsRouteObserver,
                       const LicensePage(
@@ -664,10 +745,6 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
             ],
           ),
         ],
-        builder: (context, state, navigationShell) => _scoped(
-          appRootRouteObserver,
-          HomePage(navigationShell: navigationShell),
-        ),
       ),
     ],
   );
@@ -771,12 +848,33 @@ Future<void> openNovel(BuildContext context, int novelId) async {
 Future<void> openSearchInput(
   BuildContext context, {
   String initialKeyword = '',
+  SearchResultType type = SearchResultType.illust,
 }) async {
   final location = Uri(
     path: '/search/input',
-    queryParameters: {'q': initialKeyword},
+    queryParameters: {'q': initialKeyword, 'type': type.name},
   ).toString();
   await _push(context, location);
+}
+
+void replaceSearchInput(
+  BuildContext context, {
+  required String keyword,
+  required SearchResultType type,
+}) {
+  final location = Uri(
+    path: '/search/input',
+    queryParameters: {'q': keyword, 'type': type.name},
+  ).toString();
+  context.replace(location);
+}
+
+void replaceRankingMode(BuildContext context, RankingMode mode) {
+  final location = Uri(
+    path: '/ranking',
+    queryParameters: {'mode': mode.name},
+  ).toString();
+  context.replace(location);
 }
 
 Future<void> openSearchResults(BuildContext context, SearchQuery query) async {
@@ -844,6 +942,20 @@ Future<void> openImageViewer(
       urls: entity.viewerUrls(quality),
       entity: entity,
     ),
+  );
+}
+
+void replaceImageViewerPage(
+  BuildContext context, {
+  required int illustId,
+  required int page,
+  required ViewQuality quality,
+  ImageViewerRouteExtra? extra,
+}) {
+  context.replace(
+    '${_currentBranch(context)}/illust/$illustId/viewer/$page'
+    '?quality=${quality.code}',
+    extra: extra,
   );
 }
 

@@ -256,7 +256,9 @@ class _RecommendedFeedBody extends ConsumerWidget {
           return false;
         },
         child: CustomScrollView(
+          key: PageStorageKey('recommended-${type.name}'),
           physics: const AlwaysScrollableScrollPhysics(),
+          restorationId: 'recommended-${type.name}',
           slivers: slivers,
         ),
       ),

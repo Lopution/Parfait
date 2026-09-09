@@ -65,6 +65,7 @@ class ProfileUserFeed extends ConsumerWidget {
             },
             child: ListView.builder(
               key: PageStorageKey(feedKey),
+              restorationId: 'profile-${feedKey.toString()}',
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: (users.isEmpty ? 1 : users.length + 1) + 1,
               itemBuilder: (context, index) {

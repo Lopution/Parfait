@@ -63,6 +63,7 @@ class ProfileIllustFeed extends ConsumerWidget {
             },
             child: CustomScrollView(
               key: PageStorageKey(feedKey),
+              restorationId: 'profile-${feedKey.toString()}',
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 const HeaderLocator.sliver(),

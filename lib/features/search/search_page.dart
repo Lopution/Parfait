@@ -24,6 +24,8 @@ class SearchHomePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.searchTitle)),
       body: CustomScrollView(
+        key: const PageStorageKey('search-home'),
+        restorationId: 'search-home',
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
@@ -237,9 +239,16 @@ class _TrendingTagTile extends StatelessWidget {
 
 /// Search input with the three beta56 result tabs and cancellable suggestions.
 class SearchInputPage extends ConsumerStatefulWidget {
-  const SearchInputPage({super.key, this.initialKeyword = ''});
+  const SearchInputPage({
+    super.key,
+    this.initialKeyword = '',
+    this.initialType = SearchResultType.illust,
+    this.onTypeChanged,
+  });
 
   final String initialKeyword;
+  final SearchResultType initialType;
+  final void Function(String keyword, SearchResultType type)? onTypeChanged;
 
   @override
   ConsumerState<SearchInputPage> createState() => _SearchInputPageState();
@@ -251,15 +260,19 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   late final TextEditingController _textController;
   late final FocusNode _focusNode;
   SearchFilters _filters = SearchFilters.defaults;
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
   static const _types = SearchResultType.values;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _types.length, vsync: this)
-      ..addListener(_onTabChanged);
+    _selectedIndex = _types.indexOf(widget.initialType);
+    _tabController = TabController(
+      length: _types.length,
+      vsync: this,
+      initialIndex: _selectedIndex,
+    )..addListener(_onTabChanged);
     _textController = TextEditingController(text: widget.initialKeyword);
     _focusNode = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -289,6 +302,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       return;
     }
     setState(() => _selectedIndex = _tabController.index);
+    widget.onTypeChanged?.call(_textController.text, _types[_selectedIndex]);
   }
 
   void _submit() {
@@ -331,6 +345,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
         ),
         titleSpacing: 0,
         title: TextField(
+          restorationId: 'search-input',
           controller: _textController,
           focusNode: _focusNode,
           autofocus: widget.initialKeyword.isEmpty,

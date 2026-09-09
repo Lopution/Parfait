@@ -385,7 +385,8 @@ class _ProfileAbout extends StatelessWidget {
       if (user.pawooUrl != null) (label: 'Pawoo', value: user.pawooUrl!),
     ];
     return ListView(
-      key: const PageStorageKey('profile-about'),
+      key: PageStorageKey('profile-about-${user.id}'),
+      restorationId: 'profile-about-${user.id}',
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
       children: [
         for (final entry in entries)
