@@ -27,6 +27,36 @@ void main() {
     expect(document.closeCalls, 1);
     expect(document.deleteCalls, 0);
   });
+
+  test(
+    'SAF coalesces channel writes and flushes the final remainder',
+    () async {
+      final document = _FakeSafDocument();
+      final sink = SafDownloadSink(document, owner: null);
+
+      await sink.write(List<int>.filled(downloadChannelWriteSize - 1, 1));
+      expect(document.writes, isEmpty);
+
+      await sink.write([2, 3]);
+      expect(document.writes, hasLength(1));
+      expect(document.writes.single, hasLength(downloadChannelWriteSize));
+      expect(document.writes.single.last, 2);
+
+      await sink.finalize();
+      expect(document.writes, hasLength(2));
+      expect(document.writes.last, [3]);
+    },
+  );
+
+  test('SAF abort discards buffered channel writes', () async {
+    final document = _FakeSafDocument();
+    final sink = SafDownloadSink(document, owner: null);
+
+    await sink.write(List<int>.filled(downloadChannelWriteSize - 1, 1));
+    await sink.abort();
+
+    expect(document.writes, isEmpty);
+  });
 }
 
 class _FakeSafDocument implements SafDocumentSink {
@@ -37,9 +67,12 @@ class _FakeSafDocument implements SafDocumentSink {
   final String uri = 'content://fake/saf/1';
   var closeCalls = 0;
   var deleteCalls = 0;
+  final writes = <List<int>>[];
 
   @override
-  Future<void> write(List<int> bytes) async {}
+  Future<void> write(List<int> bytes) async {
+    writes.add(List<int>.from(bytes));
+  }
 
   @override
   Future<void> close() async {
