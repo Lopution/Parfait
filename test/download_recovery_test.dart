@@ -26,6 +26,32 @@ DownloadRequest _request({int pageIndex = 0}) => DownloadRequest(
 DownloadSubmissionContext _context({String accountId = 'account-a'}) =>
     DownloadSubmissionContext(accountId: accountId);
 
+DownloadRecoveryRecord _recoveryRecord(
+  int index, {
+  required DownloadStatus status,
+}) {
+  final request = _request(pageIndex: index);
+  final snapshot = DownloadSubmissionSnapshot(
+    snapshotId: 'submission-$index',
+    jobId: 'job-$index',
+    groupId: null,
+    request: request,
+    accountId: 'account-a',
+    submittedAt: DateTime.utc(2026, 9, 1).add(Duration(minutes: index)),
+  );
+  return DownloadRecoveryRecord(
+    jobId: snapshot.jobId,
+    dedupeKey: request.dedupeKey,
+    snapshot: snapshot,
+    owner: DownloadOutputOwner(
+      ownerId: 'output-$index',
+      jobId: snapshot.jobId,
+      accountId: snapshot.accountId,
+    ),
+    status: status,
+  );
+}
+
 class _Response implements DownloadResponse, DownloadResponseMetadata {
   _Response({
     this.statusCode = 200,
@@ -150,8 +176,7 @@ void main() {
   test(
     'preferences recovery store round-trips only bounded metadata',
     () async {
-      SharedPreferencesAsyncPlatform.instance =
-          memoryPreferences();
+      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final preferences = SharedPreferencesAsync();
       final store = PreferencesDownloadRecoveryStore(preferences: preferences);
       final request = _request();
@@ -190,10 +215,38 @@ void main() {
   );
 
   test(
+    'recovery store evicts terminal records before active records',
+    () async {
+      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+      final preferences = SharedPreferencesAsync();
+      final store = PreferencesDownloadRecoveryStore(preferences: preferences);
+
+      await store.upsert(_recoveryRecord(0, status: DownloadStatus.running));
+      for (var index = 1; index <= 128; index++) {
+        await store.upsert(
+          _recoveryRecord(index, status: DownloadStatus.succeeded),
+        );
+      }
+
+      final records = await store.load();
+      expect(records, hasLength(128));
+      expect(records.map((record) => record.jobId), contains('job-0'));
+      expect(records.map((record) => record.jobId), isNot(contains('job-1')));
+      expect(records.map((record) => record.jobId), contains('job-128'));
+
+      final reloaded = PreferencesDownloadRecoveryStore(
+        preferences: preferences,
+      );
+      final persistedRecords = await reloaded.load();
+      expect(persistedRecords, hasLength(128));
+      expect(persistedRecords.map((record) => record.jobId), contains('job-0'));
+    },
+  );
+
+  test(
     'legacy Pictures/PixivFunc destination migrates to the builtin owner',
     () async {
-      SharedPreferencesAsyncPlatform.instance =
-          memoryPreferences();
+      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final preferences = SharedPreferencesAsync();
       final raw = <String, Object?>{
         'jobId': 'job-legacy-path',

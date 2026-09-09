@@ -365,8 +365,9 @@ class MemoryDownloadRecoveryStore implements DownloadRecoveryStore {
   }
 }
 
-/// Versioned preferences store for app process recovery. It is bounded so a
-/// long-lived app cannot turn task history into an unbounded queue.
+/// Versioned preferences store for app process recovery. Terminal records are
+/// bounded so a long-lived app cannot turn task history into an unbounded
+/// queue while active work remains recoverable.
 class PreferencesDownloadRecoveryStore implements DownloadRecoveryStore {
   PreferencesDownloadRecoveryStore({
     required SharedPreferencesAsync preferences,
@@ -396,19 +397,28 @@ class PreferencesDownloadRecoveryStore implements DownloadRecoveryStore {
         .where((existing) => existing.jobId != record.jobId)
         .toList(growable: true);
     records.add(record);
-    final first = records.length > _maxRecords
-        ? records.length - _maxRecords
-        : 0;
+    while (records.length > _maxRecords) {
+      final evictIndex = records.indexWhere(
+        (existing) => switch (existing.status) {
+          DownloadStatus.succeeded ||
+          DownloadStatus.failed ||
+          DownloadStatus.canceled ||
+          DownloadStatus.orphaned => true,
+          _ => false,
+        },
+      );
+      if (evictIndex == -1) break;
+      records.removeAt(evictIndex);
+    }
     await _preferences.setStringList(
       _storageKey,
       records
-          .sublist(first)
           .map((value) => jsonEncode(value.toJson()))
           .toList(growable: false),
     );
     _cache
       ..clear()
-      ..addAll(records.sublist(first));
+      ..addAll(records);
   });
 
   @override
