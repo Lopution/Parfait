@@ -7,25 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
-import 'package:pixiv_func/features/home/home_page.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
-
-/// The icon font tests render the real [HomePage] shell, which subscribes to
-/// the Android intent bridge in `initState`. This stub replaces only that
-/// external platform boundary; everything else under test stays real.
-class _NoAndroidIntentSource implements AndroidIntentSource {
-  const _NoAndroidIntentSource();
-
-  @override
-  Future<AndroidIntentResult> readInitial() async =>
-      const IgnoredAndroidIntent('test: no android intent source');
-
-  @override
-  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
-}
 
 void main() {
   group('iconFont asset registration', () {
@@ -85,10 +68,7 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-          routerConfig: createPixivRouter(
-            initialLocation: '/recommended',
-            intentSource: const _NoAndroidIntentSource(),
-          ),
+          routerConfig: createPixivRouter(initialLocation: '/recommended'),
         ),
       ),
     );
@@ -131,10 +111,7 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-          routerConfig: createPixivRouter(
-            initialLocation: '/recommended',
-            intentSource: const _NoAndroidIntentSource(),
-          ),
+          routerConfig: createPixivRouter(initialLocation: '/recommended'),
         ),
       ),
     );

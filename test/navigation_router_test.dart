@@ -6,8 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
@@ -17,17 +15,6 @@ import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-class _IgnoredIntentSource implements AndroidIntentSource {
-  const _IgnoredIntentSource();
-
-  @override
-  Future<AndroidIntentResult> readInitial() async =>
-      const IgnoredAndroidIntent('test: no android intent');
-
-  @override
-  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
-}
-
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -36,10 +23,7 @@ void main() {
   testWidgets('shell owns the active tab and preserves branch stacks', (
     tester,
   ) async {
-    final router = createPixivRouter(
-      initialLocation: '/recommended',
-      intentSource: const _IgnoredIntentSource(),
-    );
+    final router = createPixivRouter(initialLocation: '/recommended');
     addTearDown(router.dispose);
 
     await tester.pumpWidget(

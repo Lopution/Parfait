@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,21 +5,15 @@ import 'package:flutter/services.dart';
 
 import '../../app/icons/app_icons.dart';
 import '../../core/navigation/route_observer.dart';
-import '../../core/platform/android_intent_channel.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
-import '../../app/navigation/routes.dart';
-import '../../core/platform/intent_router.dart';
 import '../../core/platform/root_back_coordinator.dart';
-import '../../core/reverse_image/image_input.dart';
-import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.navigationShell, this.intentSource});
+  const HomePage({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
-  final AndroidIntentSource? intentSource;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -32,27 +24,17 @@ class _HomePageState extends State<HomePage>
   late final RootBackCoordinator _backCoordinator;
   final GlobalKey _bottomNavKey = GlobalKey();
   bool _bottomNavMeasureScheduled = false;
-  late final AndroidIntentSource _intentSource;
-  StreamSubscription<AndroidIntentResult>? _intentSubscription;
   RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
   bool _routeSubscribed = false;
-  bool _externalPageOpen = false;
 
   @override
   void initState() {
     super.initState();
     _backCoordinator = RootBackCoordinator();
-    _intentSource =
-        widget.intentSource ?? const MethodChannelAndroidIntentSource();
     WidgetsBinding.instance.addObserver(this);
     // Publish the real bottom-row height so the Hero flight can clip
     // against the actual chrome instead of a guessed constant.
     _scheduleBottomNavMeasure();
-    _intentSubscription = _intentSource.onNewIntent.listen(
-      _handleExternalIntent,
-      onError: _handleExternalIntentStreamError,
-    );
-    unawaited(_readInitialIntent());
   }
 
   @override
@@ -85,72 +67,9 @@ class _HomePageState extends State<HomePage>
   @override
   void dispose() {
     if (_routeSubscribed) _routeObserver.unsubscribe(this);
-    unawaited(_intentSubscription?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     _backCoordinator.dispose();
     super.dispose();
-  }
-
-  Future<void> _readInitialIntent() async {
-    try {
-      final result = await _intentSource.readInitial();
-      if (mounted) _handleExternalIntent(result);
-    } on MissingPluginException {
-      // Non-Android platforms have no native intent bridge; the picker page
-      // still reports its own explicit platform-unavailable state.
-    } on PlatformException {
-      if (mounted) _showExternalIntentFailure();
-    } on Object {
-      if (mounted) _showExternalIntentFailure();
-    }
-  }
-
-  void _handleExternalIntentStreamError(Object error, StackTrace stackTrace) {
-    // Desktop/web have no Android event channel. That capability absence is
-    // expected; a real Android channel error remains visible to the user.
-    if (error is MissingPluginException) return;
-    if (mounted) _showExternalIntentFailure();
-  }
-
-  void _handleExternalIntent(AndroidIntentResult result) {
-    switch (result) {
-      case SharedImageAndroidIntent(
-        :final contentUri,
-        :final mimeType,
-        :final sizeBytes,
-      ):
-        if (_externalPageOpen) return;
-        _externalPageOpen = true;
-        unawaited(
-          openReverseImageSearch(
-            context,
-            initialReference: ReverseImageInputReference(
-              contentUri: contentUri.toString(),
-              mimeType: mimeType,
-              sizeBytes: sizeBytes,
-              hasReadUriPermission: true,
-              source: ReverseImageInputSource.androidSend,
-            ),
-          ).whenComplete(() => _externalPageOpen = false),
-        );
-      case RejectedAndroidIntent():
-        _showExternalIntentFailure();
-      case RoutedAndroidIntent(:final route):
-        // Widget/home-screen deep links: pixivfunc://illusts/<id> opens the
-        // illust detail (beta56 behaviour; PRD 08-26-android-home-widgets
-        // R3). Unknown or unsupported routes keep the app on the current
-        // page instead of navigating somewhere unvalidated.
-        if (route is IllustRoute && mounted) {
-          unawaited(openIllust(context, route.illustId));
-        } else if (route is UserRoute && mounted) {
-          // C8: user deep links (pixivfunc://users/<id>, /u/<id>,
-          // /users/<id>, user.php?id=<id>) were parsed but silently dropped;
-          // route them into the existing user page like the detail page does.
-          openUser(context, route.userId);
-        }
-      case IgnoredAndroidIntent():
-        break;
-    }
   }
 
   void _measureBottomNav(Duration _) {
@@ -169,14 +88,6 @@ class _HomePageState extends State<HomePage>
     WidgetsBinding.instance.addPostFrameCallback((timestamp) {
       _bottomNavMeasureScheduled = false;
       if (mounted) _measureBottomNav(timestamp);
-    });
-  }
-
-  void _showExternalIntentFailure() {
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showAppSnackBar(context, context.l10n.searchReverseIntentFailed);
     });
   }
 

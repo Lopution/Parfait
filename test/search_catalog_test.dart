@@ -19,8 +19,6 @@ import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/search/search_autocomplete_controller.dart';
 import 'package:pixiv_func/core/search/search_feed_controller.dart';
 import 'package:pixiv_func/core/search/search_models.dart';
@@ -136,17 +134,6 @@ class _AccountMetadataRepository implements AccountMetadataRepository {
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
-}
-
-class _IgnoredIntentSource implements AndroidIntentSource {
-  const _IgnoredIntentSource();
-
-  @override
-  Future<AndroidIntentResult> readInitial() async =>
-      const IgnoredAndroidIntent('test: no android intent');
-
-  @override
-  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
 }
 
 Future<ProviderContainer> _apiContainer(
@@ -464,10 +451,7 @@ void main() {
     tester,
   ) async {
     final repository = _FakeSearchRepository();
-    final router = createPixivRouter(
-      initialLocation: '/search',
-      intentSource: const _IgnoredIntentSource(),
-    );
+    final router = createPixivRouter(initialLocation: '/search');
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
@@ -553,10 +537,7 @@ void main() {
     tester,
   ) async {
     final repository = _FakeSearchRepository();
-    final router = createPixivRouter(
-      initialLocation: '/search',
-      intentSource: const _IgnoredIntentSource(),
-    );
+    final router = createPixivRouter(initialLocation: '/search');
     addTearDown(router.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(

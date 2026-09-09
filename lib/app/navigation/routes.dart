@@ -7,7 +7,7 @@ import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/navigation/route_observer.dart';
-import '../../core/platform/android_intent_channel.dart';
+import '../../core/platform/intent_router.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
 import '../../core/settings/app_settings.dart';
@@ -338,10 +338,7 @@ StatefulShellBranch _branch({
   );
 }
 
-GoRouter createPixivRouter({
-  AndroidIntentSource? intentSource,
-  String initialLocation = '/welcome',
-}) {
+GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
   final appRootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
   final recommendedNavigatorKey = GlobalKey<NavigatorState>(
     debugLabel: 'recommended',
@@ -414,7 +411,12 @@ GoRouter createPixivRouter({
             pageBuilder: (context, state) => _page(
               state,
               appRootRouteObserver,
-              const LoginPage(returnToHomeOnSuccess: true),
+              LoginPage(
+                returnToHomeOnSuccess: true,
+                callback: state.extra is AccountCallbackRoute
+                    ? state.extra! as AccountCallbackRoute
+                    : null,
+              ),
             ),
           ),
         ],
@@ -664,14 +666,49 @@ GoRouter createPixivRouter({
         ],
         builder: (context, state, navigationShell) => _scoped(
           appRootRouteObserver,
-          HomePage(
-            navigationShell: navigationShell,
-            intentSource: intentSource,
-          ),
+          HomePage(navigationShell: navigationShell),
         ),
       ),
     ],
   );
+}
+
+Future<void> routeExternalIntent(
+  GoRouter router,
+  AndroidIntentResult result,
+) async {
+  switch (result) {
+    case SharedImageAndroidIntent(
+      :final contentUri,
+      :final mimeType,
+      :final sizeBytes,
+    ):
+      await router.push<void>(
+        '/reverse-image',
+        extra: ReverseImageInputReference(
+          contentUri: contentUri.toString(),
+          mimeType: mimeType,
+          sizeBytes: sizeBytes,
+          hasReadUriPermission: true,
+          source: ReverseImageInputSource.androidSend,
+        ),
+      );
+    case RoutedAndroidIntent(:final route):
+      switch (route) {
+        case IllustRoute(:final illustId):
+          router.go('/recommended/illust/$illustId');
+        case UserRoute(:final userId):
+          router.go('/recommended/user/$userId');
+        case AccountCallbackRoute():
+          await router.push<void>('/login/callback', extra: route);
+        case UnknownRoute():
+        case ForeignUri():
+          break;
+      }
+    case RejectedAndroidIntent():
+    case IgnoredAndroidIntent():
+      break;
+  }
 }
 
 /// Navigation facade — the only file in the app allowed to import feature

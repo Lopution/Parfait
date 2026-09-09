@@ -10,6 +10,8 @@ import '../core/settings/settings_controller.dart';
 import '../core/widget/widget_coordinator.dart';
 import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
+import '../core/platform/android_intent_channel.dart';
+import 'external_intent_bridge.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
@@ -17,7 +19,9 @@ import 'widgets/settings_load_error.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 class PixivFuncApp extends ConsumerStatefulWidget {
-  const PixivFuncApp({super.key});
+  const PixivFuncApp({super.key, this.intentSource});
+
+  final AndroidIntentSource? intentSource;
 
   @override
   ConsumerState<PixivFuncApp> createState() => _PixivFuncAppState();
@@ -132,7 +136,13 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
                     child: routeChild,
                   ));
         // ignore: deprecated_member_use
-        return MaterialUiCompatibilityBridge(child: content);
+        return MaterialUiCompatibilityBridge(
+          child: ExternalIntentBridge(
+            router: _router,
+            intentSource: widget.intentSource,
+            child: content,
+          ),
+        );
       },
     );
   }

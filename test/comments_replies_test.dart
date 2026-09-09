@@ -24,8 +24,6 @@ import 'package:pixiv_func/core/comments/comment_store.dart';
 import 'package:pixiv_func/core/comments/comment_translation.dart';
 import 'package:pixiv_func/core/entity/comment_entity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/features/comments/comment_input.dart';
 import 'package:pixiv_func/features/comments/comment_item.dart';
@@ -42,17 +40,6 @@ class _StubAccountStore extends AccountStore {
     accounts: [Account(id: 'account', userId: 10, name: 'tester')],
     currentId: 'account',
   );
-}
-
-class _IgnoredIntentSource implements AndroidIntentSource {
-  const _IgnoredIntentSource();
-
-  @override
-  Future<AndroidIntentResult> readInitial() async =>
-      const IgnoredAndroidIntent('test: no android intent');
-
-  @override
-  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
 }
 
 class _CredentialStore implements CredentialStore {
@@ -604,7 +591,6 @@ void main() {
   ) async {
     final router = createPixivRouter(
       initialLocation: '/recommended/illust/1/comments',
-      intentSource: const _IgnoredIntentSource(),
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
