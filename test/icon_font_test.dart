@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/app/icons/app_icons.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/features/home/home_page.dart';
@@ -79,13 +80,15 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-
-          home: HomePage(intentSource: _NoAndroidIntentSource()),
+          routerConfig: createPixivRouter(
+            initialLocation: '/recommended',
+            intentSource: const _NoAndroidIntentSource(),
+          ),
         ),
       ),
     );
@@ -123,13 +126,15 @@ void main() {
     await loader.load();
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-
-          home: HomePage(intentSource: _NoAndroidIntentSource()),
+          routerConfig: createPixivRouter(
+            initialLocation: '/recommended',
+            intentSource: const _NoAndroidIntentSource(),
+          ),
         ),
       ),
     );

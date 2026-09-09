@@ -50,6 +50,7 @@ class HistoryVisibility extends StatefulWidget {
 class _HistoryVisibilityState extends State<HistoryVisibility>
     with WidgetsBindingObserver, RouteAware {
   late HistoryTracker _tracker;
+  RouteObserver<ModalRoute<dynamic>> _observer = replicaRouteObserver;
   ModalRoute<dynamic>? _route;
   bool _routeVisible = false;
   bool _foreground = true;
@@ -83,10 +84,13 @@ class _HistoryVisibilityState extends State<HistoryVisibility>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final route = ModalRoute.of(context);
-    if (!identical(route, _route)) {
-      if (_route != null) replicaRouteObserver.unsubscribe(this);
+    final observer =
+        RouteObserverScope.maybeOf(context) ?? replicaRouteObserver;
+    if (!identical(route, _route) || !identical(observer, _observer)) {
+      if (_route != null) _observer.unsubscribe(this);
+      _observer = observer;
       _route = route;
-      if (route != null) replicaRouteObserver.subscribe(this, route);
+      if (route != null) _observer.subscribe(this, route);
     }
     if (!_didResolveRoute) {
       _didResolveRoute = true;
@@ -171,7 +175,7 @@ class _HistoryVisibilityState extends State<HistoryVisibility>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    if (_route != null) replicaRouteObserver.unsubscribe(this);
+    if (_route != null) _observer.unsubscribe(this);
     _run(_tracker.finish());
     super.dispose();
   }

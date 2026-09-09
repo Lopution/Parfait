@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -12,7 +13,6 @@ import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/platform/root_back_coordinator.dart';
-import 'package:pixiv_func/features/home/home_page.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
@@ -68,6 +68,14 @@ const _signedInSnapshot = AccountMetadataSnapshot(
 );
 
 Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
+  final router = createPixivRouter(
+    initialLocation: '/recommended',
+    intentSource:
+        intentSource ??
+        const _ScriptedIntentSource(
+          IgnoredAndroidIntent('test: no android intent'),
+        ),
+  );
   return ProviderScope(
     overrides: [
       credentialStoreProvider.overrideWithValue(const _StaticCredentialStore()),
@@ -75,18 +83,11 @@ Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
         const _StaticMetadataRepository(_signedInSnapshot),
       ),
     ],
-    child: MaterialApp(
+    child: MaterialApp.router(
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale ?? const Locale('zh', 'CN'),
-
-      home: HomePage(
-        intentSource:
-            intentSource ??
-            const _ScriptedIntentSource(
-              IgnoredAndroidIntent('test: no android intent'),
-            ),
-      ),
+      routerConfig: router,
     ),
   );
 }
@@ -124,12 +125,11 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(
+          child: MaterialApp.router(
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
-
-            home: HomePage(),
+            routerConfig: createPixivRouter(initialLocation: '/recommended'),
           ),
         ),
       );

@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'navigation/routes.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/auth/account_store.dart';
 import '../core/settings/app_settings.dart';
@@ -17,15 +16,27 @@ import '../l10n/context.dart';
 /// Hydration failures surface an explicit retryable error instead of silently
 /// degrading to the no-account branch.
 class StartupGate extends ConsumerWidget {
-  const StartupGate({super.key, required this.settings});
+  const StartupGate({
+    super.key,
+    required this.settings,
+    required this.router,
+    required this.child,
+  });
 
   final AppSettings settings;
+  final GoRouter router;
+  final Widget child;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountStoreProvider);
     if (!settings.guideCompleted) {
-      return startupGateWelcomePage();
+      _ensureLocation(context, const {
+        '/welcome',
+        '/welcome/language',
+        '/welcome/theme',
+      });
+      return child;
     }
     return accounts.when(
       loading: () => const _StartupProgress(),
@@ -34,11 +45,33 @@ class StartupGate extends ConsumerWidget {
         if (state.status == AccountStatus.failure) {
           return _StartupError(error: state.error ?? 'unknown account error');
         }
-        return state.usableCurrent == null
-            ? startupGateLoginPage()
-            : startupGateHomePage();
+        if (state.usableCurrent == null) {
+          _ensureLocation(context, const {
+            '/login',
+            '/login/web',
+            '/login/callback',
+          });
+        } else {
+          _ensureLocation(context, const {
+            '/recommended',
+            '/ranking',
+            '/new',
+            '/search',
+            '/settings',
+            '/reverse-image',
+          });
+        }
+        return child;
       },
     );
+  }
+
+  void _ensureLocation(BuildContext context, Set<String> roots) {
+    final path = router.routeInformationProvider.value.uri.path;
+    if (roots.any((root) => path == root || path.startsWith('$root/'))) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) router.go(roots.first);
+    });
   }
 }
 
