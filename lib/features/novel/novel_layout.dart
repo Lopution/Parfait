@@ -1,5 +1,5 @@
 import 'dart:collection';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
 import '../../core/network/pixiv_http_client.dart';

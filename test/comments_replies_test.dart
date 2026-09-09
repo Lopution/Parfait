@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -28,7 +28,7 @@ import 'package:pixiv_func/features/comments/comment_input.dart';
 import 'package:pixiv_func/features/comments/comment_item.dart';
 import 'package:pixiv_func/features/comments/comments_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 class _StubAccountStore extends AccountStore {
   _StubAccountStore();
@@ -77,8 +77,7 @@ class _AccountMetadataRepository implements AccountMetadataRepository {
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = _CredentialStore();
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer(
@@ -525,7 +524,7 @@ void main() {
       MaterialApp(
         locale: const Locale('zh', 'CN'),
         supportedLocales: const [Locale('zh', 'CN')],
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: appLocalizationsDelegates,
         home: Scaffold(
           body: CommentComposer(
             onSend: (_) async {},
@@ -565,7 +564,7 @@ void main() {
           child: MaterialApp(
             locale: const Locale('zh', 'CN'),
             supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: appLocalizationsDelegates,
             home: Scaffold(
               body: CommentItem(
                 comment: _comment(40, replyCount: 2),
@@ -598,7 +597,7 @@ void main() {
         child: MaterialApp(
           locale: const Locale('zh', 'CN'),
           supportedLocales: const [Locale('zh', 'CN')],
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: appLocalizationsDelegates,
           home: const IllustCommentsPage(illustId: 1),
         ),
       ),

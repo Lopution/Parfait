@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -6,6 +6,7 @@ import 'helpers/test_preferences.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/features/illust/detail/ugoira_viewer.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
@@ -18,9 +19,10 @@ void main() {
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
 
             home: Scaffold(
               body: UgoiraViewer(
@@ -47,9 +49,10 @@ void main() {
     var longPressed = false;
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
 
           home: Scaffold(
             body: UgoiraViewer(

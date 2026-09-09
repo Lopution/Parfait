@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Shared observer for route-scoped foreground work such as history timing.
 /// Tests may use a plain MaterialApp; history still starts on the current

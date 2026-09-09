@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +21,7 @@ import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_edit_page.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 ProfileEditState _stateOf(
@@ -118,10 +119,16 @@ void main() {
     controller.updateText(ProfileField.displayName, 'pending name');
     await controller.submit();
 
-    expect(_stateOf(container, session).status, ProfileEditStatus.verificationPending);
+    expect(
+      _stateOf(container, session).status,
+      ProfileEditStatus.verificationPending,
+    );
     expect(committed, 0);
     expect(_stateOf(container, session).draft!.base.displayName, 'old name');
-    expect(_stateOf(container, session).draft!.values.displayName, 'pending name');
+    expect(
+      _stateOf(container, session).draft!.values.displayName,
+      'pending name',
+    );
   });
 
   test('confirmed response commits only after the ownership check', () async {
@@ -197,14 +204,15 @@ void main() {
     await controller.load();
     controller.updateText(ProfileField.displayName, 'account A');
     final submit = controller.submit();
-    active = const ProfileEditOwner(
-      accountId: 'account-b',
-    );
+    active = const ProfileEditOwner(accountId: 'account-b');
     response.complete(ProfileEditConfirmed(_user().copyWith(name: 'wrong')));
     await submit;
 
     expect(_stateOf(container, session).status, ProfileEditStatus.failure);
-    expect(_stateOf(container, session).failure?.code, ProfileEditFailureCode.staleOwner);
+    expect(
+      _stateOf(container, session).failure?.code,
+      ProfileEditFailureCode.staleOwner,
+    );
     expect(committed, 0);
   });
 
@@ -287,7 +295,10 @@ void main() {
 
       expect(_stateOf(container, session).status, ProfileEditStatus.ready);
       expect(controller.state.fieldErrors[ProfileField.comment], isNotNull);
-      expect(_stateOf(container, session).draft!.values.comment, 'unsupported change');
+      expect(
+        _stateOf(container, session).draft!.values.comment,
+        'unsupported change',
+      );
       expect(repository.requests, isEmpty);
     },
   );
@@ -434,7 +445,8 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('en', 'US'),
 
@@ -474,9 +486,7 @@ UserEntity _user() => const UserEntity(
   hasDetail: true,
 );
 
-ProfileEditOwner _owner() => const ProfileEditOwner(
-  accountId: 'account-a',
-);
+ProfileEditOwner _owner() => const ProfileEditOwner(accountId: 'account-a');
 
 class _FakeRepository implements ProfileEditRepository {
   _FakeRepository({

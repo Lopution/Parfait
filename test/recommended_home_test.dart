@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,6 +19,7 @@ import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart'
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeCredentialStore implements CredentialStore {
@@ -80,9 +81,7 @@ class _ApiFixture {
       if (path == '/v1/illust/recommended') {
         return http.Response(
           jsonEncode({
-            'illusts': [
-              for (var i = 1; i <= 5; i++) illustJson(i),
-            ],
+            'illusts': [for (var i = 1; i <= 5; i++) illustJson(i)],
             'next_url': null,
           }),
           200,
@@ -113,7 +112,7 @@ class _ApiFixture {
                     'name': 'user $i',
                     'account': 'user$i',
                     'profile_image_urls': {
-                      'medium': 'https://i.pximg.net/u$i.png'
+                      'medium': 'https://i.pximg.net/u$i.png',
                     },
                   },
                   'illusts': [],
@@ -132,8 +131,7 @@ class _ApiFixture {
 }
 
 Future<(ProviderContainer, _ApiFixture)> _makeWorld() async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _ApiFixture();
   final credentials = _FakeCredentialStore()
     ..seed(
@@ -174,22 +172,24 @@ Future<(ProviderContainer, _ApiFixture)> _makeWorld() async {
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
-  testWidgets('home shows four type chips and defaults to illust',
-      (tester) async {
+  testWidgets('home shows four type chips and defaults to illust', (
+    tester,
+  ) async {
     final (container, _) = await _makeWorld();
     addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-home: RecommendedHomePage()),
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: RecommendedHomePage(),
+          ),
         ),
       );
       await tester.pump();
@@ -202,28 +202,26 @@ home: RecommendedHomePage()),
     // Ranking/New/Search) — a bare TabBar pinned under the status bar was
     // the old divergent style.
     expect(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byType(TabBar),
-      ),
+      find.descendant(of: find.byType(AppBar), matching: find.byType(TabBar)),
       findsOneWidget,
     );
     // Illust cards render (titles from the store).
     expect(find.textContaining('illust '), findsWidgets);
   });
 
-  testWidgets('switching to manga requests content_type=manga',
-      (tester) async {
+  testWidgets('switching to manga requests content_type=manga', (tester) async {
     final (container, fixture) = await _makeWorld();
     addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-home: RecommendedHomePage()),
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: RecommendedHomePage(),
+          ),
         ),
       );
       await tester.pump();
@@ -235,22 +233,27 @@ home: RecommendedHomePage()),
     });
     expect(
       fixture.requests,
-      contains('/v1/illust/recommended?content_type=manga&include_ranking_illusts=true&filter=for_ios'),
+      contains(
+        '/v1/illust/recommended?content_type=manga&include_ranking_illusts=true&filter=for_ios',
+      ),
     );
   });
 
-  testWidgets('novel chip loads novel recommended and renders titles',
-      (tester) async {
+  testWidgets('novel chip loads novel recommended and renders titles', (
+    tester,
+  ) async {
     final (container, fixture) = await _makeWorld();
     addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-home: RecommendedHomePage()),
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: RecommendedHomePage(),
+          ),
         ),
       );
       await tester.pump();
@@ -265,18 +268,21 @@ home: RecommendedHomePage()),
     expect(find.textContaining('novel '), findsWidgets);
   });
 
-  testWidgets('user chip loads user recommended and renders accounts',
-      (tester) async {
+  testWidgets('user chip loads user recommended and renders accounts', (
+    tester,
+  ) async {
     final (container, fixture) = await _makeWorld();
     addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-home: RecommendedHomePage()),
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: RecommendedHomePage(),
+          ),
         ),
       );
       await tester.pump();
@@ -286,10 +292,7 @@ home: RecommendedHomePage()),
       await tester.pump();
       await tester.pumpAndSettle();
     });
-    expect(
-      fixture.requests,
-      contains('/v1/user/recommended?filter=for_ios'),
-    );
+    expect(fixture.requests, contains('/v1/user/recommended?filter=for_ios'));
     expect(find.text('user 1'), findsOneWidget);
   });
 }

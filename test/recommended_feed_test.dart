@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -25,6 +25,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/illust_fixtures.dart';
 import 'package:pixiv_func/core/illust/recommended_illust_controller.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 String _illustJson(int id, {bool bookmarked = false}) => jsonEncode({
@@ -134,8 +135,7 @@ Future<(ProviderContainer, _ApiFixture)> makeWorld({
   String? nextUrlOverride,
   bool failApi = false,
 }) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _ApiFixture(nextUrlOverride: nextUrlOverride);
   final credentials = _FakeCredentialStore()
     ..seed(
@@ -184,8 +184,7 @@ Future<(ProviderContainer, _ApiFixture)> makeWorld({
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test('initial load fetches real-shaped pages and merges the store', () async {
@@ -306,9 +305,10 @@ void main() {
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
-            child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
 
               home: Scaffold(
                 body: SingleChildScrollView(
@@ -345,9 +345,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: Scaffold(
               body: SingleChildScrollView(
@@ -382,9 +383,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: Scaffold(
               body: SizedBox(
@@ -419,9 +421,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: SingleChildScrollView(
               child: Column(
@@ -455,10 +458,12 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-home: RecommendedIllustPage()),
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: RecommendedIllustPage(),
+          ),
         ),
       );
       await tester.pump();

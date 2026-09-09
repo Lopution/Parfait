@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_refresh/easy_refresh.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,6 +23,7 @@ import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeCredentialStore implements CredentialStore {
@@ -173,8 +174,7 @@ Future<ProviderContainer> _makeWorld({
   _FakeFollowRepository? follows,
   UserRepository? users,
 }) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = _FakeCredentialStore()
     ..values['100'] = const Credential(
       accessToken: 'access-1',
@@ -203,8 +203,7 @@ Future<ProviderContainer> _makeWorld({
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test('detail and preview payloads normalize without losing profile data', () {
@@ -369,9 +368,10 @@ void main() {
       for (final user in users) {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
 
               home: Scaffold(
                 body: CustomScrollView(
@@ -433,7 +433,8 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
 
@@ -472,7 +473,8 @@ void main() {
 
   testWidgets('current profile header has no settings entry', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
 
@@ -513,9 +515,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: const UserPage(userId: 42),
           ),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/core/network/api_error.dart';
@@ -7,6 +7,7 @@ import 'package:pixiv_func/core/novel/novel_entity.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/features/novel/novel_layout.dart';
 import 'package:pixiv_func/features/novel/novel_reader.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
@@ -134,7 +135,8 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
 

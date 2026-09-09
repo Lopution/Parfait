@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -14,6 +14,7 @@ import 'package:pixiv_func/features/login/login_page.dart';
 import 'package:pixiv_func/app/startup_gate.dart';
 import 'package:pixiv_func/features/onboarding/welcome_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _StaticCredentialStore implements CredentialStore {
@@ -63,9 +64,10 @@ Widget _wrap({
         _StaticMetadataRepository(snapshot, corrupt: corruptMetadata),
       ),
     ],
-    child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+    child: MaterialApp(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('zh', 'CN'),
 
       home: StartupGate(settings: settings),
     ),
@@ -88,8 +90,7 @@ class _FailingCredentialStore implements CredentialStore {
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   testWidgets('guide not completed shows the welcome shell', (tester) async {
@@ -212,14 +213,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('读取账号状态失败'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('重试'),
-      findsOneWidget,
-    );
+    expect(find.text('读取账号状态失败'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
     expect(find.byType(LoginPage), findsNothing);
     expect(find.byType(HomePage), findsNothing);
   });
