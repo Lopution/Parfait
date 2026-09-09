@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/motion/hero_transition.dart';
-import '../../../../app/motion/replica_page_route.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
 import '../../../../app/widgets/app_snack_bar.dart';
@@ -13,7 +12,7 @@ import '../../../../core/illust/illust_download_controller.dart';
 import '../../../../core/settings/app_settings.dart';
 import '../../../../core/settings/settings_controller.dart';
 import '../../../../l10n/context.dart';
-import '../../viewer/image_viewer_page.dart';
+import '../../../../app/navigation/routes.dart';
 
 class DetailPageImage extends ConsumerStatefulWidget {
   const DetailPageImage({
@@ -169,16 +168,11 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   }
 
   void _openViewer(BuildContext context, {required ViewQuality quality}) {
-    Navigator.of(context).push(
-      ReplicaPageRoute<void>(
-        builder: (_) => ImageViewerPage(
-          urls: [
-            for (var i = 0; i < entity.pageCount; i++)
-              entity.viewerUrlAt(i, quality),
-          ],
-          initialPage: widget.index,
-        ),
-      ),
+    openImageViewer(
+      context,
+      entity: entity,
+      page: widget.index,
+      quality: quality,
     );
   }
 }

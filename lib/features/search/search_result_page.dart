@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/person_avatar.dart';
 import '../../app/widgets/novel_card.dart';
 import '../../app/pull_to_refresh.dart';
-import '../../app/motion/replica_page_route.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
@@ -47,9 +46,7 @@ class SearchResultPage extends ConsumerWidget {
       ),
       UserSearchQuery() => query,
     };
-    Navigator.of(context).pushReplacement(
-      ReplicaPageRoute<void>(builder: (_) => SearchResultPage(query: updated)),
-    );
+    replaceSearchResults(context, updated);
   }
 
   @override

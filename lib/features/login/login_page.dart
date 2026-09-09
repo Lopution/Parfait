@@ -2,14 +2,13 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
-import '../../app/motion/replica_page_route.dart';
-import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
 import '../../core/i18n/replica_language.dart';
@@ -17,7 +16,6 @@ import '../../core/network/compat/network_contracts.dart' as network_contracts;
 import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
-import 'login_webview_page.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
@@ -64,19 +62,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _openLoginWebview({bool create = false}) async {
     // R7 was cancelled: the first login always uses the stable webview_flutter
     // path (C16). The native interception entry is removed.
-    final result = await Navigator.of(context).push<bool>(
-      ReplicaPageRoute<bool>(
-        builder: (_) => LoginWebViewPage(
-          oauthService: ref.read(oauthServiceProvider),
-          create: create,
-        ),
-      ),
+    final result = await context.push<bool>(
+      Uri(
+        path: '/login/web',
+        queryParameters: create ? {'create': 'true'} : null,
+      ).toString(),
     );
     if (!mounted || result != true || !widget.returnToHomeOnSuccess) return;
     // The account store is updated before the WebView pops.  Popping the
     // onboarding/login routes now lets StartupGate rebuild to Home without
     // leaving the user stranded on a stale login surface.
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    context.go('/recommended');
   }
 
   void _persistNetworkMode(NetworkMode mode) {

@@ -1,11 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../app/motion/replica_page_route.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
-import 'network_probe_page.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
@@ -100,9 +99,7 @@ class NetworkSettingsPage extends ConsumerWidget {
             title: Text(context.l10n.networkProbe),
             subtitle: Text(context.l10n.networkProbeHint),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push<void>(
-              ReplicaPageRoute<void>(builder: (_) => const NetworkProbePage()),
-            ),
+            onTap: () => context.push<void>('/settings/network/probe'),
           ),
           const Divider(),
           ListTile(
@@ -110,11 +107,7 @@ class NetworkSettingsPage extends ConsumerWidget {
             title: Text(context.l10n.networkAdvanced),
             subtitle: Text(context.l10n.networkAdvancedHint),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push<void>(
-              ReplicaPageRoute<void>(
-                builder: (_) => const NetworkAdvancedSettingsPage(),
-              ),
-            ),
+            onTap: () => context.push<void>('/settings/network/advanced'),
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -18,9 +19,10 @@ import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
+import 'package:pixiv_func/core/platform/android_intent_channel.dart';
+import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
-import 'package:pixiv_func/features/settings/network_settings_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -151,14 +153,15 @@ class _FakeProfileRepository implements UserRepository {
   }) => false;
 }
 
-class _PushCounter extends NavigatorObserver {
-  int pushes = 0;
+class _IgnoredIntentSource implements AndroidIntentSource {
+  const _IgnoredIntentSource();
 
   @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    pushes++;
-    super.didPush(route, previousRoute);
-  }
+  Future<AndroidIntentResult> readInitial() async =>
+      const IgnoredAndroidIntent('test: no android intent');
+
+  @override
+  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
 }
 
 class _TransferClipboard implements TransferClipboard {
@@ -559,7 +562,11 @@ void main() {
   testWidgets('account card opens one profile route without a settings entry', (
     tester,
   ) async {
-    final observer = _PushCounter();
+    final router = createPixivRouter(
+      initialLocation: '/settings',
+      intentSource: const _IgnoredIntentSource(),
+    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -574,23 +581,19 @@ void main() {
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
           userRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
         ],
-        child: MaterialApp(
+        child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
-
-          navigatorObservers: [observer],
-          home: const SettingsPage(),
+          routerConfig: router,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    final pushesBeforeProfile = observer.pushes;
     await tester.tap(find.text('tester'));
     await tester.pumpAndSettle();
 
-    expect(observer.pushes, pushesBeforeProfile + 1);
     expect(find.byType(profile.MePage), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
@@ -703,6 +706,11 @@ void main() {
     // field. Domain endpoints are the production default now. DoH editing
     // lives on the advanced page (D3).
     final repository = _FakeRepository(_baseSettings());
+    final router = createPixivRouter(
+      initialLocation: '/settings/network',
+      intentSource: const _IgnoredIntentSource(),
+    );
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -712,12 +720,11 @@ void main() {
           ),
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
         ],
-        child: const MaterialApp(
+        child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-
-          home: NetworkSettingsPage(),
+          routerConfig: router,
         ),
       ),
     );

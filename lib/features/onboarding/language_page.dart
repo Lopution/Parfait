@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/motion/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -10,7 +10,6 @@ import '../../app/widgets/settings_load_error.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
-import 'theme_page.dart';
 import '../../l10n/lookup.dart';
 
 class LanguagePage extends ConsumerWidget {
@@ -85,9 +84,7 @@ class LanguagePage extends ConsumerWidget {
                 label: l10nLookupFor(language.locale, 'next'),
                 backgroundColor: FuncTokens.primary,
                 foregroundColor: FuncTokens.lightBackground,
-                onPressed: () => Navigator.of(context).push(
-                  ReplicaPageRoute<void>(builder: (_) => const ThemePage()),
-                ),
+                onPressed: () => context.push<void>('/welcome/theme'),
               ),
             ),
             const Spacer(),

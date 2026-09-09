@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:pixiv_func/app/motion/replica_page_route.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/app/motion/hero_rect_clip.dart';
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
@@ -35,7 +35,7 @@ void main() {
     // TabBar row inside the scroll view (minExtent 56) — holding the Hero
     // source card, pushed so route.isFirst is false (no root bottom nav).
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           appBar: AppBar(title: const Text('u')),
           body: NestedScrollView(
@@ -82,7 +82,7 @@ void main() {
 
     // Detail page on top; popping lands back on the user page above.
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           body: Center(
             child: Hero(
@@ -162,7 +162,7 @@ void main() {
     await tester.pump();
 
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           body: Center(
             child: Hero(
@@ -253,7 +253,7 @@ void main() {
     await tester.pump();
 
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           body: Center(
             child: Hero(
@@ -365,7 +365,7 @@ void main() {
     );
 
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           appBar: AppBar(title: const Text('Detail')),
           body: CustomScrollView(
@@ -409,6 +409,26 @@ void main() {
     await tester.pumpAndSettle();
   });
 }
+
+PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
+    PageRouteBuilder<T>(
+  pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: MotionTokens.pageCurve,
+    );
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(1, 0),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    );
+  },
+  transitionDuration: MotionTokens.pageTransition,
+  reverseTransitionDuration: MotionTokens.pageTransition,
+);
 
 Rect _heroClipRect(WidgetTester tester) {
   final clip = tester.widget<Widget>(find.byType(HeroRectClip));

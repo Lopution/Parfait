@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../app/motion/replica_page_route.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/settings/app_settings.dart';
@@ -49,8 +49,6 @@ Widget settingsUnavailable(
   );
 }
 
-void openSettingsPage(BuildContext context, Widget page) {
-  Navigator.of(
-    context,
-  ).push<void>(ReplicaPageRoute<void>(builder: (_) => page));
+void openSettingsPage(BuildContext context, String path) {
+  context.push<void>(path);
 }
