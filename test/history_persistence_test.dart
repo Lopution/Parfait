@@ -121,6 +121,63 @@ void main() {
       );
     });
 
+    test('history read plans use indexes instead of table scans', () async {
+      await repository.upsert(_record('a', HistoryContentType.illust, 1));
+      await repository.commitView(
+        record: _record('a', HistoryContentType.illust, 2),
+        writeLocal: false,
+        enqueuePixiv: true,
+        unsubmittedPixivDuration: const Duration(seconds: 10),
+      );
+      final db = await database.database;
+
+      Future<List<String>> explain(
+        String sql, [
+        List<Object?> args = const [],
+      ]) async {
+        final rows = await db.rawQuery('EXPLAIN QUERY PLAN $sql', args);
+        return [for (final row in rows) row['detail']! as String];
+      }
+
+      final pagePlan = await explain(
+        'SELECT * FROM ${HistoryDatabase.historyTable} '
+        'WHERE account_id = ? '
+        'ORDER BY last_viewed_at DESC, id DESC LIMIT 30 OFFSET 0',
+        ['a'],
+      );
+      final countPlan = await explain(
+        'SELECT COUNT(*) FROM ${HistoryDatabase.historyTable} '
+        'WHERE account_id = ?',
+        ['a'],
+      );
+      final findPlan = await explain(
+        'SELECT * FROM ${HistoryDatabase.historyTable} '
+        'WHERE account_id = ? AND content_type = ? AND content_id = ? '
+        'LIMIT 1',
+        ['a', HistoryContentType.illust.storageValue, 1],
+      );
+      final outboxPlan = await explain(
+        'SELECT * FROM ${HistoryDatabase.outboxTable} '
+        'WHERE account_id = ? AND '
+        '(next_attempt_at IS NULL OR next_attempt_at <= ?) '
+        'ORDER BY last_viewed_at ASC LIMIT 10',
+        ['a', now.microsecondsSinceEpoch],
+      );
+
+      expect(pagePlan.join('\n'), contains('history_records_order'));
+      expect(countPlan.join('\n'), contains('history_records_order'));
+      expect(findPlan.join('\n'), contains('history_records_identity'));
+      expect(outboxPlan.join('\n'), contains('pixiv_history_outbox_ready'));
+      for (final detail in [
+        ...pagePlan,
+        ...countPlan,
+        ...findPlan,
+        ...outboxPlan,
+      ]) {
+        expect(detail.toUpperCase(), isNot(contains('SCAN TABLE')));
+      }
+    });
+
     test(
       'deletes one typed record without crossing account boundaries',
       () async {
