@@ -60,15 +60,25 @@ class BrowseSettingsPage extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
-          for (final quality in PreviewQuality.values)
-            _qualityTile(
-              context,
-              quality,
-              settings.previewQuality,
-              () => ref
-                  .read(settingsProvider.notifier)
-                  .setPreviewQuality(quality),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SegmentedButton<PreviewQuality>(
+              segments: [
+                for (final quality in PreviewQuality.values)
+                  ButtonSegment<PreviewQuality>(
+                    value: quality,
+                    label: Text(_qualityText(context, quality)),
+                  ),
+              ],
+              selected: {settings.previewQuality},
+              onSelectionChanged: (selected) => persistSettings(
+                context,
+                () => ref
+                    .read(settingsProvider.notifier)
+                    .setPreviewQuality(selected.first),
+              ),
             ),
+          ),
           const Divider(),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -77,17 +87,28 @@ class BrowseSettingsPage extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
-          for (final quality in const [
-            DetailQuality.large,
-            DetailQuality.original,
-          ])
-            _qualityTile(
-              context,
-              quality,
-              settings.detailQuality,
-              () =>
-                  ref.read(settingsProvider.notifier).setDetailQuality(quality),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SegmentedButton<DetailQuality>(
+              segments: [
+                for (final quality in const [
+                  DetailQuality.large,
+                  DetailQuality.original,
+                ])
+                  ButtonSegment<DetailQuality>(
+                    value: quality,
+                    label: Text(_qualityText(context, quality)),
+                  ),
+              ],
+              selected: {settings.detailQuality},
+              onSelectionChanged: (selected) => persistSettings(
+                context,
+                () => ref
+                    .read(settingsProvider.notifier)
+                    .setDetailQuality(selected.first),
+              ),
             ),
+          ),
           const Divider(),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -96,13 +117,28 @@ class BrowseSettingsPage extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
-          for (final quality in const [ViewQuality.large, ViewQuality.original])
-            _qualityTile(
-              context,
-              quality,
-              settings.viewQuality,
-              () => ref.read(settingsProvider.notifier).setViewQuality(quality),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SegmentedButton<ViewQuality>(
+              segments: [
+                for (final quality in const [
+                  ViewQuality.large,
+                  ViewQuality.original,
+                ])
+                  ButtonSegment<ViewQuality>(
+                    value: quality,
+                    label: Text(_qualityText(context, quality)),
+                  ),
+              ],
+              selected: {settings.viewQuality},
+              onSelectionChanged: (selected) => persistSettings(
+                context,
+                () => ref
+                    .read(settingsProvider.notifier)
+                    .setViewQuality(selected.first),
+              ),
             ),
+          ),
           const Divider(),
           SettingsControl(
             title: Text(context.l10n.pixivHistory),
@@ -148,20 +184,4 @@ String _qualityText(BuildContext context, Object quality) {
     DetailQuality.original => context.l10n.qualityOriginal,
     _ => context.l10n.qualityLarge,
   };
-}
-
-Widget _qualityTile(
-  BuildContext context,
-  Object quality,
-  Object current,
-  Future<void> Function() action,
-) {
-  final selected = quality == current;
-  return ListTile(
-    title: Text(_qualityText(context, quality)),
-    trailing: selected
-        ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
-        : null,
-    onTap: () => persistSettings(context, action),
-  );
 }
