@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +21,7 @@ import 'package:pixiv_func/features/login/login_page.dart';
 import 'package:pixiv_func/features/login/login_webview_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 /// Minimal WebView platform stub so pages can build in widget tests.
@@ -181,8 +182,7 @@ class _EmptyMetadataRepository implements AccountMetadataRepository {
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     WebViewPlatform.instance = _FakeWebViewPlatform();
     _FakeNavigationDelegate.latest = null;
   });
@@ -198,10 +198,12 @@ void main() {
           OAuthService(exchangeTimeout: Duration.zero),
         ),
       ],
-      child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      child: const MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: Locale('zh', 'CN'),
-home: LoginPage()),
+        home: LoginPage(),
+      ),
     );
   }
 
@@ -240,10 +242,12 @@ home: LoginPage()),
             ),
             oauthServiceProvider.overrideWithValue(service),
           ],
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-home: LoginWebViewPage(oauthService: service)),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: LoginWebViewPage(oauthService: service),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -298,10 +302,12 @@ home: LoginWebViewPage(oauthService: service)),
           ),
           oauthServiceProvider.overrideWithValue(service),
         ],
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-home: LoginWebViewPage(oauthService: service)),
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: LoginWebViewPage(oauthService: service),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -345,9 +351,10 @@ home: LoginWebViewPage(oauthService: service)),
           ),
           oauthServiceProvider.overrideWithValue(service),
         ],
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
 
           home: LoginWebViewPage(oauthService: service),
         ),
@@ -449,10 +456,12 @@ home: LoginWebViewPage(oauthService: service)),
             OAuthService(exchangeTimeout: Duration.zero),
           ),
         ],
-        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-home: LoginPage()),
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: LoginPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -478,10 +487,12 @@ home: LoginPage()),
           OAuthService(exchangeTimeout: Duration.zero),
         ),
       ],
-      child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      child: const MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: Locale('zh', 'CN'),
-home: LoginPage()),
+        home: LoginPage(),
+      ),
     );
 
     testWidgets('renders an error with retry instead of a blank page', (

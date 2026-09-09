@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/new/new_feed_models.dart';
 import 'package:pixiv_func/core/new/new_feed_repository.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeNewFeedRepository implements NewFeedRepository {
@@ -64,9 +65,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [newFeedRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
 
           home: const NewPage(),
         ),

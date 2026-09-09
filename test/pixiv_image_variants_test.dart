@@ -1,21 +1,25 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
-Widget _host(Widget child) =>
-    ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-home: Scaffold(body: child)));
+Widget _host(Widget child) => ProviderScope(
+  child: MaterialApp(
+    localizationsDelegates: appLocalizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    locale: const Locale('zh', 'CN'),
+    home: Scaffold(body: child),
+  ),
+);
 
-int? _memCacheWidthOf(WidgetTester tester) =>
-    tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
-        .memCacheWidth;
+int? _memCacheWidthOf(WidgetTester tester) => tester
+    .widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
+    .memCacheWidth;
 
 void main() {
   installMemoryPreferences();

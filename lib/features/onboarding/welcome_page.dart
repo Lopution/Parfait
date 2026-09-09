@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../app/motion/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';

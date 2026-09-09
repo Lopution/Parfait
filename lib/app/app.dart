@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/auth/account_store.dart';
@@ -13,7 +13,7 @@ import '../core/network/compat/network_providers.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
 import 'widgets/settings_load_error.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 class PixivFuncApp extends ConsumerStatefulWidget {
   const PixivFuncApp({super.key});
@@ -109,11 +109,13 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
         Locale('ja', 'JP'),
         Locale('ru', 'RU'),
       ],
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
       theme: replicaTheme(Brightness.light),
       darkTheme: replicaTheme(Brightness.dark),
       themeMode: themeMode,
       navigatorObservers: [replicaRouteObserver],
+      // ignore: deprecated_member_use
+      builder: (context, child) => MaterialUiCompatibilityBridge(child: child!),
       home: home,
     );
   }
