@@ -23,6 +23,7 @@ import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
+import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
@@ -263,8 +264,48 @@ void main() {
         );
         expect(viewer.minScale, ImageViewerPage.minScale);
         expect(viewer.maxScale, ImageViewerPage.maxScale);
+        expect(viewer.panEnabled, isFalse);
         expect(ImageViewerPage.minScale, 0.9);
         expect(ImageViewerPage.maxScale, 6.0);
+      });
+    });
+
+    testWidgets('zoomed viewer keeps vertical gestures for image pan', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        final navigatorKey = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(
+          MaterialApp(
+            navigatorKey: navigatorKey,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const SizedBox.shrink(),
+          ),
+        );
+        navigatorKey.currentState!.push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final viewer = tester.widget<InteractiveViewer>(
+          find.byType(InteractiveViewer),
+        );
+        viewer.transformationController!.value = Matrix4.identity()
+          ..scaleByDouble(2, 2, 2, 1);
+        await tester.pump();
+
+        expect(
+          tester.widget<DragToDismiss>(find.byType(DragToDismiss)).enabled,
+          isFalse,
+        );
+        await tester.drag(find.byType(InteractiveViewer), const Offset(0, 180));
+        await tester.pumpAndSettle();
+        expect(find.byType(ImageViewerPage), findsOneWidget);
       });
     });
 

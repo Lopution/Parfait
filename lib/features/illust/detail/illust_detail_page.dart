@@ -273,6 +273,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                   entity: entity,
                   index: 0,
                   heroTag: illustHeroTag(widget.heroScope, entity.id),
+                  heroScope: widget.heroScope,
                   heroImageUrl: widget.heroImageUrl,
                   detailUrl: detailUrlFor(0),
                   downloadMode: _downloadMode,
@@ -293,6 +294,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                       heroTag: index == 0
                           ? illustHeroTag(widget.heroScope, entity.id)
                           : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
+                      heroScope: widget.heroScope,
                       heroImageUrl: index == 0 ? widget.heroImageUrl : null,
                       detailUrl: detailUrlFor(index),
                       downloadMode: _downloadMode,
