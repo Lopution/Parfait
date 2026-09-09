@@ -17,6 +17,7 @@ import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
+import 'package:pixiv_func/core/network/compat/pixiv_network_factory.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
