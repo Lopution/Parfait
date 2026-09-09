@@ -202,7 +202,7 @@ abstract class AppLocalizations {
   ///
   /// In zh, this message translates to:
   /// **'网络错误 (HTTP {status})'**
-  String loginNetworkError(int status);
+  String loginNetworkError(String status);
 
   /// No description provided for @loginPageLoadFailed.
   ///

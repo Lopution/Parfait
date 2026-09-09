@@ -4,8 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'navigation/routes.dart';
 
 import '../core/auth/account_store.dart';
-import '../core/i18n/replica_strings.dart';
 import '../core/settings/app_settings.dart';
+import '../l10n/lookup.dart';
+import '../l10n/context.dart';
 
 /// Cold-start router driven by real settings and account state.
 ///
@@ -57,10 +58,7 @@ class _StartupError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String text(String key) => ReplicaStrings.fromTag(
-      Localizations.localeOf(context).toLanguageTag(),
-      key,
-    );
+    String text(String key) => l10nLookup(context.l10n, key);
     return Scaffold(
       body: Center(
         child: Padding(

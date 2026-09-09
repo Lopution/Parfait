@@ -7,9 +7,10 @@ import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
-import '../../core/i18n/replica_strings.dart';
+import '../../core/i18n/replica_language.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../l10n/lookup.dart';
 
 class ThemePage extends ConsumerWidget {
   const ThemePage({super.key});
@@ -39,7 +40,7 @@ class ThemePage extends ConsumerWidget {
   ) {
     final width = MediaQuery.sizeOf(context).width;
     final language = ReplicaLanguage.fromTag(settings.languageTag);
-    String text(String key) => ReplicaStrings.text(language, key);
+    String text(String key) => l10nLookupFor(language.locale, key);
 
     return ReplicaScaffold(
       child: Padding(

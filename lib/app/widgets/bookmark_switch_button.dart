@@ -5,19 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
-String _bookmarkText(
-  BuildContext context,
-  String key, [
-  Map<String, Object?> args = const {},
-]) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-  args,
-);
+String _bookmarkText(BuildContext context, String key) =>
+    l10nLookup(context.l10n, key);
 
 /// Beta56 BookmarkSwitchButton replica driven entirely by the shared
 /// BookmarkStore: heart icon (isButton app-bar/row variant), pending

@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/profile/profile_edit_controller.dart';
 import '../../core/profile/profile_edit_models.dart';
 import '../../core/profile/profile_edit_repository.dart';
@@ -18,12 +17,10 @@ import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 String _profileEditText(BuildContext context, String key) {
-  return ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  return l10nLookup(context.l10n, key);
 }
 
 /// The current-account beta56 profile editor. The repository is injectable so

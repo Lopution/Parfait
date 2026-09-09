@@ -59,7 +59,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String loginNetworkError(int status) {
+  String loginNetworkError(String status) {
     return '网络错误 (HTTP $status)';
   }
 

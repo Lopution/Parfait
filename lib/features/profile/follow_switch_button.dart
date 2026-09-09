@@ -2,11 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/i18n/replica_strings.dart';
 import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/lookup.dart';
+import '../../l10n/context.dart';
 
 /// Shared beta56-style follow button for profile/user-preview surfaces.
 ///
@@ -26,10 +27,7 @@ class FollowSwitchButton extends ConsumerWidget {
   final String userAccount;
   final bool compact;
 
-  String _text(BuildContext context, String key) => ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  String _text(BuildContext context, String key) => l10nLookup(context.l10n, key);
 
   Future<void> _showRestrictSheet(BuildContext context, WidgetRef ref) async {
     var restrict = FollowRestrict.public;

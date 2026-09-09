@@ -4,8 +4,8 @@ import '../../app/motion/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
-import '../../core/i18n/replica_strings.dart';
 import 'language_page.dart';
+import '../../l10n/lookup.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -38,7 +38,7 @@ class WelcomePage extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          ReplicaStrings.fromTag(languageTag, 'welcome1'),
+                          l10nLookupFor(parseAppLocale(languageTag), 'welcome1'),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 24,
@@ -47,7 +47,7 @@ class WelcomePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          ReplicaStrings.fromTag(languageTag, 'welcome2'),
+                          l10nLookupFor(parseAppLocale(languageTag), 'welcome2'),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 24,
@@ -60,7 +60,7 @@ class WelcomePage extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ReplicaButton(
-                        label: ReplicaStrings.fromTag(languageTag, 'start'),
+                        label: l10nLookupFor(parseAppLocale(languageTag), 'start'),
                         backgroundColor: FuncTokens.primary,
                         foregroundColor: Colors.white,
                         onPressed: () => Navigator.of(context).push(

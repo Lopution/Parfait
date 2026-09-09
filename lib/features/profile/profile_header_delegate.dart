@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import 'follow_switch_button.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
 @immutable
@@ -268,10 +268,7 @@ class _ExpandedProfile extends StatelessWidget {
   final VoidCallback? onEditProfile;
 
   String _profileText(BuildContext context, String key) =>
-      ReplicaStrings.fromTag(
-        Localizations.localeOf(context).toLanguageTag(),
-        key,
-      );
+      l10nLookup(context.l10n, key);
 
   @override
   Widget build(BuildContext context) {
@@ -486,10 +483,7 @@ class _CollapsedProfile extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback? onEditProfile;
 
-  String _text(BuildContext context, String key) => ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  String _text(BuildContext context, String key) => l10nLookup(context.l10n, key);
 
   @override
   Widget build(BuildContext context) {
@@ -631,10 +625,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
 
   bool get _isWorkTab => isMe ? controller.index == 4 : controller.index == 0;
 
-  String _text(BuildContext context, String key) => ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  String _text(BuildContext context, String key) => l10nLookup(context.l10n, key);
 
   @override
   Widget build(

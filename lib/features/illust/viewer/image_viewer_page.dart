@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/pixiv_image.dart';
-import '../../../core/i18n/replica_strings.dart';
+import '../../../l10n/lookup.dart';
+import '../../../l10n/context.dart';
 
 /// Fullscreen horizontal viewer replicating beta56 ImageScalePage
 /// (R3): `n / total` title, horizontal paging, per-page zoom clamped to
@@ -85,10 +86,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 
   @override
   Widget build(BuildContext context) {
-    String text(String key) => ReplicaStrings.fromTag(
-      Localizations.localeOf(context).toLanguageTag(),
-      key,
-    );
+    String text(String key) => l10nLookup(context.l10n, key);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
