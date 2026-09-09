@@ -37,6 +37,7 @@ import '../../features/settings/network_settings_page.dart';
 import '../../features/settings/settings_page.dart';
 import '../../features/settings/pages/translation_credentials_page.dart';
 import '../../l10n/context.dart';
+import '../motion/hero_transition.dart';
 import '../motion/motion_tokens.dart';
 import '../widgets/app_snack_bar.dart';
 
@@ -53,10 +54,15 @@ class IllustRouteExtra {
 }
 
 class ImageViewerRouteExtra {
-  const ImageViewerRouteExtra({required this.urls, this.entity});
+  const ImageViewerRouteExtra({
+    required this.urls,
+    this.entity,
+    this.heroScope,
+  });
 
   final List<String> urls;
   final IllustEntity? entity;
+  final String? heroScope;
 }
 
 class _ImageViewerRoute extends ConsumerWidget {
@@ -80,6 +86,12 @@ class _ImageViewerRoute extends ConsumerWidget {
     return ImageViewerPage(
       urls: urls,
       initialPage: page,
+      heroTagForPage: extra?.heroScope == null
+          ? null
+          : (page) {
+              final base = illustHeroTag(extra!.heroScope!, illustId);
+              return page == 0 ? base : '$base-$page';
+            },
       onPageChanged: (page) => replaceImageViewerPage(
         context,
         illustId: illustId,
@@ -933,6 +945,7 @@ Future<void> openImageViewer(
   required IllustEntity entity,
   required int page,
   required ViewQuality quality,
+  String? heroScope,
 }) async {
   await _push(
     context,
@@ -941,6 +954,7 @@ Future<void> openImageViewer(
     extra: ImageViewerRouteExtra(
       urls: entity.viewerUrls(quality),
       entity: entity,
+      heroScope: heroScope,
     ),
   );
 }

@@ -20,6 +20,7 @@ class DetailPageImage extends ConsumerStatefulWidget {
     required this.entity,
     required this.index,
     required this.heroTag,
+    required this.heroScope,
     this.heroImageUrl,
     this.detailUrl,
     required this.downloadMode,
@@ -30,6 +31,7 @@ class DetailPageImage extends ConsumerStatefulWidget {
   final IllustEntity entity;
   final int index;
   final String heroTag;
+  final String heroScope;
   final String? heroImageUrl;
 
   /// True while the detail payload is still loading for a multi-page work:
@@ -173,6 +175,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
       entity: entity,
       page: widget.index,
       quality: quality,
+      heroScope: widget.heroScope,
     );
   }
 }

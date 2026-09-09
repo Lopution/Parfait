@@ -3,11 +3,72 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/app/motion/hero_rect_clip.dart';
+import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
+  testWidgets('drag-to-dismiss returns to origin when canceled', (
+    tester,
+  ) async {
+    const key = Key('drag-surface');
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: DragToDismiss(
+            onDismissed: _noop,
+            child: SizedBox(key: key, width: 200, height: 200),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final surface = find.byKey(key);
+    final origin = tester.getTopLeft(surface).dy;
+    await tester.drag(find.byType(DragToDismiss), const Offset(0, 80));
+    await tester.pump();
+    expect(tester.getTopLeft(surface).dy, greaterThan(origin));
+
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(surface).dy, closeTo(origin, 0.001));
+  });
+
+  testWidgets('drag-to-dismiss pops after the distance threshold', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    var dismissed = false;
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: navigatorKey, home: const SizedBox.shrink()),
+    );
+    navigatorKey.currentState!.push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          body: DragToDismiss(
+            onDismissed: () {
+              dismissed = true;
+              Navigator.of(context).pop();
+            },
+            child: const SizedBox(
+              key: Key('dismissible-surface'),
+              width: 200,
+              height: 200,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(DragToDismiss), const Offset(0, 180));
+    await tester.pumpAndSettle();
+
+    expect(dismissed, isTrue);
+    expect(find.byKey(const Key('dismissible-surface')), findsNothing);
+  });
+
   testWidgets('Hero pop onto a user page matches its own chrome', (
     tester,
   ) async {
@@ -409,6 +470,8 @@ void main() {
     await tester.pumpAndSettle();
   });
 }
+
+void _noop() {}
 
 PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
     PageRouteBuilder<T>(
