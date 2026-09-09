@@ -5,14 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/external_intent_bridge.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/features/login/login_page.dart';
@@ -21,31 +18,8 @@ import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-class _StaticCredentialStore implements CredentialStore {
-  const _StaticCredentialStore();
-
-  @override
-  Future<Credential?> read(String accountId) async =>
-      Credential(accessToken: 'a-$accountId', refreshToken: 'r-$accountId');
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {}
-
-  @override
-  Future<void> delete(String accountId) async {}
-}
-
-class _StaticMetadataRepository implements AccountMetadataRepository {
-  const _StaticMetadataRepository(this.snapshot);
-
-  final AccountMetadataSnapshot snapshot;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async => snapshot;
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 class _ScriptedIntentSource implements AndroidIntentSource {
   _ScriptedIntentSource(this.initial);
@@ -69,11 +43,20 @@ const _signedInSnapshot = AccountMetadataSnapshot(
 );
 
 Widget _app(GoRouter router, _ScriptedIntentSource source) {
+  final credentials = FakeCredentialStore(
+    values: const {
+      '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
+    },
+  );
+  final metadata = FakeAccountMetadataRepository(
+    accounts: _signedInSnapshot.accounts,
+    currentId: _signedInSnapshot.currentId,
+  );
   return ProviderScope(
     overrides: [
-      credentialStoreProvider.overrideWithValue(const _StaticCredentialStore()),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        const _StaticMetadataRepository(_signedInSnapshot),
+      ...accountProviderOverrides(
+        credentialStore: credentials,
+        metadataRepository: metadata,
       ),
     ],
     child: MaterialApp.router(

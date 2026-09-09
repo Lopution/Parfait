@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
@@ -12,7 +11,6 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/account_transfer.dart';
 import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
@@ -29,6 +27,9 @@ import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/lookup.dart';
 import 'package:pixiv_func/l10n/app_localizations_zh.dart';
+
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 class _FakeRepository implements SettingsRepository {
   _FakeRepository(this.value, {this.failLoad = false});
@@ -52,18 +53,6 @@ class _FakeRepository implements SettingsRepository {
     value = settings;
     saved.add(settings);
   }
-}
-
-class _CredentialStore implements CredentialStore {
-  @override
-  Future<Credential?> read(String accountId) async =>
-      const Credential(accessToken: 'access', refreshToken: 'refresh');
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {}
-
-  @override
-  Future<void> delete(String accountId) async {}
 }
 
 class _AccountRepository implements AccountMetadataRepository {
@@ -553,7 +542,7 @@ void main() {
           accountMetadataRepositoryProvider.overrideWithValue(
             _AccountRepository(const [], true),
           ),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
           localizationsDelegates: appLocalizationsDelegates,
@@ -578,9 +567,9 @@ void main() {
         overrides: [
           settingsRepositoryProvider.overrideWithValue(repository),
           accountMetadataRepositoryProvider.overrideWithValue(
-            _AccountRepository(),
+            FakeAccountMetadataRepository(),
           ),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
           localizationsDelegates: appLocalizationsDelegates,
@@ -615,11 +604,14 @@ void main() {
             _FakeRepository(_baseSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
-            _AccountRepository([
-              const Account(id: '42', userId: 42, name: 'tester'),
-            ]),
+            FakeAccountMetadataRepository(
+              accounts: const [
+                Account(id: '42', userId: 42, name: 'tester'),
+              ],
+              currentId: '42',
+            ),
           ),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           userRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
         ],
         child: MaterialApp.router(
@@ -642,9 +634,10 @@ void main() {
   testWidgets('long-pressing an account card exports bounded transfer data', (
     tester,
   ) async {
-    final repository = _AccountRepository([
-      const Account(id: '42', userId: 42, name: 'tester'),
-    ]);
+    final repository = FakeAccountMetadataRepository(
+      accounts: const [Account(id: '42', userId: 42, name: 'tester')],
+      currentId: '42',
+    );
     final clipboard = _TransferClipboard();
     await tester.pumpWidget(
       ProviderScope(
@@ -653,7 +646,16 @@ void main() {
             _FakeRepository(_baseSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(repository),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(
+            FakeCredentialStore(
+              values: const {
+                '42': Credential(
+                  accessToken: 'access',
+                  refreshToken: 'refresh',
+                ),
+              },
+            ),
+          ),
           accountTransferServiceProvider.overrideWith(
             (ref) => AccountTransferService(
               accountStore: ref.read(accountStoreProvider.notifier),
@@ -684,9 +686,10 @@ void main() {
   testWidgets(
     'exporting on a device without sensitive clipboard shows a warning',
     (tester) async {
-      final repository = _AccountRepository([
-        const Account(id: '42', userId: 42, name: 'tester'),
-      ]);
+      final repository = FakeAccountMetadataRepository(
+        accounts: const [Account(id: '42', userId: 42, name: 'tester')],
+        currentId: '42',
+      );
       final clipboard = _TransferClipboard();
       await tester.pumpWidget(
         ProviderScope(
@@ -695,7 +698,16 @@ void main() {
               _FakeRepository(_baseSettings()),
             ),
             accountMetadataRepositoryProvider.overrideWithValue(repository),
-            credentialStoreProvider.overrideWithValue(_CredentialStore()),
+            credentialStoreProvider.overrideWithValue(
+              FakeCredentialStore(
+                values: const {
+                  '42': Credential(
+                    accessToken: 'access',
+                    refreshToken: 'refresh',
+                  ),
+                },
+              ),
+            ),
             accountTransferServiceProvider.overrideWith(
               (ref) => AccountTransferService(
                 accountStore: ref.read(accountStoreProvider.notifier),
@@ -754,9 +766,9 @@ void main() {
         overrides: [
           settingsRepositoryProvider.overrideWithValue(repository),
           accountMetadataRepositoryProvider.overrideWithValue(
-            _AccountRepository(),
+            FakeAccountMetadataRepository(),
           ),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,

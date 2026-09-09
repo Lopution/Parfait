@@ -5,17 +5,14 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
@@ -28,9 +25,12 @@ import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/search_result_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'helpers/illust_fixtures.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+
+import 'helpers/fake_account.dart';
+import 'helpers/illust_fixtures.dart';
+import 'helpers/test_preferences.dart';
 
 class _FakeSearchRepository implements SearchRepository {
   _FakeSearchRepository({this.autocompleteHandler, this.trendingTagCount = 2});
@@ -106,47 +106,27 @@ class _FakeSearchRepository implements SearchRepository {
   }
 }
 
-class _CredentialStore implements CredentialStore {
-  final values = <String, Credential>{
-    'account': const Credential(
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-    ),
-  };
-
-  @override
-  Future<Credential?> read(String accountId) async => values[accountId];
-
-  @override
-  Future<void> write(String accountId, Credential credential) async =>
-      values[accountId] = credential;
-
-  @override
-  Future<void> delete(String accountId) async => values.remove(accountId);
-}
-
-class _AccountMetadataRepository implements AccountMetadataRepository {
-  @override
-  Future<AccountMetadataSnapshot> load() async => const AccountMetadataSnapshot(
-    accounts: [Account(id: 'account', userId: 8, name: 'tester')],
-    currentId: 'account',
-  );
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
-
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final credentials = _CredentialStore();
+  final credentials = FakeCredentialStore(
+    values: const {
+      'account': Credential(
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+      ),
+    },
+  );
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
-        _AccountMetadataRepository(),
+        FakeAccountMetadataRepository(
+          accounts: const [Account(id: 'account', userId: 8, name: 'tester')],
+          currentId: 'account',
+        ),
       ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(
