@@ -1,4 +1,3 @@
-import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 
 class ReplicaSwitchTile extends StatelessWidget {
@@ -7,7 +6,10 @@ class ReplicaSwitchTile extends StatelessWidget {
     required this.value,
     required this.title,
     required this.onTap,
-    this.contentPadding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 8,
+    ),
   });
 
   final bool value;
@@ -24,11 +26,7 @@ class ReplicaSwitchTile extends StatelessWidget {
         child: Row(
           children: [
             Expanded(child: title),
-            CupertinoSwitch(
-              value: value,
-              activeTrackColor: Theme.of(context).colorScheme.primary,
-              onChanged: (_) => onTap(),
-            ),
+            Switch(value: value, onChanged: (_) => onTap()),
           ],
         ),
       ),
