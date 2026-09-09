@@ -133,7 +133,10 @@ class NovelReaderCommitGate {
 }
 
 /// Page state that is independent from a particular viewport layout.
-class NovelReaderController extends ChangeNotifier {
+///
+/// A plain mutable view-model: the reader widget owns it, calls the mutators
+/// and repaints itself with `setState` (C7a — no listener machinery).
+class NovelReaderController {
   NovelReaderController({required int pageCount, int initialPage = 0})
     : _pageCount = pageCount < 1 ? 1 : pageCount,
       _currentPage = initialPage.clamp(0, (pageCount < 1 ? 1 : pageCount) - 1);
@@ -178,7 +181,6 @@ class NovelReaderController extends ChangeNotifier {
     final nextPage = page.clamp(0, _pageCount - 1);
     if (nextPage == _currentPage) return;
     _currentPage = nextPage;
-    notifyListeners();
   }
 
   void updatePageCount(int pageCount, {int? page}) {
@@ -187,7 +189,6 @@ class NovelReaderController extends ChangeNotifier {
     if (nextPage != _currentPage) {
       _currentPage = nextPage;
     }
-    notifyListeners();
   }
 
   double _progressFor(int page) {
@@ -231,8 +232,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _fontSize = widget.initialFontSize.clamp(12, 30);
-    _reader = NovelReaderController(pageCount: 1)
-      ..addListener(_onReaderChanged);
+    _reader = NovelReaderController(pageCount: 1);
     _pageController = PageController();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -264,9 +264,6 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _commitGate.dispose();
-    _reader
-      ..removeListener(_onReaderChanged)
-      ..dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -299,14 +296,17 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
                     details.localPosition.dx,
                     constraints.maxWidth,
                   );
-                  if (moved) _animateToReaderPage();
+                  if (moved) {
+                    setState(() {});
+                    _animateToReaderPage();
+                  }
                 },
                 child: PageView.builder(
                   controller: _pageController,
                   scrollDirection: Axis.horizontal,
                   itemCount: layout.pages.length,
                   onPageChanged: (page) {
-                    _reader.setPage(page);
+                    setState(() => _reader.setPage(page));
                     _notifyAnchor();
                   },
                   itemBuilder: (context, index) => _NovelPage(
@@ -395,7 +395,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
               : oldAnchor == null
               ? layoutContext.pageIndex.clamp(0, result.pages.length - 1)
               : result.pageIndexForAnchor(oldAnchor);
-          _reader.updatePageCount(result.pages.length, page: restoredPage);
+          setState(() {
+            _reader.updatePageCount(result.pages.length, page: restoredPage);
+          });
           setState(() => _layout = result);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || !_pageController.hasClients) return;
@@ -408,11 +410,6 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     } on ApiCancelled {
       // A newer viewport/style calculation owns the reader now.
     }
-  }
-
-  void _onReaderChanged() {
-    if (!mounted) return;
-    setState(() {});
   }
 
   void _animateToReaderPage() {
