@@ -62,4 +62,37 @@ void main() {
     expect(find.byType(RecommendedHomePage), findsOneWidget);
     expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
   });
+
+  testWidgets('branch back is handled before the root exit coordinator', (
+    tester,
+  ) async {
+    final router = createPixivRouter(initialLocation: '/recommended');
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    router.push('/recommended/history');
+    await tester.pump();
+    expect(router.state.uri.path, '/recommended/history');
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(router.state.uri.path, '/recommended');
+    expect(find.text('再按一次退出'), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.text('再按一次退出'), findsOneWidget);
+  });
 }
