@@ -280,25 +280,15 @@ class ProfileEditController extends Notifier<ProfileEditState> {
       return;
     }
 
-    final errors = ProfileTextValidator.validate(draft.values);
-    for (final field in draft.dirtyFields) {
-      if (!draft.capabilities.supports(field)) {
-        errors[field] = 'this profile field is not supported';
-      }
-    }
-    final password = currentPassword?.trim();
-    final passwordError =
-        draft.capabilities.requiresCurrentPassword &&
-            (password == null || password.isEmpty)
-        ? 'current password is required'
-        : null;
-    if (errors.isNotEmpty || passwordError != null) {
+    final validation = _validateDraft(draft, currentPassword);
+    if (validation.fieldErrors.isNotEmpty ||
+        validation.currentPasswordError != null) {
       _setState(
         ProfileEditState(
           status: ProfileEditStatus.ready,
           draft: draft,
-          fieldErrors: errors,
-          currentPasswordError: passwordError,
+          fieldErrors: validation.fieldErrors,
+          currentPasswordError: validation.currentPasswordError,
         ),
       );
       return;
@@ -319,7 +309,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
     _cancelToken = cancelToken;
     final request = ProfileSubmitRequest(
       patch: draft.buildPatch(),
-      currentPassword: password,
+      currentPassword: validation.password,
     );
     _setState(
       ProfileEditState(status: ProfileEditStatus.submitting, draft: draft),
@@ -336,71 +326,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
         await _releaseImagesAndClear(draft);
         return;
       }
-      switch (outcome) {
-        case ProfileEditConfirmed(:final user):
-          if (user.id != initialUser.id) {
-            _setFailure(_staleFailure);
-            await _releaseImagesAndClear(draft);
-            return;
-          }
-          try {
-            await onConfirmed(user);
-          } on Object {
-            _setFailure(
-              const ProfileEditFailure(
-                code: ProfileEditFailureCode.repository,
-                message: 'confirmed profile could not be stored',
-                retryable: true,
-              ),
-            );
-            await _releaseImagesAndClear(draft);
-            return;
-          }
-          await _releaseImagesAndClear(draft);
-          _owner = readOwner();
-          final confirmedDraft = ProfileDraft.fromUser(
-            accountId: _owner.accountId,
-            user: user,
-            capabilities: draft.capabilities,
-          );
-          _setState(
-            ProfileEditState(
-              status: ProfileEditStatus.confirmed,
-              draft: confirmedDraft,
-            ),
-          );
-        case ProfileEditVerificationPending(:final message):
-          await _releaseImagesAndClear(draft);
-          _setState(
-            ProfileEditState(
-              status: ProfileEditStatus.verificationPending,
-              draft: draft.copyWith(avatar: null, background: null),
-              verificationMessage: message,
-            ),
-          );
-        case ProfileEditFieldErrors(:final errors):
-          final erroredDraft = draft.copyWith(serverFieldErrors: errors);
-          _setState(
-            ProfileEditState(
-              status: ProfileEditStatus.ready,
-              draft: erroredDraft,
-              fieldErrors: errors,
-            ),
-          );
-        case ProfileEditSubmitFailure(
-          :final code,
-          :final message,
-          :final retryable,
-        ):
-          await _releaseImagesAndClear(draft);
-          _setFailure(
-            ProfileEditFailure(
-              code: code,
-              message: message,
-              retryable: retryable,
-            ),
-          );
-      }
+      await _applySubmitOutcome(draft, outcome);
     } on ApiCancelled {
       await _releaseImagesAndClear(draft);
       if (_isActive(generation, cancelToken)) {
@@ -420,6 +346,101 @@ class ProfileEditController extends Notifier<ProfileEditState> {
     } finally {
       request.clearSecret();
       if (identical(_cancelToken, cancelToken)) _cancelToken = null;
+    }
+  }
+
+  ({
+    Map<ProfileField, String> fieldErrors,
+    String? currentPasswordError,
+    String? password,
+  }) _validateDraft(ProfileDraft draft, String? currentPassword) {
+    final errors = ProfileTextValidator.validate(draft.values);
+    for (final field in draft.dirtyFields) {
+      if (!draft.capabilities.supports(field)) {
+        errors[field] = 'this profile field is not supported';
+      }
+    }
+    final password = currentPassword?.trim();
+    final passwordError =
+        draft.capabilities.requiresCurrentPassword &&
+            (password == null || password.isEmpty)
+        ? 'current password is required'
+        : null;
+    return (
+      fieldErrors: errors,
+      currentPasswordError: passwordError,
+      password: password,
+    );
+  }
+
+  Future<void> _applySubmitOutcome(
+    ProfileDraft draft,
+    ProfileEditOutcome outcome,
+  ) async {
+    switch (outcome) {
+      case ProfileEditConfirmed(:final user):
+        if (user.id != initialUser.id) {
+          _setFailure(_staleFailure);
+          await _releaseImagesAndClear(draft);
+          return;
+        }
+        try {
+          await onConfirmed(user);
+        } on Object {
+          _setFailure(
+            const ProfileEditFailure(
+              code: ProfileEditFailureCode.repository,
+              message: 'confirmed profile could not be stored',
+              retryable: true,
+            ),
+          );
+          await _releaseImagesAndClear(draft);
+          return;
+        }
+        await _releaseImagesAndClear(draft);
+        _owner = readOwner();
+        final confirmedDraft = ProfileDraft.fromUser(
+          accountId: _owner.accountId,
+          user: user,
+          capabilities: draft.capabilities,
+        );
+        _setState(
+          ProfileEditState(
+            status: ProfileEditStatus.confirmed,
+            draft: confirmedDraft,
+          ),
+        );
+      case ProfileEditVerificationPending(:final message):
+        await _releaseImagesAndClear(draft);
+        _setState(
+          ProfileEditState(
+            status: ProfileEditStatus.verificationPending,
+            draft: draft.copyWith(avatar: null, background: null),
+            verificationMessage: message,
+          ),
+        );
+      case ProfileEditFieldErrors(:final errors):
+        final erroredDraft = draft.copyWith(serverFieldErrors: errors);
+        _setState(
+          ProfileEditState(
+            status: ProfileEditStatus.ready,
+            draft: erroredDraft,
+            fieldErrors: errors,
+          ),
+        );
+      case ProfileEditSubmitFailure(
+        :final code,
+        :final message,
+        :final retryable,
+      ):
+        await _releaseImagesAndClear(draft);
+        _setFailure(
+          ProfileEditFailure(
+            code: code,
+            message: message,
+            retryable: retryable,
+          ),
+        );
     }
   }
 

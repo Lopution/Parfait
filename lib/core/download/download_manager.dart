@@ -572,141 +572,158 @@ class DownloadManager {
           retryAfter: _retryAfter(openedResponse),
         );
       }
-      _checkOwner(job);
-      _update(
-        job,
-        job.snapshot.copyWith(
-          totalBytes: openedResponse.contentLength,
-          receivedBytes: 0,
-        ),
-      );
+      await _streamAndFinalize(job, sink, openedResponse, closeResponse);
+    } on DownloadCancelledException {
+      await _handleCancellation(job, sink, closeResponse);
+    } on DownloadOwnershipException catch (error) {
+      await _handleOwnershipFailure(job, sink, closeResponse, error);
+    } catch (error) {
+      await _handleGenericFailure(job, sink, closeResponse, error);
+    } finally {
+      if (!responseClosed) await closeResponse();
+      _schedule();
+    }
+  }
 
-      var received = 0;
-      var lastEmit = _now();
-      await for (final chunk in openedResponse.stream) {
-        if (job.cancelToken.isCancelled) {
-          throw const DownloadCancelledException();
-        }
-        _checkOwner(job);
-        await sink.write(chunk);
-        received += chunk.length;
-        final now = _now();
-        if (now.difference(lastEmit) >= progressThrottle) {
-          lastEmit = now;
-          _update(job, job.snapshot.copyWith(receivedBytes: received));
-        }
-      }
-      _update(job, job.snapshot.copyWith(receivedBytes: received));
-      await closeResponse();
+  Future<void> _streamAndFinalize(
+    _Job job,
+    DownloadSink sink,
+    DownloadResponse response,
+    Future<void> Function() closeResponse,
+  ) async {
+    _checkOwner(job);
+    _update(
+      job,
+      job.snapshot.copyWith(
+        totalBytes: response.contentLength,
+        receivedBytes: 0,
+      ),
+    );
+
+    var received = 0;
+    var lastEmit = _now();
+    await for (final chunk in response.stream) {
       if (job.cancelToken.isCancelled) {
         throw const DownloadCancelledException();
       }
       _checkOwner(job);
-      _transition(job, DownloadStatus.finalizing);
-      final uri = Uri.parse(await sink.finalize());
-      // Once finalize has started, a late cancellation cannot undo a visible
-      // MediaStore row. Report the one durable result rather than lying about
-      // cleanup.
-      job.pendingOutputId = null;
-      _transition(job, DownloadStatus.succeeded);
-      _update(
-        job,
-        job.snapshot.copyWith(
-          finalUri: uri,
-          error: null,
-          failureKind: null,
-          retryAfter: null,
-        ),
-      );
-      _complete(job, DownloadEvent.succeeded(job.snapshot));
-    } on DownloadCancelledException {
-      await _abortOnce(job, sink);
-      await closeResponse();
-      if (job.ownerInvalidated) {
-        _transition(job, DownloadStatus.orphaned);
-        _update(
-          job,
-          job.snapshot.copyWith(
-            error: 'download owner changed while task was active',
-            failureKind: DownloadFailureKind.ownership,
-          ),
-        );
-        _complete(
-          job,
-          DownloadEvent.orphaned(job.snapshot, job.snapshot.error),
-        );
-      } else {
-        _transition(job, DownloadStatus.canceled);
-        _update(
-          job,
-          job.snapshot.copyWith(
-            error: 'download canceled',
-            failureKind: DownloadFailureKind.canceled,
-          ),
-        );
-        _complete(job, DownloadEvent.canceled(job.snapshot));
+      await sink.write(chunk);
+      received += chunk.length;
+      final now = _now();
+      if (now.difference(lastEmit) >= progressThrottle) {
+        lastEmit = now;
+        _update(job, job.snapshot.copyWith(receivedBytes: received));
       }
-    } on DownloadOwnershipException catch (error) {
-      await _abortOnce(job, sink);
-      await closeResponse();
+    }
+    _update(job, job.snapshot.copyWith(receivedBytes: received));
+    await closeResponse();
+    if (job.cancelToken.isCancelled) {
+      throw const DownloadCancelledException();
+    }
+    _checkOwner(job);
+    _transition(job, DownloadStatus.finalizing);
+    final uri = Uri.parse(await sink.finalize());
+    // Once finalize has started, a late cancellation cannot undo a visible
+    // MediaStore row. Report the one durable result rather than lying about
+    // cleanup.
+    job.pendingOutputId = null;
+    _transition(job, DownloadStatus.succeeded);
+    _update(
+      job,
+      job.snapshot.copyWith(
+        finalUri: uri,
+        error: null,
+        failureKind: null,
+        retryAfter: null,
+      ),
+    );
+    _complete(job, DownloadEvent.succeeded(job.snapshot));
+  }
+
+  Future<void> _handleCancellation(
+    _Job job,
+    DownloadSink? sink,
+    Future<void> Function() closeResponse,
+  ) async {
+    await _abortOnce(job, sink);
+    await closeResponse();
+    if (job.ownerInvalidated) {
+      _completeCancellation(job, orphaned: true);
+    } else {
+      _completeCancellation(job);
+    }
+  }
+
+  void _completeCancellation(_Job job, {bool orphaned = false}) {
+    if (orphaned) {
       _transition(job, DownloadStatus.orphaned);
       _update(
         job,
         job.snapshot.copyWith(
-          error: error.toString(),
+          error: 'download owner changed while task was active',
           failureKind: DownloadFailureKind.ownership,
         ),
       );
       _complete(job, DownloadEvent.orphaned(job.snapshot, job.snapshot.error));
-    } catch (error) {
-      await _abortOnce(job, sink);
-      await closeResponse();
-      // Some transports surface socket teardown as a generic transport
-      // error instead of DownloadCancelledException. Once cancellation has
-      // been requested before finalization, the user/owner boundary still
-      // wins over that secondary teardown error.
-      if (job.cancelToken.isCancelled &&
-          job.snapshot.status != DownloadStatus.finalizing) {
-        if (job.ownerInvalidated) {
-          _transition(job, DownloadStatus.orphaned);
-          _update(
-            job,
-            job.snapshot.copyWith(
-              error: 'download owner changed while task was active',
-              failureKind: DownloadFailureKind.ownership,
-            ),
-          );
-          _complete(
-            job,
-            DownloadEvent.orphaned(job.snapshot, job.snapshot.error),
-          );
-        } else {
-          _transition(job, DownloadStatus.canceled);
-          _update(
-            job,
-            job.snapshot.copyWith(
-              error: 'download canceled',
-              failureKind: DownloadFailureKind.canceled,
-            ),
-          );
-          _complete(job, DownloadEvent.canceled(job.snapshot));
-        }
-      } else {
-        final failureKind = classifyDownloadFailure(error);
-        _transition(job, DownloadStatus.failed);
-        _update(
-          job,
-          job.snapshot.copyWith(
-            error: _safeError(error),
-            failureKind: failureKind,
-            retryAfter: _retryAfterFromError(error),
-          ),
-        );
-        _complete(job, DownloadEvent.failed(job.snapshot, job.snapshot.error));
-      }
-    } finally {
-      if (!responseClosed) await closeResponse();
-      _schedule();
+    } else {
+      _transition(job, DownloadStatus.canceled);
+      _update(
+        job,
+        job.snapshot.copyWith(
+          error: 'download canceled',
+          failureKind: DownloadFailureKind.canceled,
+        ),
+      );
+      _complete(job, DownloadEvent.canceled(job.snapshot));
+    }
+  }
+
+  Future<void> _handleOwnershipFailure(
+    _Job job,
+    DownloadSink? sink,
+    Future<void> Function() closeResponse,
+    DownloadOwnershipException error,
+  ) async {
+    await _abortOnce(job, sink);
+    await closeResponse();
+    _transition(job, DownloadStatus.orphaned);
+    _update(
+      job,
+      job.snapshot.copyWith(
+        error: error.toString(),
+        failureKind: DownloadFailureKind.ownership,
+      ),
+    );
+    _complete(job, DownloadEvent.orphaned(job.snapshot, job.snapshot.error));
+  }
+
+  Future<void> _handleGenericFailure(
+    _Job job,
+    DownloadSink? sink,
+    Future<void> Function() closeResponse,
+    Object error,
+  ) async {
+    await _abortOnce(job, sink);
+    await closeResponse();
+    // Some transports surface socket teardown as a generic transport
+    // error instead of DownloadCancelledException. Once cancellation has
+    // been requested before finalization, the user/owner boundary still
+    // wins over that secondary teardown error.
+    if (job.cancelToken.isCancelled &&
+        job.snapshot.status != DownloadStatus.finalizing) {
+      _completeCancellation(job, orphaned: job.ownerInvalidated);
+    } else {
+      final failureKind = classifyDownloadFailure(error);
+      _transition(job, DownloadStatus.failed);
+      _update(
+        job,
+        job.snapshot.copyWith(
+          error: _safeError(error),
+          failureKind: failureKind,
+          retryAfter: _retryAfterFromError(error),
+        ),
+      );
+      _complete(job, DownloadEvent.failed(job.snapshot, job.snapshot.error));
     }
   }
 
