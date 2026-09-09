@@ -274,6 +274,8 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
         children: [
           WebViewWidget(controller: _controller!),
           if (_exchanging)
+            // This opaque black scrim is a deliberate replica loading
+            // surface, independent of the app theme brightness.
             const ColoredBox(
               color: Colors.black38,
               child: Center(child: CircularProgressIndicator()),

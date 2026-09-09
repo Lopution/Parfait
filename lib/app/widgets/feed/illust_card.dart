@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../theme/func_tokens.dart';
 import '../../motion/hero_transition.dart';
 import '../../navigation/routes.dart';
 import '../../pixiv_image.dart';
@@ -53,8 +54,7 @@ class IllustCard extends ConsumerWidget {
             ? constraints.maxWidth / entity.width * entity.height
             : constraints.maxWidth;
         return GestureDetector(
-          onTapDown: (_) =>
-              _preloadTransitionImages(context, ref, previewUrl),
+          onTapDown: (_) => _preloadTransitionImages(context, ref, previewUrl),
           onTap: () {
             _preloadTransitionImages(context, ref, previewUrl);
             openIllust(
@@ -119,7 +119,10 @@ class IllustCard extends ConsumerWidget {
             color: colorScheme.primary,
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              child: Text('R-18', style: TextStyle(color: Colors.white)),
+              child: Text(
+                'R-18',
+                style: TextStyle(color: FuncTokens.lightBackground),
+              ),
             ),
           ),
         ),
@@ -134,7 +137,7 @@ class IllustCard extends ConsumerWidget {
             ),
             child: const Icon(
               Icons.gif_box_outlined,
-              color: Colors.white,
+              color: FuncTokens.lightBackground,
               size: 30,
             ),
           ),
@@ -152,7 +155,7 @@ class IllustCard extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               child: Text(
                 '${entity.pageCount}',
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: FuncTokens.lightBackground),
               ),
             ),
           ),
@@ -165,7 +168,10 @@ class IllustCard extends ConsumerWidget {
             color: colorScheme.error,
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              child: Text('AI', style: TextStyle(color: Colors.white)),
+              child: Text(
+                'AI',
+                style: TextStyle(color: FuncTokens.lightBackground),
+              ),
             ),
           ),
         ),

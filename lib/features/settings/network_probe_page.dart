@@ -11,6 +11,7 @@ import '../../core/network/compat/network_policy.dart';
 import '../../core/network/compat/network_probe.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/network/compat/secure_resolver.dart';
+import '../../app/theme/func_tokens.dart';
 import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -344,7 +345,7 @@ class _HostProbeCard extends StatelessWidget {
                   child: Text(
                     context.l10n.networkProbeDnsDiff,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.orange.shade800,
+                      color: FuncTokens.networkProbeDnsWarning,
                     ),
                   ),
                 ),
@@ -366,7 +367,7 @@ class _HostProbeCard extends StatelessWidget {
                     Clipboard.setData(
                       ClipboardData(text: body.toCopyableText()),
                     );
-                    showAppSnackBar(context, context.l10n.networkProbeCopied,);
+                    showAppSnackBar(context, context.l10n.networkProbeCopied);
                   },
                   icon: const Icon(Icons.copy, size: 16),
                   label: Text(context.l10n.copy),
@@ -391,38 +392,38 @@ class _ConclusionBadge extends StatelessWidget {
     final (key, color) = switch (conclusion) {
       NetworkProbeConclusion.allReachable => (
         'networkProbeConclusionAllReachable',
-        Colors.green,
+        FuncTokens.networkProbeSuccess,
       ),
       NetworkProbeConclusion.dnsPolluted => (
         'networkProbeConclusionDnsPolluted',
-        Colors.orange,
+        FuncTokens.networkProbeWarning,
       ),
       NetworkProbeConclusion.sniBlocked => (
         'networkProbeConclusionSniBlocked',
-        Colors.red,
+        FuncTokens.networkProbeError,
       ),
       NetworkProbeConclusion.echAvailable => (
         'networkProbeConclusionEchAvailable',
-        Colors.teal,
+        FuncTokens.networkProbeEch,
       ),
       NetworkProbeConclusion.noSniAvailable => (
         'networkProbeConclusionNoSniAvailable',
-        Colors.indigo,
+        FuncTokens.networkProbeNoSni,
       ),
       NetworkProbeConclusion.ipBlackholed => (
         'networkProbeConclusionIpBlackholed',
-        Colors.red,
+        FuncTokens.networkProbeError,
       ),
       NetworkProbeConclusion.appLayer => (
         'networkProbeConclusionAppLayer',
-        Colors.orange,
+        FuncTokens.networkProbeWarning,
       ),
       NetworkProbeConclusion.inconclusive => (
         'networkProbeConclusionInconclusive',
-        Colors.grey,
+        FuncTokens.networkProbeNeutral,
       ),
     };
-    final resolvedColor = color.shade700;
+    final resolvedColor = color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(

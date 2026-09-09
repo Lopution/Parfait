@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
+import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
@@ -78,9 +79,7 @@ class SearchHomePage extends ConsumerWidget {
                 return SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(28),
-                    child: Center(
-                      child: Text(context.l10n.searchNoTrending),
-                    ),
+                    child: Center(child: Text(context.l10n.searchNoTrending)),
                   ),
                 );
               }
@@ -161,11 +160,7 @@ class _TrendingTagTile extends StatelessWidget {
       showAppSnackBar(context, context.l10n.searchNoRepresentative);
       return;
     }
-    openIllust(
-      context,
-      representative.id,
-      initialEntity: representative,
-    );
+    openIllust(context, representative.id, initialEntity: representative);
   }
 
   @override
@@ -223,7 +218,7 @@ class _TrendingTagTile extends StatelessWidget {
                     style: TextStyle(
                       color: representative == null
                           ? scheme.onSurface
-                          : Colors.white,
+                          : FuncTokens.lightBackground,
                       fontWeight: FontWeight.w600,
                       shadows: representative == null
                           ? null
@@ -391,7 +386,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
               ),
             ),
           Expanded(
-            child: SearchAutocompletePanel(
+            child: _SearchAutocompletePanel(
               onSelected: (suggestion) {
                 _textController
                   ..text = suggestion.keyword
@@ -408,8 +403,8 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   }
 }
 
-class SearchAutocompletePanel extends ConsumerWidget {
-  const SearchAutocompletePanel({super.key, required this.onSelected});
+class _SearchAutocompletePanel extends ConsumerWidget {
+  const _SearchAutocompletePanel({required this.onSelected});
 
   final ValueChanged<SearchSuggestion> onSelected;
 
@@ -458,4 +453,3 @@ class SearchAutocompletePanel extends ConsumerWidget {
     );
   }
 }
-

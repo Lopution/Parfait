@@ -41,8 +41,8 @@ class IllustDetailError extends IllustDetailState {
   bool get hasSnapshot => snapshot != null;
 }
 
-class IllustDetailController extends AsyncNotifier<IllustDetailState> {
-  IllustDetailController(this.illustId);
+class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
+  _IllustDetailController(this.illustId);
 
   final int illustId;
 
@@ -60,7 +60,7 @@ class IllustDetailController extends AsyncNotifier<IllustDetailState> {
       // Snapshot revision captured before the fetch gates stale bookmark
       // payloads against locally confirmed changes (R2).
       final bookmarkRevision = store.bookmarkRevisionNow();
-      final fresh = await ref.read(illustDetailRepositoryProvider).fetch(id);
+      final fresh = await ref.read(_illustDetailRepositoryProvider).fetch(id);
       store.mergeAll(
         [fresh],
         source: EntityMergeSource.detail,
@@ -91,13 +91,13 @@ class IllustDetailController extends AsyncNotifier<IllustDetailState> {
   }
 }
 
-final illustDetailRepositoryProvider = Provider<IllustDetailRepository>(
+final _illustDetailRepositoryProvider = Provider<IllustDetailRepository>(
   (ref) => IllustDetailRepository(ref.watch(pixivHttpClientProvider)),
 );
 
 final illustDetailControllerProvider =
     AsyncNotifierProvider.family<
-      IllustDetailController,
+      _IllustDetailController,
       IllustDetailState,
       int
-    >(IllustDetailController.new);
+    >(_IllustDetailController.new);

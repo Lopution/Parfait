@@ -88,8 +88,8 @@ abstract interface class SearchRepository {
 
 /// JSON-only Search API adapter. All raw response shapes are normalized here;
 /// result pages only receive typed entities and a validated next URL.
-class PixivSearchRepository implements SearchRepository {
-  PixivSearchRepository(this._client);
+class _PixivSearchRepository implements SearchRepository {
+  _PixivSearchRepository(this._client);
 
   final PixivHttpClient _client;
 
@@ -301,7 +301,11 @@ class PixivSearchRepository implements SearchRepository {
       return SearchSuggestion(keyword: value.trim());
     }
     if (value is Map<String, dynamic>) {
-      final keyword = readFirstTrimmedString(value, const ['word', 'tag', 'name']);
+      final keyword = readFirstTrimmedString(value, const [
+        'word',
+        'tag',
+        'name',
+      ]);
       if (keyword != null) {
         return SearchSuggestion(
           keyword: keyword,
@@ -351,5 +355,5 @@ class PixivSearchRepository implements SearchRepository {
 }
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return PixivSearchRepository(ref.watch(pixivHttpClientProvider));
+  return _PixivSearchRepository(ref.watch(pixivHttpClientProvider));
 });

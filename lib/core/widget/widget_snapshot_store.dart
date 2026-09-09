@@ -15,7 +15,7 @@ const String widgetSnapshotActiveFile = 'active.json';
 
 /// Where widget render state lives: `filesDir/support/widget_snapshot` on
 /// Android. Native code resolves the same location independently.
-Future<Directory> widgetSnapshotDirectory() async {
+Future<Directory> _widgetSnapshotDirectory() async {
   final support = await getApplicationSupportDirectory();
   return Directory(
     p.join(support.path, 'widget_snapshot'),
@@ -35,7 +35,7 @@ class WidgetSnapshotStore {
 
   /// Production store rooted at the app-support widget directory.
   static Future<WidgetSnapshotStore> standard() async =>
-      WidgetSnapshotStore(await widgetSnapshotDirectory());
+      WidgetSnapshotStore(await _widgetSnapshotDirectory());
 
   final Directory directory;
 
@@ -74,13 +74,13 @@ class WidgetSnapshotStore {
     if (!snapshot.renderable ||
         expectedImages.length != images.length ||
         !expectedImages.every(images.containsKey)) {
-      throw const WidgetSnapshotWriteError(
+      throw const _WidgetSnapshotWriteError(
         'snapshot is not renderable or image references do not match supplied images',
       );
     }
     for (final name in images.keys) {
       if (!_isSafeFileName(name)) {
-        throw WidgetSnapshotWriteError('unsafe image file name: $name');
+        throw _WidgetSnapshotWriteError('unsafe image file name: $name');
       }
     }
     final encoded = snapshot.encode();
@@ -109,7 +109,7 @@ class WidgetSnapshotStore {
         }
         final finalPath = p.join(_imagesDir.path, entry.key);
         if (File(finalPath).existsSync()) {
-          throw WidgetSnapshotWriteError(
+          throw _WidgetSnapshotWriteError(
             'image file already belongs to an active generation: ${entry.key}',
           );
         }
@@ -248,8 +248,8 @@ class WidgetSnapshotOversizeError implements Exception {
 
 /// Raised when a generation cannot be published without invalidating the
 /// currently active pointer or violating the snapshot contract.
-class WidgetSnapshotWriteError implements Exception {
-  const WidgetSnapshotWriteError(this.reason);
+class _WidgetSnapshotWriteError implements Exception {
+  const _WidgetSnapshotWriteError(this.reason);
 
   final String reason;
 

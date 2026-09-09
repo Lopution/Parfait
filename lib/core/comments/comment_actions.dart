@@ -15,8 +15,8 @@ class CommentPermissionException implements Exception {
 
 /// UI-facing comment mutations. A server response is required before the
 /// canonical store changes, so failed sends/deletes never look successful.
-class CommentActions {
-  CommentActions(this._ref);
+class _CommentActions {
+  _CommentActions(this._ref);
 
   final Ref _ref;
 
@@ -66,6 +66,6 @@ class CommentActions {
   }
 }
 
-final commentActionsProvider = Provider<CommentActions>((ref) {
-  return CommentActions(ref);
+final commentActionsProvider = Provider<_CommentActions>((ref) {
+  return _CommentActions(ref);
 });

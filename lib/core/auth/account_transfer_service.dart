@@ -340,20 +340,19 @@ final transferClipboardProvider = Provider<TransferClipboard>((ref) {
   return MethodChannelTransferClipboard();
 });
 
-final transferCredentialVerifierProvider = Provider<TransferCredentialVerifier>(
-  (ref) {
-    return PixivTransferCredentialVerifier(
-      apiClient: ref.watch(pixivHttpClientProvider),
-      oauthService: ref.watch(oauthServiceProvider),
-    );
-  },
-);
+final _transferCredentialVerifierProvider =
+    Provider<TransferCredentialVerifier>((ref) {
+      return PixivTransferCredentialVerifier(
+        apiClient: ref.watch(pixivHttpClientProvider),
+        oauthService: ref.watch(oauthServiceProvider),
+      );
+    });
 
 final accountTransferServiceProvider = Provider<AccountTransferService>((ref) {
   return AccountTransferService(
     accountStore: ref.watch(accountStoreProvider.notifier),
     credentialStore: ref.watch(credentialStoreProvider),
-    verifier: ref.watch(transferCredentialVerifierProvider),
+    verifier: ref.watch(_transferCredentialVerifierProvider),
     clipboard: ref.watch(transferClipboardProvider),
   );
 });

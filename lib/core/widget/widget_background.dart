@@ -15,7 +15,7 @@ import '../log.dart';
 
 /// Method channel the headless entrypoint reports through. The native worker
 /// listens for exactly one result message per run.
-const MethodChannel widgetBackgroundChannel = MethodChannel(
+const MethodChannel _widgetBackgroundChannel = MethodChannel(
   'pixivfunc/widget_background',
 );
 
@@ -65,9 +65,10 @@ Future<void> runWidgetBackground() async {
 
 Future<void> _report(String outcome) async {
   try {
-    await widgetBackgroundChannel.invokeMethod<void>('result', <String, String>{
-      'outcome': outcome,
-    });
+    await _widgetBackgroundChannel.invokeMethod<void>(
+      'result',
+      <String, String>{'outcome': outcome},
+    );
   } on MissingPluginException {
     // A non-Android test or a worker that has already been torn down has no
     // native receiver; keep the condition observable without leaking data.

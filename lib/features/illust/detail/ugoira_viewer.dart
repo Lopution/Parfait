@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../app/theme/func_tokens.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_recovery.dart';
@@ -141,7 +142,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                   ),
                   child: const Icon(
                     Icons.gif_box_outlined,
-                    color: Colors.white,
+                    color: FuncTokens.lightBackground,
                     size: 30,
                   ),
                 ),
@@ -542,7 +543,7 @@ class _PlayOverlay extends StatelessWidget {
       child: Icon(
         Icons.play_circle_outline_outlined,
         size: 70,
-        color: Colors.white,
+        color: FuncTokens.lightBackground,
       ),
     );
   }
@@ -564,12 +565,12 @@ class _ErrorOverlay extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(message, style: const TextStyle(color: Colors.white)),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: onRetry,
-                child: Text(context.l10n.retry),
+              Text(
+                message,
+                style: TextStyle(color: FuncTokens.lightBackground),
               ),
+              const SizedBox(height: 8),
+              TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
             ],
           ),
         ),

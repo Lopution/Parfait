@@ -22,7 +22,7 @@ import '../../l10n/context.dart';
 
 /// Opens the JSON Novel detail route. Save/share are intentionally absent:
 /// this task does not claim those operations without a real API contract.
-void showNovelPage(BuildContext context, int novelId) {
+void _showNovelPage(BuildContext context, int novelId) {
   if (novelId <= 0) {
     showAppSnackBar(context, context.l10n.novelNotFound);
     return;
@@ -32,18 +32,17 @@ void showNovelPage(BuildContext context, int novelId) {
   );
 }
 
-final novelDetailProvider = FutureProvider.autoDispose.family<NovelEntity, int>(
-  (ref, novelId) async {
-    final token = CancelToken();
-    ref.onDispose(token.cancel);
-    final repository = ref.read(novelRepositoryProvider);
-    final entity = await repository.fetchDetail(novelId, cancelToken: token);
-    ref.read(novelStoreProvider.notifier).mergeAll([entity]);
-    return entity;
-  },
-);
+final _novelDetailProvider = FutureProvider.autoDispose
+    .family<NovelEntity, int>((ref, novelId) async {
+      final token = CancelToken();
+      ref.onDispose(token.cancel);
+      final repository = ref.read(novelRepositoryProvider);
+      final entity = await repository.fetchDetail(novelId, cancelToken: token);
+      ref.read(novelStoreProvider.notifier).mergeAll([entity]);
+      return entity;
+    });
 
-final novelSeriesProvider = FutureProvider.autoDispose
+final _novelSeriesProvider = FutureProvider.autoDispose
     .family<NovelSeriesPage, int>((ref, seriesId) async {
       final token = CancelToken();
       ref.onDispose(token.cancel);
@@ -59,7 +58,7 @@ class NovelPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(novelDetailProvider(novelId));
+    final async = ref.watch(_novelDetailProvider(novelId));
     final title = async.value?.title ?? context.l10n.profileNovel;
     return Scaffold(
       appBar: AppBar(
@@ -78,7 +77,7 @@ class NovelPage extends ConsumerWidget {
                 : context.l10n.novelLoadFailed,
             error: error,
             retryLabel: context.l10n.novelRetry,
-            onRetry: () => ref.invalidate(novelDetailProvider(novelId)),
+            onRetry: () => ref.invalidate(_novelDetailProvider(novelId)),
           );
         },
         data: (novel) {
@@ -217,7 +216,7 @@ class _NovelSeriesBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(novelSeriesProvider(seriesId));
+    final async = ref.watch(_novelSeriesProvider(seriesId));
     return async.when(
       loading: () => const LinearProgressIndicator(minHeight: 1),
       error: (error, _) => Padding(
@@ -244,7 +243,7 @@ class _NovelSeriesBar extends ConsumerWidget {
               IconButton(
                 tooltip: context.l10n.novelPrevious,
                 onPressed: previous?.viewable == true
-                    ? () => showNovelPage(context, previous!.id)
+                    ? () => _showNovelPage(context, previous!.id)
                     : null,
                 icon: const Icon(Icons.chevron_left),
               ),
@@ -259,7 +258,7 @@ class _NovelSeriesBar extends ConsumerWidget {
               IconButton(
                 tooltip: context.l10n.novelNext,
                 onPressed: next?.viewable == true
-                    ? () => showNovelPage(context, next!.id)
+                    ? () => _showNovelPage(context, next!.id)
                     : null,
                 icon: const Icon(Icons.chevron_right),
               ),

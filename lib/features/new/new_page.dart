@@ -115,7 +115,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
                 for (final key in _loadedKeys)
                   Offstage(
                     offstage: key != activeKey,
-                    child: NewFeedBody(key: ValueKey(key), feedKey: key),
+                    child: _NewFeedBody(key: ValueKey(key), feedKey: key),
                   ),
               ],
             ),
@@ -169,16 +169,16 @@ class _NewTypeSelector extends StatelessWidget {
 
 /// One keyed feed body. The state is kept alive by [NewPage]'s Offstage stack
 /// so scroll/cursor/error state is not shared with another scope or type.
-class NewFeedBody extends ConsumerStatefulWidget {
-  const NewFeedBody({super.key, required this.feedKey});
+class _NewFeedBody extends ConsumerStatefulWidget {
+  const _NewFeedBody({super.key, required this.feedKey});
 
   final NewFeedKey feedKey;
 
   @override
-  ConsumerState<NewFeedBody> createState() => _NewFeedBodyState();
+  ConsumerState<_NewFeedBody> createState() => _NewFeedBodyState();
 }
 
-class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
+class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
   late final ScrollController _scrollController;
 
   @override
@@ -269,8 +269,9 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
               children: [
                 Expanded(child: Text(context.l10n.newRefreshFailed)),
                 TextButton(
-                  onPressed: () =>
-                      ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
+                  onPressed: () => ref
+                      .read(newFeedProvider(widget.feedKey).notifier)
+                      .refresh(),
                   child: Text(context.l10n.newRetry),
                 ),
               ],
@@ -293,16 +294,16 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
       final entities = store.getAll(feed.ids);
       return [
         IllustFeedGrid(
-  padding: const EdgeInsets.symmetric(horizontal: 10),
-  mainAxisSpacing: 5,
-  crossAxisSpacing: 10,
-  itemCount: entities.length,
-  itemBuilder: (context, index) => IllustCard(
-              entity: entities[index],
-              heroScope:
-                  'new:${widget.feedKey.scope.name}:${widget.feedKey.type.name}',
-            ),
-),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          mainAxisSpacing: 5,
+          crossAxisSpacing: 10,
+          itemCount: entities.length,
+          itemBuilder: (context, index) => IllustCard(
+            entity: entities[index],
+            heroScope:
+                'new:${widget.feedKey.scope.name}:${widget.feedKey.type.name}',
+          ),
+        ),
         ...tail,
       ];
     }
@@ -323,4 +324,5 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
   }
 }
 
-String _newText(BuildContext context, String key) => l10nLookup(context.l10n, key);
+String _newText(BuildContext context, String key) =>
+    l10nLookup(context.l10n, key);

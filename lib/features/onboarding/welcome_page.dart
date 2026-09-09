@@ -38,7 +38,10 @@ class WelcomePage extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          l10nLookupFor(parseAppLocale(languageTag), 'welcome1'),
+                          l10nLookupFor(
+                            parseAppLocale(languageTag),
+                            'welcome1',
+                          ),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 24,
@@ -47,7 +50,10 @@ class WelcomePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          l10nLookupFor(parseAppLocale(languageTag), 'welcome2'),
+                          l10nLookupFor(
+                            parseAppLocale(languageTag),
+                            'welcome2',
+                          ),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 24,
@@ -60,11 +66,16 @@ class WelcomePage extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ReplicaButton(
-                        label: l10nLookupFor(parseAppLocale(languageTag), 'start'),
+                        label: l10nLookupFor(
+                          parseAppLocale(languageTag),
+                          'start',
+                        ),
                         backgroundColor: FuncTokens.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: FuncTokens.lightBackground,
                         onPressed: () => Navigator.of(context).push(
-                          ReplicaPageRoute<void>(builder: (_) => const LanguagePage()),
+                          ReplicaPageRoute<void>(
+                            builder: (_) => const LanguagePage(),
+                          ),
                         ),
                       ),
                     ),

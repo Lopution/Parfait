@@ -12,8 +12,8 @@ import '../settings/settings_controller.dart';
 /// no-op paths).
 enum IllustPageSaveState { none, downloading, error, exist }
 
-class IllustDownloadController {
-  IllustDownloadController(this._ref);
+class _IllustDownloadController {
+  _IllustDownloadController(this._ref);
 
   final Ref _ref;
 
@@ -96,6 +96,6 @@ class IllustDownloadController {
   }
 }
 
-final illustDownloadControllerProvider = Provider<IllustDownloadController>(
-  IllustDownloadController.new,
+final illustDownloadControllerProvider = Provider<_IllustDownloadController>(
+  _IllustDownloadController.new,
 );

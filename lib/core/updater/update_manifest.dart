@@ -12,7 +12,7 @@ const String updateRepository = 'Lopution/Pixiv-func';
 const String updatePackageName = 'io.github.lopution.pixivfunc';
 
 const Set<String> updateReleaseHosts = kUpdateDownloadHosts;
-const Set<String> updateReleaseAbis = {'arm64-v8a', 'armeabi-v7a'};
+const Set<String> _updateReleaseAbis = {'arm64-v8a', 'armeabi-v7a'};
 
 final Uri defaultUpdateManifestUri = Uri.parse(
   'https://github.com/Lopution/Pixiv-func/releases/latest/download/update-manifest.json',
@@ -202,11 +202,7 @@ class UpdateManifest implements UpdateManifestLike {
             packageName: packageName,
             signingCertificateSha256: signingCertificateSha256,
             assets: assets,
-            asset: _selectedAsset(
-              item,
-              packageName,
-              signingCertificateSha256,
-            ),
+            asset: _selectedAsset(item, packageName, signingCertificateSha256),
           );
         }
       }
@@ -261,7 +257,7 @@ List<UpdateManifestAsset> _parseAssets(Object? value) {
       'versionCode',
     }, 'asset_keys');
     final abi = _string(map['abi'], 'asset_abi');
-    if (!updateReleaseAbis.contains(abi) || !seen.add(abi)) {
+    if (!_updateReleaseAbis.contains(abi) || !seen.add(abi)) {
       throw const UpdateManifestFormatException('asset_abi');
     }
     final url = _strictHttpsUri(_string(map['url'], 'asset_url'));

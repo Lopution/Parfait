@@ -35,11 +35,11 @@ ThemeData replicaTheme(Brightness brightness) {
       primary: FuncTokens.primary,
       secondary: FuncTokens.primary,
       surface: surface,
-      onPrimary: Colors.white,
+      onPrimary: FuncTokens.lightBackground,
       onSecondary: subdued,
       onSurface: text,
-      error: Colors.red,
-      onError: Colors.white,
+      error: FuncTokens.error,
+      onError: FuncTokens.lightBackground,
     ),
     textTheme: baseTextTheme.copyWith(
       headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: text),
@@ -55,7 +55,7 @@ ThemeData replicaTheme(Brightness brightness) {
       backgroundColor: background,
       foregroundColor: text,
       elevation: 0,
-      surfaceTintColor: Colors.transparent,
+      surfaceTintColor: FuncTokens.transparent,
       iconTheme: IconThemeData(color: text),
       actionsIconTheme: IconThemeData(color: text),
       titleTextStyle: TextStyle(
@@ -72,7 +72,7 @@ ThemeData replicaTheme(Brightness brightness) {
     ),
     bottomAppBarTheme: BottomAppBarThemeData(
       color: background,
-      surfaceTintColor: Colors.transparent,
+      surfaceTintColor: FuncTokens.transparent,
       elevation: 0,
     ),
     tabBarTheme: TabBarThemeData(

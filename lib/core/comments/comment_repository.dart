@@ -36,8 +36,8 @@ abstract interface class CommentRepository {
 }
 
 /// Pixiv app-api implementation for the beta56 comment contract.
-class PixivCommentRepository implements CommentRepository {
-  PixivCommentRepository(this._client);
+class _PixivCommentRepository implements CommentRepository {
+  _PixivCommentRepository(this._client);
 
   static const _commentsPath = '/v3/illust/comments';
   static const _repliesPath = '/v2/illust/comment/replies';
@@ -214,7 +214,6 @@ class PixivCommentRepository implements CommentRepository {
   Uri _target(NextPageRequest request) => PixivClientIdentity.appApiBase
       .replace(path: request.uri.path, queryParameters: request.query);
 
-
   static Map<String, dynamic> _successObject(
     dynamic response, {
     bool allowEmpty = false,
@@ -246,5 +245,5 @@ class PixivCommentRepository implements CommentRepository {
 }
 
 final commentRepositoryProvider = Provider<CommentRepository>((ref) {
-  return PixivCommentRepository(ref.watch(pixivHttpClientProvider));
+  return _PixivCommentRepository(ref.watch(pixivHttpClientProvider));
 });

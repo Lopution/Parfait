@@ -34,8 +34,8 @@ abstract interface class UpdateSignatureVerifier {
   });
 }
 
-class PlatformUpdateSignatureVerifier implements UpdateSignatureVerifier {
-  const PlatformUpdateSignatureVerifier(this.platform);
+class _PlatformUpdateSignatureVerifier implements UpdateSignatureVerifier {
+  const _PlatformUpdateSignatureVerifier(this.platform);
 
   final UpdatePlatform platform;
 
@@ -59,7 +59,7 @@ class UpdateService {
        _platform = platform ?? MethodChannelUpdatePlatform(),
        _signatureVerifier =
            signatureVerifier ??
-           PlatformUpdateSignatureVerifier(
+           _PlatformUpdateSignatureVerifier(
              platform ?? MethodChannelUpdatePlatform(),
            ),
        _downloader = downloader,

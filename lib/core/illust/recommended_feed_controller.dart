@@ -11,14 +11,14 @@ import 'recommended_repository.dart';
 
 /// Recommended feed keyed by content type. Each key owns an independent
 /// cursor/error/commit lifecycle, matching beta56's home tabs.
-typedef RecommendedFeedKey = ({RecommendedContentType type});
+typedef _RecommendedFeedKey = ({RecommendedContentType type});
 
 /// One lazily-paged Recommended scope/type combination (illust / manga /
 /// novel / user).
-class RecommendedFeedController extends PagedFeedController {
-  RecommendedFeedController(this.key);
+class _RecommendedFeedController extends PagedFeedController {
+  _RecommendedFeedController(this.key);
 
-  final RecommendedFeedKey key;
+  final _RecommendedFeedKey key;
 
   @override
   String get feedKey => 'recommended:${key.type.name}';
@@ -115,7 +115,7 @@ class RecommendedFeedController extends PagedFeedController {
 
 final recommendedFeedProvider =
     AsyncNotifierProvider.family<
-      RecommendedFeedController,
+      _RecommendedFeedController,
       PagedFeedState,
-      RecommendedFeedKey
-    >(RecommendedFeedController.new);
+      _RecommendedFeedKey
+    >(_RecommendedFeedController.new);

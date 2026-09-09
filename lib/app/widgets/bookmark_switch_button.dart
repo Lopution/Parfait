@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
+import '../theme/func_tokens.dart';
 import '../widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
@@ -43,7 +44,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
     var restrict = BookmarkRestrict.public;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: FuncTokens.transparent,
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setState) => Container(
           decoration: BoxDecoration(
@@ -184,7 +185,10 @@ class BookmarkSwitchButton extends ConsumerWidget {
       next,
     ) {
       if (next != null && previous != next) {
-        showAppSnackBar(context, context.l10n.bookmarkOperationFailed(next.toString()),);
+        showAppSnackBar(
+          context,
+          context.l10n.bookmarkOperationFailed(next.toString()),
+        );
       }
     });
 
