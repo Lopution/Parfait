@@ -36,38 +36,51 @@ class ReverseImageSearchPage extends ConsumerStatefulWidget {
   ConsumerState<ReverseImageSearchPage> createState() => _ReverseImageSearchPageState();
 }
 
-class _ReverseImageSearchPageState extends ConsumerState<ReverseImageSearchPage> {
-  late final ReverseImageSearchController _controller;
+class _ReverseImageSearchPageState
+    extends ConsumerState<ReverseImageSearchPage> {
+  late final ReverseImageSearchSession _session;
   late final ReverseImageExternalLauncher _externalLauncher;
+  ProviderSubscription<ReverseImageFlowState>? _flowSubscription;
 
   @override
   void initState() {
     super.initState();
-    _controller = ReverseImageSearchController(
+    _session = ReverseImageSearchSession(
       platform: widget.platform ?? MethodChannelReverseImageInputPlatform(),
       provider: widget.provider ??
-          SauceNaoWebViewProvider(client: ref.watch(thirdPartyHttpClientProvider)),
-    )..addListener(_onControllerChanged);
+          SauceNaoWebViewProvider(
+            client: ref.read(thirdPartyHttpClientProvider),
+          ),
+    );
     _externalLauncher =
         widget.externalLauncher ?? MethodChannelReverseImageExternalLauncher();
+    _flowSubscription = ref.listenManual(
+      reverseImageSearchControllerProvider(_session),
+      (_, _) {
+        if (mounted) setState(() {});
+      },
+    );
     final reference = widget.initialReference;
     if (reference != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_controller.prepare(reference));
+        if (mounted) {
+          unawaited(
+            ref
+                .read(reverseImageSearchControllerProvider(_session).notifier)
+                .prepare(reference),
+          );
+        }
       });
     }
   }
 
+  ReverseImageSearchController get _controller =>
+      ref.read(reverseImageSearchControllerProvider(_session).notifier);
+
   @override
   void dispose() {
-    _controller
-      ..removeListener(_onControllerChanged)
-      ..dispose();
+    _flowSubscription?.close();
     super.dispose();
-  }
-
-  void _onControllerChanged() {
-    if (mounted) setState(() {});
   }
 
   Future<void> _cancelAndPop() async {
@@ -79,7 +92,7 @@ class _ReverseImageSearchPageState extends ConsumerState<ReverseImageSearchPage>
 
   @override
   Widget build(BuildContext context) {
-    final state = _controller.state;
+    final state = ref.watch(reverseImageSearchControllerProvider(_session));
     return Scaffold(
       appBar: AppBar(
         title: Text(context.l10n.searchReverseImage),
