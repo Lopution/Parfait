@@ -9,6 +9,7 @@ import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_provider.dart';
 import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
   late Directory directory;
@@ -186,14 +187,16 @@ Future<void> _pumpPage(
   ReverseImageInputReference? initialReference,
 }) {
   return tester.pumpWidget(
-    MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+    ProviderScope(
+      child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
 
-      home: ReverseImageSearchPage(
-        initialReference: initialReference,
-        platform: platform,
-        provider: provider,
+        home: ReverseImageSearchPage(
+          initialReference: initialReference,
+          platform: platform,
+          provider: provider,
+        ),
       ),
     ),
   );
