@@ -471,12 +471,55 @@ void main() {
     expect(find.text('#风景'), findsOneWidget);
     expect(find.text('#猫'), findsOneWidget);
 
-    await tester.tap(find.text('搜索作品、用户或标签'));
+    expect(find.byType(SearchBar), findsOneWidget);
+    await tester.tap(find.byType(SearchBar));
     await tester.pumpAndSettle();
     expect(find.byType(SearchInputPage), findsOneWidget);
+    expect(find.byType(SearchAnchor), findsOneWidget);
+    expect(find.byType(SearchBar), findsOneWidget);
     expect(find.text('插画 & 漫画'), findsOneWidget);
     expect(find.text('小说'), findsOneWidget);
     expect(find.text('用户'), findsOneWidget);
+  });
+
+  testWidgets('SearchAnchor suggestions submit the existing typed query', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository(
+      autocompleteHandler: (keyword, _) async => [
+        SearchSuggestion(keyword: keyword, translatedName: '猫'),
+      ],
+    );
+    final router = createPixivRouter(initialLocation: '/search/input');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(SearchBar));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.last, 'cat');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('猫'), findsOneWidget);
+    await tester.tap(find.text('猫'));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/search/results');
+    expect(router.state.uri.queryParameters['q'], 'cat');
+    expect(router.state.uri.queryParameters['type'], 'illust');
+    expect(find.byType(SearchResultPage), findsOneWidget);
   });
 
   testWidgets('U2: a trending tag renders its representative image', (
