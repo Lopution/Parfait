@@ -34,34 +34,39 @@ class ProfileEditPage extends ConsumerStatefulWidget {
     this.initialUser,
     this.repository,
     this.imagePlatform,
-    this.controller,
+    this.session,
   });
 
   final int userId;
   final UserEntity? initialUser;
   final ProfileEditRepository? repository;
   final ReverseImageInputPlatform? imagePlatform;
-  final ProfileEditController? controller;
+
+  /// Pre-built editing session (tests). When provided, account hydration is
+  /// skipped and the editor renders from this session's provider directly.
+  final ProfileEditSession? session;
 
   @override
   ConsumerState<ProfileEditPage> createState() => _ProfileEditPageState();
 }
 
 class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
-  ProfileEditController? _controller;
+  ProfileEditSession? _session;
   ProviderSubscription<AsyncValue<AccountState>>? _accountSubscription;
   Object? _initializationError;
-  bool _ownsController = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller;
-    if (_controller != null) return;
-    _ownsController = true;
+    _session = widget.session;
+    if (_session != null) return;
     _accountSubscription = ref.listenManual<AsyncValue<AccountState>>(
       accountStoreProvider,
-      (_, _) => _controller?.checkOwner(),
+      (_, _) => _session == null
+          ? null
+          : ref
+                .read(profileEditControllerProvider(_session!).notifier)
+                .checkOwner(),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_initialize());
@@ -71,7 +76,6 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   @override
   void dispose() {
     _accountSubscription?.close();
-    if (_ownsController) _controller?.dispose();
     super.dispose();
   }
 
@@ -89,7 +93,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
           ref.read(userStoreProvider)[widget.userId] ??
           await ref.read(userRepositoryProvider).fetchDetail(widget.userId);
       if (!mounted) return;
-      final controller = ProfileEditController(
+      final session = ProfileEditSession(
         repository:
             widget.repository ?? ref.read(profileEditRepositoryProvider),
         owner: _readOwner(),
@@ -100,8 +104,10 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
           userStore: ref.read(userStoreProvider.notifier),
         ).commit(confirmed),
       );
-      setState(() => _controller = controller);
-      unawaited(controller.load());
+      setState(() => _session = session);
+      unawaited(
+        ref.read(profileEditControllerProvider(session).notifier).load(),
+      );
     } on Object catch (error) {
       if (!mounted) return;
       setState(() => _initializationError = error);
@@ -114,11 +120,12 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   }
 
   Future<void> _attemptPop() async {
-    final controller = _controller;
-    if (!mounted || controller == null || !controller.state.hasUnsavedChanges) {
+    final session = _session;
+    if (!mounted || session == null) {
       if (mounted) Navigator.of(context).pop();
       return;
     }
+    final controller = ref.read(profileEditControllerProvider(session).notifier);
     final leave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -144,9 +151,14 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
+    final session = _session;
+    final hasUnsaved =
+        session != null &&
+        ref
+            .watch(profileEditControllerProvider(session))
+            .hasUnsavedChanges;
     return PopScope(
-      canPop: controller == null || !controller.state.hasUnsavedChanges,
+      canPop: session == null || !hasUnsaved,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_attemptPop());
       },
@@ -159,18 +171,15 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
             icon: const Icon(Icons.arrow_back),
           ),
         ),
-        body: controller == null
+        body: session == null
             ? _initializationError == null
                   ? const Center(child: CircularProgressIndicator())
                   : _InitializationFailure(error: _initializationError!)
-            : AnimatedBuilder(
-                animation: controller,
-                builder: (context, _) => _ProfileEditBody(
-                  controller: controller,
-                  imagePlatform:
-                      widget.imagePlatform ??
-                      MethodChannelReverseImageInputPlatform(),
-                ),
+            : _ProfileEditBody(
+                session: session,
+                imagePlatform:
+                    widget.imagePlatform ??
+                    MethodChannelReverseImageInputPlatform(),
               ),
       ),
     );
@@ -202,27 +211,28 @@ class _InitializationFailure extends StatelessWidget {
   }
 }
 
-class _ProfileEditBody extends StatefulWidget {
+class _ProfileEditBody extends ConsumerStatefulWidget {
   const _ProfileEditBody({
-    required this.controller,
+    required this.session,
     required this.imagePlatform,
   });
 
-  final ProfileEditController controller;
+  final ProfileEditSession session;
   final ReverseImageInputPlatform imagePlatform;
 
   @override
-  State<_ProfileEditBody> createState() => _ProfileEditBodyState();
+  ConsumerState<_ProfileEditBody> createState() => _ProfileEditBodyState();
 }
 
-class _ProfileEditBodyState extends State<_ProfileEditBody> {
+class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
   late final TextEditingController _displayName;
   late final TextEditingController _comment;
   late final TextEditingController _webpage;
   late final TextEditingController _password;
   bool _textInitialized = false;
 
-  ProfileEditController get _controller => widget.controller;
+  ProfileEditController get _controller =>
+      ref.read(profileEditControllerProvider(widget.session).notifier);
 
   @override
   void initState() {
@@ -231,23 +241,22 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
     _comment = TextEditingController();
     _webpage = TextEditingController();
     _password = TextEditingController();
-    _controller.addListener(_onControllerChanged);
-    _syncText(_controller.state.draft);
+    ref.listenManual(
+      profileEditControllerProvider(
+        widget.session,
+      ).select((state) => state.draft),
+      (_, draft) => _syncText(draft),
+      fireImmediately: true,
+    );
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_onControllerChanged);
     _displayName.dispose();
     _comment.dispose();
     _webpage.dispose();
     _password.dispose();
     super.dispose();
-  }
-
-  void _onControllerChanged() {
-    _syncText(_controller.state.draft);
-    if (mounted) setState(() {});
   }
 
   void _syncText(ProfileDraft? draft) {
@@ -284,7 +293,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
 
   @override
   Widget build(BuildContext context) {
-    final state = _controller.state;
+    final state = ref.watch(profileEditControllerProvider(widget.session));
     final draft = state.draft;
     if (draft == null) {
       return _StatusBody(state: state, onRetry: _controller.load);
@@ -425,7 +434,9 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
     ProfileField field,
     ProfileEditState state,
   ) {
-    final unsupported = !_controller.state.draft!.capabilities.supports(field);
+    final draft =
+        ref.watch(profileEditControllerProvider(widget.session)).draft;
+    final unsupported = !draft!.capabilities.supports(field);
     return InputDecoration(
       labelText: _profileEditText(context, labelKey),
       errorText: state.fieldErrors[field],
