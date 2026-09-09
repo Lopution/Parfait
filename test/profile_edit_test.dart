@@ -23,6 +23,11 @@ import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_edit_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
+ProfileEditState _stateOf(
+  ProviderContainer container,
+  ProfileEditSession session,
+) => container.read(profileEditControllerProvider(session));
+
 void main() {
   installMemoryPreferences();
   test('builds a minimal patch from dirty supported fields only', () {
@@ -90,23 +95,33 @@ void main() {
       ),
     );
     var committed = 0;
-    final controller = ProfileEditController(
+    final session = ProfileEditSession(
       repository: repository,
       owner: _owner(),
       readOwner: () => _owner(),
       initialUser: _user(),
       onConfirmed: (_) async => committed++,
     );
-    addTearDown(controller.dispose);
+    final container = ProviderContainer(
+      overrides: [
+        profileEditControllerProvider.overrideWith2(
+          (arguments) => ProfileEditController(arguments),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(
+      profileEditControllerProvider(session).notifier,
+    );
 
     await controller.load();
     controller.updateText(ProfileField.displayName, 'pending name');
     await controller.submit();
 
-    expect(controller.state.status, ProfileEditStatus.verificationPending);
+    expect(_stateOf(container, session).status, ProfileEditStatus.verificationPending);
     expect(committed, 0);
-    expect(controller.state.draft!.base.displayName, 'old name');
-    expect(controller.state.draft!.values.displayName, 'pending name');
+    expect(_stateOf(container, session).draft!.base.displayName, 'old name');
+    expect(_stateOf(container, session).draft!.values.displayName, 'pending name');
   });
 
   test('confirmed response commits only after the ownership check', () async {
@@ -119,20 +134,30 @@ void main() {
       outcome: ProfileEditConfirmed(changed),
     );
     UserEntity? committed;
-    final controller = ProfileEditController(
+    final session = ProfileEditSession(
       repository: repository,
       owner: _owner(),
       readOwner: () => _owner(),
       initialUser: _user(),
       onConfirmed: (user) async => committed = user,
     );
-    addTearDown(controller.dispose);
+    final container = ProviderContainer(
+      overrides: [
+        profileEditControllerProvider.overrideWith2(
+          (arguments) => ProfileEditController(arguments),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(
+      profileEditControllerProvider(session).notifier,
+    );
 
     await controller.load();
     controller.updateText(ProfileField.displayName, 'confirmed name');
     await controller.submit();
 
-    expect(controller.state.status, ProfileEditStatus.confirmed);
+    expect(_stateOf(container, session).status, ProfileEditStatus.confirmed);
     expect(committed?.name, 'confirmed name');
     expect(repository.requests.single.patch.textFields, {
       ProfileField.displayName: 'confirmed name',
@@ -150,14 +175,24 @@ void main() {
     );
     var active = _owner();
     var committed = 0;
-    final controller = ProfileEditController(
+    final session = ProfileEditSession(
       repository: repository,
       owner: active,
       readOwner: () => active,
       initialUser: _user(),
       onConfirmed: (_) async => committed++,
     );
-    addTearDown(controller.dispose);
+    final container = ProviderContainer(
+      overrides: [
+        profileEditControllerProvider.overrideWith2(
+          (arguments) => ProfileEditController(arguments),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(
+      profileEditControllerProvider(session).notifier,
+    );
 
     await controller.load();
     controller.updateText(ProfileField.displayName, 'account A');
@@ -168,8 +203,8 @@ void main() {
     response.complete(ProfileEditConfirmed(_user().copyWith(name: 'wrong')));
     await submit;
 
-    expect(controller.state.status, ProfileEditStatus.failure);
-    expect(controller.state.failure?.code, ProfileEditFailureCode.staleOwner);
+    expect(_stateOf(container, session).status, ProfileEditStatus.failure);
+    expect(_stateOf(container, session).failure?.code, ProfileEditFailureCode.staleOwner);
     expect(committed, 0);
   });
 
@@ -184,14 +219,24 @@ void main() {
         ),
         outcome: ProfileEditConfirmed(_user().copyWith(name: 'saved')),
       );
-      final controller = ProfileEditController(
+      final session = ProfileEditSession(
         repository: repository,
         owner: _owner(),
         readOwner: () => _owner(),
         initialUser: _user(),
         onConfirmed: (_) async {},
       );
-      addTearDown(controller.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          profileEditControllerProvider.overrideWith2(
+            (arguments) => ProfileEditController(arguments),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        profileEditControllerProvider(session).notifier,
+      );
 
       await controller.load();
       controller.updateText(ProfileField.displayName, 'saved');
@@ -217,22 +262,32 @@ void main() {
         ),
         outcome: ProfileEditConfirmed(_user()),
       );
-      final controller = ProfileEditController(
+      final session = ProfileEditSession(
         repository: repository,
         owner: _owner(),
         readOwner: () => _owner(),
         initialUser: _user(),
         onConfirmed: (_) async {},
       );
-      addTearDown(controller.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          profileEditControllerProvider.overrideWith2(
+            (arguments) => ProfileEditController(arguments),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        profileEditControllerProvider(session).notifier,
+      );
 
       await controller.load();
       controller.updateText(ProfileField.comment, 'unsupported change');
       await controller.submit();
 
-      expect(controller.state.status, ProfileEditStatus.ready);
+      expect(_stateOf(container, session).status, ProfileEditStatus.ready);
       expect(controller.state.fieldErrors[ProfileField.comment], isNotNull);
-      expect(controller.state.draft!.values.comment, 'unsupported change');
+      expect(_stateOf(container, session).draft!.values.comment, 'unsupported change');
       expect(repository.requests, isEmpty);
     },
   );
@@ -246,14 +301,24 @@ void main() {
       ),
       outcome: ProfileEditConfirmed(_user()),
     );
-    final controller = ProfileEditController(
+    final session = ProfileEditSession(
       repository: repository,
       owner: _owner(),
       readOwner: () => _owner(),
       initialUser: _user(),
       onConfirmed: (_) async {},
     );
-    addTearDown(controller.dispose);
+    final container = ProviderContainer(
+      overrides: [
+        profileEditControllerProvider.overrideWith2(
+          (arguments) => ProfileEditController(arguments),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(
+      profileEditControllerProvider(session).notifier,
+    );
 
     await controller.load();
     await controller.selectImage(
@@ -269,7 +334,7 @@ void main() {
     );
     await controller.cancel();
 
-    expect(controller.state.status, ProfileEditStatus.canceled);
+    expect(_stateOf(container, session).status, ProfileEditStatus.canceled);
     expect(controller.state.draft, isNull);
     expect(cleanupCount, 1);
   });
@@ -346,22 +411,35 @@ void main() {
       ),
       outcome: ProfileEditConfirmed(_user()),
     );
-    final controller = ProfileEditController(
+    final session = ProfileEditSession(
       repository: repository,
       owner: _owner(),
       readOwner: () => _owner(),
       initialUser: _user(),
       onConfirmed: (_) async {},
     );
-    addTearDown(controller.dispose);
+    final container = ProviderContainer(
+      overrides: [
+        profileEditControllerProvider.overrideWith2(
+          (arguments) => ProfileEditController(arguments),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(
+      profileEditControllerProvider(session).notifier,
+    );
     await controller.load();
 
     await tester.pumpWidget(
-      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('en', 'US'),
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en', 'US'),
 
-        home: ProfileEditPage(userId: 42, controller: controller),
+          home: ProfileEditPage(userId: 42, session: session),
+        ),
       ),
     );
     await tester.pumpAndSettle();
