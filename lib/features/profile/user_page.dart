@@ -1,26 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy_refresh/easy_refresh.dart';
-
 import '../../app/icons/app_icons.dart';
-import '../../app/widgets/novel_card.dart';
-import '../../app/person_avatar.dart';
-import '../../app/pull_to_refresh.dart';
-import '../../app/navigation/routes.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
-import '../../core/novel/novel_feed_controller.dart';
-import '../../core/novel/novel_store.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
-import '../../core/user/user_store.dart';
-import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/feed/illust_card.dart';
-import 'follow_switch_button.dart';
-import '../../core/profile/profile_feed_controller.dart';
+import 'profile_illust_feed.dart';
+import 'profile_novel_feed.dart';
+import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/user/user_detail_controller.dart';
@@ -362,222 +350,14 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
       // TabController.indexIsChanging is false during a drag gesture. Keep
       // the page mounted for both tap and swipe transitions so the destination
       // never becomes a zero-size blank child mid-flight.
-      return _ProfileNovelFeed(userId: feedKey.userId);
+      return ProfileNovelFeed(userId: feedKey.userId);
     }
     if (feedKey.kind == ProfileFeedKind.following ||
         feedKey.kind == ProfileFeedKind.fans ||
         feedKey.kind == ProfileFeedKind.myPixiv) {
-      return _ProfileUserFeed(feedKey: feedKey);
+      return ProfileUserFeed(feedKey: feedKey);
     }
-    return _ProfileIllustFeed(feedKey: feedKey);
-  }
-}
-
-class _ProfileIllustFeed extends ConsumerWidget {
-  const _ProfileIllustFeed({required this.feedKey});
-
-  final ProfileFeedKey feedKey;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(profileIllustFeedProvider(feedKey));
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => FeedError(
-        title: context.l10n.profileLoadFailed,
-        error: error,
-        retryLabel: context.l10n.profileRetry,
-        onRetry: () => ref
-            .read(profileIllustFeedProvider(feedKey).notifier)
-            .retryInitial(),
-      ),
-      data: (feed) {
-        if (feed.showInitialError) {
-          return FeedError(
-            title: context.l10n.profileLoadFailed,
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: context.l10n.profileRetry,
-            onRetry: () => ref
-                .read(profileIllustFeedProvider(feedKey).notifier)
-                .retryInitial(),
-          );
-        }
-        if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final store = ref.watch(illustStoreProvider);
-        final entities = store.getAll(feed.ids);
-        return PullToRefresh(
-          isNested: true,
-          onRefresh: () =>
-              ref.read(profileIllustFeedProvider(feedKey).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
-                ref
-                    .read(profileIllustFeedProvider(feedKey).notifier)
-                    .loadMore();
-              }
-              return false;
-            },
-            child: CustomScrollView(
-              key: PageStorageKey(feedKey),
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                const HeaderLocator.sliver(),
-                if (entities.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: FeedEmpty(
-        icon: Icons.inbox_outlined,
-        title: context.l10n.profileItemsEmpty,
-        retryLabel: context.l10n.profileRetry,
-        onRefresh: () => ref
-                          .read(profileIllustFeedProvider(feedKey).notifier)
-                          .refresh(),
-      )
-                  )
-                else
-                  IllustFeedGrid(
-  padding: const EdgeInsets.all(10),
-  mainAxisSpacing: 5,
-  crossAxisSpacing: 10,
-  itemCount: entities.length,
-  itemBuilder: (context, index) => IllustCard(
-                        entity: entities[index],
-                        heroScope:
-                            'profile:${feedKey.userId}:${feedKey.kind.name}:'
-                            '${feedKey.workType.name}:${feedKey.restrict.name}',
-                      ),
-),
-                SliverToBoxAdapter(
-                  child: FeedTail(
-        feed: feed,
-        onRetry: () => ref
-                        .read(profileIllustFeedProvider(feedKey).notifier)
-                        .retryLoadMore(),
-        errorTitle: context.l10n.profileLoadMoreFailed,
-        retryLabel: context.l10n.profileRetry,
-      ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ProfileUserFeed extends ConsumerWidget {
-  const _ProfileUserFeed({required this.feedKey});
-
-  final ProfileFeedKey feedKey;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(profileUserFeedProvider(feedKey));
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => FeedError(
-        title: context.l10n.profileLoadFailed,
-        error: error,
-        retryLabel: context.l10n.profileRetry,
-        onRetry: () =>
-            ref.read(profileUserFeedProvider(feedKey).notifier).retryInitial(),
-      ),
-      data: (feed) {
-        if (feed.showInitialError) {
-          return FeedError(
-            title: context.l10n.profileLoadFailed,
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: context.l10n.profileRetry,
-            onRetry: () => ref
-                .read(profileUserFeedProvider(feedKey).notifier)
-                .retryInitial(),
-          );
-        }
-        if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final storedUsers = ref.watch(userStoreProvider);
-        final users = [
-          for (final id in feed.ids)
-            if (storedUsers[id] != null) storedUsers[id]!,
-        ];
-        return PullToRefresh(
-          isNested: true,
-          onRefresh: () =>
-              ref.read(profileUserFeedProvider(feedKey).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
-                ref.read(profileUserFeedProvider(feedKey).notifier).loadMore();
-              }
-              return false;
-            },
-            child: ListView.builder(
-              key: PageStorageKey(feedKey),
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: (users.isEmpty ? 1 : users.length + 1) + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) return const HeaderLocator();
-                final itemIndex = index - 1;
-                if (users.isEmpty) {
-                  return FeedEmpty(
-                    icon: Icons.inbox_outlined,
-                    title: context.l10n.profileItemsEmpty,
-                    onRefresh: () => ref
-                        .read(profileUserFeedProvider(feedKey).notifier)
-                        .refresh(),
-                  );
-                }
-                if (itemIndex == users.length) {
-                  return FeedTail(
-        feed: feed,
-        onRetry: () => ref
-                        .read(profileUserFeedProvider(feedKey).notifier)
-                        .retryLoadMore(),
-        errorTitle: context.l10n.profileLoadMoreFailed,
-        retryLabel: context.l10n.profileRetry,
-      );
-                }
-                return _UserPreviewCard(user: users[itemIndex]);
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _UserPreviewCard extends StatelessWidget {
-  const _UserPreviewCard({required this.user});
-
-  final UserEntity user;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        onTap: () => openUser(context, user.id),
-        leading: _ProfileAvatar(user: user, radius: 26),
-        title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: user.account.isEmpty ? null : Text('@${user.account}'),
-        trailing: FollowSwitchButton(
-          userId: user.id,
-          userName: user.name,
-          userAccount: user.account,
-          compact: true,
-        ),
-      ),
-    );
+    return ProfileIllustFeed(feedKey: feedKey);
   }
 }
 
@@ -657,90 +437,6 @@ class _ProfileAbout extends StatelessWidget {
   }
 }
 
-class _ProfileNovelFeed extends ConsumerWidget {
-  const _ProfileNovelFeed({required this.userId});
-
-  final int userId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(userNovelFeedProvider(userId));
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => FeedError(
-        title: context.l10n.profileLoadFailed,
-        error: error,
-        retryLabel: context.l10n.profileRetry,
-        onRetry: () =>
-            ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
-      ),
-      data: (feed) {
-        if (feed.showInitialError) {
-          return FeedError(
-            title: context.l10n.profileLoadFailed,
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: context.l10n.profileRetry,
-            onRetry: () =>
-                ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
-          );
-        }
-        if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final storedNovels = ref.watch(novelStoreProvider);
-        final novels = [
-          for (final id in feed.ids)
-            if (storedNovels[id] != null) storedNovels[id]!,
-        ];
-        return PullToRefresh(
-          isNested: true,
-          onRefresh: () =>
-              ref.read(userNovelFeedProvider(userId).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
-                ref.read(userNovelFeedProvider(userId).notifier).loadMore();
-              }
-              return false;
-            },
-            child: ListView.builder(
-              key: PageStorageKey('profile-novel-$userId'),
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: (novels.isEmpty ? 1 : novels.length + 1) + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) return const HeaderLocator();
-                final itemIndex = index - 1;
-                if (novels.isEmpty) {
-                  return FeedEmpty(
-                    icon: Icons.inbox_outlined,
-                    title: context.l10n.profileItemsEmpty,
-                    onRefresh: () => ref
-                        .read(userNovelFeedProvider(userId).notifier)
-                        .refresh(),
-                  );
-                }
-                if (itemIndex == novels.length) {
-                  return FeedTail(
-        feed: feed,
-        onRetry: () => ref
-                        .read(userNovelFeedProvider(userId).notifier)
-                        .retryLoadMore(),
-        errorTitle: context.l10n.profileLoadMoreFailed,
-        retryLabel: context.l10n.profileRetry,
-      );
-                }
-                return NovelCard(entity: novels[itemIndex]);
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _ProfileStatRow extends StatelessWidget {
   const _ProfileStatRow({
     required this.icon,
@@ -762,23 +458,6 @@ class _ProfileStatRow extends StatelessWidget {
     );
   }
 }
-
-class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.user, required this.radius});
-
-  final UserEntity user;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return PersonAvatar(
-      imageUrl: user.profileImageUrl,
-      radius: radius,
-      ring: true,
-    );
-  }
-}
-
 
 class _ProfileStatusPage extends StatelessWidget {
   const _ProfileStatusPage({
