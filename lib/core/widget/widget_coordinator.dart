@@ -1,3 +1,8 @@
+/// Foreground coordinator for the Android home-widget snapshot lifecycle.
+/// [WidgetCoordinator] owns account-bound generation passes; native code only
+/// renders the published snapshot. See `backend/android-channels.md`.
+library;
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

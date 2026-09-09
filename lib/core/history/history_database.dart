@@ -1,3 +1,8 @@
+/// SQLite connection and schema owner for the local `history.db` database.
+/// [HistoryDatabase] owns the lazy connection and factory choice; CRUD and
+/// outbox behavior belongs to [HistoryRepository]. See `database-guidelines.md`.
+library;
+
 import 'dart:io';
 
 import 'package:meta/meta.dart';

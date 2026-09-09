@@ -1,3 +1,8 @@
+/// The shipped language enum and tag mapping used by generated l10n.
+/// [ReplicaLanguage] owns supported tags; persisted settings select the tag.
+/// See `frontend/state-management.md`.
+library;
+
 /// The four UI languages the app ships ARBs for (C6).
 enum ReplicaLanguage {
   zhCN('zh-CN'),
