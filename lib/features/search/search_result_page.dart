@@ -143,6 +143,7 @@ class _IllustSearchFeed extends ConsumerWidget {
         child: CustomScrollView(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          restorationId: 'search-${query.cacheKey}',
           slivers: [
             IllustFeedGrid(
   padding: const EdgeInsets.all(10),
@@ -205,6 +206,7 @@ class _NovelSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          restorationId: 'search-${query.cacheKey}',
           itemCount: entities.length + 1,
           itemBuilder: (context, index) {
             if (index == entities.length) {
@@ -259,6 +261,7 @@ class _UserSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          restorationId: 'search-${query.cacheKey}',
           itemCount: users.length + 1,
           itemBuilder: (context, index) {
             if (index == users.length) {

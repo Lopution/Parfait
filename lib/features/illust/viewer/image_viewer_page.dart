@@ -10,11 +10,16 @@ import '../../../l10n/context.dart';
 /// (R3): `n / total` title, horizontal paging, per-page zoom clamped to
 /// 0.9–6.0, initial page restored, swiping suspended while zoomed.
 class ImageViewerPage extends StatefulWidget {
-  const ImageViewerPage({super.key, required this.urls, this.initialPage = 0})
-    : assert(initialPage >= 0);
+  const ImageViewerPage({
+    super.key,
+    required this.urls,
+    this.initialPage = 0,
+    this.onPageChanged,
+  }) : assert(initialPage >= 0);
 
   final List<String> urls;
   final int initialPage;
+  final ValueChanged<int>? onPageChanged;
 
   /// Zoom bounds (PRD R3: strictly 0.9–6.0).
   static const double minScale = 0.9;
@@ -61,6 +66,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         _activePage = page;
         _transformationFor(_activePage).addListener(_onTransformed);
       });
+      widget.onPageChanged?.call(page);
     }
   }
 

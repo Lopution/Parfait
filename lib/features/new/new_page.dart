@@ -247,8 +247,13 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
               return false;
             },
             child: CustomScrollView(
+              key: PageStorageKey(
+                'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
+              ),
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
+              restorationId:
+                  'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
               slivers: slivers,
             ),
           ),

@@ -60,6 +60,7 @@ class ProfileNovelFeed extends ConsumerWidget {
             },
             child: ListView.builder(
               key: PageStorageKey('profile-novel-$userId'),
+              restorationId: 'profile-novel-$userId',
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: (novels.isEmpty ? 1 : novels.length + 1) + 1,
               itemBuilder: (context, index) {

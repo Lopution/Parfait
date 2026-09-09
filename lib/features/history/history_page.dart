@@ -172,7 +172,9 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                   )
                   .refresh(),
           child: CustomScrollView(
+            key: PageStorageKey('history-${widget.accountId}'),
             controller: _scrollController,
+            restorationId: 'history-${widget.accountId}',
             slivers: [
               IllustFeedGrid(
                 padding: const EdgeInsets.all(10),

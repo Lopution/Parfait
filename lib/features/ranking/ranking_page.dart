@@ -20,7 +20,14 @@ import '../../l10n/lookup.dart';
 /// Only the selected mode is built, while controllers and scroll positions
 /// remain cached by the page for tab switching.
 class RankingPage extends StatefulWidget {
-  const RankingPage({super.key});
+  const RankingPage({
+    super.key,
+    this.initialMode = RankingMode.day,
+    this.onModeChanged,
+  });
+
+  final RankingMode initialMode;
+  final ValueChanged<RankingMode>? onModeChanged;
 
   @override
   State<RankingPage> createState() => _RankingPageState();
@@ -38,7 +45,9 @@ class _RankingPageState extends State<RankingPage>
     _tabController = TabController(
       length: RankingMode.values.length,
       vsync: this,
+      initialIndex: RankingMode.values.indexOf(widget.initialMode),
     )..addListener(_handleTabChanged);
+    _selectedIndex = _tabController.index;
   }
 
   @override
@@ -54,7 +63,9 @@ class _RankingPageState extends State<RankingPage>
 
   void _handleTabChanged() {
     if (_selectedIndex == _tabController.index) return;
+    final mode = RankingMode.values[_tabController.index];
     setState(() => _selectedIndex = _tabController.index);
+    widget.onModeChanged?.call(mode);
   }
 
   ScrollController _scrollControllerFor(RankingMode mode) {
@@ -155,8 +166,10 @@ class _RankingModeBody extends ConsumerWidget {
               return false;
             },
             child: CustomScrollView(
+              key: PageStorageKey('ranking-${mode.name}'),
               controller: scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
+              restorationId: 'ranking-${mode.name}',
               slivers: [
                 IllustFeedGrid(
   padding: const EdgeInsets.symmetric(horizontal: 10),
