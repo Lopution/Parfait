@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
+import 'package:pixiv_func/app/person_avatar.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -582,13 +583,10 @@ void main() {
             reason: 'the Hero target must reuse the exact feed cache key',
           );
           expect(find.byKey(const Key('illust-author-avatar')), findsOneWidget);
+          expect(find.byType(PersonAvatar), findsOneWidget);
           expect(
-            find.byWidgetPredicate(
-              (widget) =>
-                  widget.runtimeType.toString() == 'PersonAvatar' &&
-                  (widget as dynamic).imageUrl != null,
-            ),
-            findsOneWidget,
+            tester.widget<PersonAvatar>(find.byType(PersonAvatar)).imageUrl,
+            isNotNull,
             reason: 'the author avatar provider exists in the first frame',
           );
           // Hero destination exists on the first frame (feed -> detail flight).

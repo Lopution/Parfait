@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+/// This file checks the Android flavor/source-set build surface. Runtime
+/// channel payload parsing and platform helper behavior belong to the Dart
+/// updater tests and the Android JVM tests.
 void main() {
   final root = Directory.current.path;
 

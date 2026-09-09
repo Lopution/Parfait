@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
+import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/illust/related_illust_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -94,11 +95,7 @@ void main() {
       expect(
         () => repo.fetchPage(42),
         throwsA(
-          isA<Object>().having(
-            (e) => e.runtimeType.toString(),
-            'type',
-            'ApiParseError',
-          ),
+          isA<ApiParseError>(),
         ),
       );
     });
