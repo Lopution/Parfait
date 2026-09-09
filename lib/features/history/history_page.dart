@@ -14,16 +14,8 @@ import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../app/widgets/app_snack_bar.dart';
-
-String _historyText(BuildContext context, String key) {
-  return ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
-}
-
+import '../../l10n/context.dart';
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
 
@@ -40,18 +32,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     final repository = ref.watch(historyRepositoryProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_historyText(context, 'historySettings')),
+        title: Text(context.l10n.historySettings),
         actions: [
           if (accountId != null)
             IconButton(
-              tooltip: _historyText(context, 'historyDeleteAll'),
+              tooltip: context.l10n.historyDeleteAll,
               onPressed: () => _deleteAll(context, repository, accountId),
               icon: const Icon(Icons.delete_forever_outlined),
             ),
         ],
       ),
       body: accountId == null
-          ? Center(child: Text(_historyText(context, 'signedOut')))
+          ? Center(child: Text(context.l10n.signedOut))
           : _HistoryBody(
               key: ValueKey('$accountId-$_clearGeneration'),
               accountId: accountId,
@@ -67,14 +59,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   ) async {
     final confirmed = await _confirmDelete(
       context,
-      title: _historyText(context, 'historyDeleteAll'),
+      title: context.l10n.historyDeleteAll,
     );
     if (confirmed != true || !context.mounted) return;
     try {
       await repository.clear(accountId);
       if (context.mounted) {
         setState(() => _clearGeneration++);
-        showAppSnackBar(context, _historyText(context, 'historyDeleteAll'));
+        showAppSnackBar(context, context.l10n.historyDeleteAll);
       }
     } on Object catch (error) {
       if (context.mounted) {
@@ -193,7 +185,7 @@ class _HistoryBodyState extends State<_HistoryBody> {
   Future<void> _delete(HistoryRecord record) async {
     final confirmed = await _confirmDelete(
       context,
-      title: _historyText(context, 'historyDelete'),
+      title: context.l10n.historyDelete,
     );
     if (confirmed != true) return;
     try {
@@ -223,16 +215,16 @@ class _HistoryBodyState extends State<_HistoryBody> {
     }
     if (_error != null && _records.isEmpty) {
       return FeedError(
-          title: _historyText(context, 'historyLoadFailed'),
+          title: context.l10n.historyLoadFailed,
           error: _error!,
-          retryLabel: _historyText(context, 'retry'),
+          retryLabel: context.l10n.retry,
           onRetry: _reload,
         );
     }
     if (_records.isEmpty) {
       return ReplicaEmptyState(
-        message: _historyText(context, 'historyEmpty'),
-        retryLabel: _historyText(context, 'retry'),
+        message: context.l10n.historyEmpty,
+        retryLabel: context.l10n.retry,
         onRetry: _reload,
         icon: Icons.history,
       );
@@ -263,7 +255,7 @@ class _HistoryBodyState extends State<_HistoryBody> {
                 : Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      '${_historyText(context, 'historyLoadFailed')}: $_error',
+                      '${context.l10n.historyLoadFailed}: $_error',
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -527,21 +519,21 @@ Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),
-                Text(_historyText(context, 'historyDeleteHint')),
+                Text(context.l10n.historyDeleteHint),
                 const Spacer(),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(sheetContext).pop(false),
-                        child: Text(_historyText(context, 'cancel')),
+                        child: Text(context.l10n.cancel),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
                         onPressed: () => Navigator.of(sheetContext).pop(true),
-                        child: Text(_historyText(context, 'confirm')),
+                        child: Text(context.l10n.confirm),
                       ),
                     ),
                   ],

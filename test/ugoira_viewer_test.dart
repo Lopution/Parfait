@@ -6,6 +6,7 @@ import 'helpers/test_preferences.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/features/illust/detail/ugoira_viewer.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
   installMemoryPreferences();
@@ -17,7 +18,10 @@ void main() {
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         const ProviderScope(
-          child: MaterialApp(
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
             home: Scaffold(
               body: UgoiraViewer(
                 illustId: 42,
@@ -43,7 +47,10 @@ void main() {
     var longPressed = false;
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
           home: Scaffold(
             body: UgoiraViewer(
               illustId: 42,

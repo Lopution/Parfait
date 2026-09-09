@@ -29,6 +29,7 @@ import '../profile/user_page.dart' as profile;
 import '../../app/navigation/routes.dart' show openHistory, openLogin, openProfileEdit;
 import 'network_settings_page.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 String _settingsText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -46,7 +47,7 @@ Future<bool> _persistSettings(
     return true;
   } on Object catch (error) {
     if (context.mounted) {
-      showAppSnackBar(context, '${_settingsText(context, 'settingsWriteFailed')}: $error',);
+      showAppSnackBar(context, '${context.l10n.settingsWriteFailed}: $error',);
     }
     return false;
   }
@@ -88,7 +89,7 @@ class SettingsPage extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'settingsTitle'))),
+      appBar: AppBar(title: Text(context.l10n.settingsTitle)),
       body: settings.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => SettingsLoadError(
@@ -139,62 +140,62 @@ class _SettingsList extends ConsumerWidget {
         const Divider(),
         _SettingsRouteTile(
           icon: Icons.manage_accounts_outlined,
-          title: _settingsText(context, 'accountSettings'),
+          title: context.l10n.accountSettings,
           onTap: () => _openSettingsPage(context, const AccountSettingsPage()),
         ),
         const Divider(),
         _SettingsRouteTile(
           icon: Icons.palette_outlined,
-          title: _settingsText(context, 'themeSettings'),
+          title: context.l10n.themeSettings,
           onTap: () => _openSettingsPage(context, const ThemeSettingsPage()),
         ),
         _SettingsRouteTile(
           icon: Icons.language,
-          title: _settingsText(context, 'languageSettings'),
+          title: context.l10n.languageSettings,
           onTap: () => _openSettingsPage(context, const LanguageSettingsPage()),
         ),
         _SettingsRouteTile(
           icon: Icons.translate,
-          title: _settingsText(context, 'translateSettings'),
+          title: context.l10n.translateSettings,
           onTap: () =>
               _openSettingsPage(context, const TranslateSettingsPage()),
         ),
         const Divider(),
         _SettingsRouteTile(
           icon: Icons.network_check,
-          title: _settingsText(context, 'networkSettings'),
+          title: context.l10n.networkSettings,
           onTap: () => _openSettingsPage(context, const NetworkSettingsPage()),
         ),
         _SettingsRouteTile(
           icon: Icons.image_outlined,
-          title: _settingsText(context, 'browseSettings'),
+          title: context.l10n.browseSettings,
           onTap: () => _openSettingsPage(context, const BrowseSettingsPage()),
         ),
         _SettingsRouteTile(
           icon: Icons.download_outlined,
-          title: _settingsText(context, 'downloadSettings'),
+          title: context.l10n.downloadSettings,
           onTap: () => _openSettingsPage(context, const DownloadSettingsPage()),
         ),
         _SettingsRouteTile(
           icon: Icons.history,
-          title: _settingsText(context, 'historySettings'),
+          title: context.l10n.historySettings,
           onTap: () => _openSettingsPage(context, const HistorySettingsPage()),
         ),
         _SettingsRouteTile(
           icon: Icons.block_outlined,
-          title: _settingsText(context, 'blockTagSettings'),
+          title: context.l10n.blockTagSettings,
           onTap: () => _openSettingsPage(context, const BlockedTagsPage()),
         ),
         const Divider(),
         _SettingsRouteTile(
           icon: Icons.downloading_outlined,
-          title: _settingsText(context, 'downloaderSettings'),
+          title: context.l10n.downloaderSettings,
           onTap: () => _openSettingsPage(context, const DownloadTasksPage()),
         ),
         const Divider(),
         _SettingsRouteTile(
           icon: Icons.info_outline,
-          title: _settingsText(context, 'aboutSettings'),
+          title: context.l10n.aboutSettings,
           onTap: () => _openSettingsPage(context, const AboutSettingsPage()),
         ),
       ],
@@ -208,7 +209,7 @@ class _SettingsList extends ConsumerWidget {
             .read(accountTransferServiceProvider)
             .exportCurrentToClipboard();
         if (!context.mounted) return;
-        showAppSnackBar(context, _settingsText(context, 'accountTransferCopied'));
+        showAppSnackBar(context, context.l10n.accountTransferCopied);
         // Android <13 cannot mark the clipboard entry as sensitive; the
         // credential sits in the system clipboard in plaintext. Never do
         // this silently (R4: 安全降级，不能静默少做一件事).
@@ -216,7 +217,7 @@ class _SettingsList extends ConsumerWidget {
             .read(transferClipboardProvider)
             .capabilities();
         if (!capabilities.sensitiveMarkSupported && context.mounted) {
-          showAppSnackBar(context, _settingsText(context, 'accountTransferSensitiveWarning'), duration: const Duration(seconds: 5));
+          showAppSnackBar(context, context.l10n.accountTransferSensitiveWarning, duration: const Duration(seconds: 5));
         }
       } on AccountTransferException catch (error) {
         if (!context.mounted) return;
@@ -263,14 +264,14 @@ class _AccountCard extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: _AccountAvatar(account: value),
         title: Text(
-          value?.name ?? _settingsText(context, 'signedOut'),
+          value?.name ?? context.l10n.signedOut,
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
           value == null
-              ? _settingsText(context, 'accountProfile')
+              ? context.l10n.accountProfile
               : value.mailAddress ??
-                    '${_settingsText(context, 'accountId')}: ${value.id}',
+                    '${context.l10n.accountId}: ${value.id}',
         ),
         trailing: value == null ? null : const Icon(Icons.chevron_right),
         onTap: value == null
@@ -331,7 +332,7 @@ class MePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'accountProfile'))),
+      appBar: AppBar(title: Text(context.l10n.accountProfile)),
       body: accounts.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => SettingsLoadError(
@@ -349,7 +350,7 @@ class MePage extends ConsumerWidget {
           }
           final account = state.current;
           return account == null
-              ? Center(child: Text(_settingsText(context, 'noAccounts')))
+              ? Center(child: Text(context.l10n.noAccounts))
               : _buildAccountProfile(context, account);
         },
       ),
@@ -373,24 +374,24 @@ class MePage extends ConsumerWidget {
         const SizedBox(height: 24),
         ListTile(
           leading: const Icon(Icons.badge_outlined),
-          title: Text(_settingsText(context, 'accountId')),
+          title: Text(context.l10n.accountId),
           trailing: Text(account.id),
         ),
         if (account.authState == AccountAuthState.reauthRequired)
           ListTile(
             leading: const Icon(Icons.warning_amber_outlined),
-            title: Text(_settingsText(context, 'reauthRequired')),
+            title: Text(context.l10n.reauthRequired),
           ),
         const Divider(),
         Text(
-          _settingsText(context, 'profileReadOnly'),
+          context.l10n.profileReadOnly,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         OutlinedButton(
           onPressed: () =>
               _openSettingsPage(context, const AccountSettingsPage()),
-          child: Text(_settingsText(context, 'accountManagement')),
+          child: Text(context.l10n.accountManagement),
         ),
       ],
     );
@@ -405,10 +406,10 @@ class AccountSettingsPage extends ConsumerWidget {
     final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_settingsText(context, 'accountManagement')),
+        title: Text(context.l10n.accountManagement),
         actions: [
           IconButton(
-            tooltip: _settingsText(context, 'addAccount'),
+            tooltip: context.l10n.addAccount,
             icon: const Icon(Icons.add),
             onPressed: () => openLogin(context),
           ),
@@ -428,7 +429,7 @@ class AccountSettingsPage extends ConsumerWidget {
                 messageKey: 'accountReadFailed',
               )
             : state.accounts.isEmpty
-            ? Center(child: Text(_settingsText(context, 'noAccounts')))
+            ? Center(child: Text(context.l10n.noAccounts))
             : ListView.builder(
                 itemCount: state.accounts.length,
                 itemBuilder: (context, index) {
@@ -439,7 +440,7 @@ class AccountSettingsPage extends ConsumerWidget {
                     title: Text(account.name),
                     subtitle: Text(
                       account.mailAddress ??
-                          '${_settingsText(context, 'accountId')}: ${account.id}',
+                          '${context.l10n.accountId}: ${account.id}',
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -450,7 +451,7 @@ class AccountSettingsPage extends ConsumerWidget {
                             color: Theme.of(context).colorScheme.primary,
                           ),
                         IconButton(
-                          tooltip: _settingsText(context, 'removeAccount'),
+                          tooltip: context.l10n.removeAccount,
                           icon: const Icon(Icons.delete_outline),
                           onPressed: () =>
                               _confirmRemove(context, ref, account),
@@ -480,16 +481,16 @@ class AccountSettingsPage extends ConsumerWidget {
     final remove = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_settingsText(context, 'removeAccount')),
-        content: Text(_settingsText(context, 'removeAccountConfirm')),
+        title: Text(context.l10n.removeAccount),
+        content: Text(context.l10n.removeAccountConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(_settingsText(context, 'cancel')),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(_settingsText(context, 'confirm')),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),
@@ -518,12 +519,12 @@ class ThemeSettingsPage extends ConsumerWidget {
       );
     }
     final items = [
-      (AppSettings.darkTheme, _settingsText(context, 'dark')),
-      (AppSettings.lightTheme, _settingsText(context, 'light')),
-      (AppSettings.systemTheme, _settingsText(context, 'system')),
+      (AppSettings.darkTheme, context.l10n.dark),
+      (AppSettings.lightTheme, context.l10n.light),
+      (AppSettings.systemTheme, context.l10n.system),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'themeSettings'))),
+      appBar: AppBar(title: Text(context.l10n.themeSettings)),
       body: ListView(
         children: [
           for (final item in items)
@@ -569,7 +570,7 @@ class LanguageSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'languageSettings'))),
+      appBar: AppBar(title: Text(context.l10n.languageSettings)),
       body: ListView(
         children: [
           for (final item in _items)
@@ -611,17 +612,17 @@ class TranslateSettingsPage extends ConsumerWidget {
     final items = [
       (
         TranslationProvider.disabled,
-        _settingsText(context, 'translateDisabled'),
+        context.l10n.translateDisabled,
       ),
-      (TranslationProvider.baidu, _settingsText(context, 'translateBaidu')),
+      (TranslationProvider.baidu, context.l10n.translateBaidu),
       (
         TranslationProvider.translationLlm,
-        _settingsText(context, 'translateLlm'),
+        context.l10n.translateLlm,
       ),
-      (TranslationProvider.google, _settingsText(context, 'translateGoogle')),
+      (TranslationProvider.google, context.l10n.translateGoogle),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'translateSettings'))),
+      appBar: AppBar(title: Text(context.l10n.translateSettings)),
       body: ListView(
         children: [
           for (final item in items)
@@ -643,20 +644,20 @@ class TranslateSettingsPage extends ConsumerWidget {
           if (settings.translationProvider == TranslationProvider.baidu)
             ListTile(
               leading: const Icon(Icons.key_outlined),
-              title: Text(_settingsText(context, 'translateBaiduCredential')),
+              title: Text(context.l10n.translateBaiduCredential),
               onTap: () => _openTranslationCredentials(context, ref, true),
             ),
           if (settings.translationProvider ==
               TranslationProvider.translationLlm)
             ListTile(
               leading: const Icon(Icons.key_outlined),
-              title: Text(_settingsText(context, 'translateLlmCredential')),
+              title: Text(context.l10n.translateLlmCredential),
               onTap: () => _openTranslationCredentials(context, ref, false),
             ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              _settingsText(context, 'translateCredentialHint'),
+              context.l10n.translateCredentialHint,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -664,7 +665,7 @@ class TranslateSettingsPage extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Text(
-                _settingsText(context, 'translateBaiduHint'),
+                context.l10n.translateBaiduHint,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -745,10 +746,7 @@ class _TranslationCredentialsPageState
     } on Object {
       if (mounted) {
         setState(
-          () => _status = _settingsText(
-            context,
-            'translateCredentialsStoreError',
-          ),
+          () => _status = context.l10n.translateCredentialsStoreError,
         );
       }
     }
@@ -793,31 +791,25 @@ class _TranslationCredentialsPageState
       }
       if (mounted) {
         setState(
-          () => _status = _settingsText(context, 'translateCredentialsSaved'),
+          () => _status = context.l10n.translateCredentialsSaved,
         );
       }
     } on CommentTranslationError {
       if (mounted) {
         setState(
-          () => _status = _settingsText(context, 'translateCredentialsInvalid'),
+          () => _status = context.l10n.translateCredentialsInvalid,
         );
       }
     } on TranslationCredentialsStoreException {
       if (mounted) {
         setState(
-          () => _status = _settingsText(
-            context,
-            'translateCredentialsStoreError',
-          ),
+          () => _status = context.l10n.translateCredentialsStoreError,
         );
       }
     } on Object {
       if (mounted) {
         setState(
-          () => _status = _settingsText(
-            context,
-            'translateCredentialsStoreError',
-          ),
+          () => _status = context.l10n.translateCredentialsStoreError,
         );
       }
     } finally {
@@ -840,16 +832,13 @@ class _TranslationCredentialsPageState
       }
       if (mounted) {
         setState(() {
-          _status = _settingsText(context, 'translateCredentialsCleared');
+          _status = context.l10n.translateCredentialsCleared;
         });
       }
     } on TranslationCredentialsStoreException {
       if (mounted) {
         setState(
-          () => _status = _settingsText(
-            context,
-            'translateCredentialsStoreError',
-          ),
+          () => _status = context.l10n.translateCredentialsStoreError,
         );
       }
     } finally {
@@ -876,32 +865,32 @@ class _TranslationCredentialsPageState
           if (widget.baidu)
             _credentialField(
               controller: _appIdController,
-              label: _settingsText(context, 'translateBaiduAppId'),
+              label: context.l10n.translateBaiduAppId,
               obscure: false,
             )
           else
             _credentialField(
               controller: _baseUrlController,
-              label: _settingsText(context, 'translateLlmBaseUrl'),
+              label: context.l10n.translateLlmBaseUrl,
               obscure: false,
               hint: 'https://api.example.com/v1',
             ),
           if (widget.baidu)
             _credentialField(
               controller: _secretController,
-              label: _settingsText(context, 'translateBaiduSecret'),
+              label: context.l10n.translateBaiduSecret,
               obscure: true,
             )
           else
             _credentialField(
               controller: _apiKeyController,
-              label: _settingsText(context, 'translateLlmApiKey'),
+              label: context.l10n.translateLlmApiKey,
               obscure: true,
             ),
           if (!widget.baidu)
             _credentialField(
               controller: _modelController,
-              label: _settingsText(context, 'translateLlmModel'),
+              label: context.l10n.translateLlmModel,
               obscure: false,
             ),
           const SizedBox(height: 8),
@@ -916,13 +905,13 @@ class _TranslationCredentialsPageState
           FilledButton.icon(
             onPressed: _saving ? null : _save,
             icon: const Icon(Icons.save_outlined),
-            label: Text(_settingsText(context, 'translateCredentialsSave')),
+            label: Text(context.l10n.translateCredentialsSave),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _saving ? null : _clear,
             icon: const Icon(Icons.delete_outline),
-            label: Text(_settingsText(context, 'translateCredentialsClear')),
+            label: Text(context.l10n.translateCredentialsClear),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 16),
@@ -982,18 +971,18 @@ class BrowseSettingsPage extends ConsumerWidget {
     final sources = [
       (
         AppSettings.normalImageSource,
-        _settingsText(context, 'imageSourceNormal'),
+        context.l10n.imageSourceNormal,
       ),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'browseSettings'))),
+      appBar: AppBar(title: Text(context.l10n.browseSettings)),
       body: ListView(
         children: [
           // C13: a single product option is not a meaningful choice; the
           // whole section is hidden until a second product-level image
           // source exists.
           if (sources.length > 1) ...[
-            _SectionLabel(label: _settingsText(context, 'imageSource')),
+            _SectionLabel(label: context.l10n.imageSource),
             for (final source in sources)
               ListTile(
                 title: Text(source.$2),
@@ -1015,7 +1004,7 @@ class BrowseSettingsPage extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
-              _settingsText(context, 'previewQuality'),
+              context.l10n.previewQuality,
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
@@ -1032,7 +1021,7 @@ class BrowseSettingsPage extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
-              _settingsText(context, 'detailQuality'),
+              context.l10n.detailQuality,
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
@@ -1051,7 +1040,7 @@ class BrowseSettingsPage extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
-              _settingsText(context, 'viewQuality'),
+              context.l10n.viewQuality,
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
@@ -1064,7 +1053,7 @@ class BrowseSettingsPage extends ConsumerWidget {
             ),
           const Divider(),
           SwitchListTile(
-            title: Text(_settingsText(context, 'pixivHistory')),
+            title: Text(context.l10n.pixivHistory),
             value: settings.enablePixivHistory,
             onChanged: (value) => _persistSettings(
               context,
@@ -1074,7 +1063,7 @@ class BrowseSettingsPage extends ConsumerWidget {
             ),
           ),
           SwitchListTile(
-            title: Text(_settingsText(context, 'blockR18')),
+            title: Text(context.l10n.blockR18),
             value: settings.enableLocalBlockR18,
             onChanged: (value) => _persistSettings(
               context,
@@ -1082,7 +1071,7 @@ class BrowseSettingsPage extends ConsumerWidget {
             ),
           ),
           SwitchListTile(
-            title: Text(_settingsText(context, 'blockAI')),
+            title: Text(context.l10n.blockAI),
             value: settings.enableLocalBlockAI,
             onChanged: (value) => _persistSettings(
               context,
@@ -1099,13 +1088,13 @@ String _qualityText(BuildContext context, Object quality) {
   return switch (quality) {
     PreviewQuality.medium ||
     ViewQuality.medium ||
-    DetailQuality.medium => _settingsText(context, 'qualityMedium'),
+    DetailQuality.medium => context.l10n.qualityMedium,
     PreviewQuality.large ||
     ViewQuality.large ||
-    DetailQuality.large => _settingsText(context, 'qualityLarge'),
+    DetailQuality.large => context.l10n.qualityLarge,
     ViewQuality.original ||
-    DetailQuality.original => _settingsText(context, 'qualityOriginal'),
-    _ => _settingsText(context, 'qualityLarge'),
+    DetailQuality.original => context.l10n.qualityOriginal,
+    _ => context.l10n.qualityLarge,
   };
 }
 
@@ -1172,12 +1161,12 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     }
     final destination = settings.downloadDestination;
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'downloadSettings'))),
+      appBar: AppBar(title: Text(context.l10n.downloadSettings)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            '${_settingsText(context, 'maxDownloadCount')}: $_draftMaxDownloads',
+            '${context.l10n.maxDownloadCount}: $_draftMaxDownloads',
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           Slider(
@@ -1193,7 +1182,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(_settingsText(context, 'saveLocation')),
+            title: Text(context.l10n.saveLocation),
             subtitle: Text(_destinationText(context, destination)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push<void>(
@@ -1206,7 +1195,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
             child: Text(
-              _settingsText(context, 'namingPreset'),
+              context.l10n.namingPreset,
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
@@ -1231,23 +1220,25 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
               controller: _templateController,
               focusNode: _templateFocusNode,
               decoration: InputDecoration(
-                labelText: _settingsText(context, 'namingTemplate'),
+                labelText: context.l10n.namingTemplate,
                 hintText: _settingsText(context, 'namingTemplateHint'),
                 errorText: !NamingRule.isValidTemplate(_templateController.text)
-                    ? _settingsText(context, 'namingTemplateInvalid')
+                    ? context.l10n.namingTemplateInvalid
                     : null,
               ),
               maxLength: 128,
               onChanged: (_) => setState(() {}),
             ),
             Text(
-              '${_settingsText(context, 'namingPreview')}: '
+              '${context.l10n.namingPreview}: '
               '${_previewName(context, namingRule.preset == NamingPreset.custom ? NamingRule(preset: NamingPreset.custom, template: _templateController.text) : namingRule)}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
             Text(
-              _settingsText(context, 'namingTemplateVariables'),
+              context.l10n.namingTemplateVariables(
+                '{artist}', '{title}', '{id}', '{page}', '{ext}', '{date}',
+              ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             FilledButton(
@@ -1266,10 +1257,10 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                       ),
                 );
                 if (saved && context.mounted) {
-                  showAppSnackBar(context, _settingsText(context, 'saved'));
+                  showAppSnackBar(context, context.l10n.saved);
                 }
               },
-              child: Text(_settingsText(context, 'save')),
+              child: Text(context.l10n.save),
             ),
           ],
         ],
@@ -1304,29 +1295,20 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
 String _destinationText(BuildContext context, DownloadDestination destination) {
   return switch (destination.kind) {
-    DownloadDestinationKind.pixivAlbum => _settingsText(
-      context,
-      'saveLocationPixivAlbum',
-    ),
+    DownloadDestinationKind.pixivAlbum => context.l10n.saveLocationPixivAlbum,
     DownloadDestinationKind.customAlbum =>
-      '${_settingsText(context, 'saveLocationCustomAlbum')} '
+      '${context.l10n.saveLocationCustomAlbum} '
           '(${destination.customAlbumName})',
-    DownloadDestinationKind.safFolder => _settingsText(
-      context,
-      'saveLocationSafFolder',
-    ),
+    DownloadDestinationKind.safFolder => context.l10n.saveLocationSafFolder,
   };
 }
 
 String _namingPresetText(BuildContext context, NamingPreset preset) {
   return switch (preset) {
-    NamingPreset.id => _settingsText(context, 'namingPresetId'),
-    NamingPreset.artistTitleId => _settingsText(
-      context,
-      'namingPresetArtistTitleId',
-    ),
-    NamingPreset.titleId => _settingsText(context, 'namingPresetTitleId'),
-    NamingPreset.custom => _settingsText(context, 'namingPresetCustom'),
+    NamingPreset.id => context.l10n.namingPresetId,
+    NamingPreset.artistTitleId => context.l10n.namingPresetArtistTitleId,
+    NamingPreset.titleId => context.l10n.namingPresetTitleId,
+    NamingPreset.custom => context.l10n.namingPresetCustom,
   };
 }
 
@@ -1378,12 +1360,12 @@ class _DownloadDestinationPageState
       _albumController.text = destination.customAlbumName ?? '';
     }
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'saveLocation'))),
+      appBar: AppBar(title: Text(context.l10n.saveLocation)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           ListTile(
-            title: Text(_settingsText(context, 'saveLocationAlbum')),
+            title: Text(context.l10n.saveLocationAlbum),
             trailing: !destination.isSafFolder
                 ? Icon(
                     Icons.check,
@@ -1403,11 +1385,8 @@ class _DownloadDestinationPageState
               controller: _albumController,
               focusNode: _albumFocusNode,
               decoration: InputDecoration(
-                labelText: _settingsText(context, 'saveLocationCustomAlbum'),
-                helperText: _settingsText(
-                  context,
-                  'saveLocationCustomAlbumHint',
-                ),
+                labelText: context.l10n.saveLocationCustomAlbum,
+                helperText: context.l10n.saveLocationCustomAlbumHint,
               ),
               maxLength: 64,
             ),
@@ -1420,7 +1399,7 @@ class _DownloadDestinationPageState
                   _albumController.text,
                 );
                 if (name == null) {
-                  showAppSnackBar(context, _settingsText(context, 'saveLocationAlbumInvalid'),);
+                  showAppSnackBar(context, context.l10n.saveLocationAlbumInvalid,);
                   return;
                 }
                 final saved = await _persistSettings(
@@ -1432,16 +1411,16 @@ class _DownloadDestinationPageState
                       ),
                 );
                 if (saved && context.mounted) {
-                  showAppSnackBar(context, _settingsText(context, 'saved'));
+                  showAppSnackBar(context, context.l10n.saved);
                 }
               },
-              child: Text(_settingsText(context, 'saveLocationUseCustomAlbum')),
+              child: Text(context.l10n.saveLocationUseCustomAlbum),
             ),
           ),
           const Divider(),
           ListTile(
-            title: Text(_settingsText(context, 'saveLocationSafFolder')),
-            subtitle: Text(_settingsText(context, 'saveLocationSafFolderHint')),
+            title: Text(context.l10n.saveLocationSafFolder),
+            subtitle: Text(context.l10n.saveLocationSafFolderHint),
             trailing: destination.isSafFolder
                 ? Icon(
                     Icons.check,
@@ -1453,7 +1432,7 @@ class _DownloadDestinationPageState
           if (destination.isSafFolder)
             ListTile(
               leading: const Icon(Icons.check_circle),
-              title: Text(_settingsText(context, 'saveLocationSafPicked')),
+              title: Text(context.l10n.saveLocationSafPicked),
               subtitle: Text(destination.safTreeUri ?? ''),
             ),
         ],
@@ -1471,7 +1450,7 @@ class _DownloadDestinationPageState
           .setDownloadDestination(DownloadDestination.safFolder(uri)),
     );
     if (saved && mounted) {
-      showAppSnackBar(context, _settingsText(context, 'saved'));
+      showAppSnackBar(context, context.l10n.saved);
     }
   }
 }
@@ -1492,11 +1471,11 @@ class HistorySettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'historySettings'))),
+      appBar: AppBar(title: Text(context.l10n.historySettings)),
       body: ListView(
         children: [
           SwitchListTile(
-            title: Text(_settingsText(context, 'localHistory')),
+            title: Text(context.l10n.localHistory),
             value: settings.enableHistory,
             onChanged: (value) => _persistSettings(
               context,
@@ -1505,7 +1484,7 @@ class HistorySettingsPage extends ConsumerWidget {
             ),
           ),
           SwitchListTile(
-            title: Text(_settingsText(context, 'pixivHistory')),
+            title: Text(context.l10n.pixivHistory),
             value: settings.enablePixivHistory,
             onChanged: (value) => _persistSettings(
               context,
@@ -1516,14 +1495,14 @@ class HistorySettingsPage extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.history_outlined),
-            title: Text(_settingsText(context, 'historyView')),
+            title: Text(context.l10n.historyView),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => openHistory(context),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              _settingsText(context, 'historySettingsHint'),
+              context.l10n.historySettingsHint,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -1575,16 +1554,16 @@ class _BlockedTagsPageState extends ConsumerState<BlockedTagsPage> {
   Widget build(BuildContext context) {
     final tags = ref.watch(blockedTagsProvider).toList()..sort();
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'blockTagSettings'))),
+      appBar: AppBar(title: Text(context.l10n.blockTagSettings)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           TextField(
             controller: _controller,
             decoration: InputDecoration(
-              labelText: _settingsText(context, 'blockTagInputHint'),
+              labelText: context.l10n.blockTagInputHint,
               suffixIcon: IconButton(
-                tooltip: _settingsText(context, 'add'),
+                tooltip: context.l10n.add,
                 icon: const Icon(Icons.add),
                 onPressed: () => _addTag(_controller.text),
               ),
@@ -1593,7 +1572,7 @@ class _BlockedTagsPageState extends ConsumerState<BlockedTagsPage> {
           ),
           const SizedBox(height: 12),
           if (tags.isEmpty)
-            Center(child: Text(_settingsText(context, 'noBlockedTags')))
+            Center(child: Text(context.l10n.noBlockedTags))
           else
             for (final tag in tags)
               ListTile(
@@ -1645,15 +1624,15 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   Widget build(BuildContext context) {
     final tasks = _manager.tasks;
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'downloaderSettings'))),
+      appBar: AppBar(title: Text(context.l10n.downloaderSettings)),
       body: tasks.isEmpty
-          ? Center(child: Text(_settingsText(context, 'downloadTasksEmpty')))
+          ? Center(child: Text(context.l10n.downloadTasksEmpty))
           : ListView(
               padding: const EdgeInsets.all(12),
               children: [
                 Padding(
                   padding: const EdgeInsets.all(8),
-                  child: Text(_settingsText(context, 'downloaderSettingsHint')),
+                  child: Text(context.l10n.downloaderSettingsHint),
                 ),
                 for (final task in tasks)
                   _DownloadTaskTile(task: task, manager: _manager),
@@ -1693,13 +1672,13 @@ class _DownloadTaskTile extends StatelessWidget {
         ),
         trailing: canCancel
             ? IconButton(
-                tooltip: _settingsText(context, 'cancelDownload'),
+                tooltip: context.l10n.cancelDownload,
                 icon: const Icon(Icons.close),
                 onPressed: () => manager.cancel(task.id),
               )
             : canRetry
             ? IconButton(
-                tooltip: _settingsText(context, 'retryDownload'),
+                tooltip: context.l10n.retryDownload,
                 icon: const Icon(Icons.refresh),
                 onPressed: () => manager.retry(task.id),
               )
@@ -1714,15 +1693,15 @@ class _DownloadTaskTile extends StatelessWidget {
 
   String _downloadStatusText(BuildContext context, DownloadStatus status) {
     return switch (status) {
-      DownloadStatus.queued => _settingsText(context, 'downloadQueued'),
-      DownloadStatus.running => _settingsText(context, 'downloadRunning'),
-      DownloadStatus.finalizing => _settingsText(context, 'downloadRunning'),
-      DownloadStatus.canceling => _settingsText(context, 'downloadCanceling'),
-      DownloadStatus.succeeded => _settingsText(context, 'downloadSucceeded'),
-      DownloadStatus.failed => _settingsText(context, 'downloadFailed'),
-      DownloadStatus.canceled => _settingsText(context, 'downloadCanceled'),
-      DownloadStatus.retryable => _settingsText(context, 'downloadFailed'),
-      DownloadStatus.orphaned => _settingsText(context, 'downloadFailed'),
+      DownloadStatus.queued => context.l10n.downloadQueued,
+      DownloadStatus.running => context.l10n.downloadRunning,
+      DownloadStatus.finalizing => context.l10n.downloadRunning,
+      DownloadStatus.canceling => context.l10n.downloadCanceling,
+      DownloadStatus.succeeded => context.l10n.downloadSucceeded,
+      DownloadStatus.failed => context.l10n.downloadFailed,
+      DownloadStatus.canceled => context.l10n.downloadCanceled,
+      DownloadStatus.retryable => context.l10n.downloadFailed,
+      DownloadStatus.orphaned => context.l10n.downloadFailed,
     };
   }
 }
@@ -1735,7 +1714,7 @@ class AboutSettingsPage extends ConsumerWidget {
     final appName = 'Pixiv Func';
     final updateService = ref.watch(updateServiceProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(_settingsText(context, 'aboutSettings'))),
+      appBar: AppBar(title: Text(context.l10n.aboutSettings)),
       body: ListView(
         children: [
           const ListTile(
@@ -1745,13 +1724,13 @@ class AboutSettingsPage extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.info_outline),
-            title: Text(_settingsText(context, 'aboutVersion')),
+            title: Text(context.l10n.aboutVersion),
             trailing: const Text('0.1.0+1'),
           ),
           ListTile(
             leading: const Icon(Icons.menu_book_outlined),
-            title: Text(_settingsText(context, 'aboutLicense')),
-            subtitle: Text(_settingsText(context, 'aboutLicenseText')),
+            title: Text(context.l10n.aboutLicense),
+            subtitle: Text(context.l10n.aboutLicenseText),
             onTap: () => showLicensePage(
               context: context,
               applicationName: appName,
@@ -1760,25 +1739,25 @@ class AboutSettingsPage extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.people_outline),
-            title: Text(_settingsText(context, 'aboutAttribution')),
-            subtitle: Text(_settingsText(context, 'aboutAttributionText')),
+            title: Text(context.l10n.aboutAttribution),
+            subtitle: Text(context.l10n.aboutAttributionText),
           ),
           ListTile(
             leading: const Icon(Icons.code),
-            title: Text(_settingsText(context, 'aboutSource')),
+            title: Text(context.l10n.aboutSource),
             subtitle: const Text('github.com/Lopution/Pixiv-func'),
           ),
           const Divider(),
           updateService.when(
             loading: () => ListTile(
               leading: const Icon(Icons.system_update_outlined),
-              title: Text(_settingsText(context, 'aboutCheckUpdate')),
-              subtitle: Text(_settingsText(context, 'aboutCheckingUpdate')),
+              title: Text(context.l10n.aboutCheckUpdate),
+              subtitle: Text(context.l10n.aboutCheckingUpdate),
             ),
             error: (_, _) => ListTile(
               leading: const Icon(Icons.warning_amber_outlined),
-              title: Text(_settingsText(context, 'aboutCheckUpdate')),
-              subtitle: Text(_settingsText(context, 'aboutUpdateUnavailable')),
+              title: Text(context.l10n.aboutCheckUpdate),
+              subtitle: Text(context.l10n.aboutUpdateUnavailable),
             ),
             data: (service) => _AboutUpdateSection(service: service),
           ),
@@ -1828,31 +1807,31 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return ListTile(
             leading: const Icon(Icons.system_update_outlined),
-            title: Text(_settingsText(context, 'aboutCheckUpdate')),
-            subtitle: Text(_settingsText(context, 'aboutCheckingUpdate')),
+            title: Text(context.l10n.aboutCheckUpdate),
+            subtitle: Text(context.l10n.aboutCheckingUpdate),
           );
         }
         final capability = snapshot.data;
         if (snapshot.hasError || capability == null) {
           return ListTile(
             leading: const Icon(Icons.warning_amber_outlined),
-            title: Text(_settingsText(context, 'aboutCheckUpdate')),
-            subtitle: Text(_settingsText(context, 'aboutUpdateUnavailable')),
+            title: Text(context.l10n.aboutCheckUpdate),
+            subtitle: Text(context.l10n.aboutUpdateUnavailable),
           );
         }
         if (capability.storeManaged ||
             capability.flavor == UpdateFlavor.fdroid) {
           return ListTile(
             leading: const Icon(Icons.store_outlined),
-            title: Text(_settingsText(context, 'aboutCheckUpdate')),
-            subtitle: Text(_settingsText(context, 'aboutUpdateStore')),
+            title: Text(context.l10n.aboutCheckUpdate),
+            subtitle: Text(context.l10n.aboutUpdateStore),
           );
         }
         if (!capability.enabled) {
           return ListTile(
             leading: const Icon(Icons.warning_amber_outlined),
-            title: Text(_settingsText(context, 'aboutCheckUpdate')),
-            subtitle: Text(_settingsText(context, 'aboutUpdateUnavailable')),
+            title: Text(context.l10n.aboutCheckUpdate),
+            subtitle: Text(context.l10n.aboutUpdateUnavailable),
           );
         }
         return _githubUpdateControls(context);
@@ -1865,37 +1844,22 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
     final release = result?.release;
     final statusText = switch (result?.status) {
       UpdateCheckStatus.available =>
-        '${_settingsText(context, 'aboutUpdateAvailable')}: ${release!.manifest.version}',
-      UpdateCheckStatus.disabled => _settingsText(
-        context,
-        'aboutUpdateUnavailable',
-      ),
-      UpdateCheckStatus.noUpdate => _settingsText(
-        context,
-        'aboutUpdateNoUpdate',
-      ),
-      UpdateCheckStatus.prerelease => _settingsText(
-        context,
-        'aboutUpdatePrerelease',
-      ),
+        '${context.l10n.aboutUpdateAvailable}: ${release!.manifest.version}',
+      UpdateCheckStatus.disabled => context.l10n.aboutUpdateUnavailable,
+      UpdateCheckStatus.noUpdate => context.l10n.aboutUpdateNoUpdate,
+      UpdateCheckStatus.prerelease => context.l10n.aboutUpdatePrerelease,
       UpdateCheckStatus.invalid ||
       UpdateCheckStatus.rateLimited ||
       UpdateCheckStatus.offline ||
       UpdateCheckStatus.failed ||
-      UpdateCheckStatus.busy => _settingsText(context, 'aboutUpdateFailed'),
+      UpdateCheckStatus.busy => context.l10n.aboutUpdateFailed,
       null => null,
     };
     final applyText = switch (_applyResult?.status) {
-      UpdateApplyStatus.installPermissionRequired => _settingsText(
-        context,
-        'aboutUpdatePermission',
-      ),
-      UpdateApplyStatus.installStarted => _settingsText(
-        context,
-        'aboutUpdateStarted',
-      ),
+      UpdateApplyStatus.installPermissionRequired => context.l10n.aboutUpdatePermission,
+      UpdateApplyStatus.installStarted => context.l10n.aboutUpdateStarted,
       UpdateApplyStatus.failed ||
-      UpdateApplyStatus.canceled => _settingsText(context, 'aboutUpdateFailed'),
+      UpdateApplyStatus.canceled => context.l10n.aboutUpdateFailed,
       _ => null,
     };
     return Padding(
@@ -1906,10 +1870,10 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.system_update_outlined),
-            title: Text(_settingsText(context, 'aboutCheckUpdate')),
+            title: Text(context.l10n.aboutCheckUpdate),
             subtitle: Text(
               _checking || _applying
-                  ? _settingsText(context, 'aboutUpdateDownloading')
+                  ? context.l10n.aboutUpdateDownloading
                   : statusText ?? '',
             ),
           ),
@@ -1937,10 +1901,10 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
             ),
             label: Text(
               _applying
-                  ? _settingsText(context, 'cancel')
+                  ? context.l10n.cancel
                   : release == null
-                  ? _settingsText(context, 'aboutCheckUpdate')
-                  : _settingsText(context, 'aboutUpdateDownload'),
+                  ? context.l10n.aboutCheckUpdate
+                  : context.l10n.aboutUpdateDownload,
             ),
           ),
         ],
@@ -1994,16 +1958,16 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_settingsText(context, 'aboutUpdateConfirmTitle')),
-        content: Text(_settingsText(context, 'aboutUpdateConfirmDetail')),
+        title: Text(context.l10n.aboutUpdateConfirmTitle),
+        content: Text(context.l10n.aboutUpdateConfirmDetail),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(_settingsText(context, 'cancel')),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(_settingsText(context, 'confirm')),
+            child: Text(context.l10n.confirm),
           ),
         ],
       ),

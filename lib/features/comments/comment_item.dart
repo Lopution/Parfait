@@ -9,6 +9,7 @@ import '../../core/comments/comment_translation.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../app/navigation/routes.dart';
 import 'comment_text.dart';
+import '../../l10n/context.dart';
 
 /// One comment row. Replying is an explicit action icon; no long-press reply
 /// gesture is installed, matching beta56.
@@ -145,10 +146,7 @@ class _CommentItemState extends ConsumerState<CommentItem> {
     } on Object {
       if (mounted) {
         setState(
-          () => _translationError = commentText(
-            context,
-            'commentTranslationFailed',
-          ),
+          () => _translationError = context.l10n.commentTranslationFailed,
         );
       }
     } finally {
@@ -164,16 +162,16 @@ String _translationFailureText(
   switch (kind) {
     case CommentTranslationFailureKind.disabled:
     case CommentTranslationFailureKind.notConfigured:
-      return commentText(context, 'commentTranslationUnavailable');
+      return context.l10n.commentTranslationUnavailable;
     case CommentTranslationFailureKind.invalidCredentials:
-      return commentText(context, 'commentTranslationInvalidCredentials');
+      return context.l10n.commentTranslationInvalidCredentials;
     case CommentTranslationFailureKind.rateLimited:
-      return commentText(context, 'commentTranslationRateLimited');
+      return context.l10n.commentTranslationRateLimited;
     case CommentTranslationFailureKind.network:
     case CommentTranslationFailureKind.malformed:
     case CommentTranslationFailureKind.unsupportedLanguage:
     case CommentTranslationFailureKind.other:
-      return commentText(context, 'commentTranslationFailed');
+      return context.l10n.commentTranslationFailed;
   }
 }
 
@@ -261,7 +259,7 @@ class _Actions extends StatelessWidget {
       children: [
         if (onReply != null)
           IconButton(
-            tooltip: commentText(context, 'commentReply'),
+            tooltip: context.l10n.commentReply,
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
@@ -270,7 +268,7 @@ class _Actions extends StatelessWidget {
           ),
         if (showTranslate && onTranslate != null)
           IconButton(
-            tooltip: commentText(context, 'commentTranslate'),
+            tooltip: context.l10n.commentTranslate,
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
@@ -279,7 +277,7 @@ class _Actions extends StatelessWidget {
           ),
         if (canDelete && onDelete != null)
           IconButton(
-            tooltip: commentText(context, 'commentDelete'),
+            tooltip: context.l10n.commentDelete,
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints.tightFor(width: 32, height: 32),
@@ -292,7 +290,7 @@ class _Actions extends StatelessWidget {
             onPressed: onOpenReplies,
             icon: const Icon(Icons.forum_outlined, size: 17),
             label: Text(
-              '${commentText(context, 'commentReplies')} ${comment.replyCount}',
+              '${context.l10n.commentReplies} ${comment.replyCount}',
             ),
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
@@ -324,7 +322,7 @@ class _TranslationOverlay extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            commentText(context, 'commentTranslation'),
+            context.l10n.commentTranslation,
             style: TextStyle(color: theme.colorScheme.primary),
           ),
           const Divider(height: 12),

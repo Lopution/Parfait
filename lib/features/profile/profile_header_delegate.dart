@@ -9,6 +9,7 @@ import '../../core/i18n/replica_strings.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import 'follow_switch_button.dart';
+import '../../l10n/context.dart';
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
 @immutable
@@ -420,7 +421,7 @@ class _ExpandedProfileDetails extends StatelessWidget {
                 right: 0,
                 top: 0,
                 child: IconButton(
-                  tooltip: profileText(context, 'profileShare'),
+                  tooltip: context.l10n.profileShare,
                   onPressed: onShare,
                   icon: const Icon(Icons.share_outlined),
                 ),
@@ -447,7 +448,7 @@ class _ExpandedProfileDetails extends StatelessWidget {
             children: [
               if (onEditProfile != null)
                 IconButton(
-                  tooltip: profileText(context, 'profileEditTitle'),
+                  tooltip: context.l10n.profileEditTitle,
                   onPressed: onEditProfile,
                   icon: const Icon(Icons.edit_outlined),
                 ),

@@ -23,7 +23,6 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/settings/blocked_tags.dart';
 import '../../../app/widgets/bookmark_switch_button.dart';
-import '../../../core/i18n/replica_strings.dart';
 import '../viewer/image_viewer_page.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
@@ -32,6 +31,7 @@ import '../../../app/navigation/routes.dart';
 import 'related_illusts_section.dart';
 import 'ugoira_viewer.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../l10n/context.dart';
 
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
@@ -142,13 +142,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final download = ref.watch(illustDownloadControllerProvider);
     return AppBar(
       title: Text(
-        entity?.title ?? _detailText(context, 'illustDetailTitle'),
+        entity?.title ?? context.l10n.illustDetailTitle,
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       actions: [
         if (_downloadMode && entity != null)
           IconButton(
-            tooltip: _detailText(context, 'downloadAll'),
+            tooltip: context.l10n.downloadAll,
             onPressed: () {
               try {
                 download.downloadAll(entity);
@@ -156,9 +156,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // Any submission failure must be visible on device: the
                 // manager/ownership/channel errors that are not
                 // FormatException otherwise vanish with no UI feedback.
-                showAppSnackBar(context, _detailText(context, 'downloadSubmissionFailed', {
-                        'error': error,
-                      }),);
+                showAppSnackBar(context, context.l10n.downloadSubmissionFailed(error.toString()),);
               }
             },
             icon: const Icon(Icons.file_download_outlined),
@@ -480,14 +478,12 @@ class _PageImageState extends ConsumerState<_PageImage> {
                       // Immediate visual feedback: the spinner shows before
                       // the coordinator/task notification round trip.
                       setState(() => _optimisticDownloading = true);
-                      showAppSnackBar(context, _detailText(context, 'downloadQueuedMessage'),);
+                      showAppSnackBar(context, context.l10n.downloadQueuedMessage,);
                     } catch (error) {
                       // Any submission failure must be visible on device: the
                       // manager/ownership/channel errors that are not
                       // FormatException otherwise vanish with no UI feedback.
-                      showAppSnackBar(context, _detailText(context, 'downloadSubmissionFailed', {
-                              'error': error,
-                            }),);
+                      showAppSnackBar(context, context.l10n.downloadSubmissionFailed(error.toString()),);
                     }
                   },
                 ),
@@ -650,11 +646,8 @@ class _InfoBlock extends ConsumerWidget {
               Expanded(
                 child: Text(
                   createDate == null
-                      ? _detailText(context, 'illustDetailCreateDateUnknown')
-                      : _detailText(context, 'illustDetailCreateDate', {
-                          'date':
-                              '${createDate.year}/${createDate.month}/${createDate.day}',
-                        }),
+                      ? context.l10n.illustDetailCreateDateUnknown
+                      : context.l10n.illustDetailCreateDate('${createDate.year}/${createDate.month}/${createDate.day}'),
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.bodyMedium,
                 ),
@@ -675,10 +668,7 @@ class _InfoBlock extends ConsumerWidget {
           Row(
             children: [
               Text(
-                _detailText(context, 'illustDetailSize', {
-                  'width': entity.width,
-                  'height': entity.height,
-                }),
+                context.l10n.illustDetailSize(entity.width, entity.height),
                 style: textTheme.bodyMedium,
               ),
               const SizedBox(width: 5),
@@ -717,7 +707,7 @@ class _InfoBlock extends ConsumerWidget {
           OutlinedButton.icon(
             onPressed: () => openIllustComments(context, entity.id),
             icon: const Icon(Icons.comment_outlined),
-            label: Text(_detailText(context, 'commentTitle')),
+            label: Text(context.l10n.commentTitle),
           ),
         ],
       ),
@@ -838,11 +828,7 @@ class _CaptionRichText extends ConsumerWidget {
                   unawaited(
                     opener.openExternal(href).catchError((Object error) {
                       if (context.mounted) {
-                        showAppSnackBar(context, _detailText(
-                                context,
-                                'illustDetailOpenLinkFailed',
-                                {'error': error},
-                              ),);
+                        showAppSnackBar(context, context.l10n.illustDetailOpenLinkFailed(error.toString()),);
                       }
                     }),
                   );
@@ -922,7 +908,7 @@ class _RestrictedView extends StatelessWidget {
           const Icon(Icons.visibility_off_outlined, size: 48),
           const SizedBox(height: 12),
           Text(
-            _detailText(context, 'illustDetailRestricted', {'id': entity.id}),
+            context.l10n.illustDetailRestricted(entity.id),
           ),
         ],
       ),
@@ -941,7 +927,7 @@ class _NotFoundView extends StatelessWidget {
         children: [
           const Icon(Icons.search_off, size: 48),
           const SizedBox(height: 12),
-          Text(_detailText(context, 'illustDetailNotFound')),
+          Text(context.l10n.illustDetailNotFound),
         ],
       ),
     );
@@ -964,13 +950,13 @@ class _ErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off, size: 48),
             const SizedBox(height: 12),
-            Text(_detailText(context, 'illustDetailLoadFailed')),
+            Text(context.l10n.illustDetailLoadFailed),
             const SizedBox(height: 8),
             Text('$error', style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: onRetry,
-              child: Text(_detailText(context, 'retry')),
+              child: Text(context.l10n.retry),
             ),
           ],
         ),
@@ -978,13 +964,3 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
-
-String _detailText(
-  BuildContext context,
-  String key, [
-  Map<String, Object?> args = const {},
-]) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-  args,
-);

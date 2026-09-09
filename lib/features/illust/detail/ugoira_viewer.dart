@@ -9,7 +9,6 @@ import '../../../app/pixiv_image.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_recovery.dart';
-import '../../../core/i18n/replica_strings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
@@ -21,16 +20,7 @@ import '../../../core/ugoira/ugoira_repository.dart';
 import '../../../core/ugoira/ugoira_scheduler.dart';
 import '../../../core/ugoira/ugoira_zip.dart';
 import '../../../app/widgets/app_snack_bar.dart';
-
-String _ugoiraText(
-  BuildContext context,
-  String key, [
-  Map<String, Object?> args = const {},
-]) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-  args,
-);
+import '../../../l10n/context.dart';
 
 /// Inline beta56-compatible Ugoira surface. The cover, play affordance and
 /// paused overlay stay in the detail page; ZIP/decode/export resources are
@@ -164,7 +154,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                     color: Theme.of(context).colorScheme.surface,
                     shape: const CircleBorder(),
                     child: IconButton(
-                      tooltip: _ugoiraText(context, 'ugoiraSaveGif'),
+                      tooltip: context.l10n.ugoiraSaveGif,
                       onPressed: _export,
                       icon:
                           _exportJob?.snapshot.status ==
@@ -317,7 +307,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       }
     } on ApiCancelled {
       if (!_disposed) {
-        setState(() => _error = _ugoiraText(context, 'ugoiraLoadCanceled'));
+        setState(() => _error = context.l10n.ugoiraLoadCanceled);
       }
     } catch (error) {
       if (!_disposed) {
@@ -481,7 +471,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final submissionContext = _currentDownloadContext();
     if (submissionContext == null) {
       if (mounted) {
-        showAppSnackBar(context, _ugoiraText(context, 'ugoiraLoginRequired'));
+        showAppSnackBar(context, context.l10n.ugoiraLoginRequired);
       }
       return;
     }
@@ -500,11 +490,9 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     await subscription.cancel();
     if (!mounted) return;
     final message = switch (result.status) {
-      UgoiraExportStatus.succeeded => _ugoiraText(context, 'ugoiraSaved'),
-      UgoiraExportStatus.canceled => _ugoiraText(context, 'ugoiraSaveCanceled'),
-      _ => _ugoiraText(context, 'ugoiraSaveFailed', {
-        'error': result.error ?? 'unknown error',
-      }),
+      UgoiraExportStatus.succeeded => context.l10n.ugoiraSaved,
+      UgoiraExportStatus.canceled => context.l10n.ugoiraSaveCanceled,
+      _ => context.l10n.ugoiraSaveFailed(result.error ?? 'unknown error'),
     };
     showAppSnackBar(context, message);
   }
@@ -525,16 +513,12 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
 
   String _friendlyError(BuildContext context, Object error) {
     if (error is UgoiraArchiveException) {
-      return _ugoiraText(context, 'ugoiraArchiveInvalid', {
-        'error': error.message,
-      });
+      return context.l10n.ugoiraArchiveInvalid(error.message);
     }
     if (error is UgoiraDecodeException) {
-      return _ugoiraText(context, 'ugoiraFrameCorrupt', {
-        'error': error.message,
-      });
+      return context.l10n.ugoiraFrameCorrupt(error.message);
     }
-    return _ugoiraText(context, 'ugoiraLoadFailed', {'error': error});
+    return context.l10n.ugoiraLoadFailed(error.toString());
   }
 
   DownloadSubmissionContext? _currentDownloadContext() {
@@ -584,7 +568,7 @@ class _ErrorOverlay extends StatelessWidget {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: onRetry,
-                child: Text(_ugoiraText(context, 'retry')),
+                child: Text(context.l10n.retry),
               ),
             ],
           ),

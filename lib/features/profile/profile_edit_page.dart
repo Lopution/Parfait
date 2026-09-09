@@ -17,6 +17,7 @@ import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 String _profileEditText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -124,16 +125,16 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
     final leave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_profileEditText(context, 'profileEditLeaveTitle')),
-        content: Text(_profileEditText(context, 'profileEditLeaveDetail')),
+        title: Text(context.l10n.profileEditLeaveTitle),
+        content: Text(context.l10n.profileEditLeaveDetail),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(_profileEditText(context, 'cancel')),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(_profileEditText(context, 'profileEditLeaveConfirm')),
+            child: Text(context.l10n.profileEditLeaveConfirm),
           ),
         ],
       ),
@@ -154,9 +155,9 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_profileEditText(context, 'profileEditTitle')),
+          title: Text(context.l10n.profileEditTitle),
           leading: IconButton(
-            tooltip: _profileEditText(context, 'cancel'),
+            tooltip: context.l10n.cancel,
             onPressed: _attemptPop,
             icon: const Icon(Icons.arrow_back),
           ),
@@ -194,7 +195,7 @@ class _InitializationFailure extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off, size: 52),
             const SizedBox(height: 12),
-            Text(_profileEditText(context, 'profileEditLoadFailed')),
+            Text(context.l10n.profileEditLoadFailed),
             const SizedBox(height: 8),
             Text('$error', textAlign: TextAlign.center),
           ],
@@ -305,7 +306,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
               icon: Icons.info_outline,
               text:
                   capabilities.reason ??
-                  _profileEditText(context, 'profileEditUnavailable'),
+                  context.l10n.profileEditUnavailable,
             ),
           if (state.failure != null)
             _NoticeCard(
@@ -317,12 +318,12 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
               icon: Icons.mark_email_unread_outlined,
               text:
                   state.verificationMessage ??
-                  _profileEditText(context, 'profileEditPending'),
+                  context.l10n.profileEditPending,
             ),
           if (state.status == ProfileEditStatus.confirmed)
             _NoticeCard(
               icon: Icons.check_circle_outline,
-              text: _profileEditText(context, 'profileEditConfirmed'),
+              text: context.l10n.profileEditConfirmed,
             ),
           TextFormField(
             controller: _displayName,
@@ -374,7 +375,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
           ),
           const SizedBox(height: 8),
           _ImageField(
-            title: _profileEditText(context, 'profileEditAvatar'),
+            title: context.l10n.profileEditAvatar,
             currentUrl: draft.values.avatarUrl,
             selection: draft.avatar,
             enabled:
@@ -384,7 +385,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
           ),
           const SizedBox(height: 8),
           _ImageField(
-            title: _profileEditText(context, 'profileEditBackground'),
+            title: context.l10n.profileEditBackground,
             currentUrl: draft.values.backgroundUrl,
             selection: draft.background,
             enabled:
@@ -400,10 +401,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
               enabled: editingEnabled,
               obscureText: true,
               decoration: InputDecoration(
-                labelText: _profileEditText(
-                  context,
-                  'profileEditCurrentPassword',
-                ),
+                labelText: context.l10n.profileEditCurrentPassword,
                 errorText: state.currentPasswordError,
               ),
             ),
@@ -417,7 +415,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.save_outlined),
-            label: Text(_profileEditText(context, 'profileEditSave')),
+            label: Text(context.l10n.profileEditSave),
           ),
         ],
       ),
@@ -435,7 +433,7 @@ class _ProfileEditBodyState extends State<_ProfileEditBody> {
       labelText: _profileEditText(context, labelKey),
       errorText: state.fieldErrors[field],
       helperText: unsupported
-          ? _profileEditText(context, 'profileEditFieldUnsupported')
+          ? context.l10n.profileEditFieldUnsupported
           : null,
       alignLabelWithHint: field == ProfileField.comment,
       border: const OutlineInputBorder(),
@@ -480,14 +478,14 @@ class _ImageField extends StatelessWidget {
         title: Text(title),
         subtitle: Text(
           unsupported
-              ? _profileEditText(context, 'profileEditFieldUnsupported')
+              ? context.l10n.profileEditFieldUnsupported
               : selection == null
-              ? _profileEditText(context, 'profileEditImageChoose')
+              ? context.l10n.profileEditImageChoose
               : '${selection!.width} × ${selection!.height}',
         ),
         trailing: OutlinedButton(
           onPressed: enabled ? onPick : null,
-          child: Text(_profileEditText(context, 'profileEditChooseImage')),
+          child: Text(context.l10n.profileEditChooseImage),
         ),
       ),
     );
@@ -542,14 +540,14 @@ class _StatusBody extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               failure?.message ??
-                  _profileEditText(context, 'profileEditLoadFailed'),
+                  context.l10n.profileEditLoadFailed,
               textAlign: TextAlign.center,
             ),
             if (failure?.retryable == true) ...[
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: onRetry,
-                child: Text(_profileEditText(context, 'retry')),
+                child: Text(context.l10n.retry),
               ),
             ],
           ],

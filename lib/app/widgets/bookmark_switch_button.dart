@@ -7,6 +7,7 @@ import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
 import '../../core/i18n/replica_strings.dart';
 import '../widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 String _bookmarkText(
   BuildContext context,
@@ -124,7 +125,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Text(
-                              _bookmarkText(context, 'cancel'),
+                              context.l10n.cancel,
                               style: TextStyle(
                                 fontSize: 18,
                                 color: colorScheme.onSurface,
@@ -147,7 +148,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Text(
-                              _bookmarkText(context, 'confirm'),
+                              context.l10n.confirm,
                               style: TextStyle(
                                 fontSize: 18,
                                 color: colorScheme.onPrimary,
@@ -190,9 +191,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
       next,
     ) {
       if (next != null && previous != next) {
-        showAppSnackBar(context, _bookmarkText(context, 'bookmarkOperationFailed', {
-                'error': next,
-              }),);
+        showAppSnackBar(context, context.l10n.bookmarkOperationFailed(next.toString()),);
       }
     });
 

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,6 +23,7 @@ import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeCredentialStore implements CredentialStore {
   final values = <String, Credential>{};
@@ -369,7 +369,10 @@ void main() {
       for (final user in users) {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
+            MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
               home: Scaffold(
                 body: CustomScrollView(
                   key: ValueKey(user.profileImageUrl ?? 'placeholder'),
@@ -430,7 +433,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         home: Scaffold(
           body: CustomScrollView(
             slivers: [
@@ -466,7 +472,10 @@ void main() {
 
   testWidgets('current profile header has no settings entry', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         home: Scaffold(
           body: CustomScrollView(
             slivers: [
@@ -504,10 +513,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: const UserPage(userId: 42),
           ),
         ),

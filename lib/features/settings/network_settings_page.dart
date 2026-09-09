@@ -8,6 +8,7 @@ import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import 'network_probe_page.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 String _networkText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -25,7 +26,7 @@ Future<bool> _persistNetwork(
     return true;
   } on Object catch (error) {
     if (context.mounted) {
-      showAppSnackBar(context, '${_networkText(context, 'settingsWriteFailed')}: $error',);
+      showAppSnackBar(context, '${context.l10n.settingsWriteFailed}: $error',);
     }
     return false;
   }
@@ -69,14 +70,14 @@ class NetworkSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(_networkText(context, 'networkSettings'))),
+      appBar: AppBar(title: Text(context.l10n.networkSettings)),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
-              _networkText(context, 'networkModeListTitle'),
+              context.l10n.networkModeListTitle,
               style: Theme.of(context).textTheme.titleSmall,
             ),
           ),
@@ -99,8 +100,8 @@ class NetworkSettingsPage extends ConsumerWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.network_check),
-            title: Text(_networkText(context, 'networkProbe')),
-            subtitle: Text(_networkText(context, 'networkProbeHint')),
+            title: Text(context.l10n.networkProbe),
+            subtitle: Text(context.l10n.networkProbeHint),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push<void>(
               ReplicaPageRoute<void>(builder: (_) => const NetworkProbePage()),
@@ -109,8 +110,8 @@ class NetworkSettingsPage extends ConsumerWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.tune),
-            title: Text(_networkText(context, 'networkAdvanced')),
-            subtitle: Text(_networkText(context, 'networkAdvancedHint')),
+            title: Text(context.l10n.networkAdvanced),
+            subtitle: Text(context.l10n.networkAdvancedHint),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push<void>(
               ReplicaPageRoute<void>(
@@ -136,13 +137,13 @@ Widget _modeTile(
   return ListTile(
     title: Text(
       value == NetworkMode.automatic
-          ? _networkText(context, 'networkModeAutomatic')
-          : _networkText(context, 'networkModeDirectOnly'),
+          ? context.l10n.networkModeAutomatic
+          : context.l10n.networkModeDirectOnly,
     ),
     subtitle: Text(
       value == NetworkMode.automatic
-          ? _networkText(context, 'networkModeAutomaticHint')
-          : _networkText(context, 'networkModeDirectOnlyHint'),
+          ? context.l10n.networkModeAutomaticHint
+          : context.l10n.networkModeDirectOnlyHint,
     ),
     trailing: selected
         ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
@@ -195,7 +196,7 @@ class _NetworkAdvancedSettingsPageState
     if (!_dohDirty) return;
     if (value.isNotEmpty && !_validEndpointList(value)) {
       if (mounted) {
-        showAppSnackBar(context, _networkText(context, 'networkDohEndpointsInvalid'));
+        showAppSnackBar(context, context.l10n.networkDohEndpointsInvalid);
       }
       return;
     }
@@ -207,7 +208,7 @@ class _NetworkAdvancedSettingsPageState
     );
     if (saved && mounted) {
       setState(() => _dohDirty = false);
-      showAppSnackBar(context, _networkText(context, 'saved'));
+      showAppSnackBar(context, context.l10n.saved);
     }
   }
 
@@ -238,7 +239,7 @@ class _NetworkAdvancedSettingsPageState
     if (!_echHostDirty) return;
     if (value.isNotEmpty && !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(value)) {
       if (mounted) {
-        showAppSnackBar(context, _networkText(context, 'networkEchHostInvalid'));
+        showAppSnackBar(context, context.l10n.networkEchHostInvalid);
       }
       return;
     }
@@ -248,7 +249,7 @@ class _NetworkAdvancedSettingsPageState
     );
     if (saved && mounted) {
       setState(() => _echHostDirty = false);
-      showAppSnackBar(context, _networkText(context, 'saved'));
+      showAppSnackBar(context, context.l10n.saved);
     }
   }
 
@@ -267,7 +268,7 @@ class _NetworkAdvancedSettingsPageState
         _dohDirty = false;
         _echHostDirty = false;
       });
-      showAppSnackBar(context, _networkText(context, 'saved'));
+      showAppSnackBar(context, context.l10n.saved);
     }
   }
 
@@ -292,7 +293,7 @@ class _NetworkAdvancedSettingsPageState
       _echHostController.text = echHost;
     }
     return Scaffold(
-      appBar: AppBar(title: Text(_networkText(context, 'networkAdvanced'))),
+      appBar: AppBar(title: Text(context.l10n.networkAdvanced)),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
@@ -303,7 +304,7 @@ class _NetworkAdvancedSettingsPageState
               focusNode: _dohFocusNode,
               maxLines: 2,
               decoration: InputDecoration(
-                labelText: _networkText(context, 'networkDohEndpoints'),
+                labelText: context.l10n.networkDohEndpoints,
                 border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() => _dohDirty = true),
@@ -315,7 +316,7 @@ class _NetworkAdvancedSettingsPageState
               alignment: Alignment.centerRight,
               child: FilledButton.tonal(
                 onPressed: _saveEndpoints,
-                child: Text(_networkText(context, 'save')),
+                child: Text(context.l10n.save),
               ),
             ),
           ),
@@ -326,8 +327,8 @@ class _NetworkAdvancedSettingsPageState
               controller: _echHostController,
               focusNode: _echHostFocusNode,
               decoration: InputDecoration(
-                labelText: _networkText(context, 'networkEchFrontHost'),
-                helperText: _networkText(context, 'networkEchFrontHostHint'),
+                labelText: context.l10n.networkEchFrontHost,
+                helperText: context.l10n.networkEchFrontHostHint,
                 border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() => _echHostDirty = true),
@@ -339,14 +340,14 @@ class _NetworkAdvancedSettingsPageState
               alignment: Alignment.centerRight,
               child: FilledButton.tonal(
                 onPressed: _saveEchHost,
-                child: Text(_networkText(context, 'save')),
+                child: Text(context.l10n.save),
               ),
             ),
           ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.restart_alt),
-            title: Text(_networkText(context, 'networkAdvancedReset')),
+            title: Text(context.l10n.networkAdvancedReset),
             onTap: _resetDefaults,
           ),
         ],

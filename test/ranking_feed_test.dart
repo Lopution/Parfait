@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,6 +21,7 @@ import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/core/illust/ranking_feed_controller.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeCredentialStore implements CredentialStore {
   final _secrets = <String, Credential>{};
@@ -283,10 +283,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: const RankingPage(),
           ),
         ),

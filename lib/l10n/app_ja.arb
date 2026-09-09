@@ -27,7 +27,7 @@
   "@loginNetworkError": {
     "placeholders": {
       "status": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -56,13 +56,15 @@
     }
   },
   "networkCompatibility": "自動互換ネットワーク",
+  "networkCompatibilityHint": "まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。",
   "getMoreHelp": "詳細なヘルプ >>",
   "useLoginWithClipboardHint": "もしくは\\nプロフィール画像を長押ししてアカウントデータをコピー",
   "useLoginWithClipboard": "クリップボードに保存されたデータでログイン",
-  "accountTransferWarning": "剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。",
+  "accountTransferWarning": "クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。",
+  "accountTransferSensitiveWarning": "この端末はクリップボードの機密マーク（Android 13+）未対応です。認証情報は平文でシステムクリップボードに置かれます。すぐに貼り付けてください。5分後に自動クリアされます。",
   "accountTransferCopied": "アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。",
   "accountTransferImported": "アカウント移行に成功しました",
-  "accountTransferClipboardReplaced": "账号已导入；剪贴板已被其他内容替换，未执行清除。",
+  "accountTransferClipboardReplaced": "アカウントを取り込みました。クリップボードが置き換えられたため消去していません。",
   "accountTransferCorrupt": "クリップボードのアカウントデータが壊れているか未対応です",
   "accountTransferCredentialInvalid": "アカウント認証情報が無効です。再ログインまたは再コピーしてください",
   "accountTransferVerificationUnavailable": "Pixiv の認証情報を一時的に確認できません",
@@ -76,6 +78,7 @@
   "accountSettings": "アカウント",
   "networkSettings": "ネットワーク",
   "networkMode": "自動互換ネットワーク",
+  "networkModeHint": "デフォルトは直結。Pixiv 公式ドメインのみ、明確な転送失敗時に厳格 HTTPS 候補を試します。他トラフィックはプロキシせず、証明書検証は無効化しません。",
   "networkModeListTitle": "ネットワークモード",
   "networkModeAutomatic": "自動",
   "networkModeAutomaticHint": "標準ネットワークスタック：ホストグループごとに到達可能な経路を選択します。",
@@ -85,11 +88,14 @@
   "networkAdvancedHint": "DoH エンドポイント、ECH フロントホストなどの詳細。",
   "networkAdvancedReset": "デフォルトに戻す",
   "networkDoh": "厳格フォールバックで DoH を使用",
+  "networkDohHint": "有効時、フォールバック層は DoH（デフォルト Cloudflare DoH：ドメイン端点を静的 Anycast IP にピン留め — 汚染されたシステム DNS を回避；カスタム端点は自身のホスト名を解決）で解決します。無効時はシステム DNS を使用します。",
   "networkDohEndpoints": "DoH エンドポイント（カンマ区切り、https URL）",
   "networkEchFrontHost": "ECH フロントホスト",
+  "networkEchFrontHostHint": "ECH config を含む HTTPS RR を照会するドメイン（デフォルト cloudflare-ech.com）",
   "networkEchHostInvalid": "フロントホスト名が無効です",
   "networkProbe": "階層接続プローブ",
   "networkProbeTitle": "階層接続プローブ",
+  "networkProbeHint": "Pixiv の4公式ホストを層ごとにテスト：システム DNS → DoH → TCP → TLS(実SNI) → 最小リクエスト。TCP 成功でも TLS ハンドシェイク失敗 = SNI ブロック。",
   "networkProbeRun": "プローブ開始",
   "networkProbeRunning": "実行中…",
   "networkProbeNotRun": "未実行",
@@ -218,6 +224,29 @@
   },
   "namingTemplateInvalid": "未対応の変数または不正な文字を含みます",
   "namingPreview": "プレビュー",
+  "namingTemplateVariables": "変数：{artist} {title} {id} {page} {ext} {date}。不正な文字は _ に置換され、長い名前は切り詰められます。",
+  "@namingTemplateVariables": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "notConfigured": "未設定",
   "translateProvider": "翻訳サービス",
   "translateGoogle": "Google Translate",
@@ -237,6 +266,8 @@
   "translateCredentialsCleared": "認証情報を削除しました",
   "translateCredentialsStoreError": "安全なストレージの操作に失敗しました",
   "translateCredentialsInvalid": "入力が不完全か、エンドポイントが HTTPS ではありません",
+  "translateBaiduHint": "百度翻訳の標準版は認証不要ですが月 5 万文字・毎秒 1 回までで、コメント翻訳には足りません。高級版は個人の実名認証（氏名 + 身分証番号）が必要で、月 100 万文字・毎秒 10 回です。認証情報は翻訳リクエストにのみ使用します。",
+  "translateLlmCredentialHint": "HTTPS エンドポイントのみ。翻訳は固定プロンプトで、モデルや詳細パラメータは変更できません。コメント本文と翻訳は保存されません。",
   "translateCredentialHint": "翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。",
   "historySettingsHint": "履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。",
   "blockTagInputHint": "タグを入力して追加",
@@ -260,7 +291,7 @@
   "aboutUpdateDownload": "ダウンロードしてインストール",
   "aboutUpdateDownloading": "ダウンロードと検証中…",
   "aboutUpdateConfirmTitle": "更新を確認",
-  "aboutUpdateConfirmDetail": "只会安装通过签名、大小、哈希、包名和签名证书校验的 APK。是否继续？",
+  "aboutUpdateConfirmDetail": "署名、サイズ、ハッシュ、パッケージ名、証明書を検証した APK のみインストールします。続行しますか？",
   "aboutUpdatePermission": "この提供元からのアプリのインストールを許可してから、もう一度確認してください。",
   "aboutUpdateStarted": "システムインストーラーを開きました",
   "aboutUpdateStore": "このビルドの更新は F-Droid が管理します。",
@@ -269,7 +300,7 @@
   "aboutLicense": "ライセンス",
   "aboutAttribution": "帰属表示",
   "aboutSource": "ソースコード",
-  "aboutLicenseText": "本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。",
+  "aboutLicenseText": "このプロジェクトは公開された Pixiv Func のソースを基にし、GNU AGPL v3.0 に従います。",
   "aboutAttributionText": "原作者：git-xiaocao。",
   "settingsReadFailed": "設定の読み込みに失敗しました",
   "settingsWriteFailed": "設定の保存に失敗しました",
@@ -389,9 +420,10 @@
   "searchRefreshFailed": "更新に失敗しました",
   "searchInputEmpty": "検索語を入力してください",
   "searchReverseUnavailable": "画像検索は利用できません",
+  "searchReverseUnavailableDetail": "認証情報、利用規約、プライバシー審査を通過した構造化サービスがないため、画像のアップロードやウェブページのスクレイピングは行いません。",
   "searchReversePick": "画像を選択",
   "searchReversePrivacy": "プライバシーに関する注意",
-  "searchReversePrivacyDetail": "图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。",
+  "searchReversePrivacyDetail": "検索を確認した後だけ画像を承認済みサービスへ送信し、キャンセルまたは失敗時に一時データを削除します。",
   "searchReversePreparing": "画像を準備中…",
   "searchReverseSearching": "検索中…",
   "searchReverseCancel": "キャンセル",
@@ -407,12 +439,12 @@
   "@searchReverseRateLimitedWait": {
     "placeholders": {
       "seconds": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
   "searchReverseDailyLimit": "本日の匿名検索回数の上限に達しました。明日もう一度お試しください",
-  "searchReverseChallenge": "SauceNAO 要求人机验证，本次搜索未完成，请稍后再试",
+  "searchReverseChallenge": "SauceNAO が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください",
   "searchReversePageLoadFailed": "結果ページの読み込みに失敗しました",
   "searchReverseIntro": "選択した画像は匿名で SauceNAO に送信され、結果ページがアプリ内で開きます。",
   "searchNoRepresentative": "このタグには代表作品がありません",
@@ -450,10 +482,10 @@
   "@illustDetailSize": {
     "placeholders": {
       "width": {
-        "type": "String"
+        "type": "int"
       },
       "height": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -469,7 +501,7 @@
   "@illustDetailRestricted": {
     "placeholders": {
       "id": {
-        "type": "String"
+        "type": "int"
       }
     }
   },

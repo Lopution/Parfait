@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/search/search_models.dart';
 import 'search_text.dart';
+import '../../l10n/context.dart';
 
 Future<SearchFilters?> showSearchFilterSheet(
   BuildContext context, {
@@ -62,19 +63,19 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    searchText(context, 'searchFilters'),
+                    context.l10n.searchFilters,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
                 TextButton(
                   onPressed: () =>
                       setState(() => _filters = SearchFilters.defaults),
-                  child: Text(searchText(context, 'searchReset')),
+                  child: Text(context.l10n.searchReset),
                 ),
               ],
             ),
             _FilterGroup<SearchTarget>(
-              title: searchText(context, 'searchTarget'),
+              title: context.l10n.searchTarget,
               values: SearchTarget.values,
               selected: _filters.target,
               label: (value) => searchText(context, value.labelKey),
@@ -83,7 +84,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
             ),
             const SizedBox(height: 12),
             _FilterGroup<SearchSort>(
-              title: searchText(context, 'searchSort'),
+              title: context.l10n.searchSort,
               values: SearchSort.values,
               selected: _filters.sort,
               label: (value) => searchText(context, value.labelKey),
@@ -92,7 +93,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
             ),
             const SizedBox(height: 12),
             Text(
-              searchText(context, 'searchDuration'),
+              context.l10n.searchDuration,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 6),
@@ -101,7 +102,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
               runSpacing: 4,
               children: [
                 ChoiceChip(
-                  label: Text(searchText(context, 'searchAllTime')),
+                  label: Text(context.l10n.searchAllTime),
                   selected: _filters.duration == null,
                   onSelected: (_) => setState(
                     () => _filters = _filters.copyWith(duration: null),
@@ -119,7 +120,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
             ),
             const SizedBox(height: 12),
             _DateFilterTile(
-              label: searchText(context, 'searchStartDate'),
+              label: context.l10n.searchStartDate,
               value: _dateText(_filters.startDate),
               onTap: () => _pickDate(start: true),
               onClear: _filters.startDate == null
@@ -129,7 +130,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                     ),
             ),
             _DateFilterTile(
-              label: searchText(context, 'searchEndDate'),
+              label: context.l10n.searchEndDate,
               value: _dateText(_filters.endDate),
               onTap: () => _pickDate(start: false),
               onClear: _filters.endDate == null
@@ -143,7 +144,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () => Navigator.of(context).pop(_filters),
-                child: Text(searchText(context, 'searchApply')),
+                child: Text(context.l10n.searchApply),
               ),
             ),
           ],
@@ -215,7 +216,7 @@ class _DateFilterTile extends StatelessWidget {
       trailing: onClear == null
           ? const Icon(Icons.calendar_today_outlined)
           : IconButton(
-              tooltip: searchText(context, 'searchClear'),
+              tooltip: context.l10n.searchClear,
               onPressed: onClear,
               icon: const Icon(Icons.clear),
             ),

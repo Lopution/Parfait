@@ -7,8 +7,8 @@ import '../../../core/entity/illust_store.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/paging/paged_feed_controller.dart';
-import '../../search/search_text.dart';
 import '../../../core/illust/related_illust_controller.dart';
+import '../../../l10n/context.dart';
 
 export '../../../core/illust/related_illust_controller.dart';
 export '../../../core/illust/related_illust_repository.dart';
@@ -42,7 +42,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  searchText(context, 'relatedWorks'),
+                  context.l10n.relatedWorks,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
@@ -52,7 +52,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                     const SizedBox(width: 12),
                     TextButton(
                       onPressed: controller.refresh,
-                      child: Text(searchText(context, 'retry')),
+                      child: Text(context.l10n.retry),
                     ),
                   ],
                 ),
@@ -82,7 +82,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                searchText(context, 'relatedWorks'),
+                context.l10n.relatedWorks,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
@@ -92,7 +92,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                   const SizedBox(width: 12),
                   TextButton(
                     onPressed: controller.refresh,
-                    child: Text(searchText(context, 'retry')),
+                    child: Text(context.l10n.retry),
                   ),
                 ],
               ),
@@ -113,7 +113,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
             child: Text(
-              searchText(context, 'relatedWorks'),
+              context.l10n.relatedWorks,
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
@@ -148,7 +148,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
   String _errorText(BuildContext context, Object? error) {
     final message = error is ApiError ? error.message : null;
     if (message != null && message.isNotEmpty) return message;
-    if (error == null) return searchText(context, 'relatedLoadFailed');
+    if (error == null) return context.l10n.relatedLoadFailed;
     // Provider-level failures (parse/type errors) carry no ApiError
     // message: surface the runtime type + short description so a device
     // failure is diagnosable instead of a silent fallback.
@@ -184,7 +184,7 @@ class _LoadMoreFooter extends ConsumerWidget {
         child: Center(
           child: TextButton(
             onPressed: () => onLoadMore(),
-            child: Text(searchText(context, 'retry')),
+            child: Text(context.l10n.retry),
           ),
         ),
       );

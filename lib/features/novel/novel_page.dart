@@ -5,7 +5,6 @@ import '../../app/person_avatar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/motion/replica_page_route.dart';
 import '../../app/navigation/routes.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/history/history_snapshot.dart';
@@ -19,12 +18,13 @@ import '../../core/settings/settings_controller.dart';
 import 'novel_reader.dart';
 import 'novel_layout.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 /// Opens the JSON Novel detail route. Save/share are intentionally absent:
 /// this task does not claim those operations without a real API contract.
 void showNovelPage(BuildContext context, int novelId) {
   if (novelId <= 0) {
-    showAppSnackBar(context, _novelText(context, 'novelNotFound'));
+    showAppSnackBar(context, context.l10n.novelNotFound);
     return;
   }
   Navigator.of(context).push<void>(
@@ -60,7 +60,7 @@ class NovelPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(novelDetailProvider(novelId));
-    final title = async.value?.title ?? _novelText(context, 'profileNovel');
+    final title = async.value?.title ?? context.l10n.profileNovel;
     return Scaffold(
       appBar: AppBar(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -68,16 +68,16 @@ class NovelPage extends ConsumerWidget {
       body: async.when(
         loading: () => FeedEmpty(
           icon: Icons.menu_book_outlined,
-          title: _novelText(context, 'novelLoading'),
+          title: context.l10n.novelLoading,
         ),
         error: (error, _) {
           final isNotFound = error is ApiHttpError && error.statusCode == 404;
           return FeedError(
             title: isNotFound
-                ? _novelText(context, 'novelNotFound')
-                : _novelText(context, 'novelLoadFailed'),
+                ? context.l10n.novelNotFound
+                : context.l10n.novelLoadFailed,
             error: error,
-            retryLabel: _novelText(context, 'novelRetry'),
+            retryLabel: context.l10n.novelRetry,
             onRetry: () => ref.invalidate(novelDetailProvider(novelId)),
           );
         },
@@ -85,13 +85,13 @@ class NovelPage extends ConsumerWidget {
           if (novel.isRestricted) {
             return FeedEmpty(
               icon: Icons.lock_outline,
-              title: _novelText(context, 'novelRestricted'),
+              title: context.l10n.novelRestricted,
             );
           }
           if (!novel.contentAvailable) {
             return FeedEmpty(
               icon: Icons.text_snippet_outlined,
-              title: _novelText(context, 'novelContentUnavailable'),
+              title: context.l10n.novelContentUnavailable,
             );
           }
           return _NovelDetailBody(novel: novel);
@@ -223,7 +223,7 @@ class _NovelSeriesBar extends ConsumerWidget {
       error: (error, _) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Text(
-          '${_novelText(context, 'novelSeriesUnavailable')}: $error',
+          '${context.l10n.novelSeriesUnavailable}: $error',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall,
@@ -242,7 +242,7 @@ class _NovelSeriesBar extends ConsumerWidget {
           child: Row(
             children: [
               IconButton(
-                tooltip: _novelText(context, 'novelPrevious'),
+                tooltip: context.l10n.novelPrevious,
                 onPressed: previous?.viewable == true
                     ? () => showNovelPage(context, previous!.id)
                     : null,
@@ -250,14 +250,14 @@ class _NovelSeriesBar extends ConsumerWidget {
               ),
               Expanded(
                 child: Text(
-                  series.title ?? _novelText(context, 'novelSeries'),
+                  series.title ?? context.l10n.novelSeries,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               IconButton(
-                tooltip: _novelText(context, 'novelNext'),
+                tooltip: context.l10n.novelNext,
                 onPressed: next?.viewable == true
                     ? () => showNovelPage(context, next!.id)
                     : null,
@@ -270,8 +270,3 @@ class _NovelSeriesBar extends ConsumerWidget {
     );
   }
 }
-
-String _novelText(BuildContext context, String key) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-);

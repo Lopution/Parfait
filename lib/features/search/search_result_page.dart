@@ -20,7 +20,7 @@ import '../../app/widgets/feed/illust_card.dart';
 import '../profile/follow_switch_button.dart';
 import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
-import 'search_text.dart';
+import '../../l10n/context.dart';
 
 class SearchResultPage extends ConsumerWidget {
   const SearchResultPage({super.key, required this.query});
@@ -65,7 +65,7 @@ class SearchResultPage extends ConsumerWidget {
         actions: [
           if (_filters != null)
             IconButton(
-              tooltip: searchText(context, 'searchFilters'),
+              tooltip: context.l10n.searchFilters,
               onPressed: () => _editFilters(context),
               icon: const Icon(Icons.tune),
             ),
@@ -73,25 +73,25 @@ class SearchResultPage extends ConsumerWidget {
       ),
       body: async.when(
         loading: () =>
-            FeedEmpty(icon: Icons.search, title: searchText(context, 'searchLoading')),
+            FeedEmpty(icon: Icons.search, title: context.l10n.searchLoading),
         error: (error, _) => FeedError(
-          title: searchText(context, 'searchLoadFailed'),
+          title: context.l10n.searchLoadFailed,
           error: error,
-          retryLabel: searchText(context, 'searchRetry'),
+          retryLabel: context.l10n.searchRetry,
           onRetry: () => ref.invalidate(searchFeedProvider(query)),
         ),
         data: (feed) {
           if (feed.showInitialError) {
             return FeedError(
-              title: searchText(context, 'searchLoadFailed'),
+              title: context.l10n.searchLoadFailed,
               error: feed.initialError ?? const ApiParseError('unknown error'),
-              retryLabel: searchText(context, 'searchRetry'),
+              retryLabel: context.l10n.searchRetry,
               onRetry: () =>
                   ref.read(searchFeedProvider(query).notifier).retryInitial(),
             );
           }
           if (feed.showInitialSpinner) {
-            return FeedEmpty(icon: Icons.search, title: searchText(context, 'searchLoading'));
+            return FeedEmpty(icon: Icons.search, title: context.l10n.searchLoading);
           }
           return _SearchFeedContent(query: query, feed: feed);
         },
@@ -128,8 +128,8 @@ class _IllustSearchFeed extends ConsumerWidget {
     if (entities.isEmpty) {
       return FeedEmpty(
         icon: Icons.search,
-        title: searchText(context, 'searchNoResults'),
-        retryLabel: searchText(context, 'searchRetry'),
+        title: context.l10n.searchNoResults,
+        retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -163,8 +163,8 @@ class _IllustSearchFeed extends ConsumerWidget {
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
-                errorTitle: searchText(context, 'searchLoadMoreFailed'),
-                  retryLabel: searchText(context, 'searchRetry'),
+                errorTitle: context.l10n.searchLoadMoreFailed,
+                  retryLabel: context.l10n.searchRetry,
               ),
             ),
           ],
@@ -190,8 +190,8 @@ class _NovelSearchFeed extends ConsumerWidget {
     if (entities.isEmpty) {
       return FeedEmpty(
         icon: Icons.search,
-        title: searchText(context, 'searchNoResults'),
-        retryLabel: searchText(context, 'searchRetry'),
+        title: context.l10n.searchNoResults,
+        retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -216,8 +216,8 @@ class _NovelSearchFeed extends ConsumerWidget {
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
-                errorTitle: searchText(context, 'searchLoadMoreFailed'),
-                  retryLabel: searchText(context, 'searchRetry'),
+                errorTitle: context.l10n.searchLoadMoreFailed,
+                  retryLabel: context.l10n.searchRetry,
               );
             }
             return NovelCard(entity: entities[index]);
@@ -244,8 +244,8 @@ class _UserSearchFeed extends ConsumerWidget {
     if (users.isEmpty) {
       return FeedEmpty(
         icon: Icons.search,
-        title: searchText(context, 'searchNoResults'),
-        retryLabel: searchText(context, 'searchRetry'),
+        title: context.l10n.searchNoResults,
+        retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       );
     }
@@ -270,8 +270,8 @@ class _UserSearchFeed extends ConsumerWidget {
                 onRetry: () => ref
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
-                errorTitle: searchText(context, 'searchLoadMoreFailed'),
-                  retryLabel: searchText(context, 'searchRetry'),
+                errorTitle: context.l10n.searchLoadMoreFailed,
+                  retryLabel: context.l10n.searchRetry,
               );
             }
             return _SearchUserCard(user: users[index]);
@@ -298,7 +298,7 @@ class _SearchUserCard extends StatelessWidget {
         subtitle: user.account.isEmpty
             ? null
             : Text(
-                '${searchText(context, 'searchUserAccount')}: ${user.account}',
+                '${context.l10n.searchUserAccount}: ${user.account}',
               ),
         trailing: FollowSwitchButton(
           userId: user.id,

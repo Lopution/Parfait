@@ -19,6 +19,14 @@ OUT = Path('lib/l10n')
 
 LANGS = {'zhCN': 'zh', 'enUS': 'en', 'jaJP': 'ja', 'ruRU': 'ru'}
 
+# Keys whose slots are numeric at every call site (C5e audit).
+INT_SLOTS = {
+    'illustDetailSize': {'width', 'height'},
+    'illustDetailRestricted': {'id'},
+    'searchReverseRateLimitedWait': {'seconds'},
+    'loginNetworkError': {'status'},
+}
+
 
 def parse_values(src: str) -> dict[str, dict[str, str]]:
     """Parse the _values literal into {lang: {key: value}}.
@@ -32,7 +40,7 @@ def parse_values(src: str) -> dict[str, dict[str, str]]:
         entries: dict[str, str] = {}
         # Key and value are single-quoted literals; values may contain escaped
         # quotes but the corpus does not. Parse greedily per line.
-        for em in re.finditer(r"'([\w]+)': '((?:[^'\\]|\\.)*)'", body):
+        for em in re.finditer(r"'([\w]+)':\s*'((?:[^'\\]|\\.)*)'", body):
             entries[em.group(1)] = em.group(2).replace("\\'", "'")
         values[lang] = entries
     return values
@@ -72,7 +80,8 @@ def main() -> None:
             if params:
                 arb[f'@{key}'] = {
                     'placeholders': {
-                        p: {'type': 'String'} for p in params
+                        p: {'type': 'int' if p in INT_SLOTS.get(key, set()) else 'String'}
+                        for p in params
                     },
                 }
         path = OUT / f'app_{locale}.arb'

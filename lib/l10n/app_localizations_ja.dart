@@ -59,7 +59,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String loginNetworkError(String status) {
+  String loginNetworkError(int status) {
     return 'ネットワークエラー (HTTP $status)';
   }
 
@@ -82,6 +82,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkCompatibility => '自動互換ネットワーク';
 
   @override
+  String get networkCompatibilityHint =>
+      'まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。';
+
+  @override
   String get getMoreHelp => '詳細なヘルプ >>';
 
   @override
@@ -91,7 +95,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get useLoginWithClipboard => 'クリップボードに保存されたデータでログイン';
 
   @override
-  String get accountTransferWarning => '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。';
+  String get accountTransferWarning =>
+      'クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。';
+
+  @override
+  String get accountTransferSensitiveWarning =>
+      'この端末はクリップボードの機密マーク（Android 13+）未対応です。認証情報は平文でシステムクリップボードに置かれます。すぐに貼り付けてください。5分後に自動クリアされます。';
 
   @override
   String get accountTransferCopied => 'アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。';
@@ -100,7 +109,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get accountTransferImported => 'アカウント移行に成功しました';
 
   @override
-  String get accountTransferClipboardReplaced => '账号已导入；剪贴板已被其他内容替换，未执行清除。';
+  String get accountTransferClipboardReplaced =>
+      'アカウントを取り込みました。クリップボードが置き換えられたため消去していません。';
 
   @override
   String get accountTransferCorrupt => 'クリップボードのアカウントデータが壊れているか未対応です';
@@ -145,6 +155,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkMode => '自動互換ネットワーク';
 
   @override
+  String get networkModeHint =>
+      'デフォルトは直結。Pixiv 公式ドメインのみ、明確な転送失敗時に厳格 HTTPS 候補を試します。他トラフィックはプロキシせず、証明書検証は無効化しません。';
+
+  @override
   String get networkModeListTitle => 'ネットワークモード';
 
   @override
@@ -174,10 +188,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkDoh => '厳格フォールバックで DoH を使用';
 
   @override
+  String get networkDohHint =>
+      '有効時、フォールバック層は DoH（デフォルト Cloudflare DoH：ドメイン端点を静的 Anycast IP にピン留め — 汚染されたシステム DNS を回避；カスタム端点は自身のホスト名を解決）で解決します。無効時はシステム DNS を使用します。';
+
+  @override
   String get networkDohEndpoints => 'DoH エンドポイント（カンマ区切り、https URL）';
 
   @override
   String get networkEchFrontHost => 'ECH フロントホスト';
+
+  @override
+  String get networkEchFrontHostHint =>
+      'ECH config を含む HTTPS RR を照会するドメイン（デフォルト cloudflare-ech.com）';
 
   @override
   String get networkEchHostInvalid => 'フロントホスト名が無効です';
@@ -187,6 +209,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get networkProbeTitle => '階層接続プローブ';
+
+  @override
+  String get networkProbeHint =>
+      'Pixiv の4公式ホストを層ごとにテスト：システム DNS → DoH → TCP → TLS(実SNI) → 最小リクエスト。TCP 成功でも TLS ハンドシェイク失敗 = SNI ブロック。';
 
   @override
   String get networkProbeRun => 'プローブ開始';
@@ -524,6 +550,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get namingPreview => 'プレビュー';
 
   @override
+  String namingTemplateVariables(
+    String artist,
+    String title,
+    String id,
+    String page,
+    String ext,
+    String date,
+  ) {
+    return '変数：$artist $title $id $page $ext $date。不正な文字は _ に置換され、長い名前は切り詰められます。';
+  }
+
+  @override
   String get notConfigured => '未設定';
 
   @override
@@ -579,6 +617,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get translateCredentialsInvalid => '入力が不完全か、エンドポイントが HTTPS ではありません';
+
+  @override
+  String get translateBaiduHint =>
+      '百度翻訳の標準版は認証不要ですが月 5 万文字・毎秒 1 回までで、コメント翻訳には足りません。高級版は個人の実名認証（氏名 + 身分証番号）が必要で、月 100 万文字・毎秒 10 回です。認証情報は翻訳リクエストにのみ使用します。';
+
+  @override
+  String get translateLlmCredentialHint =>
+      'HTTPS エンドポイントのみ。翻訳は固定プロンプトで、モデルや詳細パラメータは変更できません。コメント本文と翻訳は保存されません。';
 
   @override
   String get translateCredentialHint =>
@@ -652,7 +698,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutUpdateConfirmTitle => '更新を確認';
 
   @override
-  String get aboutUpdateConfirmDetail => '只会安装通过签名、大小、哈希、包名和签名证书校验的 APK。是否继续？';
+  String get aboutUpdateConfirmDetail =>
+      '署名、サイズ、ハッシュ、パッケージ名、証明書を検証した APK のみインストールします。続行しますか？';
 
   @override
   String get aboutUpdatePermission => 'この提供元からのアプリのインストールを許可してから、もう一度確認してください。';
@@ -679,7 +726,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutSource => 'ソースコード';
 
   @override
-  String get aboutLicenseText => '本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。';
+  String get aboutLicenseText =>
+      'このプロジェクトは公開された Pixiv Func のソースを基にし、GNU AGPL v3.0 に従います。';
 
   @override
   String get aboutAttributionText => '原作者：git-xiaocao。';
@@ -906,6 +954,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseUnavailable => '画像検索は利用できません';
 
   @override
+  String get searchReverseUnavailableDetail =>
+      '認証情報、利用規約、プライバシー審査を通過した構造化サービスがないため、画像のアップロードやウェブページのスクレイピングは行いません。';
+
+  @override
   String get searchReversePick => '画像を選択';
 
   @override
@@ -913,7 +965,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchReversePrivacyDetail =>
-      '图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。';
+      '検索を確認した後だけ画像を承認済みサービスへ送信し、キャンセルまたは失敗時に一時データを削除します。';
 
   @override
   String get searchReversePreparing => '画像を準備中…';
@@ -949,7 +1001,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseRateLimited => '検索が混み合っています。しばらくしてからお試しください';
 
   @override
-  String searchReverseRateLimitedWait(String seconds) {
+  String searchReverseRateLimitedWait(int seconds) {
     return '約 $seconds 秒後に再試行できます';
   }
 
@@ -957,7 +1009,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseDailyLimit => '本日の匿名検索回数の上限に達しました。明日もう一度お試しください';
 
   @override
-  String get searchReverseChallenge => 'SauceNAO 要求人机验证，本次搜索未完成，请稍后再试';
+  String get searchReverseChallenge =>
+      'SauceNAO が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください';
 
   @override
   String get searchReversePageLoadFailed => '結果ページの読み込みに失敗しました';
@@ -1040,7 +1093,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String illustDetailSize(String width, String height) {
+  String illustDetailSize(int width, int height) {
     return 'サイズ：${width}x$height';
   }
 
@@ -1050,7 +1103,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String illustDetailRestricted(String id) {
+  String illustDetailRestricted(int id) {
     return 'この作品は削除または非公開になりました（ID: $id）';
   }
 

@@ -25,6 +25,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/illust_fixtures.dart';
 import 'package:pixiv_func/core/illust/recommended_illust_controller.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 String _illustJson(int id, {bool bookmarked = false}) => jsonEncode({
   'id': id,
@@ -305,7 +306,10 @@ void main() {
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
-            child: MaterialApp(
+            child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
               home: Scaffold(
                 body: SingleChildScrollView(
                   child: SizedBox(
@@ -341,7 +345,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: Scaffold(
               body: SingleChildScrollView(
                 child: SizedBox(
@@ -375,7 +382,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: Scaffold(
               body: SizedBox(
                 width: 300,
@@ -409,7 +419,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: SingleChildScrollView(
               child: Column(
                 children: [
@@ -442,7 +455,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: RecommendedIllustPage()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+home: RecommendedIllustPage()),
         ),
       );
       await tester.pump();
