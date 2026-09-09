@@ -6,17 +6,17 @@
 
 ## Overview
 
-<!--
-Document your project's quality standards here.
 
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
+The app's quality gates are repository-level and run against the same Flutter
+SDK used for development. `flutter analyze --no-pub` must report zero issues;
+the CI job also runs `flutter pub get --enforce-lockfile`, `flutter analyze`,
+and `flutter test`. The layering and static-contract tests are part of the
+normal test suite, not manual review-only checks.
 
-(To be filled by the team)
+Generated localization files are maintained by the l10n generation workflow;
+vendored `plugins/rhttp/rhttp` is analyzed and tested as its own package. Dart
+source changes are formatted with `dart format lib test`; the format check is
+run in CI before analysis.
 
 ---
 
@@ -42,8 +42,6 @@ Questions to answer:
 - **Generated code is exempt from formatting gates.** `rust/src/lib.rs` marks `mod frb_generated;` with `#[rustfmt::skip]`; hand-written Rust must stay `cargo fmt` clean. `dart format --set-exit-if-changed` arrives with child E.
 
 ## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
 
 - **A second state machine beside a framework one.** Do not re-derive scroll,
   gesture, or animation lifecycle state from notifications when the framework
@@ -71,8 +69,6 @@ Questions to answer:
 
 ## Required Patterns
 
-<!-- Patterns that must always be used -->
-
 - **Specs state observable outcomes, not implementation instructions.** Write
   what the user must be able to see happen; do not write which notification to
   listen to or which field to read. A spec containing "how" freezes the
@@ -99,8 +95,6 @@ Questions to answer:
 ---
 
 ## Testing Requirements
-
-<!-- What level of testing is expected -->
 
 ### Regression tests must be proven against the defect
 
@@ -181,6 +175,14 @@ Symptoms to recognize: `TimeoutException after 0:00:30` from an unrelated-feelin
 
 ## Code Review Checklist
 
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Does the change keep the owner in `app`, `core`, or `features` consistent
+  with the import-layer contract?
+- Are new payload fields parsed by the repository/model owner and represented
+  by typed state rather than repeated local casts?
+- Does a changed setting have a real consumer outside the settings page?
+- Do tests assert the observable terminal state and preserve existing account,
+  cancellation, cursor, Hero, tab, and refresh contracts?
+- Were generated files, lockfiles, and native/plugin boundaries changed only
+  through their owning workflow?
+- Do `flutter analyze`, the focused tests, the full suite, formatting, and
+  `git diff --check` provide evidence for the changed scope?

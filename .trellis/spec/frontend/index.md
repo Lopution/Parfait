@@ -19,20 +19,16 @@ This directory contains guidelines for frontend development. Fill in each file w
 | [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
 | [State Management](./state-management.md) | Local state, global state, server state | ✅ Active (PagedFeedController, Profile Edit, History contracts) |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | ✅ Active |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
+| [Type Safety](./type-safety.md) | Type patterns, validation | ✅ Active |
 
 ---
 
-## How to Fill These Guidelines
+## Documentation Conventions
 
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
+Active guides describe shipped owners, observable behavior, and the tests that
+enforce them. New entries should link to the code and its owning test instead
+of introducing a parallel contract. `hook-guidelines.md` remains `To fill`
+because this project has no Flutter Hooks usage to document.
 
 ---
 
