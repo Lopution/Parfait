@@ -40,6 +40,11 @@ Not part of this fork (upstream features, out of scope):
   `substring(8) as int` throws `For input string: "37.0"` when AGP 9.1.1 +
   `platforms;android-37.0` reports `android-37.0` instead of `android-37`.
   Needed for child A step A7 (`compileSdk 37`). Re-apply on upstream sync.
+- `rhttp/android/build.gradle.kts:38-41`: keep the AGP 9 built-in Kotlin
+  arrangement. The plugin does not apply `org.jetbrains.kotlin.android`; AGP
+  compiles the Kotlin sources and the `kotlin` extension sets the JVM target.
+  Upstream 0.18.0 predates the app's AGP 9.1.1 setup, so this block must be
+  re-applied after an upstream Android build-file refresh.
 - `rhttp/pubspec.yaml` pins `flutter_rust_bridge: 2.12.0` (no `^`) and the
   app tracks `rhttp/pubspec.lock`. Dart lock had resolved 2.13.0 while
   generated `frb_generated.dart` and Cargo stay on 2.12.0;
@@ -90,17 +95,41 @@ Not part of this fork (upstream features, out of scope):
   features after multipart (and `tokio::fs`) went away. Re-apply on
   upstream sync.
 
+### ECH validation additions
+
+These files are fork validation tools rather than runtime API changes:
+
+- `rust/tests/ech_config_test.rs` parses a real Cloudflare ECH config in the
+  normal Rust test suite.
+- `rust/tests/ech_live_handshake.rs` is an ignored, network-dependent raw TLS
+  handshake matrix. Run it explicitly with
+  `cargo test --test ech_live_handshake -- --ignored --nocapture` when the
+  recorded environment is available.
+- `rust/examples/ech_reqwest_probe.rs` probes the rhttp-style reqwest plus
+  preconfigured rustls ECH path, including HTTP/2 and static DNS. It is an
+  explicit example run, not part of the default test suite.
+
+`[profile.release] opt-level = "s"` was measured but not adopted: the
+`librhttp.so` delta was −1,539,000 bytes for arm64 and −884,944 bytes for
+armeabi-v7a. Keep `opt-level = 3` until the device wall-clock check covers
+listing and a large download; the measurement and adoption gate are recorded
+in `release-artifacts.md`.
+
 ## Sync guide
 
 To rebase on a newer upstream:
 
 1. Diff `plugins/rhttp/rhttp` against the new upstream revision.
-2. Re-apply the ECH diffs (Cargo.toml + client.rs) and the build-configuration
-   list in the D-5 section above (cargokit compileSdk parse, FRB exact pin,
-   rust-toolchain.toml).
-3. Regenerate `flutter_rust_bridge` bindings if Rust API signatures changed:
+2. Re-apply the ECH diffs (`Cargo.toml` + `client.rs`).
+3. Re-apply the build-configuration diffs above (cargokit compileSdk parse,
+   AGP 9 Kotlin setup, FRB exact pin, `rust-toolchain.toml`, output cleanup,
+   and dependency feature choices).
+4. Run `tool/frb_check.sh` from the repository root.
+5. Regenerate `flutter_rust_bridge` bindings if Rust API signatures changed:
    `dart run flutter_rust_bridge_codegen generate` inside `plugins/rhttp/rhttp`.
    `src/lib.rs` carries `#[rustfmt::skip]` on `mod frb_generated;`, so the
    regenerated file is exempt from CI's `cargo fmt --check`; hand-written
    Rust must stay `cargo fmt` clean.
-4. Update this file's upstream commit/version.
+6. Run the plugin `flutter test` and `cargo test --locked`.
+7. Update this file's upstream commit/version and record any newly discovered
+   fork differences.

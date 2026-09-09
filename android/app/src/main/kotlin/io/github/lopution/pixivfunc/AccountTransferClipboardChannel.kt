@@ -131,11 +131,7 @@ object AccountTransferClipboardChannel {
     }
 
     private fun clear(clipboard: ClipboardManager) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            clipboard.clearPrimaryClip()
-        } else {
-            clipboard.setPrimaryClip(ClipData.newPlainText("", ""))
-        }
+        clipboard.clearPrimaryClip()
     }
 
     private fun fingerprintOf(text: String?): String {

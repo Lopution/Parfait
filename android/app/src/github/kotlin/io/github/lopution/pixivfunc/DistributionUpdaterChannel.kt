@@ -5,16 +5,15 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
 import android.util.Base64
 import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import io.github.lopution.pixivfunc.updater.UpdaterPlatformInfo
 import java.io.File
 import java.security.KeyFactory
-import java.security.MessageDigest
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
 
@@ -34,7 +33,7 @@ object DistributionUpdaterChannel {
     private const val ERR_SIGNATURE_MISSING = "signature_missing"
 
     fun configure(context: Context, engine: FlutterEngine) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "getCapability" -> result.success(
@@ -44,10 +43,12 @@ object DistributionUpdaterChannel {
                             "storeManaged" to false,
                         ),
                     )
-                    "getPlatformInfo" -> result.success(platformInfo(context))
+                    "getPlatformInfo" -> result.success(
+                        UpdaterPlatformInfo.platformInfo(context),
+                    )
                     "verifyManifestSignature" -> result.success(verifyManifestSignature(call))
                     "verifyApk" -> result.success(verifyApk(context, call))
-                    "installApk" -> result.success(installApk(context, call))
+                    "installApk" -> installApk(context, call, result)
                     "deleteApk" -> result.success(deleteApk(context, call))
                     else -> result.notImplemented()
                 }
@@ -98,23 +99,6 @@ object DistributionUpdaterChannel {
         }
     }
 
-    private fun platformInfo(context: Context): Map<String, Any> {
-        val packageInfo = packageInfo(context.packageManager, context.packageName)
-        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            packageInfo.longVersionCode.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-        } else {
-            @Suppress("DEPRECATION")
-            packageInfo.versionCode
-        }
-        return mapOf(
-            "packageName" to context.packageName,
-            "version" to (packageInfo.versionName ?: ""),
-            "versionCode" to versionCode,
-            "signingCertificateSha256" to signerSha256(packageInfo),
-            "supportedAbis" to Build.SUPPORTED_ABIS.toList(),
-        )
-    }
-
     private fun verifyApk(context: Context, call: MethodCall): Map<String, Any> {
         val path = call.argument<String>("path") ?: return invalid("apk_path_invalid")
         val expectedPackage = call.argument<String>("packageName")
@@ -130,9 +114,12 @@ object DistributionUpdaterChannel {
             if (archive.packageName != expectedPackage || archive.packageName != context.packageName) {
                 return invalid("apk_package_mismatch")
             }
-            val archiveSigner = signerSha256(archive)
-            val installedSigner = signerSha256(
-                packageInfo(context.packageManager, context.packageName),
+            val archiveSigner = UpdaterPlatformInfo.signerSha256(archive)
+            val installedSigner = UpdaterPlatformInfo.signerSha256(
+                UpdaterPlatformInfo.packageInfo(
+                    context.packageManager,
+                    context.packageName,
+                ),
             )
             if (archiveSigner != expectedSigner || installedSigner != expectedSigner) {
                 return invalid("apk_signer_mismatch")
@@ -143,14 +130,31 @@ object DistributionUpdaterChannel {
         }
     }
 
-    private fun installApk(context: Context, call: MethodCall): Map<String, Any> {
-        val path = call.argument<String>("path") ?: return installFailed("apk_path_invalid")
-        val apk = ownedApk(context, path) ?: return installFailed("apk_path_invalid")
-        if (!apk.isFile) return installFailed("apk_missing")
+    private fun installApk(
+        context: Context,
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
+        val path = call.argument<String>("path") ?: run {
+            result.success(installFailed("apk_path_invalid"))
+            return
+        }
+        val apk = ownedApk(context, path) ?: run {
+            result.success(installFailed("apk_path_invalid"))
+            return
+        }
+        if (!apk.isFile) {
+            result.success(installFailed("apk_missing"))
+            return
+        }
+        AndroidMainThreadPoster.post {
+            result.success(launchInstall(context, apk))
+        }
+    }
+
+    private fun launchInstall(context: Context, apk: File): Map<String, Any> {
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                !context.packageManager.canRequestPackageInstalls()
-            ) {
+            if (!context.packageManager.canRequestPackageInstalls()) {
                 val settingsIntent = Intent(
                     Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:${context.packageName}"),
@@ -195,35 +199,8 @@ object DistributionUpdaterChannel {
         }
     }
 
-    private fun packageInfo(manager: PackageManager, packageName: String): PackageInfo {
-        @Suppress("DEPRECATION")
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            manager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
-        } else {
-            manager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
-        }
-    }
-
     private fun packageInfoFromArchive(manager: PackageManager, path: String): PackageInfo? {
-        @Suppress("DEPRECATION")
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            manager.getPackageArchiveInfo(path, PackageManager.GET_SIGNING_CERTIFICATES)
-        } else {
-            manager.getPackageArchiveInfo(path, PackageManager.GET_SIGNATURES)
-        }
-    }
-
-    private fun signerSha256(info: PackageInfo): String {
-        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            info.signingInfo?.apkContentsSigners ?: emptyArray()
-        } else {
-            @Suppress("DEPRECATION")
-            info.signatures ?: emptyArray()
-        }
-        val signature = signatures.singleOrNull() ?: return ""
-        return MessageDigest.getInstance("SHA-256")
-            .digest(signature.toByteArray())
-            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+        return manager.getPackageArchiveInfo(path, PackageManager.GET_SIGNING_CERTIFICATES)
     }
 
     private fun invalid(code: String): Map<String, Any> =
