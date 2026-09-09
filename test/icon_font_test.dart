@@ -96,7 +96,7 @@ void main() {
     final iconWidgets = tester
         .widgetList<Icon>(
           find.descendant(
-            of: find.byType(BottomAppBar),
+            of: find.byType(NavigationBar),
             matching: find.byType(Icon),
           ),
         )
@@ -136,7 +136,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await expectLater(
-      find.byType(BottomAppBar),
+      find.byType(NavigationBar),
       matchesGoldenFile('goldens/home_bar.png'),
     );
   });

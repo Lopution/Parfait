@@ -353,6 +353,8 @@
       }
     }
   },
+  "homeRecommended": "Recommended",
+  "homeRanking": "Ranking",
   "homeExitHint": "Press back again to exit",
   "bookmarkIllust": "Bookmark illustration",
   "bookmarkNovel": "Bookmark novel",

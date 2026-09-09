@@ -353,6 +353,8 @@
       }
     }
   },
+  "homeRecommended": "おすすめ",
+  "homeRanking": "ランキング",
   "homeExitHint": "もう一度戻ると終了します",
   "bookmarkIllust": "イラストをブックマーク",
   "bookmarkNovel": "小説をブックマーク",
