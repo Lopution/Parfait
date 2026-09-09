@@ -66,6 +66,14 @@ Future<void> openUser(BuildContext context, int userId) {
   );
 }
 
+Future<void> openMe(BuildContext context, {VoidCallback? onEditProfile}) {
+  return Navigator.of(context).push<void>(
+    ReplicaPageRoute<void>(
+      builder: (_) => MePage(onEditProfile: onEditProfile),
+    ),
+  );
+}
+
 Future<void> openNovel(BuildContext context, int novelId) {
   return Navigator.of(context).push<void>(
     ReplicaPageRoute<void>(builder: (_) => NovelPage(novelId: novelId)),
