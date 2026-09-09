@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/network/api_error.dart';
@@ -71,7 +72,8 @@ class MePage extends ConsumerWidget {
         }
         return UserPage._me(
           userId: account.userId,
-          onEditProfile: onEditProfile,
+          onEditProfile:
+              onEditProfile ?? () => openProfileEdit(context, account.userId),
         );
       },
     );

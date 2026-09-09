@@ -4,7 +4,7 @@ import 'package:flutter/animation.dart';
 /// durations (debounce, frame scheduling, download throttling) do not belong
 /// here. Predictive-back / M3 motion hook into these constants in child F.
 abstract final class MotionTokens {
-  /// Page route transition (ReplicaPageRoute right-in rhythm).
+  /// Page route transition used by the router page builder.
   static const pageTransition = Duration(milliseconds: 300);
   static const pageCurve = Curves.easeInOutCubic;
 

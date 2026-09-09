@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -12,6 +13,8 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
+import 'package:pixiv_func/core/platform/android_intent_channel.dart';
+import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart' hide NetworkMode;
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
@@ -180,6 +183,17 @@ class _EmptyMetadataRepository implements AccountMetadataRepository {
   Future<void> save(List<Account> accounts, String? currentId) async {}
 }
 
+class _IgnoredIntentSource implements AndroidIntentSource {
+  const _IgnoredIntentSource();
+
+  @override
+  Future<AndroidIntentResult> readInitial() async =>
+      const IgnoredAndroidIntent('test: no android intent');
+
+  @override
+  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
+}
+
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -188,6 +202,11 @@ void main() {
   });
 
   Widget wrap() {
+    final router = createPixivRouter(
+      initialLocation: '/login',
+      intentSource: const _IgnoredIntentSource(),
+    );
+    addTearDown(router.dispose);
     return ProviderScope(
       overrides: [
         credentialStoreProvider.overrideWithValue(const _NoCredentialStore()),
@@ -198,11 +217,11 @@ void main() {
           OAuthService(exchangeTimeout: Duration.zero),
         ),
       ],
-      child: const MaterialApp(
+      child: MaterialApp.router(
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: Locale('zh', 'CN'),
-        home: LoginPage(),
+        routerConfig: router,
       ),
     );
   }

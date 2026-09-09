@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -21,6 +22,8 @@ import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/platform/android_intent_channel.dart';
+import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
@@ -152,33 +155,64 @@ class _FakeMetadataRepository implements AccountMetadataRepository {
   Future<void> save(List<Account> accounts, String? currentId) async {}
 }
 
+class _IgnoredIntentSource implements AndroidIntentSource {
+  const _IgnoredIntentSource();
+
+  @override
+  Future<AndroidIntentResult> readInitial() async =>
+      const IgnoredAndroidIntent('test: no android intent');
+
+  @override
+  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
+}
+
 Future<void> pumpDetail(
   WidgetTester tester,
   ProviderContainer container, {
   bool seedStore = true,
   int illustId = 42,
   Locale? locale,
+  bool useRouter = false,
 }) async {
   if (seedStore) {
     container.read(illustStoreProvider).mergeAll([
       parseIllust(illustJson(illustId, pageCount: 2, withMetaPages: true)),
     ]);
   }
+  final router = useRouter
+      ? createPixivRouter(
+          initialLocation: '/recommended/illust/$illustId',
+          intentSource: const _IgnoredIntentSource(),
+        )
+      : null;
+  if (router != null) addTearDown(router.dispose);
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: const [
-            Locale('zh', 'CN'),
-            Locale('en', 'US'),
-            Locale('ja', 'JP'),
-            Locale('ru', 'RU'),
-          ],
-          locale: locale,
-          home: IllustDetailPage(illustId: illustId),
-        ),
+        child: router == null
+            ? MaterialApp(
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: const [
+                  Locale('zh', 'CN'),
+                  Locale('en', 'US'),
+                  Locale('ja', 'JP'),
+                  Locale('ru', 'RU'),
+                ],
+                locale: locale,
+                home: IllustDetailPage(illustId: illustId),
+              )
+            : MaterialApp.router(
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: const [
+                  Locale('zh', 'CN'),
+                  Locale('en', 'US'),
+                  Locale('ja', 'JP'),
+                  Locale('ru', 'RU'),
+                ],
+                locale: locale,
+                routerConfig: router,
+              ),
       ),
     );
     await tester.pump();
@@ -598,7 +632,7 @@ void main() {
             ),
           },
         );
-        await pumpDetail(tester, container);
+        await pumpDetail(tester, container, useRouter: true);
         await mockNetworkImagesFor(() async {
           await tester.scrollUntilVisible(
             find.textContaining('line1'),
@@ -632,7 +666,7 @@ void main() {
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
           find.byKey(const Key('illust-author-avatar')),
@@ -656,7 +690,7 @@ void main() {
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
           find.byKey(const Key('illust-author-avatar')),
@@ -728,7 +762,7 @@ void main() {
           42: [illustJson(901, pageCount: 1), illustJson(902, pageCount: 1)],
         },
       );
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, useRouter: true);
       // The section is a lazy sliver below the info block: scroll down so
       // it builds, then let the related page resolve.
       await mockNetworkImagesFor(() async {
@@ -758,7 +792,7 @@ void main() {
           42: [illustJson(901, pageCount: 1)],
         },
       );
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.drag(
           find.byType(CustomScrollView),

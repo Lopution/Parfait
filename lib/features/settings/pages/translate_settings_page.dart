@@ -1,12 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../app/motion/replica_page_route.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
-import 'translation_credentials_page.dart';
 
 class TranslateSettingsPage extends ConsumerWidget {
   const TranslateSettingsPage({super.key});
@@ -87,10 +86,7 @@ class TranslateSettingsPage extends ConsumerWidget {
     WidgetRef ref,
     bool baidu,
   ) {
-    Navigator.of(context).push<void>(
-      ReplicaPageRoute<void>(
-        builder: (_) => TranslationCredentialsPage(baidu: baidu),
-      ),
-    );
+    final provider = baidu ? 'baidu' : 'llm';
+    context.push<void>('/settings/translate/credentials/$provider');
   }
 }
