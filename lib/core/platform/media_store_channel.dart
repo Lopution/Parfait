@@ -7,7 +7,7 @@ import '../download/download_recovery.dart';
 /// (Pictures/PixivFunc). See
 /// .trellis/tasks/08-26-download-manager-mediastore/research/download-pipeline.md
 /// for the API-level behavior matrix.
-abstract final class MediaStoreMethods {
+abstract final class _MediaStoreMethods {
   static const channel = 'pixivfunc/mediastore';
   static const begin = 'begin';
   static const write = 'write';
@@ -27,7 +27,7 @@ class MethodChannelMediaStoreSession
         OwnedMediaStoreSession,
         RecoverableMediaStoreSession {
   const MethodChannelMediaStoreSession([
-    this._channel = const MethodChannel(MediaStoreMethods.channel),
+    this._channel = const MethodChannel(_MediaStoreMethods.channel),
   ]);
 
   final MethodChannel _channel;
@@ -38,14 +38,14 @@ class MethodChannelMediaStoreSession
     required String mimeType,
     String? relativePath,
   }) async {
-    final id = await _channel.invokeMethod<int>(MediaStoreMethods.begin, {
+    final id = await _channel.invokeMethod<int>(_MediaStoreMethods.begin, {
       'displayName': displayName,
       'mimeType': mimeType,
       if (relativePath != null && relativePath.isNotEmpty)
         'relativePath': relativePath,
     });
     if (id == null) {
-      throw const MediaStoreChannelException('begin returned null id');
+      throw const _MediaStoreChannelException('begin returned null id');
     }
     return _MethodChannelMediaStoreHandle(id, _channel);
   }
@@ -57,7 +57,7 @@ class MethodChannelMediaStoreSession
     required DownloadOutputOwner owner,
     String? relativePath,
   }) async {
-    final id = await _channel.invokeMethod<int>(MediaStoreMethods.begin, {
+    final id = await _channel.invokeMethod<int>(_MediaStoreMethods.begin, {
       'displayName': displayName,
       'mimeType': mimeType,
       'ownerId': owner.ownerId,
@@ -65,7 +65,7 @@ class MethodChannelMediaStoreSession
         'relativePath': relativePath,
     });
     if (id == null) {
-      throw const MediaStoreChannelException('begin returned null id');
+      throw const _MediaStoreChannelException('begin returned null id');
     }
     return _MethodChannelMediaStoreHandle(id, _channel);
   }
@@ -73,13 +73,13 @@ class MethodChannelMediaStoreSession
   @override
   Future<List<PendingMediaStoreItem>> listPending() async {
     final raw = await _channel.invokeMethod<List<Object?>>(
-      MediaStoreMethods.listPending,
+      _MediaStoreMethods.listPending,
     );
     if (raw == null) return const [];
     final pending = <PendingMediaStoreItem>[];
     for (final value in raw) {
       if (value is! Map) {
-        throw const MediaStoreChannelException('pending item is malformed');
+        throw const _MediaStoreChannelException('pending item is malformed');
       }
       final map = value.cast<Object?, Object?>();
       final id = map['id'];
@@ -88,7 +88,9 @@ class MethodChannelMediaStoreSession
       if (id is! int ||
           displayName is! String ||
           (ownerId != null && ownerId is! String)) {
-        throw const MediaStoreChannelException('pending item fields malformed');
+        throw const _MediaStoreChannelException(
+          'pending item fields malformed',
+        );
       }
       pending.add(
         PendingMediaStoreItem(
@@ -103,7 +105,7 @@ class MethodChannelMediaStoreSession
 
   @override
   Future<bool> abortPending(int id, {required String ownerId}) async {
-    return await _channel.invokeMethod<bool>(MediaStoreMethods.abortPending, {
+    return await _channel.invokeMethod<bool>(_MediaStoreMethods.abortPending, {
           'id': id,
           'ownerId': ownerId,
         }) ??
@@ -121,18 +123,18 @@ class _MethodChannelMediaStoreHandle implements MediaStoreHandle {
 
   @override
   Future<void> write(List<int> bytes) => _channel.invokeMethod<void>(
-    MediaStoreMethods.write,
+    _MediaStoreMethods.write,
     {'id': id, 'bytes': bytes},
   );
 
   @override
   Future<Uri> finalize() async {
     final uri = await _channel.invokeMethod<String>(
-      MediaStoreMethods.finalize,
+      _MediaStoreMethods.finalize,
       {'id': id},
     );
     if (uri == null || uri.isEmpty) {
-      throw const MediaStoreChannelException('finalize returned no uri');
+      throw const _MediaStoreChannelException('finalize returned no uri');
     }
     return Uri.parse(uri);
   }
@@ -140,7 +142,7 @@ class _MethodChannelMediaStoreHandle implements MediaStoreHandle {
   @override
   Future<void> abort() async {
     try {
-      await _channel.invokeMethod<void>(MediaStoreMethods.abort, {'id': id});
+      await _channel.invokeMethod<void>(_MediaStoreMethods.abort, {'id': id});
     } on PlatformException {
       // Cleanup must not mask the original failure (R6); pending rows for
       // dead processes are cleared by the OS itself.
@@ -148,8 +150,8 @@ class _MethodChannelMediaStoreHandle implements MediaStoreHandle {
   }
 }
 
-class MediaStoreChannelException implements Exception {
-  const MediaStoreChannelException(this.message);
+class _MediaStoreChannelException implements Exception {
+  const _MediaStoreChannelException(this.message);
 
   final String message;
 

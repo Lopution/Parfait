@@ -8,7 +8,7 @@
 /// - `<a href="...">text</a>` → 链接 span（href 原样保留，由调用方决定
 ///   路由：站内 pixiv 链接走内部路由，其余走 outbound open-url）
 /// - 任何其它标签被剥离但**保持可观察**：未知标签记录到
-///   [IllustCaptionParse.unobservedTags]，绝不静默吞掉
+///   [_IllustCaptionParse.unobservedTags]，绝不静默吞掉
 ///
 /// 输出与 Flutter 解耦（不依赖 dart:ui）以便离线单测；调用方自行把
 /// [CaptionSpan] 映射为 `TextSpan`。
@@ -26,8 +26,7 @@ class CaptionText extends CaptionSpan {
   final String text;
 
   @override
-  bool operator ==(Object other) =>
-      other is CaptionText && other.text == text;
+  bool operator ==(Object other) => other is CaptionText && other.text == text;
 
   @override
   int get hashCode => text.hashCode;
@@ -61,10 +60,7 @@ class CaptionLink extends CaptionSpan {
 
 /// Parse result: spans plus every tag the parser did not understand.
 class IllustCaptionParse {
-  const IllustCaptionParse({
-    required this.spans,
-    required this.unobservedTags,
-  });
+  const IllustCaptionParse({required this.spans, required this.unobservedTags});
 
   final List<CaptionSpan> spans;
 

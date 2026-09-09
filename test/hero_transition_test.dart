@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:pixiv_func/app/replica_page_route.dart';
-import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
+import 'package:pixiv_func/app/motion/replica_page_route.dart';
+import 'package:pixiv_func/app/motion/hero_transition.dart';
+import 'package:pixiv_func/app/motion/hero_rect_clip.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
   testWidgets('Hero pop onto a user page matches its own chrome', (
@@ -17,7 +19,10 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         navigatorKey: navigatorKey,
         home: const Scaffold(body: SizedBox.shrink()),
       ),
@@ -103,9 +108,7 @@ void main() {
     // profile route's app bar + pinned TabBar boundary. A static clip would
     // hard-cut the image as reported on device.
     expect(
-      find.byWidgetPredicate(
-        (widget) => widget.runtimeType.toString() == '_GlobalRectClip',
-      ),
+      find.byType(HeroRectClip),
       findsOneWidget,
     );
     expect(start.top, lessThan(mid.top));
@@ -130,7 +133,10 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         navigatorKey: navigatorKey,
         home: Scaffold(
           body: ListView(
@@ -187,9 +193,7 @@ void main() {
     // The bottom boundary retracts continuously toward the landing page's
     // 100px bottom navigation. It must not jump to the final clip at mid-flight.
     expect(
-      find.byWidgetPredicate(
-        (widget) => widget.runtimeType.toString() == '_GlobalRectClip',
-      ),
+      find.byType(HeroRectClip),
       findsOneWidget,
     );
     expect(start.bottom, greaterThan(mid.bottom));
@@ -214,7 +218,10 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         navigatorKey: navigatorKey,
         home: Scaffold(
           appBar: AppBar(title: const Text('Feed')),
@@ -278,9 +285,7 @@ void main() {
     // Both edges move toward the landing page's pinned-header and bottom-nav
     // boundaries. This is the regression case for a scrolled/nested profile.
     expect(
-      find.byWidgetPredicate(
-        (widget) => widget.runtimeType.toString() == '_GlobalRectClip',
-      ),
+      find.byType(HeroRectClip),
       findsOneWidget,
     );
     expect(start.top, lessThan(mid.top));
@@ -305,7 +310,10 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         navigatorKey: navigatorKey,
         home: Scaffold(
           body: NestedScrollView(
@@ -399,9 +407,7 @@ void main() {
     // source profile/feed chrome releases its clipped portion progressively,
     // then the detail chrome becomes the active boundary.
     expect(
-      find.byWidgetPredicate(
-        (widget) => widget.runtimeType.toString() == '_GlobalRectClip',
-      ),
+      find.byType(HeroRectClip),
       findsOneWidget,
     );
     expect(early.top, greaterThan(mid.top));
@@ -413,18 +419,14 @@ void main() {
 
 Rect _heroClipRect(WidgetTester tester) {
   final clip = tester.widget<Widget>(
-    find.byWidgetPredicate(
-      (widget) => widget.runtimeType.toString() == '_GlobalRectClip',
-    ),
+    find.byType(HeroRectClip),
   );
   return (clip as dynamic).globalRect as Rect;
 }
 
 Rect? _heroPaintClipRect(WidgetTester tester) {
   final render = tester.renderObject(
-    find.byWidgetPredicate(
-      (widget) => widget.runtimeType.toString() == '_GlobalRectClip',
-    ),
+    find.byType(HeroRectClip),
   );
   return (render as dynamic).debugLastPaintClipRect as Rect?;
 }

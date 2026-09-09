@@ -7,6 +7,8 @@ import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/preference_keys.dart';
+
 import '../download/download_manager.dart';
 import '../download/download_request.dart';
 import '../download/download_sink.dart';
@@ -158,9 +160,9 @@ class MemoryUpdateDownloadStateStore implements UpdateDownloadStateStore {
 
 class PreferencesUpdateDownloadStateStore implements UpdateDownloadStateStore {
   PreferencesUpdateDownloadStateStore({
-    SharedPreferencesAsync? preferences,
-    this.storageKey = 'pixivfunc.update.download.v1',
-  }) : _preferences = preferences ?? SharedPreferencesAsync();
+    required SharedPreferencesAsync preferences,
+    this.storageKey = PreferenceKeys.updateDownload,
+  }) : _preferences = preferences;
 
   final SharedPreferencesAsync _preferences;
   final String storageKey;

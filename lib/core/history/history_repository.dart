@@ -14,8 +14,8 @@ abstract interface class PixivHistoryRemote {
   Future<void> addIllust(int illustId);
 }
 
-class PixivApiHistoryRemote implements PixivHistoryRemote {
-  PixivApiHistoryRemote(this._client);
+class _PixivApiHistoryRemote implements PixivHistoryRemote {
+  _PixivApiHistoryRemote(this._client);
 
   final PixivHttpClient _client;
 
@@ -379,18 +379,18 @@ class HistoryRepository {
   ];
 }
 
-final historyDatabaseProvider = Provider<HistoryDatabase>((ref) {
+final _historyDatabaseProvider = Provider<HistoryDatabase>((ref) {
   final database = HistoryDatabase();
   ref.onDispose(() => unawaited(database.close()));
   return database;
 });
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  return HistoryRepository(database: ref.watch(historyDatabaseProvider));
+  return HistoryRepository(database: ref.watch(_historyDatabaseProvider));
 });
 
 final pixivHistoryRemoteProvider = Provider<PixivHistoryRemote>((ref) {
-  return PixivApiHistoryRemote(ref.watch(pixivHttpClientProvider));
+  return _PixivApiHistoryRemote(ref.watch(pixivHttpClientProvider));
 });
 
 final historyAccountIdProvider = Provider<String?>((ref) {

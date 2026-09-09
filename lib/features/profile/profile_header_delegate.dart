@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
-import '../../core/i18n/replica_strings.dart';
+import '../../app/theme/func_tokens.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
-import 'follow_switch_button.dart';
+import '../../app/widgets/follow_switch_button.dart';
+import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
 @immutable
@@ -267,10 +269,7 @@ class _ExpandedProfile extends StatelessWidget {
   final VoidCallback? onEditProfile;
 
   String _profileText(BuildContext context, String key) =>
-      ReplicaStrings.fromTag(
-        Localizations.localeOf(context).toLanguageTag(),
-        key,
-      );
+      l10nLookup(context.l10n, key);
 
   @override
   Widget build(BuildContext context) {
@@ -336,8 +335,8 @@ class _ProfileBackground extends StatelessWidget {
       return ColoredBox(color: colors.surface);
     }
     if (!withScrim) {
-      return PixivImage(
-        url: user.backgroundImageUrl!,
+      return PixivImage.detail(
+        user.backgroundImageUrl!,
         fit: BoxFit.cover,
         // Background images have widely varying aspect ratios; anchoring to
         // the top keeps the main subject visible when the header crops the
@@ -348,8 +347,8 @@ class _ProfileBackground extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        PixivImage(
-          url: user.backgroundImageUrl!,
+        PixivImage.detail(
+          user.backgroundImageUrl!,
           fit: BoxFit.cover,
           alignment: Alignment.topCenter,
         ),
@@ -363,7 +362,7 @@ class _ProfileBackground extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 stops: const [0.45, 1],
                 colors: [
-                  Colors.transparent,
+                  FuncTokens.transparent,
                   colors.surface.withValues(alpha: 0.94),
                 ],
               ),
@@ -420,7 +419,7 @@ class _ExpandedProfileDetails extends StatelessWidget {
                 right: 0,
                 top: 0,
                 child: IconButton(
-                  tooltip: profileText(context, 'profileShare'),
+                  tooltip: context.l10n.profileShare,
                   onPressed: onShare,
                   icon: const Icon(Icons.share_outlined),
                 ),
@@ -447,7 +446,7 @@ class _ExpandedProfileDetails extends StatelessWidget {
             children: [
               if (onEditProfile != null)
                 IconButton(
-                  tooltip: profileText(context, 'profileEditTitle'),
+                  tooltip: context.l10n.profileEditTitle,
                   onPressed: onEditProfile,
                   icon: const Icon(Icons.edit_outlined),
                 ),
@@ -485,10 +484,8 @@ class _CollapsedProfile extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback? onEditProfile;
 
-  String _text(BuildContext context, String key) => ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  String _text(BuildContext context, String key) =>
+      l10nLookup(context.l10n, key);
 
   @override
   Widget build(BuildContext context) {
@@ -630,10 +627,8 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
 
   bool get _isWorkTab => isMe ? controller.index == 4 : controller.index == 0;
 
-  String _text(BuildContext context, String key) => ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  String _text(BuildContext context, String key) =>
+      l10nLookup(context.l10n, key);
 
   @override
   Widget build(

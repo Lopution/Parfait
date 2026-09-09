@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/comments/comment_assets.dart';
-import '../../core/i18n/replica_strings.dart';
+import '../../l10n/lookup.dart';
+import '../../l10n/context.dart';
 
 /// Renders beta56 `(emoji_name)` markers inline while leaving unknown markers
 /// as ordinary text. Raw comment content remains the source of truth.
@@ -46,7 +47,4 @@ class CommentText extends StatelessWidget {
   }
 }
 
-String commentText(BuildContext context, String key) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-);
+String commentText(BuildContext context, String key) => l10nLookup(context.l10n, key);

@@ -59,9 +59,9 @@ class PersonAvatar extends StatelessWidget {
             : SizedBox(
                 width: radius * 2,
                 height: radius * 2,
-                child: PixivImage(
-                  url: imageUrl!,
-                  fit: BoxFit.cover,
+                child: PixivImage.avatar(
+                  imageUrl!,
+                  size: radius * 2,
                   placeholderWidget: neutral(context),
                 ),
               ),

@@ -1,31 +1,28 @@
 import 'package:flutter/material.dart';
+
+import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
-import '../../../app/widgets/replica_empty_state.dart';
-import '../../../app/replica_page_route.dart';
+import '../../../app/navigation/routes.dart';
 import '../../../core/entity/illust_store.dart';
-import '../../../core/i18n/replica_strings.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/novel/novel_entity.dart';
 import '../../../core/novel/novel_store.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/user/user_entity.dart';
 import '../../../core/user/user_store.dart';
-import '../../../features/novel/novel_page.dart';
-import '../../../features/profile/user_page.dart';
-import 'recommended_feed_controller.dart';
-import 'recommended_illust_page.dart';
-import 'recommended_repository.dart';
+import '../../../core/illust/recommended_feed_controller.dart';
+import '../../../app/widgets/feed/feed_states.dart';
+import '../../../app/widgets/feed/illust_card.dart';
+import '../../../core/illust/recommended_repository.dart';
+import '../../../l10n/context.dart';
+import '../../../l10n/lookup.dart';
 
 String _recommendedText(BuildContext context, String key) {
-  return ReplicaStrings.fromTag(
-    Localizations.localeOf(context).toLanguageTag(),
-    key,
-  );
+  return l10nLookup(context.l10n, key);
 }
 
 /// Home recommended tab with the beta56 content selector:
@@ -98,7 +95,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           for (final type in _loaded)
             Offstage(
               offstage: type != _type,
-              child: RecommendedFeedView(key: ValueKey(type), type: type),
+              child: _RecommendedFeedView(key: ValueKey(type), type: type),
             ),
         ],
       ),
@@ -148,8 +145,8 @@ class _RecommendedTypeSelector extends StatelessWidget {
 
 /// One keyed recommended feed body. Watches [recommendedFeedProvider] and
 /// renders the right card shape for the type.
-class RecommendedFeedView extends ConsumerWidget {
-  const RecommendedFeedView({super.key, required this.type});
+class _RecommendedFeedView extends ConsumerWidget {
+  const _RecommendedFeedView({super.key, required this.type});
 
   final RecommendedContentType type;
 
@@ -160,14 +157,18 @@ class RecommendedFeedView extends ConsumerWidget {
 
     return feedAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _RecommendedError(
+      error: (error, _) => FeedError(
+        title: context.l10n.recommendedLoadFailed,
         error: error,
+        retryLabel: context.l10n.retry,
         onRetry: () => ref.invalidate(recommendedFeedProvider(key)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _RecommendedError(
+          return FeedError(
+            title: context.l10n.recommendedLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: context.l10n.retry,
             onRetry: () =>
                 ref.read(recommendedFeedProvider(key).notifier).retryInitial(),
           );
@@ -176,8 +177,8 @@ class RecommendedFeedView extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (feed.isEmptyAndReady) {
-          return _RecommendedEmptyFeed(
-            message: _recommendedText(context, 'recommendedEmpty'),
+          return FeedEmpty(
+            title: context.l10n.recommendedEmpty,
             onRefresh: () =>
                 ref.read(recommendedFeedProvider(key).notifier).refresh(),
           );
@@ -220,9 +221,20 @@ class _RecommendedFeedBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tail = <Widget>[
       if (feed.refreshPhase == FeedPhase.error)
-        SliverToBoxAdapter(child: _TailError(onRetry: onRetryRefresh)),
+        SliverToBoxAdapter(
+          child: FeedTail(
+            feed: feed.copyWith(loadMorePhase: FeedPhase.error),
+            onRetry: onRetryRefresh,
+            retryLabel: context.l10n.retry,
+          ),
+        ),
       SliverToBoxAdapter(
-        child: _FeedTail(feed: feed, onRetry: onRetryLoadMore),
+        child: FeedTail(
+          feed: feed,
+          onRetry: onRetryLoadMore,
+          endMessage: context.l10n.recommendedEnd,
+          retryLabel: context.l10n.retry,
+        ),
       ),
     ];
 
@@ -259,17 +271,14 @@ class _RecommendedFeedBody extends ConsumerWidget {
     final store = ref.watch(illustStoreProvider);
     final entities = store.getAll(feed.ids);
     return [
-      SliverPadding(
+      IllustFeedGrid(
         padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-        sliver: SliverMasonryGrid.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 5,
-          crossAxisSpacing: 10,
-          itemBuilder: (context, index) => IllustCard(
-            entity: entities[index],
-            heroScope: 'recommended:${type.name}',
-          ),
-          childCount: entities.length,
+        mainAxisSpacing: 5,
+        crossAxisSpacing: 10,
+        itemCount: entities.length,
+        itemBuilder: (context, index) => IllustCard(
+          entity: entities[index],
+          heroScope: 'recommended:${type.name}',
         ),
       ),
       ...tail,
@@ -291,7 +300,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 8),
         sliver: SliverList.builder(
           itemCount: novels.length,
-          itemBuilder: (context, index) => _NovelRowCard(entity: novels[index]),
+          itemBuilder: (context, index) => _NovelRow(entity: novels[index]),
         ),
       ),
       ...tail,
@@ -313,7 +322,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 8),
         sliver: SliverList.builder(
           itemCount: users.length,
-          itemBuilder: (context, index) => _UserRowCard(entity: users[index]),
+          itemBuilder: (context, index) => _UserRow(entity: users[index]),
         ),
       ),
       ...tail,
@@ -321,24 +330,8 @@ class _RecommendedFeedBody extends ConsumerWidget {
   }
 }
 
-class _RecommendedEmptyFeed extends StatelessWidget {
-  const _RecommendedEmptyFeed({required this.message, required this.onRefresh});
-
-  final String message;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return ReplicaEmptyState(
-      message: message,
-      retryLabel: _recommendedText(context, 'retry'),
-      onRetry: onRefresh,
-    );
-  }
-}
-
-class _NovelRowCard extends StatelessWidget {
-  const _NovelRowCard({required this.entity});
+class _NovelRow extends StatelessWidget {
+  const _NovelRow({required this.entity});
 
   final NovelEntity entity;
 
@@ -347,7 +340,7 @@ class _NovelRowCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: InkWell(
-        onTap: () => showNovelPage(context, entity.id),
+        onTap: () => openNovel(context, entity.id),
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.all(10),
@@ -375,7 +368,7 @@ class _NovelRowCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${entity.textLength} ${_recommendedText(context, 'novelWords')}',
+                      '${entity.textLength} ${context.l10n.novelWords}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -411,8 +404,9 @@ class _NovelCover extends StatelessWidget {
       child: SizedBox(
         width: 56,
         height: 72,
-        child: PixivImage(
-          url: url,
+        child: PixivImage.feed(
+          url,
+          layoutWidth: 56,
           fit: BoxFit.cover,
           placeholderColor: Theme.of(
             context,
@@ -423,8 +417,8 @@ class _NovelCover extends StatelessWidget {
   }
 }
 
-class _UserRowCard extends StatelessWidget {
-  const _UserRowCard({required this.entity});
+class _UserRow extends StatelessWidget {
+  const _UserRow({required this.entity});
 
   final UserEntity entity;
 
@@ -433,9 +427,7 @@ class _UserRowCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: InkWell(
-        onTap: () => Navigator.of(context).push<void>(
-          ReplicaPageRoute<void>(builder: (_) => UserPage(userId: entity.id)),
-        ),
+        onTap: () => openUser(context, entity.id),
         borderRadius: BorderRadius.circular(4),
         child: Padding(
           padding: const EdgeInsets.all(10),
@@ -466,93 +458,6 @@ class _UserRowCard extends StatelessWidget {
               const Icon(Icons.chevron_right),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FeedTail extends StatelessWidget {
-  const _FeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 12, bottom: 24),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return _TailError(onRetry: onRetry);
-    }
-    if (feed.exhausted && feed.ids.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 12, bottom: 24),
-        child: Center(
-          child: Text(
-            _recommendedText(context, 'recommendedEnd'),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-      );
-    }
-    return const SizedBox(height: 24);
-  }
-}
-
-class _TailError extends StatelessWidget {
-  const _TailError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Center(
-        child: OutlinedButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
-          label: Text(_recommendedText(context, 'retry')),
-        ),
-      ),
-    );
-  }
-}
-
-class _RecommendedError extends StatelessWidget {
-  const _RecommendedError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(_recommendedText(context, 'recommendedLoadFailed')),
-            const SizedBox(height: 8),
-            Text(
-              '$error',
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_recommendedText(context, 'retry')),
-            ),
-          ],
         ),
       ),
     );

@@ -29,7 +29,7 @@ abstract class RawHop {
   void abort();
 }
 
-abstract interface class RawHopHeaders {
+abstract interface class _RawHopHeaders {
   Map<String, String> get headers;
 }
 
@@ -118,7 +118,7 @@ class HttpDownloadTransport
           retryAfter: _retryAfter(hopResponse),
         );
       }
-      return HopDownloadResponse(hopResponse, cancelToken: cancelToken);
+      return _HopDownloadResponse(hopResponse, cancelToken: cancelToken);
     }
     throw const DownloadTransportException('unreachable redirect loop');
   }
@@ -210,7 +210,7 @@ class HttpDownloadTransport
   }
 }
 
-class _HttpHop implements RawHop, RawHopHeaders {
+class _HttpHop implements RawHop, _RawHopHeaders {
   _HttpHop(
     this._response, {
     required int? contentLength,
@@ -258,9 +258,9 @@ class _HttpHop implements RawHop, RawHopHeaders {
 /// DownloadResponse over a RawHop with cancel injection: whenCancel produces
 /// an error event so consumers always terminate, even when the platform
 /// keeps the idle socket open.
-class HopDownloadResponse
+class _HopDownloadResponse
     implements DownloadResponse, DownloadResponseMetadata {
-  HopDownloadResponse(this._hop, {required DownloadCancelToken cancelToken})
+  _HopDownloadResponse(this._hop, {required DownloadCancelToken cancelToken})
     : _cancelToken = cancelToken {
     unawaited(
       _cancelToken.whenCancel.then((_) {
@@ -286,7 +286,7 @@ class HopDownloadResponse
 
   @override
   Map<String, String> get headers =>
-      _hop is RawHopHeaders ? (_hop as RawHopHeaders).headers : const {};
+      _hop is _RawHopHeaders ? (_hop as _RawHopHeaders).headers : const {};
 
   @override
   Stream<List<int>> get stream {
@@ -420,9 +420,9 @@ class DownloadHttpStatusException implements Exception {
 }
 
 Duration? _retryAfter(RawHop hop) {
-  if (hop is! RawHopHeaders) return null;
+  if (hop is! _RawHopHeaders) return null;
   String? value;
-  final headers = (hop as RawHopHeaders).headers;
+  final headers = (hop as _RawHopHeaders).headers;
   for (final entry in headers.entries) {
     if (entry.key.toLowerCase() == 'retry-after') {
       value = entry.value.trim();

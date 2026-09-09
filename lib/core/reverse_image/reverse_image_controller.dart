@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:flutter/foundation.dart';
 
 import '../network/pixiv_http_client.dart';
@@ -61,23 +63,47 @@ class ReverseImageFlowState {
 
 /// Coordinates picker/SEND preparation and provider execution. The controller
 /// owns one temporary file and releases it on every terminal path.
-class ReverseImageSearchController extends ChangeNotifier {
-  ReverseImageSearchController({
+/// Per-session dependencies of the reverse-image flow (C7a).
+class ReverseImageSearchSession {
+  ReverseImageSearchSession({
     required this.platform,
     required this.provider,
   });
 
   final ReverseImageInputPlatform platform;
   final ReverseImageProvider provider;
+}
 
-  ReverseImageFlowState _state = const ReverseImageFlowState.idle();
+/// Riverpod handle for the reverse-image flow.
+final reverseImageSearchControllerProvider =
+    NotifierProvider.autoDispose.family<
+      ReverseImageSearchController,
+      ReverseImageFlowState,
+      ReverseImageSearchSession
+    >(ReverseImageSearchController.new);
+
+class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
+  ReverseImageSearchController(this.session);
+
+  final ReverseImageSearchSession session;
+
+  ReverseImageInputPlatform get platform => session.platform;
+  ReverseImageProvider get provider => session.provider;
+
   OwnedReverseImageInput? _input;
   CancelToken? _cancelToken;
   int _generation = 0;
   bool _closed = false;
 
-  ReverseImageFlowState get state => _state;
   ReverseImageProviderCapability get capability => provider.capability;
+
+  @override
+  ReverseImageFlowState build() {
+    ref.onDispose(() {
+      unawaited(close());
+    });
+    return const ReverseImageFlowState.idle();
+  }
 
   Future<void> pick() async {
     if (_closed) return;
@@ -168,7 +194,7 @@ class ReverseImageSearchController extends ChangeNotifier {
   Future<void> search() async {
     if (_closed ||
         _input == null ||
-        _state.status != ReverseImageFlowStatus.ready) {
+        state.status != ReverseImageFlowStatus.ready) {
       return;
     }
     final generation = _generation;
@@ -283,11 +309,6 @@ class ReverseImageSearchController extends ChangeNotifier {
     await _releaseInput();
   }
 
-  @override
-  void dispose() {
-    unawaited(close());
-    super.dispose();
-  }
 
   void _validateReference(ReverseImageInputReference reference) {
     final uri = Uri.tryParse(reference.contentUri);
@@ -354,7 +375,6 @@ class ReverseImageSearchController extends ChangeNotifier {
   }
 
   void _setFailure(ReverseImageFlowFailure failure) {
-    if (_closed) return;
     _setState(
       ReverseImageFlowState(
         status: ReverseImageFlowStatus.failure,
@@ -365,8 +385,7 @@ class ReverseImageSearchController extends ChangeNotifier {
 
   void _setState(ReverseImageFlowState value) {
     if (_closed) return;
-    _state = value;
-    notifyListeners();
+    state = value;
   }
 
   static String _nowIso() => DateTime.now().toIso8601String();

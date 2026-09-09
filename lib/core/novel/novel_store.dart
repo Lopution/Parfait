@@ -5,7 +5,7 @@ import 'novel_entity.dart';
 
 /// Account-scoped canonical Novel entity map. Feeds keep ordered IDs and
 /// detail pages read the same entity, just like the existing IllustStore.
-class NovelStore extends Notifier<Map<int, NovelEntity>> {
+class _NovelStore extends Notifier<Map<int, NovelEntity>> {
   @override
   Map<int, NovelEntity> build() {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
@@ -48,6 +48,6 @@ class NovelStore extends Notifier<Map<int, NovelEntity>> {
   void clear() => state = {};
 }
 
-final novelStoreProvider = NotifierProvider<NovelStore, Map<int, NovelEntity>>(
-  NovelStore.new,
+final novelStoreProvider = NotifierProvider<_NovelStore, Map<int, NovelEntity>>(
+  _NovelStore.new,
 );

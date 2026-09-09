@@ -2,7 +2,6 @@
 // global Y of its TabBar so the "third page sits lower" report can be
 // attributed to code, not to eyeballing screenshots.
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -12,6 +11,7 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeNewFeedRepository implements NewFeedRepository {
   @override
@@ -53,10 +53,10 @@ void main() {
                 _FakeNewFeedRepository(),
               ),
             ],
-            child: MaterialApp(
-              locale: const Locale('zh', 'CN'),
-              supportedLocales: const [Locale('zh', 'CN')],
-              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
               home: child,
             ),
           );

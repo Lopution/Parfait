@@ -1,29 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:easy_refresh/easy_refresh.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/icons/app_icons.dart';
-import '../../app/person_avatar.dart';
-import '../../app/pull_to_refresh.dart';
-import '../../app/replica_page_route.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/entity/illust_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/network/api_error.dart';
-import '../../core/novel/novel_feed_controller.dart';
-import '../../core/novel/novel_store.dart';
-import '../../core/paging/paged_feed_controller.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
-import '../../core/user/user_store.dart';
-import '../home/recommended/recommended_illust_page.dart';
-import '../novel/novel_page.dart';
-import 'follow_switch_button.dart';
-import 'profile_feed_controller.dart';
+import 'profile_illust_feed.dart';
+import 'profile_novel_feed.dart';
+import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
-import 'profile_models.dart';
-import 'user_detail_controller.dart';
+import '../../core/profile/profile_models.dart';
+import '../../core/user/user_detail_controller.dart';
+import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
@@ -58,7 +48,7 @@ class MePage extends ConsumerWidget {
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, _) => _ProfileStatusPage(
         icon: Icons.cloud_off,
-        title: _profileText(context, 'profileLoadFailed'),
+        title: context.l10n.profileLoadFailed,
         detail: '$error',
         onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
       ),
@@ -66,7 +56,7 @@ class MePage extends ConsumerWidget {
         if (state.status == AccountStatus.failure) {
           return _ProfileStatusPage(
             icon: Icons.cloud_off,
-            title: _profileText(context, 'accountReadFailed'),
+            title: context.l10n.accountReadFailed,
             detail: '${state.error ?? 'unknown account error'}',
             onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
           );
@@ -75,8 +65,8 @@ class MePage extends ConsumerWidget {
         if (account == null) {
           return _ProfileStatusPage(
             icon: Icons.person_off_outlined,
-            title: _profileText(context, 'signedOut'),
-            detail: _profileText(context, 'noAccounts'),
+            title: context.l10n.signedOut,
+            detail: context.l10n.noAccounts,
           );
         }
         return UserPage._me(
@@ -88,32 +78,7 @@ class MePage extends ConsumerWidget {
   }
 }
 
-/// Opens a typed user route using the same right-in navigation rhythm as
-/// detail/ranking pages.
-void showUserPage(BuildContext context, int userId) {
-  if (userId <= 0) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(_profileText(context, 'profileNotFound'))),
-    );
-    return;
-  }
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(builder: (_) => UserPage(userId: userId)),
-  );
-}
-
-void showMePage(BuildContext context, {VoidCallback? onEditProfile}) {
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(
-      builder: (_) => MePage(onEditProfile: onEditProfile),
-    ),
-  );
-}
-
-String _profileText(BuildContext context, String key) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-);
+String _profileText(BuildContext context, String key) => l10nLookup(context.l10n, key);
 
 class _UserPageState extends ConsumerState<UserPage>
     with SingleTickerProviderStateMixin {
@@ -237,11 +202,11 @@ class _UserPageState extends ConsumerState<UserPage>
       body: async.when(
         loading: () => _ProfileStatusPage(
           icon: Icons.person_search_outlined,
-          title: _profileText(context, 'profileLoading'),
+          title: context.l10n.profileLoading,
         ),
         error: (error, _) => _ProfileStatusPage(
           icon: Icons.cloud_off,
-          title: _profileText(context, 'profileLoadFailed'),
+          title: context.l10n.profileLoadFailed,
           detail: '$error',
           onRetry: () => ref
               .read(userDetailControllerProvider(widget.userId).notifier)
@@ -256,22 +221,22 @@ class _UserPageState extends ConsumerState<UserPage>
     return switch (state) {
       UserDetailLoading() => _ProfileStatusPage(
         icon: Icons.person_search_outlined,
-        title: _profileText(context, 'profileLoading'),
+        title: context.l10n.profileLoading,
       ),
       UserDetailNotFound() => _ProfileStatusPage(
         icon: Icons.person_off_outlined,
-        title: _profileText(context, 'profileNotFound'),
+        title: context.l10n.profileNotFound,
       ),
       UserDetailBlocked() => _ProfileStatusPage(
         icon: Icons.block_outlined,
-        title: _profileText(context, 'profileBlocked'),
+        title: context.l10n.profileBlocked,
       ),
       UserDetailReady(:final user) => _buildProfile(user),
       UserDetailError(:final error, :final snapshot) when snapshot != null =>
         _buildProfile(snapshot, staleError: error),
       UserDetailError(:final error) => _ProfileStatusPage(
         icon: Icons.cloud_off,
-        title: _profileText(context, 'profileLoadFailed'),
+        title: context.l10n.profileLoadFailed,
         detail: '$error',
         onRetry: () => ref
             .read(userDetailControllerProvider(widget.userId).notifier)
@@ -288,14 +253,14 @@ class _UserPageState extends ConsumerState<UserPage>
         if (staleError != null)
           MaterialBanner(
             content: Text(
-              '${_profileText(context, 'profileLoadFailed')}: $staleError',
+              '${context.l10n.profileLoadFailed}: $staleError',
             ),
             actions: [
               TextButton(
                 onPressed: () => ref
                     .read(userDetailControllerProvider(widget.userId).notifier)
                     .reload(),
-                child: Text(_profileText(context, 'profileRetry')),
+                child: Text(context.l10n.profileRetry),
               ),
             ],
           ),
@@ -385,208 +350,14 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
       // TabController.indexIsChanging is false during a drag gesture. Keep
       // the page mounted for both tap and swipe transitions so the destination
       // never becomes a zero-size blank child mid-flight.
-      return _ProfileNovelFeed(userId: feedKey.userId);
+      return ProfileNovelFeed(userId: feedKey.userId);
     }
     if (feedKey.kind == ProfileFeedKind.following ||
         feedKey.kind == ProfileFeedKind.fans ||
         feedKey.kind == ProfileFeedKind.myPixiv) {
-      return _ProfileUserFeed(feedKey: feedKey);
+      return ProfileUserFeed(feedKey: feedKey);
     }
-    return _ProfileIllustFeed(feedKey: feedKey);
-  }
-}
-
-class _ProfileIllustFeed extends ConsumerWidget {
-  const _ProfileIllustFeed({required this.feedKey});
-
-  final ProfileFeedKey feedKey;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(profileIllustFeedProvider(feedKey));
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _ProfileFeedError(
-        error: error,
-        onRetry: () => ref
-            .read(profileIllustFeedProvider(feedKey).notifier)
-            .retryInitial(),
-      ),
-      data: (feed) {
-        if (feed.showInitialError) {
-          return _ProfileFeedError(
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            onRetry: () => ref
-                .read(profileIllustFeedProvider(feedKey).notifier)
-                .retryInitial(),
-          );
-        }
-        if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final store = ref.watch(illustStoreProvider);
-        final entities = store.getAll(feed.ids);
-        return PullToRefresh(
-          isNested: true,
-          onRefresh: () =>
-              ref.read(profileIllustFeedProvider(feedKey).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
-                ref
-                    .read(profileIllustFeedProvider(feedKey).notifier)
-                    .loadMore();
-              }
-              return false;
-            },
-            child: CustomScrollView(
-              key: PageStorageKey(feedKey),
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                const HeaderLocator.sliver(),
-                if (entities.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _ProfileEmpty(
-                      onRetry: () => ref
-                          .read(profileIllustFeedProvider(feedKey).notifier)
-                          .refresh(),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.all(10),
-                    sliver: SliverMasonryGrid.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 5,
-                      crossAxisSpacing: 10,
-                      itemBuilder: (context, index) => IllustCard(
-                        entity: entities[index],
-                        heroScope:
-                            'profile:${feedKey.userId}:${feedKey.kind.name}:'
-                            '${feedKey.workType.name}:${feedKey.restrict.name}',
-                      ),
-                      childCount: entities.length,
-                    ),
-                  ),
-                SliverToBoxAdapter(
-                  child: _ProfileFeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(profileIllustFeedProvider(feedKey).notifier)
-                        .retryLoadMore(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ProfileUserFeed extends ConsumerWidget {
-  const _ProfileUserFeed({required this.feedKey});
-
-  final ProfileFeedKey feedKey;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(profileUserFeedProvider(feedKey));
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _ProfileFeedError(
-        error: error,
-        onRetry: () =>
-            ref.read(profileUserFeedProvider(feedKey).notifier).retryInitial(),
-      ),
-      data: (feed) {
-        if (feed.showInitialError) {
-          return _ProfileFeedError(
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            onRetry: () => ref
-                .read(profileUserFeedProvider(feedKey).notifier)
-                .retryInitial(),
-          );
-        }
-        if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final storedUsers = ref.watch(userStoreProvider);
-        final users = [
-          for (final id in feed.ids)
-            if (storedUsers[id] != null) storedUsers[id]!,
-        ];
-        return PullToRefresh(
-          isNested: true,
-          onRefresh: () =>
-              ref.read(profileUserFeedProvider(feedKey).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
-                ref.read(profileUserFeedProvider(feedKey).notifier).loadMore();
-              }
-              return false;
-            },
-            child: ListView.builder(
-              key: PageStorageKey(feedKey),
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: (users.isEmpty ? 1 : users.length + 1) + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) return const HeaderLocator();
-                final itemIndex = index - 1;
-                if (users.isEmpty) {
-                  return _ProfileEmpty(
-                    onRetry: () => ref
-                        .read(profileUserFeedProvider(feedKey).notifier)
-                        .refresh(),
-                  );
-                }
-                if (itemIndex == users.length) {
-                  return _ProfileFeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(profileUserFeedProvider(feedKey).notifier)
-                        .retryLoadMore(),
-                  );
-                }
-                return _UserPreviewCard(user: users[itemIndex]);
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _UserPreviewCard extends StatelessWidget {
-  const _UserPreviewCard({required this.user});
-
-  final UserEntity user;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        onTap: () => showUserPage(context, user.id),
-        leading: _ProfileAvatar(user: user, radius: 26),
-        title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: user.account.isEmpty ? null : Text('@${user.account}'),
-        trailing: FollowSwitchButton(
-          userId: user.id,
-          userName: user.name,
-          userAccount: user.account,
-          compact: true,
-        ),
-      ),
-    );
+    return ProfileIllustFeed(feedKey: feedKey);
   }
 }
 
@@ -598,16 +369,16 @@ class _ProfileAbout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = <({String label, String value})>[
-      (label: _profileText(context, 'profileId'), value: '${user.id}'),
+      (label: context.l10n.profileId, value: '${user.id}'),
       if (user.account.isNotEmpty)
-        (label: _profileText(context, 'profileAccount'), value: user.account),
+        (label: context.l10n.profileAccount, value: user.account),
       if (user.comment != null)
         (
-          label: _profileText(context, 'profileIntroduction'),
+          label: context.l10n.profileIntroduction,
           value: user.comment!,
         ),
       if (user.webpage != null)
-        (label: _profileText(context, 'profileWebsite'), value: user.webpage!),
+        (label: context.l10n.profileWebsite, value: user.webpage!),
       if (user.twitterUrl != null) (label: 'Twitter', value: user.twitterUrl!),
       if (user.pawooUrl != null) (label: 'Pawoo', value: user.pawooUrl!),
     ];
@@ -632,112 +403,36 @@ class _ProfileAbout extends StatelessWidget {
           ),
         const Divider(),
         Text(
-          _profileText(context, 'profileStats'),
+          context.l10n.profileStats,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         _ProfileStatRow(
           icon: AppIcons.follow,
-          label: _profileText(context, 'profileFollowing'),
+          label: context.l10n.profileFollowing,
           value: user.totalFollowUsers,
         ),
         _ProfileStatRow(
           icon: AppIcons.friend,
-          label: _profileText(context, 'profileMyPixiv'),
+          label: context.l10n.profileMyPixiv,
           value: user.totalMyPixivUsers,
         ),
         _ProfileStatRow(
           icon: Icons.palette_outlined,
-          label: _profileText(context, 'profileIllust'),
+          label: context.l10n.profileIllust,
           value: user.totalIllusts,
         ),
         _ProfileStatRow(
           icon: Icons.menu_book_outlined,
-          label: _profileText(context, 'profileManga'),
+          label: context.l10n.profileManga,
           value: user.totalManga,
         ),
         _ProfileStatRow(
           icon: Icons.auto_stories_outlined,
-          label: _profileText(context, 'profileNovel'),
+          label: context.l10n.profileNovel,
           value: user.totalNovels,
         ),
       ],
-    );
-  }
-}
-
-class _ProfileNovelFeed extends ConsumerWidget {
-  const _ProfileNovelFeed({required this.userId});
-
-  final int userId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(userNovelFeedProvider(userId));
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _ProfileFeedError(
-        error: error,
-        onRetry: () =>
-            ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
-      ),
-      data: (feed) {
-        if (feed.showInitialError) {
-          return _ProfileFeedError(
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            onRetry: () =>
-                ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
-          );
-        }
-        if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final storedNovels = ref.watch(novelStoreProvider);
-        final novels = [
-          for (final id in feed.ids)
-            if (storedNovels[id] != null) storedNovels[id]!,
-        ];
-        return PullToRefresh(
-          isNested: true,
-          onRefresh: () =>
-              ref.read(userNovelFeedProvider(userId).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
-                ref.read(userNovelFeedProvider(userId).notifier).loadMore();
-              }
-              return false;
-            },
-            child: ListView.builder(
-              key: PageStorageKey('profile-novel-$userId'),
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: (novels.isEmpty ? 1 : novels.length + 1) + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) return const HeaderLocator();
-                final itemIndex = index - 1;
-                if (novels.isEmpty) {
-                  return _ProfileEmpty(
-                    onRetry: () => ref
-                        .read(userNovelFeedProvider(userId).notifier)
-                        .refresh(),
-                  );
-                }
-                if (itemIndex == novels.length) {
-                  return _ProfileFeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(userNovelFeedProvider(userId).notifier)
-                        .retryLoadMore(),
-                  );
-                }
-                return NovelCard(entity: novels[itemIndex]);
-              },
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -760,122 +455,6 @@ class _ProfileStatRow extends StatelessWidget {
       leading: Icon(icon, size: 18),
       title: Text(label),
       trailing: Text('$value'),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.user, required this.radius});
-
-  final UserEntity user;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return PersonAvatar(
-      imageUrl: user.profileImageUrl,
-      radius: radius,
-      ring: true,
-    );
-  }
-}
-
-class _ProfileFeedTail extends StatelessWidget {
-  const _ProfileFeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.all(18),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_profileText(context, 'profileLoadMoreFailed')),
-            TextButton(
-              onPressed: onRetry,
-              child: Text(_profileText(context, 'profileRetry')),
-            ),
-          ],
-        ),
-      );
-    }
-    return const SizedBox(height: 24);
-  }
-}
-
-class _ProfileEmpty extends StatelessWidget {
-  const _ProfileEmpty({required this.onRetry});
-
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 240,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 42,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _profileText(context, 'profileItemsEmpty'),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: Text(_profileText(context, 'profileRetry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileFeedError extends StatelessWidget {
-  const _ProfileFeedError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 42),
-            const SizedBox(height: 8),
-            Text(_profileText(context, 'profileLoadFailed')),
-            const SizedBox(height: 6),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_profileText(context, 'profileRetry')),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -922,7 +501,7 @@ class _ProfileStatusPage extends StatelessWidget {
                 const SizedBox(height: 12),
                 FilledButton(
                   onPressed: onRetry,
-                  child: Text(_profileText(context, 'profileRetry')),
+                  child: Text(context.l10n.profileRetry),
                 ),
               ],
             ],

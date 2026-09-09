@@ -36,13 +36,6 @@ class DnsAnswer {
   final Uint8List? rdata;
 }
 
-/// DNS record type constants used by this codec.
-class DnsRecordType {
-  static const int a = 1;
-  static const int https = 65;
-  static const int aaaa = 28;
-}
-
 /// A decoded DNS response.
 class DnsResponse {
   const DnsResponse({
@@ -176,11 +169,11 @@ DnsAnswer _readAnswer(_Reader reader) {
 }
 
 /// SvcParam key for ECH (RFC 9460 §9.5 / RFC 9849).
-const int kSvcParamKeyEch = 5;
+const int _kSvcParamKeyEch = 5;
 
 /// SvcParam key for ipv4hint (RFC 9460 §7.1: a sequence of IPv4 addresses,
 /// each 4 bytes). Used as the ECH front's connect target when present.
-const int kSvcParamKeyIpv4Hint = 4;
+const int _kSvcParamKeyIpv4Hint = 4;
 
 /// One parsed SvcParam from an HTTPS record's RDATA (RFC 9460 §2.2).
 class HttpsSvcParam {
@@ -224,7 +217,7 @@ List<HttpsSvcParam> parseHttpsSvcParams(Uint8List rdata) {
 /// record's RDATA. Returns null when the parameter is absent.
 Uint8List? echConfigFromHttpsRdata(Uint8List rdata) {
   for (final param in parseHttpsSvcParams(rdata)) {
-    if (param.key == kSvcParamKeyEch) {
+    if (param.key == _kSvcParamKeyEch) {
       // An empty `ech` value is syntactically well-formed but cannot drive an
       // ECH ClientHello. Treat it exactly like an absent parameter so callers
       // never mistake a plain-TLS probe for an ECH result.
@@ -241,7 +234,7 @@ Uint8List? echConfigFromHttpsRdata(Uint8List rdata) {
 /// DNS / mainland DoH answers for the target host are polluted).
 List<InternetAddress> ipv4HintFromHttpsRdata(Uint8List rdata) {
   for (final param in parseHttpsSvcParams(rdata)) {
-    if (param.key == kSvcParamKeyIpv4Hint) {
+    if (param.key == _kSvcParamKeyIpv4Hint) {
       final out = <InternetAddress>[];
       for (var i = 0; i + 4 <= param.value.length; i += 4) {
         out.add(

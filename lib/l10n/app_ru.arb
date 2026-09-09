@@ -1,0 +1,599 @@
+{
+  "@@locale": "ru",
+  "networkDohEndpointsInvalid": "Недопустимый список DoH-адресов",
+  "welcome1": "Спасибо за использование Pixiv Func",
+  "welcome2": "Начнется первоначальная настройка",
+  "start": "Начать",
+  "selectLanguage": "Выберите язык",
+  "selectTheme": "Выберите свою любимую тему",
+  "next": "Далее",
+  "later": "Позже вы сможете измененить в настройках",
+  "dark": "Тёмный",
+  "light": "Светлый",
+  "system": "Как в системе",
+  "loginTitle": "Вход или Регистрация",
+  "register": "Регистрация",
+  "login": "Вход",
+  "loginPageClosed": "Страница закрыта. Откройте её снова.",
+  "loginCallbackInvalid": "Недействительный callback входа: {reason}",
+  "@loginCallbackInvalid": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "loginNetworkError": "Сетевая ошибка (HTTP {status})",
+  "@loginNetworkError": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "loginPageLoadFailed": "Не удалось загрузить страницу ({error})",
+  "@loginPageLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginFailed": "Не удалось войти: {error}",
+  "@loginFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "loginFailedType": "Не удалось войти ({type})",
+  "@loginFailedType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
+  "networkCompatibility": "Автоматическая совместимость сети",
+  "networkCompatibilityHint": "Сначала используется прямой HTTPS; только официальные адреса Pixiv могут попробовать строгий HTTPS-маршрут после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификата не отключается.",
+  "getMoreHelp": "Получить дополнительную помощь >>",
+  "useLoginWithClipboardHint": "Или используйте длинное нажатие на аватаре,\\n чтобы скопировать данные аккаунта",
+  "useLoginWithClipboard": "Войти с данными из буфера обмена",
+  "accountTransferWarning": "Буфер обмена хранится недолго и может быть прочитан другими приложениями; этот формат не обеспечивает шифрование или аутентификацию отправителя.",
+  "accountTransferSensitiveWarning": "Это устройство не поддерживает пометку буфера как конфиденциального (только Android 13+): учётные данные попадут в системный буфер открытым текстом. Вставьте как можно скорее; очистка через 5 минут.",
+  "accountTransferCopied": "Данные для переноса аккаунта скопированы. Скоро вставьте их на целевом устройстве.",
+  "accountTransferImported": "Перенос аккаунта выполнен",
+  "accountTransferClipboardReplaced": "Аккаунт импортирован; буфер обмена заменён, поэтому он не очищен.",
+  "accountTransferCorrupt": "Данные аккаунта в буфере повреждены или не поддерживаются",
+  "accountTransferCredentialInvalid": "Учетные данные аккаунта недействительны; войдите или скопируйте снова",
+  "accountTransferVerificationUnavailable": "Проверка учетных данных Pixiv временно недоступна",
+  "accountTransferNoAccount": "Нет вошедшего аккаунта для копирования",
+  "accountTransferCredentialUnavailable": "Текущие учетные данные недоступны; войдите снова",
+  "accountTransferClipboardUnavailable": "Буфер обмена недоступен",
+  "accountTransferStorageFailure": "Запись переноса аккаунта не удалось безопасно сохранить",
+  "loginAgree": "Входя в систему, вы принимаете",
+  "userAgreement": "《Пользовательское соглашение Pixiv Func》",
+  "settingsTitle": "Настройки",
+  "accountSettings": "Аккаунт",
+  "networkSettings": "Сеть",
+  "networkMode": "Автосовместимость сети",
+  "networkModeHint": "По умолчанию прямое соединение; только официальные домены Pixiv могут повторяться через строгий HTTPS-уровень после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификатов не отключается.",
+  "networkModeListTitle": "Режим сети",
+  "networkModeAutomatic": "Авто",
+  "networkModeAutomaticHint": "Стандартный стек: выбор достижимого маршрута для каждой группы хостов.",
+  "networkModeDirectOnly": "Только прямое",
+  "networkModeDirectOnlyHint": "Системный DNS + реальный SNI. Для сетей с прямым доступом.",
+  "networkAdvanced": "Дополнительно",
+  "networkAdvancedHint": "DoH-эндпоинты, ECH front host и прочие детали.",
+  "networkAdvancedReset": "Сбросить настройки",
+  "networkDoh": "Использовать DoH для строгого резерва",
+  "networkDohHint": "Включено: резервный уровень резолвит через DoH (по умолчанию Cloudflare DoH: доменные эндпоинты привязаны к статическим Anycast IP — никакого отравленного системного DNS; кастомные эндпоинты резолвят свои хосты); выключено — системный DNS.",
+  "networkDohEndpoints": "DoH-эндпоинты (через запятую, https URL)",
+  "networkEchFrontHost": "ECH-фронт-хост",
+  "networkEchFrontHostHint": "Домен, у которого запрашивается HTTPS RR с ECH config (по умолчанию cloudflare-ech.com)",
+  "networkEchHostInvalid": "Неверное имя фронт-хоста",
+  "networkProbe": "Многоуровневый зонд связи",
+  "networkProbeTitle": "Многоуровневый зонд связи",
+  "networkProbeHint": "Проверяет 4 официальных хоста Pixiv послойно: системный DNS → DoH → TCP → TLS(реальный SNI) → минимальный запрос. TCP ок, но TLS-рукопожатие падает = SNI заблокирован.",
+  "networkProbeRun": "Запустить зонд",
+  "networkProbeRunning": "Проверка…",
+  "networkProbeNotRun": "Ещё не запущен",
+  "networkProbeHostFailed": "Проверка хоста не удалась",
+  "networkProbeCopied": "Отчёт скопирован",
+  "networkProbeDnsDiff": "Дополнительно: системный DNS и DoH не имеют общих публичных адресов.",
+  "networkProbeStepSystemDns": "Системный DNS",
+  "networkProbeStepDoh": "DoH",
+  "networkProbeStepTcp": "TCP",
+  "networkProbeStepTls": "TLS",
+  "networkProbeStepHttp": "Минимальный запрос",
+  "networkProbeStepEch": "ECH",
+  "networkProbeStepNoSni": "Пустой SNI",
+  "networkProbeStepOk": "Успешно",
+  "networkProbeStepFailed": "Ошибка",
+  "networkProbeStepSkipped": "Пропущено",
+  "networkProbeConclusionAllReachable": "Доступен",
+  "networkProbeConclusionDnsPolluted": "Загрязнение DNS",
+  "networkProbeConclusionSniBlocked": "SNI заблокирован",
+  "networkProbeConclusionEchAvailable": "Используйте ECH",
+  "networkProbeConclusionNoSniAvailable": "Используйте пустой SNI",
+  "networkProbeConclusionIpBlackholed": "IP недоступен",
+  "networkProbeConclusionAppLayer": "Прикладной уровень",
+  "networkProbeConclusionInconclusive": "Неопределённо",
+  "copy": "Копировать",
+  "themeSettings": "Тема",
+  "languageSettings": "Язык",
+  "translateSettings": "Перевод",
+  "browseSettings": "Настройки просмотра",
+  "downloadSettings": "Настройки загрузки",
+  "historySettings": "История",
+  "historyView": "Открыть историю просмотров",
+  "historyEmpty": "История просмотров пуста",
+  "historyLoadFailed": "Не удалось загрузить историю",
+  "historyDelete": "Удалить историю",
+  "historyDeleteAll": "Удалить всю историю",
+  "historyDeleteHint": "Удалённую историю нельзя восстановить.",
+  "blockTagSettings": "Заблокированные теги",
+  "downloaderSettings": "Задачи загрузки",
+  "aboutSettings": "О приложении",
+  "signedOut": "Не выполнен вход",
+  "currentAccount": "Текущий аккаунт",
+  "accountId": "ID аккаунта",
+  "reauthRequired": "Требуется повторный вход",
+  "accountProfile": "Профиль",
+  "accountReadFailed": "Не удалось прочитать состояние аккаунта",
+  "reopen": "Открыть снова",
+  "dismiss": "Понятно",
+  "profileEditTitle": "Редактировать профиль",
+  "profileEditLoadFailed": "Не удалось загрузить профиль",
+  "profileEditUnavailable": "Нет доступного канала редактирования в приложении.",
+  "profileEditPending": "Изменения отправлены и ожидают подтверждения.",
+  "profileEditConfirmed": "Профиль подтверждён и синхронизирован.",
+  "profileEditDisplayName": "Имя",
+  "profileEditComment": "О себе",
+  "profileEditWebpage": "Веб-страница",
+  "profileEditAvatar": "Аватар",
+  "profileEditBackground": "Фоновое изображение",
+  "profileEditCurrentPassword": "Текущий пароль",
+  "profileEditFieldUnsupported": "Этот канал не поддерживает данное поле",
+  "profileEditImageChoose": "Выберите поддерживаемое изображение",
+  "profileEditChooseImage": "Выбрать изображение",
+  "profileEditSave": "Сохранить профиль",
+  "profileEditLeaveTitle": "Отменить несохранённые изменения?",
+  "profileEditLeaveDetail": "Изменения ещё не отправлены и будут потеряны.",
+  "profileEditLeaveConfirm": "Отменить изменения",
+  "accountManagement": "Управление аккаунтами",
+  "addAccount": "Добавить аккаунт",
+  "switchAccount": "Сменить аккаунт",
+  "removeAccount": "Удалить аккаунт",
+  "removeAccountConfirm": "Удалить этот аккаунт?",
+  "noAccounts": "Нет аккаунтов",
+  "profileReadOnly": "Здесь показаны сохранённые данные аккаунта. Полное редактирование профиля предоставляет модуль профиля.",
+  "imageSource": "Источник изображений",
+  "imageSourceNormal": "Официальный CDN (системный DNS / HTTPS)",
+  "previewQuality": "Качество предпросмотра",
+  "viewQuality": "Качество просмотра",
+  "detailQuality": "Качество картинки в детальной странице",
+  "qualityMedium": "Среднее",
+  "qualityLarge": "Большое",
+  "qualityOriginal": "Оригинал",
+  "scaleQuality": "Качество просмотра (оригинал)",
+  "localHistory": "Локальная история просмотров",
+  "pixivHistory": "История просмотров Pixiv",
+  "blockR18": "Локально скрывать работы R-18",
+  "blockAI": "Локально скрывать работы AI",
+  "maxDownloadCount": "Максимум параллельных загрузок",
+  "namingRule": "Правило имени файла",
+  "namingRuleHint": "Пусто — использовать имя по умолчанию",
+  "saveFolder": "Папка сохранения",
+  "saveLocation": "Место сохранения",
+  "saveLocationAlbum": "Альбом",
+  "saveLocationPixivAlbum": "Альбом PixivFunc (по умолчанию)",
+  "saveLocationCustomAlbum": "Имя пользовательского альбома",
+  "saveLocationCustomAlbumHint": "Только буквы, цифры, кириллица и _",
+  "saveLocationUseCustomAlbum": "Использовать альбом",
+  "saveLocationAlbumInvalid": "Недопустимое имя альбома",
+  "saveLocationSafFolder": "Папка (системный выбор каталога)",
+  "saveLocationSafFolderHint": "Выбор каталога через системный SAF с сохранением прав",
+  "saveLocationSafPicked": "Папка выбрана",
+  "namingPreset": "Пресет имени файла",
+  "namingPresetId": "ID работы (по умолчанию)",
+  "namingPresetArtistTitleId": "Автор - название - ID",
+  "namingPresetTitleId": "Название - ID",
+  "namingPresetCustom": "Пользовательский шаблон",
+  "namingTemplate": "Шаблон имени",
+  "namingTemplateHint": "{artist}_{title}_{id}_p{page}.{ext}",
+  "@namingTemplateHint": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      }
+    }
+  },
+  "namingTemplateInvalid": "Шаблон содержит недопустимые переменные или символы",
+  "namingPreview": "Предпросмотр",
+  "namingTemplateVariables": "Переменные: {artist} {title} {id} {page} {ext} {date}; недопустимые символы заменяются на _, длинные имена обрезаются.",
+  "@namingTemplateVariables": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "notConfigured": "Не настроено",
+  "translateProvider": "Сервис перевода",
+  "translateGoogle": "Google Translate",
+  "translateDisabled": "Отключено",
+  "translateBaidu": "Baidu Translate",
+  "translateLlm": "Свой LLM (OpenAI-совместимый)",
+  "translateBaiduCredential": "AppID / секрет Baidu",
+  "translateLlmCredential": "Адрес LLM и ключ",
+  "translateBaiduAppId": "AppID",
+  "translateBaiduSecret": "Секрет",
+  "translateLlmBaseUrl": "Базовый URL (HTTPS)",
+  "translateLlmApiKey": "API-ключ",
+  "translateLlmModel": "Модель (необязательно)",
+  "translateCredentialsSave": "Сохранить в защищённое хранилище",
+  "translateCredentialsClear": "Очистить учётные данные",
+  "translateCredentialsSaved": "Сохранено в защищённое хранилище",
+  "translateCredentialsCleared": "Учётные данные очищены",
+  "translateCredentialsStoreError": "Ошибка защищённого хранилища",
+  "translateCredentialsInvalid": "Неполный ввод или адрес не HTTPS",
+  "translateBaiduHint": "Стандартная версия Baidu не требует верификации, но даёт лишь 50 тыс. символов/мес при 1 запросе/с — для комментариев этого мало; премиум требует личную верификацию (имя + номер удостоверения): 1 млн символов/мес, 10 запросов/с. Учётные данные используются только для запросов перевода.",
+  "translateLlmCredentialHint": "Только HTTPS; перевод использует фиксированный промпт без настроек модели. Текст и перевод не сохраняются.",
+  "translateCredentialHint": "Данные перевода не записываются в обычные настройки; при необходимости они хранятся в защищённом хранилище.",
+  "historySettingsHint": "Модуль истории читает эти переключатели; отключённая история не получает новые записи.",
+  "blockTagInputHint": "Введите тег для добавления",
+  "noBlockedTags": "Нет заблокированных тегов",
+  "downloaderSettingsHint": "Задачи загрузки в реальном времени ведёт общий DownloadManager.",
+  "downloadTasksEmpty": "Нет задач загрузки",
+  "downloadQueued": "В очереди",
+  "downloadRunning": "Загрузка",
+  "downloadCanceling": "Отмена",
+  "downloadSucceeded": "Готово",
+  "downloadFailed": "Ошибка",
+  "downloadCanceled": "Отменено",
+  "retryDownload": "Повторить",
+  "cancelDownload": "Отмена",
+  "aboutVersion": "Версия",
+  "aboutCheckUpdate": "Проверить обновления",
+  "aboutCheckingUpdate": "Проверка обновлений…",
+  "aboutUpdateAvailable": "Доступно обновление",
+  "aboutUpdateNoUpdate": "Установлена последняя версия",
+  "aboutUpdatePrerelease": "Доступен предварительный выпуск; стабильный канал его не установит",
+  "aboutUpdateDownload": "Скачать и установить",
+  "aboutUpdateDownloading": "Загрузка и проверка…",
+  "aboutUpdateConfirmTitle": "Подтвердить обновление",
+  "aboutUpdateConfirmDetail": "Будет установлено только APK, прошедшее проверку подписи, размера, хэша, пакета и сертификата. Продолжить?",
+  "aboutUpdatePermission": "Разрешите этому источнику устанавливать приложения и снова подтвердите установку.",
+  "aboutUpdateStarted": "Системный установщик открыт",
+  "aboutUpdateStore": "Обновления этой сборки управляются F-Droid.",
+  "aboutUpdateUnavailable": "Проверка обновлений сейчас недоступна",
+  "aboutUpdateFailed": "Не удалось проверить или установить обновление. Повторите позже.",
+  "aboutLicense": "Лицензия",
+  "aboutAttribution": "Атрибуция",
+  "aboutSource": "Исходный код",
+  "aboutLicenseText": "Проект основан на открытом исходном коде Pixiv Func и распространяется по GNU AGPL v3.0.",
+  "aboutAttributionText": "Автор исходного проекта: git-xiaocao.",
+  "settingsReadFailed": "Не удалось прочитать настройки",
+  "settingsWriteFailed": "Не удалось сохранить настройки",
+  "add": "Добавить",
+  "viewerNoImages": "Нет изображений для отображения",
+  "downloadAll": "Скачать всё",
+  "downloadQueuedMessage": "Добавлено в очередь загрузки",
+  "downloadSubmissionFailed": "Не удалось скачать: {error}",
+  "@downloadSubmissionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraSaveGif": "Сохранить GIF",
+  "ugoiraLoadCanceled": "Загрузка отменена",
+  "ugoiraLoginRequired": "Войдите, чтобы сохранить GIF",
+  "ugoiraSaved": "GIF сохранён",
+  "ugoiraSaveCanceled": "Сохранение GIF отменено",
+  "ugoiraSaveFailed": "Не удалось сохранить GIF: {error}",
+  "@ugoiraSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraArchiveInvalid": "Архив анимации недействителен: {error}",
+  "@ugoiraArchiveInvalid": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraFrameCorrupt": "Кадр анимации повреждён: {error}",
+  "@ugoiraFrameCorrupt": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "ugoiraLoadFailed": "Не удалось загрузить анимацию: {error}",
+  "@ugoiraLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "homeExitHint": "Нажмите ещё раз, чтобы выйти",
+  "bookmarkIllust": "Добавить иллюстрацию в закладки",
+  "bookmarkNovel": "Добавить новеллу в закладки",
+  "bookmarkOperationFailed": "Не удалось изменить закладки: {error}",
+  "@bookmarkOperationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "save": "Сохранить",
+  "saved": "Сохранено",
+  "retry": "Повторить",
+  "relatedWorks": "Похожие работы",
+  "cancel": "Отмена",
+  "confirm": "Подтвердить",
+  "rankingDay": "Ежедневно",
+  "rankingDayR18": "Ежедневно (R-18)",
+  "rankingDayMale": "Ежедневно (Мужчины)",
+  "rankingDayMaleR18": "Ежедневно (Мужчины & R-18)",
+  "rankingDayFemale": "Ежедневно (Женщины)",
+  "rankingDayFemaleR18": "Ежедневно (Женщины & R-18)",
+  "rankingWeek": "Еженедельно",
+  "rankingWeekR18": "Еженедельно (R-18)",
+  "rankingWeekOriginal": "Еженедельно (Оригинальное)",
+  "rankingWeekRookie": "Еженедельно (Дебют)",
+  "rankingMonth": "Ежемесячно",
+  "rankingEmpty": "Нет содержимого рейтинга",
+  "rankingLoadFailed": "Не удалось загрузить: {mode}",
+  "@rankingLoadFailed": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "rankingLoadMoreFailed": "Не удалось загрузить ещё",
+  "profileWork": "Работы",
+  "profileBookmarked": "Закладки",
+  "profileFollowing": "Подписки",
+  "profileFans": "Подписчики",
+  "profileMyPixiv": "Мои Pixiv",
+  "profileAbout": "О пользователе",
+  "profileIllust": "Иллюстрации",
+  "profileManga": "Манга",
+  "profileNovel": "Романы",
+  "searchTitle": "Поиск",
+  "searchHint": "Работы, пользователи или теги",
+  "searchReverseImage": "Поиск по изображению",
+  "searchTrending": "Популярные теги",
+  "searchNoTrending": "Нет популярных тегов",
+  "searchTrendingFailed": "Не удалось загрузить популярные теги",
+  "searchIllustManga": "Иллюстрации и манга",
+  "searchNovel": "Романы",
+  "searchUser": "Пользователи",
+  "searchCancel": "Отмена",
+  "searchSubmit": "Поиск",
+  "searchClear": "Очистить",
+  "searchLoading": "Поиск",
+  "searchNoResults": "Нет результатов поиска",
+  "searchLoadFailed": "Поиск не удался",
+  "searchLoadMoreFailed": "Не удалось загрузить ещё результаты",
+  "searchRetry": "Повторить",
+  "searchRefreshFailed": "Не удалось обновить",
+  "searchInputEmpty": "Введите запрос",
+  "searchReverseUnavailable": "Поиск по изображению недоступен",
+  "searchReverseUnavailableDetail": "Нет структурированного сервиса, прошедшего проверку учётных данных, условий и приватности; изображение не загружается и не обрабатывается через скрейпинг.",
+  "searchReversePick": "Выбрать изображение",
+  "searchReversePrivacy": "Уведомление о приватности",
+  "searchReversePrivacyDetail": "Изображение отправляется одобренному сервису только после подтверждения, а временные данные удаляются после отмены или ошибки.",
+  "searchReversePreparing": "Подготовка изображения…",
+  "searchReverseSearching": "Поиск…",
+  "searchReverseCancel": "Отмена",
+  "searchReverseUse": "Начать поиск по изображению",
+  "searchReverseRetry": "Выбрать другое изображение",
+  "searchReverseReady": "Изображение готово",
+  "searchReverseNoResults": "Совпадений не найдено",
+  "searchReverseIntentFailed": "Общее изображение нельзя использовать",
+  "searchReverseOpenExternal": "Открыть источник",
+  "searchReverseOpenFailed": "Не удалось открыть ссылку источника",
+  "searchReverseRateLimited": "Слишком много запросов, попробуйте позже",
+  "searchReverseRateLimitedWait": "Повторите попытку примерно через {seconds} с",
+  "@searchReverseRateLimitedWait": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseDailyLimit": "Дневной лимит анонимного поиска исчерпан. Попробуйте завтра.",
+  "searchReverseChallenge": "SauceNAO требует проверку человека. Этот поиск не завершён. Попробуйте позже.",
+  "searchReversePageLoadFailed": "Не удалось загрузить страницу результатов",
+  "searchReverseIntro": "Выбранное изображение анонимно отправляется в SauceNAO; страница результатов открывается в приложении.",
+  "searchNoRepresentative": "У этого тега нет представительной работы",
+  "searchFilters": "Фильтры",
+  "searchReset": "Сбросить",
+  "searchApply": "Применить",
+  "searchTarget": "Область поиска",
+  "searchPartialTags": "Частичное совпадение тегов",
+  "searchExactTags": "Точное совпадение тегов",
+  "searchTitleCaption": "Название и описание",
+  "searchSort": "Сортировка",
+  "searchDateDesc": "Сначала новые",
+  "searchDateAsc": "Сначала старые",
+  "searchPopularDesc": "Популярные",
+  "searchDuration": "Дата публикации",
+  "searchAllTime": "Любое время",
+  "searchWithinDay": "За день",
+  "searchWithinWeek": "За неделю",
+  "searchWithinMonth": "За месяц",
+  "searchStartDate": "Дата начала",
+  "searchEndDate": "Дата окончания",
+  "searchNoSuggestions": "Нет подходящих вариантов",
+  "searchUserAccount": "Аккаунт",
+  "illustDetailTitle": "Работа",
+  "illustDetailCreateDateUnknown": "Дата публикации неизвестна",
+  "illustDetailCreateDate": "Опубликовано: {date}",
+  "@illustDetailCreateDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailSize": "Размер: {width}x{height}",
+  "@illustDetailSize": {
+    "placeholders": {
+      "width": {
+        "type": "int"
+      },
+      "height": {
+        "type": "int"
+      }
+    }
+  },
+  "illustDetailOpenLinkFailed": "Не удалось открыть ссылку: {error}",
+  "@illustDetailOpenLinkFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "illustDetailRestricted": "Работа удалена или ограничена (ID: {id})",
+  "@illustDetailRestricted": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "illustDetailNotFound": "Работа не существует или была удалена",
+  "illustDetailLoadFailed": "Не удалось загрузить работу",
+  "commentTitle": "Комментарии",
+  "commentInput": "Добавить комментарий",
+  "commentReply": "Ответить",
+  "commentReplyTo": "Ответить пользователю",
+  "commentCancelReply": "Отменить ответ",
+  "commentSend": "Отправить",
+  "commentDelete": "Удалить комментарий",
+  "commentDeleteConfirm": "Удалить этот комментарий?",
+  "commentDeleteFailed": "Не удалось удалить комментарий",
+  "commentSendFailed": "Не удалось отправить комментарий",
+  "commentLoadFailed": "Не удалось загрузить комментарии",
+  "relatedLoadFailed": "Не удалось загрузить похожие работы",
+  "commentLoadMoreFailed": "Не удалось загрузить ещё комментарии",
+  "commentNoResults": "Комментариев нет",
+  "commentReplies": "Ответы",
+  "commentTranslate": "Перевести",
+  "commentTranslation": "Перевод",
+  "commentTranslationUnavailable": "Перевод недоступен. Включите его в настройках.",
+  "commentTranslationFailed": "Перевод не удался",
+  "commentTranslationInvalidCredentials": "Учётные данные перевода недействительны; проверьте настройки",
+  "commentTranslationRateLimited": "Слишком много переводов или исчерпана квота",
+  "commentEmoji": "Emoji",
+  "commentStamps": "Stamps",
+  "commentPermissionDenied": "Можно удалять только свои комментарии",
+  "newTitle": "Новинки",
+  "newFollowing": "Подписки",
+  "newEveryone": "Все",
+  "newMyPixiv": "Мои Pixiv",
+  "newIllust": "Иллюстрации",
+  "newNovel": "Новеллы",
+  "recommendedIllust": "Иллюстрации",
+  "recommendedManga": "Манга",
+  "recommendedNovel": "Новеллы",
+  "recommendedUser": "Пользователи",
+  "recommendedEmpty": "Нет рекомендаций",
+  "recommendedLoadFailed": "Не удалось загрузить рекомендации",
+  "recommendedLoadMoreFailed": "Не удалось загрузить ещё",
+  "recommendedEnd": "Больше нет",
+  "newLoading": "Загрузка новинок",
+  "newEmpty": "Нет содержимого",
+  "newLoadFailed": "Не удалось загрузить новинки",
+  "newLoadMoreFailed": "Не удалось загрузить ещё",
+  "newRetry": "Повторить",
+  "newRefreshFailed": "Не удалось обновить",
+  "profileId": "ID пользователя",
+  "profileAccount": "Аккаунт",
+  "profileIntroduction": "Описание",
+  "profileBirthday": "День рождения",
+  "profileGender": "Пол",
+  "profileRegion": "Регион",
+  "profileJob": "Профессия",
+  "profileWebsite": "Сайт",
+  "profileWorkspace": "Рабочее место",
+  "profileStats": "Статистика",
+  "profileLoading": "Загрузка профиля пользователя",
+  "profileNotFound": "Пользователь не существует или удалён",
+  "profileBlocked": "Профиль пользователя недоступен",
+  "profileLoadFailed": "Не удалось загрузить профиль",
+  "profileItemsEmpty": "Нет содержимого",
+  "profileLoadMoreFailed": "Не удалось загрузить ещё",
+  "profileRetry": "Повторить",
+  "profileNovelPending": "Списки романов подключит модуль Novel Reader",
+  "profileShare": "Поделиться пользователем",
+  "profileShareHint": "Можно поделиться ссылкой на пользователя",
+  "profileShareClose": "Закрыть",
+  "profileSettings": "Настройки",
+  "restrictSelector": "Выбрать видимость",
+  "restrictPublic": "Открытый",
+  "restrictPrivate": "Приватный",
+  "follow": "Подписаться",
+  "followed": "Вы подписаны",
+  "followUser": "Подписаться на пользователя",
+  "followFailed": "Не удалось изменить подписку",
+  "userPreviewFollow": "Подписаться",
+  "novelLoading": "Загрузка новеллы",
+  "novelNotFound": "Новелла не существует или удалена",
+  "novelRestricted": "Новелла ограничена",
+  "novelContentUnavailable": "Текущий API не вернул текст новеллы",
+  "novelLoadFailed": "Не удалось загрузить новеллу",
+  "novelRetry": "Повторить",
+  "novelNoContent": "Нет текста",
+  "novelWords": "слов",
+  "novelSeries": "Серия",
+  "novelSeriesUnavailable": "Информация о серии недоступна",
+  "novelPrevious": "Предыдущая новелла",
+  "novelNext": "Следующая новелла",
+  "novelDecreaseFont": "Уменьшить шрифт",
+  "novelIncreaseFont": "Увеличить шрифт",
+  "novelReadingProgress": "Прогресс чтения"
+}

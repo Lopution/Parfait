@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pixiv_func/core/updater/update_providers.dart';
 import 'package:pixiv_func/core/updater/update_service.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
   testWidgets(
@@ -20,13 +20,9 @@ void main() {
             updateServiceProvider.overrideWith((ref) async => service),
           ],
           child: MaterialApp(
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
             home: const AboutSettingsPage(),
           ),
         ),

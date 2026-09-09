@@ -34,8 +34,8 @@ abstract interface class UpdateSignatureVerifier {
   });
 }
 
-class PlatformUpdateSignatureVerifier implements UpdateSignatureVerifier {
-  const PlatformUpdateSignatureVerifier(this.platform);
+class _PlatformUpdateSignatureVerifier implements UpdateSignatureVerifier {
+  const _PlatformUpdateSignatureVerifier(this.platform);
 
   final UpdatePlatform platform;
 
@@ -59,7 +59,7 @@ class UpdateService {
        _platform = platform ?? MethodChannelUpdatePlatform(),
        _signatureVerifier =
            signatureVerifier ??
-           PlatformUpdateSignatureVerifier(
+           _PlatformUpdateSignatureVerifier(
              platform ?? MethodChannelUpdatePlatform(),
            ),
        _downloader = downloader,
@@ -300,6 +300,22 @@ class UpdateService {
       );
     }
 
+    return _remember(
+      await _evaluateManifest(
+        manifestResponse: manifestResponse,
+        signatureResponse: signatureResponse,
+        info: info,
+        requestedChannel: requestedChannel,
+      ),
+    );
+  }
+
+  Future<UpdateCheckResult> _evaluateManifest({
+    required UpdateHttpResponse manifestResponse,
+    required UpdateHttpResponse signatureResponse,
+    required UpdatePlatformInfo info,
+    required UpdateChannel requestedChannel,
+  }) async {
     final List<int> signature;
     try {
       final encoded = utf8.decode(signatureResponse.body).trim();
@@ -316,11 +332,9 @@ class UpdateService {
         throw const FormatException();
       }
     } on Object {
-      return _remember(
-        const UpdateCheckResult(
-          status: UpdateCheckStatus.invalid,
-          errorCode: 'signature_format',
-        ),
+      return const UpdateCheckResult(
+        status: UpdateCheckStatus.invalid,
+        errorCode: 'signature_format',
       );
     }
 
@@ -331,21 +345,17 @@ class UpdateService {
         signature: signature,
       );
     } on Object catch (error) {
-      return _remember(
-        UpdateCheckResult(
-          status: UpdateCheckStatus.invalid,
-          errorCode: error is UpdatePlatformException
-              ? error.code
-              : 'signature_unavailable',
-        ),
+      return UpdateCheckResult(
+        status: UpdateCheckStatus.invalid,
+        errorCode: error is UpdatePlatformException
+            ? error.code
+            : 'signature_unavailable',
       );
     }
     if (!verification.valid) {
-      return _remember(
-        UpdateCheckResult(
-          status: UpdateCheckStatus.invalid,
-          errorCode: verification.errorCode ?? 'signature_invalid',
-        ),
+      return UpdateCheckResult(
+        status: UpdateCheckStatus.invalid,
+        errorCode: verification.errorCode ?? 'signature_invalid',
       );
     }
 
@@ -353,47 +363,37 @@ class UpdateService {
     try {
       manifest = UpdateManifest.parse(utf8.decode(manifestResponse.body));
     } on UpdateManifestFormatException catch (error) {
-      return _remember(
-        UpdateCheckResult(
-          status: UpdateCheckStatus.invalid,
-          errorCode: error.code,
-        ),
+      return UpdateCheckResult(
+        status: UpdateCheckStatus.invalid,
+        errorCode: error.code,
       );
     } on FormatException {
-      return _remember(
-        const UpdateCheckResult(
-          status: UpdateCheckStatus.invalid,
-          errorCode: 'manifest_encoding',
-        ),
+      return const UpdateCheckResult(
+        status: UpdateCheckStatus.invalid,
+        errorCode: 'manifest_encoding',
       );
     }
 
     if (manifest.channel == UpdateChannel.beta &&
         requestedChannel == UpdateChannel.stable) {
-      return _remember(
-        const UpdateCheckResult(
-          status: UpdateCheckStatus.prerelease,
-          errorCode: 'prerelease',
-        ),
+      return const UpdateCheckResult(
+        status: UpdateCheckStatus.prerelease,
+        errorCode: 'prerelease',
       );
     }
     final selected = manifest.selectForAbis(info.supportedAbis);
     if (selected == null) {
-      return _remember(
-        const UpdateCheckResult(
-          status: UpdateCheckStatus.invalid,
-          errorCode: 'abi_unsupported',
-        ),
+      return const UpdateCheckResult(
+        status: UpdateCheckStatus.invalid,
+        errorCode: 'abi_unsupported',
       );
     }
     if (selected.asset.packageName != info.packageName ||
         selected.asset.signingCertificateSha256 !=
             info.signingCertificateSha256.toLowerCase()) {
-      return _remember(
-        const UpdateCheckResult(
-          status: UpdateCheckStatus.invalid,
-          errorCode: 'asset_identity_mismatch',
-        ),
+      return const UpdateCheckResult(
+        status: UpdateCheckStatus.invalid,
+        errorCode: 'asset_identity_mismatch',
       );
     }
 
@@ -401,31 +401,25 @@ class UpdateService {
     try {
       currentVersion = UpdateVersion.parse(info.version);
     } on UpdateManifestFormatException {
-      return _remember(
-        const UpdateCheckResult(
-          status: UpdateCheckStatus.invalid,
-          errorCode: 'platform_version_invalid',
-        ),
+      return const UpdateCheckResult(
+        status: UpdateCheckStatus.invalid,
+        errorCode: 'platform_version_invalid',
       );
     }
     final versionResult = selected.version.compareTo(currentVersion);
     if (versionResult < 0 ||
         (versionResult == 0 &&
             selected.versionCode <= info.versionCode % 1000)) {
-      return _remember(
-        const UpdateCheckResult(
-          status: UpdateCheckStatus.noUpdate,
-          errorCode: 'up_to_date',
-        ),
+      return const UpdateCheckResult(
+        status: UpdateCheckStatus.noUpdate,
+        errorCode: 'up_to_date',
       );
     }
-    return _remember(
-      UpdateCheckResult(
-        status: UpdateCheckStatus.available,
-        release: UpdateRelease(
-          manifest: selected,
-          rawManifest: List.unmodifiable(manifestResponse.body),
-        ),
+    return UpdateCheckResult(
+      status: UpdateCheckStatus.available,
+      release: UpdateRelease(
+        manifest: selected,
+        rawManifest: List.unmodifiable(manifestResponse.body),
       ),
     );
   }

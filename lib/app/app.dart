@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/auth/account_store.dart';
@@ -11,9 +10,10 @@ import '../core/settings/settings_controller.dart';
 import '../core/widget/widget_coordinator.dart';
 import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
-import '../features/onboarding/startup_gate.dart';
+import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
 import 'widgets/settings_load_error.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class PixivFuncApp extends ConsumerStatefulWidget {
   const PixivFuncApp({super.key});
@@ -109,7 +109,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
         Locale('ja', 'JP'),
         Locale('ru', 'RU'),
       ],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       theme: replicaTheme(Brightness.light),
       darkTheme: replicaTheme(Brightness.dark),
       themeMode: themeMode,

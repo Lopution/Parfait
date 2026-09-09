@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
+
+import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/novel_card.dart';
 import '../../core/entity/illust_store.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/new/new_feed_controller.dart';
 import '../../core/new/new_feed_models.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
-import '../home/recommended/recommended_illust_page.dart';
-import '../novel/novel_page.dart';
+import '../../app/motion/motion_tokens.dart';
+import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/feed/illust_card.dart';
+import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Beta56 New page: scope tabs are stable while the content type selector is
 /// exposed by tapping the selected tab a second time.
@@ -98,7 +102,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       body: Column(
         children: [
           AnimatedSize(
-            duration: const Duration(milliseconds: 180),
+            duration: MotionTokens.fast,
             alignment: Alignment.topCenter,
             child: _selectorExpanded
                 ? _NewTypeSelector(type: _type, onChanged: _selectType)
@@ -111,7 +115,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
                 for (final key in _loadedKeys)
                   Offstage(
                     offstage: key != activeKey,
-                    child: NewFeedBody(key: ValueKey(key), feedKey: key),
+                    child: _NewFeedBody(key: ValueKey(key), feedKey: key),
                   ),
               ],
             ),
@@ -165,16 +169,16 @@ class _NewTypeSelector extends StatelessWidget {
 
 /// One keyed feed body. The state is kept alive by [NewPage]'s Offstage stack
 /// so scroll/cursor/error state is not shared with another scope or type.
-class NewFeedBody extends ConsumerStatefulWidget {
-  const NewFeedBody({super.key, required this.feedKey});
+class _NewFeedBody extends ConsumerStatefulWidget {
+  const _NewFeedBody({super.key, required this.feedKey});
 
   final NewFeedKey feedKey;
 
   @override
-  ConsumerState<NewFeedBody> createState() => _NewFeedBodyState();
+  ConsumerState<_NewFeedBody> createState() => _NewFeedBodyState();
 }
 
-class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
+class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
   late final ScrollController _scrollController;
 
   @override
@@ -193,31 +197,38 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
   Widget build(BuildContext context) {
     final feedAsync = ref.watch(newFeedProvider(widget.feedKey));
     return feedAsync.when(
-      loading: () => _NewStatus(
+      loading: () => FeedEmpty(
         icon: Icons.fiber_new_outlined,
-        title: _newText(context, 'newLoading'),
+        title: context.l10n.newLoading,
       ),
-      error: (error, _) => _NewError(
+      error: (error, _) => FeedError(
+        title: context.l10n.newLoadFailed,
         error: error,
+        retryLabel: context.l10n.newRetry,
         onRetry: () => ref.invalidate(newFeedProvider(widget.feedKey)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _NewError(
+          return FeedError(
+            title: context.l10n.newLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: context.l10n.newRetry,
             onRetry: () => ref
                 .read(newFeedProvider(widget.feedKey).notifier)
                 .retryInitial(),
           );
         }
         if (feed.showInitialSpinner) {
-          return _NewStatus(
+          return FeedEmpty(
             icon: Icons.fiber_new_outlined,
-            title: _newText(context, 'newLoading'),
+            title: context.l10n.newLoading,
           );
         }
         if (feed.isEmptyAndReady) {
-          return _NewEmpty(
+          return FeedEmpty(
+            icon: Icons.inbox_outlined,
+            title: context.l10n.newEmpty,
+            retryLabel: context.l10n.newRetry,
             onRefresh: () =>
                 ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
           );
@@ -250,17 +261,31 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
     final tail = <Widget>[
       if (feed.refreshPhase == FeedPhase.error)
         SliverToBoxAdapter(
-          child: _NewRefreshError(
-            onRetry: () =>
-                ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
+          child: Container(
+            width: double.infinity,
+            color: Theme.of(context).colorScheme.errorContainer,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(child: Text(context.l10n.newRefreshFailed)),
+                TextButton(
+                  onPressed: () => ref
+                      .read(newFeedProvider(widget.feedKey).notifier)
+                      .refresh(),
+                  child: Text(context.l10n.newRetry),
+                ),
+              ],
+            ),
           ),
         ),
       SliverToBoxAdapter(
-        child: _NewFeedTail(
+        child: FeedTail(
           feed: feed,
           onRetry: () => ref
               .read(newFeedProvider(widget.feedKey).notifier)
               .retryLoadMore(),
+          errorTitle: context.l10n.newLoadMoreFailed,
+          retryLabel: context.l10n.newRetry,
         ),
       ),
     ];
@@ -268,18 +293,15 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
       final store = ref.watch(illustStoreProvider);
       final entities = store.getAll(feed.ids);
       return [
-        SliverPadding(
+        IllustFeedGrid(
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          sliver: SliverMasonryGrid.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: 5,
-            crossAxisSpacing: 10,
-            itemBuilder: (context, index) => IllustCard(
-              entity: entities[index],
-              heroScope:
-                  'new:${widget.feedKey.scope.name}:${widget.feedKey.type.name}',
-            ),
-            childCount: entities.length,
+          mainAxisSpacing: 5,
+          crossAxisSpacing: 10,
+          itemCount: entities.length,
+          itemBuilder: (context, index) => IllustCard(
+            entity: entities[index],
+            heroScope:
+                'new:${widget.feedKey.scope.name}:${widget.feedKey.type.name}',
           ),
         ),
         ...tail,
@@ -302,148 +324,5 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
   }
 }
 
-class _NewStatus extends StatelessWidget {
-  const _NewStatus({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48),
-          const SizedBox(height: 12),
-          Text(title),
-        ],
-      ),
-    );
-  }
-}
-
-class _NewEmpty extends StatelessWidget {
-  const _NewEmpty({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.inbox_outlined, size: 48),
-          const SizedBox(height: 12),
-          Text(_newText(context, 'newEmpty')),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh),
-            label: Text(_newText(context, 'newRetry')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NewError extends StatelessWidget {
-  const _NewError({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(_newText(context, 'newLoadFailed')),
-            const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(_newText(context, 'newRetry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NewRefreshError extends StatelessWidget {
-  const _NewRefreshError({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: Theme.of(context).colorScheme.errorContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(child: Text(_newText(context, 'newRefreshFailed'))),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(_newText(context, 'newRetry')),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NewFeedTail extends StatelessWidget {
-  const _NewFeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_newText(context, 'newLoadMoreFailed')),
-            Text(
-              '${feed.loadMoreError}',
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            TextButton(
-              onPressed: onRetry,
-              child: Text(_newText(context, 'newRetry')),
-            ),
-          ],
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-}
-
-String _newText(BuildContext context, String key) => ReplicaStrings.fromTag(
-  Localizations.localeOf(context).toLanguageTag(),
-  key,
-);
+String _newText(BuildContext context, String key) =>
+    l10nLookup(context.l10n, key);

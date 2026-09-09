@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../settings/shared_preferences.dart';
 
 import '../auth/account_store.dart';
 import '../platform/media_store_channel.dart';
@@ -42,6 +43,7 @@ final downloadSinkFactoryProvider = Provider<DownloadSinkFactory>((ref) {
 /// export is never retried as if its synthetic URL were a normal download.
 final ugoiraRecoveryStoreProvider = Provider<DownloadRecoveryStore>((ref) {
   return PreferencesDownloadRecoveryStore(
+    preferences: ref.watch(sharedPreferencesProvider),
     storageKey: kUgoiraRecoveryStorageKey,
   );
 });
@@ -57,7 +59,9 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
     // album or SAF tree. Account and destination identity checks remain in
     // force; this flag only removes the obsolete builtin-only guard.
     enforceDefaultDestination: false,
-    recoveryStore: PreferencesDownloadRecoveryStore(),
+    recoveryStore: PreferencesDownloadRecoveryStore(
+      preferences: ref.watch(sharedPreferencesProvider),
+    ),
     submissionContext: () {
       final accountState = ref.read(accountStoreProvider).asData?.value;
       final account = accountState?.usableCurrent;

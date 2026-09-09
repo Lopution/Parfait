@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'preference_keys.dart';
+
 import 'app_settings.dart';
 
 /// Persistence failure for ordinary (non-secret) settings.
@@ -26,13 +28,13 @@ abstract class SettingsRepository {
 /// omits values with an incompatible primitive type, which lets a damaged
 /// field fall back independently while preserving all other valid fields.
 class PreferencesSettingsRepository implements SettingsRepository {
-  PreferencesSettingsRepository({SharedPreferencesAsync? preferences})
-    : _preferences = preferences ?? SharedPreferencesAsync();
+  PreferencesSettingsRepository({required SharedPreferencesAsync preferences})
+    : _preferences = preferences;
 
-  static const String settingsKey = 'replica.settings.v2';
-  static const String legacyJsonKey = 'settings';
-  static const String legacyGuideKey = 'replica.guide_completed';
-  static const String legacyLanguageKey = 'replica.language';
+  static const String settingsKey = PreferenceKeys.settings;
+  static const String legacyJsonKey = PreferenceKeys.legacyJson;
+  static const String legacyGuideKey = PreferenceKeys.legacyGuideCompleted;
+  static const String legacyLanguageKey = PreferenceKeys.legacyLanguage;
   static const String legacyThemeKey = 'replica.theme';
 
   final SharedPreferencesAsync _preferences;

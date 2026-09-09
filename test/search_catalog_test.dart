@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -24,10 +25,10 @@ import 'package:pixiv_func/core/search/search_repository.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/search_result_page.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeSearchRepository implements SearchRepository {
   _FakeSearchRepository({this.autocompleteHandler, this.trendingTagCount = 2});
@@ -137,7 +138,7 @@ Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
   SharedPreferencesAsyncPlatform.instance =
-      InMemorySharedPreferencesAsync.empty();
+      memoryPreferences();
   final credentials = _CredentialStore();
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer(
@@ -452,10 +453,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
           home: const SearchHomePage(),
         ),
       ),
@@ -483,10 +484,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: const SearchHomePage(),
           ),
         ),
@@ -513,10 +514,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: SearchHomePage(),
         ),
       ),
@@ -535,10 +536,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: const SearchHomePage(),
           ),
         ),
@@ -565,10 +566,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: ValueListenableBuilder<bool>(
               valueListenable: showSearch,
               builder: (context, visible, _) => visible
@@ -599,10 +600,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
           home: const SearchResultPage(
             query: UserSearchQuery(keyword: 'not-an-id'),
           ),

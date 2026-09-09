@@ -9,8 +9,8 @@ import 'bookmark_store.dart';
 ///
 /// Widgets never call the repository or mutate the store directly (design
 /// §Architecture); suppressions surface as a null op and simply do nothing.
-class BookmarkActions {
-  BookmarkActions(this._ref);
+class _BookmarkActions {
+  _BookmarkActions(this._ref);
 
   final Ref _ref;
 
@@ -65,6 +65,6 @@ class BookmarkActions {
   }
 }
 
-final bookmarkActionsProvider = Provider<BookmarkActions>((ref) {
-  return BookmarkActions(ref);
+final bookmarkActionsProvider = Provider<_BookmarkActions>((ref) {
+  return _BookmarkActions(ref);
 });

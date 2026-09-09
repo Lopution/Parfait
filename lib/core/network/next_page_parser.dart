@@ -30,7 +30,7 @@ class NextPageParseError implements Exception {
 /// returns.
 ///
 /// Features extend this registry when they introduce paginated endpoints.
-const Map<String, Set<String>> kNextPageEndpoints = {
+const Map<String, Set<String>> _kNextPageEndpoints = {
   '/v1/illust/recommended': {
     'content_type',
     'include_ranking_illusts',
@@ -119,10 +119,10 @@ abstract final class NextPageParser {
 
   /// Builds the first-page request for an endpoint with typed query values.
   static NextPageRequest firstPage(String path, Map<String, String> query) {
-    if (!kNextPageEndpoints.containsKey(path)) {
+    if (!_kNextPageEndpoints.containsKey(path)) {
       throw NextPageParseError('unknown endpoint: $path');
     }
-    final allowedParams = kNextPageEndpoints[path]!;
+    final allowedParams = _kNextPageEndpoints[path]!;
     for (final name in query.keys) {
       if (!allowedParams.contains(name)) {
         throw NextPageParseError('unknown query parameter "$name" for $path');

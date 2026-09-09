@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../core/i18n/replica_strings.dart';
+import '../../l10n/lookup.dart';
+import '../../l10n/context.dart';
 
 /// Shared "settings could not be read" body with a working retry.
 ///
@@ -26,10 +27,7 @@ class SettingsLoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String text(String key) => ReplicaStrings.fromTag(
-      Localizations.localeOf(context).toLanguageTag(),
-      key,
-    );
+    String text(String key) => l10nLookup(context.l10n, key);
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),

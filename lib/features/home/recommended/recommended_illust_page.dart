@@ -1,22 +1,17 @@
-import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
-import '../../../app/pixiv_image.dart';
+import '../../../app/widgets/feed/feed_grid.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../app/widgets/feed/feed_states.dart';
+import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/pull_to_refresh.dart';
-import '../../../app/replica_page_route.dart';
 import '../../../app/widgets/replica_empty_state.dart';
-import '../../bookmark/bookmark_switch_button.dart';
-import '../../illust/detail/illust_detail_page.dart';
-import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
-import '../../../core/i18n/replica_strings.dart';
-import '../../../core/network/compat/network_providers.dart';
-import '../../../core/paging/paged_feed_controller.dart';
-import '../../../core/settings/settings_controller.dart';
-import 'recommended_repository.dart';
+
+import '../../../core/illust/recommended_illust_controller.dart';
+import '../../../l10n/context.dart';
 
 /// Recommended Illust tab: real API feed with initial/refresh/load-more
 /// states, card badges matching beta56 IllustPreviewer, and retained state
@@ -59,14 +54,8 @@ class RecommendedIllustPage extends ConsumerWidget {
         if (feed.isEmptyAndReady) {
           return Scaffold(
             body: ReplicaEmptyState(
-              message: ReplicaStrings.fromTag(
-                Localizations.localeOf(context).toLanguageTag(),
-                'recommendedEmpty',
-              ),
-              retryLabel: ReplicaStrings.fromTag(
-                Localizations.localeOf(context).toLanguageTag(),
-                'retry',
-              ),
+              message: context.l10n.recommendedEmpty,
+              retryLabel: context.l10n.retry,
               onRetry: () => ref
                   .read(recommendedIllustControllerProvider.notifier)
                   .refresh(),
@@ -97,26 +86,23 @@ class RecommendedIllustPage extends ConsumerWidget {
                 // look is kept. The RefreshIndicator overscroll zone stays
                 // above the padding, so pull-to-refresh still triggers.
                 slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
+                  IllustFeedGrid(
+  padding: EdgeInsets.fromLTRB(
                       10,
                       MediaQuery.viewPaddingOf(context).top,
                       10,
                       0,
                     ),
-                    sliver: SliverMasonryGrid.count(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 5,
-                      crossAxisSpacing: 10,
-                      itemBuilder: (context, index) => IllustCard(
+  mainAxisSpacing: 5,
+  crossAxisSpacing: 10,
+  itemCount: entities.length,
+  itemBuilder: (context, index) => IllustCard(
                         entity: entities[index],
                         heroScope: 'recommended:illust',
                       ),
-                      childCount: entities.length,
-                    ),
-                  ),
+),
                   SliverToBoxAdapter(
-                    child: _FeedTail(
+                    child: FeedTail(
                       feed: feed,
                       onRetry: () => ref
                           .read(recommendedIllustControllerProvider.notifier)
@@ -130,58 +116,6 @@ class RecommendedIllustPage extends ConsumerWidget {
         );
       },
     );
-  }
-}
-
-class _FeedTail extends StatelessWidget {
-  const _FeedTail({required this.feed, required this.onRetry});
-
-  final PagedFeedState feed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    if (feed.showLoadMoreSpinner) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-    if (feed.showLoadMoreError) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                ReplicaStrings.fromTag(
-                  Localizations.localeOf(context).toLanguageTag(),
-                  'recommendedLoadMoreFailed',
-                ),
-              ),
-              Text(
-                '${feed.loadMoreError}',
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 2,
-              ),
-              TextButton(
-                onPressed: onRetry,
-                child: Text(
-                  ReplicaStrings.fromTag(
-                    Localizations.localeOf(context).toLanguageTag(),
-                    'retry',
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    return const SizedBox.shrink();
   }
 }
 
@@ -202,10 +136,7 @@ class _InitialErrorView extends StatelessWidget {
             const Icon(Icons.cloud_off, size: 48),
             const SizedBox(height: 12),
             Text(
-              ReplicaStrings.fromTag(
-                Localizations.localeOf(context).toLanguageTag(),
-                'recommendedLoadFailed',
-              ),
+              context.l10n.recommendedLoadFailed,
             ),
             const SizedBox(height: 8),
             Text(
@@ -217,10 +148,7 @@ class _InitialErrorView extends StatelessWidget {
             FilledButton(
               onPressed: onRetry,
               child: Text(
-                ReplicaStrings.fromTag(
-                  Localizations.localeOf(context).toLanguageTag(),
-                  'retry',
-                ),
+                context.l10n.retry,
               ),
             ),
           ],
@@ -230,213 +158,3 @@ class _InitialErrorView extends StatelessWidget {
   }
 }
 
-/// Illust preview card replicating beta56 IllustPreviewer semantics:
-/// R-18 top-left, ugoira gif bottom-left, page count top-right, AI
-/// bottom-right, title (14 bold) + user name (12) beneath the image.
-class IllustCard extends ConsumerWidget {
-  const IllustCard({super.key, required this.entity, this.heroScope = 'feed'});
-
-  final IllustEntity entity;
-  final String heroScope;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final previewQuality = ref.watch(previewQualityProvider);
-    final previewUrl = entity.previewUrl(previewQuality);
-    final heroTag = illustHeroTag(heroScope, entity.id);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Beta56 IllustPreviewer semantics: the preview height follows the
-        // original aspect ratio (BoxFit.fitWidth) inside the waterfall flow,
-        // so works are never cropped in the feed.
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final previewHeight = entity.width > 0
-                ? constraints.maxWidth / entity.width * entity.height
-                : constraints.maxWidth;
-            return GestureDetector(
-              onTapDown: (_) =>
-                  _preloadTransitionImages(context, ref, previewUrl),
-              onTap: () {
-                _preloadTransitionImages(context, ref, previewUrl);
-                Navigator.of(context).push(
-                  ReplicaPageRoute<void>(
-                    builder: (_) => IllustDetailPage(
-                      illustId: entity.id,
-                      initialEntity: entity,
-                      heroScope: heroScope,
-                      heroImageUrl: previewUrl,
-                    ),
-                  ),
-                );
-              },
-              child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(12)),
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  height: previewHeight,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Only the image participates in the detail Hero
-                      // flight. Badges belong to the feed viewport; when the
-                      // whole Stack was the Hero, the page-count badge was
-                      // scaled and left as a large ghost during pop.
-                      //
-                      // The ClipRRect sits INSIDE the Hero child (R7 U…):
-                      // Hero flight renders the raw child, so a clip outside
-                      // the Hero only applied after the flight finished —
-                      // the image snapped from square to rounded on pop.
-                      // Clipping inside keeps the rounded corners during
-                      // the whole flight.
-                      Hero(
-                        tag: heroTag,
-                        flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(12),
-                          ),
-                          child: PixivImage(
-                            url: previewUrl,
-                            fit: BoxFit.fitWidth,
-                            transitionKey: heroTag,
-                          ),
-                        ),
-                      ),
-                      if (entity.isR18)
-                        Positioned(
-                          left: 7,
-                          top: 7,
-                          child: Card(
-                            color: colorScheme.primary,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              child: Text(
-                                'R-18',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (entity.isUgoira)
-                        Positioned(
-                          left: 7,
-                          bottom: 7,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(5),
-                              color: const Color(0x99343838),
-                            ),
-                            child: const Icon(
-                              Icons.gif_box_outlined,
-                              color: Colors.white,
-                              size: 30,
-                            ),
-                          ),
-                        ),
-                      if (entity.pageCount > 1)
-                        Positioned(
-                          right: 7,
-                          top: 7,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(7.5),
-                              color: const Color(0x99343838),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              child: Text(
-                                '${entity.pageCount}',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (entity.isAi)
-                        Positioned(
-                          right: 7,
-                          bottom: 7,
-                          child: Card(
-                            color: colorScheme.error,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              child: Text(
-                                'AI',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 4),
-        // Beta56 title row: 10px indent, title/user block, bookmark heart
-        // on the right (BookmarkSwitchButton isButton variant).
-        Row(
-          children: [
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entity.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    entity.user.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            BookmarkSwitchButton(illustId: entity.id, title: entity.title),
-          ],
-        ),
-      ],
-    );
-  }
-
-  void _preloadTransitionImages(
-    BuildContext context,
-    WidgetRef ref,
-    String previewUrl,
-  ) {
-    final cacheManager = ref
-        .read(pixivNetworkFactoryProvider)
-        .imageCacheManager;
-    unawaited(
-      PixivImage.preload(context, previewUrl, cacheManager: cacheManager),
-    );
-    final avatarUrl = entity.user.profileImageUrl;
-    if (avatarUrl != null) {
-      unawaited(
-        PixivImage.preload(context, avatarUrl, cacheManager: cacheManager),
-      );
-    }
-  }
-}

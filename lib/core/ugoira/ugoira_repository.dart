@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../network/pixiv_headers.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -133,10 +134,7 @@ class UgoiraRepository {
       }
       response = await _transport.open(
         metadata.zipUrl,
-        headers: {
-          'User-Agent': PixivClientIdentity.userAgent,
-          'Referer': PixivClientIdentity.downloadReferer.toString(),
-        },
+        headers: PixivHeaders.image(userAgent: true),
         cancelToken: transferCancel,
       );
       if (response.statusCode < 200 || response.statusCode >= 300) {
