@@ -791,6 +791,12 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get homeRecommended => 'おすすめ';
+
+  @override
+  String get homeRanking => 'ランキング';
+
+  @override
   String get homeExitHint => 'もう一度戻ると終了します';
 
   @override

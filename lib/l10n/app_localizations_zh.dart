@@ -780,6 +780,12 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get homeRecommended => '推荐';
+
+  @override
+  String get homeRanking => '排行';
+
+  @override
   String get homeExitHint => '再按一次退出';
 
   @override

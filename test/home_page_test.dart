@@ -67,7 +67,7 @@ const _signedInSnapshot = AccountMetadataSnapshot(
   currentId: '100',
 );
 
-Widget _homeApp({AndroidIntentSource? intentSource}) {
+Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
   return ProviderScope(
     overrides: [
       credentialStoreProvider.overrideWithValue(const _StaticCredentialStore()),
@@ -78,7 +78,7 @@ Widget _homeApp({AndroidIntentSource? intentSource}) {
     child: MaterialApp(
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
+      locale: locale ?? const Locale('zh', 'CN'),
 
       home: HomePage(
         intentSource:
@@ -94,8 +94,9 @@ Widget _homeApp({AndroidIntentSource? intentSource}) {
 Future<void> _pumpHome(
   WidgetTester tester, {
   AndroidIntentSource? intentSource,
+  Locale? locale,
 }) async {
-  await tester.pumpWidget(_homeApp(intentSource: intentSource));
+  await tester.pumpWidget(_homeApp(intentSource: intentSource, locale: locale));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
 }
@@ -203,6 +204,15 @@ void main() {
     );
     expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
     expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
+  });
+
+  testWidgets('NavigationBar labels render in every supported locale', (
+    tester,
+  ) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      await _pumpHome(tester, locale: locale);
+      expect(find.byType(NavigationBar), findsOneWidget);
+    }
   });
 
   testWidgets('C8: UserRoute delivered to home pushes the user page', (

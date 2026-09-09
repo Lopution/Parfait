@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
-
 import '../../app/icons/app_icons.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/platform/android_intent_channel.dart';
@@ -52,9 +51,8 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
     _backCoordinator = RootBackCoordinator();
-    // The bottom row is a real TabBar (same machinery as the top tabs):
-    // selected indicator slides, ink ripples and icon colors all inherit
-    // the TabBar behaviour instead of a hand-rolled approximation.
+    // Keep the existing TabController as the body-selection owner while the
+    // bottom chrome uses Material 3 NavigationBar destinations.
     _navController = TabController(
       length: pages.length,
       vsync: this,
@@ -160,9 +158,7 @@ class _HomePageState extends State<HomePage>
         // R3). Unknown or unsupported routes keep the app on the current
         // page instead of navigating somewhere unvalidated.
         if (route is IllustRoute && mounted) {
-          unawaited(
-            openIllust(context, route.illustId),
-          );
+          unawaited(openIllust(context, route.illustId));
         } else if (route is UserRoute && mounted) {
           // C8: user deep links (pixivfunc://users/<id>, /u/<id>,
           // /users/<id>, user.php?id=<id>) were parsed but silently dropped;
@@ -194,10 +190,8 @@ class _HomePageState extends State<HomePage>
   }
 
   void _selectTab(int i) {
-    // TabBar already calls TabController.animateTo before invoking onTap.
-    // Starting a second animation here resets the indicator/body flight and
-    // makes a fast tap feel like it briefly stalls. The callback only owns
-    // lazy construction bookkeeping.
+    // The destination callback owns the single TabController animation. This
+    // callback only owns lazy construction bookkeeping.
     if (_visitedTabs.add(i) && mounted) setState(() {});
   }
 
@@ -205,7 +199,7 @@ class _HomePageState extends State<HomePage>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      showAppSnackBar(context, context.l10n.searchReverseIntentFailed,);
+      showAppSnackBar(context, context.l10n.searchReverseIntentFailed);
     });
   }
 
@@ -223,9 +217,7 @@ class _HomePageState extends State<HomePage>
           // 1-second window the hint describes.
           ..showSnackBar(
             SnackBar(
-              content: Text(
-                context.l10n.homeExitHint,
-              ),
+              content: Text(context.l10n.homeExitHint),
               duration: RootBackCoordinator.exitWindow,
               behavior: SnackBarBehavior.floating,
             ),
@@ -276,21 +268,34 @@ class _HomePageState extends State<HomePage>
             // Translating only the pixels made the bar look higher while its
             // semantic/touch bounds stayed at the very bottom of the screen.
             padding: const EdgeInsets.only(bottom: 8),
-            child: BottomAppBar(
-              // A real TabBar: same sliding indicator, ripple and colour
-              // behaviour as the top TabBar row — full behavioural parity.
-              child: TabBar(
-                controller: _navController,
-                // Keep the C7 lazy-build set in sync with the tapped tab.
-                onTap: (i) => _selectTab(i),
-                indicatorSize: TabBarIndicatorSize.label,
-                indicatorPadding: const EdgeInsets.only(bottom: 5),
-                labelPadding: const EdgeInsets.symmetric(horizontal: 2),
-                tabs: [
-                  for (var i = 0; i < icons.length; i++)
-                    Tab(icon: Icon(icons[i], size: 30)),
-                ],
-              ),
+            child: NavigationBar(
+              selectedIndex: index,
+              onDestinationSelected: (i) {
+                _navController.animateTo(i);
+                _selectTab(i);
+              },
+              destinations: [
+                NavigationDestination(
+                  icon: Icon(icons[0], size: 30),
+                  label: context.l10n.homeRecommended,
+                ),
+                NavigationDestination(
+                  icon: Icon(icons[1], size: 30),
+                  label: context.l10n.homeRanking,
+                ),
+                NavigationDestination(
+                  icon: Icon(icons[2], size: 30),
+                  label: context.l10n.newTitle,
+                ),
+                NavigationDestination(
+                  icon: Icon(icons[3], size: 30),
+                  label: context.l10n.searchTitle,
+                ),
+                NavigationDestination(
+                  icon: Icon(icons[4], size: 30),
+                  label: context.l10n.settingsTitle,
+                ),
+              ],
             ),
           ),
         ),
