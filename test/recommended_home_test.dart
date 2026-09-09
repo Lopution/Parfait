@@ -19,6 +19,7 @@ import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart'
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeCredentialStore implements CredentialStore {
   final _secrets = <String, Credential>{};
@@ -185,7 +186,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: RecommendedHomePage()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+home: RecommendedHomePage()),
         ),
       );
       await tester.pump();
@@ -216,7 +220,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: RecommendedHomePage()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+home: RecommendedHomePage()),
         ),
       );
       await tester.pump();
@@ -240,7 +247,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: RecommendedHomePage()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+home: RecommendedHomePage()),
         ),
       );
       await tester.pump();
@@ -263,7 +273,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: RecommendedHomePage()),
+          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+home: RecommendedHomePage()),
         ),
       );
       await tester.pump();

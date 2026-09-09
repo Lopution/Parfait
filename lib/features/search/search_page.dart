@@ -11,6 +11,7 @@ import '../../core/search/search_trending_controller.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 class SearchHomePage extends ConsumerWidget {
@@ -20,7 +21,7 @@ class SearchHomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(searchText(context, 'searchTitle'))),
+      appBar: AppBar(title: Text(context.l10n.searchTitle)),
       body: CustomScrollView(
         slivers: [
           SliverPadding(
@@ -40,7 +41,7 @@ class SearchHomePage extends ConsumerWidget {
                   ),
                   onPressed: () => openReverseImageSearch(context),
                   icon: const Icon(Icons.image_search_outlined),
-                  label: Text(searchText(context, 'searchReverseImage')),
+                  label: Text(context.l10n.searchReverseImage),
                 ),
               ),
             ),
@@ -49,7 +50,7 @@ class SearchHomePage extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
             sliver: SliverToBoxAdapter(
               child: Text(
-                searchText(context, 'searchTrending'),
+                context.l10n.searchTrending,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
@@ -65,9 +66,9 @@ class SearchHomePage extends ConsumerWidget {
             ),
             error: (error, _) => SliverToBoxAdapter(
               child: FeedError(
-                title: searchText(context, 'searchTrendingFailed'),
+                title: context.l10n.searchTrendingFailed,
                 error: error,
-                retryLabel: searchText(context, 'searchRetry'),
+                retryLabel: context.l10n.searchRetry,
                 onRetry: () => ref.invalidate(trendingTagsProvider),
                 scrollable: false,
               ),
@@ -78,7 +79,7 @@ class SearchHomePage extends ConsumerWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(28),
                     child: Center(
-                      child: Text(searchText(context, 'searchNoTrending')),
+                      child: Text(context.l10n.searchNoTrending),
                     ),
                   ),
                 );
@@ -134,7 +135,7 @@ class _SearchGuideBox extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  searchText(context, 'searchHint'),
+                  context.l10n.searchHint,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -157,7 +158,7 @@ class _TrendingTagTile extends StatelessWidget {
   void _openRepresentative(BuildContext context) {
     final representative = tag.representative;
     if (representative == null) {
-      showAppSnackBar(context, searchText(context, 'searchNoRepresentative'));
+      showAppSnackBar(context, context.l10n.searchNoRepresentative);
       return;
     }
     openIllust(
@@ -298,7 +299,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   void _submit() {
     final keyword = _textController.text.trim();
     if (keyword.isEmpty) {
-      showAppSnackBar(context, searchText(context, 'searchInputEmpty'));
+      showAppSnackBar(context, context.l10n.searchInputEmpty);
       return;
     }
     ref.read(searchAutocompleteProvider.notifier).cancel();
@@ -329,7 +330,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: searchText(context, 'searchCancel'),
+          tooltip: context.l10n.searchCancel,
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.arrow_back),
         ),
@@ -345,12 +346,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           },
           onSubmitted: (_) => _submit(),
           decoration: InputDecoration(
-            hintText: searchText(context, 'searchHint'),
+            hintText: context.l10n.searchHint,
             border: InputBorder.none,
             suffixIcon: _textController.text.isEmpty
                 ? null
                 : IconButton(
-                    tooltip: searchText(context, 'searchClear'),
+                    tooltip: context.l10n.searchClear,
                     onPressed: () {
                       _textController.clear();
                       ref.read(searchAutocompleteProvider.notifier).update('');
@@ -362,7 +363,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
         ),
         actions: [
           IconButton(
-            tooltip: searchText(context, 'searchSubmit'),
+            tooltip: context.l10n.searchSubmit,
             onPressed: _submit,
             icon: const Icon(Icons.search),
           ),
@@ -385,7 +386,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
                 child: OutlinedButton.icon(
                   onPressed: _editFilters,
                   icon: const Icon(Icons.tune, size: 18),
-                  label: Text(searchText(context, 'searchFilters')),
+                  label: Text(context.l10n.searchFilters),
                 ),
               ),
             ),
@@ -418,7 +419,7 @@ class SearchAutocompletePanel extends ConsumerWidget {
     if (state.keyword.isEmpty) {
       return Center(
         child: Text(
-          searchText(context, 'searchHint'),
+          context.l10n.searchHint,
           style: Theme.of(context).textTheme.bodyLarge,
         ),
       );
@@ -428,16 +429,16 @@ class SearchAutocompletePanel extends ConsumerWidget {
     }
     if (state.error != null) {
       return FeedError(
-        title: searchText(context, 'searchLoadFailed'),
+        title: context.l10n.searchLoadFailed,
         error: state.error!,
-        retryLabel: searchText(context, 'searchRetry'),
+        retryLabel: context.l10n.searchRetry,
         onRetry: () =>
             ref.read(searchAutocompleteProvider.notifier).update(state.keyword),
         scrollable: false,
       );
     }
     if (state.suggestions.isEmpty) {
-      return Center(child: Text(searchText(context, 'searchNoSuggestions')));
+      return Center(child: Text(context.l10n.searchNoSuggestions));
     }
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),

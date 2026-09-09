@@ -25,6 +25,7 @@ import '../../core/profile/profile_feed_controller.dart';
 import 'profile_header_delegate.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/user/user_detail_controller.dart';
+import '../../l10n/context.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
@@ -59,7 +60,7 @@ class MePage extends ConsumerWidget {
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (error, _) => _ProfileStatusPage(
         icon: Icons.cloud_off,
-        title: _profileText(context, 'profileLoadFailed'),
+        title: context.l10n.profileLoadFailed,
         detail: '$error',
         onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
       ),
@@ -67,7 +68,7 @@ class MePage extends ConsumerWidget {
         if (state.status == AccountStatus.failure) {
           return _ProfileStatusPage(
             icon: Icons.cloud_off,
-            title: _profileText(context, 'accountReadFailed'),
+            title: context.l10n.accountReadFailed,
             detail: '${state.error ?? 'unknown account error'}',
             onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
           );
@@ -76,8 +77,8 @@ class MePage extends ConsumerWidget {
         if (account == null) {
           return _ProfileStatusPage(
             icon: Icons.person_off_outlined,
-            title: _profileText(context, 'signedOut'),
-            detail: _profileText(context, 'noAccounts'),
+            title: context.l10n.signedOut,
+            detail: context.l10n.noAccounts,
           );
         }
         return UserPage._me(
@@ -216,11 +217,11 @@ class _UserPageState extends ConsumerState<UserPage>
       body: async.when(
         loading: () => _ProfileStatusPage(
           icon: Icons.person_search_outlined,
-          title: _profileText(context, 'profileLoading'),
+          title: context.l10n.profileLoading,
         ),
         error: (error, _) => _ProfileStatusPage(
           icon: Icons.cloud_off,
-          title: _profileText(context, 'profileLoadFailed'),
+          title: context.l10n.profileLoadFailed,
           detail: '$error',
           onRetry: () => ref
               .read(userDetailControllerProvider(widget.userId).notifier)
@@ -235,22 +236,22 @@ class _UserPageState extends ConsumerState<UserPage>
     return switch (state) {
       UserDetailLoading() => _ProfileStatusPage(
         icon: Icons.person_search_outlined,
-        title: _profileText(context, 'profileLoading'),
+        title: context.l10n.profileLoading,
       ),
       UserDetailNotFound() => _ProfileStatusPage(
         icon: Icons.person_off_outlined,
-        title: _profileText(context, 'profileNotFound'),
+        title: context.l10n.profileNotFound,
       ),
       UserDetailBlocked() => _ProfileStatusPage(
         icon: Icons.block_outlined,
-        title: _profileText(context, 'profileBlocked'),
+        title: context.l10n.profileBlocked,
       ),
       UserDetailReady(:final user) => _buildProfile(user),
       UserDetailError(:final error, :final snapshot) when snapshot != null =>
         _buildProfile(snapshot, staleError: error),
       UserDetailError(:final error) => _ProfileStatusPage(
         icon: Icons.cloud_off,
-        title: _profileText(context, 'profileLoadFailed'),
+        title: context.l10n.profileLoadFailed,
         detail: '$error',
         onRetry: () => ref
             .read(userDetailControllerProvider(widget.userId).notifier)
@@ -267,14 +268,14 @@ class _UserPageState extends ConsumerState<UserPage>
         if (staleError != null)
           MaterialBanner(
             content: Text(
-              '${_profileText(context, 'profileLoadFailed')}: $staleError',
+              '${context.l10n.profileLoadFailed}: $staleError',
             ),
             actions: [
               TextButton(
                 onPressed: () => ref
                     .read(userDetailControllerProvider(widget.userId).notifier)
                     .reload(),
-                child: Text(_profileText(context, 'profileRetry')),
+                child: Text(context.l10n.profileRetry),
               ),
             ],
           ),
@@ -386,9 +387,9 @@ class _ProfileIllustFeed extends ConsumerWidget {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => FeedError(
-        title: _profileText(context, 'profileLoadFailed'),
+        title: context.l10n.profileLoadFailed,
         error: error,
-        retryLabel: _profileText(context, 'profileRetry'),
+        retryLabel: context.l10n.profileRetry,
         onRetry: () => ref
             .read(profileIllustFeedProvider(feedKey).notifier)
             .retryInitial(),
@@ -396,9 +397,9 @@ class _ProfileIllustFeed extends ConsumerWidget {
       data: (feed) {
         if (feed.showInitialError) {
           return FeedError(
-            title: _profileText(context, 'profileLoadFailed'),
+            title: context.l10n.profileLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: _profileText(context, 'profileRetry'),
+            retryLabel: context.l10n.profileRetry,
             onRetry: () => ref
                 .read(profileIllustFeedProvider(feedKey).notifier)
                 .retryInitial(),
@@ -434,8 +435,8 @@ class _ProfileIllustFeed extends ConsumerWidget {
                     hasScrollBody: false,
                     child: FeedEmpty(
         icon: Icons.inbox_outlined,
-        title: _profileText(context, 'profileItemsEmpty'),
-        retryLabel: _profileText(context, 'profileRetry'),
+        title: context.l10n.profileItemsEmpty,
+        retryLabel: context.l10n.profileRetry,
         onRefresh: () => ref
                           .read(profileIllustFeedProvider(feedKey).notifier)
                           .refresh(),
@@ -460,8 +461,8 @@ class _ProfileIllustFeed extends ConsumerWidget {
         onRetry: () => ref
                         .read(profileIllustFeedProvider(feedKey).notifier)
                         .retryLoadMore(),
-        errorTitle: _profileText(context, 'profileLoadMoreFailed'),
-        retryLabel: _profileText(context, 'profileRetry'),
+        errorTitle: context.l10n.profileLoadMoreFailed,
+        retryLabel: context.l10n.profileRetry,
       ),
                 ),
               ],
@@ -484,18 +485,18 @@ class _ProfileUserFeed extends ConsumerWidget {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => FeedError(
-        title: _profileText(context, 'profileLoadFailed'),
+        title: context.l10n.profileLoadFailed,
         error: error,
-        retryLabel: _profileText(context, 'profileRetry'),
+        retryLabel: context.l10n.profileRetry,
         onRetry: () =>
             ref.read(profileUserFeedProvider(feedKey).notifier).retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
           return FeedError(
-            title: _profileText(context, 'profileLoadFailed'),
+            title: context.l10n.profileLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: _profileText(context, 'profileRetry'),
+            retryLabel: context.l10n.profileRetry,
             onRetry: () => ref
                 .read(profileUserFeedProvider(feedKey).notifier)
                 .retryInitial(),
@@ -532,7 +533,7 @@ class _ProfileUserFeed extends ConsumerWidget {
                 if (users.isEmpty) {
                   return FeedEmpty(
                     icon: Icons.inbox_outlined,
-                    title: _profileText(context, 'profileItemsEmpty'),
+                    title: context.l10n.profileItemsEmpty,
                     onRefresh: () => ref
                         .read(profileUserFeedProvider(feedKey).notifier)
                         .refresh(),
@@ -544,8 +545,8 @@ class _ProfileUserFeed extends ConsumerWidget {
         onRetry: () => ref
                         .read(profileUserFeedProvider(feedKey).notifier)
                         .retryLoadMore(),
-        errorTitle: _profileText(context, 'profileLoadMoreFailed'),
-        retryLabel: _profileText(context, 'profileRetry'),
+        errorTitle: context.l10n.profileLoadMoreFailed,
+        retryLabel: context.l10n.profileRetry,
       );
                 }
                 return _UserPreviewCard(user: users[itemIndex]);
@@ -591,16 +592,16 @@ class _ProfileAbout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = <({String label, String value})>[
-      (label: _profileText(context, 'profileId'), value: '${user.id}'),
+      (label: context.l10n.profileId, value: '${user.id}'),
       if (user.account.isNotEmpty)
-        (label: _profileText(context, 'profileAccount'), value: user.account),
+        (label: context.l10n.profileAccount, value: user.account),
       if (user.comment != null)
         (
-          label: _profileText(context, 'profileIntroduction'),
+          label: context.l10n.profileIntroduction,
           value: user.comment!,
         ),
       if (user.webpage != null)
-        (label: _profileText(context, 'profileWebsite'), value: user.webpage!),
+        (label: context.l10n.profileWebsite, value: user.webpage!),
       if (user.twitterUrl != null) (label: 'Twitter', value: user.twitterUrl!),
       if (user.pawooUrl != null) (label: 'Pawoo', value: user.pawooUrl!),
     ];
@@ -625,33 +626,33 @@ class _ProfileAbout extends StatelessWidget {
           ),
         const Divider(),
         Text(
-          _profileText(context, 'profileStats'),
+          context.l10n.profileStats,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         _ProfileStatRow(
           icon: AppIcons.follow,
-          label: _profileText(context, 'profileFollowing'),
+          label: context.l10n.profileFollowing,
           value: user.totalFollowUsers,
         ),
         _ProfileStatRow(
           icon: AppIcons.friend,
-          label: _profileText(context, 'profileMyPixiv'),
+          label: context.l10n.profileMyPixiv,
           value: user.totalMyPixivUsers,
         ),
         _ProfileStatRow(
           icon: Icons.palette_outlined,
-          label: _profileText(context, 'profileIllust'),
+          label: context.l10n.profileIllust,
           value: user.totalIllusts,
         ),
         _ProfileStatRow(
           icon: Icons.menu_book_outlined,
-          label: _profileText(context, 'profileManga'),
+          label: context.l10n.profileManga,
           value: user.totalManga,
         ),
         _ProfileStatRow(
           icon: Icons.auto_stories_outlined,
-          label: _profileText(context, 'profileNovel'),
+          label: context.l10n.profileNovel,
           value: user.totalNovels,
         ),
       ],
@@ -670,18 +671,18 @@ class _ProfileNovelFeed extends ConsumerWidget {
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => FeedError(
-        title: _profileText(context, 'profileLoadFailed'),
+        title: context.l10n.profileLoadFailed,
         error: error,
-        retryLabel: _profileText(context, 'profileRetry'),
+        retryLabel: context.l10n.profileRetry,
         onRetry: () =>
             ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
           return FeedError(
-            title: _profileText(context, 'profileLoadFailed'),
+            title: context.l10n.profileLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: _profileText(context, 'profileRetry'),
+            retryLabel: context.l10n.profileRetry,
             onRetry: () =>
                 ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
           );
@@ -717,7 +718,7 @@ class _ProfileNovelFeed extends ConsumerWidget {
                 if (novels.isEmpty) {
                   return FeedEmpty(
                     icon: Icons.inbox_outlined,
-                    title: _profileText(context, 'profileItemsEmpty'),
+                    title: context.l10n.profileItemsEmpty,
                     onRefresh: () => ref
                         .read(userNovelFeedProvider(userId).notifier)
                         .refresh(),
@@ -729,8 +730,8 @@ class _ProfileNovelFeed extends ConsumerWidget {
         onRetry: () => ref
                         .read(userNovelFeedProvider(userId).notifier)
                         .retryLoadMore(),
-        errorTitle: _profileText(context, 'profileLoadMoreFailed'),
-        retryLabel: _profileText(context, 'profileRetry'),
+        errorTitle: context.l10n.profileLoadMoreFailed,
+        retryLabel: context.l10n.profileRetry,
       );
                 }
                 return NovelCard(entity: novels[itemIndex]);
@@ -824,7 +825,7 @@ class _ProfileStatusPage extends StatelessWidget {
                 const SizedBox(height: 12),
                 FilledButton(
                   onPressed: onRetry,
-                  child: Text(_profileText(context, 'profileRetry')),
+                  child: Text(context.l10n.profileRetry),
                 ),
               ],
             ],

@@ -59,7 +59,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String loginNetworkError(String status) {
+  String loginNetworkError(int status) {
     return '网络错误 (HTTP $status)';
   }
 
@@ -82,6 +82,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkCompatibility => '自动兼容网络';
 
   @override
+  String get networkCompatibilityHint =>
+      '默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。';
+
+  @override
   String get getMoreHelp => '获取更多帮助 >>';
 
   @override
@@ -92,6 +96,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get accountTransferWarning => '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。';
+
+  @override
+  String get accountTransferSensitiveWarning =>
+      '此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。';
 
   @override
   String get accountTransferCopied => '账号迁移数据已复制，请尽快在目标设备粘贴。';
@@ -142,6 +150,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkMode => '自动兼容网络';
 
   @override
+  String get networkModeHint =>
+      '默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。';
+
+  @override
   String get networkModeListTitle => '网络模式';
 
   @override
@@ -169,10 +181,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkDoh => '严格回退使用 DoH 解析';
 
   @override
+  String get networkDohHint =>
+      '启用后，回退阶梯使用 DoH 解析（默认 Cloudflare DoH：域名端点 + 静态 Anycast IP，免系统 DNS 投毒；自定义端点解析域名）；关闭则仅用系统 DNS。';
+
+  @override
   String get networkDohEndpoints => 'DoH 端点（逗号分隔，https URL）';
 
   @override
   String get networkEchFrontHost => 'ECH 前置主机';
+
+  @override
+  String get networkEchFrontHostHint =>
+      '查询 HTTPS RR 获取 ECH config 的域名（默认 cloudflare-ech.com）';
 
   @override
   String get networkEchHostInvalid => '前置主机名无效';
@@ -182,6 +202,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get networkProbeTitle => '分层连通性探测';
+
+  @override
+  String get networkProbeHint =>
+      '对 Pixiv 四个官方主机逐层测试：系统 DNS → DoH → TCP → TLS(真实 SNI) → 最小请求。TCP 通但 TLS 握手失败 = SNI 被封。';
 
   @override
   String get networkProbeRun => '开始探测';
@@ -519,6 +543,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get namingPreview => '预览';
 
   @override
+  String namingTemplateVariables(
+    String artist,
+    String title,
+    String id,
+    String page,
+    String ext,
+    String date,
+  ) {
+    return '变量：$artist $title $id $page $ext $date；非法字符自动替换为 _，超长自动裁剪。';
+  }
+
+  @override
   String get notConfigured => '未配置';
 
   @override
@@ -574,6 +610,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get translateCredentialsInvalid => '输入不完整或接口地址不是 HTTPS';
+
+  @override
+  String get translateBaiduHint =>
+      '百度翻译标准版无需认证，但只有 5 万字符/月、每秒 1 次，评论翻译基本不够；高级版需个人实名认证（姓名 + 身份证号），100 万字符/月、每秒 10 次。凭据仅用于翻译请求。';
+
+  @override
+  String get translateLlmCredentialHint =>
+      '仅允许 HTTPS 接口；翻译使用固定提示词，不开放模型与高级参数。评论正文与译文不会持久化。';
 
   @override
   String get translateCredentialHint => '翻译凭据不会写入普通设置；需要时由安全存储管理。';
@@ -899,6 +943,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseUnavailable => '反向搜图暂不可用';
 
   @override
+  String get searchReverseUnavailableDetail =>
+      '当前没有通过凭据、服务条款和隐私审查的结构化服务；不会上传图片或执行网页抓取。';
+
+  @override
   String get searchReversePick => '选择图片';
 
   @override
@@ -942,7 +990,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseRateLimited => '搜索过于频繁，请稍后再试';
 
   @override
-  String searchReverseRateLimitedWait(String seconds) {
+  String searchReverseRateLimitedWait(int seconds) {
     return '约 $seconds 秒后可重试';
   }
 
@@ -1033,7 +1081,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String illustDetailSize(String width, String height) {
+  String illustDetailSize(int width, int height) {
     return '尺寸：${width}x$height';
   }
 
@@ -1043,7 +1091,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String illustDetailRestricted(String id) {
+  String illustDetailRestricted(int id) {
     return '该作品已被删除或受限（ID: $id）';
   }
 

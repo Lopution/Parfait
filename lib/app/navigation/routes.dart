@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_entity.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
 import '../../features/comments/comments_page.dart';
@@ -25,6 +24,7 @@ import '../../features/search/search_result_page.dart';
 import '../../features/search/tag_search_page.dart';
 import '../motion/replica_page_route.dart';
 import '../widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 /// Root tabs of the home shell. The shell (app layer) must not import feature
 /// pages directly, so the tab list lives here next to the navigation facade.
@@ -83,10 +83,7 @@ Future<void> openSearchInput(BuildContext context, {String initialKeyword = ''})
 Future<void> openSearchResults(BuildContext context, SearchQuery query) {
   final keyword = query.keyword.trim();
   if (keyword.isEmpty) {
-    showAppSnackBar(context, ReplicaStrings.fromTag(
-            Localizations.localeOf(context).toLanguageTag(),
-            'searchInputEmpty',
-          ),);
+    showAppSnackBar(context, context.l10n.searchInputEmpty,);
     return Future<void>.value();
   }
   final id = _positiveNumericId(keyword);

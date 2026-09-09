@@ -16,6 +16,7 @@ import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../core/log.dart';
+import '../../l10n/context.dart';
 
 /// Same string as the About page (pubspec `version: 0.1.0+1`).
 const _kAppVersion = '0.1.0+1';
@@ -245,12 +246,12 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_probeText(context, 'networkProbeTitle'))),
+      appBar: AppBar(title: Text(context.l10n.networkProbeTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            _probeText(context, 'networkProbeHint'),
+            context.l10n.networkProbeHint,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -265,8 +266,8 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
                 : const Icon(Icons.play_arrow),
             label: Text(
               _running
-                  ? _probeText(context, 'networkProbeRunning')
-                  : _probeText(context, 'networkProbeRun'),
+                  ? context.l10n.networkProbeRunning
+                  : context.l10n.networkProbeRun,
             ),
           ),
           const SizedBox(height: 16),
@@ -327,7 +328,7 @@ class _HostProbeCard extends StatelessWidget {
             const SizedBox(height: 8),
             if (error != null)
               Text(
-                '${_probeText(context, 'networkProbeHostFailed')}: $error',
+                '${context.l10n.networkProbeHostFailed}: $error',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.error,
                 ),
@@ -335,8 +336,8 @@ class _HostProbeCard extends StatelessWidget {
             else if (body == null)
               Text(
                 running
-                    ? _probeText(context, 'networkProbeRunning')
-                    : _probeText(context, 'networkProbeNotRun'),
+                    ? context.l10n.networkProbeRunning
+                    : context.l10n.networkProbeNotRun,
                 style: theme.textTheme.bodySmall,
               )
             else ...[
@@ -344,7 +345,7 @@ class _HostProbeCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    _probeText(context, 'networkProbeDnsDiff'),
+                    context.l10n.networkProbeDnsDiff,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.orange.shade800,
                     ),
@@ -368,10 +369,10 @@ class _HostProbeCard extends StatelessWidget {
                     Clipboard.setData(
                       ClipboardData(text: body.toCopyableText()),
                     );
-                    showAppSnackBar(context, _probeText(context, 'networkProbeCopied'),);
+                    showAppSnackBar(context, context.l10n.networkProbeCopied,);
                   },
                   icon: const Icon(Icons.copy, size: 16),
-                  label: Text(_probeText(context, 'copy')),
+                  label: Text(context.l10n.copy),
                 ),
               ),
             ],

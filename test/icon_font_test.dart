@@ -9,6 +9,7 @@ import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/features/home/home_page.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 /// The icon font tests render the real [HomePage] shell, which subscribes to
 /// the Android intent bridge in `initState`. This stub replaces only that
@@ -78,7 +79,10 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: MaterialApp(
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: HomePage(intentSource: _NoAndroidIntentSource()),
         ),
       ),
@@ -118,7 +122,10 @@ void main() {
 
     await tester.pumpWidget(
       const ProviderScope(
-        child: MaterialApp(
+        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: HomePage(intentSource: _NoAndroidIntentSource()),
         ),
       ),

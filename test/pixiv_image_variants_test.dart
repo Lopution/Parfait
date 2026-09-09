@@ -5,9 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 Widget _host(Widget child) =>
-    ProviderScope(child: MaterialApp(home: Scaffold(body: child)));
+    ProviderScope(child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+home: Scaffold(body: child)));
 
 int? _memCacheWidthOf(WidgetTester tester) =>
     tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage))

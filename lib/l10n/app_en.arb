@@ -27,7 +27,7 @@
   "@loginNetworkError": {
     "placeholders": {
       "status": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -56,46 +56,52 @@
     }
   },
   "networkCompatibility": "Automatic compatibility network",
+  "networkCompatibilityHint": "Direct HTTPS is tried first; only official Pixiv destinations may try a strict HTTPS candidate after an explicit transport failure. Other traffic is never proxied and certificate checks stay enabled.",
   "getMoreHelp": "Get more help >>",
-  "useLoginWithClipboardHint": "或使用\\n长按头像复制账号数据",
+  "useLoginWithClipboardHint": "Or use\\nlong press on the avatar to copy account data",
   "useLoginWithClipboard": "Login with clipboard data",
-  "accountTransferWarning": "剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。",
-  "accountTransferCopied": "账号迁移数据已复制，请尽快在目标设备粘贴。",
+  "accountTransferWarning": "The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.",
+  "accountTransferSensitiveWarning": "This device cannot mark clipboard entries as sensitive (Android 13+ only): the credential will sit in the system clipboard in plaintext. Paste as soon as possible; it is cleared automatically after 5 minutes.",
+  "accountTransferCopied": "Account-transfer data copied. Paste it on the target device soon.",
   "accountTransferImported": "Account transfer succeeded",
-  "accountTransferClipboardReplaced": "账号已导入；剪贴板已被其他内容替换，未执行清除。",
-  "accountTransferCorrupt": "剪贴板账号数据损坏或格式不受支持",
-  "accountTransferCredentialInvalid": "账号凭据无效，请重新登录或重新复制",
-  "accountTransferVerificationUnavailable": "暂时无法向 Pixiv 验证账号凭据",
+  "accountTransferClipboardReplaced": "Account imported; the clipboard was replaced, so it was not cleared.",
+  "accountTransferCorrupt": "Clipboard account data is corrupt or unsupported",
+  "accountTransferCredentialInvalid": "The account credential is invalid; log in or copy again",
+  "accountTransferVerificationUnavailable": "Pixiv credential verification is temporarily unavailable",
   "accountTransferNoAccount": "There is no signed-in account to copy",
-  "accountTransferCredentialUnavailable": "当前账号凭据不可用，请重新登录",
+  "accountTransferCredentialUnavailable": "The current credential is unavailable; log in again",
   "accountTransferClipboardUnavailable": "The clipboard is unavailable",
-  "accountTransferStorageFailure": "账号迁移记录无法安全保存",
+  "accountTransferStorageFailure": "The account-transfer record could not be stored safely",
   "loginAgree": "By logging in you agree",
   "userAgreement": "《Pixiv Func User Agreement》",
   "settingsTitle": "Settings",
   "accountSettings": "Account",
   "networkSettings": "Network",
   "networkMode": "Auto compatibility mode",
+  "networkModeHint": "Direct by default; only Pixiv official hosts may retry via a strict HTTPS tier after a clear transport failure. No other traffic is proxied and certificate checks are never disabled.",
   "networkModeListTitle": "Network mode",
   "networkModeAutomatic": "Automatic",
-  "networkModeAutomaticHint": "标准网络栈：按各主机组选择可达且畅通的路线。",
+  "networkModeAutomaticHint": "Standard network stack: selects a reachable route per host group.",
   "networkModeDirectOnly": "Direct only",
-  "networkModeDirectOnlyHint": "使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。",
+  "networkModeDirectOnlyHint": "System DNS + real SNI direct connection. For networks known to be reachable directly.",
   "networkAdvanced": "Advanced",
   "networkAdvancedHint": "DoH endpoints, ECH front host and other details.",
   "networkAdvancedReset": "Reset to defaults",
   "networkDoh": "Use DoH for strict fallback",
+  "networkDohHint": "When enabled, the fallback tier resolves via DoH (default Cloudflare DoH: domain endpoints pinned to static anycast IPs — no poisoned system round trip; custom endpoints resolve their own hostnames); otherwise the system DNS is used.",
   "networkDohEndpoints": "DoH endpoints (comma-separated, https URLs)",
   "networkEchFrontHost": "ECH front host",
+  "networkEchFrontHostHint": "Domain queried for the HTTPS RR carrying the ECH config (default cloudflare-ech.com)",
   "networkEchHostInvalid": "Invalid front host name",
   "networkProbe": "Layered connectivity probe",
   "networkProbeTitle": "Layered connectivity probe",
+  "networkProbeHint": "Probes the four official Pixiv hosts layer by layer: system DNS → DoH → TCP → TLS(real SNI) → minimal request. TCP ok but TLS handshake fails = SNI blocked.",
   "networkProbeRun": "Run probe",
   "networkProbeRunning": "Probing…",
   "networkProbeNotRun": "Not run yet",
   "networkProbeHostFailed": "Host probe failed",
   "networkProbeCopied": "Report copied",
-  "networkProbeDnsDiff": "附加信息：系统 DNS 与 DoH 的公共地址没有交集。",
+  "networkProbeDnsDiff": "Additional evidence: system DNS and DoH share no public address.",
   "networkProbeStepSystemDns": "System DNS",
   "networkProbeStepDoh": "DoH",
   "networkProbeStepTcp": "TCP",
@@ -149,12 +155,12 @@
   "profileEditAvatar": "Avatar",
   "profileEditBackground": "Background image",
   "profileEditCurrentPassword": "Current password",
-  "profileEditFieldUnsupported": "当前通道不支持此字段",
+  "profileEditFieldUnsupported": "This field is not supported by the current route",
   "profileEditImageChoose": "Choose a supported image",
   "profileEditChooseImage": "Choose image",
   "profileEditSave": "Save profile",
   "profileEditLeaveTitle": "Discard unsaved changes?",
-  "profileEditLeaveDetail": "当前修改尚未提交，离开后会丢失。",
+  "profileEditLeaveDetail": "Your changes have not been submitted and will be lost.",
   "profileEditLeaveConfirm": "Discard changes",
   "accountManagement": "Account management",
   "addAccount": "Add account",
@@ -162,7 +168,7 @@
   "removeAccount": "Remove account",
   "removeAccountConfirm": "Remove this account?",
   "noAccounts": "No accounts",
-  "profileReadOnly": "这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。",
+  "profileReadOnly": "This screen shows saved account metadata. Full profile editing belongs to the profile module.",
   "imageSource": "Image source",
   "imageSourceNormal": "Official CDN (system DNS / HTTPS)",
   "previewQuality": "Preview quality",
@@ -188,7 +194,7 @@
   "saveLocationUseCustomAlbum": "Use custom album",
   "saveLocationAlbumInvalid": "Invalid album name",
   "saveLocationSafFolder": "Folder (system directory picker)",
-  "saveLocationSafFolderHint": "通过系统 SAF 选择目录并持久授权",
+  "saveLocationSafFolderHint": "Picks a directory via the system SAF and persists the grant",
   "saveLocationSafPicked": "Folder selected",
   "namingPreset": "File naming preset",
   "namingPresetId": "Work ID (default)",
@@ -216,8 +222,31 @@
       }
     }
   },
-  "namingTemplateInvalid": "模板包含不支持的变量或非法字符",
+  "namingTemplateInvalid": "Template has unsupported variables or illegal characters",
   "namingPreview": "Preview",
+  "namingTemplateVariables": "Variables: {artist} {title} {id} {page} {ext} {date}; illegal characters become _, and long names are trimmed.",
+  "@namingTemplateVariables": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "notConfigured": "Not configured",
   "translateProvider": "Translation service",
   "translateGoogle": "Google Translate",
@@ -236,12 +265,14 @@
   "translateCredentialsSaved": "Saved to secure storage",
   "translateCredentialsCleared": "Credentials cleared",
   "translateCredentialsStoreError": "Secure storage operation failed",
-  "translateCredentialsInvalid": "输入不完整或接口地址不是 HTTPS",
-  "translateCredentialHint": "翻译凭据不会写入普通设置；需要时由安全存储管理。",
-  "historySettingsHint": "历史记录开关由历史模块读取；关闭后不会新增对应记录。",
+  "translateCredentialsInvalid": "Incomplete input or endpoint is not HTTPS",
+  "translateBaiduHint": "Baidu standard needs no verification but allows only 50k chars/month at 1 QPS, too little for comments; premium requires personal real-name verification (name + ID number) for 1M chars/month at 10 QPS. Credentials are used only for translation requests.",
+  "translateLlmCredentialHint": "HTTPS endpoints only; translation uses a fixed prompt without model/advanced knobs. Comment text and translations are never persisted.",
+  "translateCredentialHint": "Translation credentials are never written to ordinary settings; secure storage owns them when needed.",
+  "historySettingsHint": "The history module reads these switches; disabled histories do not receive new records.",
   "blockTagInputHint": "Enter a tag to add it",
   "noBlockedTags": "No blocked tags",
-  "downloaderSettingsHint": "下载任务由共享 DownloadManager 实时维护。",
+  "downloaderSettingsHint": "Download tasks are maintained live by the shared DownloadManager.",
   "downloadTasksEmpty": "No download tasks",
   "downloadQueued": "Queued",
   "downloadRunning": "Downloading",
@@ -256,20 +287,20 @@
   "aboutCheckingUpdate": "Checking for updates…",
   "aboutUpdateAvailable": "Update available",
   "aboutUpdateNoUpdate": "You are up to date",
-  "aboutUpdatePrerelease": "发现预发布版本，当前稳定通道不会安装",
+  "aboutUpdatePrerelease": "A prerelease is available; the stable channel will not install it",
   "aboutUpdateDownload": "Download and install",
   "aboutUpdateDownloading": "Downloading and verifying…",
   "aboutUpdateConfirmTitle": "Confirm update",
-  "aboutUpdateConfirmDetail": "只会安装通过签名、大小、哈希、包名和签名证书校验的 APK。是否继续？",
-  "aboutUpdatePermission": "需要允许此来源安装应用，然后再次确认安装。",
+  "aboutUpdateConfirmDetail": "Only an APK passing signature, size, hash, package and certificate checks will be installed. Continue?",
+  "aboutUpdatePermission": "Allow this source to install apps, then confirm the installation again.",
   "aboutUpdateStarted": "The system installer was opened",
   "aboutUpdateStore": "Updates for this build are managed by F-Droid.",
   "aboutUpdateUnavailable": "Update checks are currently unavailable",
-  "aboutUpdateFailed": "更新检查或安装失败，请稍后重试",
+  "aboutUpdateFailed": "The update check or installation failed. Try again later.",
   "aboutLicense": "License",
   "aboutAttribution": "Attribution",
   "aboutSource": "Source code",
-  "aboutLicenseText": "本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。",
+  "aboutLicenseText": "This project is based on the public Pixiv Func source and follows GNU AGPL v3.0.",
   "aboutAttributionText": "Original author: git-xiaocao.",
   "settingsReadFailed": "Failed to read settings",
   "settingsWriteFailed": "Failed to save settings",
@@ -389,9 +420,10 @@
   "searchRefreshFailed": "Refresh failed",
   "searchInputEmpty": "Enter a search term",
   "searchReverseUnavailable": "Reverse image search unavailable",
+  "searchReverseUnavailableDetail": "No structured service has passed credential, terms and privacy review; the image is not uploaded or scraped through a web page.",
   "searchReversePick": "Choose image",
   "searchReversePrivacy": "Privacy notice",
-  "searchReversePrivacyDetail": "图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。",
+  "searchReversePrivacyDetail": "The image is sent only after you confirm a search and temporary data is cleaned after cancellation or failure.",
   "searchReversePreparing": "Preparing image…",
   "searchReverseSearching": "Searching…",
   "searchReverseCancel": "Cancel",
@@ -407,14 +439,14 @@
   "@searchReverseRateLimitedWait": {
     "placeholders": {
       "seconds": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
   "searchReverseDailyLimit": "今日匿名搜索额度已用完，明天再试",
-  "searchReverseChallenge": "SauceNAO 要求人机验证，本次搜索未完成，请稍后再试",
+  "searchReverseChallenge": "SauceNAO requires human verification. This search did not finish. Try again later.",
   "searchReversePageLoadFailed": "The result page failed to load",
-  "searchReverseIntro": "选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。",
+  "searchReverseIntro": "The selected image is uploaded anonymously to SauceNAO; the result page opens inside the app.",
   "searchNoRepresentative": "This tag has no representative work",
   "searchFilters": "Filters",
   "searchReset": "Reset",
@@ -450,10 +482,10 @@
   "@illustDetailSize": {
     "placeholders": {
       "width": {
-        "type": "String"
+        "type": "int"
       },
       "height": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -465,11 +497,11 @@
       }
     }
   },
-  "illustDetailRestricted": "该作品已被删除或受限（ID: {id}）",
+  "illustDetailRestricted": "This artwork has been deleted or restricted (ID: {id})",
   "@illustDetailRestricted": {
     "placeholders": {
       "id": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -492,10 +524,10 @@
   "commentReplies": "Replies",
   "commentTranslate": "Translate",
   "commentTranslation": "Translation",
-  "commentTranslationUnavailable": "翻译服务不可用，请在设置中开启。",
+  "commentTranslationUnavailable": "Translation is unavailable. Enable it in Settings.",
   "commentTranslationFailed": "Translation failed",
-  "commentTranslationInvalidCredentials": "翻译凭据无效，请在设置中检查。",
-  "commentTranslationRateLimited": "翻译过于频繁或额度已用完",
+  "commentTranslationInvalidCredentials": "Translation credentials are invalid; check settings",
+  "commentTranslationRateLimited": "Too many translations or quota exhausted",
   "commentEmoji": "Emoji",
   "commentStamps": "Stamps",
   "commentPermissionDenied": "You can only delete your own comments",
@@ -536,7 +568,7 @@
   "profileItemsEmpty": "No content",
   "profileLoadMoreFailed": "Failed to load more",
   "profileRetry": "Retry",
-  "profileNovelPending": "小说列表将在 Novel Reader 模块接入",
+  "profileNovelPending": "Novel lists will be connected by the Novel Reader module",
   "profileShare": "Share user",
   "profileShareHint": "Share this user link",
   "profileShareClose": "Close",
@@ -552,7 +584,7 @@
   "novelLoading": "Loading novel",
   "novelNotFound": "Novel does not exist or was removed",
   "novelRestricted": "This novel is restricted",
-  "novelContentUnavailable": "当前 API 未提供小说正文",
+  "novelContentUnavailable": "The current API did not provide the novel body",
   "novelLoadFailed": "Failed to load novel",
   "novelRetry": "Retry",
   "novelNoContent": "No body text",

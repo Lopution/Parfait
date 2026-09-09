@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,6 +30,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'download_manager_test.dart';
 import 'helpers/illust_fixtures.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 /// Widget test host: real DownloadManager over a scripted transport +
 /// memory sinks, detail API over a MockClient — no platform channels.
@@ -169,14 +169,14 @@ Future<void> pumpDetail(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: const [
             Locale('zh', 'CN'),
             Locale('en', 'US'),
             Locale('ja', 'JP'),
             Locale('ru', 'RU'),
           ],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          locale: locale,
           home: IllustDetailPage(illustId: illustId),
         ),
       ),
@@ -205,7 +205,10 @@ void main() {
     testWidgets('shows n / total and honors the initial page', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
+          MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: ImageViewerPage(
               urls: [
                 'https://i.pximg.net/1/original.jpg',
@@ -227,7 +230,10 @@ void main() {
     testWidgets('zoom clamps to 0.9–6.0 via InteractiveViewer', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
+          MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
             home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
           ),
         );
@@ -247,10 +253,10 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+
           home: ImageViewerPage(urls: []),
         ),
       );
@@ -267,7 +273,10 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
+            MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
               home: ImageViewerPage(
                 urls: ['https://i.pximg.net/1/original.jpg'],
               ),
@@ -519,7 +528,10 @@ void main() {
           await tester.pumpWidget(
             UncontrolledProviderScope(
               container: container,
-              child: MaterialApp(
+              child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
                 home: IllustDetailPage(
                   illustId: 42,
                   initialEntity: entity,

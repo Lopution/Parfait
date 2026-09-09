@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,6 +21,7 @@ import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_edit_page.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
   installMemoryPreferences();
@@ -357,10 +357,10 @@ void main() {
     await controller.load();
 
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('en', 'US'),
-        supportedLocales: const [Locale('en', 'US')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+
         home: ProfileEditPage(userId: 42, controller: controller),
       ),
     );

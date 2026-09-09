@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/reverse_image/image_input.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_provider.dart';
 import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
   late Directory directory;
@@ -186,10 +186,10 @@ Future<void> _pumpPage(
   ReverseImageInputReference? initialReference,
 }) {
   return tester.pumpWidget(
-    MaterialApp(
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
       home: ReverseImageSearchPage(
         initialReference: initialReference,
         platform: platform,

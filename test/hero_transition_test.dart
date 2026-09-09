@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:pixiv_func/app/motion/replica_page_route.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
   testWidgets('Hero pop onto a user page matches its own chrome', (
@@ -17,7 +18,10 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         navigatorKey: navigatorKey,
         home: const Scaffold(body: SizedBox.shrink()),
       ),
@@ -130,7 +134,10 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         navigatorKey: navigatorKey,
         home: Scaffold(
           body: ListView(
@@ -214,7 +221,10 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         navigatorKey: navigatorKey,
         home: Scaffold(
           appBar: AppBar(title: const Text('Feed')),
@@ -305,7 +315,10 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         navigatorKey: navigatorKey,
         home: Scaffold(
           body: NestedScrollView(

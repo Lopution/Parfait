@@ -59,7 +59,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String loginNetworkError(String status) {
+  String loginNetworkError(int status) {
     return 'Network error (HTTP $status)';
   }
 
@@ -82,48 +82,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkCompatibility => 'Automatic compatibility network';
 
   @override
+  String get networkCompatibilityHint =>
+      'Direct HTTPS is tried first; only official Pixiv destinations may try a strict HTTPS candidate after an explicit transport failure. Other traffic is never proxied and certificate checks stay enabled.';
+
+  @override
   String get getMoreHelp => 'Get more help >>';
 
   @override
-  String get useLoginWithClipboardHint => '或使用\\n长按头像复制账号数据';
+  String get useLoginWithClipboardHint =>
+      'Or use\\nlong press on the avatar to copy account data';
 
   @override
   String get useLoginWithClipboard => 'Login with clipboard data';
 
   @override
-  String get accountTransferWarning => '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。';
+  String get accountTransferWarning =>
+      'The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.';
 
   @override
-  String get accountTransferCopied => '账号迁移数据已复制，请尽快在目标设备粘贴。';
+  String get accountTransferSensitiveWarning =>
+      'This device cannot mark clipboard entries as sensitive (Android 13+ only): the credential will sit in the system clipboard in plaintext. Paste as soon as possible; it is cleared automatically after 5 minutes.';
+
+  @override
+  String get accountTransferCopied =>
+      'Account-transfer data copied. Paste it on the target device soon.';
 
   @override
   String get accountTransferImported => 'Account transfer succeeded';
 
   @override
-  String get accountTransferClipboardReplaced => '账号已导入；剪贴板已被其他内容替换，未执行清除。';
+  String get accountTransferClipboardReplaced =>
+      'Account imported; the clipboard was replaced, so it was not cleared.';
 
   @override
-  String get accountTransferCorrupt => '剪贴板账号数据损坏或格式不受支持';
+  String get accountTransferCorrupt =>
+      'Clipboard account data is corrupt or unsupported';
 
   @override
-  String get accountTransferCredentialInvalid => '账号凭据无效，请重新登录或重新复制';
+  String get accountTransferCredentialInvalid =>
+      'The account credential is invalid; log in or copy again';
 
   @override
-  String get accountTransferVerificationUnavailable => '暂时无法向 Pixiv 验证账号凭据';
+  String get accountTransferVerificationUnavailable =>
+      'Pixiv credential verification is temporarily unavailable';
 
   @override
   String get accountTransferNoAccount =>
       'There is no signed-in account to copy';
 
   @override
-  String get accountTransferCredentialUnavailable => '当前账号凭据不可用，请重新登录';
+  String get accountTransferCredentialUnavailable =>
+      'The current credential is unavailable; log in again';
 
   @override
   String get accountTransferClipboardUnavailable =>
       'The clipboard is unavailable';
 
   @override
-  String get accountTransferStorageFailure => '账号迁移记录无法安全保存';
+  String get accountTransferStorageFailure =>
+      'The account-transfer record could not be stored safely';
 
   @override
   String get loginAgree => 'By logging in you agree';
@@ -144,19 +161,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkMode => 'Auto compatibility mode';
 
   @override
+  String get networkModeHint =>
+      'Direct by default; only Pixiv official hosts may retry via a strict HTTPS tier after a clear transport failure. No other traffic is proxied and certificate checks are never disabled.';
+
+  @override
   String get networkModeListTitle => 'Network mode';
 
   @override
   String get networkModeAutomatic => 'Automatic';
 
   @override
-  String get networkModeAutomaticHint => '标准网络栈：按各主机组选择可达且畅通的路线。';
+  String get networkModeAutomaticHint =>
+      'Standard network stack: selects a reachable route per host group.';
 
   @override
   String get networkModeDirectOnly => 'Direct only';
 
   @override
-  String get networkModeDirectOnlyHint => '使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。';
+  String get networkModeDirectOnlyHint =>
+      'System DNS + real SNI direct connection. For networks known to be reachable directly.';
 
   @override
   String get networkAdvanced => 'Advanced';
@@ -172,11 +195,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkDoh => 'Use DoH for strict fallback';
 
   @override
+  String get networkDohHint =>
+      'When enabled, the fallback tier resolves via DoH (default Cloudflare DoH: domain endpoints pinned to static anycast IPs — no poisoned system round trip; custom endpoints resolve their own hostnames); otherwise the system DNS is used.';
+
+  @override
   String get networkDohEndpoints =>
       'DoH endpoints (comma-separated, https URLs)';
 
   @override
   String get networkEchFrontHost => 'ECH front host';
+
+  @override
+  String get networkEchFrontHostHint =>
+      'Domain queried for the HTTPS RR carrying the ECH config (default cloudflare-ech.com)';
 
   @override
   String get networkEchHostInvalid => 'Invalid front host name';
@@ -186,6 +217,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkProbeTitle => 'Layered connectivity probe';
+
+  @override
+  String get networkProbeHint =>
+      'Probes the four official Pixiv hosts layer by layer: system DNS → DoH → TCP → TLS(real SNI) → minimal request. TCP ok but TLS handshake fails = SNI blocked.';
 
   @override
   String get networkProbeRun => 'Run probe';
@@ -203,7 +238,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkProbeCopied => 'Report copied';
 
   @override
-  String get networkProbeDnsDiff => '附加信息：系统 DNS 与 DoH 的公共地址没有交集。';
+  String get networkProbeDnsDiff =>
+      'Additional evidence: system DNS and DoH share no public address.';
 
   @override
   String get networkProbeStepSystemDns => 'System DNS';
@@ -367,7 +403,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileEditCurrentPassword => 'Current password';
 
   @override
-  String get profileEditFieldUnsupported => '当前通道不支持此字段';
+  String get profileEditFieldUnsupported =>
+      'This field is not supported by the current route';
 
   @override
   String get profileEditImageChoose => 'Choose a supported image';
@@ -382,7 +419,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileEditLeaveTitle => 'Discard unsaved changes?';
 
   @override
-  String get profileEditLeaveDetail => '当前修改尚未提交，离开后会丢失。';
+  String get profileEditLeaveDetail =>
+      'Your changes have not been submitted and will be lost.';
 
   @override
   String get profileEditLeaveConfirm => 'Discard changes';
@@ -406,7 +444,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noAccounts => 'No accounts';
 
   @override
-  String get profileReadOnly => '这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。';
+  String get profileReadOnly =>
+      'This screen shows saved account metadata. Full profile editing belongs to the profile module.';
 
   @override
   String get imageSource => 'Image source';
@@ -485,7 +524,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveLocationSafFolder => 'Folder (system directory picker)';
 
   @override
-  String get saveLocationSafFolderHint => '通过系统 SAF 选择目录并持久授权';
+  String get saveLocationSafFolderHint =>
+      'Picks a directory via the system SAF and persists the grant';
 
   @override
   String get saveLocationSafPicked => 'Folder selected';
@@ -520,10 +560,23 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get namingTemplateInvalid => '模板包含不支持的变量或非法字符';
+  String get namingTemplateInvalid =>
+      'Template has unsupported variables or illegal characters';
 
   @override
   String get namingPreview => 'Preview';
+
+  @override
+  String namingTemplateVariables(
+    String artist,
+    String title,
+    String id,
+    String page,
+    String ext,
+    String date,
+  ) {
+    return 'Variables: $artist $title $id $page $ext $date; illegal characters become _, and long names are trimmed.';
+  }
 
   @override
   String get notConfigured => 'Not configured';
@@ -581,13 +634,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'Secure storage operation failed';
 
   @override
-  String get translateCredentialsInvalid => '输入不完整或接口地址不是 HTTPS';
+  String get translateCredentialsInvalid =>
+      'Incomplete input or endpoint is not HTTPS';
 
   @override
-  String get translateCredentialHint => '翻译凭据不会写入普通设置；需要时由安全存储管理。';
+  String get translateBaiduHint =>
+      'Baidu standard needs no verification but allows only 50k chars/month at 1 QPS, too little for comments; premium requires personal real-name verification (name + ID number) for 1M chars/month at 10 QPS. Credentials are used only for translation requests.';
 
   @override
-  String get historySettingsHint => '历史记录开关由历史模块读取；关闭后不会新增对应记录。';
+  String get translateLlmCredentialHint =>
+      'HTTPS endpoints only; translation uses a fixed prompt without model/advanced knobs. Comment text and translations are never persisted.';
+
+  @override
+  String get translateCredentialHint =>
+      'Translation credentials are never written to ordinary settings; secure storage owns them when needed.';
+
+  @override
+  String get historySettingsHint =>
+      'The history module reads these switches; disabled histories do not receive new records.';
 
   @override
   String get blockTagInputHint => 'Enter a tag to add it';
@@ -596,7 +660,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noBlockedTags => 'No blocked tags';
 
   @override
-  String get downloaderSettingsHint => '下载任务由共享 DownloadManager 实时维护。';
+  String get downloaderSettingsHint =>
+      'Download tasks are maintained live by the shared DownloadManager.';
 
   @override
   String get downloadTasksEmpty => 'No download tasks';
@@ -641,7 +706,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutUpdateNoUpdate => 'You are up to date';
 
   @override
-  String get aboutUpdatePrerelease => '发现预发布版本，当前稳定通道不会安装';
+  String get aboutUpdatePrerelease =>
+      'A prerelease is available; the stable channel will not install it';
 
   @override
   String get aboutUpdateDownload => 'Download and install';
@@ -653,10 +719,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutUpdateConfirmTitle => 'Confirm update';
 
   @override
-  String get aboutUpdateConfirmDetail => '只会安装通过签名、大小、哈希、包名和签名证书校验的 APK。是否继续？';
+  String get aboutUpdateConfirmDetail =>
+      'Only an APK passing signature, size, hash, package and certificate checks will be installed. Continue?';
 
   @override
-  String get aboutUpdatePermission => '需要允许此来源安装应用，然后再次确认安装。';
+  String get aboutUpdatePermission =>
+      'Allow this source to install apps, then confirm the installation again.';
 
   @override
   String get aboutUpdateStarted => 'The system installer was opened';
@@ -670,7 +738,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Update checks are currently unavailable';
 
   @override
-  String get aboutUpdateFailed => '更新检查或安装失败，请稍后重试';
+  String get aboutUpdateFailed =>
+      'The update check or installation failed. Try again later.';
 
   @override
   String get aboutLicense => 'License';
@@ -682,7 +751,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutSource => 'Source code';
 
   @override
-  String get aboutLicenseText => '本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。';
+  String get aboutLicenseText =>
+      'This project is based on the public Pixiv Func source and follows GNU AGPL v3.0.';
 
   @override
   String get aboutAttributionText => 'Original author: git-xiaocao.';
@@ -909,6 +979,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseUnavailable => 'Reverse image search unavailable';
 
   @override
+  String get searchReverseUnavailableDetail =>
+      'No structured service has passed credential, terms and privacy review; the image is not uploaded or scraped through a web page.';
+
+  @override
   String get searchReversePick => 'Choose image';
 
   @override
@@ -916,7 +990,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchReversePrivacyDetail =>
-      '图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。';
+      'The image is sent only after you confirm a search and temporary data is cleaned after cancellation or failure.';
 
   @override
   String get searchReversePreparing => 'Preparing image…';
@@ -952,7 +1026,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseRateLimited => 'Too many searches, try again later';
 
   @override
-  String searchReverseRateLimitedWait(String seconds) {
+  String searchReverseRateLimitedWait(int seconds) {
     return 'Try again in about $seconds seconds';
   }
 
@@ -960,13 +1034,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseDailyLimit => '今日匿名搜索额度已用完，明天再试';
 
   @override
-  String get searchReverseChallenge => 'SauceNAO 要求人机验证，本次搜索未完成，请稍后再试';
+  String get searchReverseChallenge =>
+      'SauceNAO requires human verification. This search did not finish. Try again later.';
 
   @override
   String get searchReversePageLoadFailed => 'The result page failed to load';
 
   @override
-  String get searchReverseIntro => '选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。';
+  String get searchReverseIntro =>
+      'The selected image is uploaded anonymously to SauceNAO; the result page opens inside the app.';
 
   @override
   String get searchNoRepresentative => 'This tag has no representative work';
@@ -1043,7 +1119,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String illustDetailSize(String width, String height) {
+  String illustDetailSize(int width, int height) {
     return 'Size: ${width}x$height';
   }
 
@@ -1053,8 +1129,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String illustDetailRestricted(String id) {
-    return '该作品已被删除或受限（ID: $id）';
+  String illustDetailRestricted(int id) {
+    return 'This artwork has been deleted or restricted (ID: $id)';
   }
 
   @override
@@ -1116,16 +1192,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentTranslation => 'Translation';
 
   @override
-  String get commentTranslationUnavailable => '翻译服务不可用，请在设置中开启。';
+  String get commentTranslationUnavailable =>
+      'Translation is unavailable. Enable it in Settings.';
 
   @override
   String get commentTranslationFailed => 'Translation failed';
 
   @override
-  String get commentTranslationInvalidCredentials => '翻译凭据无效，请在设置中检查。';
+  String get commentTranslationInvalidCredentials =>
+      'Translation credentials are invalid; check settings';
 
   @override
-  String get commentTranslationRateLimited => '翻译过于频繁或额度已用完';
+  String get commentTranslationRateLimited =>
+      'Too many translations or quota exhausted';
 
   @override
   String get commentEmoji => 'Emoji';
@@ -1248,7 +1327,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileRetry => 'Retry';
 
   @override
-  String get profileNovelPending => '小说列表将在 Novel Reader 模块接入';
+  String get profileNovelPending =>
+      'Novel lists will be connected by the Novel Reader module';
 
   @override
   String get profileShare => 'Share user';
@@ -1296,7 +1376,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelRestricted => 'This novel is restricted';
 
   @override
-  String get novelContentUnavailable => '当前 API 未提供小说正文';
+  String get novelContentUnavailable =>
+      'The current API did not provide the novel body';
 
   @override
   String get novelLoadFailed => 'Failed to load novel';

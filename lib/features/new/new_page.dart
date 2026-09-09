@@ -15,6 +15,7 @@ import '../../core/paging/paged_feed_controller.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
+import '../../l10n/context.dart';
 
 /// Beta56 New page: scope tabs are stable while the content type selector is
 /// exposed by tapping the selected tab a second time.
@@ -198,20 +199,20 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
     return feedAsync.when(
       loading: () => FeedEmpty(
         icon: Icons.fiber_new_outlined,
-        title: _newText(context, 'newLoading'),
+        title: context.l10n.newLoading,
       ),
       error: (error, _) => FeedError(
-        title: _newText(context, 'newLoadFailed'),
+        title: context.l10n.newLoadFailed,
         error: error,
-        retryLabel: _newText(context, 'newRetry'),
+        retryLabel: context.l10n.newRetry,
         onRetry: () => ref.invalidate(newFeedProvider(widget.feedKey)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
           return FeedError(
-            title: _newText(context, 'newLoadFailed'),
+            title: context.l10n.newLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: _newText(context, 'newRetry'),
+            retryLabel: context.l10n.newRetry,
             onRetry: () => ref
                 .read(newFeedProvider(widget.feedKey).notifier)
                 .retryInitial(),
@@ -220,14 +221,14 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
         if (feed.showInitialSpinner) {
           return FeedEmpty(
             icon: Icons.fiber_new_outlined,
-            title: _newText(context, 'newLoading'),
+            title: context.l10n.newLoading,
           );
         }
         if (feed.isEmptyAndReady) {
           return FeedEmpty(
             icon: Icons.inbox_outlined,
-            title: _newText(context, 'newEmpty'),
-            retryLabel: _newText(context, 'newRetry'),
+            title: context.l10n.newEmpty,
+            retryLabel: context.l10n.newRetry,
             onRefresh: () =>
                 ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
           );
@@ -266,11 +267,11 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                Expanded(child: Text(_newText(context, 'newRefreshFailed'))),
+                Expanded(child: Text(context.l10n.newRefreshFailed)),
                 TextButton(
                   onPressed: () =>
                       ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
-                  child: Text(_newText(context, 'newRetry')),
+                  child: Text(context.l10n.newRetry),
                 ),
               ],
             ),
@@ -282,8 +283,8 @@ class _NewFeedBodyState extends ConsumerState<NewFeedBody> {
           onRetry: () => ref
               .read(newFeedProvider(widget.feedKey).notifier)
               .retryLoadMore(),
-          errorTitle: _newText(context, 'newLoadMoreFailed'),
-          retryLabel: _newText(context, 'newRetry'),
+          errorTitle: context.l10n.newLoadMoreFailed,
+          retryLabel: context.l10n.newRetry,
         ),
       ),
     ];

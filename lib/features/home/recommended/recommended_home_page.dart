@@ -19,6 +19,7 @@ import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../core/illust/recommended_repository.dart';
+import '../../../l10n/context.dart';
 
 String _recommendedText(BuildContext context, String key) {
   return ReplicaStrings.fromTag(
@@ -160,17 +161,17 @@ class RecommendedFeedView extends ConsumerWidget {
     return feedAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => FeedError(
-        title: _recommendedText(context, 'recommendedLoadFailed'),
+        title: context.l10n.recommendedLoadFailed,
         error: error,
-        retryLabel: _recommendedText(context, 'retry'),
+        retryLabel: context.l10n.retry,
         onRetry: () => ref.invalidate(recommendedFeedProvider(key)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
           return FeedError(
-            title: _recommendedText(context, 'recommendedLoadFailed'),
+            title: context.l10n.recommendedLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: _recommendedText(context, 'retry'),
+            retryLabel: context.l10n.retry,
             onRetry: () =>
                 ref.read(recommendedFeedProvider(key).notifier).retryInitial(),
           );
@@ -180,7 +181,7 @@ class RecommendedFeedView extends ConsumerWidget {
         }
         if (feed.isEmptyAndReady) {
           return FeedEmpty(
-            title: _recommendedText(context, 'recommendedEmpty'),
+            title: context.l10n.recommendedEmpty,
             onRefresh: () =>
                 ref.read(recommendedFeedProvider(key).notifier).refresh(),
           );
@@ -227,15 +228,15 @@ class _RecommendedFeedBody extends ConsumerWidget {
           child: FeedTail(
             feed: feed.copyWith(loadMorePhase: FeedPhase.error),
             onRetry: onRetryRefresh,
-            retryLabel: _recommendedText(context, 'retry'),
+            retryLabel: context.l10n.retry,
           ),
         ),
       SliverToBoxAdapter(
         child: FeedTail(
           feed: feed,
           onRetry: onRetryLoadMore,
-          endMessage: _recommendedText(context, 'recommendedEnd'),
-          retryLabel: _recommendedText(context, 'retry'),
+          endMessage: context.l10n.recommendedEnd,
+          retryLabel: context.l10n.retry,
         ),
       ),
     ];
@@ -371,7 +372,7 @@ class _NovelRowCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${entity.textLength} ${_recommendedText(context, 'novelWords')}',
+                      '${entity.textLength} ${context.l10n.novelWords}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],

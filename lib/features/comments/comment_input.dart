@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/comments/comment_assets.dart';
-import 'comment_text.dart';
+import '../../l10n/context.dart';
 
 enum CommentComposerPanel { emoji, stamps }
 
@@ -62,14 +62,14 @@ class _CommentComposerState extends State<CommentComposer> {
                   children: [
                     Expanded(
                       child: Text(
-                        '${commentText(context, 'commentReplyTo')}: ${widget.replyTo}',
+                        '${context.l10n.commentReplyTo}: ${widget.replyTo}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall,
                       ),
                     ),
                     IconButton(
-                      tooltip: commentText(context, 'commentCancelReply'),
+                      tooltip: context.l10n.commentCancelReply,
                       onPressed: _disabled ? null : widget.onCancelReply,
                       icon: const Icon(Icons.close, size: 18),
                     ),
@@ -91,7 +91,7 @@ class _CommentComposerState extends State<CommentComposer> {
                       textInputAction: TextInputAction.newline,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        hintText: commentText(context, 'commentInput'),
+                        hintText: context.l10n.commentInput,
                         isDense: true,
                         filled: true,
                         fillColor: theme.colorScheme.surfaceContainerHighest,
@@ -107,7 +107,7 @@ class _CommentComposerState extends State<CommentComposer> {
                     ),
                   ),
                   IconButton(
-                    tooltip: commentText(context, 'commentEmoji'),
+                    tooltip: context.l10n.commentEmoji,
                     onPressed: _disabled
                         ? null
                         : () => _togglePanel(CommentComposerPanel.emoji),
@@ -120,7 +120,7 @@ class _CommentComposerState extends State<CommentComposer> {
                   ),
                   if (_controller.text.trim().isEmpty)
                     IconButton(
-                      tooltip: commentText(context, 'commentStamps'),
+                      tooltip: context.l10n.commentStamps,
                       onPressed: _disabled
                           ? null
                           : () => _togglePanel(CommentComposerPanel.stamps),
@@ -132,7 +132,7 @@ class _CommentComposerState extends State<CommentComposer> {
                       ),
                     ),
                   IconButton(
-                    tooltip: commentText(context, 'commentSend'),
+                    tooltip: context.l10n.commentSend,
                     onPressed: _disabled || _controller.text.trim().isEmpty
                         ? null
                         : _sendText,

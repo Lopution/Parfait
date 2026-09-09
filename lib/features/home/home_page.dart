@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 
 import '../../app/icons/app_icons.dart';
 import '../../core/navigation/route_observer.dart';
-import '../../core/i18n/replica_strings.dart';
 import '../../core/platform/android_intent_channel.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
@@ -16,6 +15,7 @@ import '../../core/platform/intent_router.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../l10n/context.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.intentSource});
@@ -205,10 +205,7 @@ class _HomePageState extends State<HomePage>
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      showAppSnackBar(context, ReplicaStrings.fromTag(
-            Localizations.localeOf(context).toLanguageTag(),
-            'searchReverseIntentFailed',
-          ),);
+      showAppSnackBar(context, context.l10n.searchReverseIntentFailed,);
     });
   }
 
@@ -227,10 +224,7 @@ class _HomePageState extends State<HomePage>
           ..showSnackBar(
             SnackBar(
               content: Text(
-                ReplicaStrings.fromTag(
-                  Localizations.localeOf(context).toLanguageTag(),
-                  'homeExitHint',
-                ),
+                context.l10n.homeExitHint,
               ),
               duration: RootBackCoordinator.exitWindow,
               behavior: SnackBarBehavior.floating,

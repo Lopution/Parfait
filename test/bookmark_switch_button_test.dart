@@ -13,6 +13,7 @@ import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/widgets/bookmark_switch_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _StubAccountStore extends AccountStore {
   @override
@@ -65,7 +66,7 @@ Future<(ProviderContainer, _RecordingRepository)> _pump(
       child: MaterialApp(
         locale: const Locale('zh', 'CN'),
         supportedLocales: const [Locale('zh', 'CN')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
         home: Scaffold(
           body: Center(
             child:

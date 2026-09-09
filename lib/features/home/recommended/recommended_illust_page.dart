@@ -9,9 +9,9 @@ import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/widgets/replica_empty_state.dart';
 import '../../../core/entity/illust_store.dart';
-import '../../../core/i18n/replica_strings.dart';
 
 import '../../../core/illust/recommended_illust_controller.dart';
+import '../../../l10n/context.dart';
 
 /// Recommended Illust tab: real API feed with initial/refresh/load-more
 /// states, card badges matching beta56 IllustPreviewer, and retained state
@@ -54,14 +54,8 @@ class RecommendedIllustPage extends ConsumerWidget {
         if (feed.isEmptyAndReady) {
           return Scaffold(
             body: ReplicaEmptyState(
-              message: ReplicaStrings.fromTag(
-                Localizations.localeOf(context).toLanguageTag(),
-                'recommendedEmpty',
-              ),
-              retryLabel: ReplicaStrings.fromTag(
-                Localizations.localeOf(context).toLanguageTag(),
-                'retry',
-              ),
+              message: context.l10n.recommendedEmpty,
+              retryLabel: context.l10n.retry,
               onRetry: () => ref
                   .read(recommendedIllustControllerProvider.notifier)
                   .refresh(),
@@ -142,10 +136,7 @@ class _InitialErrorView extends StatelessWidget {
             const Icon(Icons.cloud_off, size: 48),
             const SizedBox(height: 12),
             Text(
-              ReplicaStrings.fromTag(
-                Localizations.localeOf(context).toLanguageTag(),
-                'recommendedLoadFailed',
-              ),
+              context.l10n.recommendedLoadFailed,
             ),
             const SizedBox(height: 8),
             Text(
@@ -157,10 +148,7 @@ class _InitialErrorView extends StatelessWidget {
             FilledButton(
               onPressed: onRetry,
               child: Text(
-                ReplicaStrings.fromTag(
-                  Localizations.localeOf(context).toLanguageTag(),
-                  'retry',
-                ),
+                context.l10n.retry,
               ),
             ),
           ],

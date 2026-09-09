@@ -13,6 +13,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/ranking_feed_controller.dart';
+import '../../l10n/context.dart';
 
 /// Ranking page with beta56's horizontally scrollable 11-mode tab bar.
 /// Only the selected mode is built, while controllers and scroll positions
@@ -112,10 +113,7 @@ class _RankingModeBody extends ConsumerWidget {
           'rankingLoadFailed',
         ),
         error: error,
-        retryLabel: ReplicaStrings.fromTag(
-          Localizations.localeOf(context).toLanguageTag(),
-          'retry',
-        ),
+        retryLabel: context.l10n.retry,
         onRetry: () => ref
             .read(rankingFeedControllerProvider(mode).notifier)
             .retryInitial(),
@@ -128,10 +126,7 @@ class _RankingModeBody extends ConsumerWidget {
               'rankingLoadFailed',
             ),
             error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: ReplicaStrings.fromTag(
-              Localizations.localeOf(context).toLanguageTag(),
-              'retry',
-            ),
+            retryLabel: context.l10n.retry,
             onRetry: () => ref
                 .read(rankingFeedControllerProvider(mode).notifier)
                 .retryInitial(),
@@ -142,14 +137,8 @@ class _RankingModeBody extends ConsumerWidget {
         }
         if (feed.isEmptyAndReady) {
           return ReplicaEmptyState(
-            message: ReplicaStrings.fromTag(
-              Localizations.localeOf(context).toLanguageTag(),
-              'rankingEmpty',
-            ),
-            retryLabel: ReplicaStrings.fromTag(
-              Localizations.localeOf(context).toLanguageTag(),
-              'retry',
-            ),
+            message: context.l10n.rankingEmpty,
+            retryLabel: context.l10n.retry,
             onRetry: () => ref
                 .read(rankingFeedControllerProvider(mode).notifier)
                 .refresh(),
@@ -190,14 +179,8 @@ class _RankingModeBody extends ConsumerWidget {
                     onRetry: () => ref
                         .read(rankingFeedControllerProvider(mode).notifier)
                         .retryLoadMore(),
-                    errorTitle: ReplicaStrings.fromTag(
-                      Localizations.localeOf(context).toLanguageTag(),
-                      'rankingLoadMoreFailed',
-                    ),
-                    retryLabel: ReplicaStrings.fromTag(
-                      Localizations.localeOf(context).toLanguageTag(),
-                      'retry',
-                    ),
+                    errorTitle: context.l10n.rankingLoadMoreFailed,
+                    retryLabel: context.l10n.retry,
                   ),
                 ),
               ],

@@ -7,6 +7,7 @@ import 'package:pixiv_func/core/novel/novel_entity.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/features/novel/novel_layout.dart';
 import 'package:pixiv_func/features/novel/novel_reader.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
   test(
@@ -133,7 +134,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
         home: Scaffold(body: NovelReader(novel: _novel('reader ' * 120))),
       ),
     );

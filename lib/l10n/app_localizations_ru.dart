@@ -59,7 +59,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String loginNetworkError(String status) {
+  String loginNetworkError(int status) {
     return 'Сетевая ошибка (HTTP $status)';
   }
 
@@ -82,47 +82,64 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkCompatibility => 'Автоматическая совместимость сети';
 
   @override
+  String get networkCompatibilityHint =>
+      'Сначала используется прямой HTTPS; только официальные адреса Pixiv могут попробовать строгий HTTPS-маршрут после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификата не отключается.';
+
+  @override
   String get getMoreHelp => 'Получить дополнительную помощь >>';
 
   @override
-  String get useLoginWithClipboardHint => '或使用\\n长按头像复制账号数据';
+  String get useLoginWithClipboardHint =>
+      'Или используйте длинное нажатие на аватаре,\\n чтобы скопировать данные аккаунта';
 
   @override
   String get useLoginWithClipboard => 'Войти с данными из буфера обмена';
 
   @override
-  String get accountTransferWarning => '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。';
+  String get accountTransferWarning =>
+      'Буфер обмена хранится недолго и может быть прочитан другими приложениями; этот формат не обеспечивает шифрование или аутентификацию отправителя.';
 
   @override
-  String get accountTransferCopied => '账号迁移数据已复制，请尽快在目标设备粘贴。';
+  String get accountTransferSensitiveWarning =>
+      'Это устройство не поддерживает пометку буфера как конфиденциального (только Android 13+): учётные данные попадут в системный буфер открытым текстом. Вставьте как можно скорее; очистка через 5 минут.';
+
+  @override
+  String get accountTransferCopied =>
+      'Данные для переноса аккаунта скопированы. Скоро вставьте их на целевом устройстве.';
 
   @override
   String get accountTransferImported => 'Перенос аккаунта выполнен';
 
   @override
-  String get accountTransferClipboardReplaced => '账号已导入；剪贴板已被其他内容替换，未执行清除。';
+  String get accountTransferClipboardReplaced =>
+      'Аккаунт импортирован; буфер обмена заменён, поэтому он не очищен.';
 
   @override
-  String get accountTransferCorrupt => '剪贴板账号数据损坏或格式不受支持';
+  String get accountTransferCorrupt =>
+      'Данные аккаунта в буфере повреждены или не поддерживаются';
 
   @override
-  String get accountTransferCredentialInvalid => '账号凭据无效，请重新登录或重新复制';
+  String get accountTransferCredentialInvalid =>
+      'Учетные данные аккаунта недействительны; войдите или скопируйте снова';
 
   @override
-  String get accountTransferVerificationUnavailable => '暂时无法向 Pixiv 验证账号凭据';
+  String get accountTransferVerificationUnavailable =>
+      'Проверка учетных данных Pixiv временно недоступна';
 
   @override
   String get accountTransferNoAccount =>
       'Нет вошедшего аккаунта для копирования';
 
   @override
-  String get accountTransferCredentialUnavailable => '当前账号凭据不可用，请重新登录';
+  String get accountTransferCredentialUnavailable =>
+      'Текущие учетные данные недоступны; войдите снова';
 
   @override
   String get accountTransferClipboardUnavailable => 'Буфер обмена недоступен';
 
   @override
-  String get accountTransferStorageFailure => '账号迁移记录无法安全保存';
+  String get accountTransferStorageFailure =>
+      'Запись переноса аккаунта не удалось безопасно сохранить';
 
   @override
   String get loginAgree => 'Входя в систему, вы принимаете';
@@ -143,19 +160,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkMode => 'Автосовместимость сети';
 
   @override
+  String get networkModeHint =>
+      'По умолчанию прямое соединение; только официальные домены Pixiv могут повторяться через строгий HTTPS-уровень после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификатов не отключается.';
+
+  @override
   String get networkModeListTitle => 'Режим сети';
 
   @override
   String get networkModeAutomatic => 'Авто';
 
   @override
-  String get networkModeAutomaticHint => '标准网络栈：按各主机组选择可达且畅通的路线。';
+  String get networkModeAutomaticHint =>
+      'Стандартный стек: выбор достижимого маршрута для каждой группы хостов.';
 
   @override
   String get networkModeDirectOnly => 'Только прямое';
 
   @override
-  String get networkModeDirectOnlyHint => '使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。';
+  String get networkModeDirectOnlyHint =>
+      'Системный DNS + реальный SNI. Для сетей с прямым доступом.';
 
   @override
   String get networkAdvanced => 'Дополнительно';
@@ -171,10 +194,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkDoh => 'Использовать DoH для строгого резерва';
 
   @override
+  String get networkDohHint =>
+      'Включено: резервный уровень резолвит через DoH (по умолчанию Cloudflare DoH: доменные эндпоинты привязаны к статическим Anycast IP — никакого отравленного системного DNS; кастомные эндпоинты резолвят свои хосты); выключено — системный DNS.';
+
+  @override
   String get networkDohEndpoints => 'DoH-эндпоинты (через запятую, https URL)';
 
   @override
   String get networkEchFrontHost => 'ECH-фронт-хост';
+
+  @override
+  String get networkEchFrontHostHint =>
+      'Домен, у которого запрашивается HTTPS RR с ECH config (по умолчанию cloudflare-ech.com)';
 
   @override
   String get networkEchHostInvalid => 'Неверное имя фронт-хоста';
@@ -184,6 +215,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkProbeTitle => 'Многоуровневый зонд связи';
+
+  @override
+  String get networkProbeHint =>
+      'Проверяет 4 официальных хоста Pixiv послойно: системный DNS → DoH → TCP → TLS(реальный SNI) → минимальный запрос. TCP ок, но TLS-рукопожатие падает = SNI заблокирован.';
 
   @override
   String get networkProbeRun => 'Запустить зонд';
@@ -201,7 +236,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkProbeCopied => 'Отчёт скопирован';
 
   @override
-  String get networkProbeDnsDiff => '附加信息：系统 DNS 与 DoH 的公共地址没有交集。';
+  String get networkProbeDnsDiff =>
+      'Дополнительно: системный DNS и DoH не имеют общих публичных адресов.';
 
   @override
   String get networkProbeStepSystemDns => 'Системный DNS';
@@ -336,7 +372,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileEditLoadFailed => 'Не удалось загрузить профиль';
 
   @override
-  String get profileEditUnavailable => '当前没有可用的应用内资料编辑通道。';
+  String get profileEditUnavailable =>
+      'Нет доступного канала редактирования в приложении.';
 
   @override
   String get profileEditPending =>
@@ -405,7 +442,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get noAccounts => 'Нет аккаунтов';
 
   @override
-  String get profileReadOnly => '这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。';
+  String get profileReadOnly =>
+      'Здесь показаны сохранённые данные аккаунта. Полное редактирование профиля предоставляет модуль профиля.';
 
   @override
   String get imageSource => 'Источник изображений';
@@ -484,7 +522,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get saveLocationSafFolder => 'Папка (системный выбор каталога)';
 
   @override
-  String get saveLocationSafFolderHint => '通过系统 SAF 选择目录并持久授权';
+  String get saveLocationSafFolderHint =>
+      'Выбор каталога через системный SAF с сохранением прав';
 
   @override
   String get saveLocationSafPicked => 'Папка выбрана';
@@ -519,10 +558,23 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get namingTemplateInvalid => '模板包含不支持的变量或非法字符';
+  String get namingTemplateInvalid =>
+      'Шаблон содержит недопустимые переменные или символы';
 
   @override
   String get namingPreview => 'Предпросмотр';
+
+  @override
+  String namingTemplateVariables(
+    String artist,
+    String title,
+    String id,
+    String page,
+    String ext,
+    String date,
+  ) {
+    return 'Переменные: $artist $title $id $page $ext $date; недопустимые символы заменяются на _, длинные имена обрезаются.';
+  }
 
   @override
   String get notConfigured => 'Не настроено';
@@ -582,10 +634,20 @@ class AppLocalizationsRu extends AppLocalizations {
   String get translateCredentialsInvalid => 'Неполный ввод или адрес не HTTPS';
 
   @override
-  String get translateCredentialHint => '翻译凭据不会写入普通设置；需要时由安全存储管理。';
+  String get translateBaiduHint =>
+      'Стандартная версия Baidu не требует верификации, но даёт лишь 50 тыс. символов/мес при 1 запросе/с — для комментариев этого мало; премиум требует личную верификацию (имя + номер удостоверения): 1 млн символов/мес, 10 запросов/с. Учётные данные используются только для запросов перевода.';
 
   @override
-  String get historySettingsHint => '历史记录开关由历史模块读取；关闭后不会新增对应记录。';
+  String get translateLlmCredentialHint =>
+      'Только HTTPS; перевод использует фиксированный промпт без настроек модели. Текст и перевод не сохраняются.';
+
+  @override
+  String get translateCredentialHint =>
+      'Данные перевода не записываются в обычные настройки; при необходимости они хранятся в защищённом хранилище.';
+
+  @override
+  String get historySettingsHint =>
+      'Модуль истории читает эти переключатели; отключённая история не получает новые записи.';
 
   @override
   String get blockTagInputHint => 'Введите тег для добавления';
@@ -594,7 +656,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get noBlockedTags => 'Нет заблокированных тегов';
 
   @override
-  String get downloaderSettingsHint => '下载任务由共享 DownloadManager 实时维护。';
+  String get downloaderSettingsHint =>
+      'Задачи загрузки в реальном времени ведёт общий DownloadManager.';
 
   @override
   String get downloadTasksEmpty => 'Нет задач загрузки';
@@ -639,7 +702,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutUpdateNoUpdate => 'Установлена последняя версия';
 
   @override
-  String get aboutUpdatePrerelease => '发现预发布版本，当前稳定通道不会安装';
+  String get aboutUpdatePrerelease =>
+      'Доступен предварительный выпуск; стабильный канал его не установит';
 
   @override
   String get aboutUpdateDownload => 'Скачать и установить';
@@ -651,10 +715,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutUpdateConfirmTitle => 'Подтвердить обновление';
 
   @override
-  String get aboutUpdateConfirmDetail => '只会安装通过签名、大小、哈希、包名和签名证书校验的 APK。是否继续？';
+  String get aboutUpdateConfirmDetail =>
+      'Будет установлено только APK, прошедшее проверку подписи, размера, хэша, пакета и сертификата. Продолжить?';
 
   @override
-  String get aboutUpdatePermission => '需要允许此来源安装应用，然后再次确认安装。';
+  String get aboutUpdatePermission =>
+      'Разрешите этому источнику устанавливать приложения и снова подтвердите установку.';
 
   @override
   String get aboutUpdateStarted => 'Системный установщик открыт';
@@ -666,7 +732,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutUpdateUnavailable => 'Проверка обновлений сейчас недоступна';
 
   @override
-  String get aboutUpdateFailed => '更新检查或安装失败，请稍后重试';
+  String get aboutUpdateFailed =>
+      'Не удалось проверить или установить обновление. Повторите позже.';
 
   @override
   String get aboutLicense => 'Лицензия';
@@ -678,7 +745,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutSource => 'Исходный код';
 
   @override
-  String get aboutLicenseText => '本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。';
+  String get aboutLicenseText =>
+      'Проект основан на открытом исходном коде Pixiv Func и распространяется по GNU AGPL v3.0.';
 
   @override
   String get aboutAttributionText => 'Автор исходного проекта: git-xiaocao.';
@@ -905,6 +973,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchReverseUnavailable => 'Поиск по изображению недоступен';
 
   @override
+  String get searchReverseUnavailableDetail =>
+      'Нет структурированного сервиса, прошедшего проверку учётных данных, условий и приватности; изображение не загружается и не обрабатывается через скрейпинг.';
+
+  @override
   String get searchReversePick => 'Выбрать изображение';
 
   @override
@@ -912,7 +984,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get searchReversePrivacyDetail =>
-      '图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。';
+      'Изображение отправляется одобренному сервису только после подтверждения, а временные данные удаляются после отмены или ошибки.';
 
   @override
   String get searchReversePreparing => 'Подготовка изображения…';
@@ -950,21 +1022,25 @@ class AppLocalizationsRu extends AppLocalizations {
       'Слишком много запросов, попробуйте позже';
 
   @override
-  String searchReverseRateLimitedWait(String seconds) {
-    return '约 $seconds 秒后可重试';
+  String searchReverseRateLimitedWait(int seconds) {
+    return 'Повторите попытку примерно через $seconds с';
   }
 
   @override
-  String get searchReverseDailyLimit => '今日匿名搜索额度已用完，明天再试';
+  String get searchReverseDailyLimit =>
+      'Дневной лимит анонимного поиска исчерпан. Попробуйте завтра.';
 
   @override
-  String get searchReverseChallenge => 'SauceNAO 要求人机验证，本次搜索未完成，请稍后再试';
+  String get searchReverseChallenge =>
+      'SauceNAO требует проверку человека. Этот поиск не завершён. Попробуйте позже.';
 
   @override
-  String get searchReversePageLoadFailed => '结果页加载失败';
+  String get searchReversePageLoadFailed =>
+      'Не удалось загрузить страницу результатов';
 
   @override
-  String get searchReverseIntro => '选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。';
+  String get searchReverseIntro =>
+      'Выбранное изображение анонимно отправляется в SauceNAO; страница результатов открывается в приложении.';
 
   @override
   String get searchNoRepresentative =>
@@ -1042,7 +1118,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String illustDetailSize(String width, String height) {
+  String illustDetailSize(int width, int height) {
     return 'Размер: ${width}x$height';
   }
 
@@ -1052,7 +1128,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String illustDetailRestricted(String id) {
+  String illustDetailRestricted(int id) {
     return 'Работа удалена или ограничена (ID: $id)';
   }
 
@@ -1114,16 +1190,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commentTranslation => 'Перевод';
 
   @override
-  String get commentTranslationUnavailable => '翻译服务不可用，请在设置中开启。';
+  String get commentTranslationUnavailable =>
+      'Перевод недоступен. Включите его в настройках.';
 
   @override
   String get commentTranslationFailed => 'Перевод не удался';
 
   @override
-  String get commentTranslationInvalidCredentials => '翻译凭据无效，请在设置中检查。';
+  String get commentTranslationInvalidCredentials =>
+      'Учётные данные перевода недействительны; проверьте настройки';
 
   @override
-  String get commentTranslationRateLimited => '翻译过于频繁或额度已用完';
+  String get commentTranslationRateLimited =>
+      'Слишком много переводов или исчерпана квота';
 
   @override
   String get commentEmoji => 'Emoji';

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,6 +15,7 @@ import 'package:pixiv_func/features/login/login_page.dart';
 import 'package:pixiv_func/app/startup_gate.dart';
 import 'package:pixiv_func/features/onboarding/welcome_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _StaticCredentialStore implements CredentialStore {
   const _StaticCredentialStore();
@@ -64,10 +64,10 @@ Widget _wrap({
         _StaticMetadataRepository(snapshot, corrupt: corruptMetadata),
       ),
     ],
-    child: MaterialApp(
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
       home: StartupGate(settings: settings),
     ),
   );

@@ -27,7 +27,7 @@
   "@loginNetworkError": {
     "placeholders": {
       "status": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -56,46 +56,52 @@
     }
   },
   "networkCompatibility": "Автоматическая совместимость сети",
+  "networkCompatibilityHint": "Сначала используется прямой HTTPS; только официальные адреса Pixiv могут попробовать строгий HTTPS-маршрут после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификата не отключается.",
   "getMoreHelp": "Получить дополнительную помощь >>",
-  "useLoginWithClipboardHint": "或使用\\n长按头像复制账号数据",
+  "useLoginWithClipboardHint": "Или используйте длинное нажатие на аватаре,\\n чтобы скопировать данные аккаунта",
   "useLoginWithClipboard": "Войти с данными из буфера обмена",
-  "accountTransferWarning": "剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。",
-  "accountTransferCopied": "账号迁移数据已复制，请尽快在目标设备粘贴。",
+  "accountTransferWarning": "Буфер обмена хранится недолго и может быть прочитан другими приложениями; этот формат не обеспечивает шифрование или аутентификацию отправителя.",
+  "accountTransferSensitiveWarning": "Это устройство не поддерживает пометку буфера как конфиденциального (только Android 13+): учётные данные попадут в системный буфер открытым текстом. Вставьте как можно скорее; очистка через 5 минут.",
+  "accountTransferCopied": "Данные для переноса аккаунта скопированы. Скоро вставьте их на целевом устройстве.",
   "accountTransferImported": "Перенос аккаунта выполнен",
-  "accountTransferClipboardReplaced": "账号已导入；剪贴板已被其他内容替换，未执行清除。",
-  "accountTransferCorrupt": "剪贴板账号数据损坏或格式不受支持",
-  "accountTransferCredentialInvalid": "账号凭据无效，请重新登录或重新复制",
-  "accountTransferVerificationUnavailable": "暂时无法向 Pixiv 验证账号凭据",
+  "accountTransferClipboardReplaced": "Аккаунт импортирован; буфер обмена заменён, поэтому он не очищен.",
+  "accountTransferCorrupt": "Данные аккаунта в буфере повреждены или не поддерживаются",
+  "accountTransferCredentialInvalid": "Учетные данные аккаунта недействительны; войдите или скопируйте снова",
+  "accountTransferVerificationUnavailable": "Проверка учетных данных Pixiv временно недоступна",
   "accountTransferNoAccount": "Нет вошедшего аккаунта для копирования",
-  "accountTransferCredentialUnavailable": "当前账号凭据不可用，请重新登录",
+  "accountTransferCredentialUnavailable": "Текущие учетные данные недоступны; войдите снова",
   "accountTransferClipboardUnavailable": "Буфер обмена недоступен",
-  "accountTransferStorageFailure": "账号迁移记录无法安全保存",
+  "accountTransferStorageFailure": "Запись переноса аккаунта не удалось безопасно сохранить",
   "loginAgree": "Входя в систему, вы принимаете",
   "userAgreement": "《Пользовательское соглашение Pixiv Func》",
   "settingsTitle": "Настройки",
   "accountSettings": "Аккаунт",
   "networkSettings": "Сеть",
   "networkMode": "Автосовместимость сети",
+  "networkModeHint": "По умолчанию прямое соединение; только официальные домены Pixiv могут повторяться через строгий HTTPS-уровень после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификатов не отключается.",
   "networkModeListTitle": "Режим сети",
   "networkModeAutomatic": "Авто",
-  "networkModeAutomaticHint": "标准网络栈：按各主机组选择可达且畅通的路线。",
+  "networkModeAutomaticHint": "Стандартный стек: выбор достижимого маршрута для каждой группы хостов.",
   "networkModeDirectOnly": "Только прямое",
-  "networkModeDirectOnlyHint": "使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。",
+  "networkModeDirectOnlyHint": "Системный DNS + реальный SNI. Для сетей с прямым доступом.",
   "networkAdvanced": "Дополнительно",
   "networkAdvancedHint": "DoH-эндпоинты, ECH front host и прочие детали.",
   "networkAdvancedReset": "Сбросить настройки",
   "networkDoh": "Использовать DoH для строгого резерва",
+  "networkDohHint": "Включено: резервный уровень резолвит через DoH (по умолчанию Cloudflare DoH: доменные эндпоинты привязаны к статическим Anycast IP — никакого отравленного системного DNS; кастомные эндпоинты резолвят свои хосты); выключено — системный DNS.",
   "networkDohEndpoints": "DoH-эндпоинты (через запятую, https URL)",
   "networkEchFrontHost": "ECH-фронт-хост",
+  "networkEchFrontHostHint": "Домен, у которого запрашивается HTTPS RR с ECH config (по умолчанию cloudflare-ech.com)",
   "networkEchHostInvalid": "Неверное имя фронт-хоста",
   "networkProbe": "Многоуровневый зонд связи",
   "networkProbeTitle": "Многоуровневый зонд связи",
+  "networkProbeHint": "Проверяет 4 официальных хоста Pixiv послойно: системный DNS → DoH → TCP → TLS(реальный SNI) → минимальный запрос. TCP ок, но TLS-рукопожатие падает = SNI заблокирован.",
   "networkProbeRun": "Запустить зонд",
   "networkProbeRunning": "Проверка…",
   "networkProbeNotRun": "Ещё не запущен",
   "networkProbeHostFailed": "Проверка хоста не удалась",
   "networkProbeCopied": "Отчёт скопирован",
-  "networkProbeDnsDiff": "附加信息：系统 DNS 与 DoH 的公共地址没有交集。",
+  "networkProbeDnsDiff": "Дополнительно: системный DNS и DoH не имеют общих публичных адресов.",
   "networkProbeStepSystemDns": "Системный DNS",
   "networkProbeStepDoh": "DoH",
   "networkProbeStepTcp": "TCP",
@@ -140,7 +146,7 @@
   "dismiss": "Понятно",
   "profileEditTitle": "Редактировать профиль",
   "profileEditLoadFailed": "Не удалось загрузить профиль",
-  "profileEditUnavailable": "当前没有可用的应用内资料编辑通道。",
+  "profileEditUnavailable": "Нет доступного канала редактирования в приложении.",
   "profileEditPending": "Изменения отправлены и ожидают подтверждения.",
   "profileEditConfirmed": "Профиль подтверждён и синхронизирован.",
   "profileEditDisplayName": "Имя",
@@ -162,7 +168,7 @@
   "removeAccount": "Удалить аккаунт",
   "removeAccountConfirm": "Удалить этот аккаунт?",
   "noAccounts": "Нет аккаунтов",
-  "profileReadOnly": "这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。",
+  "profileReadOnly": "Здесь показаны сохранённые данные аккаунта. Полное редактирование профиля предоставляет модуль профиля.",
   "imageSource": "Источник изображений",
   "imageSourceNormal": "Официальный CDN (системный DNS / HTTPS)",
   "previewQuality": "Качество предпросмотра",
@@ -188,7 +194,7 @@
   "saveLocationUseCustomAlbum": "Использовать альбом",
   "saveLocationAlbumInvalid": "Недопустимое имя альбома",
   "saveLocationSafFolder": "Папка (системный выбор каталога)",
-  "saveLocationSafFolderHint": "通过系统 SAF 选择目录并持久授权",
+  "saveLocationSafFolderHint": "Выбор каталога через системный SAF с сохранением прав",
   "saveLocationSafPicked": "Папка выбрана",
   "namingPreset": "Пресет имени файла",
   "namingPresetId": "ID работы (по умолчанию)",
@@ -216,8 +222,31 @@
       }
     }
   },
-  "namingTemplateInvalid": "模板包含不支持的变量或非法字符",
+  "namingTemplateInvalid": "Шаблон содержит недопустимые переменные или символы",
   "namingPreview": "Предпросмотр",
+  "namingTemplateVariables": "Переменные: {artist} {title} {id} {page} {ext} {date}; недопустимые символы заменяются на _, длинные имена обрезаются.",
+  "@namingTemplateVariables": {
+    "placeholders": {
+      "artist": {
+        "type": "String"
+      },
+      "title": {
+        "type": "String"
+      },
+      "id": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "ext": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "notConfigured": "Не настроено",
   "translateProvider": "Сервис перевода",
   "translateGoogle": "Google Translate",
@@ -237,11 +266,13 @@
   "translateCredentialsCleared": "Учётные данные очищены",
   "translateCredentialsStoreError": "Ошибка защищённого хранилища",
   "translateCredentialsInvalid": "Неполный ввод или адрес не HTTPS",
-  "translateCredentialHint": "翻译凭据不会写入普通设置；需要时由安全存储管理。",
-  "historySettingsHint": "历史记录开关由历史模块读取；关闭后不会新增对应记录。",
+  "translateBaiduHint": "Стандартная версия Baidu не требует верификации, но даёт лишь 50 тыс. символов/мес при 1 запросе/с — для комментариев этого мало; премиум требует личную верификацию (имя + номер удостоверения): 1 млн символов/мес, 10 запросов/с. Учётные данные используются только для запросов перевода.",
+  "translateLlmCredentialHint": "Только HTTPS; перевод использует фиксированный промпт без настроек модели. Текст и перевод не сохраняются.",
+  "translateCredentialHint": "Данные перевода не записываются в обычные настройки; при необходимости они хранятся в защищённом хранилище.",
+  "historySettingsHint": "Модуль истории читает эти переключатели; отключённая история не получает новые записи.",
   "blockTagInputHint": "Введите тег для добавления",
   "noBlockedTags": "Нет заблокированных тегов",
-  "downloaderSettingsHint": "下载任务由共享 DownloadManager 实时维护。",
+  "downloaderSettingsHint": "Задачи загрузки в реальном времени ведёт общий DownloadManager.",
   "downloadTasksEmpty": "Нет задач загрузки",
   "downloadQueued": "В очереди",
   "downloadRunning": "Загрузка",
@@ -256,20 +287,20 @@
   "aboutCheckingUpdate": "Проверка обновлений…",
   "aboutUpdateAvailable": "Доступно обновление",
   "aboutUpdateNoUpdate": "Установлена последняя версия",
-  "aboutUpdatePrerelease": "发现预发布版本，当前稳定通道不会安装",
+  "aboutUpdatePrerelease": "Доступен предварительный выпуск; стабильный канал его не установит",
   "aboutUpdateDownload": "Скачать и установить",
   "aboutUpdateDownloading": "Загрузка и проверка…",
   "aboutUpdateConfirmTitle": "Подтвердить обновление",
-  "aboutUpdateConfirmDetail": "只会安装通过签名、大小、哈希、包名和签名证书校验的 APK。是否继续？",
-  "aboutUpdatePermission": "需要允许此来源安装应用，然后再次确认安装。",
+  "aboutUpdateConfirmDetail": "Будет установлено только APK, прошедшее проверку подписи, размера, хэша, пакета и сертификата. Продолжить?",
+  "aboutUpdatePermission": "Разрешите этому источнику устанавливать приложения и снова подтвердите установку.",
   "aboutUpdateStarted": "Системный установщик открыт",
   "aboutUpdateStore": "Обновления этой сборки управляются F-Droid.",
   "aboutUpdateUnavailable": "Проверка обновлений сейчас недоступна",
-  "aboutUpdateFailed": "更新检查或安装失败，请稍后重试",
+  "aboutUpdateFailed": "Не удалось проверить или установить обновление. Повторите позже.",
   "aboutLicense": "Лицензия",
   "aboutAttribution": "Атрибуция",
   "aboutSource": "Исходный код",
-  "aboutLicenseText": "本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。",
+  "aboutLicenseText": "Проект основан на открытом исходном коде Pixiv Func и распространяется по GNU AGPL v3.0.",
   "aboutAttributionText": "Автор исходного проекта: git-xiaocao.",
   "settingsReadFailed": "Не удалось прочитать настройки",
   "settingsWriteFailed": "Не удалось сохранить настройки",
@@ -389,9 +420,10 @@
   "searchRefreshFailed": "Не удалось обновить",
   "searchInputEmpty": "Введите запрос",
   "searchReverseUnavailable": "Поиск по изображению недоступен",
+  "searchReverseUnavailableDetail": "Нет структурированного сервиса, прошедшего проверку учётных данных, условий и приватности; изображение не загружается и не обрабатывается через скрейпинг.",
   "searchReversePick": "Выбрать изображение",
   "searchReversePrivacy": "Уведомление о приватности",
-  "searchReversePrivacyDetail": "图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。",
+  "searchReversePrivacyDetail": "Изображение отправляется одобренному сервису только после подтверждения, а временные данные удаляются после отмены или ошибки.",
   "searchReversePreparing": "Подготовка изображения…",
   "searchReverseSearching": "Поиск…",
   "searchReverseCancel": "Отмена",
@@ -403,18 +435,18 @@
   "searchReverseOpenExternal": "Открыть источник",
   "searchReverseOpenFailed": "Не удалось открыть ссылку источника",
   "searchReverseRateLimited": "Слишком много запросов, попробуйте позже",
-  "searchReverseRateLimitedWait": "约 {seconds} 秒后可重试",
+  "searchReverseRateLimitedWait": "Повторите попытку примерно через {seconds} с",
   "@searchReverseRateLimitedWait": {
     "placeholders": {
       "seconds": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
-  "searchReverseDailyLimit": "今日匿名搜索额度已用完，明天再试",
-  "searchReverseChallenge": "SauceNAO 要求人机验证，本次搜索未完成，请稍后再试",
-  "searchReversePageLoadFailed": "结果页加载失败",
-  "searchReverseIntro": "选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。",
+  "searchReverseDailyLimit": "Дневной лимит анонимного поиска исчерпан. Попробуйте завтра.",
+  "searchReverseChallenge": "SauceNAO требует проверку человека. Этот поиск не завершён. Попробуйте позже.",
+  "searchReversePageLoadFailed": "Не удалось загрузить страницу результатов",
+  "searchReverseIntro": "Выбранное изображение анонимно отправляется в SauceNAO; страница результатов открывается в приложении.",
   "searchNoRepresentative": "У этого тега нет представительной работы",
   "searchFilters": "Фильтры",
   "searchReset": "Сбросить",
@@ -450,10 +482,10 @@
   "@illustDetailSize": {
     "placeholders": {
       "width": {
-        "type": "String"
+        "type": "int"
       },
       "height": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -469,7 +501,7 @@
   "@illustDetailRestricted": {
     "placeholders": {
       "id": {
-        "type": "String"
+        "type": "int"
       }
     }
   },
@@ -492,10 +524,10 @@
   "commentReplies": "Ответы",
   "commentTranslate": "Перевести",
   "commentTranslation": "Перевод",
-  "commentTranslationUnavailable": "翻译服务不可用，请在设置中开启。",
+  "commentTranslationUnavailable": "Перевод недоступен. Включите его в настройках.",
   "commentTranslationFailed": "Перевод не удался",
-  "commentTranslationInvalidCredentials": "翻译凭据无效，请在设置中检查。",
-  "commentTranslationRateLimited": "翻译过于频繁或额度已用完",
+  "commentTranslationInvalidCredentials": "Учётные данные перевода недействительны; проверьте настройки",
+  "commentTranslationRateLimited": "Слишком много переводов или исчерпана квота",
   "commentEmoji": "Emoji",
   "commentStamps": "Stamps",
   "commentPermissionDenied": "Можно удалять только свои комментарии",
