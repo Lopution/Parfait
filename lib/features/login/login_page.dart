@@ -141,183 +141,202 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           loading: () => const ReplicaScaffold(
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (error, stackTrace) => ReplicaScaffold(
+          error: (error, _) => ReplicaScaffold(
             child: SettingsLoadError(
               error: error,
               onRetry: () => ref.read(settingsProvider.notifier).reload(),
             ),
           ),
-          data: (settings) {
-            final language = ReplicaLanguage.fromTag(settings.languageTag);
-            String text(String key) => l10nLookupFor(language.locale, key);
-            final onClipboardLogin =
-                widget.onClipboardLogin ?? _importFromClipboard;
-            final title = Text(
-              text('loginTitle'),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            );
-
-            return ReplicaScaffold(
-              title: widget.isFirst ? null : title,
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.sizeOf(context).width * .1,
-                ),
-                child: Column(
-                  children: [
-                    const Spacer(),
-                    if (widget.isFirst) title,
-                    const Spacer(flex: 2),
-                    SizedBox(
-                      height: MediaQuery.sizeOf(context).height * .4,
-                      child: Column(
-                        children: [
-                          ReplicaSwitchTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 6,
-                            ),
-                            value: _networkMode == NetworkMode.automatic,
-                            title: Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    text('networkCompatibility'),
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => setState(() => _help = !_help),
-                                  child: Icon(
-                                    Icons.info_outline,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _networkMode =
-                                    _networkMode == NetworkMode.automatic
-                                    ? NetworkMode.directOnly
-                                    : NetworkMode.automatic;
-                              });
-                              ref.read(networkAccessPolicyProvider).setMode(
-                                switch (_networkMode) {
-                                  NetworkMode.automatic =>
-                                    network_contracts.NetworkMode.automatic,
-                                  NetworkMode.directOnly =>
-                                    network_contracts.NetworkMode.directOnly,
-                                },
-                              );
-                              _persistNetworkMode(_networkMode);
-                            },
-                          ),
-                          const Divider(),
-                          if (_help)
-                            RichText(
-                              text: TextSpan(
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSecondary,
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text: text('networkCompatibilityHint'),
-                                  ),
-                                  TextSpan(
-                                    text: text('getMoreHelp'),
-                                    style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          const Spacer(),
-                          if (_help) ...[
-                            Text(
-                              text('accountTransferWarning'),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              text('useLoginWithClipboardHint'),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ReplicaButton(
-                                label: text('useLoginWithClipboard'),
-                                backgroundColor: FuncTokens.primary,
-                                foregroundColor: Colors.white,
-                                onPressed: onClipboardLogin,
-                              ),
-                            ),
-                          ] else
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ReplicaButton(
-                                    label: text('register'),
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: FuncTokens.primary,
-                                    borderColor: FuncTokens.primary,
-                                    onPressed:
-                                        widget.onRegister ??
-                                        () => _openLoginWebview(create: true),
-                                  ),
-                                ),
-                                const SizedBox(width: 20),
-                                Expanded(
-                                  child: ReplicaButton(
-                                    label: text('login'),
-                                    backgroundColor: FuncTokens.primary,
-                                    foregroundColor: Colors.white,
-                                    onPressed:
-                                        widget.onLogin ??
-                                        () => _openLoginWebview(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      text('loginAgree'),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    Text(
-                      text('userAgreement'),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: FuncTokens.primary,
-                      ),
-                    ),
-                    const Spacer(),
-                  ],
-                ),
-              ),
-            );
-          },
+          data: (settings) => _buildSettings(context, settings),
         );
+  }
+
+  Widget _buildSettings(BuildContext context, AppSettings settings) {
+    final language = ReplicaLanguage.fromTag(settings.languageTag);
+    String text(String key) => l10nLookupFor(language.locale, key);
+    final onClipboardLogin = widget.onClipboardLogin ?? _importFromClipboard;
+    final title = Text(
+      text('loginTitle'),
+      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    );
+
+    return ReplicaScaffold(
+      title: widget.isFirst ? null : title,
+      child: _buildBody(
+        context,
+        title: title,
+        text: text,
+        onClipboardLogin: onClipboardLogin,
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context, {
+    required Text title,
+    required String Function(String) text,
+    required VoidCallback onClipboardLogin,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: MediaQuery.sizeOf(context).width * .1,
+      ),
+      child: Column(
+        children: [
+          const Spacer(),
+          if (widget.isFirst) title,
+          const Spacer(flex: 2),
+          SizedBox(
+            height: MediaQuery.sizeOf(context).height * .4,
+            child: _buildNetworkOptions(
+              context,
+              text: text,
+              onClipboardLogin: onClipboardLogin,
+            ),
+          ),
+          const Spacer(),
+          Text(text('loginAgree'), style: const TextStyle(fontSize: 14)),
+          Text(
+            text('userAgreement'),
+            style: const TextStyle(fontSize: 14, color: FuncTokens.primary),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkOptions(
+    BuildContext context, {
+    required String Function(String) text,
+    required VoidCallback onClipboardLogin,
+  }) {
+    return Column(
+      children: [
+        ReplicaSwitchTile(
+          contentPadding: const EdgeInsets.symmetric(vertical: 6),
+          value: _networkMode == NetworkMode.automatic,
+          title: _buildNetworkTitle(context, text),
+          onTap: _toggleNetworkMode,
+        ),
+        const Divider(),
+        if (_help)
+          RichText(
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSecondary,
+              ),
+              children: [
+                TextSpan(text: text('networkCompatibilityHint')),
+                TextSpan(
+                  text: text('getMoreHelp'),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const Spacer(),
+        ..._buildLoginActions(text, onClipboardLogin),
+      ],
+    );
+  }
+
+  Widget _buildNetworkTitle(
+    BuildContext context,
+    String Function(String) text,
+  ) {
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            text('networkCompatibility'),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _help = !_help),
+          child: Icon(
+            Icons.info_outline,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _toggleNetworkMode() {
+    setState(() {
+      _networkMode = _networkMode == NetworkMode.automatic
+          ? NetworkMode.directOnly
+          : NetworkMode.automatic;
+    });
+    ref.read(networkAccessPolicyProvider).setMode(
+      switch (_networkMode) {
+        NetworkMode.automatic => network_contracts.NetworkMode.automatic,
+        NetworkMode.directOnly => network_contracts.NetworkMode.directOnly,
+      },
+    );
+    _persistNetworkMode(_networkMode);
+  }
+
+  List<Widget> _buildLoginActions(
+    String Function(String) text,
+    VoidCallback onClipboardLogin,
+  ) {
+    if (_help) {
+      return [
+        Text(
+          text('accountTransferWarning'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          text('useLoginWithClipboardHint'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: ReplicaButton(
+            label: text('useLoginWithClipboard'),
+            backgroundColor: FuncTokens.primary,
+            foregroundColor: Colors.white,
+            onPressed: onClipboardLogin,
+          ),
+        ),
+      ];
+    }
+    return [
+      Row(
+        children: [
+          Expanded(
+            child: ReplicaButton(
+              label: text('register'),
+              backgroundColor: Colors.white,
+              foregroundColor: FuncTokens.primary,
+              borderColor: FuncTokens.primary,
+              onPressed:
+                  widget.onRegister ?? () => _openLoginWebview(create: true),
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: ReplicaButton(
+              label: text('login'),
+              backgroundColor: FuncTokens.primary,
+              foregroundColor: Colors.white,
+              onPressed: widget.onLogin ?? () => _openLoginWebview(),
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 }
