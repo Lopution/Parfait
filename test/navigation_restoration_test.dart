@@ -7,14 +7,10 @@ import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
@@ -28,34 +24,9 @@ import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-class _StaticCredentialStore implements CredentialStore {
-  const _StaticCredentialStore();
-
-  @override
-  Future<Credential?> read(String accountId) async => const Credential(
-    accessToken: 'access-token',
-    refreshToken: 'refresh-token',
-  );
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {}
-
-  @override
-  Future<void> delete(String accountId) async {}
-}
-
-class _StaticMetadataRepository implements AccountMetadataRepository {
-  const _StaticMetadataRepository();
-
-  @override
-  Future<AccountMetadataSnapshot> load() async => const AccountMetadataSnapshot(
-    accounts: [Account(id: 'account', userId: 1, name: 'tester')],
-    currentId: 'account',
-  );
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
+import 'helpers/fake_account.dart';
+import 'helpers/illust_fixtures.dart';
+import 'helpers/test_preferences.dart';
 
 class _StaticSearchRepository implements SearchRepository {
   const _StaticSearchRepository();
@@ -105,9 +76,19 @@ Widget _routerApp(
 }) {
   return ProviderScope(
     overrides: [
-      credentialStoreProvider.overrideWithValue(const _StaticCredentialStore()),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        const _StaticMetadataRepository(),
+      ...accountProviderOverrides(
+        credentialStore: FakeCredentialStore(
+          values: const {
+            'account': Credential(
+              accessToken: 'access-token',
+              refreshToken: 'refresh-token',
+            ),
+          },
+        ),
+        metadataRepository: FakeAccountMetadataRepository(
+          accounts: const [Account(id: 'account', userId: 1, name: 'tester')],
+          currentId: 'account',
+        ),
       ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(client: MockClient((_) async => http.Response('{}', 400))),

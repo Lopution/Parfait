@@ -2,11 +2,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/credential_store.dart';
@@ -17,36 +15,8 @@ import 'package:pixiv_func/core/widget/widget_coordinator.dart';
 import 'package:pixiv_func/core/widget/widget_feed_loader.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-class _CredentialStore implements CredentialStore {
-  final _secrets = <String, Credential>{};
-
-  void seed(String accountId, Credential credential) =>
-      _secrets[accountId] = credential;
-
-  @override
-  Future<Credential?> read(String accountId) async => _secrets[accountId];
-
-  @override
-  Future<void> write(String accountId, Credential credential) async =>
-      _secrets[accountId] = credential;
-
-  @override
-  Future<void> delete(String accountId) async => _secrets.remove(accountId);
-}
-
-class _MetadataRepository implements AccountMetadataRepository {
-  _MetadataRepository(this.accounts, this.currentId);
-
-  final List<Account> accounts;
-  final String? currentId;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async =>
-      AccountMetadataSnapshot(accounts: accounts, currentId: currentId);
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 class _Gate implements WidgetInstanceGate {
   _Gate(this.hasInstances);
@@ -109,7 +79,7 @@ _makeWorld({
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       memoryPreferences();
-  final credentials = _CredentialStore();
+  final credentials = FakeCredentialStore();
   for (final account in accounts) {
     credentials.seed(
       account.id,
@@ -126,7 +96,7 @@ _makeWorld({
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
-        _MetadataRepository(accounts, currentId),
+        FakeAccountMetadataRepository(accounts: accounts, currentId: currentId),
       ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(client: MockClient((_) async => http.Response('{}', 500))),

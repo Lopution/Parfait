@@ -4,17 +4,14 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/download_providers.dart';
@@ -30,7 +27,9 @@ import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'download_manager_test.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/core/i18n/replica_language.dart';
@@ -56,7 +55,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   }
   final sinks = MemorySinkFactory();
   final manager = DownloadManager(transport: transport, sinkFactory: sinks);
-  final credentials = _FakeCredentialStore()
+  final credentials = FakeCredentialStore()
     ..seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
@@ -67,7 +66,10 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       downloadManagerProvider.overrideWithValue(manager),
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
-        _FakeMetadataRepository(),
+        FakeAccountMetadataRepository(
+          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
+          currentId: '100',
+        ),
       ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(
@@ -125,34 +127,6 @@ http.Response okJson(Map<String, dynamic> json) => http.Response(
   200,
   headers: {'content-type': 'application/json'},
 );
-
-class _FakeCredentialStore implements CredentialStore {
-  final _secrets = <String, Credential>{};
-
-  void seed(String accountId, Credential credential) =>
-      _secrets[accountId] = credential;
-
-  @override
-  Future<Credential?> read(String accountId) async => _secrets[accountId];
-
-  @override
-  Future<void> write(String accountId, Credential credential) async =>
-      _secrets[accountId] = credential;
-
-  @override
-  Future<void> delete(String accountId) async => _secrets.remove(accountId);
-}
-
-class _FakeMetadataRepository implements AccountMetadataRepository {
-  @override
-  Future<AccountMetadataSnapshot> load() async => const AccountMetadataSnapshot(
-    accounts: [Account(id: '100', userId: 100, name: 'tester')],
-    currentId: '100',
-  );
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
 
 Future<void> pumpDetail(
   WidgetTester tester,
@@ -440,7 +414,7 @@ void main() {
       );
       final sinks = MemorySinkFactory();
       final manager = DownloadManager(transport: transport, sinkFactory: sinks);
-      final credentials = _FakeCredentialStore()
+      final credentials = FakeCredentialStore()
         ..seed(
           '100',
           const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
@@ -451,7 +425,10 @@ void main() {
           downloadManagerProvider.overrideWithValue(manager),
           credentialStoreProvider.overrideWithValue(credentials),
           accountMetadataRepositoryProvider.overrideWithValue(
-            _FakeMetadataRepository(),
+            FakeAccountMetadataRepository(
+              accounts: const [Account(id: '100', userId: 100, name: 'tester')],
+              currentId: '100',
+            ),
           ),
           oauthServiceProvider.overrideWithValue(
             OAuthService(

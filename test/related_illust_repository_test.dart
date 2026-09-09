@@ -3,47 +3,18 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/illust/related_illust_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-
-class _FakeCredentialStore implements CredentialStore {
-  final _secrets = <String, Credential>{};
-
-  void seed(String accountId, Credential credential) =>
-      _secrets[accountId] = credential;
-
-  @override
-  Future<Credential?> read(String accountId) async => _secrets[accountId];
-
-  @override
-  Future<void> write(String accountId, Credential credential) async =>
-      _secrets[accountId] = credential;
-
-  @override
-  Future<void> delete(String accountId) async => _secrets.remove(accountId);
-}
-
-class _FakeMetadataRepository implements AccountMetadataRepository {
-  @override
-  Future<AccountMetadataSnapshot> load() async => const AccountMetadataSnapshot(
-    accounts: [Account(id: '100', userId: 100, name: 'tester')],
-    currentId: '100',
-  );
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
+import 'helpers/test_preferences.dart';
 
 http.Response _ok(Map<String, dynamic> body) => http.Response(
   jsonEncode(body),
@@ -52,7 +23,7 @@ http.Response _ok(Map<String, dynamic> body) => http.Response(
 );
 
 Future<PixivRelatedIllustRepository> _repo(MockClient client) async {
-  final credentials = _FakeCredentialStore()
+  final credentials = FakeCredentialStore()
     ..seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
@@ -60,7 +31,10 @@ Future<PixivRelatedIllustRepository> _repo(MockClient client) async {
   final container = ProviderContainer(
     overrides: [
       accountMetadataRepositoryProvider.overrideWithValue(
-        _FakeMetadataRepository(),
+        FakeAccountMetadataRepository(
+          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
+          currentId: '100',
+        ),
       ),
       credentialStoreProvider.overrideWithValue(credentials),
     ],

@@ -2,15 +2,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/external_intent_bridge.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/platform/root_back_coordinator.dart';
@@ -25,31 +22,8 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
-class _StaticCredentialStore implements CredentialStore {
-  const _StaticCredentialStore();
-
-  @override
-  Future<Credential?> read(String accountId) async =>
-      Credential(accessToken: 'a-$accountId', refreshToken: 'r-$accountId');
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {}
-
-  @override
-  Future<void> delete(String accountId) async {}
-}
-
-class _StaticMetadataRepository implements AccountMetadataRepository {
-  const _StaticMetadataRepository(this.snapshot);
-
-  final AccountMetadataSnapshot snapshot;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async => snapshot;
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 class _ScriptedIntentSource implements AndroidIntentSource {
   const _ScriptedIntentSource(this.initial);
@@ -75,11 +49,20 @@ Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
         IgnoredAndroidIntent('test: no android intent'),
       );
   final router = createPixivRouter(initialLocation: '/recommended');
+  final credentials = FakeCredentialStore(
+    values: const {
+      '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
+    },
+  );
+  final metadata = FakeAccountMetadataRepository(
+    accounts: _signedInSnapshot.accounts,
+    currentId: _signedInSnapshot.currentId,
+  );
   return ProviderScope(
     overrides: [
-      credentialStoreProvider.overrideWithValue(const _StaticCredentialStore()),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        const _StaticMetadataRepository(_signedInSnapshot),
+      ...accountProviderOverrides(
+        credentialStore: credentials,
+        metadataRepository: metadata,
       ),
     ],
     child: MaterialApp.router(
@@ -117,15 +100,18 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            credentialStoreProvider.overrideWithValue(
-              const _StaticCredentialStore(),
-            ),
-            accountMetadataRepositoryProvider.overrideWithValue(
-              const _StaticMetadataRepository(
-                AccountMetadataSnapshot(
-                  accounts: [Account(id: '100', userId: 100, name: 'tester')],
-                  currentId: '100',
-                ),
+            ...accountProviderOverrides(
+              credentialStore: FakeCredentialStore(
+                values: const {
+                  '100': Credential(
+                    accessToken: 'a-100',
+                    refreshToken: 'r-100',
+                  ),
+                },
+              ),
+              metadataRepository: FakeAccountMetadataRepository(
+                accounts: _signedInSnapshot.accounts,
+                currentId: _signedInSnapshot.currentId,
               ),
             ),
           ],
