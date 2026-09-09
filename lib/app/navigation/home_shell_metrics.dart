@@ -27,12 +27,12 @@ class HomeShellMetrics {
 
 /// Single owner of the measured home-shell chrome. [HomePage] publishes the
 /// measurement; the detail Hero flight reads it without a rebuild dependency.
-final homeShellMetricsProvider = NotifierProvider<
-  HomeShellMetricsNotifier,
-  HomeShellMetrics
->(HomeShellMetricsNotifier.new);
+final homeShellMetricsProvider =
+    NotifierProvider<_HomeShellMetricsNotifier, HomeShellMetrics>(
+      _HomeShellMetricsNotifier.new,
+    );
 
-class HomeShellMetricsNotifier extends Notifier<HomeShellMetrics> {
+class _HomeShellMetricsNotifier extends Notifier<HomeShellMetrics> {
   @override
   HomeShellMetrics build() => const HomeShellMetrics();
 

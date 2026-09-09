@@ -7,8 +7,8 @@ import 'new_feed_models.dart';
 import 'new_feed_repository.dart';
 
 /// One independently lazy-paged New scope/type combination.
-class NewFeedController extends PagedFeedController {
-  NewFeedController(this.key);
+class _NewFeedController extends PagedFeedController {
+  _NewFeedController(this.key);
 
   final NewFeedKey key;
 
@@ -61,6 +61,8 @@ class NewFeedController extends PagedFeedController {
 }
 
 final newFeedProvider =
-    AsyncNotifierProvider.family<NewFeedController, PagedFeedState, NewFeedKey>(
-      NewFeedController.new,
-    );
+    AsyncNotifierProvider.family<
+      _NewFeedController,
+      PagedFeedState,
+      NewFeedKey
+    >(_NewFeedController.new);

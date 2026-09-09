@@ -7,8 +7,8 @@ import '../paging/paged_feed_controller.dart';
 import 'ranking_repository.dart';
 
 /// One independent cursor/state machine per ranking mode.
-class RankingFeedController extends PagedFeedController {
-  RankingFeedController(this.mode);
+class _RankingFeedController extends PagedFeedController {
+  _RankingFeedController(this.mode);
 
   final RankingMode mode;
 
@@ -66,7 +66,7 @@ class RankingFeedController extends PagedFeedController {
 
 final rankingFeedControllerProvider =
     AsyncNotifierProvider.family<
-      RankingFeedController,
+      _RankingFeedController,
       PagedFeedState,
       RankingMode
-    >(RankingFeedController.new);
+    >(_RankingFeedController.new);

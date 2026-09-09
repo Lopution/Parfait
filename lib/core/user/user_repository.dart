@@ -10,7 +10,7 @@ import '../entity/json_read.dart';
 
 enum UserWorkType { illust, manga, novel }
 
-String userWorkTypeWire(UserWorkType type) {
+String _userWorkTypeWire(UserWorkType type) {
   switch (type) {
     case UserWorkType.illust:
       return 'illust';
@@ -47,7 +47,6 @@ abstract interface class UserRepository {
   });
 
   bool validateRecommendedCursor({required String cursor});
-
 
   Future<UserIllustPage> fetchWorks(
     int userId, {
@@ -93,8 +92,8 @@ abstract interface class UserRepository {
 
 /// Read-only user/profile API boundary. It owns response normalization and
 /// next-page validation; controllers only receive typed pages.
-class PixivUserRepository implements UserRepository {
-  PixivUserRepository(this._client);
+class _PixivUserRepository implements UserRepository {
+  _PixivUserRepository(this._client);
 
   final PixivHttpClient _client;
 
@@ -126,7 +125,10 @@ class PixivUserRepository implements UserRepository {
       query: {'filter': 'for_ios'},
       cursor: cursor,
     );
-    final json = await _client.getJson(_target(request), cancelToken: cancelToken);
+    final json = await _client.getJson(
+      _target(request),
+      cancelToken: cancelToken,
+    );
     return _parseUserPage(json);
   }
 
@@ -138,7 +140,6 @@ class PixivUserRepository implements UserRepository {
       cursor: cursor,
     );
   }
-
 
   @override
   Future<UserIllustPage> fetchWorks(
@@ -156,7 +157,7 @@ class PixivUserRepository implements UserRepository {
     final query = {
       'filter': 'for_android',
       'user_id': '$userId',
-      'type': userWorkTypeWire(type),
+      'type': _userWorkTypeWire(type),
     };
     final request = _pageRequest(path: path, query: query, cursor: cursor);
     final json = await _client.getJson(
@@ -195,7 +196,7 @@ class PixivUserRepository implements UserRepository {
       query: {
         'filter': 'for_android',
         'user_id': '$userId',
-        'type': userWorkTypeWire(type),
+        'type': _userWorkTypeWire(type),
       },
       cursor: cursor,
     );
@@ -361,5 +362,5 @@ extension UserRestrictWire on UserRestrict {
 }
 
 final userRepositoryProvider = Provider<UserRepository>((ref) {
-  return PixivUserRepository(ref.watch(pixivHttpClientProvider));
+  return _PixivUserRepository(ref.watch(pixivHttpClientProvider));
 });

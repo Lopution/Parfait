@@ -516,7 +516,7 @@ class UgoiraExportJob {
       );
       _emitTerminal(succeeded);
       await _persistBestEffort(value: succeeded, pendingOutputId: null);
-    } on UgoiraExportCanceledException {
+    } on _UgoiraExportCanceledException {
       final pendingOutputId = _pendingOutputId(sink);
       await encoder?.dispose();
       await _abort(sink);
@@ -550,13 +550,13 @@ class UgoiraExportJob {
     return Future.any<T>([
       operation,
       _cancelToken.whenCancel.then<T>(
-        (_) => throw const UgoiraExportCanceledException(),
+        (_) => throw const _UgoiraExportCanceledException(),
       ),
     ]);
   }
 
   void _checkCanceled() {
-    if (_cancelToken.isCancelled) throw const UgoiraExportCanceledException();
+    if (_cancelToken.isCancelled) throw const _UgoiraExportCanceledException();
   }
 
   Future<void> _abort(DownloadSink? sink) async {
@@ -663,8 +663,8 @@ class UgoiraExportJob {
   }
 }
 
-class UgoiraExportCanceledException implements Exception {
-  const UgoiraExportCanceledException();
+class _UgoiraExportCanceledException implements Exception {
+  const _UgoiraExportCanceledException();
 }
 
 class UgoiraExportOwnershipException implements Exception {

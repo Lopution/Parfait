@@ -39,8 +39,8 @@ class UserDetailError extends UserDetailState {
 
 /// Loads one user into the canonical [UserStore] and exposes explicit
 /// not-found/blocked/error states to the profile UI.
-class UserDetailController extends AsyncNotifier<UserDetailState> {
-  UserDetailController(this.userId);
+class _UserDetailController extends AsyncNotifier<UserDetailState> {
+  _UserDetailController(this.userId);
 
   final int userId;
 
@@ -83,6 +83,6 @@ class UserDetailController extends AsyncNotifier<UserDetailState> {
 }
 
 final userDetailControllerProvider =
-    AsyncNotifierProvider.family<UserDetailController, UserDetailState, int>(
-      UserDetailController.new,
+    AsyncNotifierProvider.family<_UserDetailController, UserDetailState, int>(
+      _UserDetailController.new,
     );

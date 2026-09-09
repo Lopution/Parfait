@@ -34,7 +34,7 @@ class ReverseImagePlatformException implements Exception {
   String toString() => 'ReverseImagePlatformException($code, $message)';
 }
 
-abstract final class ReverseImageInputMethods {
+abstract final class _ReverseImageInputMethods {
   static const channel = 'pixivfunc/reverse_image_input';
   static const pickImage = 'pickImage';
   static const copyToTemp = 'copyToTemp';
@@ -44,7 +44,7 @@ abstract final class ReverseImageInputMethods {
 class MethodChannelReverseImageInputPlatform
     implements ReverseImageInputPlatform {
   MethodChannelReverseImageInputPlatform([
-    this._channel = const MethodChannel(ReverseImageInputMethods.channel),
+    this._channel = const MethodChannel(_ReverseImageInputMethods.channel),
   ]);
 
   final MethodChannel _channel;
@@ -53,7 +53,7 @@ class MethodChannelReverseImageInputPlatform
   Future<ReverseImageInputReference?> pickImage() async {
     try {
       final message = await _channel.invokeMethod<Object?>(
-        ReverseImageInputMethods.pickImage,
+        _ReverseImageInputMethods.pickImage,
       );
       if (message == null) return null;
       return _decodeReference(message, source: ReverseImageInputSource.picker);
@@ -74,7 +74,7 @@ class MethodChannelReverseImageInputPlatform
   Future<String> copyToOwnedFile(ReverseImageInputReference reference) async {
     try {
       final message = await _channel.invokeMethod<Object?>(
-        ReverseImageInputMethods.copyToTemp,
+        _ReverseImageInputMethods.copyToTemp,
         {'uri': reference.contentUri},
       );
       final map = _map(message);
@@ -105,7 +105,7 @@ class MethodChannelReverseImageInputPlatform
   Future<void> deleteOwnedFile(String path) async {
     try {
       final deleted = await _channel.invokeMethod<Object?>(
-        ReverseImageInputMethods.deleteTemp,
+        _ReverseImageInputMethods.deleteTemp,
         {'path': path},
       );
       if (deleted is! bool || !deleted) {

@@ -18,8 +18,8 @@ abstract interface class FollowRepository {
 
 /// Pixiv follow mutations. The shared HTTP client owns authentication,
 /// timeout, retry and safe error classification.
-class PixivFollowRepository implements FollowRepository {
-  PixivFollowRepository(this._client);
+class _PixivFollowRepository implements FollowRepository {
+  _PixivFollowRepository(this._client);
 
   final PixivHttpClient _client;
 
@@ -51,5 +51,5 @@ class PixivFollowRepository implements FollowRepository {
 }
 
 final followRepositoryProvider = Provider<FollowRepository>((ref) {
-  return PixivFollowRepository(ref.watch(pixivHttpClientProvider));
+  return _PixivFollowRepository(ref.watch(pixivHttpClientProvider));
 });

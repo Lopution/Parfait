@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/theme/func_tokens.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import 'follow_switch_button.dart';
@@ -361,7 +362,7 @@ class _ProfileBackground extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 stops: const [0.45, 1],
                 colors: [
-                  Colors.transparent,
+                  FuncTokens.transparent,
                   colors.surface.withValues(alpha: 0.94),
                 ],
               ),
@@ -483,7 +484,8 @@ class _CollapsedProfile extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback? onEditProfile;
 
-  String _text(BuildContext context, String key) => l10nLookup(context.l10n, key);
+  String _text(BuildContext context, String key) =>
+      l10nLookup(context.l10n, key);
 
   @override
   Widget build(BuildContext context) {
@@ -625,7 +627,8 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
 
   bool get _isWorkTab => isMe ? controller.index == 4 : controller.index == 0;
 
-  String _text(BuildContext context, String key) => l10nLookup(context.l10n, key);
+  String _text(BuildContext context, String key) =>
+      l10nLookup(context.l10n, key);
 
   @override
   Widget build(

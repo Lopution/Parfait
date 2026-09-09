@@ -85,7 +85,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         await ref.read(settingsProvider.notifier).setNetworkMode(mode);
       } on Object catch (error) {
         if (!mounted) return;
-        showAppSnackBar(context, '${_loginText('settingsWriteFailed')}: $error');
+        showAppSnackBar(
+          context,
+          '${_loginText('settingsWriteFailed')}: $error',
+        );
       }
     }());
   }
@@ -101,7 +104,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         if (!mounted) return;
         showAppSnackBar(context, _loginText('accountTransferImported'));
         if (!result.clipboardCleared) {
-          showAppSnackBar(context, _loginText('accountTransferClipboardReplaced'));
+          showAppSnackBar(
+            context,
+            _loginText('accountTransferClipboardReplaced'),
+          );
         }
       } on AccountTransferException catch (error) {
         if (mounted) {
@@ -275,12 +281,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ? NetworkMode.directOnly
           : NetworkMode.automatic;
     });
-    ref.read(networkAccessPolicyProvider).setMode(
-      switch (_networkMode) {
-        NetworkMode.automatic => network_contracts.NetworkMode.automatic,
-        NetworkMode.directOnly => network_contracts.NetworkMode.directOnly,
-      },
-    );
+    ref.read(networkAccessPolicyProvider).setMode(switch (_networkMode) {
+      NetworkMode.automatic => network_contracts.NetworkMode.automatic,
+      NetworkMode.directOnly => network_contracts.NetworkMode.directOnly,
+    });
     _persistNetworkMode(_networkMode);
   }
 
@@ -307,7 +311,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           child: ReplicaButton(
             label: text('useLoginWithClipboard'),
             backgroundColor: FuncTokens.primary,
-            foregroundColor: Colors.white,
+            foregroundColor: FuncTokens.lightBackground,
             onPressed: onClipboardLogin,
           ),
         ),
@@ -319,7 +323,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           Expanded(
             child: ReplicaButton(
               label: text('register'),
-              backgroundColor: Colors.white,
+              backgroundColor: FuncTokens.lightBackground,
               foregroundColor: FuncTokens.primary,
               borderColor: FuncTokens.primary,
               onPressed:
@@ -331,7 +335,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: ReplicaButton(
               label: text('login'),
               backgroundColor: FuncTokens.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: FuncTokens.lightBackground,
               onPressed: widget.onLogin ?? () => _openLoginWebview(),
             ),
           ),

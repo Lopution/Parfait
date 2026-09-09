@@ -10,8 +10,8 @@ import 'profile_models.dart';
 
 /// Paged illustration/manga work feeds. The feed owns only IDs; payloads live
 /// in the shared IllustStore.
-class ProfileIllustFeedController extends PagedFeedController {
-  ProfileIllustFeedController(this.key);
+class _ProfileIllustFeedController extends PagedFeedController {
+  _ProfileIllustFeedController(this.key);
 
   final ProfileFeedKey key;
 
@@ -86,8 +86,8 @@ class ProfileIllustFeedController extends PagedFeedController {
 
 /// Paged relation feeds. The feed owns only user IDs; previews and detail
 /// fields are merged into the shared UserStore.
-class ProfileUserFeedController extends PagedFeedController {
-  ProfileUserFeedController(this.key);
+class _ProfileUserFeedController extends PagedFeedController {
+  _ProfileUserFeedController(this.key);
 
   final ProfileFeedKey key;
 
@@ -139,14 +139,14 @@ class ProfileUserFeedController extends PagedFeedController {
 
 final profileIllustFeedProvider =
     AsyncNotifierProvider.family<
-      ProfileIllustFeedController,
+      _ProfileIllustFeedController,
       PagedFeedState,
       ProfileFeedKey
-    >(ProfileIllustFeedController.new);
+    >(_ProfileIllustFeedController.new);
 
 final profileUserFeedProvider =
     AsyncNotifierProvider.family<
-      ProfileUserFeedController,
+      _ProfileUserFeedController,
       PagedFeedState,
       ProfileFeedKey
-    >(ProfileUserFeedController.new);
+    >(_ProfileUserFeedController.new);

@@ -12,8 +12,8 @@ import 'comment_models.dart';
 /// thread indexes live here so root/reply pages observe one copy of a
 /// comment.
 @immutable
-class CommentStoreState {
-  CommentStoreState({
+class _CommentStoreState {
+  _CommentStoreState({
     Map<int, CommentEntity>? entities,
     Map<int, List<int>>? rootIdsByIllust,
     Map<int, List<int>>? replyIdsByRoot,
@@ -50,14 +50,14 @@ class CommentStoreState {
 
 /// Account-scoped canonical store for comment entities, thread indexes and
 /// mutation ownership.
-class CommentStore extends Notifier<CommentStoreState> {
+class _CommentStore extends Notifier<_CommentStoreState> {
   final MutationLedger _ledger = MutationLedger();
   MutationBoundary? _boundary;
   bool _built = false;
   bool _disposeRegistered = false;
 
   @override
-  CommentStoreState build() {
+  _CommentStoreState build() {
     if (_ledger.isDisposed) {
       _ledger.reopen();
       _disposeRegistered = false;
@@ -83,7 +83,7 @@ class CommentStore extends Notifier<CommentStoreState> {
       });
     }
     _built = true;
-    return CommentStoreState();
+    return _CommentStoreState();
   }
 
   int revisionNow() => _ledger.revisionNow;
@@ -110,7 +110,7 @@ class CommentStore extends Notifier<CommentStoreState> {
           : existing.merge(incoming);
       _addId(query, incoming.id, roots, replies);
     }
-    state = CommentStoreState(
+    state = _CommentStoreState(
       entities: entities,
       rootIdsByIllust: roots,
       replyIdsByRoot: replies,
@@ -134,7 +134,7 @@ class CommentStore extends Notifier<CommentStoreState> {
         : (roots[query.illustId] ??= <int>[]);
     ids.remove(comment.id);
     ids.insert(0, comment.id);
-    state = CommentStoreState(
+    state = _CommentStoreState(
       entities: entities,
       rootIdsByIllust: roots,
       replyIdsByRoot: replies,
@@ -362,7 +362,7 @@ class CommentStore extends Notifier<CommentStoreState> {
         replyCount: nextCount,
         hasReplies: nextCount > 0,
       );
-    state = CommentStoreState(
+    state = _CommentStoreState(
       entities: entities,
       rootIdsByIllust: state.rootIdsByIllust,
       replyIdsByRoot: state.replyIdsByRoot,
@@ -429,7 +429,7 @@ class CommentStore extends Notifier<CommentStoreState> {
             )
           : mutation;
     }
-    state = CommentStoreState(
+    state = _CommentStoreState(
       entities: state.entities,
       rootIdsByIllust: state.rootIdsByIllust,
       replyIdsByRoot: state.replyIdsByRoot,
@@ -455,7 +455,7 @@ class CommentStore extends Notifier<CommentStoreState> {
   }
 
   void _setMutation(String key, CommentMutation mutation) {
-    state = CommentStoreState(
+    state = _CommentStoreState(
       entities: state.entities,
       rootIdsByIllust: state.rootIdsByIllust,
       replyIdsByRoot: state.replyIdsByRoot,
@@ -490,7 +490,7 @@ class CommentStore extends Notifier<CommentStoreState> {
         );
       }
     }
-    state = CommentStoreState(
+    state = _CommentStoreState(
       entities: entities,
       rootIdsByIllust: roots,
       replyIdsByRoot: replies,
@@ -533,6 +533,5 @@ class CommentStore extends Notifier<CommentStoreState> {
   }
 }
 
-final commentStoreProvider = NotifierProvider<CommentStore, CommentStoreState>(
-  CommentStore.new,
-);
+final commentStoreProvider =
+    NotifierProvider<_CommentStore, _CommentStoreState>(_CommentStore.new);

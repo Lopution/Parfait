@@ -6,7 +6,7 @@ import '../download/download_recovery.dart';
 /// Opens the Android system directory chooser (ACTION_OPEN_DOCUMENT_TREE)
 /// and returns the persisted tree URI (D5). No custom file browser, no raw
 /// path input: the platform owns permission persistence.
-abstract class SafTreePicker {
+abstract class _SafTreePicker {
   /// Returns the tree URI string, or null when the user cancelled.
   Future<String?> pickTree();
 }
@@ -35,7 +35,7 @@ abstract class SafDocumentSinkFactory {
 }
 
 /// Production implementation backed by the Android host.
-class MethodChannelSafTree implements SafTreePicker, SafDocumentSinkFactory {
+class MethodChannelSafTree implements _SafTreePicker, SafDocumentSinkFactory {
   const MethodChannelSafTree([
     this._channel = const MethodChannel('pixivfunc/saf_tree'),
   ]);
@@ -61,7 +61,7 @@ class MethodChannelSafTree implements SafTreePicker, SafDocumentSinkFactory {
       if (owner != null) 'ownerId': owner.ownerId,
     });
     if (uri == null) {
-      throw const SafTreeChannelException('create returned null uri');
+      throw const _SafTreeChannelException('create returned null uri');
     }
     return _MethodChannelSafDocumentSink(uri, _channel);
   }
@@ -77,10 +77,8 @@ class _MethodChannelSafDocumentSink implements SafDocumentSink {
   String get uri => _uri;
 
   @override
-  Future<void> write(List<int> bytes) => _channel.invokeMethod<void>(
-    'write',
-    {'uri': _uri, 'bytes': bytes},
-  );
+  Future<void> write(List<int> bytes) =>
+      _channel.invokeMethod<void>('write', {'uri': _uri, 'bytes': bytes});
 
   @override
   Future<void> close() => _channel.invokeMethod<void>('close', {'uri': _uri});
@@ -89,20 +87,20 @@ class _MethodChannelSafDocumentSink implements SafDocumentSink {
   Future<void> delete() => _channel.invokeMethod<void>('delete', {'uri': _uri});
 }
 
-final safTreeProvider = Provider<MethodChannelSafTree>((ref) {
+final _safTreeProvider = Provider<MethodChannelSafTree>((ref) {
   return const MethodChannelSafTree();
 });
 
-final safTreePickerProvider = Provider<SafTreePicker>((ref) {
-  return ref.watch(safTreeProvider);
+final safTreePickerProvider = Provider<_SafTreePicker>((ref) {
+  return ref.watch(_safTreeProvider);
 });
 
 final safDocumentSinkFactoryProvider = Provider<SafDocumentSinkFactory>((ref) {
-  return ref.watch(safTreeProvider);
+  return ref.watch(_safTreeProvider);
 });
 
-class SafTreeChannelException implements Exception {
-  const SafTreeChannelException(this.message);
+class _SafTreeChannelException implements Exception {
+  const _SafTreeChannelException(this.message);
 
   final String message;
 

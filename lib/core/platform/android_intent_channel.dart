@@ -6,7 +6,7 @@ import 'intent_router.dart';
 /// Dart side of the Android intent handoff. The channel carries only action,
 /// opaque URI metadata, MIME, permission and size; it never carries cookies,
 /// credentials or file contents.
-abstract final class AndroidIntentMethods {
+abstract final class _AndroidIntentMethods {
   static const channel = 'pixivfunc/android_intents';
   static const events = 'pixivfunc/android_intents/events';
   static const getInitialIntent = 'getInitialIntent';
@@ -19,15 +19,15 @@ abstract final class AndroidIntentMethods {
 
 /// Opens an external URL in the system browser. Kept separate from the
 /// inbound [AndroidIntentSource] so outbound capability stays explicit.
-abstract interface class OutboundUrlOpener {
+abstract interface class _OutboundUrlOpener {
   /// Returns normally on success; throws when the URL is not http(s) or no
   /// activity can handle it.
   Future<void> openExternal(String url);
 }
 
-class MethodChannelOutboundUrlOpener implements OutboundUrlOpener {
+class MethodChannelOutboundUrlOpener implements _OutboundUrlOpener {
   const MethodChannelOutboundUrlOpener([
-    this._methodChannel = const MethodChannel(AndroidIntentMethods.channel),
+    this._methodChannel = const MethodChannel(_AndroidIntentMethods.channel),
   ]);
 
   final MethodChannel _methodChannel;
@@ -35,7 +35,7 @@ class MethodChannelOutboundUrlOpener implements OutboundUrlOpener {
   @override
   Future<void> openExternal(String url) async {
     final ok = await _methodChannel.invokeMethod<bool>(
-      AndroidIntentMethods.openUrl,
+      _AndroidIntentMethods.openUrl,
       {'url': url},
     );
     if (ok != true) {
@@ -45,7 +45,7 @@ class MethodChannelOutboundUrlOpener implements OutboundUrlOpener {
 }
 
 /// App-scoped outbound URL capability (U6). Overridable in tests.
-final outboundUrlOpenerProvider = Provider<OutboundUrlOpener>((ref) {
+final outboundUrlOpenerProvider = Provider<_OutboundUrlOpener>((ref) {
   return const MethodChannelOutboundUrlOpener();
 });
 
@@ -57,8 +57,8 @@ abstract interface class AndroidIntentSource {
 
 class MethodChannelAndroidIntentSource implements AndroidIntentSource {
   const MethodChannelAndroidIntentSource([
-    this._methodChannel = const MethodChannel(AndroidIntentMethods.channel),
-    this._eventChannel = const EventChannel(AndroidIntentMethods.events),
+    this._methodChannel = const MethodChannel(_AndroidIntentMethods.channel),
+    this._eventChannel = const EventChannel(_AndroidIntentMethods.events),
   ]);
 
   final MethodChannel _methodChannel;
@@ -67,7 +67,7 @@ class MethodChannelAndroidIntentSource implements AndroidIntentSource {
   @override
   Future<AndroidIntentResult> readInitial() async {
     final message = await _methodChannel.invokeMethod<Object?>(
-      AndroidIntentMethods.getInitialIntent,
+      _AndroidIntentMethods.getInitialIntent,
     );
     return IntentRouter.routePlatformMessage(message);
   }

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
 import '../../../l10n/context.dart';
 
@@ -87,18 +88,20 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   @override
   Widget build(BuildContext context) {
     String text(String key) => l10nLookup(context.l10n, key);
+    // The fullscreen viewer deliberately keeps an opaque black canvas so
+    // artwork and its white chrome match the replica surface.
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        foregroundColor: FuncTokens.lightBackground,
         title: Text('${_activePage + 1} / $_pageCount'),
       ),
       body: _pageCount == 0
           ? Center(
               child: Text(
                 text('viewerNoImages'),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: FuncTokens.lightBackground),
               ),
             )
           : PageView.builder(

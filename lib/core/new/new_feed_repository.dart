@@ -43,8 +43,8 @@ abstract interface class NewFeedRepository {
 
 /// JSON adapters for the New sources. The endpoint/query mapping is typed and
 /// explicit so each scope remains observable when Pixiv disables a source.
-class PixivNewFeedRepository implements NewFeedRepository {
-  PixivNewFeedRepository(this._client);
+class _PixivNewFeedRepository implements NewFeedRepository {
+  _PixivNewFeedRepository(this._client);
 
   final PixivHttpClient _client;
 
@@ -191,5 +191,5 @@ class PixivNewFeedRepository implements NewFeedRepository {
 }
 
 final newFeedRepositoryProvider = Provider<NewFeedRepository>((ref) {
-  return PixivNewFeedRepository(ref.watch(pixivHttpClientProvider));
+  return _PixivNewFeedRepository(ref.watch(pixivHttpClientProvider));
 });

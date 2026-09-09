@@ -10,8 +10,8 @@ import 'novel_entity.dart';
 
 /// The API returned metadata without a body for this novel. This is distinct
 /// from a valid, intentionally empty body and is shown as an explicit error.
-class NovelContentUnavailableException implements Exception {
-  const NovelContentUnavailableException(this.novelId);
+class _NovelContentUnavailableException implements Exception {
+  const _NovelContentUnavailableException(this.novelId);
 
   final int novelId;
 
@@ -44,7 +44,7 @@ class NovelSeriesPage {
 ///
 /// `/webview/v2/novel` is intentionally absent here: it is the legacy HTML
 /// route and cannot be used as a silent fallback when the JSON body is absent.
-abstract interface class NovelRepository {
+abstract interface class _NovelRepository {
   Future<NovelEntity> fetchDetail(int novelId, {CancelToken? cancelToken});
 
   Future<NovelPage> fetchUserNovels(
@@ -71,8 +71,8 @@ abstract interface class NovelRepository {
   bool validateSeriesCursor(int seriesId, {required String cursor});
 }
 
-class PixivNovelRepository implements NovelRepository {
-  PixivNovelRepository(this._client);
+class _PixivNovelRepository implements _NovelRepository {
+  _PixivNovelRepository(this._client);
 
   final PixivHttpClient _client;
 
@@ -98,10 +98,10 @@ class PixivNovelRepository implements NovelRepository {
       final novel = NovelEntity.fromDetailJson(json);
       if (!novel.visible || novel.isXRestricted) return novel;
       if (!novel.contentAvailable) {
-        throw NovelContentUnavailableException(novel.id);
+        throw _NovelContentUnavailableException(novel.id);
       }
       return novel;
-    } on NovelContentUnavailableException {
+    } on _NovelContentUnavailableException {
       rethrow;
     } on FormatException catch (error) {
       throw ApiParseError(error);
@@ -162,7 +162,6 @@ class PixivNovelRepository implements NovelRepository {
       cursor: cursor,
     );
   }
-
 
   @override
   Future<NovelSeriesPage> fetchSeries(
@@ -317,9 +316,8 @@ class PixivNovelRepository implements NovelRepository {
   static void _validateId(int value, String field) {
     if (value <= 0) throw ArgumentError.value(value, field);
   }
-
 }
 
-final novelRepositoryProvider = Provider<NovelRepository>((ref) {
-  return PixivNovelRepository(ref.watch(pixivHttpClientProvider));
+final novelRepositoryProvider = Provider<_NovelRepository>((ref) {
+  return _PixivNovelRepository(ref.watch(pixivHttpClientProvider));
 });

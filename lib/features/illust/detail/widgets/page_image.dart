@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/motion/hero_transition.dart';
 import '../../../../app/motion/replica_page_route.dart';
 import '../../../../app/pixiv_image.dart';
+import '../../../../app/theme/func_tokens.dart';
 import '../../../../app/widgets/app_snack_bar.dart';
 import '../../../../core/download/download_providers.dart';
 import '../../../../core/download/download_task.dart' show DownloadStatus;
@@ -123,7 +124,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                   // Keep the loading transition for cold detail images. A
                   // cached Hero hand-off is still instantaneous because
                   // PixivImage disables its fade for completed cache entries.
-                  filterColor: downloadMode ? Colors.white24 : null,
+                  filterColor: downloadMode ? FuncTokens.imageOverlay : null,
                   filterBlendMode: downloadMode ? BlendMode.srcOver : null,
                 ),
               ),
@@ -144,12 +145,18 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                       // Immediate visual feedback: the spinner shows before
                       // the coordinator/task notification round trip.
                       setState(() => _optimisticDownloading = true);
-                      showAppSnackBar(context, context.l10n.downloadQueuedMessage,);
+                      showAppSnackBar(
+                        context,
+                        context.l10n.downloadQueuedMessage,
+                      );
                     } catch (error) {
                       // Any submission failure must be visible on device: the
                       // manager/ownership/channel errors that are not
                       // FormatException otherwise vanish with no UI feedback.
-                      showAppSnackBar(context, context.l10n.downloadSubmissionFailed(error.toString()),);
+                      showAppSnackBar(
+                        context,
+                        context.l10n.downloadSubmissionFailed(error.toString()),
+                      );
                     }
                   },
                 ),

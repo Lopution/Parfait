@@ -95,7 +95,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           for (final type in _loaded)
             Offstage(
               offstage: type != _type,
-              child: RecommendedFeedView(key: ValueKey(type), type: type),
+              child: _RecommendedFeedView(key: ValueKey(type), type: type),
             ),
         ],
       ),
@@ -145,8 +145,8 @@ class _RecommendedTypeSelector extends StatelessWidget {
 
 /// One keyed recommended feed body. Watches [recommendedFeedProvider] and
 /// renders the right card shape for the type.
-class RecommendedFeedView extends ConsumerWidget {
-  const RecommendedFeedView({super.key, required this.type});
+class _RecommendedFeedView extends ConsumerWidget {
+  const _RecommendedFeedView({super.key, required this.type});
 
   final RecommendedContentType type;
 
@@ -272,15 +272,15 @@ class _RecommendedFeedBody extends ConsumerWidget {
     final entities = store.getAll(feed.ids);
     return [
       IllustFeedGrid(
-  padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-  mainAxisSpacing: 5,
-  crossAxisSpacing: 10,
-  itemCount: entities.length,
-  itemBuilder: (context, index) => IllustCard(
-            entity: entities[index],
-            heroScope: 'recommended:${type.name}',
-          ),
-),
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+        mainAxisSpacing: 5,
+        crossAxisSpacing: 10,
+        itemCount: entities.length,
+        itemBuilder: (context, index) => IllustCard(
+          entity: entities[index],
+          heroScope: 'recommended:${type.name}',
+        ),
+      ),
       ...tail,
     ];
   }
@@ -329,7 +329,6 @@ class _RecommendedFeedBody extends ConsumerWidget {
     ];
   }
 }
-
 
 class _NovelRowCard extends StatelessWidget {
   const _NovelRowCard({required this.entity});
@@ -464,4 +463,3 @@ class _UserRowCard extends StatelessWidget {
     );
   }
 }
-

@@ -12,7 +12,7 @@ import 'download_transport.dart';
 import 'pixiv_download_transport.dart';
 
 /// Per-task progress snapshot emission interval (R5 throttle).
-const Duration kProgressThrottle = Duration(milliseconds: 200);
+const Duration _kProgressThrottle = Duration(milliseconds: 200);
 
 typedef DownloadSubmissionContextProvider =
     DownloadSubmissionContext? Function();
@@ -28,7 +28,7 @@ class DownloadManager {
     required DownloadTransport transport,
     required DownloadSinkFactory sinkFactory,
     int maxConcurrent = 3,
-    this.progressThrottle = kProgressThrottle,
+    this.progressThrottle = _kProgressThrottle,
     DownloadSubmissionContextProvider? submissionContext,
     DownloadRecoveryStore? recoveryStore,
     this.requireOwnedSubmissions = false,
@@ -121,14 +121,15 @@ class DownloadManager {
 
     final ownerContext = context ?? _submissionContext?.call();
     if (requireOwnedSubmissions && ownerContext == null) {
-      throw const DownloadOwnershipException(
+      throw const _DownloadOwnershipException(
         'an authenticated submission boundary is required',
       );
     }
     if (ownerContext != null &&
         (ownerContext.accountId.isEmpty ||
-            (enforceDefaultDestination && !ownerContext.destination.isBuiltin))) {
-      throw const DownloadOwnershipException(
+            (enforceDefaultDestination &&
+                !ownerContext.destination.isBuiltin))) {
+      throw const _DownloadOwnershipException(
         'submission destination or account owner is invalid',
       );
     }
@@ -575,7 +576,7 @@ class DownloadManager {
       await _streamAndFinalize(job, sink, openedResponse, closeResponse);
     } on DownloadCancelledException {
       await _handleCancellation(job, sink, closeResponse);
-    } on DownloadOwnershipException catch (error) {
+    } on _DownloadOwnershipException catch (error) {
       await _handleOwnershipFailure(job, sink, closeResponse, error);
     } catch (error) {
       await _handleGenericFailure(job, sink, closeResponse, error);
@@ -682,7 +683,7 @@ class DownloadManager {
     _Job job,
     DownloadSink? sink,
     Future<void> Function() closeResponse,
-    DownloadOwnershipException error,
+    _DownloadOwnershipException error,
   ) async {
     await _abortOnce(job, sink);
     await closeResponse();
@@ -713,7 +714,7 @@ class DownloadManager {
         job.snapshot.status != DownloadStatus.finalizing) {
       _completeCancellation(job, orphaned: job.ownerInvalidated);
     } else {
-      final failureKind = classifyDownloadFailure(error);
+      final failureKind = _classifyDownloadFailure(error);
       _transition(job, DownloadStatus.failed);
       _update(
         job,
@@ -750,7 +751,7 @@ class DownloadManager {
     final current = _submissionContext();
     if (current == null || !_sameContext(snapshot, current)) {
       job.ownerInvalidated = true;
-      throw const DownloadOwnershipException(
+      throw const _DownloadOwnershipException(
         'submission owner changed before output write/finalize',
       );
     }
@@ -1072,8 +1073,8 @@ class _DownloadGroup {
   final DownloadSubmissionSnapshot submission;
 }
 
-class DownloadOwnershipException implements Exception {
-  const DownloadOwnershipException(this.message);
+class _DownloadOwnershipException implements Exception {
+  const _DownloadOwnershipException(this.message);
 
   final String message;
 
@@ -1105,9 +1106,11 @@ class DownloadResourceLimitException implements Exception {
   final String message;
 }
 
-DownloadFailureKind classifyDownloadFailure(Object error) {
+DownloadFailureKind _classifyDownloadFailure(Object error) {
   if (error is DownloadCancelledException) return DownloadFailureKind.canceled;
-  if (error is DownloadOwnershipException) return DownloadFailureKind.ownership;
+  if (error is _DownloadOwnershipException) {
+    return DownloadFailureKind.ownership;
+  }
   if (error is DownloadHttpStatusException) {
     return switch (error.statusCode) {
       401 || 403 => DownloadFailureKind.auth,

@@ -33,12 +33,12 @@ const int widgetFilterMaxRefillPages = 3;
 
 /// Cover byte ceiling applied before the file lands in the snapshot store.
 /// The native renderer additionally bounds decoded pixels per widget size.
-const int widgetCoverMaxBytes = widgetImageMaxBytes;
+const int _widgetCoverMaxBytes = widgetImageMaxBytes;
 
 /// Keep the complete generation bounded before it is published. This is a
 /// download/storage budget, separate from the native decoded bitmap budget.
-const int widgetSnapshotMaxTotalImageBytes =
-    widgetCoverMaxBytes * widgetSnapshotMaxItems;
+const int _widgetSnapshotMaxTotalImageBytes =
+    _widgetCoverMaxBytes * widgetSnapshotMaxItems;
 
 /// Outcome of one widget feed generation pass.
 enum WidgetFeedOutcome {
@@ -116,9 +116,7 @@ class WidgetFeedLoader {
     } on Object catch (error) {
       // An unreadable account store is not proof of logout. Keep the
       // same-account last-good snapshot and let the bounded retry recover.
-      log(
-        'WidgetFeedLoader account state unavailable: ${error.runtimeType}',
-      );
+      log('WidgetFeedLoader account state unavailable: ${error.runtimeType}');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
     if (state.status != AccountStatus.ready) {
@@ -134,9 +132,7 @@ class WidgetFeedLoader {
     try {
       credential = await _credentialStore.read(account.id);
     } on Object catch (error) {
-      log(
-        'WidgetFeedLoader credential unavailable: ${error.runtimeType}',
-      );
+      log('WidgetFeedLoader credential unavailable: ${error.runtimeType}');
       return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
     }
     if (credential == null) {
@@ -182,7 +178,7 @@ class WidgetFeedLoader {
           return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
         }
         totalImageBytes += bytes.length;
-        if (totalImageBytes > widgetSnapshotMaxTotalImageBytes) {
+        if (totalImageBytes > _widgetSnapshotMaxTotalImageBytes) {
           log('WidgetFeedLoader total cover budget exceeded');
           return const WidgetFeedResult(WidgetFeedOutcome.transientFailure);
         }
@@ -301,7 +297,7 @@ class WidgetFeedLoader {
         return null;
       }
       final bytes = response.bodyBytes;
-      if (bytes.isEmpty || bytes.length > widgetCoverMaxBytes) {
+      if (bytes.isEmpty || bytes.length > _widgetCoverMaxBytes) {
         log('WidgetFeedLoader cover size rejected: ${bytes.length}');
         return null;
       }
@@ -331,9 +327,7 @@ class WidgetFeedLoader {
           // Display-state re-key: profile/re-auth advances revision and supersedes the write.
           current.credentialRevision == revision;
     } on Object catch (error) {
-      log(
-        'WidgetFeedLoader ownership check unavailable: ${error.runtimeType}',
-      );
+      log('WidgetFeedLoader ownership check unavailable: ${error.runtimeType}');
       return false;
     }
   }
@@ -347,9 +341,7 @@ class WidgetFeedLoader {
       return current.status == AccountStatus.ready &&
           current.current?.id == accountId;
     } on Object catch (error) {
-      log(
-        'WidgetFeedLoader account check unavailable: ${error.runtimeType}',
-      );
+      log('WidgetFeedLoader account check unavailable: ${error.runtimeType}');
       return false;
     }
   }

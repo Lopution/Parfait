@@ -84,10 +84,10 @@ class LanguagePage extends ConsumerWidget {
               child: ReplicaButton(
                 label: l10nLookupFor(language.locale, 'next'),
                 backgroundColor: FuncTokens.primary,
-                foregroundColor: Colors.white,
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(ReplicaPageRoute<void>(builder: (_) => const ThemePage())),
+                foregroundColor: FuncTokens.lightBackground,
+                onPressed: () => Navigator.of(context).push(
+                  ReplicaPageRoute<void>(builder: (_) => const ThemePage()),
+                ),
               ),
             ),
             const Spacer(),

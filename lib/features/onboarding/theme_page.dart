@@ -103,7 +103,7 @@ class ThemePage extends ConsumerWidget {
               child: ReplicaButton(
                 label: text('next'),
                 backgroundColor: FuncTokens.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: FuncTokens.lightBackground,
                 onPressed: () async {
                   await ref.read(settingsProvider.notifier).completeGuide();
                   if (!context.mounted) return;

@@ -23,7 +23,7 @@ class AccountCard extends StatelessWidget {
       margin: const EdgeInsets.all(12),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: AccountAvatar(account: value),
+        leading: _AccountAvatar(account: value),
         title: Text(
           value?.name ?? context.l10n.signedOut,
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
@@ -46,8 +46,8 @@ class AccountCard extends StatelessWidget {
   }
 }
 
-class AccountAvatar extends StatelessWidget {
-  const AccountAvatar({super.key, required this.account});
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({required this.account});
 
   final Account? account;
 
@@ -102,7 +102,7 @@ class AccountSettingsPage extends ConsumerWidget {
                   final account = state.accounts[index];
                   final selected = state.currentId == account.id;
                   return ListTile(
-                    leading: AccountAvatar(account: account),
+                    leading: _AccountAvatar(account: account),
                     title: Text(account.name),
                     subtitle: Text(
                       account.mailAddress ??

@@ -19,7 +19,7 @@ String illustHeroTag(String scope, int illustId) =>
 /// first rendered global edge has been published by [HomePage]. The normal
 /// path uses [HomeShellMetrics.bottomNavTop], so this is only used in a
 /// first-frame or test-only route with no measured shell.
-const kHomeBottomNavHeight = 80.0;
+const _kHomeBottomNavHeight = 80.0;
 
 /// Shared artwork Hero flight.
 ///
@@ -267,8 +267,10 @@ double _heroBottomEdge(BuildContext heroContext, Size size) {
   // three-button navigation inset.
   HomeShellMetrics? metrics;
   try {
-    metrics = ProviderScope.containerOf(heroContext, listen: false)
-        .read(homeShellMetricsProvider);
+    metrics = ProviderScope.containerOf(
+      heroContext,
+      listen: false,
+    ).read(homeShellMetricsProvider);
   } on StateError {
     // Hero flights may run under a plain MaterialApp (no ProviderScope) in
     // tests; fall back to the conservative constant, matching pre-provider
@@ -278,8 +280,7 @@ double _heroBottomEdge(BuildContext heroContext, Size size) {
   if (measuredTop != null && measuredTop > 0 && measuredTop < size.height) {
     return measuredTop;
   }
-  final measuredHeight =
-      metrics?.bottomNavHeight ?? kHomeBottomNavHeight;
+  final measuredHeight = metrics?.bottomNavHeight ?? _kHomeBottomNavHeight;
   return (size.height - measuredHeight).clamp(0.0, size.height).toDouble();
 }
 

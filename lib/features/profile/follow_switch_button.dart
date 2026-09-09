@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
+import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
@@ -27,13 +28,14 @@ class FollowSwitchButton extends ConsumerWidget {
   final String userAccount;
   final bool compact;
 
-  String _text(BuildContext context, String key) => l10nLookup(context.l10n, key);
+  String _text(BuildContext context, String key) =>
+      l10nLookup(context.l10n, key);
 
   Future<void> _showRestrictSheet(BuildContext context, WidgetRef ref) async {
     var restrict = FollowRestrict.public;
     final selected = await showModalBottomSheet<FollowRestrict>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: FuncTokens.transparent,
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setState) {
           final colors = Theme.of(sheetContext).colorScheme;

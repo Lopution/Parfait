@@ -11,20 +11,20 @@ Future<SearchFilters?> showSearchFilterSheet(
   return showModalBottomSheet<SearchFilters>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => SearchFilterSheet(initial: initial),
+    builder: (_) => _SearchFilterSheet(initial: initial),
   );
 }
 
-class SearchFilterSheet extends StatefulWidget {
-  const SearchFilterSheet({super.key, required this.initial});
+class _SearchFilterSheet extends StatefulWidget {
+  const _SearchFilterSheet({required this.initial});
 
   final SearchFilters initial;
 
   @override
-  State<SearchFilterSheet> createState() => _SearchFilterSheetState();
+  State<_SearchFilterSheet> createState() => _SearchFilterSheetState();
 }
 
-class _SearchFilterSheetState extends State<SearchFilterSheet> {
+class _SearchFilterSheetState extends State<_SearchFilterSheet> {
   late SearchFilters _filters = widget.initial;
 
   Future<void> _pickDate({required bool start}) async {

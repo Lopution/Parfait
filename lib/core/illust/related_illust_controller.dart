@@ -10,8 +10,8 @@ import 'related_illust_repository.dart';
 /// Uses the same PagedFeedController machinery as the feed pages: the ids
 /// live in this controller, the payloads merge into the shared illust store
 /// through the generation commit.
-class RelatedIllustController extends PagedFeedController {
-  RelatedIllustController(this.illustId);
+class _RelatedIllustController extends PagedFeedController {
+  _RelatedIllustController(this.illustId);
 
   final int illustId;
 
@@ -24,7 +24,11 @@ class RelatedIllustController extends PagedFeedController {
     final bookmarkRevision = store.bookmarkRevisionNow();
     final page = await ref
         .read(relatedIllustRepositoryProvider)
-        .fetchPage(illustId, cursor: context.cursor, cancelToken: context.cancelToken);
+        .fetchPage(
+          illustId,
+          cursor: context.cursor,
+          cancelToken: context.cancelToken,
+        );
     return FeedPage(
       ids: [for (final illust in page.illusts) illust.id],
       nextCursor: page.nextUrl,
@@ -48,10 +52,9 @@ class RelatedIllustController extends PagedFeedController {
   }
 }
 
-final relatedIllustControllerProvider = AsyncNotifierProvider.family<
-  RelatedIllustController,
-  PagedFeedState,
-  int
->(RelatedIllustController.new);
+final relatedIllustControllerProvider =
+    AsyncNotifierProvider.family<_RelatedIllustController, PagedFeedState, int>(
+      _RelatedIllustController.new,
+    );
 
 /// Overridable in tests; the default wired through the shared client.

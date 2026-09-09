@@ -6,8 +6,8 @@ import 'follow_store.dart';
 
 /// UI-facing follow actions: begin in the canonical store, await the API,
 /// then commit or fail. Widgets never mutate relationship state directly.
-class FollowActions {
-  FollowActions(this._ref);
+class _FollowActions {
+  _FollowActions(this._ref);
 
   final Ref _ref;
 
@@ -53,6 +53,6 @@ class FollowActions {
   }
 }
 
-final followActionsProvider = Provider<FollowActions>((ref) {
-  return FollowActions(ref);
+final followActionsProvider = Provider<_FollowActions>((ref) {
+  return _FollowActions(ref);
 });

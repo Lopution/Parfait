@@ -13,8 +13,8 @@ import 'history_repository.dart';
 /// from the family argument and is re-asserted by the base controller's
 /// account watch. The remote-sync outbox lives in the tracker layer and is
 /// untouched by this UI feed.
-class HistoryFeedController extends PagedFeedController {
-  HistoryFeedController(this.accountId);
+class _HistoryFeedController extends PagedFeedController {
+  _HistoryFeedController(this.accountId);
 
   /// Local history storage; resolved lazily through the provider graph.
   HistoryRepository get repository => ref.read(historyRepositoryProvider);
@@ -48,9 +48,7 @@ class HistoryFeedController extends PagedFeedController {
       }
       return FeedPage(
         ids: [for (final record in result.records) keyOf(record)],
-        nextCursor: result.hasMore
-            ? '${(context.page + 1) * pageSize}'
-            : null,
+        nextCursor: result.hasMore ? '${(context.page + 1) * pageSize}' : null,
       );
     } on Object catch (error) {
       // History storage failures are local, not server API errors; wrap so
@@ -77,6 +75,8 @@ class HistoryFeedController extends PagedFeedController {
 }
 
 final historyFeedControllerProvider =
-    AsyncNotifierProvider.family<HistoryFeedController, PagedFeedState, String>(
-      HistoryFeedController.new,
-    );
+    AsyncNotifierProvider.family<
+      _HistoryFeedController,
+      PagedFeedState,
+      String
+    >(_HistoryFeedController.new);
