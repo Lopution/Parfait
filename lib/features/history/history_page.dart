@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/pull_to_refresh.dart';
@@ -11,6 +13,7 @@ import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/history/history_models.dart';
+import '../../core/history/history_feed_controller.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_store.dart';
@@ -47,7 +50,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           : _HistoryBody(
               key: ValueKey('$accountId-$_clearGeneration'),
               accountId: accountId,
-              repository: repository,
             ),
     );
   }
@@ -76,42 +78,22 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 }
 
-class _HistoryBody extends StatefulWidget {
-  const _HistoryBody({
-    super.key,
-    required this.accountId,
-    required this.repository,
-  });
+class _HistoryBody extends ConsumerStatefulWidget {
+  const _HistoryBody({super.key, required this.accountId});
 
   final String accountId;
-  final HistoryRepository repository;
 
   @override
-  State<_HistoryBody> createState() => _HistoryBodyState();
+  ConsumerState<_HistoryBody> createState() => _HistoryBodyState();
 }
 
-class _HistoryBodyState extends State<_HistoryBody> {
-  static const _pageSize = 30;
-
+class _HistoryBodyState extends ConsumerState<_HistoryBody> {
   final ScrollController _scrollController = ScrollController();
-  final List<HistoryRecord> _records = [];
-  Object? _error;
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _hasMore = false;
-  int _generation = 0;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _reload();
-  }
-
-  @override
-  void didUpdateWidget(covariant _HistoryBody oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.accountId != widget.accountId) _reload();
   }
 
   @override
@@ -124,61 +106,12 @@ class _HistoryBodyState extends State<_HistoryBody> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.extentAfter < 400) _loadMore();
-  }
-
-  Future<void> _reload() async {
-    final generation = ++_generation;
-    if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-      _records.clear();
-      _hasMore = false;
-    });
-    try {
-      final result = await widget.repository.page(
-        accountId: widget.accountId,
-        limit: _pageSize,
+    if (_scrollController.position.extentAfter < 400) {
+      unawaited(
+        ref
+            .read(historyFeedControllerProvider(widget.accountId).notifier)
+            .loadMore(),
       );
-      if (!mounted || generation != _generation) return;
-      setState(() {
-        _records.addAll(result.records);
-        _hasMore = result.hasMore;
-        _loading = false;
-      });
-    } on Object catch (error) {
-      if (!mounted || generation != _generation) return;
-      setState(() {
-        _error = error;
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || _loadingMore || !_hasMore) return;
-    final generation = _generation;
-    _loadingMore = true;
-    try {
-      final result = await widget.repository.page(
-        accountId: widget.accountId,
-        offset: _records.length,
-        limit: _pageSize,
-      );
-      // A refresh or account switch can replace the list while this request
-      // is in flight. Never append a page belonging to that stale generation
-      // to the newly loaded records.
-      if (!mounted || generation != _generation) return;
-      setState(() {
-        _records.addAll(result.records);
-        _hasMore = result.hasMore;
-      });
-    } on Object catch (error) {
-      if (!mounted || generation != _generation) return;
-      setState(() => _error = error);
-    } finally {
-      _loadingMore = false;
     }
   }
 
@@ -189,19 +122,9 @@ class _HistoryBodyState extends State<_HistoryBody> {
     );
     if (confirmed != true) return;
     try {
-      await widget.repository.delete(
-        accountId: widget.accountId,
-        contentType: record.contentType,
-        contentId: record.contentId,
-      );
-      if (!mounted) return;
-      setState(
-        () => _records.removeWhere(
-          (item) =>
-              item.contentType == record.contentType &&
-              item.contentId == record.contentId,
-        ),
-      );
+      await ref
+          .read(historyFeedControllerProvider(widget.accountId).notifier)
+          .removeRecord(record);
     } on Object catch (error) {
       if (!mounted) return;
       showAppSnackBar(context, '$error');
@@ -210,60 +133,87 @@ class _HistoryBodyState extends State<_HistoryBody> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading && _records.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null && _records.isEmpty) {
-      return FeedError(
-          title: context.l10n.historyLoadFailed,
-          error: _error!,
-          retryLabel: context.l10n.retry,
-          onRetry: _reload,
-        );
-    }
-    if (_records.isEmpty) {
-      return ReplicaEmptyState(
-        message: context.l10n.historyEmpty,
+    final feed = ref.watch(historyFeedControllerProvider(widget.accountId));
+    return feed.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => FeedError(
+        title: context.l10n.historyLoadFailed,
+        error: error,
         retryLabel: context.l10n.retry,
-        onRetry: _reload,
-        icon: Icons.history,
-      );
-    }
-    return PullToRefresh(
-      onRefresh: _reload,
-      child: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          IllustFeedGrid(
-  padding: const EdgeInsets.all(10),
-  mainAxisSpacing: 10,
-  crossAxisSpacing: 10,
-  itemCount: _records.length,
-  itemBuilder: (context, index) => _HistoryCard(
-                record: _records[index],
-                onLongPress: () => _delete(_records[index]),
+        onRetry: () =>
+            ref
+                .read(historyFeedControllerProvider(widget.accountId).notifier)
+                .retryInitial(),
+      ),
+      data: (state) {
+        if (state.ids.isEmpty) {
+          return ReplicaEmptyState(
+            message: context.l10n.historyEmpty,
+            retryLabel: context.l10n.retry,
+            onRetry: () =>
+                ref
+                    .read(
+                      historyFeedControllerProvider(widget.accountId).notifier,
+                    )
+                    .refresh(),
+            icon: Icons.history,
+          );
+        }
+        final records = [
+          for (final key in state.ids)
+            if (_controllerRecord(key) != null)
+              _controllerRecord(key)!
+        ];
+        return PullToRefresh(
+          onRefresh: () =>
+              ref
+                  .read(
+                    historyFeedControllerProvider(widget.accountId).notifier,
+                  )
+                  .refresh(),
+          child: CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              IllustFeedGrid(
+                padding: const EdgeInsets.all(10),
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                itemCount: records.length,
+                itemBuilder: (context, index) => _HistoryCard(
+                  record: records[index],
+                  onLongPress: () => _delete(records[index]),
+                ),
               ),
-),
-          SliverToBoxAdapter(
-            child: _loadingMore
-                ? const Padding(
+              SliverToBoxAdapter(
+                child: switch ((
+                  state.showLoadMoreSpinner,
+                  state.loadMoreError,
+                )) {
+                  (true, _) => const Padding(
                     padding: EdgeInsets.all(16),
                     child: Center(child: CircularProgressIndicator()),
-                  )
-                : _error == null
-                ? const SizedBox(height: 16)
-                : Padding(
+                  ),
+                  (_, final error?) => Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      '${context.l10n.historyLoadFailed}: $_error',
+                      '${context.l10n.historyLoadFailed}: $error',
                       textAlign: TextAlign.center,
                     ),
                   ),
+                  _ => const SizedBox(height: 16),
+                },
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
+
+  HistoryRecord? _controllerRecord(int key) =>
+      ref
+          .read(historyFeedControllerProvider(widget.accountId).notifier)
+          .recordFor(key);
 }
 
 class _HistoryCard extends ConsumerWidget {
