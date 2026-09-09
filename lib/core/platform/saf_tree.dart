@@ -40,7 +40,7 @@ abstract class SafDocumentSinkFactory {
 /// `saf_create_failed`, `saf_write_failed`, `saf_not_found`,
 /// `saf_delete_failed`, `saf_io_failed`). [create] may send `ownerId`;
 /// the Kotlin handler does not read it.
-class MethodChannelSafTree implements SafTreePicker, SafDocumentSinkFactory {
+class MethodChannelSafTree implements _SafTreePicker, SafDocumentSinkFactory {
   const MethodChannelSafTree([
     this._channel = const MethodChannel('pixivfunc/saf_tree'),
   ]);
