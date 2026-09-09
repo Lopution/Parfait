@@ -1,8 +1,9 @@
 # Android Release Artifacts and Size Budget
 
 > Executable contracts introduced by task `09-07-release-size-per-abi` (child B of
-> `09-02-performance-size-maintainability-refactor`). Numbers are exact bytes measured
-> on 2026-09-07; the research record is
+> `09-02-performance-size-maintainability-refactor`). The current defaults are exact
+> bytes measured after child F on 2026-09-10; the historical B7 measurement is in
+> the research record at
 > `.trellis/tasks/09-02-performance-size-maintainability-refactor/research/apk-size-breakdown.md` §6.
 
 ---
@@ -55,10 +56,9 @@
   bytes above the threshold. `--self-test` exercises pass/fail paths.
 - Thresholds: env `PIXIV_APK_MAX_BYTES_ARM64_V8A` / `PIXIV_APK_MAX_BYTES_ARMEABI_V7A`,
   set in the workflows as `${{ vars.<name> || '<default>' }}`. Defaults are measured
-  fdroid split bytes + 1,000,000: **28,435,321 / 24,226,795** (measured
-  27,435,321 / 23,226,795). arm64 additionally has a hard cap of **32,000,000**; the
-  stricter value wins. Re-measure and reset the defaults after child F migrates to
-  `material_ui`.
+  fdroid split bytes + 1,000,000: **28,981,038 / 24,805,284** (measured
+  **27,981,038 / 23,805,284** after child F). arm64 additionally has a hard cap of
+  **32,000,000**; the stricter value wins.
 - `ci.yml` `android-size` is the secrets-free gate (fdroid flavor, every PR).
   `android-release` and `release.yml` run the same script on the github flavor and
   stay red until the keystore secrets exist — do not bypass that.
