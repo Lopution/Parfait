@@ -1,3 +1,8 @@
+/// Typed Dart contracts for Android MediaStore, SAF, and platform boundaries.
+/// Implementations own channel details; domain consumers depend on these
+/// interfaces. See `backend/android-channels.md`.
+library;
+
 // Platform interfaces for MediaStore streaming writes
 // (android-platform-parity R6/R7).
 //

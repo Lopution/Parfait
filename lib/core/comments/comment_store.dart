@@ -1,3 +1,8 @@
+/// Canonical comment entities, root/reply indexes, and comment mutations.
+/// [CommentStore] owns the thread state while repositories own API parsing.
+/// See `frontend/state-management.md`.
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

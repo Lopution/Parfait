@@ -1,3 +1,8 @@
+/// Shared initial/refresh/load-more state machine for account-scoped feeds.
+/// [PagedFeedController] owns cursor and generation commits; concrete feeds
+/// supply typed repositories. See `frontend/state-management.md`.
+library;
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

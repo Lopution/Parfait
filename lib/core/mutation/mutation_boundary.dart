@@ -1,3 +1,8 @@
+/// Account identity boundary shared by authenticated mutation stores.
+/// [MutationBoundary] and [MutationLedger] own operation identity and stale
+/// result handling, not feature presentation. See `frontend/state-management.md`.
+library;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';

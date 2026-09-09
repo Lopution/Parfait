@@ -1,3 +1,8 @@
+/// Account-scoped confirmed/pending bookmark state and mutation ownership.
+/// [BookmarkStore] is the sole shared owner of bookmark flags; widgets invoke
+/// its typed actions. See `frontend/state-management.md`.
+library;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';

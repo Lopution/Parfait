@@ -1,3 +1,8 @@
+/// Canonical account-scoped novel entities shared by feeds and the reader.
+/// [NovelStore] owns entity merges while reader layout remains view-local.
+/// See `frontend/state-management.md`.
+library;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';

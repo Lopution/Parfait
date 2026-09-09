@@ -1,3 +1,8 @@
+/// Pixiv API transport, authentication refresh, and API error classification.
+/// [PixivHttpClient] owns Pixiv requests; policy and client providers own
+/// route/client construction. See `backend/directory-structure.md`.
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
