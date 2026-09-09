@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
+import 'package:pixiv_func/app/external_intent_bridge.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
@@ -68,14 +69,12 @@ const _signedInSnapshot = AccountMetadataSnapshot(
 );
 
 Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
-  final router = createPixivRouter(
-    initialLocation: '/recommended',
-    intentSource:
-        intentSource ??
-        const _ScriptedIntentSource(
-          IgnoredAndroidIntent('test: no android intent'),
-        ),
-  );
+  final source =
+      intentSource ??
+      const _ScriptedIntentSource(
+        IgnoredAndroidIntent('test: no android intent'),
+      );
+  final router = createPixivRouter(initialLocation: '/recommended');
   return ProviderScope(
     overrides: [
       credentialStoreProvider.overrideWithValue(const _StaticCredentialStore()),
@@ -88,6 +87,11 @@ Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale ?? const Locale('zh', 'CN'),
       routerConfig: router,
+      builder: (context, child) => ExternalIntentBridge(
+        router: router,
+        intentSource: source,
+        child: child!,
+      ),
     ),
   );
 }

@@ -22,8 +22,6 @@ import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
@@ -155,17 +153,6 @@ class _FakeMetadataRepository implements AccountMetadataRepository {
   Future<void> save(List<Account> accounts, String? currentId) async {}
 }
 
-class _IgnoredIntentSource implements AndroidIntentSource {
-  const _IgnoredIntentSource();
-
-  @override
-  Future<AndroidIntentResult> readInitial() async =>
-      const IgnoredAndroidIntent('test: no android intent');
-
-  @override
-  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
-}
-
 Future<void> pumpDetail(
   WidgetTester tester,
   ProviderContainer container, {
@@ -180,10 +167,7 @@ Future<void> pumpDetail(
     ]);
   }
   final router = useRouter
-      ? createPixivRouter(
-          initialLocation: '/recommended/illust/$illustId',
-          intentSource: const _IgnoredIntentSource(),
-        )
+      ? createPixivRouter(initialLocation: '/recommended/illust/$illustId')
       : null;
   if (router != null) addTearDown(router.dispose);
   await mockNetworkImagesFor(() async {

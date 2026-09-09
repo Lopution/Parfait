@@ -13,8 +13,6 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart' hide NetworkMode;
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
@@ -183,17 +181,6 @@ class _EmptyMetadataRepository implements AccountMetadataRepository {
   Future<void> save(List<Account> accounts, String? currentId) async {}
 }
 
-class _IgnoredIntentSource implements AndroidIntentSource {
-  const _IgnoredIntentSource();
-
-  @override
-  Future<AndroidIntentResult> readInitial() async =>
-      const IgnoredAndroidIntent('test: no android intent');
-
-  @override
-  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
-}
-
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -202,10 +189,7 @@ void main() {
   });
 
   Widget wrap() {
-    final router = createPixivRouter(
-      initialLocation: '/login',
-      intentSource: const _IgnoredIntentSource(),
-    );
+    final router = createPixivRouter(initialLocation: '/login');
     addTearDown(router.dispose);
     return ProviderScope(
       overrides: [

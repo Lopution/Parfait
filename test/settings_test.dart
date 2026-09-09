@@ -19,8 +19,6 @@ import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
@@ -151,17 +149,6 @@ class _FakeProfileRepository implements UserRepository {
     required UserRestrict restrict,
     required String cursor,
   }) => false;
-}
-
-class _IgnoredIntentSource implements AndroidIntentSource {
-  const _IgnoredIntentSource();
-
-  @override
-  Future<AndroidIntentResult> readInitial() async =>
-      const IgnoredAndroidIntent('test: no android intent');
-
-  @override
-  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
 }
 
 class _TransferClipboard implements TransferClipboard {
@@ -562,10 +549,7 @@ void main() {
   testWidgets('account card opens one profile route without a settings entry', (
     tester,
   ) async {
-    final router = createPixivRouter(
-      initialLocation: '/settings',
-      intentSource: const _IgnoredIntentSource(),
-    );
+    final router = createPixivRouter(initialLocation: '/settings');
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
@@ -706,10 +690,7 @@ void main() {
     // field. Domain endpoints are the production default now. DoH editing
     // lives on the advanced page (D3).
     final repository = _FakeRepository(_baseSettings());
-    final router = createPixivRouter(
-      initialLocation: '/settings/network',
-      intentSource: const _IgnoredIntentSource(),
-    );
+    final router = createPixivRouter(initialLocation: '/settings/network');
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
