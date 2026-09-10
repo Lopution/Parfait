@@ -1,3 +1,8 @@
+/// Route visibility observer used by history and other foreground work.
+/// The core navigation domain exposes observation only; route construction is
+/// owned by the app routes facade. See `frontend/directory-structure.md`.
+library;
+
 import 'package:material_ui/material_ui.dart';
 
 /// Shared observer for route-scoped foreground work such as history timing.

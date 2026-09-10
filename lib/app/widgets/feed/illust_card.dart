@@ -48,34 +48,45 @@ class IllustCard extends ConsumerWidget {
     // Beta56 IllustPreviewer semantics: the preview height follows the
     // original aspect ratio (BoxFit.fitWidth) inside the waterfall flow,
     // so works are never cropped in the feed.
+    void openDetail() {
+      _preloadTransitionImages(context, ref, previewUrl);
+      openIllust(
+        context,
+        entity.id,
+        initialEntity: entity,
+        heroScope: heroScope,
+        heroImageUrl: previewUrl,
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final previewHeight = entity.width > 0
             ? constraints.maxWidth / entity.width * entity.height
             : constraints.maxWidth;
-        return GestureDetector(
-          onTapDown: (_) => _preloadTransitionImages(context, ref, previewUrl),
-          onTap: () {
-            _preloadTransitionImages(context, ref, previewUrl);
-            openIllust(
-              context,
-              entity.id,
-              initialEntity: entity,
-              heroScope: heroScope,
-              heroImageUrl: previewUrl,
-            );
-          },
-          child: ClipRRect(
-            borderRadius: const BorderRadius.all(Radius.circular(12)),
-            child: SizedBox(
-              width: constraints.maxWidth,
-              height: previewHeight,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildHeroImage(previewUrl, heroTag, constraints.maxWidth),
-                  ..._buildBadges(colorScheme),
-                ],
+        return Semantics(
+          container: true,
+          button: true,
+          image: true,
+          label: '${entity.title}, ${entity.user.name}',
+          onTap: openDetail,
+          child: GestureDetector(
+            excludeFromSemantics: true,
+            onTapDown: (_) =>
+                _preloadTransitionImages(context, ref, previewUrl),
+            onTap: openDetail,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              child: SizedBox(
+                width: constraints.maxWidth,
+                height: previewHeight,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _buildHeroImage(previewUrl, heroTag, constraints.maxWidth),
+                    ..._buildBadges(colorScheme),
+                  ],
+                ),
               ),
             ),
           ),

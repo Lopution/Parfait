@@ -47,4 +47,5 @@ class CommentText extends StatelessWidget {
   }
 }
 
-String commentText(BuildContext context, String key) => l10nLookup(context.l10n, key);
+String commentText(BuildContext context, String key) =>
+    l10nLookup(context.l10n, key);

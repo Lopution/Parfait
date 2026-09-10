@@ -32,9 +32,9 @@ abstract final class PixivHeaders {
   /// without the app-API Referer with 403; this is the same visible identity
   /// the download layer already sends, not a policy bypass.
   static Map<String, String> image({bool userAgent = false}) => {
-        if (userAgent) 'User-Agent': PixivClientIdentity.userAgent,
-        'Referer': PixivClientIdentity.downloadReferer.toString(),
-      };
+    if (userAgent) 'User-Agent': PixivClientIdentity.userAgent,
+    'Referer': PixivClientIdentity.downloadReferer.toString(),
+  };
 
   /// Content type for OAuth form posts.
   static const String oauthFormContentType =

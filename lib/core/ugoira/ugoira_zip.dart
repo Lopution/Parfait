@@ -335,9 +335,9 @@ class SafeZipIndex {
       decoded = switch (entry.compressionMethod) {
         0 => compressed,
         8 => Inflate(
-            compressed,
-            uncompressedSize: entry.uncompressedSize,
-          ).getBytes(),
+          compressed,
+          uncompressedSize: entry.uncompressedSize,
+        ).getBytes(),
         _ => throw const UgoiraArchiveException('compression method rejected'),
       };
     } catch (error) {

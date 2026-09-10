@@ -5,13 +5,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/user/follow_actions.dart';
 import 'package:pixiv_func/core/user/follow_models.dart';
@@ -22,41 +19,13 @@ import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
+import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
-class _FakeCredentialStore implements CredentialStore {
-  final values = <String, Credential>{};
-
-  @override
-  Future<Credential?> read(String accountId) async => values[accountId];
-
-  @override
-  Future<void> write(String accountId, Credential credential) async =>
-      values[accountId] = credential;
-
-  @override
-  Future<void> delete(String accountId) async => values.remove(accountId);
-}
-
-class _FakeMetadataRepository implements AccountMetadataRepository {
-  _FakeMetadataRepository({this.twoAccounts = false});
-
-  final bool twoAccounts;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async => AccountMetadataSnapshot(
-    accounts: [
-      const Account(id: '100', userId: 100, name: 'first'),
-      if (twoAccounts) const Account(id: '200', userId: 200, name: 'second'),
-    ],
-    currentId: '100',
-  );
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 class _FakeFollowRepository implements FollowRepository {
   final requests = <String>[];
@@ -175,20 +144,24 @@ Future<ProviderContainer> _makeWorld({
   UserRepository? users,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final credentials = _FakeCredentialStore()
-    ..values['100'] = const Credential(
-      accessToken: 'access-1',
-      refreshToken: 'refresh-1',
-    )
-    ..values['200'] = const Credential(
-      accessToken: 'access-2',
-      refreshToken: 'refresh-2',
-    );
+  final credentials = FakeCredentialStore(
+    values: const {
+      '100': Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
+      '200': Credential(accessToken: 'access-2', refreshToken: 'refresh-2'),
+    },
+  );
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
-        _FakeMetadataRepository(twoAccounts: twoAccounts),
+        FakeAccountMetadataRepository(
+          accounts: [
+            const Account(id: '100', userId: 100, name: 'first'),
+            if (twoAccounts)
+              const Account(id: '200', userId: 200, name: 'second'),
+          ],
+          currentId: '100',
+        ),
       ),
       followRepositoryProvider.overrideWithValue(
         follows ?? _FakeFollowRepository(),
@@ -286,6 +259,55 @@ void main() {
       expect(container.read(followStoreProvider), isEmpty);
     },
   );
+
+  testWidgets('follow button exposes its label and toggle state', (
+    tester,
+  ) async {
+    final container = await _makeWorld();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: Scaffold(
+            body: FollowSwitchButton(userId: 42, userName: 'sample user'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('关注'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('关注')),
+      isSemantics(
+        label: '关注',
+        isButton: true,
+        hasToggledState: true,
+        isToggled: false,
+        hasTapAction: true,
+      ),
+    );
+
+    container
+        .read(followStoreProvider.notifier)
+        .observeRemote(42, followed: true, snapshotRevision: 0);
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('已关注'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('已关注')),
+      isSemantics(
+        label: '已关注',
+        isButton: true,
+        hasToggledState: true,
+        isToggled: true,
+        hasTapAction: true,
+      ),
+    );
+  });
 
   ReplicaProfileHeaderGeometry geometryAt(
     double progress, {

@@ -88,7 +88,10 @@ class SearchResultPage extends ConsumerWidget {
             );
           }
           if (feed.showInitialSpinner) {
-            return FeedEmpty(icon: Icons.search, title: context.l10n.searchLoading);
+            return FeedEmpty(
+              icon: Icons.search,
+              title: context.l10n.searchLoading,
+            );
           }
           return _SearchFeedContent(query: query, feed: feed);
         },
@@ -146,15 +149,15 @@ class _IllustSearchFeed extends ConsumerWidget {
           restorationId: 'search-${query.cacheKey}',
           slivers: [
             IllustFeedGrid(
-  padding: const EdgeInsets.all(10),
-  mainAxisSpacing: 5,
-  crossAxisSpacing: 10,
-  itemCount: entities.length,
-  itemBuilder: (context, index) => IllustCard(
-                  entity: entities[index],
-                  heroScope: 'search:${query.cacheKey}',
-                ),
-),
+              padding: const EdgeInsets.all(10),
+              mainAxisSpacing: 5,
+              crossAxisSpacing: 10,
+              itemCount: entities.length,
+              itemBuilder: (context, index) => IllustCard(
+                entity: entities[index],
+                heroScope: 'search:${query.cacheKey}',
+              ),
+            ),
             SliverToBoxAdapter(
               child: FeedTail(
                 feed: feed,
@@ -162,7 +165,7 @@ class _IllustSearchFeed extends ConsumerWidget {
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
                 errorTitle: context.l10n.searchLoadMoreFailed,
-                  retryLabel: context.l10n.searchRetry,
+                retryLabel: context.l10n.searchRetry,
               ),
             ),
           ],
@@ -216,7 +219,7 @@ class _NovelSearchFeed extends ConsumerWidget {
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
                 errorTitle: context.l10n.searchLoadMoreFailed,
-                  retryLabel: context.l10n.searchRetry,
+                retryLabel: context.l10n.searchRetry,
               );
             }
             return NovelCard(entity: entities[index]);
@@ -271,7 +274,7 @@ class _UserSearchFeed extends ConsumerWidget {
                     .read(searchFeedProvider(query).notifier)
                     .retryLoadMore(),
                 errorTitle: context.l10n.searchLoadMoreFailed,
-                  retryLabel: context.l10n.searchRetry,
+                retryLabel: context.l10n.searchRetry,
               );
             }
             return _SearchUserTile(user: users[index]);
@@ -297,9 +300,7 @@ class _SearchUserTile extends StatelessWidget {
         title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: user.account.isEmpty
             ? null
-            : Text(
-                '${context.l10n.searchUserAccount}: ${user.account}',
-              ),
+            : Text('${context.l10n.searchUserAccount}: ${user.account}'),
         trailing: FollowSwitchButton(
           userId: user.id,
           userName: user.name,

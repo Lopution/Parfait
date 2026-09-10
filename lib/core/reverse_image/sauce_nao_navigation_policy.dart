@@ -24,10 +24,7 @@ enum SauceNaoNavigationAction {
 }
 
 abstract final class SauceNaoNavigationPolicy {
-  static const Set<String> webViewSites = {
-    'saucenao.com',
-    'www.saucenao.com',
-  };
+  static const Set<String> webViewSites = {'saucenao.com', 'www.saucenao.com'};
 
   static SauceNaoNavigationAction decide(Uri? uri) {
     if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {

@@ -23,4 +23,3 @@ class TagSearchPage extends StatelessWidget {
     );
   }
 }
-

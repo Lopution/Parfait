@@ -177,6 +177,8 @@ class BookmarkSwitchButton extends ConsumerWidget {
     final entry = ref.watch(bookmarkStoreProvider.select((s) => s[_key]));
     final bookmarked = entry?.bookmarked ?? false;
     final pending = entry?.isPending ?? false;
+    final semanticLabel =
+        '${_bookmarkText(context, isNovel ? 'bookmarkNovel' : 'bookmarkIllust')}: $title';
 
     // R5: failures restore the confirmed icon (non-optimistic means it never
     // moved) and surface an observable error.
@@ -193,13 +195,20 @@ class BookmarkSwitchButton extends ConsumerWidget {
     });
 
     if (pending) {
-      return Padding(
-        padding: EdgeInsets.all(isButton ? 12 : 8),
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: Center(
-            child: CupertinoActivityIndicator(color: colorScheme.onSurface),
+      return Semantics(
+        container: true,
+        button: true,
+        enabled: false,
+        label: semanticLabel,
+        liveRegion: true,
+        child: Padding(
+          padding: EdgeInsets.all(isButton ? 12 : 8),
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: Center(
+              child: CupertinoActivityIndicator(color: colorScheme.onSurface),
+            ),
           ),
         ),
       );
@@ -210,26 +219,46 @@ class BookmarkSwitchButton extends ConsumerWidget {
         : () => _showRestrictSheet(context, ref);
 
     if (isButton) {
-      return GestureDetector(
+      return Semantics(
+        container: true,
+        button: true,
+        toggled: bookmarked,
+        label: semanticLabel,
+        onTap: () => ref.read(bookmarkActionsProvider).toggle(_key),
         onLongPress: onLongPress,
-        child: IconButton(
-          splashRadius: 24,
-          iconSize: 24,
-          onPressed: () => ref.read(bookmarkActionsProvider).toggle(_key),
-          icon: bookmarked
-              ? Icon(Icons.favorite_sharp, color: colorScheme.primary)
-              : const Icon(Icons.favorite_outline_sharp),
+        child: GestureDetector(
+          excludeFromSemantics: true,
+          onLongPress: onLongPress,
+          child: ExcludeSemantics(
+            child: IconButton(
+              splashRadius: 24,
+              iconSize: 24,
+              onPressed: () => ref.read(bookmarkActionsProvider).toggle(_key),
+              icon: bookmarked
+                  ? Icon(Icons.favorite_sharp, color: colorScheme.primary)
+                  : const Icon(Icons.favorite_outline_sharp),
+            ),
+          ),
         ),
       );
     }
-    return GestureDetector(
-      onLongPress: onLongPress,
+    return Semantics(
+      container: true,
+      button: true,
+      toggled: bookmarked,
+      label: semanticLabel,
       onTap: () => ref.read(bookmarkActionsProvider).toggle(_key),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: bookmarked
-            ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
-            : const Icon(Icons.favorite_outline_sharp, size: 24),
+      onLongPress: onLongPress,
+      child: GestureDetector(
+        excludeFromSemantics: true,
+        onLongPress: onLongPress,
+        onTap: () => ref.read(bookmarkActionsProvider).toggle(_key),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: bookmarked
+              ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
+              : const Icon(Icons.favorite_outline_sharp, size: 24),
+        ),
       ),
     );
   }

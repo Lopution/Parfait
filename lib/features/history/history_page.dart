@@ -19,6 +19,7 @@ import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_store.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
+
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
 
@@ -140,37 +141,29 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
         title: context.l10n.historyLoadFailed,
         error: error,
         retryLabel: context.l10n.retry,
-        onRetry: () =>
-            ref
-                .read(historyFeedControllerProvider(widget.accountId).notifier)
-                .retryInitial(),
+        onRetry: () => ref
+            .read(historyFeedControllerProvider(widget.accountId).notifier)
+            .retryInitial(),
       ),
       data: (state) {
         if (state.ids.isEmpty) {
           return ReplicaEmptyState(
             message: context.l10n.historyEmpty,
             retryLabel: context.l10n.retry,
-            onRetry: () =>
-                ref
-                    .read(
-                      historyFeedControllerProvider(widget.accountId).notifier,
-                    )
-                    .refresh(),
+            onRetry: () => ref
+                .read(historyFeedControllerProvider(widget.accountId).notifier)
+                .refresh(),
             icon: Icons.history,
           );
         }
         final records = [
           for (final key in state.ids)
-            if (_controllerRecord(key) != null)
-              _controllerRecord(key)!
+            if (_controllerRecord(key) != null) _controllerRecord(key)!,
         ];
         return PullToRefresh(
-          onRefresh: () =>
-              ref
-                  .read(
-                    historyFeedControllerProvider(widget.accountId).notifier,
-                  )
-                  .refresh(),
+          onRefresh: () => ref
+              .read(historyFeedControllerProvider(widget.accountId).notifier)
+              .refresh(),
           child: CustomScrollView(
             key: PageStorageKey('history-${widget.accountId}'),
             controller: _scrollController,
@@ -212,10 +205,9 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
     );
   }
 
-  HistoryRecord? _controllerRecord(int key) =>
-      ref
-          .read(historyFeedControllerProvider(widget.accountId).notifier)
-          .recordFor(key);
+  HistoryRecord? _controllerRecord(int key) => ref
+      .read(historyFeedControllerProvider(widget.accountId).notifier)
+      .recordFor(key);
 }
 
 class _HistoryEntry extends ConsumerWidget {

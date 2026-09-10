@@ -14,7 +14,7 @@ class SettingsSection extends StatelessWidget {
           color: Theme.of(context).colorScheme.primary,
           fontWeight: FontWeight.w600,
         ),
-        child: title,
+        child: Semantics(header: true, child: title),
       ),
     );
   }

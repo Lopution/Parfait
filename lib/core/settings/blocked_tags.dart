@@ -17,7 +17,9 @@ class BlockedTags extends Notifier<Set<String>> {
 
   Future<void> _restore() async {
     try {
-      final prefs = await ref.read(sharedPreferencesProvider).getStringList(_key);
+      final prefs = await ref
+          .read(sharedPreferencesProvider)
+          .getStringList(_key);
       if (prefs != null && state.isEmpty) {
         state = Set.of(prefs);
       }
@@ -35,10 +37,13 @@ class BlockedTags extends Notifier<Set<String>> {
     final blocked = !next.remove(tag);
     if (blocked) next.add(tag);
     state = next;
-    await ref.read(sharedPreferencesProvider).setStringList(_key, next.toList());
+    await ref
+        .read(sharedPreferencesProvider)
+        .setStringList(_key, next.toList());
     return blocked;
   }
 }
 
-final blockedTagsProvider =
-    NotifierProvider<BlockedTags, Set<String>>(BlockedTags.new);
+final blockedTagsProvider = NotifierProvider<BlockedTags, Set<String>>(
+  BlockedTags.new,
+);

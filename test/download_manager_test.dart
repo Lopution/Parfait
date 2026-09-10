@@ -522,7 +522,7 @@ void main() {
       expect(events, hasLength(1));
       expect(events.single.kind, DownloadEventKind.succeeded);
       await sub.cancel();
-      manager.dispose();
+      await manager.dispose();
     });
   });
 

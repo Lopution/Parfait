@@ -4,7 +4,6 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart' show DownloadEvent;
 import '../../../core/entity/illust_entity.dart';
@@ -148,7 +147,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // Any submission failure must be visible on device: the
                 // manager/ownership/channel errors that are not
                 // FormatException otherwise vanish with no UI feedback.
-                showAppSnackBar(context, context.l10n.downloadSubmissionFailed(error.toString()),);
+                showAppSnackBar(
+                  context,
+                  context.l10n.downloadSubmissionFailed(error.toString()),
+                );
               }
             },
             icon: const Icon(Icons.file_download_outlined),
@@ -342,7 +344,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   }
 }
 
-
 class _RestrictedView extends StatelessWidget {
   const _RestrictedView(this.entity);
 
@@ -356,9 +357,7 @@ class _RestrictedView extends StatelessWidget {
         children: [
           const Icon(Icons.visibility_off_outlined, size: 48),
           const SizedBox(height: 12),
-          Text(
-            context.l10n.illustDetailRestricted(entity.id),
-          ),
+          Text(context.l10n.illustDetailRestricted(entity.id)),
         ],
       ),
     );
@@ -403,10 +402,7 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: 8),
             Text('$error', style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(context.l10n.retry),
-            ),
+            FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
           ],
         ),
       ),

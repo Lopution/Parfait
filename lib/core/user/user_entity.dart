@@ -261,4 +261,3 @@ bool? _boolFromKeys(Map<String, dynamic> json, List<String> keys) {
   }
   return null;
 }
-

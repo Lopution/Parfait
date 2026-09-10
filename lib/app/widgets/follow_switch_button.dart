@@ -119,6 +119,7 @@ class FollowSwitchButton extends ConsumerWidget {
     final followed = entry?.followed ?? false;
     final pending = entry?.isPending ?? false;
     final colors = Theme.of(context).colorScheme;
+    final semanticLabel = _text(context, followed ? 'followed' : 'follow');
     ref.listen<Object?>(
       followStoreProvider.select((state) => state[userId]?.error),
       (previous, next) {
@@ -133,23 +134,45 @@ class FollowSwitchButton extends ConsumerWidget {
       width: width,
       height: compact ? 36 : 42,
       child: pending
-          ? const Center(child: CupertinoActivityIndicator())
-          : OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: followed ? colors.onSurface : colors.onPrimary,
-                backgroundColor: followed ? colors.surface : colors.primary,
-                side: BorderSide(
-                  color: followed ? colors.onSurface : colors.primary,
-                ),
-                padding: EdgeInsets.zero,
-              ),
-              onPressed: () => ref.read(followActionsProvider).toggle(userId),
+          ? Semantics(
+              container: true,
+              button: true,
+              enabled: false,
+              label: semanticLabel,
+              liveRegion: true,
+              child: const Center(child: CupertinoActivityIndicator()),
+            )
+          : Semantics(
+              container: true,
+              button: true,
+              toggled: followed,
+              label: semanticLabel,
+              onTap: () => ref.read(followActionsProvider).toggle(userId),
               onLongPress: followed
                   ? null
                   : () => _showRestrictSheet(context, ref),
-              child: Text(
-                _text(context, followed ? 'followed' : 'follow'),
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              child: ExcludeSemantics(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: followed
+                        ? colors.onSurface
+                        : colors.onPrimary,
+                    backgroundColor: followed ? colors.surface : colors.primary,
+                    side: BorderSide(
+                      color: followed ? colors.onSurface : colors.primary,
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                  onPressed: () =>
+                      ref.read(followActionsProvider).toggle(userId),
+                  onLongPress: followed
+                      ? null
+                      : () => _showRestrictSheet(context, ref),
+                  child: Text(
+                    semanticLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
             ),
     );

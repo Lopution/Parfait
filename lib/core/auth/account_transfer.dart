@@ -107,7 +107,9 @@ class TransferEnvelope {
 
     final Map<String, Object?> root;
     try {
-      root = jsonDecode(utf8.decode(base64Decode(encoded))) as Map<String, Object?>;
+      root =
+          jsonDecode(utf8.decode(base64Decode(encoded)))
+              as Map<String, Object?>;
     } on Object catch (error) {
       throw AccountTransferException(
         AccountTransferErrorCode.corrupt,

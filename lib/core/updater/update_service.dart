@@ -1,3 +1,8 @@
+/// Signed release checks, app-private APK download, and install orchestration.
+/// [UpdateService] owns the updater workflow; Android channels own installer
+/// capabilities. See `backend/release-artifacts.md`.
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';

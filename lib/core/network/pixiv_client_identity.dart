@@ -8,8 +8,7 @@ abstract final class PixivClientIdentity {
   static const String clientId = 'MOBrBDS8blbauoSck0ZfDbtuzpyT';
 
   /// Public OAuth client secret embedded in all OSS Pixiv clients.
-  static const String clientSecret =
-      'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj';
+  static const String clientSecret = 'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj';
 
   /// App API base (illusts, users, search, ...).
   static final Uri appApiBase = Uri(scheme: 'https', host: 'app-api.pixiv.net');
@@ -35,8 +34,11 @@ abstract final class PixivClientIdentity {
       'https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback';
 
   /// Web login page hosting the PKCE challenge (authorize entry).
-  static final Uri webLoginEndpoint =
-      Uri(scheme: 'https', host: 'app-api.pixiv.net', path: 'web/v1/login');
+  static final Uri webLoginEndpoint = Uri(
+    scheme: 'https',
+    host: 'app-api.pixiv.net',
+    path: 'web/v1/login',
+  );
 
   /// Android client identity sent with API and OAuth requests.
   static const String appOs = 'android';

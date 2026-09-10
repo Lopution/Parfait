@@ -1,3 +1,8 @@
+/// Snapshot-first illustration detail state and its repository boundary.
+/// The controller owns detail request state; [IllustStore] owns the merged
+/// entity. See `frontend/state-management.md`.
+library;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/illust_entity.dart';

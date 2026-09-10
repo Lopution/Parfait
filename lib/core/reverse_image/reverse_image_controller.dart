@@ -1,3 +1,8 @@
+/// Reverse-image input ownership, provider capability, and search flow state.
+/// [ReverseImageSearchController] owns the temporary input lifecycle while
+/// providers own their result protocol. See `frontend/state-management.md`.
+library;
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,18 +70,15 @@ class ReverseImageFlowState {
 /// owns one temporary file and releases it on every terminal path.
 /// Per-session dependencies of the reverse-image flow (C7a).
 class ReverseImageSearchSession {
-  ReverseImageSearchSession({
-    required this.platform,
-    required this.provider,
-  });
+  ReverseImageSearchSession({required this.platform, required this.provider});
 
   final ReverseImageInputPlatform platform;
   final ReverseImageProvider provider;
 }
 
 /// Riverpod handle for the reverse-image flow.
-final reverseImageSearchControllerProvider =
-    NotifierProvider.autoDispose.family<
+final reverseImageSearchControllerProvider = NotifierProvider.autoDispose
+    .family<
       ReverseImageSearchController,
       ReverseImageFlowState,
       ReverseImageSearchSession
@@ -308,7 +310,6 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     _cancelToken?.cancel();
     await _releaseInput();
   }
-
 
   void _validateReference(ReverseImageInputReference reference) {
     final uri = Uri.tryParse(reference.contentUri);

@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -18,19 +17,8 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
-class _StaticCredentialStore implements CredentialStore {
-  const _StaticCredentialStore();
-
-  @override
-  Future<Credential?> read(String accountId) async =>
-      Credential(accessToken: 'a-$accountId', refreshToken: 'r-$accountId');
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {}
-
-  @override
-  Future<void> delete(String accountId) async {}
-}
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 class _StaticMetadataRepository implements AccountMetadataRepository {
   const _StaticMetadataRepository(this.snapshot, {this.corrupt = false});
@@ -62,10 +50,23 @@ Widget _wrap({
       credentialStoreProvider.overrideWithValue(
         brokenStore
             ? const _FailingCredentialStore()
-            : const _StaticCredentialStore(),
+            : FakeCredentialStore(
+                values: {
+                  for (final account in snapshot.accounts)
+                    account.id: Credential(
+                      accessToken: 'a-${account.id}',
+                      refreshToken: 'r-${account.id}',
+                    ),
+                },
+              ),
       ),
       accountMetadataRepositoryProvider.overrideWithValue(
-        _StaticMetadataRepository(snapshot, corrupt: corruptMetadata),
+        corruptMetadata
+            ? _StaticMetadataRepository(snapshot, corrupt: corruptMetadata)
+            : FakeAccountMetadataRepository(
+                accounts: snapshot.accounts,
+                currentId: snapshot.currentId,
+              ),
       ),
     ],
     child: MaterialApp.router(

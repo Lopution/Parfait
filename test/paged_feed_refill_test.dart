@@ -97,8 +97,7 @@ FeedPage _page(List<IllustEntity> illusts, {String? nextCursor}) {
 }
 
 ProviderContainer _container({required bool blockR18}) {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   return ProviderContainer(
     overrides: [
       accountStoreProvider.overrideWith(_StubAccountStore.new),
@@ -111,8 +110,7 @@ ProviderContainer _container({required bool blockR18}) {
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test(

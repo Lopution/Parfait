@@ -443,13 +443,14 @@ class _HostRouteMemory {
 
 enum _RouteGroup { cloudflare, image }
 
-_RouteGroup _routeGroupFor(PixivDestinationPurpose purpose) => switch (purpose) {
-  PixivDestinationPurpose.image => _RouteGroup.image,
-  PixivDestinationPurpose.appApi ||
-  PixivDestinationPurpose.oauth ||
-  PixivDestinationPurpose.accountsWeb ||
-  PixivDestinationPurpose.pixivWeb => _RouteGroup.cloudflare,
-};
+_RouteGroup _routeGroupFor(PixivDestinationPurpose purpose) =>
+    switch (purpose) {
+      PixivDestinationPurpose.image => _RouteGroup.image,
+      PixivDestinationPurpose.appApi ||
+      PixivDestinationPurpose.oauth ||
+      PixivDestinationPurpose.accountsWeb ||
+      PixivDestinationPurpose.pixivWeb => _RouteGroup.cloudflare,
+    };
 
 class _RouteGroupMemory {
   const _RouteGroupMemory({
