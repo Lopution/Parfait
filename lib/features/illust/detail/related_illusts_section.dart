@@ -88,7 +88,9 @@ class RelatedIllustsSlivers extends ConsumerWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: Text(_errorText(context, state.initialError))),
+                  Expanded(
+                    child: Text(_errorText(context, state.initialError)),
+                  ),
                   const SizedBox(width: 12),
                   TextButton(
                     onPressed: controller.refresh,
@@ -120,24 +122,22 @@ class RelatedIllustsSlivers extends ConsumerWidget {
         ),
         const SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: 12),
-          sliver: SliverToBoxAdapter(
-            child: SizedBox.shrink(),
-          ),
+          sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
         IllustFeedGrid(
-  padding: const EdgeInsets.symmetric(horizontal: 10),
-  mainAxisSpacing: 10,
-  crossAxisSpacing: 10,
-  itemCount: illusts.length,
-  itemBuilder: (context, index) => IllustCard(
-              entity: illusts[index],
-              // Same heroScope the detail page receives when a tile is
-              // pushed: the flight lands on a card shaped exactly like the
-              // artwork (adaptive ratio), so pop hands off without the
-              // fixed-square crop flash.
-              heroScope: 'related:$illustId:${illusts[index].id}',
-            ),
-),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          itemCount: illusts.length,
+          itemBuilder: (context, index) => IllustCard(
+            entity: illusts[index],
+            // Same heroScope the detail page receives when a tile is
+            // pushed: the flight lands on a card shaped exactly like the
+            // artwork (adaptive ratio), so pop hands off without the
+            // fixed-square crop flash.
+            heroScope: 'related:$illustId:${illusts[index].id}',
+          ),
+        ),
         SliverToBoxAdapter(
           child: _LoadMoreFooter(state: state, onLoadMore: controller.loadMore),
         ),

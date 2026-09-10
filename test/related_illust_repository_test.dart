@@ -53,8 +53,7 @@ Future<PixivRelatedIllustRepository> _repo(MockClient client) async {
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   group('PixivRelatedIllustRepository', () {
@@ -78,7 +77,8 @@ void main() {
             illustJson(901, pageCount: 1),
             illustJson(902, pageCount: 2, withMetaPages: true),
           ],
-          'next_url': 'https://app-api.pixiv.net/v2/illust/related'
+          'next_url':
+              'https://app-api.pixiv.net/v2/illust/related'
               '?illust_id=42&filter=for_ios&offset=2',
         }),
       );
@@ -92,12 +92,7 @@ void main() {
     test('malformed envelope raises ApiParseError', () async {
       final client = MockClient((request) async => _ok({'bogus': true}));
       final repo = await _repo(client);
-      expect(
-        () => repo.fetchPage(42),
-        throwsA(
-          isA<ApiParseError>(),
-        ),
-      );
+      expect(() => repo.fetchPage(42), throwsA(isA<ApiParseError>()));
     });
   });
 }

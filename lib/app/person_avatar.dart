@@ -26,10 +26,7 @@ class PersonAvatar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            colors.surfaceContainerHighest,
-            colors.surfaceContainerHigh,
-          ],
+          colors: [colors.surfaceContainerHighest, colors.surfaceContainerHigh],
         ),
       ),
       child: Center(
@@ -48,10 +45,7 @@ class PersonAvatar extends StatelessWidget {
     return Container(
       width: radius * 2,
       height: radius * 2,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: colors.surface,
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: colors.surface),
       padding: EdgeInsets.all(ring ? 2 : 0),
       child: ClipOval(
         child: imageUrl == null

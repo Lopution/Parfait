@@ -77,8 +77,7 @@ _makeWorld({
   ],
   String? currentId = '100',
 }) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = FakeCredentialStore();
   for (final account in accounts) {
     credentials.seed(
@@ -128,8 +127,7 @@ void main() {
   final channelCalls = <String>[];
 
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     channelCalls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_widgetChannel, (call) async {

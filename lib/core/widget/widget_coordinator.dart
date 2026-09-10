@@ -102,9 +102,7 @@ class WidgetCoordinator {
     } on Object catch (error) {
       // The loader classifies every expected failure; reaching here means
       // the load itself could not run, which is transient by definition.
-      log(
-        'WidgetCoordinator.runPass failed: ${error.runtimeType}: $error',
-      );
+      log('WidgetCoordinator.runPass failed: ${error.runtimeType}: $error');
       await WidgetChannel.requestRefresh();
       return;
     }
@@ -136,9 +134,7 @@ class WidgetCoordinator {
       return operation();
     });
     _passTail = next.catchError((Object error, StackTrace stackTrace) {
-      log(
-        'WidgetCoordinator queued pass failed: ${error.runtimeType}: $error',
-      );
+      log('WidgetCoordinator queued pass failed: ${error.runtimeType}: $error');
     });
     unawaited(next);
     return next;

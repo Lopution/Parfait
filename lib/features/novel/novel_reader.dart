@@ -496,9 +496,18 @@ class _ReaderControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = (percent / 100).clamp(0.0, 1.0);
     final languageTag = Localizations.localeOf(context).toLanguageTag();
-    final decreaseLabel = l10nLookupFor(parseAppLocale(languageTag), 'novelDecreaseFont');
-    final increaseLabel = l10nLookupFor(parseAppLocale(languageTag), 'novelIncreaseFont');
-    final progressLabel = l10nLookupFor(parseAppLocale(languageTag), 'novelReadingProgress');
+    final decreaseLabel = l10nLookupFor(
+      parseAppLocale(languageTag),
+      'novelDecreaseFont',
+    );
+    final increaseLabel = l10nLookupFor(
+      parseAppLocale(languageTag),
+      'novelIncreaseFont',
+    );
+    final progressLabel = l10nLookupFor(
+      parseAppLocale(languageTag),
+      'novelReadingProgress',
+    );
     return SafeArea(
       top: false,
       child: Column(

@@ -72,6 +72,7 @@ class PixivRelatedIllustRepository {
     return RelatedIllustPage(illusts: illusts, nextUrl: nextUrl as String?);
   }
 }
+
 final relatedIllustRepositoryProvider = Provider<PixivRelatedIllustRepository>(
   (ref) => PixivRelatedIllustRepository(ref.watch(pixivHttpClientProvider)),
 );

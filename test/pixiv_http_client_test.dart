@@ -121,15 +121,11 @@ _makeWorld({
   String languageTag = 'zh-CN',
 }) async {
   final f = fixture ?? _Fixture();
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
 
   final credentials = FakeCredentialStore(
     values: const {
-      '100': Credential(
-        accessToken: 'old-access',
-        refreshToken: 'old-refresh',
-      ),
+      '100': Credential(accessToken: 'old-access', refreshToken: 'old-refresh'),
     },
   );
 
@@ -160,8 +156,7 @@ _makeWorld({
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test(
@@ -190,8 +185,7 @@ void main() {
   });
 
   test('pixivHttpClientProvider follows settings.languageTag (R6)', () async {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     final repository = _SettingsRepository(
       const AppSettings(
         guideCompleted: true,

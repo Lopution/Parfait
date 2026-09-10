@@ -483,33 +483,27 @@ void main() {
         .widgetList<SegmentedButton<dynamic>>(selectorFinder)
         .toList();
     expect(selectors, hasLength(3));
-    expect(
-      selectors[0].segments.map((segment) => segment.value).toList(),
-      [PreviewQuality.medium, PreviewQuality.large],
-    );
-    expect(
-      selectors[1].segments.map((segment) => segment.value).toList(),
-      [DetailQuality.large, DetailQuality.original],
-    );
-    expect(
-      selectors[2].segments.map((segment) => segment.value).toList(),
-      [ViewQuality.large, ViewQuality.original],
-    );
+    expect(selectors[0].segments.map((segment) => segment.value).toList(), [
+      PreviewQuality.medium,
+      PreviewQuality.large,
+    ]);
+    expect(selectors[1].segments.map((segment) => segment.value).toList(), [
+      DetailQuality.large,
+      DetailQuality.original,
+    ]);
+    expect(selectors[2].segments.map((segment) => segment.value).toList(), [
+      ViewQuality.large,
+      ViewQuality.original,
+    ]);
 
     await tester.tap(
-      find.descendant(
-        of: selectorFinder.at(0),
-        matching: find.text('大图'),
-      ),
+      find.descendant(of: selectorFinder.at(0), matching: find.text('大图')),
     );
     await tester.pumpAndSettle();
     expect(repository.value.previewQuality, PreviewQuality.large);
 
     await tester.tap(
-      find.descendant(
-        of: selectorFinder.at(1),
-        matching: find.text('原图'),
-      ),
+      find.descendant(of: selectorFinder.at(1), matching: find.text('原图')),
     );
     await tester.pumpAndSettle();
     expect(repository.value.detailQuality, DetailQuality.original);
@@ -649,9 +643,7 @@ void main() {
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(
-              accounts: const [
-                Account(id: '42', userId: 42, name: 'tester'),
-              ],
+              accounts: const [Account(id: '42', userId: 42, name: 'tester')],
               currentId: '42',
             ),
           ),

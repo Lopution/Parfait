@@ -195,8 +195,8 @@ class IllustEntity {
     if (pageCount > 1) {
       if (pageIndex >= metaPages.length) return imageUrls.large;
       return switch (quality) {
-        DetailQuality.medium || DetailQuality.large =>
-          metaPages[pageIndex].large,
+        DetailQuality.medium ||
+        DetailQuality.large => metaPages[pageIndex].large,
         DetailQuality.original =>
           metaPages[pageIndex].original ?? metaPages[pageIndex].large,
       };

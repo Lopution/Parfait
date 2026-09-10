@@ -23,9 +23,7 @@ class ReplicaScaffold extends StatelessWidget {
         automaticallyImplyLeading: false,
         leading: canPop
             ? IconButton(
-                tooltip: MaterialLocalizations.of(
-                  context,
-                ).backButtonTooltip,
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => Navigator.of(context).maybePop(),
                 icon: const Icon(Icons.arrow_back_ios_new),
               )

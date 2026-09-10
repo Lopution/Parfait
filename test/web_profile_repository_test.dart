@@ -180,74 +180,77 @@ void main() {
       expect(body, isNot(contains('nickname')));
     });
 
-    test('uploads selected images and clears matching JSON image URLs', () async {
-      final directory = await Directory.systemTemp.createTemp(
-        'pixiv-profile-image-test-',
-      );
-      addTearDown(() => directory.delete(recursive: true));
-      final avatarFile = File('${directory.path}/avatar.png');
-      await avatarFile.writeAsBytes(const [0x41, 0x42, 0x43]);
-      final coverFile = File('${directory.path}/cover.jpg');
-      await coverFile.writeAsBytes(const [0x44, 0x45, 0x46]);
+    test(
+      'uploads selected images and clears matching JSON image URLs',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'pixiv-profile-image-test-',
+        );
+        addTearDown(() => directory.delete(recursive: true));
+        final avatarFile = File('${directory.path}/avatar.png');
+        await avatarFile.writeAsBytes(const [0x41, 0x42, 0x43]);
+        final coverFile = File('${directory.path}/cover.jpg');
+        await coverFile.writeAsBytes(const [0x44, 0x45, 0x46]);
 
-      final client = _RecordingWebClient([
-        const _QueuedWebResponse(
-          200,
-          '<meta name="csrf-token" content="csrf-images">',
-        ),
-        const _QueuedWebResponse(
-          200,
-          '{"error":false,"body":{'
-          '"name":"OldName","profileImage":"old-avatar",'
-          '"coverImage":"old-cover","comment":""}}',
-        ),
-        const _QueuedWebResponse(200, '{"error":false,"body":null}'),
-      ]);
-      final repository = PixivWebProfileEditRepository(
-        userRepository: _StubUserRepository(),
-        session: _FakeSession(
-          'PHPSESSID=0123456789abcdef0123456789abcdef01234567',
-        ),
-        httpClient: client,
-      );
-
-      final outcome = await repository.submit(
-        ProfileSubmitRequest(
-          patch: ProfilePatch(
-            accountId: 'a',
-            userId: 1,
-            textFields: const {},
-            images: {
-              ProfileField.avatar: ProfileImageSelection(
-                path: avatarFile.path,
-                mimeType: 'image/png',
-                sizeBytes: 3,
-                width: 1,
-                height: 1,
-              ),
-              ProfileField.background: ProfileImageSelection(
-                path: coverFile.path,
-                mimeType: 'image/jpeg',
-                sizeBytes: 3,
-                width: 1,
-                height: 1,
-              ),
-            },
+        final client = _RecordingWebClient([
+          const _QueuedWebResponse(
+            200,
+            '<meta name="csrf-token" content="csrf-images">',
           ),
-        ),
-      );
+          const _QueuedWebResponse(
+            200,
+            '{"error":false,"body":{'
+            '"name":"OldName","profileImage":"old-avatar",'
+            '"coverImage":"old-cover","comment":""}}',
+          ),
+          const _QueuedWebResponse(200, '{"error":false,"body":null}'),
+        ]);
+        final repository = PixivWebProfileEditRepository(
+          userRepository: _StubUserRepository(),
+          session: _FakeSession(
+            'PHPSESSID=0123456789abcdef0123456789abcdef01234567',
+          ),
+          httpClient: client,
+        );
 
-      expect(outcome, isA<ProfileEditConfirmed>());
-      final body = utf8.decode(client.requests[2].bodyBytes);
-      expect(body, contains('name="profile_image"'));
-      expect(body, contains('name="cover_image"'));
-      expect(body, contains('filename="profile_profile_image.png"'));
-      expect(body, contains('filename="profile_cover_image.jpg"'));
-      expect(body, contains('"profileImage":null'));
-      expect(body, contains('"coverImage":null'));
-      expect(body, contains('ABC'));
-      expect(body, contains('DEF'));
-    });
+        final outcome = await repository.submit(
+          ProfileSubmitRequest(
+            patch: ProfilePatch(
+              accountId: 'a',
+              userId: 1,
+              textFields: const {},
+              images: {
+                ProfileField.avatar: ProfileImageSelection(
+                  path: avatarFile.path,
+                  mimeType: 'image/png',
+                  sizeBytes: 3,
+                  width: 1,
+                  height: 1,
+                ),
+                ProfileField.background: ProfileImageSelection(
+                  path: coverFile.path,
+                  mimeType: 'image/jpeg',
+                  sizeBytes: 3,
+                  width: 1,
+                  height: 1,
+                ),
+              },
+            ),
+          ),
+        );
+
+        expect(outcome, isA<ProfileEditConfirmed>());
+        final body = utf8.decode(client.requests[2].bodyBytes);
+        expect(body, contains('name="profile_image"'));
+        expect(body, contains('name="cover_image"'));
+        expect(body, contains('filename="profile_profile_image.png"'));
+        expect(body, contains('filename="profile_cover_image.jpg"'));
+        expect(body, contains('"profileImage":null'));
+        expect(body, contains('"coverImage":null'));
+        expect(body, contains('ABC'));
+        expect(body, contains('DEF'));
+      },
+    );
 
     test(
       'does not report success when update envelope contains an error',
@@ -293,56 +296,58 @@ void main() {
       },
     );
 
-    test('keeps the local draft when App API refresh fails after save', () async {
-      const cookie =
-          'PHPSESSID=0123456789abcdef0123456789abcdef01234567';
-      final client = _RecordingWebClient([
-        const _QueuedWebResponse(
-          200,
-          '<meta name="csrf-token" content="csrf-42">',
-        ),
-        const _QueuedWebResponse(
-          200,
-          '{"error":false,"body":{"name":"OldName","comment":""}}',
-        ),
-        const _QueuedWebResponse(200, '{"error":false,"body":{}}'),
-      ]);
-      final users = _StubUserRepository(
-        user: const UserEntity(
-          id: 1,
-          name: 'OldName',
-          account: 'test',
-          comment: 'kept bio',
-          webpage: 'https://old.example',
-          hasDetail: true,
-        ),
-        failFetchAfter: 1,
-      );
-      final repository = PixivWebProfileEditRepository(
-        userRepository: users,
-        session: _FakeSession(cookie),
-        httpClient: client,
-      );
-      await repository.loadDraft(accountId: 'a', userId: 1);
-
-      final outcome = await repository.submit(
-        ProfileSubmitRequest(
-          patch: ProfilePatch(
-            accountId: 'a',
-            userId: 1,
-            textFields: {ProfileField.displayName: 'NewName'},
-            images: const {},
+    test(
+      'keeps the local draft when App API refresh fails after save',
+      () async {
+        const cookie = 'PHPSESSID=0123456789abcdef0123456789abcdef01234567';
+        final client = _RecordingWebClient([
+          const _QueuedWebResponse(
+            200,
+            '<meta name="csrf-token" content="csrf-42">',
           ),
-        ),
-      );
+          const _QueuedWebResponse(
+            200,
+            '{"error":false,"body":{"name":"OldName","comment":""}}',
+          ),
+          const _QueuedWebResponse(200, '{"error":false,"body":{}}'),
+        ]);
+        final users = _StubUserRepository(
+          user: const UserEntity(
+            id: 1,
+            name: 'OldName',
+            account: 'test',
+            comment: 'kept bio',
+            webpage: 'https://old.example',
+            hasDetail: true,
+          ),
+          failFetchAfter: 1,
+        );
+        final repository = PixivWebProfileEditRepository(
+          userRepository: users,
+          session: _FakeSession(cookie),
+          httpClient: client,
+        );
+        await repository.loadDraft(accountId: 'a', userId: 1);
 
-      expect(outcome, isA<ProfileEditConfirmed>());
-      final confirmed = outcome as ProfileEditConfirmed;
-      expect(confirmed.user.name, 'NewName');
-      expect(confirmed.user.comment, 'kept bio');
-      expect(confirmed.user.webpage, 'https://old.example');
-      expect(users.fetchCount, 2);
-    });
+        final outcome = await repository.submit(
+          ProfileSubmitRequest(
+            patch: ProfilePatch(
+              accountId: 'a',
+              userId: 1,
+              textFields: {ProfileField.displayName: 'NewName'},
+              images: const {},
+            ),
+          ),
+        );
+
+        expect(outcome, isA<ProfileEditConfirmed>());
+        final confirmed = outcome as ProfileEditConfirmed;
+        expect(confirmed.user.name, 'NewName');
+        expect(confirmed.user.comment, 'kept bio');
+        expect(confirmed.user.webpage, 'https://old.example');
+        expect(users.fetchCount, 2);
+      },
+    );
   });
 
   group('cancellation', () {

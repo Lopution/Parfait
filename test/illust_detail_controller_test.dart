@@ -24,37 +24,39 @@ import 'helpers/test_preferences.dart';
 Future<ProviderContainer> makeContainer(
   Future<http.Response> Function(http.Request request) handler,
 ) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = FakeCredentialStore()
     ..seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
     );
   final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(overrides: [
-    credentialStoreProvider.overrideWithValue(credentials),
-    accountMetadataRepositoryProvider
-        .overrideWithValue(
-          FakeAccountMetadataRepository(
-            accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-            currentId: '100',
+  final container = ProviderContainer(
+    overrides: [
+      credentialStoreProvider.overrideWithValue(credentials),
+      accountMetadataRepositoryProvider.overrideWithValue(
+        FakeAccountMetadataRepository(
+          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
+          currentId: '100',
+        ),
+      ),
+      oauthServiceProvider.overrideWithValue(
+        OAuthService(
+          client: MockClient(
+            (request) async =>
+                throw StateError('refresh must not happen in these tests'),
           ),
         ),
-    oauthServiceProvider.overrideWithValue(
-      OAuthService(
-        client: MockClient((request) async =>
-            throw StateError('refresh must not happen in these tests')),
       ),
-    ),
-    pixivHttpClientProvider.overrideWith((ref) {
-      final client = clientRef[0];
-      if (client == null) {
-        throw StateError('client not wired yet');
-      }
-      return client;
-    }),
-  ]);
+      pixivHttpClientProvider.overrideWith((ref) {
+        final client = clientRef[0];
+        if (client == null) {
+          throw StateError('client not wired yet');
+        }
+        return client;
+      }),
+    ],
+  );
   final client = PixivHttpClient(
     client: MockClient(handler),
     accountStore: container.read(accountStoreProvider.notifier),
@@ -67,15 +69,14 @@ Future<ProviderContainer> makeContainer(
 }
 
 http.Response okJson(Map<String, dynamic> json) => http.Response(
-      jsonEncode(json),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
+  jsonEncode(json),
+  200,
+  headers: {'content-type': 'application/json'},
+);
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test('detail fetch merges the store and reports ready', () async {
@@ -88,45 +89,53 @@ void main() {
     });
     addTearDown(container.dispose);
 
-    final state = await container.read(illustDetailControllerProvider(42).future);
+    final state = await container.read(
+      illustDetailControllerProvider(42).future,
+    );
     expect(state, isA<IllustDetailReady>());
     final entity = container.read(illustStoreProvider).get(42)!;
     expect(entity.metaPages, hasLength(2));
     expect(entity.title, 'illust 42');
   });
 
-  test('snapshot-first: store snapshot is renderable during the fetch',
-      () async {
-    final container = await makeContainer((request) async {
-      await Future<void>.delayed(const Duration(seconds: 30));
-      return okJson({'illust': illustJson(7)});
-    });
-    addTearDown(container.dispose);
+  test(
+    'snapshot-first: store snapshot is renderable during the fetch',
+    () async {
+      final container = await makeContainer((request) async {
+        await Future<void>.delayed(const Duration(seconds: 30));
+        return okJson({'illust': illustJson(7)});
+      });
+      addTearDown(container.dispose);
 
-    // Seed the store snapshot: the page renders this while loading.
-    container.read(illustStoreProvider).mergeAll([
-      parseIllust(illustJson(7, bookmarked: true)),
-    ]);
+      // Seed the store snapshot: the page renders this while loading.
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(illustJson(7, bookmarked: true)),
+      ]);
 
-    // Start the fetch without awaiting it.
-    final provider = illustDetailControllerProvider(7);
-    container.listen(provider, (_, _) {});
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+      // Start the fetch without awaiting it.
+      final provider = illustDetailControllerProvider(7);
+      container.listen(provider, (_, _) {});
+      await Future<void>.delayed(const Duration(milliseconds: 30));
 
-    final async = container.read(provider);
-    expect(async.isLoading, isTrue,
-        reason: 'fetch in flight');
-    final snapshot = container.read(illustStoreProvider).get(7)!;
-    expect(snapshot.isBookmarked, isTrue,
-        reason: 'R1: page renders the stale snapshot while loading');
-  });
+      final async = container.read(provider);
+      expect(async.isLoading, isTrue, reason: 'fetch in flight');
+      final snapshot = container.read(illustStoreProvider).get(7)!;
+      expect(
+        snapshot.isBookmarked,
+        isTrue,
+        reason: 'R1: page renders the stale snapshot while loading',
+      );
+    },
+  );
 
   test('404 maps to NotFound, not a generic error', () async {
     final container = await makeContainer((request) async {
       return http.Response('not found', 404);
     });
     addTearDown(container.dispose);
-    final state = await container.read(illustDetailControllerProvider(9).future);
+    final state = await container.read(
+      illustDetailControllerProvider(9).future,
+    );
     expect(state, isA<IllustDetailNotFound>());
   });
 
@@ -135,27 +144,31 @@ void main() {
       return okJson({'illust': illustJson(11, visible: false)});
     });
     addTearDown(container.dispose);
-    final state =
-        await container.read(illustDetailControllerProvider(11).future);
+    final state = await container.read(
+      illustDetailControllerProvider(11).future,
+    );
     expect(state, isA<IllustDetailRestricted>());
   });
 
-  test('network failure with snapshot keeps rendering data behind error',
-      () async {
-    final container = await makeContainer((request) async {
-      throw http.ClientException('offline');
-    });
-    addTearDown(container.dispose);
-    container.read(illustStoreProvider).mergeAll([
-      parseIllust(illustJson(5, bookmarked: true)),
-    ]);
-    final state =
-        await container.read(illustDetailControllerProvider(5).future);
-    expect(state, isA<IllustDetailError>());
-    final error = state as IllustDetailError;
-    expect(error.hasSnapshot, isTrue);
-    expect(error.snapshot!.id, 5);
-  });
+  test(
+    'network failure with snapshot keeps rendering data behind error',
+    () async {
+      final container = await makeContainer((request) async {
+        throw http.ClientException('offline');
+      });
+      addTearDown(container.dispose);
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(illustJson(5, bookmarked: true)),
+      ]);
+      final state = await container.read(
+        illustDetailControllerProvider(5).future,
+      );
+      expect(state, isA<IllustDetailError>());
+      final error = state as IllustDetailError;
+      expect(error.hasSnapshot, isTrue);
+      expect(error.snapshot!.id, 5);
+    },
+  );
 
   test('network failure without snapshot surfaces retryable error', () async {
     var attempts = 0;
@@ -164,9 +177,12 @@ void main() {
       throw http.ClientException('offline');
     });
     addTearDown(container.dispose);
-    final controller =
-        container.read(illustDetailControllerProvider(6).notifier);
-    final state = await container.read(illustDetailControllerProvider(6).future);
+    final controller = container.read(
+      illustDetailControllerProvider(6).notifier,
+    );
+    final state = await container.read(
+      illustDetailControllerProvider(6).future,
+    );
     expect(state, isA<IllustDetailError>());
     expect((state as IllustDetailError).hasSnapshot, isFalse);
 
@@ -177,34 +193,41 @@ void main() {
     expect(attempts, 2);
   });
 
-  test('tag search controller queries partial_match_for_tags and merges',
-      () async {
-    final container = await makeContainer((request) async {
-      expect(request.url.path, '/v1/search/illust');
-      expect(request.url.queryParameters['search_target'],
-          'partial_match_for_tags');
-      expect(request.url.queryParameters['word'], '風景');
-      return okJson({
-        'illusts': [illustJson(77), illustJson(78)],
-        'next_url': null,
+  test(
+    'tag search controller queries partial_match_for_tags and merges',
+    () async {
+      final container = await makeContainer((request) async {
+        expect(request.url.path, '/v1/search/illust');
+        expect(
+          request.url.queryParameters['search_target'],
+          'partial_match_for_tags',
+        );
+        expect(request.url.queryParameters['word'], '風景');
+        return okJson({
+          'illusts': [illustJson(77), illustJson(78)],
+          'next_url': null,
+        });
       });
-    });
-    addTearDown(container.dispose);
+      addTearDown(container.dispose);
 
-    final state = await container.read(
-      searchFeedProvider(
-        IllustSearchQuery(
-          keyword: '風景',
-          filters: const SearchFilters(
-            target: SearchTarget.partialMatchForTags,
-            sort: SearchSort.dateDesc,
+      final state = await container.read(
+        searchFeedProvider(
+          IllustSearchQuery(
+            keyword: '風景',
+            filters: const SearchFilters(
+              target: SearchTarget.partialMatchForTags,
+              sort: SearchSort.dateDesc,
+            ),
           ),
-        ),
-      ).future,
-    );
-    expect(state.showInitialError, isFalse);
-    expect(state.ids, [77, 78]);
-    expect(container.read(illustStoreProvider).get(77), isNotNull,
-        reason: 'tag results merge into the shared store');
-  });
+        ).future,
+      );
+      expect(state.showInitialError, isFalse);
+      expect(state.ids, [77, 78]);
+      expect(
+        container.read(illustStoreProvider).get(77),
+        isNotNull,
+        reason: 'tag results merge into the shared store',
+      );
+    },
+  );
 }

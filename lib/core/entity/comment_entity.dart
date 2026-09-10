@@ -192,7 +192,10 @@ DateTime _date(Object? value) {
   if (value is! Map<String, dynamic>) {
     throw const FormatException('comment.stamp must be an object');
   }
-  final id = requireParsedPositiveInt(value['stamp_id'], 'comment.stamp.stamp_id');
+  final id = requireParsedPositiveInt(
+    value['stamp_id'],
+    'comment.stamp.stamp_id',
+  );
   final url = value['stamp_url'];
   if (url != null && url is! String) {
     throw const FormatException('comment.stamp.stamp_url must be a string');

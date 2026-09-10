@@ -13,7 +13,6 @@ InMemorySharedPreferencesAsync memoryPreferences([
 /// Registers the in-memory platform so provider-graph tests never touch the
 /// missing SharedPreferences plugin. Call once at the top of main().
 void installMemoryPreferences([Map<String, Object> data = const {}]) {
-  SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.withData(
-    data,
-  );
+  SharedPreferencesAsyncPlatform.instance =
+      InMemorySharedPreferencesAsync.withData(data);
 }
