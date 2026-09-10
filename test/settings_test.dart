@@ -248,14 +248,14 @@ void main() {
     expect(settings.guideCompleted, isTrue);
     expect(settings.languageTag, 'ru-RU');
     expect(settings.themeCode, AppSettings.darkTheme);
-    expect(
-      jsonDecode(
-        (await preferences.getString(
-          PreferencesSettingsRepository.settingsKey,
-        ))!,
-      )['schemaVersion'],
-      AppSettings.currentSchemaVersion,
-    );
+    final stored =
+        jsonDecode(
+              (await preferences.getString(
+                PreferencesSettingsRepository.settingsKey,
+              ))!,
+            )
+            as Map<String, dynamic>;
+    expect(stored['schemaVersion'], AppSettings.currentSchemaVersion);
   });
 
   test('a valid field survives a malformed field in versioned JSON', () async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -82,7 +84,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    router.push('/recommended/history');
+    unawaited(router.push('/recommended/history'));
     await tester.pump();
     expect(router.state.uri.path, '/recommended/history');
 

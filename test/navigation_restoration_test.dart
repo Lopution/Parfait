@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -182,7 +183,8 @@ void main() {
     await tester.pumpWidget(
       _routerApp(
         router,
-        httpHandler: (_) async => _json({'illusts': [], 'next_url': null}),
+        httpHandler: (_) async =>
+            _json({'illusts': <Object?>[], 'next_url': null}),
       ),
     );
     await tester.pump();
@@ -271,20 +273,22 @@ void main() {
             });
           }
           if (request.url.path == '/v2/illust/related') {
-            return _json({'illusts': [], 'next_url': null});
+            return _json({'illusts': <Object?>[], 'next_url': null});
           }
-          return _json({'illusts': [], 'next_url': null});
+          return _json({'illusts': <Object?>[], 'next_url': null});
         },
       ),
     );
     await tester.pump();
-    router.push(
-      '/recommended/illust/42/viewer/0?quality=original',
-      extra: ImageViewerRouteExtra(
-        urls: [
-          'https://i.pximg.net/42/p0/original.jpg',
-          'https://i.pximg.net/42/p1/original.jpg',
-        ],
+    unawaited(
+      router.push(
+        '/recommended/illust/42/viewer/0?quality=original',
+        extra: ImageViewerRouteExtra(
+          urls: [
+            'https://i.pximg.net/42/p0/original.jpg',
+            'https://i.pximg.net/42/p1/original.jpg',
+          ],
+        ),
       ),
     );
     await tester.pumpAndSettle();

@@ -328,13 +328,17 @@ class PixivHttpClient {
         .then((streamed) => http.Response.fromStream(streamed));
 
     final completer = Completer<http.Response>();
-    sendFuture.then(
-      (value) {
-        if (!completer.isCompleted) completer.complete(value);
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        if (!completer.isCompleted) completer.completeError(error, stackTrace);
-      },
+    unawaited(
+      sendFuture.then(
+        (value) {
+          if (!completer.isCompleted) completer.complete(value);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!completer.isCompleted) {
+            completer.completeError(error, stackTrace);
+          }
+        },
+      ),
     );
 
     final raced = completer.future.timeout(
