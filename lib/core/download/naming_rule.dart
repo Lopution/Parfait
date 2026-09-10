@@ -61,8 +61,9 @@ class NamingRule {
     var lastEnd = 0;
     for (final match in matches) {
       if (!supportedVariables.contains(match.group(1))) return false;
-      if (!_isSafeLiteral(trimmed.substring(lastEnd, match.start)))
+      if (!_isSafeLiteral(trimmed.substring(lastEnd, match.start))) {
         return false;
+      }
       lastEnd = match.end;
     }
     return _isSafeLiteral(trimmed.substring(lastEnd));
@@ -169,8 +170,9 @@ class NamingRule {
       cleaned = cleaned.replaceAll('__', '_');
     }
     if (cleaned.startsWith('.')) cleaned = '_${cleaned.substring(1)}';
-    if (cleaned.endsWith('.'))
+    if (cleaned.endsWith('.')) {
       cleaned = '${cleaned.substring(0, cleaned.length - 1)}_';
+    }
     return cleaned;
   }
 

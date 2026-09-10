@@ -38,6 +38,10 @@ linter:
     # Dead-code detection: any public top-level declaration that is not
     # reachable from lib/main.dart is flagged (child C zero-reference sweep).
     unreachable_from_main: true
+    # E4 first batch: dependency order, quote style and readonly locals.
+    sort_pub_dependencies: true
+    prefer_single_quotes: true
+    prefer_final_locals: true
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 

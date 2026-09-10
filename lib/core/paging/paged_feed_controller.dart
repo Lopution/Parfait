@@ -179,7 +179,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// and generation but never flip the commit gate's active context: the
   /// caller still commits through the original [context].
   Future<FeedPage> fetchRelevantPage(FeedRequestContext context) async {
-    var page = await fetchPageForContext(context);
+    final page = await fetchPageForContext(context);
     if (!localFilterEnabled || filterMinVisible <= 0) return page;
     var visible = filterPageIds(
       page.ids,

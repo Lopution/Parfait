@@ -41,7 +41,7 @@ void main() {
     });
 
     test('disarm cancels the pending exit window', () async {
-      var now = DateTime(2026, 1, 1, 12, 0, 0);
+      final now = DateTime(2026, 1, 1, 12, 0, 0);
       var clockNow = now;
       final coordinator = RootBackCoordinator(clock: () => clockNow);
 
