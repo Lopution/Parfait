@@ -62,7 +62,7 @@ void main() {
         expect(request.url.path, '/v2/illust/related');
         expect(request.url.queryParameters['illust_id'], '42');
         expect(request.url.queryParameters['filter'], 'for_android');
-        return _ok({'illusts': [], 'next_url': null});
+        return _ok({'illusts': <Object?>[], 'next_url': null});
       });
       final repo = await _repo(client);
       final page = await repo.fetchPage(42);

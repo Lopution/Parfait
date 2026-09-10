@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../network/api_error.dart';
 import '../network/pixiv_client_identity.dart';
@@ -49,8 +50,8 @@ class BookmarkRepository {
 
   /// The API answers 200 with `{"message": ..., "is_success": false}` for
   /// logical failures; those must surface as errors, not silent success.
-  void _ensureSuccess(dynamic response) {
-    final statusCode = response.statusCode as int;
+  void _ensureSuccess(http.Response response) {
+    final statusCode = response.statusCode;
     if (statusCode < 200 || statusCode >= 300) {
       throw ApiHttpError(statusCode);
     }

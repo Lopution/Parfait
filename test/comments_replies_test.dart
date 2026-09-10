@@ -291,7 +291,7 @@ void main() {
 
   test('comment cursors are pinned to their endpoint and thread', () async {
     final container = await _apiContainer(
-      (_) async => _json({'comments': [], 'next_url': null}),
+      (_) async => _json({'comments': <Object?>[], 'next_url': null}),
     );
     addTearDown(container.dispose);
     final repository = container.read(commentRepositoryProvider);
@@ -482,14 +482,11 @@ void main() {
       expect(request.url.host, 'translate.googleapis.com');
       expect(request.url.queryParameters['q'], 'hello');
       expect(request.url.queryParameters['tl'], 'zh');
-      return _jsonValue(
+      return _jsonValue([
         [
-              [
-                ['你好', 'hello', null, null, 1],
-              ],
-            ]
-            as dynamic,
-      );
+          ['你好', 'hello', null, null, 1],
+        ],
+      ]);
     });
     final service = GoogleCommentTranslationService(client);
     expect(await service.translate('hello', targetLanguage: 'zh'), '你好');

@@ -227,12 +227,11 @@ void main() {
       final decoded = jsonDecode(body!) as Map<String, dynamic>;
       expect(decoded['model'], 'mini-1');
       expect(decoded['temperature'], 0.2);
-      final messages = decoded['messages'] as List;
+      final messages = (decoded['messages'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .toList();
       expect(messages.first['role'], 'system');
-      expect(
-        (messages.last['content'] as String),
-        contains('Translate into zh'),
-      );
+      expect(messages.last['content'] as String, contains('Translate into zh'));
     });
 
     test('rejects plain HTTP endpoints as invalid credentials', () async {

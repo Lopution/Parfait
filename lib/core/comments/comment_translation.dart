@@ -265,7 +265,7 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
         CommentTranslationFailureKind.malformed,
       );
     }
-    final errorCode = decoded['error_code'];
+    final Object? errorCode = decoded['error_code'];
     if (errorCode != null) {
       throw _mapBaiduError(errorCode);
     }

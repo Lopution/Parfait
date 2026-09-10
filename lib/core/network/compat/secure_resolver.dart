@@ -241,7 +241,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
         return _copyResolved(result);
       } finally {
         if (identical(_addressInflight[key], future)) {
-          _addressInflight.remove(key);
+          unawaited(_addressInflight.remove(key));
         }
       }
     }
@@ -455,7 +455,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
         return _copyEchResult(result);
       } finally {
         if (identical(_echInflight[key], future)) {
-          _echInflight.remove(key);
+          unawaited(_echInflight.remove(key));
         }
       }
     }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../entity/comment_entity.dart';
 import '../network/api_error.dart';
@@ -215,10 +216,10 @@ class _PixivCommentRepository implements CommentRepository {
       .replace(path: request.uri.path, queryParameters: request.query);
 
   static Map<String, dynamic> _successObject(
-    dynamic response, {
+    http.Response response, {
     bool allowEmpty = false,
   }) {
-    final body = utf8.decode(response.bodyBytes as List<int>);
+    final body = utf8.decode(response.bodyBytes);
     if (body.isEmpty && allowEmpty) return const {};
     if (body.isEmpty) throw const ApiParseError('empty mutation response');
     final dynamic decoded;
@@ -231,10 +232,7 @@ class _PixivCommentRepository implements CommentRepository {
       throw const ApiParseError('mutation response is not an object');
     }
     if (decoded['is_success'] == false) {
-      throw ApiHttpError(
-        response.statusCode as int,
-        decoded['message']?.toString(),
-      );
+      throw ApiHttpError(response.statusCode, decoded['message']?.toString());
     }
     return decoded;
   }

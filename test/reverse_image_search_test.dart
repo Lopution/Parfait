@@ -190,7 +190,9 @@ void main() {
       ),
     );
     expect(
-      () => ReverseImageResultMapper.fromSauceNaoJson({'results': {}}),
+      () => ReverseImageResultMapper.fromSauceNaoJson({
+        'results': <String, Object?>{},
+      }),
       throwsA(isA<ReverseImageProviderException>()),
     );
   });
