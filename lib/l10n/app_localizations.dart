@@ -1567,6 +1567,18 @@ abstract class AppLocalizations {
   /// **'动图加载失败：{error}'**
   String ugoiraLoadFailed(String error);
 
+  /// No description provided for @homeRecommended.
+  ///
+  /// In zh, this message translates to:
+  /// **'推荐'**
+  String get homeRecommended;
+
+  /// No description provided for @homeRanking.
+  ///
+  /// In zh, this message translates to:
+  /// **'排行'**
+  String get homeRanking;
+
   /// No description provided for @homeExitHint.
   ///
   /// In zh, this message translates to:

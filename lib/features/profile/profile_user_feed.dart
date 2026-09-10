@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
@@ -65,6 +65,7 @@ class ProfileUserFeed extends ConsumerWidget {
             },
             child: ListView.builder(
               key: PageStorageKey(feedKey),
+              restorationId: 'profile-${feedKey.toString()}',
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: (users.isEmpty ? 1 : users.length + 1) + 1,
               itemBuilder: (context, index) {

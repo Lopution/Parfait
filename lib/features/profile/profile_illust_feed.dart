@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
@@ -63,6 +63,7 @@ class ProfileIllustFeed extends ConsumerWidget {
             },
             child: CustomScrollView(
               key: PageStorageKey(feedKey),
+              restorationId: 'profile-${feedKey.toString()}',
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 const HeaderLocator.sliver(),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -247,8 +247,13 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
               return false;
             },
             child: CustomScrollView(
+              key: PageStorageKey(
+                'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
+              ),
               controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
+              restorationId:
+                  'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
               slivers: slivers,
             ),
           ),

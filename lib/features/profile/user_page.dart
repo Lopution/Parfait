@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/network/api_error.dart';
@@ -71,7 +72,8 @@ class MePage extends ConsumerWidget {
         }
         return UserPage._me(
           userId: account.userId,
-          onEditProfile: onEditProfile,
+          onEditProfile:
+              onEditProfile ?? () => openProfileEdit(context, account.userId),
         );
       },
     );
@@ -383,7 +385,8 @@ class _ProfileAbout extends StatelessWidget {
       if (user.pawooUrl != null) (label: 'Pawoo', value: user.pawooUrl!),
     ];
     return ListView(
-      key: const PageStorageKey('profile-about'),
+      key: PageStorageKey('profile-about-${user.id}'),
+      restorationId: 'profile-about-${user.id}',
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
       children: [
         for (final entry in entries)

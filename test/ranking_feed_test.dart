@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +21,7 @@ import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/core/illust/ranking_feed_controller.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeCredentialStore implements CredentialStore {
@@ -117,8 +118,7 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
   _RankingFixture? fixture,
   bool twoAccounts = false,
 }) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? _RankingFixture();
   final credentials = _FakeCredentialStore()
     ..seed(
@@ -163,8 +163,7 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test('RankingMode has explicit beta56 order and API values', () {
@@ -283,9 +282,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: const RankingPage(),
           ),

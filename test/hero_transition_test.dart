@@ -1,12 +1,74 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:pixiv_func/app/motion/replica_page_route.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/app/motion/hero_rect_clip.dart';
+import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
+  testWidgets('drag-to-dismiss returns to origin when canceled', (
+    tester,
+  ) async {
+    const key = Key('drag-surface');
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: DragToDismiss(
+            onDismissed: _noop,
+            child: SizedBox(key: key, width: 200, height: 200),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final surface = find.byKey(key);
+    final origin = tester.getTopLeft(surface).dy;
+    await tester.drag(find.byType(DragToDismiss), const Offset(0, 80));
+    await tester.pump();
+    expect(tester.getTopLeft(surface).dy, greaterThan(origin));
+
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(surface).dy, closeTo(origin, 0.001));
+  });
+
+  testWidgets('drag-to-dismiss pops after the distance threshold', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    var dismissed = false;
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: navigatorKey, home: const SizedBox.shrink()),
+    );
+    navigatorKey.currentState!.push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          body: DragToDismiss(
+            onDismissed: () {
+              dismissed = true;
+              Navigator.of(context).pop();
+            },
+            child: const SizedBox(
+              key: Key('dismissible-surface'),
+              width: 200,
+              height: 200,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(DragToDismiss), const Offset(0, 180));
+    await tester.pumpAndSettle();
+
+    expect(dismissed, isTrue);
+    expect(find.byKey(const Key('dismissible-surface')), findsNothing);
+  });
+
   testWidgets('Hero pop onto a user page matches its own chrome', (
     tester,
   ) async {
@@ -19,7 +81,8 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
 
@@ -33,7 +96,7 @@ void main() {
     // TabBar row inside the scroll view (minExtent 56) — holding the Hero
     // source card, pushed so route.isFirst is false (no root bottom nav).
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           appBar: AppBar(title: const Text('u')),
           body: NestedScrollView(
@@ -80,7 +143,7 @@ void main() {
 
     // Detail page on top; popping lands back on the user page above.
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           body: Center(
             child: Hero(
@@ -107,10 +170,7 @@ void main() {
     // The boundary moves from the detail route's content area to the
     // profile route's app bar + pinned TabBar boundary. A static clip would
     // hard-cut the image as reported on device.
-    expect(
-      find.byType(HeroRectClip),
-      findsOneWidget,
-    );
+    expect(find.byType(HeroRectClip), findsOneWidget);
     expect(start.top, lessThan(mid.top));
     expect(start.bottom, greaterThanOrEqualTo(mid.bottom));
     expect(mid.top, greaterThan(0));
@@ -133,7 +193,8 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
 
@@ -162,7 +223,7 @@ void main() {
     await tester.pump();
 
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           body: Center(
             child: Hero(
@@ -192,10 +253,7 @@ void main() {
 
     // The bottom boundary retracts continuously toward the landing page's
     // 100px bottom navigation. It must not jump to the final clip at mid-flight.
-    expect(
-      find.byType(HeroRectClip),
-      findsOneWidget,
-    );
+    expect(find.byType(HeroRectClip), findsOneWidget);
     expect(start.bottom, greaterThan(mid.bottom));
     expect(start.top, closeTo(mid.top, 0.001));
     expect(mid.top, closeTo(0, 0.001));
@@ -218,7 +276,8 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
 
@@ -255,7 +314,7 @@ void main() {
     await tester.pump();
 
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           body: Center(
             child: Hero(
@@ -284,10 +343,7 @@ void main() {
 
     // Both edges move toward the landing page's pinned-header and bottom-nav
     // boundaries. This is the regression case for a scrolled/nested profile.
-    expect(
-      find.byType(HeroRectClip),
-      findsOneWidget,
-    );
+    expect(find.byType(HeroRectClip), findsOneWidget);
     expect(start.top, lessThan(mid.top));
     expect(start.bottom, greaterThan(mid.bottom));
     expect(mid.top, greaterThan(0));
@@ -310,7 +366,8 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
 
@@ -369,7 +426,7 @@ void main() {
     );
 
     navigatorKey.currentState!.push(
-      ReplicaPageRoute<void>(
+      _testPageRoute<void>(
         builder: (_) => Scaffold(
           appBar: AppBar(title: const Text('Detail')),
           body: CustomScrollView(
@@ -406,10 +463,7 @@ void main() {
     // Push uses the same moving boundary in the opposite direction: the
     // source profile/feed chrome releases its clipped portion progressively,
     // then the detail chrome becomes the active boundary.
-    expect(
-      find.byType(HeroRectClip),
-      findsOneWidget,
-    );
+    expect(find.byType(HeroRectClip), findsOneWidget);
     expect(early.top, greaterThan(mid.top));
     expect(early.bottom, closeTo(mid.bottom, 0.001));
     expect(_heroPaintClipRect(tester), mid);
@@ -417,17 +471,35 @@ void main() {
   });
 }
 
+void _noop() {}
+
+PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
+    PageRouteBuilder<T>(
+  pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: MotionTokens.pageCurve,
+    );
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(1, 0),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    );
+  },
+  transitionDuration: MotionTokens.pageTransition,
+  reverseTransitionDuration: MotionTokens.pageTransition,
+);
+
 Rect _heroClipRect(WidgetTester tester) {
-  final clip = tester.widget<Widget>(
-    find.byType(HeroRectClip),
-  );
+  final clip = tester.widget<Widget>(find.byType(HeroRectClip));
   return (clip as dynamic).globalRect as Rect;
 }
 
 Rect? _heroPaintClipRect(WidgetTester tester) {
-  final render = tester.renderObject(
-    find.byType(HeroRectClip),
-  );
+  final render = tester.renderObject(find.byType(HeroRectClip));
   return (render as dynamic).debugLastPaintClipRect as Rect?;
 }
 

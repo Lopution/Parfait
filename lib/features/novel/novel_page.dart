@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/person_avatar.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/motion/replica_page_route.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
@@ -27,9 +26,7 @@ void _showNovelPage(BuildContext context, int novelId) {
     showAppSnackBar(context, context.l10n.novelNotFound);
     return;
   }
-  Navigator.of(context).push<void>(
-    ReplicaPageRoute<void>(builder: (_) => NovelPage(novelId: novelId)),
-  );
+  openNovel(context, novelId);
 }
 
 final _novelDetailProvider = FutureProvider.autoDispose

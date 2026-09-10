@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/navigation/routes.dart'
-    show openLogin, openMe, openProfileEdit;
+import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
 import '../../../app/widgets/settings_load_error.dart';
 import '../../../core/auth/account.dart';
@@ -34,12 +33,7 @@ class AccountCard extends StatelessWidget {
               : value.mailAddress ?? '${context.l10n.accountId}: ${value.id}',
         ),
         trailing: value == null ? null : const Icon(Icons.chevron_right),
-        onTap: value == null
-            ? null
-            : () => openMe(
-                context,
-                onEditProfile: () => openProfileEdit(context, value.userId),
-              ),
+        onTap: value == null ? null : () => openMe(context),
         onLongPress: onLongPress,
       ),
     );

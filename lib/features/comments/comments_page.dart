@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/navigation/routes.dart';
@@ -18,7 +18,6 @@ import 'comment_item.dart';
 import 'comment_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
-
 
 class IllustCommentsPage extends ConsumerStatefulWidget {
   const IllustCommentsPage({super.key, required this.illustId});
@@ -125,29 +124,37 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
 }
 
 class CommentRepliesPage extends ConsumerStatefulWidget {
-  const CommentRepliesPage({super.key, required this.rootComment});
+  const CommentRepliesPage({
+    super.key,
+    required this.illustId,
+    required this.rootCommentId,
+    this.rootComment,
+  });
 
-  final CommentEntity rootComment;
+  final int illustId;
+  final int rootCommentId;
+  final CommentEntity? rootComment;
 
   @override
   ConsumerState<CommentRepliesPage> createState() => _CommentRepliesPageState();
 }
 
 class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
-  late CommentEntity _replyTarget = widget.rootComment;
+  CommentEntity? _replyTarget;
 
   CommentFeedQuery get _query => CommentFeedQuery.replies(
-    illustId: widget.rootComment.illustId,
-    rootCommentId: widget.rootComment.id,
+    illustId: widget.illustId,
+    rootCommentId: widget.rootCommentId,
   );
 
   @override
   Widget build(BuildContext context) {
     final store = ref.watch(commentStoreProvider);
+    final root = store.get(widget.rootCommentId) ?? widget.rootComment;
+    final replyTarget = _replyTarget ?? root;
     final mutationKey =
-        'send:${widget.rootComment.illustId}:${_replyTarget.id}';
+        'send:${widget.illustId}:${replyTarget?.id ?? widget.rootCommentId}';
     final sending = store.mutations[mutationKey]?.pending == true;
-    final root = store.get(widget.rootComment.id) ?? widget.rootComment;
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.commentReplies)),
       body: Column(
@@ -155,11 +162,12 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
           Expanded(
             child: Column(
               children: [
-                CommentItem(
-                  comment: root,
-                  onReply: () => setState(() => _replyTarget = root),
-                  onDelete: () => _deleteComment(root),
-                ),
+                if (root != null)
+                  CommentItem(
+                    comment: root,
+                    onReply: () => setState(() => _replyTarget = root),
+                    onDelete: () => _deleteComment(root),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Align(
@@ -182,7 +190,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
             ),
           ),
           CommentComposer(
-            replyTo: _replyTarget.user.name,
+            replyTo: replyTarget?.user.name,
             onCancelReply: () => setState(() => _replyTarget = root),
             sending: sending,
             onSend: (text) => _send(text: text),
@@ -199,9 +207,9 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
         .read(commentActionsProvider)
         .send(
           CommentAddRequest(
-            illustId: widget.rootComment.illustId,
-            parentCommentId: _replyTarget.id,
-            rootCommentId: widget.rootComment.id,
+            illustId: widget.illustId,
+            parentCommentId: _replyTarget?.id ?? widget.rootCommentId,
+            rootCommentId: widget.rootCommentId,
             text: text,
             stampId: stampId,
           ),
@@ -238,7 +246,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
     if (!mounted || confirmed != true) return;
     try {
       await ref.read(commentActionsProvider).delete(comment);
-      if (mounted && comment.id == widget.rootComment.id) {
+      if (mounted && comment.id == widget.rootCommentId) {
         Navigator.of(context).pop();
       }
     } on Object {
@@ -337,4 +345,3 @@ class _CommentFeedView extends ConsumerWidget {
     );
   }
 }
-

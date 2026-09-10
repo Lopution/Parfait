@@ -810,6 +810,12 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get homeRecommended => 'Рекомендации';
+
+  @override
+  String get homeRanking => 'Рейтинг';
+
+  @override
   String get homeExitHint => 'Нажмите ещё раз, чтобы выйти';
 
   @override

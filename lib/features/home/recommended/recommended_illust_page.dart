@@ -1,5 +1,5 @@
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -79,12 +79,14 @@ class RecommendedIllustPage extends ConsumerWidget {
                 return false;
               },
               child: CustomScrollView(
+                key: const PageStorageKey('recommended-illust'),
                 // U1 (R7): this tab is the only one without an AppBar, so
                 // on edge-to-edge Android 15+ the top padding is otherwise
                 // zero and the feed overlaps the status bar. Only the top
                 // safe inset is added — no AppBar — so the immersive feed
                 // look is kept. The RefreshIndicator overscroll zone stays
                 // above the padding, so pull-to-refresh still triggers.
+                restorationId: 'recommended-illust',
                 slivers: [
                   IllustFeedGrid(
   padding: EdgeInsets.fromLTRB(

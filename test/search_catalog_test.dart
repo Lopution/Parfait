@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -28,6 +29,7 @@ import 'package:pixiv_func/features/search/search_result_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _FakeSearchRepository implements SearchRepository {
@@ -137,8 +139,7 @@ class _AccountMetadataRepository implements AccountMetadataRepository {
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = _CredentialStore();
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer(
@@ -450,14 +451,16 @@ void main() {
     tester,
   ) async {
     final repository = _FakeSearchRepository();
+    final router = createPixivRouter(initialLocation: '/search');
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-
-          home: const SearchHomePage(),
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
         ),
       ),
     );
@@ -468,12 +471,55 @@ void main() {
     expect(find.text('#风景'), findsOneWidget);
     expect(find.text('#猫'), findsOneWidget);
 
-    await tester.tap(find.text('搜索作品、用户或标签'));
+    expect(find.byType(SearchBar), findsOneWidget);
+    await tester.tap(find.byType(SearchBar));
     await tester.pumpAndSettle();
     expect(find.byType(SearchInputPage), findsOneWidget);
+    expect(find.byType(SearchAnchor), findsOneWidget);
+    expect(find.byType(SearchBar), findsOneWidget);
     expect(find.text('插画 & 漫画'), findsOneWidget);
     expect(find.text('小说'), findsOneWidget);
     expect(find.text('用户'), findsOneWidget);
+  });
+
+  testWidgets('SearchAnchor suggestions submit the existing typed query', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository(
+      autocompleteHandler: (keyword, _) async => [
+        SearchSuggestion(keyword: keyword, translatedName: '猫'),
+      ],
+    );
+    final router = createPixivRouter(initialLocation: '/search/input');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(SearchBar));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.last, 'cat');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('猫'), findsOneWidget);
+    await tester.tap(find.text('猫'));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/search/results');
+    expect(router.state.uri.queryParameters['q'], 'cat');
+    expect(router.state.uri.queryParameters['type'], 'illust');
+    expect(find.byType(SearchResultPage), findsOneWidget);
   });
 
   testWidgets('U2: a trending tag renders its representative image', (
@@ -484,9 +530,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: const SearchHomePage(),
           ),
@@ -514,9 +561,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
 
           home: SearchHomePage(),
         ),
@@ -532,15 +580,17 @@ void main() {
     tester,
   ) async {
     final repository = _FakeSearchRepository();
+    final router = createPixivRouter(initialLocation: '/search');
+    addTearDown(router.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-
-            home: const SearchHomePage(),
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
           ),
         ),
       );
@@ -566,9 +616,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: ValueListenableBuilder<bool>(
               valueListenable: showSearch,
@@ -600,9 +651,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
 
           home: const SearchResultPage(
             query: UserSearchQuery(keyword: 'not-an-id'),

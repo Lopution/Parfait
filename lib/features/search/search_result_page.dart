@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/person_avatar.dart';
 import '../../app/widgets/novel_card.dart';
 import '../../app/pull_to_refresh.dart';
-import '../../app/motion/replica_page_route.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
@@ -47,9 +46,7 @@ class SearchResultPage extends ConsumerWidget {
       ),
       UserSearchQuery() => query,
     };
-    Navigator.of(context).pushReplacement(
-      ReplicaPageRoute<void>(builder: (_) => SearchResultPage(query: updated)),
-    );
+    replaceSearchResults(context, updated);
   }
 
   @override
@@ -146,6 +143,7 @@ class _IllustSearchFeed extends ConsumerWidget {
         child: CustomScrollView(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          restorationId: 'search-${query.cacheKey}',
           slivers: [
             IllustFeedGrid(
   padding: const EdgeInsets.all(10),
@@ -208,6 +206,7 @@ class _NovelSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          restorationId: 'search-${query.cacheKey}',
           itemCount: entities.length + 1,
           itemBuilder: (context, index) {
             if (index == entities.length) {
@@ -262,6 +261,7 @@ class _UserSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          restorationId: 'search-${query.cacheKey}',
           itemCount: users.length + 1,
           itemBuilder: (context, index) {
             if (index == users.length) {

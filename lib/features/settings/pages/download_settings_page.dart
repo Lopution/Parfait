@@ -1,14 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../app/motion/replica_page_route.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../core/download/download_destination.dart';
 import '../../../core/download/naming_rule.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
-import 'download_destination_page.dart';
 
 class DownloadSettingsPage extends ConsumerStatefulWidget {
   const DownloadSettingsPage({super.key});
@@ -81,11 +80,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
             title: Text(context.l10n.saveLocation),
             subtitle: Text(_destinationText(context, destination)),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push<void>(
-              ReplicaPageRoute<void>(
-                builder: (_) => const DownloadDestinationPage(),
-              ),
-            ),
+            onTap: () => context.push<void>('/settings/download/destination'),
           ),
           const Divider(),
           Padding(

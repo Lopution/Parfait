@@ -1,29 +1,14 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/app/icons/app_icons.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
-import 'package:pixiv_func/features/home/home_page.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
-
-/// The icon font tests render the real [HomePage] shell, which subscribes to
-/// the Android intent bridge in `initState`. This stub replaces only that
-/// external platform boundary; everything else under test stays real.
-class _NoAndroidIntentSource implements AndroidIntentSource {
-  const _NoAndroidIntentSource();
-
-  @override
-  Future<AndroidIntentResult> readInitial() async =>
-      const IgnoredAndroidIntent('test: no android intent source');
-
-  @override
-  Stream<AndroidIntentResult> get onNewIntent => const Stream.empty();
-}
 
 void main() {
   group('iconFont asset registration', () {
@@ -78,12 +63,12 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-
-          home: HomePage(intentSource: _NoAndroidIntentSource()),
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          routerConfig: createPixivRouter(initialLocation: '/recommended'),
         ),
       ),
     );
@@ -94,7 +79,7 @@ void main() {
     final iconWidgets = tester
         .widgetList<Icon>(
           find.descendant(
-            of: find.byType(BottomAppBar),
+            of: find.byType(NavigationBar),
             matching: find.byType(Icon),
           ),
         )
@@ -121,19 +106,19 @@ void main() {
     await loader.load();
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-
-          home: HomePage(intentSource: _NoAndroidIntentSource()),
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          routerConfig: createPixivRouter(initialLocation: '/recommended'),
         ),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await expectLater(
-      find.byType(BottomAppBar),
+      find.byType(NavigationBar),
       matchesGoldenFile('goldens/home_bar.png'),
     );
   });

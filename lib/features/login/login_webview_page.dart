@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/auth/account.dart';
@@ -222,7 +223,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
           );
       if (!mounted) return;
       // The StartupGate reacts to the new usable account and shows Home.
-      Navigator.of(context).pop(true);
+      context.pop(true);
     } on OAuthException catch (error) {
       // The authorization code was already consumed by this exchange.
       _abortLogin(context.l10n.loginFailed(error.toString()));
