@@ -94,6 +94,17 @@ void main() {
     final (container, repository) = await _pump(tester);
 
     expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
+    expect(find.bySemanticsLabel('收藏插画: work 1'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('收藏插画: work 1')),
+      isSemantics(
+        label: '收藏插画: work 1',
+        isButton: true,
+        hasToggledState: true,
+        isToggled: false,
+        hasTapAction: true,
+      ),
+    );
 
     await tester.tap(find.byType(BookmarkSwitchButton));
     await tester.pump();
@@ -112,6 +123,16 @@ void main() {
     );
     await tester.pump();
     expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('收藏插画: work 1')),
+      isSemantics(
+        label: '收藏插画: work 1',
+        isButton: true,
+        hasToggledState: true,
+        isToggled: true,
+        hasTapAction: true,
+      ),
+    );
   });
 
   testWidgets('pending phase shows a CupertinoActivityIndicator (R4)', (

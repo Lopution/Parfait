@@ -308,6 +308,18 @@ void main() {
       final image = tester.getSize(find.byType(IllustCard).first);
       expect(image.width, 300);
       expect(image.height, greaterThan(700));
+      expect(find.bySemanticsLabel('illust 7'), findsOneWidget);
+      expect(find.bySemanticsLabel('author'), findsOneWidget);
+      expect(find.bySemanticsLabel('illust 7, author'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('illust 7, author')),
+        isSemantics(
+          label: 'illust 7, author',
+          isButton: true,
+          isImage: true,
+          hasTapAction: true,
+        ),
+      );
     },
   );
 

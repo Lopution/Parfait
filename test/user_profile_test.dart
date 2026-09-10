@@ -19,6 +19,7 @@ import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
+import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -258,6 +259,55 @@ void main() {
       expect(container.read(followStoreProvider), isEmpty);
     },
   );
+
+  testWidgets('follow button exposes its label and toggle state', (
+    tester,
+  ) async {
+    final container = await _makeWorld();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: Scaffold(
+            body: FollowSwitchButton(userId: 42, userName: 'sample user'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('关注'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('关注')),
+      isSemantics(
+        label: '关注',
+        isButton: true,
+        hasToggledState: true,
+        isToggled: false,
+        hasTapAction: true,
+      ),
+    );
+
+    container
+        .read(followStoreProvider.notifier)
+        .observeRemote(42, followed: true, snapshotRevision: 0);
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('已关注'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('已关注')),
+      isSemantics(
+        label: '已关注',
+        isButton: true,
+        hasToggledState: true,
+        isToggled: true,
+        hasTapAction: true,
+      ),
+    );
+  });
 
   ReplicaProfileHeaderGeometry geometryAt(
     double progress, {
