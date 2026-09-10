@@ -120,8 +120,9 @@ void main() {
       } else if (fromLayer == 'features' && toLayer == 'features') {
         final fa = _featureOf(from);
         final fb = _featureOf(to);
-        if (fa != fb && to != 'lib/app/navigation/routes.dart')
+        if (fa != fb && to != 'lib/app/navigation/routes.dart') {
           violations.add(e);
+        }
       } else if (fromLayer == 'app' && toLayer == 'features') {
         if (from != 'lib/app/navigation/routes.dart') violations.add(e);
       }
@@ -167,7 +168,8 @@ void main() {
 String _layerOf(String path) {
   if (!path.startsWith('lib/')) return 'other';
   final parts = path.split('/');
-  if (parts[1] == 'core' || parts[1] == 'features' || parts[1] == 'app')
+  if (parts[1] == 'core' || parts[1] == 'features' || parts[1] == 'app') {
     return parts[1];
+  }
   return 'lib-root';
 }

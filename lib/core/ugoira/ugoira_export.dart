@@ -279,7 +279,7 @@ void _ugoiraGifWorkerMain(List<Object> args) {
   final maxExportBytes = args[4] as int;
   final commands = ReceivePort();
   parentPort.send(commands.sendPort);
-  var encoder = img.GifEncoder(
+  final encoder = img.GifEncoder(
     numColors: 256,
     quantizerType: img.QuantizerType.neural,
   );

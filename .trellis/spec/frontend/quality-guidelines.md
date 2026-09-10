@@ -18,6 +18,24 @@ vendored `plugins/rhttp/rhttp` is analyzed and tested as its own package. Dart
 source changes are formatted with `dart format lib test`; the format check is
 run in CI before analysis.
 
+### Static analysis gates (child E)
+
+`analysis_options.yaml` extends `package:flutter_lints/flutter.yaml` and adds
+the repository rules on top of it:
+
+- `unreachable_from_main` — a public top-level declaration that is not reachable
+  from `lib/main.dart` is flagged (child C dead-reference sweep).
+- `sort_pub_dependencies`, `prefer_single_quotes`, `prefer_final_locals` — the
+  first E batch; `pubspec.yaml` dependency blocks must stay alphabetical.
+- analyzer `strict-casts` / `strict-raw-types` / `strict-inference`, linter
+  `unawaited_futures` / `avoid_dynamic_calls` — the second E batch.
+
+The CI `analyze-and-test` job runs
+`dart format --output=none --set-exit-if-changed lib test` before
+`flutter analyze`, so an unformatted change fails the job even when the code
+analyzes. `flutter analyze --no-pub` must stay at zero issues; do not silence a
+rule with `// ignore:` without a one-line reason on the same line.
+
 ---
 
 ## Build Toolchain (Flutter / Android)
@@ -39,7 +57,7 @@ run in CI before analysis.
 - **Coupled upgrades are one step.** `archive` ↔ `image`, and `flutter_secure_storage` ↔ `compileSdk` / AGP / `androidx.core`, are bumped together, with the relevant tests plus a device check, and after reading the changelogs for storage-format or cipher changes.
 - **`material_ui`-family majors ride the app migration.** `cached_network_image` 4 and `go_router` 18 are deferred to child F; do not bump them piecemeal.
 - **Every upgrade commit carries its verification.** `flutter analyze`, `flutter test`, plugin tests, `cargo test --locked`, Kotlin JVM tests, a release build, and the APK size delta recorded in `research/apk-size-breakdown.md`. The CI `deps-report` artifact (`pub outdated`, `cargo update --dry-run`) is the periodic signal; `flutter pub outdated` exits 0 even when majors are available, so read the artifact rather than trusting the exit code.
-- **Generated code is exempt from formatting gates.** `rust/src/lib.rs` marks `mod frb_generated;` with `#[rustfmt::skip]`; hand-written Rust must stay `cargo fmt` clean. `dart format --set-exit-if-changed` arrives with child E.
+- **Generated code is exempt from formatting gates.** `rust/src/lib.rs` marks `mod frb_generated;` with `#[rustfmt::skip]`; hand-written Rust must stay `cargo fmt` clean. The Dart side runs `dart format --output=none --set-exit-if-changed lib test` in the CI `analyze-and-test` job.
 
 ## Forbidden Patterns
 

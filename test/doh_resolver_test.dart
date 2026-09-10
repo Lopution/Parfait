@@ -77,7 +77,7 @@ class _FakeDohServer {
     }
     // A single A answer pointing at this server's IP, with the scripted TTL.
     final answer = _aRecord(id, name, ip, ttl: ttl);
-    var flags = 0x8180 | (rcode & 0x0f);
+    final flags = 0x8180 | (rcode & 0x0f);
     final header = _header(id, flags, 1, 1);
     final question = _question(name);
     return http.StreamedResponse(
