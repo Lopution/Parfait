@@ -61,7 +61,8 @@ class NamingRule {
     var lastEnd = 0;
     for (final match in matches) {
       if (!supportedVariables.contains(match.group(1))) return false;
-      if (!_isSafeLiteral(trimmed.substring(lastEnd, match.start))) return false;
+      if (!_isSafeLiteral(trimmed.substring(lastEnd, match.start)))
+        return false;
       lastEnd = match.end;
     }
     return _isSafeLiteral(trimmed.substring(lastEnd));
@@ -84,7 +85,9 @@ class NamingRule {
       NamingPreset.artistTitleId => '{artist}_{title}_{id}_p{page}.{ext}',
       NamingPreset.titleId => '{title}_{id}_p{page}.{ext}',
       NamingPreset.custom =>
-        (template != null && isValidTemplate(template)) ? template! : '{id}_p{page}.{ext}',
+        (template != null && isValidTemplate(template))
+            ? template!
+            : '{id}_p{page}.{ext}',
     };
     var rendered = _expand(
       effectiveTemplate,
@@ -110,15 +113,14 @@ class NamingRule {
     String? artist,
     String? title,
     DateTime? date,
-  }) =>
-      resolve(
-        illustId: illustId,
-        pageIndex: pageIndex,
-        extension: extension,
-        artist: artist,
-        title: title,
-        date: date,
-      );
+  }) => resolve(
+    illustId: illustId,
+    pageIndex: pageIndex,
+    extension: extension,
+    artist: artist,
+    title: title,
+    date: date,
+  );
 
   static String _expand(
     String template, {
@@ -167,7 +169,8 @@ class NamingRule {
       cleaned = cleaned.replaceAll('__', '_');
     }
     if (cleaned.startsWith('.')) cleaned = '_${cleaned.substring(1)}';
-    if (cleaned.endsWith('.')) cleaned = '${cleaned.substring(0, cleaned.length - 1)}_';
+    if (cleaned.endsWith('.'))
+      cleaned = '${cleaned.substring(0, cleaned.length - 1)}_';
     return cleaned;
   }
 
@@ -194,7 +197,9 @@ class NamingRule {
 
   @override
   bool operator ==(Object other) =>
-      other is NamingRule && other.preset == preset && other.template == template;
+      other is NamingRule &&
+      other.preset == preset &&
+      other.template == template;
 
   @override
   int get hashCode => Object.hash(preset, template);

@@ -70,9 +70,7 @@ class MethodChannelUpdatePlatform implements UpdatePlatform {
       version: version,
       versionCode: versionCode,
       signingCertificateSha256: certificate,
-      supportedAbis: List<String>.unmodifiable(
-        supportedAbis.cast<String>(),
-      ),
+      supportedAbis: List<String>.unmodifiable(supportedAbis.cast<String>()),
     );
   }
 

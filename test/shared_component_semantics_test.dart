@@ -18,9 +18,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _host(
-        const FeedTail(
-          feed: PagedFeedState(loadMorePhase: FeedPhase.loading),
-        ),
+        const FeedTail(feed: PagedFeedState(loadMorePhase: FeedPhase.loading)),
       ),
     );
     expect(

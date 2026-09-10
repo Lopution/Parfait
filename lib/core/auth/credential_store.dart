@@ -30,7 +30,7 @@ abstract class CredentialStore {
 /// Android Keystore backed implementation with a versioned key namespace.
 class SecureCredentialStore implements CredentialStore {
   SecureCredentialStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   static const int schemaVersion = 1;
   static const String _keyPrefix = 'replica.credentials.v1.';

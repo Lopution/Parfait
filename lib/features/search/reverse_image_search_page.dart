@@ -33,7 +33,8 @@ class ReverseImageSearchPage extends ConsumerStatefulWidget {
   final ReverseImageExternalLauncher? externalLauncher;
 
   @override
-  ConsumerState<ReverseImageSearchPage> createState() => _ReverseImageSearchPageState();
+  ConsumerState<ReverseImageSearchPage> createState() =>
+      _ReverseImageSearchPageState();
 }
 
 class _ReverseImageSearchPageState
@@ -47,7 +48,8 @@ class _ReverseImageSearchPageState
     super.initState();
     _session = ReverseImageSearchSession(
       platform: widget.platform ?? MethodChannelReverseImageInputPlatform(),
-      provider: widget.provider ??
+      provider:
+          widget.provider ??
           SauceNaoWebViewProvider(
             client: ref.read(thirdPartyHttpClientProvider),
           ),
@@ -150,10 +152,7 @@ class _ReverseImageSearchPageState
           const SizedBox(height: 32),
           const Icon(Icons.image_search_outlined, size: 72),
           const SizedBox(height: 18),
-          Text(
-            context.l10n.searchReverseIntro,
-            textAlign: TextAlign.center,
-          ),
+          Text(context.l10n.searchReverseIntro, textAlign: TextAlign.center),
           const SizedBox(height: 24),
           _privacyCard(context),
           const SizedBox(height: 20),
@@ -329,9 +328,7 @@ class _ReverseImageSearchPageState
                 ? const Icon(Icons.chevron_right)
                 : OutlinedButton(
                     onPressed: () => _openExternal(hit.externalUrl!),
-                    child: Text(
-                      context.l10n.searchReverseOpenExternal,
-                    ),
+                    child: Text(context.l10n.searchReverseOpenExternal),
                   ),
             onTap: hit.pixivId == null
                 ? () => _openExternal(hit.externalUrl!)
@@ -488,4 +485,3 @@ class _ControlledSauceNaoWebViewState
     );
   }
 }
-

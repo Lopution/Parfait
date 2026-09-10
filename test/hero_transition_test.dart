@@ -475,23 +475,23 @@ void _noop() {}
 
 PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
     PageRouteBuilder<T>(
-  pageBuilder: (context, animation, secondaryAnimation) => builder(context),
-  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: MotionTokens.pageCurve,
+      pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: MotionTokens.pageCurve,
+        );
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        );
+      },
+      transitionDuration: MotionTokens.pageTransition,
+      reverseTransitionDuration: MotionTokens.pageTransition,
     );
-    return SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(1, 0),
-        end: Offset.zero,
-      ).animate(curved),
-      child: child,
-    );
-  },
-  transitionDuration: MotionTokens.pageTransition,
-  reverseTransitionDuration: MotionTokens.pageTransition,
-);
 
 Rect _heroClipRect(WidgetTester tester) {
   final clip = tester.widget<Widget>(find.byType(HeroRectClip));

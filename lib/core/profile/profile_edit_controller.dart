@@ -84,12 +84,10 @@ class ProfileEditSession {
 }
 
 /// Riverpod handle for the per-session profile editor.
-final profileEditControllerProvider =
-    NotifierProvider.autoDispose.family<
-      ProfileEditController,
-      ProfileEditState,
-      ProfileEditSession
-    >(ProfileEditController.new);
+final profileEditControllerProvider = NotifierProvider.autoDispose
+    .family<ProfileEditController, ProfileEditState, ProfileEditSession>(
+      ProfileEditController.new,
+    );
 
 /// Account/revision-fenced profile editor. It owns only the in-memory draft;
 /// persistent stores are changed through [onConfirmed] after the response has
@@ -102,8 +100,7 @@ class ProfileEditController extends Notifier<ProfileEditState> {
   ProfileEditRepository get repository => session.repository;
   ProfileEditOwner Function() get readOwner => session.readOwner;
   UserEntity get initialUser => session.initialUser;
-  Future<void> Function(UserEntity user) get onConfirmed =>
-      session.onConfirmed;
+  Future<void> Function(UserEntity user) get onConfirmed => session.onConfirmed;
 
   @override
   ProfileEditState build() {
@@ -113,7 +110,6 @@ class ProfileEditController extends Notifier<ProfileEditState> {
     });
     return const ProfileEditState.loading();
   }
-
 
   ProfileEditOwner _owner = ProfileEditOwner(accountId: '');
   CancelToken? _cancelToken;
@@ -358,7 +354,8 @@ class ProfileEditController extends Notifier<ProfileEditState> {
     Map<ProfileField, String> fieldErrors,
     String? currentPasswordError,
     String? password,
-  }) _validateDraft(ProfileDraft draft, String? currentPassword) {
+  })
+  _validateDraft(ProfileDraft draft, String? currentPassword) {
     final errors = ProfileTextValidator.validate(draft.values);
     for (final field in draft.dirtyFields) {
       if (!draft.capabilities.supports(field)) {

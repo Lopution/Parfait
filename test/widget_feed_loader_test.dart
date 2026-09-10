@@ -133,8 +133,7 @@ _makeWorld({
   Set<String> blockedTags = const {},
 }) async {
   final transports = _Transports();
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
 
   final credentials = FakeCredentialStore();
   for (final account in accounts) {
@@ -192,8 +191,7 @@ _makeWorld({
 void main() {
   installMemoryPreferences();
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test('writes a renderable snapshot filtering R-18 covers', () async {

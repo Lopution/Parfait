@@ -18,10 +18,7 @@ void main() {
       final bytes = encodeQuery(id: 0x1234, name: 'app-api.pixiv.net', type: 1);
       expect(bytes.sublist(0, 12), _hex('1234 0100 0001 0000 0000 0000'));
       // header(12) + label-length(1) + "app-api"(7) + label-length(1).
-      expect(
-        String.fromCharCodes(bytes.sublist(13, 13 + 7)),
-        'app-api',
-      );
+      expect(String.fromCharCodes(bytes.sublist(13, 13 + 7)), 'app-api');
       expect(bytes[20], 5);
       // trailing root + type + class IN.
       expect(bytes.sublist(bytes.length - 5), [0, 0, 1, 0, 1]);
@@ -32,10 +29,7 @@ void main() {
         () => encodeQuery(id: 0x10000, name: 'a.com'),
         throwsA(isA<ArgumentError>()),
       );
-      expect(
-        () => encodeQuery(id: 0, name: ''),
-        throwsA(isA<ArgumentError>()),
-      );
+      expect(() => encodeQuery(id: 0, name: ''), throwsA(isA<ArgumentError>()));
       expect(
         () => encodeQuery(id: 0, name: 'a..com'),
         throwsA(isA<ArgumentError>()),
@@ -48,8 +42,16 @@ void main() {
     });
 
     test('recursionDesired flag is controllable', () {
-      final on = encodeQuery(id: 0, name: 'example.com', recursionDesired: true);
-      final off = encodeQuery(id: 0, name: 'example.com', recursionDesired: false);
+      final on = encodeQuery(
+        id: 0,
+        name: 'example.com',
+        recursionDesired: true,
+      );
+      final off = encodeQuery(
+        id: 0,
+        name: 'example.com',
+        recursionDesired: false,
+      );
       expect(on[2], 0x01);
       expect(off[2], 0x00);
     });
@@ -70,7 +72,10 @@ void main() {
       expect(response.question?.name, 'app-api.pixiv.net');
       expect(response.question?.type, 1);
       expect(response.addressAnswers, hasLength(1));
-      expect(response.addressAnswers.single.address, InternetAddress('1.2.3.4'));
+      expect(
+        response.addressAnswers.single.address,
+        InternetAddress('1.2.3.4'),
+      );
       expect(response.addressAnswers.single.ttl, 60);
     });
 
@@ -112,7 +117,10 @@ void main() {
       );
       final response = decodeResponse(bytes);
       expect(response.answers.single.name, 'ipiv');
-      expect(response.addressAnswers.single.address, InternetAddress('10.0.0.1'));
+      expect(
+        response.addressAnswers.single.address,
+        InternetAddress('10.0.0.1'),
+      );
     });
 
     test('mixed A/AAAA answers keep both', () {
@@ -158,8 +166,10 @@ void main() {
       // Answer claims 4-byte data but message ends early.
       expect(
         () => decodeResponse(
-          _hex('0001 8180 0001 0001 0000 0000 0469 7069 7600 0001 0001 '
-              'c00c 0001 0001 0000003c 0004 0102'),
+          _hex(
+            '0001 8180 0001 0001 0000 0000 0469 7069 7600 0001 0001 '
+            'c00c 0001 0001 0000003c 0004 0102',
+          ),
         ),
         throwsA(isA<DnsCodecException>()),
       );
@@ -218,7 +228,9 @@ void _registerEchTests() {
       final ech = <int>[0xfe, 0x0d, 1, 2, 3];
       final rdata = _httpsRdata(
         target: 'cloudflare-ech.com',
-        params: [const MapEntry(5, [0xfe, 0x0d, 1, 2, 3])],
+        params: [
+          const MapEntry(5, [0xfe, 0x0d, 1, 2, 3]),
+        ],
       );
       final config = echConfigFromHttpsRdata(rdata);
       expect(config, isNotNull);
@@ -243,7 +255,9 @@ void _registerEchTests() {
     test('returns null when no ech SvcParam is present', () {
       final rdata = _httpsRdata(
         target: 'cloudflare-ech.com',
-        params: [const MapEntry(1, [0x00])],
+        params: [
+          const MapEntry(1, [0x00]),
+        ],
       );
       expect(echConfigFromHttpsRdata(rdata), isNull);
     });
@@ -283,7 +297,9 @@ void _registerEchTests() {
     test('keeps rdata for type 65 and decodes A normally', () {
       final ech = _httpsRdata(
         target: 'cloudflare-ech.com',
-        params: [const MapEntry(5, [7, 8, 9])],
+        params: [
+          const MapEntry(5, [7, 8, 9]),
+        ],
       );
       // header(id, flags, qd=1, an=1)
       final payload = <int>[

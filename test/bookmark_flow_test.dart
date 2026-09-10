@@ -70,8 +70,7 @@ Future<World> _makeWorld({
   int addStatus = 200,
   int deleteStatus = 200,
 }) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _BookmarkApiFixture(gate: gate)
     ..addStatus = addStatus
     ..deleteStatus = deleteStatus;
@@ -120,8 +119,7 @@ Future<World> _makeWorld({
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test(

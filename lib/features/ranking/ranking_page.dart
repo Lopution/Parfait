@@ -172,15 +172,15 @@ class _RankingModeBody extends ConsumerWidget {
               restorationId: 'ranking-${mode.name}',
               slivers: [
                 IllustFeedGrid(
-  padding: const EdgeInsets.symmetric(horizontal: 10),
-  mainAxisSpacing: 5,
-  crossAxisSpacing: 10,
-  itemCount: entities.length,
-  itemBuilder: (context, index) => IllustCard(
-                      entity: entities[index],
-                      heroScope: 'ranking:${mode.name}',
-                    ),
-),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  mainAxisSpacing: 5,
+                  crossAxisSpacing: 10,
+                  itemCount: entities.length,
+                  itemBuilder: (context, index) => IllustCard(
+                    entity: entities[index],
+                    heroScope: 'ranking:${mode.name}',
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: FeedTail(
                     feed: feed,
@@ -199,4 +199,3 @@ class _RankingModeBody extends ConsumerWidget {
     );
   }
 }
-

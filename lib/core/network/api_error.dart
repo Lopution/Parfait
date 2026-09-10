@@ -61,7 +61,8 @@ class ApiRateLimited extends ApiError {
   final Duration? retryAfter;
 
   @override
-  String get message => 'rate limited${retryAfter == null ? '' : ', retry after ${retryAfter!.inSeconds}s'}';
+  String get message =>
+      'rate limited${retryAfter == null ? '' : ', retry after ${retryAfter!.inSeconds}s'}';
 }
 
 /// Response body could not be parsed into the expected schema.

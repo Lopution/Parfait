@@ -7,25 +7,21 @@ void main() {
       final result = parseIllustCaption('hello &amp; goodbye &lt;3');
       expect(result.unobservedTags, isEmpty);
       expect(result.spans, [
-        isA<CaptionText>()
-            .having((s) => s.text, 'text', 'hello & goodbye <3'),
+        isA<CaptionText>().having((s) => s.text, 'text', 'hello & goodbye <3'),
       ]);
     });
 
     test('br renders as explicit breaks', () {
       final result = parseIllustCaption('a<br>b<br/>c<br />d');
-      expect(
-        result.spans,
-        [
-          const CaptionText('a'),
-          const CaptionBreak(),
-          const CaptionText('b'),
-          const CaptionBreak(),
-          const CaptionText('c'),
-          const CaptionBreak(),
-          const CaptionText('d'),
-        ],
-      );
+      expect(result.spans, [
+        const CaptionText('a'),
+        const CaptionBreak(),
+        const CaptionText('b'),
+        const CaptionBreak(),
+        const CaptionText('c'),
+        const CaptionBreak(),
+        const CaptionText('d'),
+      ]);
     });
 
     test('links keep href and text, tags inside link text are stripped', () {

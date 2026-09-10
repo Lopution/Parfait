@@ -80,7 +80,8 @@ class MePage extends ConsumerWidget {
   }
 }
 
-String _profileText(BuildContext context, String key) => l10nLookup(context.l10n, key);
+String _profileText(BuildContext context, String key) =>
+    l10nLookup(context.l10n, key);
 
 class _UserPageState extends ConsumerState<UserPage>
     with SingleTickerProviderStateMixin {
@@ -254,9 +255,7 @@ class _UserPageState extends ConsumerState<UserPage>
       children: [
         if (staleError != null)
           MaterialBanner(
-            content: Text(
-              '${context.l10n.profileLoadFailed}: $staleError',
-            ),
+            content: Text('${context.l10n.profileLoadFailed}: $staleError'),
             actions: [
               TextButton(
                 onPressed: () => ref
@@ -375,10 +374,7 @@ class _ProfileAbout extends StatelessWidget {
       if (user.account.isNotEmpty)
         (label: context.l10n.profileAccount, value: user.account),
       if (user.comment != null)
-        (
-          label: context.l10n.profileIntroduction,
-          value: user.comment!,
-        ),
+        (label: context.l10n.profileIntroduction, value: user.comment!),
       if (user.webpage != null)
         (label: context.l10n.profileWebsite, value: user.webpage!),
       if (user.twitterUrl != null) (label: 'Twitter', value: user.twitterUrl!),

@@ -20,7 +20,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _package = 'pixiv_func';
 
-final _finalRegExp = RegExp(r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''', multiLine: true);
+final _finalRegExp = RegExp(
+  r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',
+  multiLine: true,
+);
 final _partRegExp = RegExp(r'''^\s*part\s+['"]([^'"]+)['"]''', multiLine: true);
 
 /// (from-file, to-file) edges that are known violations, allow-listed until
@@ -78,8 +81,10 @@ void main() {
     final dataLayerFiles = <String>{};
     final widgetFiles = <String>{};
 
-    final sharedWidgetPattern =
-        RegExp(r'^\s*class\s+_(?:\w*)(?:Tail|Error|Empty|Card|Status|Placeholder)\b', multiLine: true);
+    final sharedWidgetPattern = RegExp(
+      r'^\s*class\s+_(?:\w*)(?:Tail|Error|Empty|Card|Status|Placeholder)\b',
+      multiLine: true,
+    );
 
     for (final f in files) {
       final src = File(f).readAsStringSync();
@@ -115,7 +120,8 @@ void main() {
       } else if (fromLayer == 'features' && toLayer == 'features') {
         final fa = _featureOf(from);
         final fb = _featureOf(to);
-        if (fa != fb && to != 'lib/app/navigation/routes.dart') violations.add(e);
+        if (fa != fb && to != 'lib/app/navigation/routes.dart')
+          violations.add(e);
       } else if (fromLayer == 'app' && toLayer == 'features') {
         if (from != 'lib/app/navigation/routes.dart') violations.add(e);
       }
@@ -126,27 +132,42 @@ void main() {
     final unlistedData = dataLayerFiles.difference(_allowListedDataFiles);
     final unlistedWidgets = widgetFiles.difference(_allowListedWidgetFiles);
 
-    expect(unlisted, isEmpty,
-        reason: 'Layering violations not allow-listed:\n${unlisted.join('\n')}');
-    expect(unlistedData, isEmpty,
-        reason: 'Data-layer files still under features/ not allow-listed:\n${unlistedData.join('\n')}');
-    expect(unlistedWidgets, isEmpty,
-        reason: 'Shared-component widgets in features/ not allow-listed:\n${unlistedWidgets.join('\n')}');
+    expect(
+      unlisted,
+      isEmpty,
+      reason: 'Layering violations not allow-listed:\n${unlisted.join('\n')}',
+    );
+    expect(
+      unlistedData,
+      isEmpty,
+      reason:
+          'Data-layer files still under features/ not allow-listed:\n${unlistedData.join('\n')}',
+    );
+    expect(
+      unlistedWidgets,
+      isEmpty,
+      reason:
+          'Shared-component widgets in features/ not allow-listed:\n${unlistedWidgets.join('\n')}',
+    );
     // Print remaining allow-list so the next refactor knows what to remove.
     if (stale.isNotEmpty) {
       // ignore: avoid_print
-      print('Allow-list entries that no longer violate (remove them):\n${stale.join('\n')}');
+      print(
+        'Allow-list entries that no longer violate (remove them):\n${stale.join('\n')}',
+      );
     }
     // ignore: avoid_print
     print(
-        'Still allow-listed: ${_allowListedEdges.length} edges, '
-        '${_allowListedDataFiles.length} data files, ${_allowListedWidgetFiles.length} widget files.');
+      'Still allow-listed: ${_allowListedEdges.length} edges, '
+      '${_allowListedDataFiles.length} data files, ${_allowListedWidgetFiles.length} widget files.',
+    );
   });
 }
 
 String _layerOf(String path) {
   if (!path.startsWith('lib/')) return 'other';
   final parts = path.split('/');
-  if (parts[1] == 'core' || parts[1] == 'features' || parts[1] == 'app') return parts[1];
+  if (parts[1] == 'core' || parts[1] == 'features' || parts[1] == 'app')
+    return parts[1];
   return 'lib-root';
 }

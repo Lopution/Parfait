@@ -184,7 +184,8 @@ class _FakeClient extends http.BaseClient {
           (s.host != null && request.url.host == s.host),
       orElse: () => throw StateError('unexpected endpoint ${request.url}'),
     );
-    return server.handle(req);  }
+    return server.handle(req);
+  }
 }
 
 const _revision = NetworkRevision(0);
@@ -463,36 +464,38 @@ void main() {
     );
   });
   group('lookupEchConfig', () {
-    test('uses the dedicated ECH endpoints (Alicdn) instead of the A-record ones',
-        () async {
-      final echServer = _FakeDohServer(address: '223.5.5.5')
-        ..host = 'dns.alidns.com'
-        ..httpsEchRdata = _echRdata([0xfe, 0x0d])
-        ..httpsTtl = 60;
-      final aServer = _FakeDohServer(address: '1.1.1.1');
-      final resolver = DohResolver(
-        endpointUrls: ['https://1.1.1.1/dns-query'],
-        echEndpointUrls: ['https://dns.alidns.com/dns-query'],
-        client: _FakeClient([echServer, aServer]),
-      );
-      addTearDown(resolver.dispose);
+    test(
+      'uses the dedicated ECH endpoints (Alicdn) instead of the A-record ones',
+      () async {
+        final echServer = _FakeDohServer(address: '223.5.5.5')
+          ..host = 'dns.alidns.com'
+          ..httpsEchRdata = _echRdata([0xfe, 0x0d])
+          ..httpsTtl = 60;
+        final aServer = _FakeDohServer(address: '1.1.1.1');
+        final resolver = DohResolver(
+          endpointUrls: ['https://1.1.1.1/dns-query'],
+          echEndpointUrls: ['https://dns.alidns.com/dns-query'],
+          client: _FakeClient([echServer, aServer]),
+        );
+        addTearDown(resolver.dispose);
 
-      final result = await resolver.lookupEchConfig(
-        'cloudflare-ech.com',
-        revision: _revision,
-      );
+        final result = await resolver.lookupEchConfig(
+          'cloudflare-ech.com',
+          revision: _revision,
+        );
 
-      expect(result.echConfig, [0xfe, 0x0d]);
-      // The ECH query went to the alidns endpoint, while the A-record query
-      // still uses the original endpoint list.
-      expect(
-        (await resolver.resolve('app-api.pixiv.net', revision: _revision))
-            .addresses
-            .single
-            .address,
-        '1.1.1.1',
-      );
-    });
+        expect(result.echConfig, [0xfe, 0x0d]);
+        // The ECH query went to the alidns endpoint, while the A-record query
+        // still uses the original endpoint list.
+        expect(
+          (await resolver.resolve(
+            'app-api.pixiv.net',
+            revision: _revision,
+          )).addresses.single.address,
+          '1.1.1.1',
+        );
+      },
+    );
 
     test('extracts ech config from an HTTPS RR answer', () async {
       final server = _FakeDohServer(address: '1.1.1.1')

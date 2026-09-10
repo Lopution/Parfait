@@ -383,9 +383,8 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           onSelected: (suggestion) => _selectSuggestion(controller, suggestion),
         ),
       ],
-      viewBuilder: (suggestions) => suggestions.isEmpty
-          ? const SizedBox.shrink()
-          : suggestions.single,
+      viewBuilder: (suggestions) =>
+          suggestions.isEmpty ? const SizedBox.shrink() : suggestions.single,
     );
   }
 

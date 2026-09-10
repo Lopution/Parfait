@@ -154,7 +154,9 @@ class FeedError extends StatelessWidget {
       ],
     );
     if (!scrollable) {
-      return Center(child: Padding(padding: const EdgeInsets.all(24), child: column));
+      return Center(
+        child: Padding(padding: const EdgeInsets.all(24), child: column),
+      );
     }
     return Center(
       child: SingleChildScrollView(

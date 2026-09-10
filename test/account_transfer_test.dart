@@ -64,7 +64,8 @@ void main() {
     expect(() => TransferEnvelope.parse('not base64'), _corrupt());
     expect(() => TransferEnvelope.parse(''), _corrupt());
     expect(
-      () => TransferEnvelope.parse('A' * (TransferEnvelope.maxEncodedLength + 1)),
+      () =>
+          TransferEnvelope.parse('A' * (TransferEnvelope.maxEncodedLength + 1)),
       _corrupt(),
     );
     expect(

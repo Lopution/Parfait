@@ -72,7 +72,8 @@ class IllustCard extends ConsumerWidget {
           onTap: openDetail,
           child: GestureDetector(
             excludeFromSemantics: true,
-          onTapDown: (_) => _preloadTransitionImages(context, ref, previewUrl),
+            onTapDown: (_) =>
+                _preloadTransitionImages(context, ref, previewUrl),
             onTap: openDetail,
             child: ClipRRect(
               borderRadius: const BorderRadius.all(Radius.circular(12)),

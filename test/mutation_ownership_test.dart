@@ -63,8 +63,7 @@ class _BookmarkRepository implements BookmarkRepository {
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test('mutation envelope has explicit owner and non-secret identity', () {
@@ -94,9 +93,7 @@ void main() {
 
   test('reopening a rebuilt ledger keeps telemetry but not pending work', () {
     final ledger = MutationLedger();
-    const boundary = MutationBoundary(
-      accountId: 'a',
-    );
+    const boundary = MutationBoundary(accountId: 'a');
     final envelope = ledger.begin(
       boundary: boundary,
       entityType: 'illust',
