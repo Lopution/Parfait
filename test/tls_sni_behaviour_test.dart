@@ -35,17 +35,14 @@ void main() {
     () => _tolerant(() async {
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close());
-      final firstBytes = _firstBytes(server).timeout(
-        const Duration(seconds: 10),
-      );
+      final firstBytes = _firstBytes(
+        server,
+      ).timeout(const Duration(seconds: 10));
       final client = HttpClient();
       addTearDown(() => client.close(force: true));
       client.findProxy = (_) => 'DIRECT';
       client.connectionFactory = (url, proxyHost, proxyPort) {
-        return Socket.startConnect(
-          InternetAddress.loopbackIPv4,
-          server.port,
-        );
+        return Socket.startConnect(InternetAddress.loopbackIPv4, server.port);
       };
       // The plain loopback server never completes TLS, so close() never
       // resolves; the observable is the first bytes on the server side.
@@ -66,7 +63,8 @@ void main() {
       expect(
         bytes.take(3),
         [0x47, 0x45, 0x54],
-        reason: 'Dart HttpClient skips TLS when connectionFactory is set: '
+        reason:
+            'Dart HttpClient skips TLS when connectionFactory is set: '
             'the returned socket is used as-is (http_impl.dart). A strict '
             'route factory MUST wrap the socket in SecureSocket.secure to '
             'avoid leaking plaintext credentials at 443.',
@@ -118,7 +116,8 @@ void main() {
       expect(
         parseServerName(await hello),
         'app-api.pixiv.net',
-        reason: 'SecureSocket.secure with the real hostname must keep the '
+        reason:
+            'SecureSocket.secure with the real hostname must keep the '
             'hostname as SNI even though the TCP peer is a different IP',
       );
     }),
@@ -198,8 +197,7 @@ Future<Uint8List> _clientHello(ServerSocket server) {
         buffer.add(chunk);
         final bytes = buffer.toBytes();
         if (bytes.length >= 5) {
-          final payloadLength =
-              ByteData.sublistView(bytes, 3, 5).getUint16(0);
+          final payloadLength = ByteData.sublistView(bytes, 3, 5).getUint16(0);
           if (bytes.length >= 5 + payloadLength) {
             completer.complete(bytes.sublist(5, 5 + payloadLength));
             return;
@@ -227,8 +225,11 @@ String? parseServerName(Uint8List bytes) {
   final sessionIdLength = bytes[offset];
   offset += 1 + sessionIdLength;
   if (bytes.length < offset + 2) return null;
-  final cipherLength = ByteData.sublistView(bytes, offset, offset + 2)
-      .getUint16(0);
+  final cipherLength = ByteData.sublistView(
+    bytes,
+    offset,
+    offset + 2,
+  ).getUint16(0);
   offset += 2 + cipherLength;
   if (bytes.length < offset + 1) return null;
   final compressionLength = bytes[offset];
@@ -244,8 +245,11 @@ String? parseServerName(Uint8List bytes) {
   if (extensionListEnd > bytes.length) return null;
   while (offset + 4 <= extensionListEnd) {
     final type = ByteData.sublistView(bytes, offset, offset + 2).getUint16(0);
-    final length = ByteData.sublistView(bytes, offset + 2, offset + 4)
-        .getUint16(0);
+    final length = ByteData.sublistView(
+      bytes,
+      offset + 2,
+      offset + 4,
+    ).getUint16(0);
     offset += 4;
     if (offset + length > extensionListEnd) return null;
     if (type == 0x0000 && length >= 5) {

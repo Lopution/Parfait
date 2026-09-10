@@ -166,7 +166,7 @@ class HttpDownloadTransport
       throw DownloadTransportException('request failed', cause: error);
     }
     if (cancelToken.isCancelled) {
-      response.stream.listen(null).cancel();
+      unawaited(response.stream.listen(null).cancel());
       throw const DownloadCancelledException();
     }
     final lengthHeader = response.contentLength;

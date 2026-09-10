@@ -1,3 +1,8 @@
+/// Typed search selectors and wire values shared by search repositories/pages.
+/// This library owns enum-to-wire mappings; query UI state belongs to the
+/// search controllers. See `frontend/type-safety.md`.
+library;
+
 import 'package:flutter/foundation.dart';
 
 /// The result tabs exposed by the beta56 search input page.

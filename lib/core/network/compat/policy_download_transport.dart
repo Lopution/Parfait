@@ -79,7 +79,6 @@ class PolicyDownloadTransport
     });
   }
 
-
   @override
   Future<void> dispose() async {
     final transports = _transports.values.toList(growable: false);

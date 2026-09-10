@@ -2,13 +2,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
@@ -24,6 +19,9 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 /// Minimal WebView platform stub so pages can build in widget tests.
 class _FakeWebViewPlatform extends WebViewPlatform {
@@ -135,19 +133,6 @@ class _FakeWebViewWidget extends PlatformWebViewWidget {
   dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
 }
 
-class _NoCredentialStore implements CredentialStore {
-  const _NoCredentialStore();
-
-  @override
-  Future<Credential?> read(String accountId) async => null;
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {}
-
-  @override
-  Future<void> delete(String accountId) async {}
-}
-
 /// Settings storage that fails a fixed number of reads, then succeeds.
 /// Retry has to be observable as a real second read, not a rebuild.
 class _FlakySettingsRepository implements SettingsRepository {
@@ -170,17 +155,6 @@ class _FlakySettingsRepository implements SettingsRepository {
   Future<void> save(AppSettings settings) async {}
 }
 
-class _EmptyMetadataRepository implements AccountMetadataRepository {
-  const _EmptyMetadataRepository();
-
-  @override
-  Future<AccountMetadataSnapshot> load() async =>
-      const AccountMetadataSnapshot(accounts: []);
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
-
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -193,10 +167,7 @@ void main() {
     addTearDown(router.dispose);
     return ProviderScope(
       overrides: [
-        credentialStoreProvider.overrideWithValue(const _NoCredentialStore()),
-        accountMetadataRepositoryProvider.overrideWithValue(
-          const _EmptyMetadataRepository(),
-        ),
+        ...accountProviderOverrides(),
         oauthServiceProvider.overrideWithValue(
           OAuthService(exchangeTimeout: Duration.zero),
         ),
@@ -237,12 +208,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            credentialStoreProvider.overrideWithValue(
-              const _NoCredentialStore(),
-            ),
-            accountMetadataRepositoryProvider.overrideWithValue(
-              const _EmptyMetadataRepository(),
-            ),
+            ...accountProviderOverrides(),
             oauthServiceProvider.overrideWithValue(service),
           ],
           child: MaterialApp(
@@ -299,10 +265,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          credentialStoreProvider.overrideWithValue(const _NoCredentialStore()),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            const _EmptyMetadataRepository(),
-          ),
+          ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(service),
         ],
         child: MaterialApp(
@@ -348,10 +311,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          credentialStoreProvider.overrideWithValue(const _NoCredentialStore()),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            const _EmptyMetadataRepository(),
-          ),
+          ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(service),
         ],
         child: MaterialApp(
@@ -451,10 +411,7 @@ void main() {
       ProviderScope(
         overrides: [
           networkAccessPolicyProvider.overrideWithValue(policy),
-          credentialStoreProvider.overrideWithValue(const _NoCredentialStore()),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            const _EmptyMetadataRepository(),
-          ),
+          ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(
             OAuthService(exchangeTimeout: Duration.zero),
           ),
@@ -482,10 +439,7 @@ void main() {
       retry: (retryCount, error) => null,
       overrides: [
         settingsRepositoryProvider.overrideWithValue(repository),
-        credentialStoreProvider.overrideWithValue(const _NoCredentialStore()),
-        accountMetadataRepositoryProvider.overrideWithValue(
-          const _EmptyMetadataRepository(),
-        ),
+        ...accountProviderOverrides(),
         oauthServiceProvider.overrideWithValue(
           OAuthService(exchangeTimeout: Duration.zero),
         ),

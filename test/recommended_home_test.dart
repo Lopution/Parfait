@@ -4,51 +4,23 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'helpers/illust_fixtures.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
-class _FakeCredentialStore implements CredentialStore {
-  final _secrets = <String, Credential>{};
-
-  void seed(String accountId, Credential credential) =>
-      _secrets[accountId] = credential;
-
-  @override
-  Future<Credential?> read(String accountId) async => _secrets[accountId];
-
-  @override
-  Future<void> write(String accountId, Credential credential) async =>
-      _secrets[accountId] = credential;
-
-  @override
-  Future<void> delete(String accountId) async => _secrets.remove(accountId);
-}
-
-class _FakeMetadataRepository implements AccountMetadataRepository {
-  @override
-  Future<AccountMetadataSnapshot> load() async => const AccountMetadataSnapshot(
-    accounts: [Account(id: '100', userId: 100, name: 'tester')],
-    currentId: '100',
-  );
-
-  @override
-  Future<void> save(List<Account> accounts, String? currentId) async {}
-}
+import 'helpers/fake_account.dart';
+import 'helpers/illust_fixtures.dart';
+import 'helpers/test_preferences.dart';
 
 String _novelJson(int id) => jsonEncode({
   'id': id,
@@ -60,7 +32,7 @@ String _novelJson(int id) => jsonEncode({
     'account': 'author',
     'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
   },
-  'tags': [],
+  'tags': <Object?>[],
   'text_length': 100,
   'create_date': '2026-08-01T10:00:00+09:00',
   'image_urls': {'medium': 'https://i.pximg.net/n$id.png'},
@@ -115,8 +87,8 @@ class _ApiFixture {
                       'medium': 'https://i.pximg.net/u$i.png',
                     },
                   },
-                  'illusts': [],
-                  'novels': [],
+                  'illusts': <Object?>[],
+                  'novels': <Object?>[],
                 },
             ],
             'next_url': null,
@@ -133,7 +105,7 @@ class _ApiFixture {
 Future<(ProviderContainer, _ApiFixture)> _makeWorld() async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _ApiFixture();
-  final credentials = _FakeCredentialStore()
+  final credentials = FakeCredentialStore()
     ..seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
@@ -143,7 +115,10 @@ Future<(ProviderContainer, _ApiFixture)> _makeWorld() async {
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
-        _FakeMetadataRepository(),
+        FakeAccountMetadataRepository(
+          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
+          currentId: '100',
+        ),
       ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(

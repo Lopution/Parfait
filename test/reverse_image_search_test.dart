@@ -9,7 +9,6 @@ import 'package:pixiv_func/core/reverse_image/reverse_image_controller.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_provider.dart';
 
-
 ReverseImageFlowState _stateOf(
   ProviderContainer container,
   ReverseImageSearchSession session,
@@ -191,7 +190,9 @@ void main() {
       ),
     );
     expect(
-      () => ReverseImageResultMapper.fromSauceNaoJson({'results': {}}),
+      () => ReverseImageResultMapper.fromSauceNaoJson({
+        'results': <String, Object?>{},
+      }),
       throwsA(isA<ReverseImageProviderException>()),
     );
   });
@@ -242,7 +243,10 @@ void main() {
       ),
     );
 
-    expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.failure);
+    expect(
+      _stateOf(containerController, sessionController).status,
+      ReverseImageFlowStatus.failure,
+    );
     expect(
       _stateOf(containerController, sessionController).failure?.code,
       ReverseImageInputFailureCode.missingReadPermission,
@@ -279,7 +283,10 @@ void main() {
 
     await controller.prepare(reference);
     await controller.cancel();
-    expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.canceled);
+    expect(
+      _stateOf(containerController, sessionController).status,
+      ReverseImageFlowStatus.canceled,
+    );
     expect(platform.deletedPaths, [file.path]);
 
     final retryPlatform = _FakeReverseImageInputPlatform(file);
@@ -300,12 +307,21 @@ void main() {
     await retryController.prepare(reference);
     await retryController.search();
 
-    expect(_stateOf(containerRetryController, sessionRetryController).status, ReverseImageFlowStatus.failure);
+    expect(
+      _stateOf(containerRetryController, sessionRetryController).status,
+      ReverseImageFlowStatus.failure,
+    );
     expect(
       _stateOf(containerRetryController, sessionRetryController).failure?.code,
       ReverseImageProviderFailureCode.rateLimited,
     );
-    expect(_stateOf(containerRetryController, sessionRetryController).failure?.retryable, isTrue);
+    expect(
+      _stateOf(
+        containerRetryController,
+        sessionRetryController,
+      ).failure?.retryable,
+      isTrue,
+    );
     expect(retryPlatform.deletedPaths, [file.path]);
   });
 
@@ -339,12 +355,18 @@ void main() {
     await controller.prepare(reference);
     await controller.search();
 
-    expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.failure);
+    expect(
+      _stateOf(containerController, sessionController).status,
+      ReverseImageFlowStatus.failure,
+    );
     expect(
       _stateOf(containerController, sessionController).failure?.code,
       ReverseImageProviderFailureCode.rateLimited,
     );
-    expect(_stateOf(containerController, sessionController).failure?.retryAfter, const Duration(seconds: 27));
+    expect(
+      _stateOf(containerController, sessionController).failure?.retryAfter,
+      const Duration(seconds: 27),
+    );
     expect(platform.deletedPaths, [file.path]);
   });
 
@@ -376,7 +398,10 @@ void main() {
     await controller.prepare(reference);
     await controller.search();
 
-    expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.success);
+    expect(
+      _stateOf(containerController, sessionController).status,
+      ReverseImageFlowStatus.success,
+    );
     expect(_stateOf(containerController, sessionController).webView, isNotNull);
     expect(platform.deletedPaths, [file.path]);
   });
@@ -404,9 +429,15 @@ void main() {
       );
 
       await controller.prepare(reference);
-      expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.ready);
+      expect(
+        _stateOf(containerController, sessionController).status,
+        ReverseImageFlowStatus.ready,
+      );
       await controller.search();
-      expect(_stateOf(containerController, sessionController).status, ReverseImageFlowStatus.failure);
+      expect(
+        _stateOf(containerController, sessionController).status,
+        ReverseImageFlowStatus.failure,
+      );
       expect(
         _stateOf(containerController, sessionController).failure?.code,
         ReverseImageProviderFailureCode.providerUnavailable,

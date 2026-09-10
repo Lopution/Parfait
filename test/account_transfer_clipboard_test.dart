@@ -16,9 +16,9 @@ void main() {
     MethodCall? received;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      received = call;
-      return true;
-    });
+          received = call;
+          return true;
+        });
     final clipboard = MethodChannelTransferClipboard(channel);
 
     await clipboard.write(
@@ -39,19 +39,21 @@ void main() {
   test('method channel read rejects a platform fingerprint mismatch', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      return <String, Object?>{
-        'text': 'transfer-payload',
-        'fingerprint': '0' * 64,
-      };
-    });
+          return <String, Object?>{
+            'text': 'transfer-payload',
+            'fingerprint': '0' * 64,
+          };
+        });
 
     await expectLater(
       MethodChannelTransferClipboard(channel).read(),
-      throwsA(isA<AccountTransferException>().having(
-        (error) => error.code,
-        'code',
-        AccountTransferErrorCode.clipboardUnavailable,
-      )),
+      throwsA(
+        isA<AccountTransferException>().having(
+          (error) => error.code,
+          'code',
+          AccountTransferErrorCode.clipboardUnavailable,
+        ),
+      ),
     );
   });
 
@@ -60,9 +62,9 @@ void main() {
         .setMockMethodCallHandler(channel, (call) async => false);
 
     expect(
-      await MethodChannelTransferClipboard(channel).clearIfCurrent(
-        transferClipboardFingerprint('transfer-payload'),
-      ),
+      await MethodChannelTransferClipboard(
+        channel,
+      ).clearIfCurrent(transferClipboardFingerprint('transfer-payload')),
       isFalse,
     );
   });

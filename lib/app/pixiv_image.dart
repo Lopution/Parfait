@@ -127,7 +127,8 @@ class PixivImage extends ConsumerWidget {
   /// (tests).
   static int decodeWidthFor(double layoutWidth, {double? devicePixelRatio}) {
     final dpr =
-        devicePixelRatio ?? PlatformDispatcher.instance.views.first.devicePixelRatio;
+        devicePixelRatio ??
+        PlatformDispatcher.instance.views.first.devicePixelRatio;
     final physical = layoutWidth * dpr;
     final cap = layoutWidth * 1.5;
     return (physical < cap ? physical : cap).round().clamp(1, 100000);
@@ -137,9 +138,10 @@ class PixivImage extends ConsumerWidget {
   static int get _screenDecodeWidth {
     final view = PlatformDispatcher.instance.views.first;
     final dpr = view.devicePixelRatio;
-    return (view.physicalSize.width / (dpr == 0 ? 1 : dpr) * dpr)
-        .round()
-        .clamp(1, 100000);
+    return (view.physicalSize.width / (dpr == 0 ? 1 : dpr) * dpr).round().clamp(
+      1,
+      100000,
+    );
   }
 
   final String url;

@@ -1,3 +1,8 @@
+/// Typed download jobs, streaming sinks, progress, and durable recovery.
+/// [DownloadManager] owns job lifecycle; platform sinks own final output.
+/// See `frontend/state-management.md` and `backend/directory-structure.md`.
+library;
+
 import 'dart:async';
 import '../network/pixiv_headers.dart';
 import 'dart:io';

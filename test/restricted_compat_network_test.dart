@@ -378,56 +378,61 @@ void main() {
     expect(secureDns.requests.single.url.port, 443);
   });
 
-  test('the strict tier is tried before an unverified direct attempt',
-      () async {
-    final direct = _FakeClient(body: '{"route":"direct"}');
-    final resolver = _FakeResolver([InternetAddress('1.2.3.40')]);
-    final policy = NetworkAccessPolicy(
-      resolver: resolver,
-      clientFactory: (route, canonicalHost, purpose) => direct,
-    );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
-    );
+  test(
+    'the strict tier is tried before an unverified direct attempt',
+    () async {
+      final direct = _FakeClient(body: '{"route":"direct"}');
+      final resolver = _FakeResolver([InternetAddress('1.2.3.40')]);
+      final policy = NetworkAccessPolicy(
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, purpose) => direct,
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.appApi,
+      );
 
-    final response = await client.get(_apiUri);
+      final response = await client.get(_apiUri);
 
-    expect(response.statusCode, 200);
-    expect(resolver.calls, 1);
-    expect(direct.requests.map((request) => request.method), ['GET']);
-    expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
-  });
+      expect(response.statusCode, 200);
+      expect(resolver.calls, 1);
+      expect(direct.requests.map((request) => request.method), ['GET']);
+      expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
+    },
+  );
 
-  test('a POST prefers the strict tier; direct is only a last resort', () async {
-    final direct = _FakeClient(failure: SocketException('Connection reset'));
-    final secureDns = _FakeClient(body: 'should-not-send');
-    final resolver = _FakeResolver([InternetAddress('1.2.3.5')]);
-    final policy = NetworkAccessPolicy(
-      resolver: resolver,
-      clientFactory: (route, canonicalHost, _) =>
-          route.kind == NetworkRouteKind.direct ? direct : secureDns,
-    );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
-    );
+  test(
+    'a POST prefers the strict tier; direct is only a last resort',
+    () async {
+      final direct = _FakeClient(failure: SocketException('Connection reset'));
+      final secureDns = _FakeClient(body: 'should-not-send');
+      final resolver = _FakeResolver([InternetAddress('1.2.3.5')]);
+      final policy = NetworkAccessPolicy(
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, _) =>
+            route.kind == NetworkRouteKind.direct ? direct : secureDns,
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.appApi,
+      );
 
-    final response = await client.post(
-      Uri.parse('https://app-api.pixiv.net/v1/illust/bookmark/add'),
-      body: const {'illust_id': '1'},
-    );
-    expect(response.statusCode, 200);
-    expect(resolver.calls, 1);
-    expect(
-      direct.requests,
-      isEmpty,
-      reason: 'the DoH tier answered; direct never needs an attempt',
-    );
-    expect(secureDns.requests.map((request) => request.method), ['POST']);
-  });
+      final response = await client.post(
+        Uri.parse('https://app-api.pixiv.net/v1/illust/bookmark/add'),
+        body: const {'illust_id': '1'},
+      );
+      expect(response.statusCode, 200);
+      expect(resolver.calls, 1);
+      expect(
+        direct.requests,
+        isEmpty,
+        reason: 'the DoH tier answered; direct never needs an attempt',
+      );
+      expect(secureDns.requests.map((request) => request.method), ['POST']);
+    },
+  );
 
   test('a timed-out POST is never replayed across routes', () async {
     final doh = _ScriptedClient([TimeoutException('after send')]);
@@ -537,11 +542,7 @@ void main() {
       policy.rememberedRouteKind('app-api.pixiv.net'),
       NetworkRouteKind.ech,
     );
-    expect(
-      direct.requests,
-      isEmpty,
-      reason: 'remembered ECH skips direct',
-    );
+    expect(direct.requests, isEmpty, reason: 'remembered ECH skips direct');
     expect(
       ech.requests,
       hasLength(2),
@@ -706,9 +707,7 @@ void main() {
       final httpPolicy = NetworkAccessPolicy(
         resolver: resolver,
         clientFactory: (route, canonicalHost, _) =>
-            route.kind == NetworkRouteKind.dohRealSni
-            ? directHttp
-            : secureHttp,
+            route.kind == NetworkRouteKind.dohRealSni ? directHttp : secureHttp,
       );
       final httpClient = PixivPolicyHttpClient(
         policy: httpPolicy,
@@ -817,9 +816,7 @@ void main() {
       final policy = NetworkAccessPolicy(
         resolver: resolver,
         clientFactory: (route, canonicalHost, _) =>
-            route.kind == NetworkRouteKind.dohRealSni
-            ? direct
-            : secureDns,
+            route.kind == NetworkRouteKind.dohRealSni ? direct : secureDns,
       );
       addTearDown(policy.dispose);
       final client = PixivPolicyHttpClient(
@@ -1057,7 +1054,9 @@ void main() {
           frontAddresses: [InternetAddress('1.2.3.46')],
         ),
         insecureNoSniEnabled: true,
-        fastRouteStore: PixivFastRouteStore(preferences: SharedPreferencesAsync()),
+        fastRouteStore: PixivFastRouteStore(
+          preferences: SharedPreferencesAsync(),
+        ),
         clientFactory: (route, canonicalHost, _) =>
             route.kind == NetworkRouteKind.insecureNoSni ? insecure : nowhere,
       );
@@ -1078,8 +1077,7 @@ void main() {
       expect(
         insecure.requests.map((request) => request.method),
         ['POST'],
-        reason:
-            'the one-shot token exchange reaches the fast tier last, once',
+        reason: 'the one-shot token exchange reaches the fast tier last, once',
       );
       expect(nowhere.requests, hasLength(3));
     },
@@ -1101,7 +1099,9 @@ void main() {
           frontAddresses: [InternetAddress('1.2.3.48')],
         ),
         insecureNoSniEnabled: true,
-        fastRouteStore: PixivFastRouteStore(preferences: SharedPreferencesAsync()),
+        fastRouteStore: PixivFastRouteStore(
+          preferences: SharedPreferencesAsync(),
+        ),
         clientFactory: (route, canonicalHost, _) => switch (route.kind) {
           NetworkRouteKind.insecureNoSni => insecure,
           NetworkRouteKind.direct => direct,
@@ -1125,11 +1125,9 @@ void main() {
         isEmpty,
         reason: 'the direct tier already answered; the fast tier is not tried',
       );
-      expect(
-        direct.requests.map((request) => request.method),
-        ['POST'],
-        reason: 'the POST succeeds on the tier that can actually handle it',
-      );
+      expect(direct.requests.map((request) => request.method), [
+        'POST',
+      ], reason: 'the POST succeeds on the tier that can actually handle it');
     },
   );
 }

@@ -1,3 +1,8 @@
+/// Pixiv API transport, authentication refresh, and API error classification.
+/// [PixivHttpClient] owns Pixiv requests; policy and client providers own
+/// route/client construction. See `backend/directory-structure.md`.
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -323,13 +328,17 @@ class PixivHttpClient {
         .then((streamed) => http.Response.fromStream(streamed));
 
     final completer = Completer<http.Response>();
-    sendFuture.then(
-      (value) {
-        if (!completer.isCompleted) completer.complete(value);
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        if (!completer.isCompleted) completer.completeError(error, stackTrace);
-      },
+    unawaited(
+      sendFuture.then(
+        (value) {
+          if (!completer.isCompleted) completer.complete(value);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!completer.isCompleted) {
+            completer.completeError(error, stackTrace);
+          }
+        },
+      ),
     );
 
     final raced = completer.future.timeout(

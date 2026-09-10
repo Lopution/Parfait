@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
@@ -12,7 +11,6 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/account_transfer.dart';
 import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
@@ -23,12 +21,18 @@ import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
+import 'package:pixiv_func/app/widgets/settings/settings_control.dart';
+import 'package:pixiv_func/app/widgets/settings/settings_section.dart';
+import 'package:pixiv_func/app/widgets/settings/settings_tile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/lookup.dart';
 import 'package:pixiv_func/l10n/app_localizations_zh.dart';
+
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 class _FakeRepository implements SettingsRepository {
   _FakeRepository(this.value, {this.failLoad = false});
@@ -52,18 +56,6 @@ class _FakeRepository implements SettingsRepository {
     value = settings;
     saved.add(settings);
   }
-}
-
-class _CredentialStore implements CredentialStore {
-  @override
-  Future<Credential?> read(String accountId) async =>
-      const Credential(accessToken: 'access', refreshToken: 'refresh');
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {}
-
-  @override
-  Future<void> delete(String accountId) async {}
 }
 
 class _AccountRepository implements AccountMetadataRepository {
@@ -256,14 +248,14 @@ void main() {
     expect(settings.guideCompleted, isTrue);
     expect(settings.languageTag, 'ru-RU');
     expect(settings.themeCode, AppSettings.darkTheme);
-    expect(
-      jsonDecode(
-        (await preferences.getString(
-          PreferencesSettingsRepository.settingsKey,
-        ))!,
-      )['schemaVersion'],
-      AppSettings.currentSchemaVersion,
-    );
+    final stored =
+        jsonDecode(
+              (await preferences.getString(
+                PreferencesSettingsRepository.settingsKey,
+              ))!,
+            )
+            as Map<String, dynamic>;
+    expect(stored['schemaVersion'], AppSettings.currentSchemaVersion);
   });
 
   test('a valid field survives a malformed field in versioned JSON', () async {
@@ -491,36 +483,71 @@ void main() {
         .widgetList<SegmentedButton<dynamic>>(selectorFinder)
         .toList();
     expect(selectors, hasLength(3));
-    expect(
-      selectors[0].segments.map((segment) => segment.value).toList(),
-      [PreviewQuality.medium, PreviewQuality.large],
-    );
-    expect(
-      selectors[1].segments.map((segment) => segment.value).toList(),
-      [DetailQuality.large, DetailQuality.original],
-    );
-    expect(
-      selectors[2].segments.map((segment) => segment.value).toList(),
-      [ViewQuality.large, ViewQuality.original],
-    );
+    expect(selectors[0].segments.map((segment) => segment.value).toList(), [
+      PreviewQuality.medium,
+      PreviewQuality.large,
+    ]);
+    expect(selectors[1].segments.map((segment) => segment.value).toList(), [
+      DetailQuality.large,
+      DetailQuality.original,
+    ]);
+    expect(selectors[2].segments.map((segment) => segment.value).toList(), [
+      ViewQuality.large,
+      ViewQuality.original,
+    ]);
 
     await tester.tap(
-      find.descendant(
-        of: selectorFinder.at(0),
-        matching: find.text('大图'),
-      ),
+      find.descendant(of: selectorFinder.at(0), matching: find.text('大图')),
     );
     await tester.pumpAndSettle();
     expect(repository.value.previewQuality, PreviewQuality.large);
 
     await tester.tap(
-      find.descendant(
-        of: selectorFinder.at(1),
-        matching: find.text('原图'),
-      ),
+      find.descendant(of: selectorFinder.at(1), matching: find.text('原图')),
     );
     await tester.pumpAndSettle();
     expect(repository.value.detailQuality, DetailQuality.original);
+  });
+
+  testWidgets('settings primitives expose headings, values and actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              SettingsSection(title: Text('Display')),
+              SettingsControl(
+                title: Text('Large previews'),
+                value: true,
+                onChanged: _ignoreBool,
+              ),
+              SettingsTile(
+                icon: Icons.info_outline,
+                title: 'About',
+                onTap: _noop,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Display'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.text('Display')),
+      isSemantics(isHeader: true),
+    );
+    expect(
+      tester.getSemantics(find.byType(Switch)),
+      isSemantics(hasToggledState: true, isToggled: true, hasTapAction: true),
+    );
+    expect(find.bySemanticsLabel('About'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.text('About')),
+      isSemantics(isButton: true, hasTapAction: true),
+    );
   });
 
   testWidgets('settings read failures expose a retryable UI', (tester) async {
@@ -553,7 +580,7 @@ void main() {
           accountMetadataRepositoryProvider.overrideWithValue(
             _AccountRepository(const [], true),
           ),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
           localizationsDelegates: appLocalizationsDelegates,
@@ -578,9 +605,9 @@ void main() {
         overrides: [
           settingsRepositoryProvider.overrideWithValue(repository),
           accountMetadataRepositoryProvider.overrideWithValue(
-            _AccountRepository(),
+            FakeAccountMetadataRepository(),
           ),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
           localizationsDelegates: appLocalizationsDelegates,
@@ -615,11 +642,12 @@ void main() {
             _FakeRepository(_baseSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
-            _AccountRepository([
-              const Account(id: '42', userId: 42, name: 'tester'),
-            ]),
+            FakeAccountMetadataRepository(
+              accounts: const [Account(id: '42', userId: 42, name: 'tester')],
+              currentId: '42',
+            ),
           ),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           userRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
         ],
         child: MaterialApp.router(
@@ -642,9 +670,10 @@ void main() {
   testWidgets('long-pressing an account card exports bounded transfer data', (
     tester,
   ) async {
-    final repository = _AccountRepository([
-      const Account(id: '42', userId: 42, name: 'tester'),
-    ]);
+    final repository = FakeAccountMetadataRepository(
+      accounts: const [Account(id: '42', userId: 42, name: 'tester')],
+      currentId: '42',
+    );
     final clipboard = _TransferClipboard();
     await tester.pumpWidget(
       ProviderScope(
@@ -653,7 +682,16 @@ void main() {
             _FakeRepository(_baseSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(repository),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(
+            FakeCredentialStore(
+              values: const {
+                '42': Credential(
+                  accessToken: 'access',
+                  refreshToken: 'refresh',
+                ),
+              },
+            ),
+          ),
           accountTransferServiceProvider.overrideWith(
             (ref) => AccountTransferService(
               accountStore: ref.read(accountStoreProvider.notifier),
@@ -684,9 +722,10 @@ void main() {
   testWidgets(
     'exporting on a device without sensitive clipboard shows a warning',
     (tester) async {
-      final repository = _AccountRepository([
-        const Account(id: '42', userId: 42, name: 'tester'),
-      ]);
+      final repository = FakeAccountMetadataRepository(
+        accounts: const [Account(id: '42', userId: 42, name: 'tester')],
+        currentId: '42',
+      );
       final clipboard = _TransferClipboard();
       await tester.pumpWidget(
         ProviderScope(
@@ -695,7 +734,16 @@ void main() {
               _FakeRepository(_baseSettings()),
             ),
             accountMetadataRepositoryProvider.overrideWithValue(repository),
-            credentialStoreProvider.overrideWithValue(_CredentialStore()),
+            credentialStoreProvider.overrideWithValue(
+              FakeCredentialStore(
+                values: const {
+                  '42': Credential(
+                    accessToken: 'access',
+                    refreshToken: 'refresh',
+                  ),
+                },
+              ),
+            ),
             accountTransferServiceProvider.overrideWith(
               (ref) => AccountTransferService(
                 accountStore: ref.read(accountStoreProvider.notifier),
@@ -754,9 +802,9 @@ void main() {
         overrides: [
           settingsRepositoryProvider.overrideWithValue(repository),
           accountMetadataRepositoryProvider.overrideWithValue(
-            _AccountRepository(),
+            FakeAccountMetadataRepository(),
           ),
-          credentialStoreProvider.overrideWithValue(_CredentialStore()),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,
@@ -786,3 +834,7 @@ void main() {
     expect(find.textContaining('格式'), findsNothing);
   });
 }
+
+void _ignoreBool(bool value) {}
+
+void _noop() {}

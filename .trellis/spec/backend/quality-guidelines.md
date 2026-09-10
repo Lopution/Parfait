@@ -6,31 +6,29 @@
 
 ## Overview
 
-<!--
-Document your project's quality standards here.
 
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
+Core services keep ownership at the domain boundary and expose typed models,
+repositories, and provider-managed resources. Quality evidence is collected
+with `flutter analyze --no-pub`, focused tests, the full Flutter test suite,
+and the native/plugin checks named by the owning spec. CI uses committed
+lockfiles and does not treat a local-only build as release evidence.
 
 ---
 
 ## Forbidden Patterns
 
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
+- Do not construct an HTTP client, database connection, or platform channel
+  inline in a production consumer when an owning provider/factory exists.
+- Do not move feature widgets into `lib/core/`, let core import `app` or
+  `features`, or make a repository present UI feedback.
+- Do not store request bodies, credentials, full API JSON, or arbitrary URLs
+  in durable recovery/history records.
+- Do not hand-edit generated bindings or lockfiles; use the package's
+  generation or dependency workflow.
 
 ---
 
 ## Required Patterns
-
-<!-- Patterns that must always be used -->
 
 ### Secrets stay out of every serialized surface
 
@@ -71,6 +69,11 @@ the same commit (no leftover `skip:`). The full rule lives in
 
 ## Code Review Checklist
 
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+- Classify API, parser, storage, and platform failures at their owning
+  boundary and preserve the type through the controller state.
+- Keep account, cancellation, cursor, and database ownership explicit in
+  repository APIs and tests.
+- Keep Android channel payloads and Rust/FRB versions synchronized with their
+  executable contracts.
+- Run the relevant focused tests before the full suite, and include the
+  changed-layer analyzer/build evidence in review.

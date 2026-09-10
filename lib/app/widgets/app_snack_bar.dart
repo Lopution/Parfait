@@ -9,7 +9,7 @@ void showAppSnackBar(
   String message, {
   Duration duration = const Duration(seconds: 4),
 }) {
-  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-    SnackBar(content: Text(message), duration: duration),
-  );
+  ScaffoldMessenger.maybeOf(
+    context,
+  )?.showSnackBar(SnackBar(content: Text(message), duration: duration));
 }

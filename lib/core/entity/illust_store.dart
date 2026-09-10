@@ -1,3 +1,8 @@
+/// The canonical account-scoped illustration entity map and merge policy.
+/// [IllustStore] owns shared entity writes; feeds retain ordered IDs only.
+/// See `frontend/state-management.md`.
+library;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';

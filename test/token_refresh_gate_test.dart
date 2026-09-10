@@ -4,8 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/auth/token_refresh_gate.dart';
 
 void main() {
-  test('20 concurrent callers share exactly one refresh per account',
-      () async {
+  test('20 concurrent callers share exactly one refresh per account', () async {
     final gate = TokenRefreshGate();
     var performCalls = 0;
     final completer = Completer<void>();
@@ -51,18 +50,20 @@ void main() {
     }
   });
 
-  test('a caller whose token is already fresh never triggers a refresh',
-      () async {
-    final gate = TokenRefreshGate();
-    final outcome = await gate.refresh(
-      accountId: '100',
-      staleToken: 'stale-token',
-      currentToken: 'current-token',
-      perform: () async => fail('must not refresh'),
-    );
-    expect(outcome, isA<AlreadyRefreshed>());
-    expect((outcome as AlreadyRefreshed).accessToken, 'current-token');
-  });
+  test(
+    'a caller whose token is already fresh never triggers a refresh',
+    () async {
+      final gate = TokenRefreshGate();
+      final outcome = await gate.refresh(
+        accountId: '100',
+        staleToken: 'stale-token',
+        currentToken: 'current-token',
+        perform: () async => fail('must not refresh'),
+      );
+      expect(outcome, isA<AlreadyRefreshed>());
+      expect((outcome as AlreadyRefreshed).accessToken, 'current-token');
+    },
+  );
 
   test('different accounts refresh independently', () async {
     final gate = TokenRefreshGate();
@@ -116,8 +117,7 @@ void main() {
     }
   });
 
-  test('gate allows a new refresh after the previous one completed',
-      () async {
+  test('gate allows a new refresh after the previous one completed', () async {
     final gate = TokenRefreshGate();
     var calls = 0;
     Future<RefreshOutcome> perform() async {

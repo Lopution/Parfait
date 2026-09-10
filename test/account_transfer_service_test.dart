@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -12,10 +11,12 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/account_transfer.dart';
 import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
+
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 const _sourceAccount = Account(
   id: '42',
@@ -43,23 +44,6 @@ class _Metadata implements AccountMetadataRepository {
     if (failSave) throw AccountDataException('metadata write failed');
     accounts = List.of(next);
     currentId = nextCurrentId;
-  }
-}
-
-class _Credentials implements CredentialStore {
-  final values = <String, Credential>{};
-
-  @override
-  Future<Credential?> read(String accountId) async => values[accountId];
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {
-    values[accountId] = credential;
-  }
-
-  @override
-  Future<void> delete(String accountId) async {
-    values.remove(accountId);
   }
 }
 
@@ -120,8 +104,8 @@ class _Verifier implements TransferCredentialVerifier {
   }
 }
 
-(ProviderContainer, AccountStore, _Credentials, _Metadata) _container() {
-  final credentials = _Credentials();
+(ProviderContainer, AccountStore, FakeCredentialStore, _Metadata) _container() {
+  final credentials = FakeCredentialStore();
   final metadata = _Metadata();
   final container = ProviderContainer(
     overrides: [
@@ -140,7 +124,7 @@ class _Verifier implements TransferCredentialVerifier {
 
 AccountTransferService _service({
   required AccountStore accountStore,
-  required _Credentials credentials,
+  required FakeCredentialStore credentials,
   required _Clipboard clipboard,
   required TransferCredentialVerifier verifier,
 }) => AccountTransferService(

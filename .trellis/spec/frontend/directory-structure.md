@@ -26,13 +26,13 @@ lib/
 │   ├── app.dart              应用壳（MaterialApp、路由表）
 │   ├── startup_gate.dart     启动 gate（首帧等待项 = settings + 账号）
 │   ├── theme/                func_tokens.dart（颜色/间距/字号 token）、replica_theme.dart
-│   ├── motion/               replica_page_route.dart、hero_rect_clip.dart、motion_tokens.dart（时长/曲线单一来源）
-│   ├── navigation/           routes.dart（门面：openIllust(context, id)…）、route_observer.dart、home_shell_metrics.dart
+│   ├── motion/               hero_transition.dart、hero_rect_clip.dart、drag_to_dismiss.dart、motion_tokens.dart（时长/曲线单一来源）
+│   ├── navigation/           routes.dart（门面：openIllust(context, id)…）、home_shell_metrics.dart
 │   ├── widgets/
 │   │   ├── feed/             illust_card.dart、feed_grid.dart（IllustFeedGrid + illustColumnsFor）、feed_states.dart
 │   │   ├── follow_switch_button.dart  跨 feature 复用的 FollowSwitchButton
 │   │   ├── pixiv_image.dart  PixivImage（decode 策略变体）、person_avatar.dart
-│   │   ├── feedback.dart     showAppSnackBar（唯一 SnackBar 出口）
+│   │   ├── app_snack_bar.dart showAppSnackBar（唯一 SnackBar 出口）
 │   │   └── …                 其余共享基件（replica_button/scaffold/switch_tile/empty_state…）
 │   └── icons/                应用图标字体
 ├── features/<feature>/       页面与页面级胶水（每 feature 一个目录）
@@ -152,4 +152,4 @@ import '../../app/widgets/follow_switch_button.dart';
 
 - `test/architecture/layering_test.dart`：import 图断言 + 数据层文件检查 + 组件命名检查，
   白名单随收敛逐项删除，白名单为空是本重构（child C）的完成条件之一。
-- CI `dart` job 运行 `flutter test`（含 layering_test）。
+- CI `analyze-and-test` job 运行 `dart format`、`flutter analyze` 与 `flutter test`（含 layering_test）。

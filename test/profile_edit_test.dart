@@ -5,12 +5,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/profile/profile_edit_controller.dart';
 import 'package:pixiv_func/core/profile/profile_edit_models.dart';
@@ -23,6 +20,9 @@ import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/features/profile/profile_edit_page.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 ProfileEditState _stateOf(
   ProviderContainer container,
@@ -353,8 +353,8 @@ void main() {
   test(
     'confirmed metadata updates AccountStore and canonical UserStore',
     () async {
-      final metadata = _MemoryAccountMetadata();
-      final credentials = _MemoryCredentials();
+      final metadata = FakeAccountMetadataRepository();
+      final credentials = FakeCredentialStore();
       final container = ProviderContainer(
         overrides: [
           accountMetadataRepositoryProvider.overrideWithValue(metadata),
@@ -529,38 +529,6 @@ class _FakeRepository implements ProfileEditRepository {
     final deferred = deferredOutcome;
     if (deferred != null) return deferred.future;
     return Future.value(outcome!);
-  }
-}
-
-class _MemoryAccountMetadata implements AccountMetadataRepository {
-  List<Account> accounts = const [];
-  String? currentId;
-
-  @override
-  Future<AccountMetadataSnapshot> load() async =>
-      AccountMetadataSnapshot(accounts: accounts, currentId: currentId);
-
-  @override
-  Future<void> save(List<Account> next, String? nextCurrentId) async {
-    accounts = List.of(next);
-    currentId = nextCurrentId;
-  }
-}
-
-class _MemoryCredentials implements CredentialStore {
-  final values = <String, Credential>{};
-
-  @override
-  Future<Credential?> read(String accountId) async => values[accountId];
-
-  @override
-  Future<void> write(String accountId, Credential credential) async {
-    values[accountId] = credential;
-  }
-
-  @override
-  Future<void> delete(String accountId) async {
-    values.remove(accountId);
   }
 }
 

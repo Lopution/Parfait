@@ -289,9 +289,7 @@ class _Actions extends StatelessWidget {
           TextButton.icon(
             onPressed: onOpenReplies,
             icon: const Icon(Icons.forum_outlined, size: 17),
-            label: Text(
-              '${context.l10n.commentReplies} ${comment.replyCount}',
-            ),
+            label: Text('${context.l10n.commentReplies} ${comment.replyCount}'),
             style: TextButton.styleFrom(
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.symmetric(horizontal: 4),

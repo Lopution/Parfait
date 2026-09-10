@@ -125,7 +125,9 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
       if (mounted) Navigator.of(context).pop();
       return;
     }
-    final controller = ref.read(profileEditControllerProvider(session).notifier);
+    final controller = ref.read(
+      profileEditControllerProvider(session).notifier,
+    );
     final leave = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -154,9 +156,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
     final session = _session;
     final hasUnsaved =
         session != null &&
-        ref
-            .watch(profileEditControllerProvider(session))
-            .hasUnsavedChanges;
+        ref.watch(profileEditControllerProvider(session)).hasUnsavedChanges;
     return PopScope(
       canPop: session == null || !hasUnsaved,
       onPopInvokedWithResult: (didPop, _) {
@@ -212,10 +212,7 @@ class _InitializationFailure extends StatelessWidget {
 }
 
 class _ProfileEditBody extends ConsumerStatefulWidget {
-  const _ProfileEditBody({
-    required this.session,
-    required this.imagePlatform,
-  });
+  const _ProfileEditBody({required this.session, required this.imagePlatform});
 
   final ProfileEditSession session;
   final ReverseImageInputPlatform imagePlatform;
@@ -310,21 +307,15 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
           if (!capabilities.isAvailable)
             _Notice(
               icon: Icons.info_outline,
-              text:
-                  capabilities.reason ??
-                  context.l10n.profileEditUnavailable,
+              text: capabilities.reason ?? context.l10n.profileEditUnavailable,
             ),
           if (state.failure != null)
-            _Notice(
-              icon: Icons.error_outline,
-              text: state.failure!.message,
-            ),
+            _Notice(icon: Icons.error_outline, text: state.failure!.message),
           if (state.status == ProfileEditStatus.verificationPending)
             _Notice(
               icon: Icons.mark_email_unread_outlined,
               text:
-                  state.verificationMessage ??
-                  context.l10n.profileEditPending,
+                  state.verificationMessage ?? context.l10n.profileEditPending,
             ),
           if (state.status == ProfileEditStatus.confirmed)
             _Notice(
@@ -434,15 +425,14 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
     ProfileField field,
     ProfileEditState state,
   ) {
-    final draft =
-        ref.watch(profileEditControllerProvider(widget.session)).draft;
+    final draft = ref
+        .watch(profileEditControllerProvider(widget.session))
+        .draft;
     final unsupported = !draft!.capabilities.supports(field);
     return InputDecoration(
       labelText: _profileEditText(context, labelKey),
       errorText: state.fieldErrors[field],
-      helperText: unsupported
-          ? context.l10n.profileEditFieldUnsupported
-          : null,
+      helperText: unsupported ? context.l10n.profileEditFieldUnsupported : null,
       alignLabelWithHint: field == ProfileField.comment,
       border: const OutlineInputBorder(),
     );
@@ -547,16 +537,12 @@ class _StatusBody extends StatelessWidget {
               const Icon(Icons.info_outline, size: 52),
             const SizedBox(height: 16),
             Text(
-              failure?.message ??
-                  context.l10n.profileEditLoadFailed,
+              failure?.message ?? context.l10n.profileEditLoadFailed,
               textAlign: TextAlign.center,
             ),
             if (failure?.retryable == true) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onRetry,
-                child: Text(context.l10n.retry),
-              ),
+              FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
             ],
           ],
         ),

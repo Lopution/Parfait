@@ -6,39 +6,48 @@
 
 ## Overview
 
-<!--
-Document your project's state management conventions here.
+Riverpod is the owner for app and server state. `Notifier`/`AsyncNotifier`
+providers expose typed state and receive repositories through provider
+dependencies; feature pages watch that state and dispatch typed actions. A
+page keeps only view-local state that has no other consumer, using `State` or
+`setState` (the novel reader's layout/page selection is an example).
 
-Questions to answer:
-- What state management solution do you use?
-- How is local vs global state decided?
-- How do you handle server state?
-- What are the patterns for derived state?
--->
-
-(To be filled by the team)
+The app does not create a second global service locator. Durable preferences,
+secure credentials, history, and recovery records remain behind their core
+repositories; widgets do not read their storage APIs directly.
 
 ---
 
 ## State Categories
 
-<!-- Local state, global state, server state, URL state -->
+| State kind | Owner | Example |
+|---|---|---|
+| View-local | feature state/view-model | reader page selection, open sheet state |
+| Shared domain | Riverpod `Notifier`/store | `IllustStore`, `UserStore`, `BookmarkStore` |
+| Server/feed | `AsyncNotifier` or `PagedFeedController` | initial, refresh, and load-more phases |
+| Durable local | core repository | `SettingsRepository`, `HistoryRepository`, `CredentialStore` |
+| Route/restoration | `GoRouter` typed facade and Flutter restoration | tab branch, search filter, viewer page |
 
-(To be filled by the team)
+Feeds keep ordered IDs while canonical entities stay in their domain store.
+Settings selectors and account identity are exposed through fine-grained typed
+providers so consumers do not depend on a whole aggregate unnecessarily.
 
 ---
 
 ## When to Use Global State
 
-<!-- Criteria for promoting state to global -->
+Promote state to a shared provider/store when it is observed by more than one
+page, must survive a feature rebuild, represents an account boundary, or is a
+durable/server contract. Keep it local when it only controls one widget's
+presentation and has no domain consumer.
 
-(To be filled by the team)
+Account-scoped stores and feed families watch the current account boundary.
+Route state that must survive restoration belongs in typed path/query values;
+an in-memory route `extra` is only a first-frame snapshot.
 
 ---
 
 ## Server State
-
-<!-- How server data is cached and synchronized -->
 
 ### Shared Entity Store Merge Contract (`IllustStore.mergeAll`)
 
@@ -1316,6 +1325,13 @@ content URI with an observable Android permission result.
 
 ## Common Mistakes
 
-<!-- State management mistakes your team has made -->
-
-(To be filled by the team)
+- Keeping a page-local copy of an entity, bookmark, or follow flag instead of
+  reading the canonical store.
+- Rebuilding a router or feed family on token refresh and losing tab stacks or
+  scroll state.
+- Letting a repository merge shared entities before the feed commit gate has
+  accepted the request generation.
+- Using a second controller for a framework-owned animation, refresh, or tab
+  transition.
+- Publishing a stale account response after the provider or route has been
+  disposed.

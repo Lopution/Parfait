@@ -35,7 +35,8 @@ abstract class AccountMetadataRepository {
 /// SharedPreferences-backed implementation with versioned keys.
 ///
 /// Only [Account] metadata (never credentials) passes through here.
-class PreferencesAccountMetadataRepository implements AccountMetadataRepository {
+class PreferencesAccountMetadataRepository
+    implements AccountMetadataRepository {
   PreferencesAccountMetadataRepository({
     required SharedPreferencesAsync preferences,
   }) : _preferences = preferences;

@@ -120,8 +120,7 @@ makeContainer() {
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test('hydration with no persisted data yields empty ready state', () async {

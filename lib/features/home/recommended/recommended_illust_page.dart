@@ -1,4 +1,3 @@
-
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/widgets/feed/feed_grid.dart';
@@ -89,20 +88,20 @@ class RecommendedIllustPage extends ConsumerWidget {
                 restorationId: 'recommended-illust',
                 slivers: [
                   IllustFeedGrid(
-  padding: EdgeInsets.fromLTRB(
+                    padding: EdgeInsets.fromLTRB(
                       10,
                       MediaQuery.viewPaddingOf(context).top,
                       10,
                       0,
                     ),
-  mainAxisSpacing: 5,
-  crossAxisSpacing: 10,
-  itemCount: entities.length,
-  itemBuilder: (context, index) => IllustCard(
-                        entity: entities[index],
-                        heroScope: 'recommended:illust',
-                      ),
-),
+                    mainAxisSpacing: 5,
+                    crossAxisSpacing: 10,
+                    itemCount: entities.length,
+                    itemBuilder: (context, index) => IllustCard(
+                      entity: entities[index],
+                      heroScope: 'recommended:illust',
+                    ),
+                  ),
                   SliverToBoxAdapter(
                     child: FeedTail(
                       feed: feed,
@@ -137,9 +136,7 @@ class _InitialErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.cloud_off, size: 48),
             const SizedBox(height: 12),
-            Text(
-              context.l10n.recommendedLoadFailed,
-            ),
+            Text(context.l10n.recommendedLoadFailed),
             const SizedBox(height: 8),
             Text(
               error,
@@ -147,16 +144,10 @@ class _InitialErrorView extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: onRetry,
-              child: Text(
-                context.l10n.retry,
-              ),
-            ),
+            FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
           ],
         ),
       ),
     );
   }
 }
-

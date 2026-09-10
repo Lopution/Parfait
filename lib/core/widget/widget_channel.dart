@@ -31,9 +31,7 @@ abstract final class WidgetChannel {
     } on PlatformException catch (error) {
       // Foreground scheduling is best-effort, but the failure remains
       // observable; the background worker path owns authoritative retries.
-      log(
-        'WidgetChannel $method failed: ${error.code}: ${error.message}',
-      );
+      log('WidgetChannel $method failed: ${error.code}: ${error.message}');
     }
   }
 }

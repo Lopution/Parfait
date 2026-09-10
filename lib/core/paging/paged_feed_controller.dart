@@ -1,3 +1,8 @@
+/// Shared initial/refresh/load-more state machine for account-scoped feeds.
+/// [PagedFeedController] owns cursor and generation commits; concrete feeds
+/// supply typed repositories. See `frontend/state-management.md`.
+library;
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -174,7 +179,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// and generation but never flip the commit gate's active context: the
   /// caller still commits through the original [context].
   Future<FeedPage> fetchRelevantPage(FeedRequestContext context) async {
-    var page = await fetchPageForContext(context);
+    final page = await fetchPageForContext(context);
     if (!localFilterEnabled || filterMinVisible <= 0) return page;
     var visible = filterPageIds(
       page.ids,

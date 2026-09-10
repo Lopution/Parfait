@@ -219,7 +219,7 @@ void main() {
         throwsA(isA<FormatException>()),
       );
       expect(
-        () => IllustEntity.parsePage({'no-illusts': []}),
+        () => IllustEntity.parsePage({'no-illusts': <Object?>[]}),
         throwsA(isA<FormatException>()),
       );
       final ok = IllustEntity.parsePage({
