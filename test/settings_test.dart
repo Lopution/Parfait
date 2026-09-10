@@ -21,6 +21,9 @@ import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
+import 'package:pixiv_func/app/widgets/settings/settings_control.dart';
+import 'package:pixiv_func/app/widgets/settings/settings_section.dart';
+import 'package:pixiv_func/app/widgets/settings/settings_tile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
@@ -512,6 +515,47 @@ void main() {
     expect(repository.value.detailQuality, DetailQuality.original);
   });
 
+  testWidgets('settings primitives expose headings, values and actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              SettingsSection(title: Text('Display')),
+              SettingsControl(
+                title: Text('Large previews'),
+                value: true,
+                onChanged: _ignoreBool,
+              ),
+              SettingsTile(
+                icon: Icons.info_outline,
+                title: 'About',
+                onTap: _noop,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Display'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.text('Display')),
+      isSemantics(isHeader: true),
+    );
+    expect(
+      tester.getSemantics(find.byType(Switch)),
+      isSemantics(hasToggledState: true, isToggled: true, hasTapAction: true),
+    );
+    expect(find.bySemanticsLabel('About'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.text('About')),
+      isSemantics(isButton: true, hasTapAction: true),
+    );
+  });
+
   testWidgets('settings read failures expose a retryable UI', (tester) async {
     final repository = _FakeRepository(_baseSettings(), failLoad: true);
     await tester.pumpWidget(
@@ -798,3 +842,7 @@ void main() {
     expect(find.textContaining('格式'), findsNothing);
   });
 }
+
+void _ignoreBool(bool value) {}
+
+void _noop() {}
