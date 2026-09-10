@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../app/motion/replica_page_route.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
-import 'network_probe_page.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
@@ -23,7 +22,7 @@ Future<bool> _persistNetwork(
     return true;
   } on Object catch (error) {
     if (context.mounted) {
-      showAppSnackBar(context, '${context.l10n.settingsWriteFailed}: $error',);
+      showAppSnackBar(context, '${context.l10n.settingsWriteFailed}: $error');
     }
     return false;
   }
@@ -100,9 +99,7 @@ class NetworkSettingsPage extends ConsumerWidget {
             title: Text(context.l10n.networkProbe),
             subtitle: Text(context.l10n.networkProbeHint),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push<void>(
-              ReplicaPageRoute<void>(builder: (_) => const NetworkProbePage()),
-            ),
+            onTap: () => context.push<void>('/settings/network/probe'),
           ),
           const Divider(),
           ListTile(
@@ -110,11 +107,7 @@ class NetworkSettingsPage extends ConsumerWidget {
             title: Text(context.l10n.networkAdvanced),
             subtitle: Text(context.l10n.networkAdvancedHint),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push<void>(
-              ReplicaPageRoute<void>(
-                builder: (_) => const _NetworkAdvancedSettingsPage(),
-              ),
-            ),
+            onTap: () => context.push<void>('/settings/network/advanced'),
           ),
         ],
       ),
@@ -153,16 +146,16 @@ Widget _modeTile(
 /// Only DoH endpoint override, ECH front host and reset-to-default survive
 /// after C17 removed the global insecure switch and C16 removed the native
 /// login WebView intercept.
-class _NetworkAdvancedSettingsPage extends ConsumerStatefulWidget {
-  const _NetworkAdvancedSettingsPage();
+class NetworkAdvancedSettingsPage extends ConsumerStatefulWidget {
+  const NetworkAdvancedSettingsPage({super.key});
 
   @override
-  ConsumerState<_NetworkAdvancedSettingsPage> createState() =>
+  ConsumerState<NetworkAdvancedSettingsPage> createState() =>
       _NetworkAdvancedSettingsPageState();
 }
 
 class _NetworkAdvancedSettingsPageState
-    extends ConsumerState<_NetworkAdvancedSettingsPage> {
+    extends ConsumerState<NetworkAdvancedSettingsPage> {
   late final TextEditingController _dohController;
   late final FocusNode _dohFocusNode;
   bool _dohDirty = false;

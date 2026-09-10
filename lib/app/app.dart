@@ -1,22 +1,27 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/auth/account_store.dart';
-import '../core/navigation/route_observer.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
 import '../core/widget/widget_coordinator.dart';
 import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
+import '../core/platform/android_intent_channel.dart';
+import 'external_intent_bridge.dart';
+import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
 import 'widgets/settings_load_error.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 class PixivFuncApp extends ConsumerStatefulWidget {
-  const PixivFuncApp({super.key});
+  const PixivFuncApp({super.key, this.intentSource});
+
+  final AndroidIntentSource? intentSource;
 
   @override
   ConsumerState<PixivFuncApp> createState() => _PixivFuncAppState();
@@ -24,6 +29,8 @@ class PixivFuncApp extends ConsumerStatefulWidget {
 
 class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     with WidgetsBindingObserver {
+  late final GoRouter _router = createPixivRouter();
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +58,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _router.dispose();
     super.dispose();
   }
 
@@ -62,15 +70,14 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
       loading: () => _materialApp(
         settings: AppSettings.defaults(),
         themeMode: themeMode,
-        // Settings load is part of the startup surface. A blank scaffold made
-        // slow secure-storage/first-run loads look like a frozen app and also
-        // left the first route without any visual lifecycle feedback.
-        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+        overlay: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
       ),
       error: (error, stackTrace) => _materialApp(
         settings: AppSettings.defaults(),
         themeMode: themeMode,
-        home: Scaffold(
+        overlay: Scaffold(
           body: SettingsLoadError(
             error: error,
             onRetry: () => ref.read(settingsProvider.notifier).reload(),
@@ -88,7 +95,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
         return _materialApp(
           settings: value,
           themeMode: themeMode,
-          home: StartupGate(settings: value),
+          startupSettings: value,
         );
       },
     );
@@ -97,9 +104,10 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
   MaterialApp _materialApp({
     required AppSettings settings,
     required ThemeMode themeMode,
-    required Widget home,
+    Widget? overlay,
+    AppSettings? startupSettings,
   }) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Pixiv Func',
       debugShowCheckedModeBanner: false,
       locale: settings.locale,
@@ -109,12 +117,33 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
         Locale('ja', 'JP'),
         Locale('ru', 'RU'),
       ],
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: appLocalizationsDelegates,
       theme: replicaTheme(Brightness.light),
       darkTheme: replicaTheme(Brightness.dark),
       themeMode: themeMode,
-      navigatorObservers: [replicaRouteObserver],
-      home: home,
+      restorationScopeId: 'pixiv-func',
+      routerConfig: _router,
+      // ignore: deprecated_member_use
+      builder: (context, child) {
+        final routeChild = child!;
+        final content =
+            overlay ??
+            (startupSettings == null
+                ? routeChild
+                : StartupGate(
+                    settings: startupSettings,
+                    router: _router,
+                    child: routeChild,
+                  ));
+        // ignore: deprecated_member_use
+        return MaterialUiCompatibilityBridge(
+          child: ExternalIntentBridge(
+            router: _router,
+            intentSource: widget.intentSource,
+            child: content,
+          ),
+        );
+      },
     );
   }
 }

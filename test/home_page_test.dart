@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
+import 'package:pixiv_func/app/external_intent_bridge.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -12,7 +14,6 @@ import 'package:pixiv_func/core/auth/credential_store.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/platform/root_back_coordinator.dart';
-import 'package:pixiv_func/features/home/home_page.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
@@ -21,6 +22,7 @@ import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 class _StaticCredentialStore implements CredentialStore {
@@ -66,7 +68,13 @@ const _signedInSnapshot = AccountMetadataSnapshot(
   currentId: '100',
 );
 
-Widget _homeApp({AndroidIntentSource? intentSource}) {
+Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
+  final source =
+      intentSource ??
+      const _ScriptedIntentSource(
+        IgnoredAndroidIntent('test: no android intent'),
+      );
+  final router = createPixivRouter(initialLocation: '/recommended');
   return ProviderScope(
     overrides: [
       credentialStoreProvider.overrideWithValue(const _StaticCredentialStore()),
@@ -74,16 +82,15 @@ Widget _homeApp({AndroidIntentSource? intentSource}) {
         const _StaticMetadataRepository(_signedInSnapshot),
       ),
     ],
-    child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-
-      home: HomePage(
-        intentSource:
-            intentSource ??
-            const _ScriptedIntentSource(
-              IgnoredAndroidIntent('test: no android intent'),
-            ),
+    child: MaterialApp.router(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: locale ?? const Locale('zh', 'CN'),
+      routerConfig: router,
+      builder: (context, child) => ExternalIntentBridge(
+        router: router,
+        intentSource: source,
+        child: child!,
       ),
     ),
   );
@@ -92,16 +99,16 @@ Widget _homeApp({AndroidIntentSource? intentSource}) {
 Future<void> _pumpHome(
   WidgetTester tester, {
   AndroidIntentSource? intentSource,
+  Locale? locale,
 }) async {
-  await tester.pumpWidget(_homeApp(intentSource: intentSource));
+  await tester.pumpWidget(_homeApp(intentSource: intentSource, locale: locale));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
 }
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   testWidgets(
@@ -122,11 +129,11 @@ void main() {
               ),
             ),
           ],
-          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-
-            home: HomePage(),
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            routerConfig: createPixivRouter(initialLocation: '/recommended'),
           ),
         ),
       );
@@ -201,6 +208,15 @@ void main() {
     );
     expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
     expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
+  });
+
+  testWidgets('NavigationBar labels render in every supported locale', (
+    tester,
+  ) async {
+    for (final locale in AppLocalizations.supportedLocales) {
+      await _pumpHome(tester, locale: locale);
+      expect(find.byType(NavigationBar), findsOneWidget);
+    }
   });
 
   testWidgets('C8: UserRoute delivered to home pushes the user page', (

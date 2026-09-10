@@ -5,12 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// builds; the Hero flight reads it when computing its clip).
 ///
 /// The bottom navigation row of the home shell is the only page-chrome
-/// value that cannot be statically derived from theme constants — Material
-/// 2 BottomAppBar's rendered height depends on the shell build — so the
-/// shell measures its own bar and publishes the number here. The Hero
-/// flight previously guessed 45 then 64; both left a visible mismatch at
-/// the landing moment (a strip of artwork over the bar, or the tile bottom
-/// cut short).
+/// value that cannot be statically derived from theme constants — the
+/// NavigationBar's rendered height depends on the shell build — so the
+/// shell measures its own bar and publishes the number here. The Hero flight
+/// previously guessed 45 then 64; both left a visible mismatch at the landing
+/// moment (a strip of artwork over the bar, or the tile bottom cut short).
 @immutable
 class HomeShellMetrics {
   const HomeShellMetrics({this.bottomNavTop, this.bottomNavHeight});

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
@@ -24,6 +24,8 @@ class SearchHomePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.searchTitle)),
       body: CustomScrollView(
+        key: const PageStorageKey('search-home'),
+        restorationId: 'search-home',
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
@@ -119,32 +121,16 @@ class _SearchGuideBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-          child: Row(
-            children: [
-              const Icon(Icons.search),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  context.l10n.searchHint,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
+    return SearchBar(
+      constraints: const BoxConstraints(minHeight: 56),
+      padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+        EdgeInsets.symmetric(horizontal: 16),
       ),
+      hintText: context.l10n.searchHint,
+      leading: const Icon(Icons.search),
+      trailing: const [Icon(Icons.chevron_right)],
+      onTap: onTap,
+      readOnly: true,
     );
   }
 }
@@ -237,9 +223,16 @@ class _TrendingTagTile extends StatelessWidget {
 
 /// Search input with the three beta56 result tabs and cancellable suggestions.
 class SearchInputPage extends ConsumerStatefulWidget {
-  const SearchInputPage({super.key, this.initialKeyword = ''});
+  const SearchInputPage({
+    super.key,
+    this.initialKeyword = '',
+    this.initialType = SearchResultType.illust,
+    this.onTypeChanged,
+  });
 
   final String initialKeyword;
+  final SearchResultType initialType;
+  final void Function(String keyword, SearchResultType type)? onTypeChanged;
 
   @override
   ConsumerState<SearchInputPage> createState() => _SearchInputPageState();
@@ -248,20 +241,22 @@ class SearchInputPage extends ConsumerStatefulWidget {
 class _SearchInputPageState extends ConsumerState<SearchInputPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  late final TextEditingController _textController;
-  late final FocusNode _focusNode;
+  late final SearchController _searchController;
   SearchFilters _filters = SearchFilters.defaults;
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
   static const _types = SearchResultType.values;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _types.length, vsync: this)
-      ..addListener(_onTabChanged);
-    _textController = TextEditingController(text: widget.initialKeyword);
-    _focusNode = FocusNode();
+    _selectedIndex = _types.indexOf(widget.initialType);
+    _tabController = TabController(
+      length: _types.length,
+      vsync: this,
+      initialIndex: _selectedIndex,
+    )..addListener(_onTabChanged);
+    _searchController = SearchController()..text = widget.initialKeyword;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.initialKeyword.trim().isNotEmpty) {
@@ -269,7 +264,6 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
             .read(searchAutocompleteProvider.notifier)
             .update(widget.initialKeyword);
       }
-      _focusNode.requestFocus();
     });
   }
 
@@ -278,8 +272,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
-    _textController.dispose();
-    _focusNode.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -289,15 +282,19 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       return;
     }
     setState(() => _selectedIndex = _tabController.index);
+    widget.onTypeChanged?.call(_searchController.text, _types[_selectedIndex]);
   }
 
   void _submit() {
-    final keyword = _textController.text.trim();
+    final keyword = _searchController.text.trim();
     if (keyword.isEmpty) {
       showAppSnackBar(context, context.l10n.searchInputEmpty);
       return;
     }
     ref.read(searchAutocompleteProvider.notifier).cancel();
+    if (_searchController.isOpen) {
+      _searchController.closeView(null);
+    }
     openSearchResults(context, _query(keyword));
   }
 
@@ -319,6 +316,79 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     setState(() => _filters = selected);
   }
 
+  void _onSearchChanged(String value) {
+    setState(() {});
+    ref.read(searchAutocompleteProvider.notifier).update(value);
+  }
+
+  void _selectSuggestion(
+    SearchController controller,
+    SearchSuggestion suggestion,
+  ) {
+    controller
+      ..text = suggestion.keyword
+      ..selection = TextSelection.collapsed(offset: suggestion.keyword.length);
+    _submit();
+  }
+
+  Widget _clearSearchAction() {
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _searchController,
+      builder: (context, value, _) {
+        if (value.text.isEmpty) return const SizedBox.shrink();
+        return IconButton(
+          tooltip: context.l10n.searchClear,
+          onPressed: _searchController.clear,
+          icon: const Icon(Icons.clear),
+        );
+      },
+    );
+  }
+
+  Widget _buildSearchAnchor(BuildContext context) {
+    return SearchAnchor(
+      searchController: _searchController,
+      viewHintText: context.l10n.searchHint,
+      viewTrailing: [
+        _clearSearchAction(),
+        IconButton(
+          tooltip: context.l10n.searchSubmit,
+          onPressed: _submit,
+          icon: const Icon(Icons.search),
+        ),
+      ],
+      viewOnChanged: _onSearchChanged,
+      viewOnSubmitted: (_) => _submit(),
+      textInputAction: TextInputAction.search,
+      builder: (context, controller) => SearchBar(
+        controller: controller,
+        constraints: const BoxConstraints(minHeight: 48),
+        hintText: context.l10n.searchHint,
+        leading: const Icon(Icons.search),
+        trailing: [
+          _clearSearchAction(),
+          IconButton(
+            tooltip: context.l10n.searchSubmit,
+            onPressed: _submit,
+            icon: const Icon(Icons.search),
+          ),
+        ],
+        onTap: controller.openView,
+        onChanged: (_) => controller.openView(),
+        onSubmitted: (_) => _submit(),
+        textInputAction: TextInputAction.search,
+      ),
+      suggestionsBuilder: (context, controller) => [
+        _SearchAutocompletePanel(
+          onSelected: (suggestion) => _selectSuggestion(controller, suggestion),
+        ),
+      ],
+      viewBuilder: (suggestions) => suggestions.isEmpty
+          ? const SizedBox.shrink()
+          : suggestions.single,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final supportsFilters = _selectedIndex != 2;
@@ -330,39 +400,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           icon: const Icon(Icons.arrow_back),
         ),
         titleSpacing: 0,
-        title: TextField(
-          controller: _textController,
-          focusNode: _focusNode,
-          autofocus: widget.initialKeyword.isEmpty,
-          textInputAction: TextInputAction.search,
-          onChanged: (value) {
-            setState(() {});
-            ref.read(searchAutocompleteProvider.notifier).update(value);
-          },
-          onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(
-            hintText: context.l10n.searchHint,
-            border: InputBorder.none,
-            suffixIcon: _textController.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: context.l10n.searchClear,
-                    onPressed: () {
-                      _textController.clear();
-                      ref.read(searchAutocompleteProvider.notifier).update('');
-                      setState(() {});
-                    },
-                    icon: const Icon(Icons.clear),
-                  ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            tooltip: context.l10n.searchSubmit,
-            onPressed: _submit,
-            icon: const Icon(Icons.search),
-          ),
-        ],
+        title: _buildSearchAnchor(context),
         bottom: TabBar(
           controller: _tabController,
           tabs: [
@@ -371,11 +409,9 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           ],
         ),
       ),
-      body: Column(
-        children: [
-          if (supportsFilters)
-            Align(
-              alignment: Alignment.centerRight,
+      body: supportsFilters
+          ? Align(
+              alignment: Alignment.topRight,
               child: Padding(
                 padding: const EdgeInsets.only(right: 12, top: 8),
                 child: OutlinedButton.icon(
@@ -384,21 +420,8 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
                   label: Text(context.l10n.searchFilters),
                 ),
               ),
-            ),
-          Expanded(
-            child: _SearchAutocompletePanel(
-              onSelected: (suggestion) {
-                _textController
-                  ..text = suggestion.keyword
-                  ..selection = TextSelection.collapsed(
-                    offset: suggestion.keyword.length,
-                  );
-                _submit();
-              },
-            ),
-          ),
-        ],
-      ),
+            )
+          : const SizedBox.shrink(),
     );
   }
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/comments/comment_assets.dart';
 import '../../l10n/lookup.dart';

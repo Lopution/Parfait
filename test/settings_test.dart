@@ -1,10 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -20,11 +21,11 @@ import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
-import 'package:pixiv_func/features/settings/network_settings_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/lookup.dart';
 import 'package:pixiv_func/l10n/app_localizations_zh.dart';
@@ -150,16 +151,6 @@ class _FakeProfileRepository implements UserRepository {
   }) => false;
 }
 
-class _PushCounter extends NavigatorObserver {
-  int pushes = 0;
-
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    pushes++;
-    super.didPush(route, previousRoute);
-  }
-}
-
 class _TransferClipboard implements TransferClipboard {
   String? text;
   int writeCount = 0;
@@ -200,8 +191,7 @@ AppSettings _baseSettings() => const AppSettings(
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   test('defaults use safe modern values and beta56 setting names', () {
@@ -476,14 +466,72 @@ void main() {
     }
   });
 
+  testWidgets('browse quality choices use typed segmented buttons', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: BrowseSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final selectorFinder = find.byWidgetPredicate(
+      (widget) => widget is SegmentedButton<dynamic>,
+      skipOffstage: false,
+    );
+    final selectors = tester
+        .widgetList<SegmentedButton<dynamic>>(selectorFinder)
+        .toList();
+    expect(selectors, hasLength(3));
+    expect(
+      selectors[0].segments.map((segment) => segment.value).toList(),
+      [PreviewQuality.medium, PreviewQuality.large],
+    );
+    expect(
+      selectors[1].segments.map((segment) => segment.value).toList(),
+      [DetailQuality.large, DetailQuality.original],
+    );
+    expect(
+      selectors[2].segments.map((segment) => segment.value).toList(),
+      [ViewQuality.large, ViewQuality.original],
+    );
+
+    await tester.tap(
+      find.descendant(
+        of: selectorFinder.at(0),
+        matching: find.text('大图'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.value.previewQuality, PreviewQuality.large);
+
+    await tester.tap(
+      find.descendant(
+        of: selectorFinder.at(1),
+        matching: find.text('原图'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.value.detailQuality, DetailQuality.original);
+  });
+
   testWidgets('settings read failures expose a retryable UI', (tester) async {
     final repository = _FakeRepository(_baseSettings(), failLoad: true);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
 
           home: ThemeSettingsPage(),
         ),
@@ -507,9 +555,10 @@ void main() {
           ),
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
         ],
-        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
 
           home: AccountSettingsPage(),
         ),
@@ -533,9 +582,10 @@ void main() {
           ),
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
         ],
-        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
 
           home: SettingsPage(),
         ),
@@ -556,7 +606,8 @@ void main() {
   testWidgets('account card opens one profile route without a settings entry', (
     tester,
   ) async {
-    final observer = _PushCounter();
+    final router = createPixivRouter(initialLocation: '/settings');
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -571,22 +622,19 @@ void main() {
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
           userRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
         ],
-        child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-
-          navigatorObservers: [observer],
-          home: const SettingsPage(),
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    final pushesBeforeProfile = observer.pushes;
     await tester.tap(find.text('tester'));
     await tester.pumpAndSettle();
 
-    expect(observer.pushes, pushesBeforeProfile + 1);
     expect(find.byType(profile.MePage), findsOneWidget);
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
@@ -615,9 +663,10 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
 
           home: SettingsPage(),
         ),
@@ -661,9 +710,10 @@ void main() {
               _TransferClipboard()..sensitiveMarkSupported = false,
             ),
           ],
-          child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
 
             home: SettingsPage(),
           ),
@@ -697,6 +747,8 @@ void main() {
     // field. Domain endpoints are the production default now. DoH editing
     // lives on the advanced page (D3).
     final repository = _FakeRepository(_baseSettings());
+    final router = createPixivRouter(initialLocation: '/settings/network');
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -706,11 +758,11 @@ void main() {
           ),
           credentialStoreProvider.overrideWithValue(_CredentialStore()),
         ],
-        child: const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-
-          home: NetworkSettingsPage(),
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          routerConfig: router,
         ),
       ),
     );

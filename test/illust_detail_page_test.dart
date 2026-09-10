@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
@@ -22,6 +23,7 @@ import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
+import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
@@ -29,6 +31,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'download_manager_test.dart';
 import 'helpers/illust_fixtures.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/core/i18n/replica_language.dart';
 
@@ -39,8 +42,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Map<int, Map<String, dynamic>>? detailOverrides,
   Map<int, List<Map<String, dynamic>>>? relatedOverrides,
 }) async {
-  SharedPreferencesAsyncPlatform.instance =
-      memoryPreferences();
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
   for (var i = 0; i < scriptedResponses; i++) {
     transport.responses.add(
@@ -158,27 +160,44 @@ Future<void> pumpDetail(
   bool seedStore = true,
   int illustId = 42,
   Locale? locale,
+  bool useRouter = false,
 }) async {
   if (seedStore) {
     container.read(illustStoreProvider).mergeAll([
       parseIllust(illustJson(illustId, pageCount: 2, withMetaPages: true)),
     ]);
   }
+  final router = useRouter
+      ? createPixivRouter(initialLocation: '/recommended/illust/$illustId')
+      : null;
+  if (router != null) addTearDown(router.dispose);
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: const [
-            Locale('zh', 'CN'),
-            Locale('en', 'US'),
-            Locale('ja', 'JP'),
-            Locale('ru', 'RU'),
-          ],
-          locale: locale,
-          home: IllustDetailPage(illustId: illustId),
-        ),
+        child: router == null
+            ? MaterialApp(
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: const [
+                  Locale('zh', 'CN'),
+                  Locale('en', 'US'),
+                  Locale('ja', 'JP'),
+                  Locale('ru', 'RU'),
+                ],
+                locale: locale,
+                home: IllustDetailPage(illustId: illustId),
+              )
+            : MaterialApp.router(
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: const [
+                  Locale('zh', 'CN'),
+                  Locale('en', 'US'),
+                  Locale('ja', 'JP'),
+                  Locale('ru', 'RU'),
+                ],
+                locale: locale,
+                routerConfig: router,
+              ),
       ),
     );
     await tester.pump();
@@ -197,17 +216,17 @@ Future<void> longPressImage(WidgetTester tester) async {
 void main() {
   installMemoryPreferences();
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance =
-        memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   group('ImageViewerPage (R3)', () {
     testWidgets('shows n / total and honors the initial page', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: ImageViewerPage(
               urls: [
@@ -230,9 +249,10 @@ void main() {
     testWidgets('zoom clamps to 0.9–6.0 via InteractiveViewer', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
             home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
           ),
@@ -244,8 +264,48 @@ void main() {
         );
         expect(viewer.minScale, ImageViewerPage.minScale);
         expect(viewer.maxScale, ImageViewerPage.maxScale);
+        expect(viewer.panEnabled, isFalse);
         expect(ImageViewerPage.minScale, 0.9);
         expect(ImageViewerPage.maxScale, 6.0);
+      });
+    });
+
+    testWidgets('zoomed viewer keeps vertical gestures for image pan', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        final navigatorKey = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(
+          MaterialApp(
+            navigatorKey: navigatorKey,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const SizedBox.shrink(),
+          ),
+        );
+        navigatorKey.currentState!.push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final viewer = tester.widget<InteractiveViewer>(
+          find.byType(InteractiveViewer),
+        );
+        viewer.transformationController!.value = Matrix4.identity()
+          ..scaleByDouble(2, 2, 2, 1);
+        await tester.pump();
+
+        expect(
+          tester.widget<DragToDismiss>(find.byType(DragToDismiss)).enabled,
+          isFalse,
+        );
+        await tester.drag(find.byType(InteractiveViewer), const Offset(0, 180));
+        await tester.pumpAndSettle();
+        expect(find.byType(ImageViewerPage), findsOneWidget);
       });
     });
 
@@ -253,18 +313,16 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
+        const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
 
           home: ImageViewerPage(urls: []),
         ),
       );
       await tester.pump();
-      expect(
-        find.text('没有可显示的图片'),
-        findsOneWidget,
-      );
+      expect(find.text('没有可显示的图片'), findsOneWidget);
       expect(find.text('1 / 0'), findsOneWidget);
     }, skip: false);
 
@@ -273,9 +331,10 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
 
               home: ImageViewerPage(
                 urls: ['https://i.pximg.net/1/original.jpg'],
@@ -348,11 +407,7 @@ void main() {
 
       await longPressImage(tester);
       await mockNetworkImagesFor(() async {
-        await tester.tap(
-          find.byTooltip(
-            'Download All',
-          ),
-        );
+        await tester.tap(find.byTooltip('Download All'));
         await tester.pump();
       });
 
@@ -463,12 +518,7 @@ void main() {
       );
       await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
       await tester.pump(const Duration(milliseconds: 50));
-      expect(
-        find.text(
-          '该作品已被删除或受限（ID: 42）',
-        ),
-        findsOneWidget,
-      );
+      expect(find.text('该作品已被删除或受限（ID: 42）'), findsOneWidget);
     });
 
     testWidgets('detail renders badges, tags and summary from the snapshot', (
@@ -526,9 +576,10 @@ void main() {
           await tester.pumpWidget(
             UncontrolledProviderScope(
               container: container,
-              child: MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+              child: MaterialApp(
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
                 home: IllustDetailPage(
                   illustId: 42,
@@ -606,7 +657,7 @@ void main() {
             ),
           },
         );
-        await pumpDetail(tester, container);
+        await pumpDetail(tester, container, useRouter: true);
         await mockNetworkImagesFor(() async {
           await tester.scrollUntilVisible(
             find.textContaining('line1'),
@@ -640,7 +691,7 @@ void main() {
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
           find.byKey(const Key('illust-author-avatar')),
@@ -664,7 +715,7 @@ void main() {
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
           find.byKey(const Key('illust-author-avatar')),
@@ -710,21 +761,17 @@ void main() {
 
         // The size row is the one always-present interpolated string.
         expect(
-          find.text(
-            switch (language) {
-              ReplicaLanguage.jaJP => 'サイズ：800x600',
-              _ => 'Size: 800x600',
-            },
-          ),
+          find.text(switch (language) {
+            ReplicaLanguage.jaJP => 'サイズ：800x600',
+            _ => 'Size: 800x600',
+          }),
           findsOneWidget,
           reason: 'size row must render in ${language.tag}',
         );
         // No zh fallback leaks through for any of the migrated keys.
         for (final key in keys) {
           expect(
-            find.textContaining(
-              '尺寸：800x600',
-            ),
+            find.textContaining('尺寸：800x600'),
             findsNothing,
             reason: '$key must not fall back to zh under ${language.tag}',
           );
@@ -740,7 +787,7 @@ void main() {
           42: [illustJson(901, pageCount: 1), illustJson(902, pageCount: 1)],
         },
       );
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, useRouter: true);
       // The section is a lazy sliver below the info block: scroll down so
       // it builds, then let the related page resolve.
       await mockNetworkImagesFor(() async {
@@ -770,7 +817,7 @@ void main() {
           42: [illustJson(901, pageCount: 1)],
         },
       );
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.drag(
           find.byType(CustomScrollView),

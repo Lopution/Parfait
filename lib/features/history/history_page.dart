@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/feed/feed_grid.dart';
@@ -172,7 +172,9 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                   )
                   .refresh(),
           child: CustomScrollView(
+            key: PageStorageKey('history-${widget.accountId}'),
             controller: _scrollController,
+            restorationId: 'history-${widget.accountId}',
             slivers: [
               IllustFeedGrid(
                 padding: const EdgeInsets.all(10),

@@ -353,6 +353,8 @@
       }
     }
   },
+  "homeRecommended": "Рекомендации",
+  "homeRanking": "Рейтинг",
   "homeExitHint": "Нажмите ещё раз, чтобы выйти",
   "bookmarkIllust": "Добавить иллюстрацию в закладки",
   "bookmarkNovel": "Добавить новеллу в закладки",

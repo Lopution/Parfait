@@ -816,6 +816,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get homeRecommended => 'Recommended';
+
+  @override
+  String get homeRanking => 'Ranking';
+
+  @override
   String get homeExitHint => 'Press back again to exit';
 
   @override

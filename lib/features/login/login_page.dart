@@ -1,24 +1,27 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
-import '../../app/motion/replica_page_route.dart';
+import '../../app/widgets/app_snack_bar.dart';
+import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
+import '../../core/auth/oauth_service.dart';
+import '../../core/auth/pkce.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/compat/network_contracts.dart' as network_contracts;
 import '../../core/network/compat/network_providers.dart';
+import '../../core/platform/intent_router.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
-import 'login_webview_page.dart';
-import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
 
@@ -30,6 +33,7 @@ class LoginPage extends ConsumerStatefulWidget {
     this.onRegister,
     this.onLogin,
     this.onClipboardLogin,
+    this.callback,
   });
 
   final bool isFirst;
@@ -42,6 +46,7 @@ class LoginPage extends ConsumerStatefulWidget {
   final VoidCallback? onRegister;
   final VoidCallback? onLogin;
   final VoidCallback? onClipboardLogin;
+  final AccountCallbackRoute? callback;
 
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
@@ -59,24 +64,82 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       network_contracts.NetworkMode.automatic => NetworkMode.automatic,
       network_contracts.NetworkMode.directOnly => NetworkMode.directOnly,
     };
+    if (widget.callback != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_handleExternalCallback());
+      });
+    }
+  }
+
+  Future<void> _handleExternalCallback() async {
+    final callback = widget.callback;
+    if (callback == null) return;
+    final uri = Uri(
+      scheme: 'pixiv',
+      host: 'account',
+      queryParameters: {
+        'code': callback.code,
+        if (callback.state != null) 'state': callback.state!,
+      },
+    );
+    final service = ref.read(oauthServiceProvider);
+    final parsed = service.validateRedirect(uri);
+    switch (parsed) {
+      case PixivCallbackCode(:final code):
+        try {
+          final result = await service.exchangeCode(code);
+          if (!mounted) return;
+          await ref
+              .read(accountStoreProvider.notifier)
+              .upsertAccount(
+                Account(
+                  id: result.accountId,
+                  userId: result.profile.userId,
+                  name: result.profile.name,
+                  mailAddress: result.profile.mailAddress,
+                  profileImageUrl: result.profile.profileImageUrl,
+                ),
+                result.credential,
+              );
+          if (mounted) context.go('/recommended');
+        } on OAuthException catch (error) {
+          if (mounted) {
+            showAppSnackBar(
+              context,
+              context.l10n.loginFailed(error.toString()),
+            );
+          }
+        } on Object catch (error) {
+          if (mounted) {
+            showAppSnackBar(
+              context,
+              context.l10n.loginFailedType(error.runtimeType.toString()),
+            );
+          }
+        }
+      case PixivCallbackInvalid(:final reason):
+        if (mounted) {
+          showAppSnackBar(context, context.l10n.loginCallbackInvalid(reason));
+        }
+      case PixivCallbackOther():
+        break;
+    }
   }
 
   Future<void> _openLoginWebview({bool create = false}) async {
     // R7 was cancelled: the first login always uses the stable webview_flutter
     // path (C16). The native interception entry is removed.
-    final result = await Navigator.of(context).push<bool>(
-      ReplicaPageRoute<bool>(
-        builder: (_) => LoginWebViewPage(
-          oauthService: ref.read(oauthServiceProvider),
-          create: create,
-        ),
-      ),
+    final result = await context.push<bool>(
+      Uri(
+        path: '/login/web',
+        queryParameters: create ? {'create': 'true'} : null,
+      ).toString(),
     );
     if (!mounted || result != true || !widget.returnToHomeOnSuccess) return;
     // The account store is updated before the WebView pops.  Popping the
     // onboarding/login routes now lets StartupGate rebuild to Home without
     // leaving the user stranded on a stale login surface.
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    context.go('/recommended');
   }
 
   void _persistNetworkMode(NetworkMode mode) {

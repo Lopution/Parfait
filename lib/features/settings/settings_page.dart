@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/app_snack_bar.dart';
@@ -11,18 +11,8 @@ import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
-import 'network_settings_page.dart';
-import 'settings_helpers.dart';
-import 'pages/about_settings_page.dart';
 import 'pages/account_settings_page.dart';
-import 'pages/blocked_tags_page.dart';
-import 'pages/browse_settings_page.dart';
-import 'pages/download_settings_page.dart';
-import 'pages/download_tasks_page.dart';
-import 'pages/history_settings_page.dart';
-import 'pages/language_settings_page.dart';
-import 'pages/theme_settings_page.dart';
-import 'pages/translate_settings_page.dart';
+import 'settings_helpers.dart';
 
 export 'pages/about_settings_page.dart';
 export 'pages/account_settings_page.dart';
@@ -96,61 +86,61 @@ class _SettingsList extends ConsumerWidget {
         SettingsTile(
           icon: Icons.manage_accounts_outlined,
           title: context.l10n.accountSettings,
-          onTap: () => openSettingsPage(context, const AccountSettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/account'),
         ),
         const Divider(),
         SettingsTile(
           icon: Icons.palette_outlined,
           title: context.l10n.themeSettings,
-          onTap: () => openSettingsPage(context, const ThemeSettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/theme'),
         ),
         SettingsTile(
           icon: Icons.language,
           title: context.l10n.languageSettings,
-          onTap: () => openSettingsPage(context, const LanguageSettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/language'),
         ),
         SettingsTile(
           icon: Icons.translate,
           title: context.l10n.translateSettings,
-          onTap: () => openSettingsPage(context, const TranslateSettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/translate'),
         ),
         const Divider(),
         SettingsTile(
           icon: Icons.network_check,
           title: context.l10n.networkSettings,
-          onTap: () => openSettingsPage(context, const NetworkSettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/network'),
         ),
         SettingsTile(
           icon: Icons.image_outlined,
           title: context.l10n.browseSettings,
-          onTap: () => openSettingsPage(context, const BrowseSettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/browse'),
         ),
         SettingsTile(
           icon: Icons.download_outlined,
           title: context.l10n.downloadSettings,
-          onTap: () => openSettingsPage(context, const DownloadSettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/download'),
         ),
         SettingsTile(
           icon: Icons.history,
           title: context.l10n.historySettings,
-          onTap: () => openSettingsPage(context, const HistorySettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/history'),
         ),
         SettingsTile(
           icon: Icons.block_outlined,
           title: context.l10n.blockTagSettings,
-          onTap: () => openSettingsPage(context, const BlockedTagsPage()),
+          onTap: () => openSettingsPage(context, '/settings/blocked'),
         ),
         const Divider(),
         SettingsTile(
           icon: Icons.downloading_outlined,
           title: context.l10n.downloaderSettings,
-          onTap: () => openSettingsPage(context, const DownloadTasksPage()),
+          onTap: () => openSettingsPage(context, '/settings/tasks'),
         ),
         const Divider(),
         SettingsTile(
           icon: Icons.info_outline,
           title: context.l10n.aboutSettings,
-          onTap: () => openSettingsPage(context, const AboutSettingsPage()),
+          onTap: () => openSettingsPage(context, '/settings/about'),
         ),
       ],
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../app/motion/drag_to_dismiss.dart';
+import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
@@ -10,11 +12,18 @@ import '../../../l10n/context.dart';
 /// (R3): `n / total` title, horizontal paging, per-page zoom clamped to
 /// 0.9–6.0, initial page restored, swiping suspended while zoomed.
 class ImageViewerPage extends StatefulWidget {
-  const ImageViewerPage({super.key, required this.urls, this.initialPage = 0})
-    : assert(initialPage >= 0);
+  const ImageViewerPage({
+    super.key,
+    required this.urls,
+    this.initialPage = 0,
+    this.heroTagForPage,
+    this.onPageChanged,
+  }) : assert(initialPage >= 0);
 
   final List<String> urls;
   final int initialPage;
+  final Object? Function(int page)? heroTagForPage;
+  final ValueChanged<int>? onPageChanged;
 
   /// Zoom bounds (PRD R3: strictly 0.9–6.0).
   static const double minScale = 0.9;
@@ -61,6 +70,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         _activePage = page;
         _transformationFor(_activePage).addListener(_onTransformed);
       });
+      widget.onPageChanged?.call(page);
     }
   }
 
@@ -90,47 +100,62 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     String text(String key) => l10nLookup(context.l10n, key);
     // The fullscreen viewer deliberately keeps an opaque black canvas so
     // artwork and its white chrome match the replica surface.
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
+    return DragToDismiss(
+      enabled: !_activeZoomed,
+      onDismissed: () => Navigator.of(context).pop<void>(),
+      child: Scaffold(
         backgroundColor: Colors.black,
-        foregroundColor: FuncTokens.lightBackground,
-        title: Text('${_activePage + 1} / $_pageCount'),
-      ),
-      body: _pageCount == 0
-          ? Center(
-              child: Text(
-                text('viewerNoImages'),
-                style: TextStyle(color: FuncTokens.lightBackground),
-              ),
-            )
-          : PageView.builder(
-              controller: _pageController,
-              physics: _activeZoomed
-                  ? const NeverScrollableScrollPhysics()
-                  : const PageScrollPhysics(),
-              itemCount: _pageCount,
-              itemBuilder: (context, page) {
-                return InteractiveViewer(
-                  key: ValueKey('viewer-page-$page'),
-                  transformationController: _transformationFor(page),
-                  minScale: ImageViewerPage.minScale,
-                  maxScale: ImageViewerPage.maxScale,
-                  panEnabled: true,
-                  // Tight constraints (U3): Center alone gives loose
-                  // constraints, so RenderImage laid out at its intrinsic
-                  // size (original pixels / DPR) and BoxFit.contain had
-                  // nothing to fill. Expanding forces the image to fill
-                  // the viewport, giving the zoom a real target.
-                  child: SizedBox.expand(
-                    child: PixivImage(
-                      url: widget.urls[page],
-                      fit: BoxFit.contain,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: FuncTokens.lightBackground,
+          title: Text('${_activePage + 1} / $_pageCount'),
+        ),
+        body: _pageCount == 0
+            ? Center(
+                child: Text(
+                  text('viewerNoImages'),
+                  style: TextStyle(color: FuncTokens.lightBackground),
+                ),
+              )
+            : PageView.builder(
+                controller: _pageController,
+                physics: _activeZoomed
+                    ? const NeverScrollableScrollPhysics()
+                    : const PageScrollPhysics(),
+                itemCount: _pageCount,
+                itemBuilder: (context, page) {
+                  final viewer = InteractiveViewer(
+                    key: ValueKey('viewer-page-$page'),
+                    transformationController: _transformationFor(page),
+                    minScale: ImageViewerPage.minScale,
+                    maxScale: ImageViewerPage.maxScale,
+                    panEnabled: _isZoomed(page),
+                    // Tight constraints (U3): Center alone gives loose
+                    // constraints, so RenderImage laid out at its intrinsic
+                    // size (original pixels / DPR) and BoxFit.contain had
+                    // nothing to fill. Expanding forces the image to fill
+                    // the viewport, giving the zoom a real target.
+                    child: SizedBox.expand(
+                      child: PixivImage(
+                        url: widget.urls[page],
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                  final heroTag = widget.heroTagForPage?.call(page);
+                  if (heroTag == null) return viewer;
+                  return Hero(
+                    tag: heroTag,
+                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                    child: viewer,
+                  );
+                },
+              ),
+      ),
     );
   }
+
+  bool _isZoomed(int page) =>
+      _transformationFor(page).value.getMaxScaleOnAxis() >
+      1.0 + precisionErrorTolerance;
 }

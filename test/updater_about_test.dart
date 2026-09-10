@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pixiv_func/core/updater/update_providers.dart';
 import 'package:pixiv_func/core/updater/update_service.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
@@ -20,9 +21,9 @@ void main() {
             updateServiceProvider.overrideWith((ref) async => service),
           ],
           child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
             home: const AboutSettingsPage(),
           ),
         ),
@@ -61,7 +62,6 @@ class _FdroidPlatform implements UpdatePlatform {
 
   @override
   Future<bool> deleteApk(String path) => throw StateError('not used');
-
 }
 
 class _UnusedTransport implements UpdateManifestTransport {

@@ -1,7 +1,9 @@
 import 'package:easy_refresh/easy_refresh.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as legacy_material;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/app/pull_to_refresh.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
@@ -24,9 +26,10 @@ void main() {
         child: list,
       );
     }
-    return MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+    return MaterialApp(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('zh', 'CN'),
 
       home: Scaffold(
         body: PullToRefresh(onRefresh: onRefresh, child: list),
@@ -35,9 +38,10 @@ void main() {
   }
 
   Widget buildNestedSubject({required Future<void> Function() onRefresh}) {
-    return MaterialApp(localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+    return MaterialApp(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('zh', 'CN'),
 
       home: Scaffold(
         body: NestedScrollView(
@@ -64,7 +68,7 @@ void main() {
     );
   }
 
-  final indicator = find.byType(RefreshProgressIndicator);
+  final indicator = find.byType(legacy_material.RefreshProgressIndicator);
 
   double scrollOffset(WidgetTester tester) =>
       tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels;

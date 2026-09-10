@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
@@ -60,6 +60,7 @@ class ProfileNovelFeed extends ConsumerWidget {
             },
             child: ListView.builder(
               key: PageStorageKey('profile-novel-$userId'),
+              restorationId: 'profile-novel-$userId',
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: (novels.isEmpty ? 1 : novels.length + 1) + 1,
               itemBuilder: (context, index) {

@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../app/motion/replica_page_route.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
-import 'language_page.dart';
 import '../../l10n/lookup.dart';
 
 class WelcomePage extends StatelessWidget {
@@ -72,11 +71,8 @@ class WelcomePage extends StatelessWidget {
                         ),
                         backgroundColor: FuncTokens.primary,
                         foregroundColor: FuncTokens.lightBackground,
-                        onPressed: () => Navigator.of(context).push(
-                          ReplicaPageRoute<void>(
-                            builder: (_) => const LanguagePage(),
-                          ),
-                        ),
+                        onPressed: () =>
+                            context.push<void>('/welcome/language'),
                       ),
                     ),
                     const SizedBox(height: 24),

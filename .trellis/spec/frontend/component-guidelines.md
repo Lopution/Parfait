@@ -6,57 +6,154 @@
 
 ## Overview
 
-<!--
-Document your project's component conventions here.
+Shared UI belongs under `lib/app/widgets/` or `lib/app/motion/`; feature-specific
+composition belongs under `lib/features/`. A shared widget owns one interaction
+contract and exposes the smallest typed input needed by its callers. Feature
+pages compose those widgets and keep repositories, controllers, and route
+facades as their existing owners.
 
-Questions to answer:
-- What component patterns do you use?
-- How are props defined?
-- How do you handle composition?
-- What accessibility standards apply?
--->
-
-(To be filled by the team)
+The app builder is the composition boundary for app-wide bridges. A feature
+must not create a second global theme, router, compatibility bridge, or intent
+listener.
 
 ---
 
 ## Component Structure
 
-<!-- Standard structure of a component file -->
+Use a public widget with a `const` constructor where possible, immutable typed
+fields, and a private state/widget for implementation details. Keep the build
+tree close to the owner of the behavior: shared feed states stay in
+`lib/app/widgets/feed/`, image quality and Hero hand-offs stay in `PixivImage`,
+and route transitions stay in `lib/app/navigation/` and `lib/app/motion/`.
 
-(To be filled by the team)
+Prefer composition over a second variant of an existing shared widget. A
+component may accept a `Widget child` or a typed callback when that is the
+actual composition seam; it should not accept an untyped map of UI options.
 
 ---
 
 ## Props Conventions
 
-<!-- How props should be defined and typed -->
+Constructor inputs are immutable and use domain types or enums rather than
+`Object`/`dynamic` pairs. Required inputs identify the content or action the
+widget renders; optional inputs express a real visual or route variant and
+have a stable default. Keep callbacks narrow and synchronous unless the
+component owns an asynchronous operation.
 
-(To be filled by the team)
+Route data goes through the typed facade in `lib/app/navigation/routes.dart`.
+Use route `extra` only for an in-memory snapshot or an input that is not part
+of the durable URL; the page must still render from its durable scalar route
+data.
 
 ---
 
 ## Styling Patterns
 
-<!-- How styles are applied (CSS modules, styled-components, Tailwind, etc.) -->
+Read semantic colors and typography from `Theme.of(context)` and keep stable
+brand values in `FuncTokens`. Shared component shapes, surfaces, and states
+belong in `lib/app/theme/replica_theme.dart`; a feature should not recreate a
+second light/dark palette or copy a component theme locally.
 
-(To be filled by the team)
+Use `MotionTokens` for shared UI and route durations. A visible image keeps
+the `PixivImage` quality/cache hand-off, and a feed keeps the shared
+`PullToRefresh` wrapper rather than adding a parallel loading or gesture
+implementation.
 
 ---
 
 ## Accessibility
 
-<!-- A11y requirements and patterns -->
+Icon-only actions provide a localized `tooltip` or an equivalent semantic
+label. Interactive images expose the artwork/user meaning through their
+existing semantic label, and controls use their typed Material component so
+focus, keyboard, touch, and screen-reader states remain available.
 
-(To be filled by the team)
+Navigation destinations and visible action labels come from generated l10n.
+Do not use color or an unlabeled icon as the only indication of the selected
+state or action.
 
 ---
 
 ## Common Mistakes
 
-<!-- Component-related mistakes your team has made -->
+- A feature creates a second refresh wrapper, scroll state machine, theme, or
+  global listener instead of composing the shared owner.
+- A `TabBar` tap callback calls `animateTo` again, resetting the animation that
+  `TabBar` already owns.
+- A page pushes a route directly or passes route data as an untyped widget;
+  use the typed route facade and durable path/query values.
+- Two mounted artwork surfaces use the same unscoped Hero tag, or a card
+  waits for image preload before navigating.
+- A router is rebuilt from settings/account changes, discarding branch stacks
+  and restoration state.
 
-(To be filled by the team)
+## Material 3 Theme Contract
+
+`replicaTheme(Brightness)` is the single source of light/dark `ThemeData`.
+`ColorScheme.fromSeed` uses `FuncTokens.primary`, while semantic background,
+surface, text, subdued, and error values are mapped from `FuncTokens` for the
+current brightness. AppBar, NavigationBar, TabBar, Card, Chip, Dialog,
+BottomSheet, SnackBar, and Switch styles are defined there.
+
+Feature code reads `ColorScheme`, `TextTheme`, and component defaults from the
+ambient theme. `MaterialUiCompatibilityBridge` is installed once in the app
+builder for legacy plugin subtrees; feature pages do not add another bridge.
+
+## NavigationBar Contract
+
+`HomePage` renders one M3 `NavigationBar` with the five localized
+`NavigationDestination`s. Its selected index comes from
+`StatefulNavigationShell.currentIndex`, and destination selection calls
+`goBranch`. Branch selection is owned by the shell; the destination callback
+does not create a second tab controller or animation.
+
+The shell continues to publish the rendered bar bounds through
+`homeShellMetricsProvider`. Motion and Hero code uses those measured bounds,
+not a copied navigation-bar height.
+
+## Route Restoration Contract
+
+`MaterialApp.router`, `GoRouter`, the shell, and each branch use stable
+restoration scope IDs. Feed scrollables use their stable `PageStorageKey` and
+`restorationId`; the key preserves in-process tab/mode switching and the
+restoration ID covers the Flutter restoration bucket.
+
+Ranking mode, search input/filter, and viewer page are durable path/query
+values and are updated through the route facade. An entity or input passed as
+route `extra` accelerates the first frame but is not the restoration source.
+The router instance stays stable while settings, account, or providers update.
+
+## Predictive Back Contract
+
+The Android application enables `android:enableOnBackInvokedCallback`. Pages
+use `PopScope.onPopInvokedWithResult`; `WillPopScope` is not part of the app
+route model. go_router first pops the current branch stack. At a branch root,
+the shell delegates to `RootBackCoordinator` for the existing double-back exit
+window.
+
+Pages with local edit state, such as `ProfileEditPage`, keep their
+`canPop`/confirmation behavior in their own `PopScope`. Navigation changes
+must not bypass that confirmation or reset the branch stack.
+
+## Hero Drag Contract
+
+`DragToDismiss` is shared by the still image viewer and Ugoira surface. It
+accepts a downward drag while the still viewer is at 1x, translates/scales/
+fades the surface with the drag, and returns with `MotionTokens.fast` when the
+drag is canceled or below threshold. A qualifying drag pops the current typed
+route so the existing `CustomTransitionPage`, scoped Hero tag, and
+`HeroRectClip` perform the reverse flight.
+
+Horizontal page changes and zoomed `InteractiveViewer` pan remain with the
+viewer. The card does not await image preload before route navigation, and
+Hero scopes remain stable per mounted feed surface. Ugoira playback, tap,
+long-press, and lifecycle ownership stay with the Ugoira page.
+
+For the full artwork URL, Hero scope, global clip, and preload contract, see
+[Artwork Detail Transition Contract](#artwork-detail-transition-contract).
+
+The release artifact and APK size gate live in
+[backend/release-artifacts.md](../backend/release-artifacts.md).
 
 ## Artwork Detail Transition Contract
 
