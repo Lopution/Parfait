@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account_store.dart';
@@ -36,7 +37,7 @@ class SettingsPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.settingsTitle)),
       body: settings.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const FeedLoading(),
         error: (error, _) => SettingsLoadError(
           error: error,
           onRetry: () => ref.read(settingsProvider.notifier).reload(),
@@ -62,7 +63,7 @@ class _SettingsList extends ConsumerWidget {
       );
     }
     if (accounts.isLoading && !accounts.hasValue) {
-      return const Center(child: CircularProgressIndicator());
+      return const FeedLoading();
     }
     final state = accounts.value;
     if (state?.status == AccountStatus.failure) {

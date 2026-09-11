@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/settings_action_button.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
@@ -22,7 +23,10 @@ class SearchHomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.searchTitle)),
+      appBar: AppBar(
+        title: Text(context.l10n.searchTitle),
+        actions: const [SettingsActionButton()],
+      ),
       body: CustomScrollView(
         key: const PageStorageKey('search-home'),
         restorationId: 'search-home',
@@ -162,7 +166,7 @@ class _TrendingTagTile extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: ColoredBox(
-          color: scheme.surfaceContainerHighest,
+          color: scheme.surfaceContainer,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -434,7 +438,7 @@ class _SearchAutocompletePanel extends ConsumerWidget {
       );
     }
     if (state.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const FeedLoading();
     }
     if (state.error != null) {
       return FeedError(

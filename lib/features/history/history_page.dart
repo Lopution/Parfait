@@ -136,7 +136,7 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
   Widget build(BuildContext context) {
     final feed = ref.watch(historyFeedControllerProvider(widget.accountId));
     return feed.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: context.l10n.historyLoadFailed,
         error: error,
@@ -186,7 +186,7 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                 )) {
                   (true, _) => const Padding(
                     padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: FeedLoading(),
                   ),
                   (_, final error?) => Padding(
                     padding: const EdgeInsets.all(16),
@@ -438,7 +438,7 @@ class _SnapshotCover extends StatelessWidget {
       aspectRatio: 1,
       child: record.snapshot.coverUrl == null
           ? ColoredBox(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               child: Icon(icon, size: 42),
             )
           : PixivImage.feed(

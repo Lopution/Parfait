@@ -1,4 +1,4 @@
-import 'package:flutter/animation.dart';
+import 'package:flutter/widgets.dart';
 
 /// Single source for every UI animation duration and curve. Data-level
 /// durations (debounce, frame scheduling, download throttling) do not belong
@@ -17,4 +17,12 @@ abstract final class MotionTokens {
 
   /// Image fade-in inside PixivImage.
   static const imageFade = Duration(milliseconds: 350);
+
+  /// Reduced-motion gate: collapses [base] to zero when the platform asks
+  /// for disabled animations. Reduced motion must remove the flight, never
+  /// the state it communicates.
+  static Duration resolve(BuildContext context, Duration base) {
+    final disabled = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return disabled ? Duration.zero : base;
+  }
 }

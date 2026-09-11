@@ -6,11 +6,17 @@ class ReplicaScaffold extends StatelessWidget {
     required this.child,
     this.title,
     this.centerTitle = true,
+    this.actions,
+    this.bottom,
+    this.floatingActionButton,
   });
 
   final Widget child;
   final Widget? title;
   final bool centerTitle;
+  final List<Widget>? actions;
+  final PreferredSizeWidget? bottom;
+  final Widget? floatingActionButton;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +27,8 @@ class ReplicaScaffold extends StatelessWidget {
         title: title,
         centerTitle: centerTitle,
         automaticallyImplyLeading: false,
+        actions: actions,
+        bottom: bottom,
         leading: canPop
             ? IconButton(
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
@@ -30,6 +38,7 @@ class ReplicaScaffold extends StatelessWidget {
             : null,
       ),
       body: SafeArea(top: false, child: child),
+      floatingActionButton: floatingActionButton,
     );
   }
 }

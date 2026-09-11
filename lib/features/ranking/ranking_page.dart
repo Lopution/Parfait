@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
+import '../../app/widgets/settings_action_button.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
@@ -93,6 +94,7 @@ class _RankingPageState extends State<RankingPage>
               Tab(text: l10nLookupFor(language.locale, item.labelKey)),
           ],
         ),
+        actions: const [SettingsActionButton()],
       ),
       body: _RankingModeBody(
         key: ValueKey(mode),
@@ -118,7 +120,7 @@ class _RankingModeBody extends ConsumerWidget {
     final state = ref.watch(rankingFeedControllerProvider(mode));
     final store = ref.watch(illustStoreProvider);
     return state.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: l10nLookup(context.l10n, 'rankingLoadFailed'),
         error: error,
@@ -139,7 +141,7 @@ class _RankingModeBody extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
+          return const FeedLoading();
         }
         if (feed.isEmptyAndReady) {
           return ReplicaEmptyState(

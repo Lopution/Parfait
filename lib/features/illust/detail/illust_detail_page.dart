@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,6 +16,7 @@ import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../app/motion/hero_transition.dart';
+import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
 import 'widgets/info_block.dart';
 import 'widgets/page_image.dart';
@@ -95,10 +95,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
           if (snapshot != null) {
             return _buildContent(context, ref, snapshot);
           }
-          return const Center(child: CupertinoActivityIndicator());
+          return const FeedLoading();
         },
-        error: (Object error, StackTrace _) => _ErrorView(
+        error: (Object error, StackTrace _) => FeedError(
+          title: context.l10n.illustDetailLoadFailed,
           error: error,
+          retryLabel: context.l10n.retry,
           onRetry: () => ref
               .read(illustDetailControllerProvider(widget.illustId).notifier)
               .reload(),
@@ -108,8 +110,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
           // any in-flight refresh; the controller state drives the terminal
           // surfaces (the loading branch above reads the store directly).
           return switch (state) {
-            IllustDetailRestricted(:final entity) => _RestrictedView(entity),
-            IllustDetailNotFound() => const _NotFoundView(),
+            IllustDetailRestricted(:final entity) => FeedEmpty(
+              icon: Icons.visibility_off_outlined,
+              title: context.l10n.illustDetailRestricted(entity.id),
+            ),
+            IllustDetailNotFound() => FeedEmpty(
+              icon: Icons.search_off,
+              title: context.l10n.illustDetailNotFound,
+            ),
             IllustDetailReady(:final entity) => _buildContent(
               context,
               ref,
@@ -195,8 +203,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   ) {
     final entity = snapshot ?? _snapshotEntity();
     if (entity != null) return _buildContent(context, ref, entity);
-    return _ErrorView(
+    return FeedError(
+      title: context.l10n.illustDetailLoadFailed,
       error: error,
+      retryLabel: context.l10n.retry,
       onRetry: () => ref
           .read(illustDetailControllerProvider(widget.illustId).notifier)
           .reload(),
@@ -340,72 +350,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
       isAccountCurrent: () => ref.read(historyAccountIdProvider) == accountId,
       child: content,
-    );
-  }
-}
-
-class _RestrictedView extends StatelessWidget {
-  const _RestrictedView(this.entity);
-
-  final IllustEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.visibility_off_outlined, size: 48),
-          const SizedBox(height: 12),
-          Text(context.l10n.illustDetailRestricted(entity.id)),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotFoundView extends StatelessWidget {
-  const _NotFoundView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.search_off, size: 48),
-          const SizedBox(height: 12),
-          Text(context.l10n.illustDetailNotFound),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.error, required this.onRetry});
-
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(context.l10n.illustDetailLoadFailed),
-            const SizedBox(height: 8),
-            Text('$error', style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
-          ],
-        ),
-      ),
     );
   }
 }

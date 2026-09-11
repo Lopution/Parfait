@@ -313,7 +313,7 @@ class _TranslationOverlay extends StatelessWidget {
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
+        color: theme.colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(

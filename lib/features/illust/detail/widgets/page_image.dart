@@ -189,7 +189,7 @@ class _DetailImageFallback extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return ColoredBox(
-      color: colors.surfaceContainerHighest,
+      color: colors.surfaceContainer,
       child: Center(
         child: Icon(
           Icons.image_outlined,

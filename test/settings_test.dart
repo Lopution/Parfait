@@ -658,6 +658,11 @@ void main() {
         ),
       ),
     );
+    // Compact surface: the wide rail's trailing settings gear is shell
+    // chrome, not a profile-page settings entry.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('tester'));
