@@ -60,7 +60,9 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   factory FuncSemanticTokens.fromBrightness(Brightness brightness) {
     final dark = brightness == Brightness.dark;
     final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
-    final subdued = dark ? FuncTokens.darkSubdued : FuncTokens.lightSubdued;
+    final textSecondary = dark
+        ? FuncTokens.darkTextSecondary
+        : FuncTokens.lightTextSecondary;
     return FuncSemanticTokens(
       canvas: dark ? FuncTokens.darkBackground : FuncTokens.lightBackground,
       surface: dark ? FuncTokens.darkSurface : FuncTokens.lightSurface,
@@ -70,7 +72,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       surfaceOverlay: FuncTokens.surfaceOverlay,
       divider: dark ? FuncTokens.darkDivider : FuncTokens.lightDivider,
       contentPrimary: text,
-      contentSecondary: subdued,
+      contentSecondary: textSecondary,
       contentTertiary: dark
           ? FuncTokens.darkText.withValues(alpha: 0.35)
           : FuncTokens.lightText.withValues(alpha: 0.35),
@@ -90,7 +92,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       caption: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w400,
-        color: subdued,
+        color: textSecondary,
       ),
       numeric: TextStyle(
         fontSize: 14,

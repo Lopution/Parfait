@@ -14,6 +14,9 @@ ThemeData replicaTheme(Brightness brightness) {
       : FuncTokens.lightSurfaceRaised;
   final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
   final subdued = dark ? FuncTokens.darkSubdued : FuncTokens.lightSubdued;
+  final textSecondary = dark
+      ? FuncTokens.darkTextSecondary
+      : FuncTokens.lightTextSecondary;
 
   final baseTextTheme = ThemeData(
     brightness: brightness,
@@ -33,9 +36,11 @@ ThemeData replicaTheme(Brightness brightness) {
         surfaceContainerHigh: surfaceRaised,
         surfaceContainerHighest: surfaceRaised,
         onPrimary: FuncTokens.lightBackground,
-        onSecondary: subdued,
+        onSecondary: textSecondary,
         onSurface: text,
-        onSurfaceVariant: subdued,
+        onSurfaceVariant: textSecondary,
+        // Borders/dividers keep the faint subdued alpha; only text uses the
+        // readable secondary color.
         outline: subdued,
         outlineVariant: subdued,
         error: FuncTokens.error,
@@ -122,7 +127,7 @@ ThemeData replicaTheme(Brightness brightness) {
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: background,
       selectedItemColor: FuncTokens.primary,
-      unselectedItemColor: subdued,
+      unselectedItemColor: textSecondary,
     ),
     bottomAppBarTheme: BottomAppBarThemeData(
       color: background,
@@ -131,7 +136,7 @@ ThemeData replicaTheme(Brightness brightness) {
     ),
     tabBarTheme: TabBarThemeData(
       labelColor: FuncTokens.primary,
-      unselectedLabelColor: subdued,
+      unselectedLabelColor: textSecondary,
       indicatorColor: FuncTokens.primary,
       dividerColor: FuncTokens.transparent,
     ),
