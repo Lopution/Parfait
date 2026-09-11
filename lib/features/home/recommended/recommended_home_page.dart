@@ -159,7 +159,7 @@ class _RecommendedFeedView extends ConsumerWidget {
     final feedAsync = ref.watch(recommendedFeedProvider(key));
 
     return feedAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: context.l10n.recommendedLoadFailed,
         error: error,
@@ -177,7 +177,7 @@ class _RecommendedFeedView extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
+          return const FeedLoading();
         }
         if (feed.isEmptyAndReady) {
           return FeedEmpty(

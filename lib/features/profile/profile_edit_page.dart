@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/profile/profile_edit_controller.dart';
 import '../../core/profile/profile_edit_models.dart';
@@ -173,7 +174,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
         ),
         body: session == null
             ? _initializationError == null
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const FeedLoading()
                   : _InitializationFailure(error: _initializationError!)
             : _ProfileEditBody(
                 session: session,

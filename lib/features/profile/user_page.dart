@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/user/user_entity.dart';
@@ -45,8 +46,7 @@ class MePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountStoreProvider);
     return accounts.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => const Scaffold(body: FeedLoading()),
       error: (error, _) => _ProfileStatusPage(
         icon: Icons.cloud_off,
         title: context.l10n.profileLoadFailed,
