@@ -137,10 +137,12 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   final Duration motionStandard;
   final Duration motionEmphasized;
 
+  /// Reads the ambient extension; falls back to brightness-derived defaults
+  /// so shared widgets also render under test harnesses and plugin subtrees
+  /// that do not install `replicaTheme`.
   static FuncSemanticTokens of(BuildContext context) {
-    final tokens = Theme.of(context).extension<FuncSemanticTokens>();
-    assert(tokens != null, 'FuncSemanticTokens must be wired by replicaTheme');
-    return tokens!;
+    return Theme.of(context).extension<FuncSemanticTokens>() ??
+        FuncSemanticTokens.fromBrightness(Theme.of(context).brightness);
   }
 
   @override

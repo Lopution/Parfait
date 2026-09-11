@@ -1,8 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/person_avatar.dart';
+import '../../app/widgets/author_summary.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/tag_chips.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
@@ -166,19 +167,12 @@ class _NovelMetadata extends StatelessWidget {
           children: [
             Text(novel.title, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 7),
-            InkWell(
+            AuthorSummary(
+              name: novel.user.name,
+              imageUrl: novel.user.profileImageUrl,
+              avatarRadius: 16,
+              compact: true,
               onTap: () => openUser(context, novel.user.id),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PersonAvatar(
-                    imageUrl: novel.user.profileImageUrl,
-                    radius: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(novel.user.name),
-                ],
-              ),
             ),
             if (novel.caption.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -187,14 +181,9 @@ class _NovelMetadata extends StatelessWidget {
             if (novel.tags.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(
-                spacing: 6,
-                runSpacing: 4,
                 children: [
                   for (final tag in novel.tags)
-                    Chip(
-                      label: Text(tag.translatedName ?? tag.name),
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    TagChip(label: tag.name, translated: tag.translatedName),
                 ],
               ),
             ],
