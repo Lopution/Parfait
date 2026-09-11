@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/icons/app_icons.dart';
+import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
@@ -180,6 +181,25 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                   child: _ProfileBackground(user: user, withScrim: true),
                 ),
               ),
+              // Pushed pages (other artists) need a visible back affordance
+              // while the header is still expanded — the collapsed toolbar's
+              // own back button only exists once fully collapsed. /me as a
+              // branch root never reports canPop, so it stays clean.
+              if (canPop && geometry.backgroundOpacity > 0)
+                Positioned(
+                  top: topInset + 4,
+                  left: 8,
+                  child: Opacity(
+                    opacity: geometry.backgroundOpacity,
+                    child: IconButton.filledTonal(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).backButtonTooltip,
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.arrow_back_ios_new),
+                    ),
+                  ),
+                ),
               if (geometry.showExpandedIdentity)
                 Positioned(
                   top: geometry.expandedContentOffset,
@@ -430,9 +450,7 @@ class _ExpandedProfileDetails extends StatelessWidget {
         if (user.account.isNotEmpty)
           Text(user.account, style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 7),
-        Wrap(
-          spacing: 16,
-          alignment: WrapAlignment.center,
+        Row(
           children: [
             _Stat(icon: AppIcons.follow, label: '${user.totalFollowUsers}'),
             _Stat(icon: AppIcons.friend, label: '${user.totalMyPixivUsers}'),
@@ -450,6 +468,11 @@ class _ExpandedProfileDetails extends StatelessWidget {
                   onPressed: onEditProfile,
                   icon: const Icon(Icons.edit_outlined),
                 ),
+              IconButton(
+                tooltip: context.l10n.settingsTitle,
+                onPressed: () => openSettings(context),
+                icon: const Icon(Icons.settings_outlined),
+              ),
             ],
           )
         else
@@ -489,6 +512,11 @@ class _CollapsedProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settingsButton = IconButton(
+      tooltip: context.l10n.settingsTitle,
+      onPressed: () => openSettings(context),
+      icon: const Icon(Icons.settings_outlined),
+    );
     final actions = isMe && showRestrictSelector
         ? Row(
             mainAxisSize: MainAxisSize.min,
@@ -515,16 +543,22 @@ class _CollapsedProfile extends StatelessWidget {
                   onPressed: onEditProfile,
                   icon: const Icon(Icons.edit_outlined),
                 ),
+              settingsButton,
             ],
           )
         : isMe
-        ? (onEditProfile != null
-              ? IconButton(
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onEditProfile != null)
+                IconButton(
                   tooltip: _text(context, 'profileEditTitle'),
                   onPressed: onEditProfile,
                   icon: const Icon(Icons.edit_outlined),
-                )
-              : const SizedBox.shrink())
+                ),
+              settingsButton,
+            ],
+          )
         : IconButton(
             tooltip: _text(context, 'profileShare'),
             onPressed: onShare,
@@ -594,9 +628,12 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [Icon(icon, size: 14), const SizedBox(width: 4), Text(label)],
+    return Expanded(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [Icon(icon, size: 14), const SizedBox(width: 4), Text(label)],
+      ),
     );
   }
 }

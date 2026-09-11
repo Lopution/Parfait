@@ -493,7 +493,9 @@ void main() {
     expect(find.byKey(const ValueKey('profile-expanded-avatar')), findsNothing);
   });
 
-  testWidgets('current profile header has no settings entry', (tester) async {
+  testWidgets('current profile header hosts the settings entry', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: appLocalizationsDelegates,
@@ -522,11 +524,11 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsWidgets);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pump();
-    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsWidgets);
   });
 
   testWidgets(
