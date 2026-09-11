@@ -149,7 +149,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HomePage), findsOneWidget);
-    expect(find.byIcon(Icons.settings), findsOneWidget);
+    // The fifth destination is "我的"; settings moved to a shell-level action.
+    expect(find.byIcon(Icons.person_outline), findsOneWidget);
   });
 
   testWidgets('reauth-required current account falls back to login', (
