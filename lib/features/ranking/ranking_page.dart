@@ -120,7 +120,7 @@ class _RankingModeBody extends ConsumerWidget {
     final state = ref.watch(rankingFeedControllerProvider(mode));
     final store = ref.watch(illustStoreProvider);
     return state.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: l10nLookup(context.l10n, 'rankingLoadFailed'),
         error: error,
@@ -141,7 +141,7 @@ class _RankingModeBody extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
+          return const FeedLoading();
         }
         if (feed.isEmptyAndReady) {
           return ReplicaEmptyState(

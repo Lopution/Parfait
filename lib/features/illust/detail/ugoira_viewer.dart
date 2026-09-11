@@ -7,6 +7,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_tokens.dart';
+import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_recovery.dart';
@@ -127,7 +128,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
             children: [
               _buildCover(currentImage),
               if (_loading)
-                const Center(child: CircularProgressIndicator())
+                const FeedLoading()
               else if (_error != null)
                 _ErrorOverlay(message: _error!, onRetry: _togglePlayback)
               else if (scheduler == null || !scheduler.isPlaying)

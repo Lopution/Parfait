@@ -24,11 +24,12 @@ class RecommendedIllustPage extends ConsumerWidget {
     final store = ref.watch(illustStoreProvider);
 
     return state.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => const Scaffold(body: FeedLoading()),
       error: (error, _) => Scaffold(
-        body: _InitialErrorView(
-          error: '$error',
+        body: FeedError(
+          title: context.l10n.recommendedLoadFailed,
+          error: error,
+          retryLabel: context.l10n.retry,
           onRetry: () => ref
               .read(recommendedIllustControllerProvider.notifier)
               .retryInitial(),
@@ -37,8 +38,10 @@ class RecommendedIllustPage extends ConsumerWidget {
       data: (feed) {
         if (feed.showInitialError) {
           return Scaffold(
-            body: _InitialErrorView(
-              error: '${feed.initialError}',
+            body: FeedError(
+              title: context.l10n.recommendedLoadFailed,
+              error: feed.initialError,
+              retryLabel: context.l10n.retry,
               onRetry: () => ref
                   .read(recommendedIllustControllerProvider.notifier)
                   .retryInitial(),
@@ -46,9 +49,7 @@ class RecommendedIllustPage extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: FeedLoading());
         }
         if (feed.isEmptyAndReady) {
           return Scaffold(
@@ -116,38 +117,6 @@ class RecommendedIllustPage extends ConsumerWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _InitialErrorView extends StatelessWidget {
-  const _InitialErrorView({required this.error, required this.onRetry});
-
-  final String error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 48),
-            const SizedBox(height: 12),
-            Text(context.l10n.recommendedLoadFailed),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
-          ],
-        ),
-      ),
     );
   }
 }
