@@ -564,21 +564,23 @@ class _ControlledSauceNaoInAppWebViewState
                   baseUrl: WebUri(SauceNaoWebViewProvider.defaultEndpoint),
                 )
               : null,
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            useShouldOverrideUrlLoading: true,
-          ),
-          shouldOverrideUrlLoading: (controller, action) async {
-            final url = action.request.url?.toString();
-            if (url == null) return NavigationActionPolicy.ALLOW;
-            return _applySauceNaoAction(
-                  context,
-                  SauceNaoNavigationPolicy.decide(Uri.tryParse(url)),
-                  url,
-                  widget.onOpenExternal,
-                )
-                ? NavigationActionPolicy.CANCEL
-                : NavigationActionPolicy.ALLOW;
+          // See LoginWebViewDesktopPage: the Windows plugin implements
+          // useShouldOverrideUrlLoading via CDP Fetch.requestPaused, which
+          // can strand mid-redirect document loads as CONNECTION_ABORTED.
+          // NavigationStarting (onLoadStart) interception is enough here —
+          // consumed links just get stopLoading().
+          initialSettings: InAppWebViewSettings(javaScriptEnabled: true),
+          onLoadStart: (controller, url) {
+            if (url == null) return;
+            final raw = url.toString();
+            if (_applySauceNaoAction(
+              context,
+              SauceNaoNavigationPolicy.decide(Uri.tryParse(raw)),
+              raw,
+              widget.onOpenExternal,
+            )) {
+              controller.stopLoading();
+            }
           },
           onProgressChanged: (controller, progress) {
             if (mounted) setState(() => _progress = progress / 100.0);
