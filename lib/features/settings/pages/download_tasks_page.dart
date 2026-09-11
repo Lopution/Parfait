@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart';
@@ -45,7 +46,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.downloaderSettings)),
       body: tasks.isEmpty
-          ? Center(child: Text(context.l10n.downloadTasksEmpty))
+          ? FeedEmpty(title: context.l10n.downloadTasksEmpty)
           : ListView(
               padding: const EdgeInsets.all(12),
               children: [

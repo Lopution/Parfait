@@ -111,28 +111,33 @@ Page<dynamic> _page(
   GoRouterState state,
   RouteObserver<ModalRoute<dynamic>> observer,
   Widget child,
-) => CustomTransitionPage<dynamic>(
-  key: state.pageKey,
-  restorationId: RestorationScope.maybeOf(context) == null
-      ? null
-      : state.pageKey.value,
-  child: _scoped(observer, child),
-  transitionDuration: MotionTokens.pageTransition,
-  reverseTransitionDuration: MotionTokens.pageTransition,
-  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: MotionTokens.pageCurve,
-    );
-    return SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(1, 0),
-        end: Offset.zero,
-      ).animate(curved),
-      child: child,
-    );
-  },
-);
+) {
+  // Reduced-motion collapses the slide without dropping the state it
+  // communicates: the route still changes on the same frame.
+  final duration = MotionTokens.resolve(context, MotionTokens.pageTransition);
+  return CustomTransitionPage<dynamic>(
+    key: state.pageKey,
+    restorationId: RestorationScope.maybeOf(context) == null
+        ? null
+        : state.pageKey.value,
+    child: _scoped(observer, child),
+    transitionDuration: duration,
+    reverseTransitionDuration: duration,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: MotionTokens.pageCurve,
+      );
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      );
+    },
+  );
+}
 
 int _pathId(GoRouterState state, String name) =>
     int.parse(state.pathParameters[name]!);
