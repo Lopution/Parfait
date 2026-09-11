@@ -816,6 +816,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get homeRanking => 'Рейтинг';
 
   @override
+  String get homeMe => 'Профиль';
+
+  @override
   String get homeExitHint => 'Нажмите ещё раз, чтобы выйти';
 
   @override

@@ -17,6 +17,7 @@ import '../../../core/user/user_store.dart';
 import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
+import '../../../app/widgets/settings_action_button.dart';
 import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
 import '../../../l10n/lookup.dart';
@@ -88,6 +89,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           onChanged: _selectType,
           controller: _tabController,
         ),
+        actions: const [SettingsActionButton()],
       ),
       body: Stack(
         fit: StackFit.expand,
