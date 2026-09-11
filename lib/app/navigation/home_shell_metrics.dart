@@ -35,7 +35,7 @@ class _HomeShellMetricsNotifier extends Notifier<HomeShellMetrics> {
   @override
   HomeShellMetrics build() => const HomeShellMetrics();
 
-  void publish(double bottomNavTop, double bottomNavHeight) {
+  void publish(double? bottomNavTop, double? bottomNavHeight) {
     state = HomeShellMetrics(
       bottomNavTop: bottomNavTop,
       bottomNavHeight: bottomNavHeight,

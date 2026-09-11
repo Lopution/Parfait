@@ -140,6 +140,61 @@ void main() {
     expect(find.byType(RankingPage), findsOneWidget);
   });
 
+  testWidgets('settings pushes over the shell and returns to the tab', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = await pumpRouter(tester, '/recommended');
+
+    // Gear in a tab AppBar pushes the root-level settings flow.
+    unawaited(openSettings(tester.element(find.byType(RecommendedHomePage))));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(router.state.uri.path, '/settings');
+    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/recommended');
+    expect(find.byType(RecommendedHomePage), findsOneWidget);
+  });
+
+  testWidgets('/settings deep links still resolve as a root flow', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/settings/theme');
+    expect(router.state.uri.path, '/settings/theme');
+    expect(find.byType(SettingsPage), findsNothing);
+  });
+
+  testWidgets('wide layout uses a rail with settings as a peer entry', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = await pumpRouter(tester, '/recommended');
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.byIcon(Icons.settings_outlined),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/settings');
+    expect(find.byType(SettingsPage), findsOneWidget);
+  });
+
   testWidgets('detail pushed from the reverse-image page does not stack a '
       'second home shell', (tester) async {
     final router = await pumpRouter(tester, '/recommended');

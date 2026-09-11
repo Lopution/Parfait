@@ -1579,6 +1579,12 @@ abstract class AppLocalizations {
   /// **'排行'**
   String get homeRanking;
 
+  /// No description provided for @homeMe.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的'**
+  String get homeMe;
+
   /// No description provided for @homeExitHint.
   ///
   /// In zh, this message translates to:
