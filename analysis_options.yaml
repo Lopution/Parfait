@@ -26,6 +26,10 @@ analyzer:
     # dependencies. Analyze it from plugins/rhttp/rhttp as a package; the app
     # analyzer must not treat those package-private tests as app sources.
     - plugins/rhttp/rhttp/test/**
+    # Vendored AGP-9 fork of flutter_inappwebview_android: upstream code,
+    # analyzed as its own package — the app analyzer must not apply our
+    # strict lints to it.
+    - plugins/flutter_inappwebview_android/**
 
 linter:
   # The lint rules applied to this project can be customized in the
