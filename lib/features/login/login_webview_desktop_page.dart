@@ -217,12 +217,23 @@ class _LoginWebViewDesktopPageState
             )
           else
             InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri.uri(_initialUrl)),
+              // NOTE: no initialUrlRequest — with useShouldOverrideUrlLoading
+              // the Windows plugin intercepts via CDP Fetch.requestPaused; a
+              // navigation started before that listener attaches stays paused
+              // and dies as CONNECTION_ABORTED. Load only after the view and
+              // its delegates exist.
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 useShouldOverrideUrlLoading: true,
               ),
-              onWebViewCreated: (controller) => _controller = controller,
+              onWebViewCreated: (controller) {
+                _controller = controller;
+                unawaited(
+                  controller.loadUrl(
+                    urlRequest: URLRequest(url: WebUri.uri(_initialUrl)),
+                  ),
+                );
+              },
               shouldOverrideUrlLoading: (controller, action) async {
                 final url = action.request.url?.toString();
                 if (url == null) return NavigationActionPolicy.ALLOW;
@@ -245,14 +256,21 @@ class _LoginWebViewDesktopPageState
               },
               onReceivedError: (controller, request, error) {
                 if (request.isForMainFrame == false) return;
+                // Surface the failing URL — CONNECTION_ABORTED alone does
+                // not say whether the authorize page or a consumed callback
+                // produced it.
                 _reportRecoverable(
-                  context.l10n.loginPageLoadFailed('${error.type}'),
+                  context.l10n.loginPageLoadFailed(
+                    '${error.type} ${request.url}',
+                  ),
                 );
               },
               onReceivedHttpError: (controller, request, response) {
                 if (request.isForMainFrame == false) return;
                 _reportRecoverable(
-                  context.l10n.loginNetworkError('${response.statusCode}'),
+                  context.l10n.loginNetworkError(
+                    '${response.statusCode} ${request.url}',
+                  ),
                 );
               },
             ),
