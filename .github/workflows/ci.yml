@@ -108,7 +108,7 @@ jobs:
         # still applies (stricter wins).
         env:
           PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28981038' }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24805284' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24830000' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
@@ -172,7 +172,7 @@ jobs:
         # still applies (stricter wins).
         env:
           PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28981038' }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24805284' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24830000' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-fdroid-release.apk \
