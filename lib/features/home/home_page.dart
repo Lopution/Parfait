@@ -8,6 +8,7 @@ import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
+import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/settings_action_button.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/platform/root_back_coordinator.dart';
@@ -29,6 +30,7 @@ class _HomePageState extends State<HomePage>
   bool _bottomNavMeasureScheduled = false;
   RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
   bool _routeSubscribed = false;
+  GoRouterDelegate? _routerDelegate;
 
   @override
   void initState() {
@@ -54,6 +56,18 @@ class _HomePageState extends State<HomePage>
       _routeObserver.subscribe(this, route);
       _routeSubscribed = true;
     }
+    // Branch-internal pushes don't rebuild the shell — subscribe to the
+    // delegate so the bottom bar can hide whenever the top location leaves
+    // a branch root.
+    final delegate = GoRouter.of(context).routerDelegate;
+    if (!identical(delegate, _routerDelegate)) {
+      _routerDelegate?.removeListener(_onRouteChanged);
+      _routerDelegate = delegate..addListener(_onRouteChanged);
+    }
+  }
+
+  void _onRouteChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -70,6 +84,7 @@ class _HomePageState extends State<HomePage>
   @override
   void dispose() {
     if (_routeSubscribed) _routeObserver.unsubscribe(this);
+    _routerDelegate?.removeListener(_onRouteChanged);
     WidgetsBinding.instance.removeObserver(this);
     _backCoordinator.dispose();
     super.dispose();
@@ -163,11 +178,6 @@ class _HomePageState extends State<HomePage>
     final wide = AppBreakpoints.useNavigationRail(
       MediaQuery.sizeOf(context).width,
     );
-    if (wide) {
-      _scheduleChromeClear();
-    } else {
-      _scheduleBottomNavMeasure();
-    }
     final index = widget.navigationShell.currentIndex;
     final labels = [
       context.l10n.homeRecommended,
@@ -176,6 +186,23 @@ class _HomePageState extends State<HomePage>
       context.l10n.searchTitle,
       context.l10n.homeMe,
     ];
+    // The bar belongs to the primary destinations only — pushed routes
+    // (illust detail, user page, history…) reclaim the full height. The
+    // shell context keeps the branch-root state, so read the router's
+    // topmost state directly.
+    final location = GoRouter.of(context).state.matchedLocation;
+    final atBranchRoot = const {
+      '/recommended',
+      '/ranking',
+      '/new',
+      '/search',
+      '/me',
+    }.contains(location);
+    if (wide || !atBranchRoot) {
+      _scheduleChromeClear();
+    } else {
+      _scheduleBottomNavMeasure();
+    }
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
@@ -213,20 +240,23 @@ class _HomePageState extends State<HomePage>
             ? null
             : SizedBox(
                 key: _bottomNavKey,
-                // NavigationBar already includes the M3 80dp row plus the
-                // bottom safe-area inset; the extra margin the old
-                // BottomAppBar needed left a strip of scaffold background
-                // under the bar.
-                child: NavigationBar(
-                  selectedIndex: index,
-                  onDestinationSelected: widget.navigationShell.goBranch,
-                  destinations: [
-                    for (var i = 0; i < icons.length; i++)
-                      NavigationDestination(
-                        icon: Icon(icons[i], size: 30),
-                        label: labels[i],
-                      ),
-                  ],
+                child: AnimatedSize(
+                  duration: MotionTokens.fast,
+                  curve: MotionTokens.fastCurve,
+                  alignment: Alignment.topCenter,
+                  child: atBranchRoot
+                      ? FuncBottomNav(
+                          selectedIndex: index,
+                          onSelected: widget.navigationShell.goBranch,
+                          destinations: [
+                            for (var i = 0; i < icons.length; i++)
+                              FuncBottomNavDestination(
+                                icon: icons[i],
+                                label: labels[i],
+                              ),
+                          ],
+                        )
+                      : const SizedBox(height: 0, width: double.infinity),
                 ),
               ),
       ),
