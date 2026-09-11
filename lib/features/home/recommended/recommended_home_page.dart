@@ -17,11 +17,11 @@ import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/widgets/author_summary.dart';
-import '../../../app/widgets/settings_action_button.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
 import '../../../l10n/lookup.dart';
+import '../../../app/widgets/smooth_wheel_scroll.dart';
 
 String _recommendedText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -90,7 +90,6 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           onChanged: _selectType,
           controller: _tabController,
         ),
-        actions: const [SettingsActionButton()],
       ),
       body: Stack(
         fit: StackFit.expand,
@@ -258,11 +257,15 @@ class _RecommendedFeedBody extends ConsumerWidget {
           }
           return false;
         },
-        child: CustomScrollView(
-          key: PageStorageKey('recommended-${type.name}'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          restorationId: 'recommended-${type.name}',
-          slivers: slivers,
+        child: SmoothWheelScroll(
+          basePhysics: const AlwaysScrollableScrollPhysics(),
+          builder: (context, controller, physics) => CustomScrollView(
+            key: PageStorageKey('recommended-${type.name}'),
+            physics: physics,
+            restorationId: 'recommended-${type.name}',
+            controller: controller,
+            slivers: slivers,
+          ),
         ),
       ),
     );

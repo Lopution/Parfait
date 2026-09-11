@@ -23,6 +23,7 @@ import 'widgets/page_image.dart';
 import 'ugoira_viewer.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../l10n/context.dart';
+import '../../../app/widgets/smooth_wheel_scroll.dart';
 
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
@@ -254,85 +255,91 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
           }
           return false;
         },
-        child: CustomScrollView(
-          slivers: [
-            if (entity.isUgoira)
-              SliverToBoxAdapter(
-                child: UgoiraViewer(
-                  illustId: entity.id,
-                  // Keep the first frame on the exact feed URL during the
-                  // initial Hero hand-off, then follow the same detail
-                  // quality selection as still and multi-page works. The
-                  // shared PixivImage inside UgoiraViewer keeps this URL
-                  // change gapless while a decoded frame (if any) remains
-                  // above it.
-                  previewUrl:
-                      detailUrlFor(0) ??
-                      widget.heroImageUrl ??
-                      entity.imageUrls.large,
-                  width: entity.width,
-                  height: entity.height,
-                  downloadMode: _downloadMode,
-                  onLongPress: _toggleDownloadMode,
-                  heroTag: illustHeroTag(widget.heroScope, entity.id),
-                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                ),
-              )
-            else if (entity.pageCount == 1)
-              SliverToBoxAdapter(
-                child: DetailPageImage(
-                  key: ValueKey<Object?>('illust-page-${entity.id}-0'),
-                  entity: entity,
-                  index: 0,
-                  heroTag: illustHeroTag(widget.heroScope, entity.id),
-                  heroScope: widget.heroScope,
-                  heroImageUrl: widget.heroImageUrl,
-                  detailUrl: detailUrlFor(0),
-                  downloadMode: _downloadMode,
-                  onLongPress: _toggleDownloadMode,
-                ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => Padding(
-                    padding: EdgeInsets.only(
-                      bottom: index == entity.pageCount - 1 ? 0 : 10,
-                    ),
-                    child: DetailPageImage(
-                      key: ValueKey<Object?>('illust-page-${entity.id}-$index'),
-                      entity: entity,
-                      index: index,
-                      heroTag: index == 0
-                          ? illustHeroTag(widget.heroScope, entity.id)
-                          : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
-                      heroScope: widget.heroScope,
-                      heroImageUrl: index == 0 ? widget.heroImageUrl : null,
-                      detailUrl: detailUrlFor(index),
-                      downloadMode: _downloadMode,
-                      onLongPress: _toggleDownloadMode,
-                      placeholderOnly: !detailReady && index > 0,
-                    ),
+        child: SmoothWheelScroll(
+          builder: (context, controller, physics) => CustomScrollView(
+            controller: controller,
+            physics: physics,
+            slivers: [
+              if (entity.isUgoira)
+                SliverToBoxAdapter(
+                  child: UgoiraViewer(
+                    illustId: entity.id,
+                    // Keep the first frame on the exact feed URL during the
+                    // initial Hero hand-off, then follow the same detail
+                    // quality selection as still and multi-page works. The
+                    // shared PixivImage inside UgoiraViewer keeps this URL
+                    // change gapless while a decoded frame (if any) remains
+                    // above it.
+                    previewUrl:
+                        detailUrlFor(0) ??
+                        widget.heroImageUrl ??
+                        entity.imageUrls.large,
+                    width: entity.width,
+                    height: entity.height,
+                    downloadMode: _downloadMode,
+                    onLongPress: _toggleDownloadMode,
+                    heroTag: illustHeroTag(widget.heroScope, entity.id),
+                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                   ),
-                  // All pages appear immediately: before the detail payload the
-                  // non-first pages render as neutral placeholders (uniform
-                  // ratio), and the real images/proportions replace them when
-                  // the detail API payload is merged.
-                  childCount: entity.pageCount,
+                )
+              else if (entity.pageCount == 1)
+                SliverToBoxAdapter(
+                  child: DetailPageImage(
+                    key: ValueKey<Object?>('illust-page-${entity.id}-0'),
+                    entity: entity,
+                    index: 0,
+                    heroTag: illustHeroTag(widget.heroScope, entity.id),
+                    heroScope: widget.heroScope,
+                    heroImageUrl: widget.heroImageUrl,
+                    detailUrl: detailUrlFor(0),
+                    downloadMode: _downloadMode,
+                    onLongPress: _toggleDownloadMode,
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == entity.pageCount - 1 ? 0 : 10,
+                      ),
+                      child: DetailPageImage(
+                        key: ValueKey<Object?>(
+                          'illust-page-${entity.id}-$index',
+                        ),
+                        entity: entity,
+                        index: index,
+                        heroTag: index == 0
+                            ? illustHeroTag(widget.heroScope, entity.id)
+                            : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
+                        heroScope: widget.heroScope,
+                        heroImageUrl: index == 0 ? widget.heroImageUrl : null,
+                        detailUrl: detailUrlFor(index),
+                        downloadMode: _downloadMode,
+                        onLongPress: _toggleDownloadMode,
+                        placeholderOnly: !detailReady && index > 0,
+                      ),
+                    ),
+                    // All pages appear immediately: before the detail payload the
+                    // non-first pages render as neutral placeholders (uniform
+                    // ratio), and the real images/proportions replace them when
+                    // the detail API payload is merged.
+                    childCount: entity.pageCount,
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: InfoBlock(
+                  entity: entity,
+                  blockMode: _blockMode,
+                  onToggleBlockMode: () =>
+                      setState(() => _blockMode = !_blockMode),
                 ),
               ),
-            SliverToBoxAdapter(
-              child: InfoBlock(
-                entity: entity,
-                blockMode: _blockMode,
-                onToggleBlockMode: () =>
-                    setState(() => _blockMode = !_blockMode),
-              ),
-            ),
-            // Official client behaviour: "関連作品" below the caption/tags,
-            // paginated as the user scrolls to the bottom of the page.
-            RelatedIllustsSlivers(illustId: widget.illustId),
-          ],
+              // Official client behaviour: "関連作品" below the caption/tags,
+              // paginated as the user scrolls to the bottom of the page.
+              RelatedIllustsSlivers(illustId: widget.illustId),
+            ],
+          ),
         ),
       ),
     );

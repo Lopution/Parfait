@@ -11,6 +11,7 @@ import '../../core/network/api_error.dart';
 import '../../core/profile/profile_feed_controller.dart';
 import '../../core/profile/profile_models.dart';
 import '../../l10n/context.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 
 class ProfileIllustFeed extends ConsumerWidget {
   const ProfileIllustFeed({super.key, required this.feedKey});
@@ -61,48 +62,52 @@ class ProfileIllustFeed extends ConsumerWidget {
               }
               return false;
             },
-            child: CustomScrollView(
-              key: PageStorageKey(feedKey),
-              restorationId: 'profile-${feedKey.toString()}',
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                const HeaderLocator.sliver(),
-                if (entities.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: FeedEmpty(
-                      icon: Icons.inbox_outlined,
-                      title: context.l10n.profileItemsEmpty,
-                      retryLabel: context.l10n.profileRetry,
-                      onRefresh: () => ref
+            child: SmoothWheelScroll(
+              basePhysics: const AlwaysScrollableScrollPhysics(),
+              builder: (context, controller, physics) => CustomScrollView(
+                key: PageStorageKey(feedKey),
+                restorationId: 'profile-${feedKey.toString()}',
+                physics: physics,
+                controller: controller,
+                slivers: [
+                  const HeaderLocator.sliver(),
+                  if (entities.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: FeedEmpty(
+                        icon: Icons.inbox_outlined,
+                        title: context.l10n.profileItemsEmpty,
+                        retryLabel: context.l10n.profileRetry,
+                        onRefresh: () => ref
+                            .read(profileIllustFeedProvider(feedKey).notifier)
+                            .refresh(),
+                      ),
+                    )
+                  else
+                    IllustFeedGrid(
+                      padding: const EdgeInsets.all(10),
+                      mainAxisSpacing: 5,
+                      crossAxisSpacing: 10,
+                      itemCount: entities.length,
+                      itemBuilder: (context, index) => IllustCard(
+                        entity: entities[index],
+                        heroScope:
+                            'profile:${feedKey.userId}:${feedKey.kind.name}:'
+                            '${feedKey.workType.name}:${feedKey.restrict.name}',
+                      ),
+                    ),
+                  SliverToBoxAdapter(
+                    child: FeedTail(
+                      feed: feed,
+                      onRetry: () => ref
                           .read(profileIllustFeedProvider(feedKey).notifier)
-                          .refresh(),
-                    ),
-                  )
-                else
-                  IllustFeedGrid(
-                    padding: const EdgeInsets.all(10),
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 10,
-                    itemCount: entities.length,
-                    itemBuilder: (context, index) => IllustCard(
-                      entity: entities[index],
-                      heroScope:
-                          'profile:${feedKey.userId}:${feedKey.kind.name}:'
-                          '${feedKey.workType.name}:${feedKey.restrict.name}',
+                          .retryLoadMore(),
+                      errorTitle: context.l10n.profileLoadMoreFailed,
+                      retryLabel: context.l10n.profileRetry,
                     ),
                   ),
-                SliverToBoxAdapter(
-                  child: FeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(profileIllustFeedProvider(feedKey).notifier)
-                        .retryLoadMore(),
-                    errorTitle: context.l10n.profileLoadMoreFailed,
-                    retryLabel: context.l10n.profileRetry,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

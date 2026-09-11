@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
-import '../../app/widgets/settings_action_button.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
@@ -16,6 +15,7 @@ import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/ranking_feed_controller.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 
 /// Ranking page with beta56's horizontally scrollable 11-mode tab bar.
 /// Only the selected mode is built, while controllers and scroll positions
@@ -94,7 +94,6 @@ class _RankingPageState extends State<RankingPage>
               Tab(text: l10nLookupFor(language.locale, item.labelKey)),
           ],
         ),
-        actions: const [SettingsActionButton()],
       ),
       body: _RankingModeBody(
         key: ValueKey(mode),
@@ -167,33 +166,37 @@ class _RankingModeBody extends ConsumerWidget {
               }
               return false;
             },
-            child: CustomScrollView(
-              key: PageStorageKey('ranking-${mode.name}'),
+            child: SmoothWheelScroll(
               controller: scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              restorationId: 'ranking-${mode.name}',
-              slivers: [
-                IllustFeedGrid(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  mainAxisSpacing: 5,
-                  crossAxisSpacing: 10,
-                  itemCount: entities.length,
-                  itemBuilder: (context, index) => IllustCard(
-                    entity: entities[index],
-                    heroScope: 'ranking:${mode.name}',
+              basePhysics: const AlwaysScrollableScrollPhysics(),
+              builder: (context, controller, physics) => CustomScrollView(
+                key: PageStorageKey('ranking-${mode.name}'),
+                controller: controller,
+                physics: physics,
+                restorationId: 'ranking-${mode.name}',
+                slivers: [
+                  IllustFeedGrid(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    mainAxisSpacing: 5,
+                    crossAxisSpacing: 10,
+                    itemCount: entities.length,
+                    itemBuilder: (context, index) => IllustCard(
+                      entity: entities[index],
+                      heroScope: 'ranking:${mode.name}',
+                    ),
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: FeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(rankingFeedControllerProvider(mode).notifier)
-                        .retryLoadMore(),
-                    errorTitle: context.l10n.rankingLoadMoreFailed,
-                    retryLabel: context.l10n.retry,
+                  SliverToBoxAdapter(
+                    child: FeedTail(
+                      feed: feed,
+                      onRetry: () => ref
+                          .read(rankingFeedControllerProvider(mode).notifier)
+                          .retryLoadMore(),
+                      errorTitle: context.l10n.rankingLoadMoreFailed,
+                      retryLabel: context.l10n.retry,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

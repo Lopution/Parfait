@@ -19,6 +19,7 @@ import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_store.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -164,41 +165,45 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
           onRefresh: () => ref
               .read(historyFeedControllerProvider(widget.accountId).notifier)
               .refresh(),
-          child: CustomScrollView(
-            key: PageStorageKey('history-${widget.accountId}'),
+          child: SmoothWheelScroll(
             controller: _scrollController,
-            restorationId: 'history-${widget.accountId}',
-            slivers: [
-              IllustFeedGrid(
-                padding: const EdgeInsets.all(10),
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                itemCount: records.length,
-                itemBuilder: (context, index) => _HistoryEntry(
-                  record: records[index],
-                  onLongPress: () => _delete(records[index]),
+            builder: (context, controller, physics) => CustomScrollView(
+              key: PageStorageKey('history-${widget.accountId}'),
+              controller: controller,
+              physics: physics,
+              restorationId: 'history-${widget.accountId}',
+              slivers: [
+                IllustFeedGrid(
+                  padding: const EdgeInsets.all(10),
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  itemCount: records.length,
+                  itemBuilder: (context, index) => _HistoryEntry(
+                    record: records[index],
+                    onLongPress: () => _delete(records[index]),
+                  ),
                 ),
-              ),
-              SliverToBoxAdapter(
-                child: switch ((
-                  state.showLoadMoreSpinner,
-                  state.loadMoreError,
-                )) {
-                  (true, _) => const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: FeedLoading(),
-                  ),
-                  (_, final error?) => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      '${context.l10n.historyLoadFailed}: $error',
-                      textAlign: TextAlign.center,
+                SliverToBoxAdapter(
+                  child: switch ((
+                    state.showLoadMoreSpinner,
+                    state.loadMoreError,
+                  )) {
+                    (true, _) => const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: FeedLoading(),
                     ),
-                  ),
-                  _ => const SizedBox(height: 16),
-                },
-              ),
-            ],
+                    (_, final error?) => Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        '${context.l10n.historyLoadFailed}: $error',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    _ => const SizedBox(height: 16),
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },

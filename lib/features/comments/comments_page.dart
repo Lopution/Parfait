@@ -7,6 +7,7 @@ import '../../app/navigation/routes.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/comments/comment_actions.dart';
 import '../../core/comments/comment_feed_controller.dart';
 import '../../core/comments/comment_models.dart';
@@ -314,30 +315,34 @@ class _CommentFeedView extends ConsumerWidget {
               }
               return false;
             },
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: comments.length + 1,
-              itemBuilder: (context, index) {
-                if (index == comments.length) {
-                  return FeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(commentFeedProvider(query).notifier)
-                        .retryLoadMore(),
-                    retryLabel: context.l10n.commentLoadMoreFailed,
+            child: SmoothWheelScroll(
+              basePhysics: const AlwaysScrollableScrollPhysics(),
+              builder: (context, controller, physics) => ListView.builder(
+                controller: controller,
+                physics: physics,
+                itemCount: comments.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == comments.length) {
+                    return FeedTail(
+                      feed: feed,
+                      onRetry: () => ref
+                          .read(commentFeedProvider(query).notifier)
+                          .retryLoadMore(),
+                      retryLabel: context.l10n.commentLoadMoreFailed,
+                    );
+                  }
+                  final comment = comments[index];
+                  return CommentItem(
+                    key: ValueKey(comment.id),
+                    comment: comment,
+                    onReply: () => onReply(comment),
+                    onOpenReplies: onOpenReplies == null
+                        ? null
+                        : () => onOpenReplies!(comment),
+                    onDelete: () => onDelete(comment),
                   );
-                }
-                final comment = comments[index];
-                return CommentItem(
-                  key: ValueKey(comment.id),
-                  comment: comment,
-                  onReply: () => onReply(comment),
-                  onOpenReplies: onOpenReplies == null
-                      ? null
-                      : () => onOpenReplies!(comment),
-                  onDelete: () => onDelete(comment),
-                );
-              },
+                },
+              ),
             ),
           ),
         );

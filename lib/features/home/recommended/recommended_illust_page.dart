@@ -11,6 +11,7 @@ import '../../../core/entity/illust_store.dart';
 
 import '../../../core/illust/recommended_illust_controller.dart';
 import '../../../l10n/context.dart';
+import '../../../app/widgets/smooth_wheel_scroll.dart';
 
 /// Recommended Illust tab: real API feed with initial/refresh/load-more
 /// states, card badges matching beta56 IllustPreviewer, and retained state
@@ -78,40 +79,44 @@ class RecommendedIllustPage extends ConsumerWidget {
                 }
                 return false;
               },
-              child: CustomScrollView(
-                key: const PageStorageKey('recommended-illust'),
-                // U1 (R7): this tab is the only one without an AppBar, so
-                // on edge-to-edge Android 15+ the top padding is otherwise
-                // zero and the feed overlaps the status bar. Only the top
-                // safe inset is added — no AppBar — so the immersive feed
-                // look is kept. The RefreshIndicator overscroll zone stays
-                // above the padding, so pull-to-refresh still triggers.
-                restorationId: 'recommended-illust',
-                slivers: [
-                  IllustFeedGrid(
-                    padding: EdgeInsets.fromLTRB(
-                      10,
-                      MediaQuery.viewPaddingOf(context).top,
-                      10,
-                      0,
+              child: SmoothWheelScroll(
+                builder: (context, controller, physics) => CustomScrollView(
+                  key: const PageStorageKey('recommended-illust'),
+                  // U1 (R7): this tab is the only one without an AppBar, so
+                  // on edge-to-edge Android 15+ the top padding is otherwise
+                  // zero and the feed overlaps the status bar. Only the top
+                  // safe inset is added — no AppBar — so the immersive feed
+                  // look is kept. The RefreshIndicator overscroll zone stays
+                  // above the padding, so pull-to-refresh still triggers.
+                  restorationId: 'recommended-illust',
+                  controller: controller,
+                  physics: physics,
+                  slivers: [
+                    IllustFeedGrid(
+                      padding: EdgeInsets.fromLTRB(
+                        10,
+                        MediaQuery.viewPaddingOf(context).top,
+                        10,
+                        0,
+                      ),
+                      mainAxisSpacing: 5,
+                      crossAxisSpacing: 10,
+                      itemCount: entities.length,
+                      itemBuilder: (context, index) => IllustCard(
+                        entity: entities[index],
+                        heroScope: 'recommended:illust',
+                      ),
                     ),
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 10,
-                    itemCount: entities.length,
-                    itemBuilder: (context, index) => IllustCard(
-                      entity: entities[index],
-                      heroScope: 'recommended:illust',
+                    SliverToBoxAdapter(
+                      child: FeedTail(
+                        feed: feed,
+                        onRetry: () => ref
+                            .read(recommendedIllustControllerProvider.notifier)
+                            .retryLoadMore(),
+                      ),
                     ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: FeedTail(
-                      feed: feed,
-                      onRetry: () => ref
-                          .read(recommendedIllustControllerProvider.notifier)
-                          .retryLoadMore(),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
