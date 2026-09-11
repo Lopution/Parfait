@@ -19,6 +19,26 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
+  windows-build:
+    # Compile-only guard for the desktop port: proves the Windows runner,
+    # the rhttp MSVC toolchain and the InAppWebView/WebView2 integration all
+    # link. Runtime acceptance (login, real data) stays a manual checklist.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: "stable"
+      # The repo's rust-toolchain.toml already carries the MSVC target;
+      # windows-latest ships rustup with the toolchain auto-installed.
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pixiv-func-windows-x64
+          path: build/windows/x64/runner/Release
+
   android-release:
     # Release-side safety: the release workflow must never publish a debug
     # signed APK, so the release-signing check runs on the main branch.
