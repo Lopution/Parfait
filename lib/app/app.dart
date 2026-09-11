@@ -12,6 +12,7 @@ import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
 import '../core/platform/android_intent_channel.dart';
 import 'external_intent_bridge.dart';
+import 'scroll_behavior.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
@@ -123,6 +124,9 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
       themeMode: themeMode,
       restorationScopeId: 'pixiv-func',
       routerConfig: _router,
+      // Desktop affordance: mouse and trackpad drag like touch. Wheel
+      // smoothing stays per-scrollable — see SmoothWheelScroll.
+      scrollBehavior: const FuncScrollBehavior(),
       // ignore: deprecated_member_use
       builder: (context, child) {
         final routeChild = child!;

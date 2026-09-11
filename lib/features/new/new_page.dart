@@ -13,10 +13,10 @@ import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/settings_action_button.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 
 /// Beta56 New page: scope tabs are stable while the content type selector is
 /// exposed by tapping the selected tab a second time.
@@ -99,7 +99,6 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
               Tab(text: _newText(context, _scopeLabelKey(scope))),
           ],
         ),
-        actions: const [SettingsActionButton()],
       ),
       body: Column(
         children: [
@@ -248,15 +247,19 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
               }
               return false;
             },
-            child: CustomScrollView(
-              key: PageStorageKey(
-                'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
-              ),
+            child: SmoothWheelScroll(
               controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              restorationId:
+              basePhysics: const AlwaysScrollableScrollPhysics(),
+              builder: (context, controller, physics) => CustomScrollView(
+                key: PageStorageKey(
                   'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
-              slivers: slivers,
+                ),
+                controller: controller,
+                physics: physics,
+                restorationId:
+                    'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
+                slivers: slivers,
+              ),
             ),
           ),
         );
