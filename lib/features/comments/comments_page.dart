@@ -274,7 +274,7 @@ class _CommentFeedView extends ConsumerWidget {
     final async = ref.watch(commentFeedProvider(query));
     final store = ref.watch(commentStoreProvider);
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: context.l10n.commentLoadFailed,
         retryLabel: context.l10n.retry,
@@ -292,7 +292,7 @@ class _CommentFeedView extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner && comments.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const FeedLoading();
         }
         if (comments.isEmpty && feed.isEmptyAndReady) {
           return ReplicaEmptyState(
