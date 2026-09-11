@@ -69,6 +69,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get loginWebView2Missing =>
+      '登录需要 WebView2 Runtime，但当前系统未检测到它。请安装后重新打开本页。';
+
+  @override
+  String get loginInstallWebView2 => '安装 WebView2 Runtime';
+
+  @override
   String loginFailed(String error) {
     return '登录失败: $error';
   }

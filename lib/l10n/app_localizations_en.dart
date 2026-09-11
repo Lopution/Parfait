@@ -69,6 +69,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get loginWebView2Missing =>
+      'Signing in requires the WebView2 Runtime, which was not detected on this system. Install it and reopen this page.';
+
+  @override
+  String get loginInstallWebView2 => 'Install WebView2 Runtime';
+
+  @override
   String loginFailed(String error) {
     return 'Login failed: $error';
   }

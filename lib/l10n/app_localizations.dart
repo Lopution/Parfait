@@ -210,6 +210,18 @@ abstract class AppLocalizations {
   /// **'页面加载失败 ({error})'**
   String loginPageLoadFailed(String error);
 
+  /// No description provided for @loginWebView2Missing.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录需要 WebView2 Runtime，但当前系统未检测到它。请安装后重新打开本页。'**
+  String get loginWebView2Missing;
+
+  /// No description provided for @loginInstallWebView2.
+  ///
+  /// In zh, this message translates to:
+  /// **'安装 WebView2 Runtime'**
+  String get loginInstallWebView2;
+
   /// No description provided for @loginFailed.
   ///
   /// In zh, this message translates to:

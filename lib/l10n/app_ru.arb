@@ -39,6 +39,8 @@
       }
     }
   },
+  "loginWebView2Missing": "Для входа требуется WebView2 Runtime, который не обнаружен в системе. Установите его и откройте страницу заново.",
+  "loginInstallWebView2": "Установить WebView2 Runtime",
   "loginFailed": "Не удалось войти: {error}",
   "@loginFailed": {
     "placeholders": {

@@ -62,7 +62,10 @@ class _ReverseImageSearchPageState
           ),
     );
     _externalLauncher =
-        widget.externalLauncher ?? MethodChannelReverseImageExternalLauncher();
+        widget.externalLauncher ??
+        (ref.read(platformCapsProvider).isAndroid
+            ? MethodChannelReverseImageExternalLauncher()
+            : const UrlLauncherReverseImageExternalLauncher());
     _flowSubscription = ref.listenManual(
       reverseImageSearchControllerProvider(_session),
       (_, _) {

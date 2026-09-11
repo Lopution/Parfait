@@ -39,6 +39,8 @@
       }
     }
   },
+  "loginWebView2Missing": "Signing in requires the WebView2 Runtime, which was not detected on this system. Install it and reopen this page.",
+  "loginInstallWebView2": "Install WebView2 Runtime",
   "loginFailed": "Login failed: {error}",
   "@loginFailed": {
     "placeholders": {
