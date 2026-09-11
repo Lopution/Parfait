@@ -43,6 +43,14 @@ dependencies:
   url_launcher: ^6.3.2
   visibility_detector: ^0.4.0
   webview_flutter: ^4.13.0
+dependency_overrides:
+  # Vendored fork: upstream 1.1.3 uses getDefaultProguardFile(
+  # 'proguard-android.txt'), removed in AGP 9 — the only change is the
+  # '-optimize' filename. Drop once flutter_inappwebview_android ≥1.2 lands
+  # stable (fix already merged upstream in the 6.2.0-beta line).
+  flutter_inappwebview_android:
+    path: plugins/flutter_inappwebview_android
+
 dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
