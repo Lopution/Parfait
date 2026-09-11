@@ -40,7 +40,7 @@ void main() {
 
       expect(find.byIcon(Icons.play_circle_outline_outlined), findsOneWidget);
       expect(find.byIcon(Icons.gif_box_outlined), findsOneWidget);
-      expect(find.byType(DragToDismiss), findsOneWidget);
+      expect(find.byType(DragToDismiss), findsNothing);
       await tester.pump(const Duration(milliseconds: 500));
     });
   });
@@ -73,7 +73,9 @@ void main() {
     expect(longPressed, isTrue);
   });
 
-  testWidgets('dragging the detail surface pops its route', (tester) async {
+  testWidgets('a vertical drag scrolls the detail page instead of popping it', (
+    tester,
+  ) async {
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       MaterialApp(
@@ -86,21 +88,30 @@ void main() {
     );
     navigatorKey.currentState!.push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => const Scaffold(
-          body: UgoiraViewer(
-            illustId: 42,
-            previewUrl: 'https://i.pximg.net/42/large.jpg',
-            width: 800,
-            height: 600,
+        builder: (_) => Scaffold(
+          body: ListView(
+            children: const [
+              UgoiraViewer(
+                illustId: 42,
+                previewUrl: 'https://i.pximg.net/42/large.jpg',
+                width: 800,
+                height: 600,
+              ),
+              SizedBox(height: 2000),
+            ],
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    await tester.drag(find.byType(DragToDismiss), const Offset(0, 180));
+    // The inline Ugoira surface lives inside the detail page; a downward
+    // drag on it must scroll the page, never dismiss the route.
+    await tester.drag(find.byType(UgoiraViewer), const Offset(0, -180));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(UgoiraViewer), const Offset(0, 180));
     await tester.pumpAndSettle();
 
-    expect(find.byType(UgoiraViewer), findsNothing);
+    expect(find.byType(UgoiraViewer), findsOneWidget);
   });
 }
