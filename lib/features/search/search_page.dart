@@ -241,7 +241,8 @@ class SearchInputPage extends ConsumerStatefulWidget {
 class _SearchInputPageState extends ConsumerState<SearchInputPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  late final SearchController _searchController;
+  late final TextEditingController _textController;
+  late final FocusNode _focusNode;
   SearchFilters _filters = SearchFilters.defaults;
   late int _selectedIndex;
 
@@ -256,7 +257,8 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       vsync: this,
       initialIndex: _selectedIndex,
     )..addListener(_onTabChanged);
-    _searchController = SearchController()..text = widget.initialKeyword;
+    _textController = TextEditingController(text: widget.initialKeyword);
+    _focusNode = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.initialKeyword.trim().isNotEmpty) {
@@ -264,6 +266,9 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
             .read(searchAutocompleteProvider.notifier)
             .update(widget.initialKeyword);
       }
+      // The page exists to type a query: focus the field on arrival so the
+      // keyboard is up without a second tap (pre-go_router behaviour).
+      _focusNode.requestFocus();
     });
   }
 
@@ -272,7 +277,8 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
-    _searchController.dispose();
+    _textController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -282,19 +288,16 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       return;
     }
     setState(() => _selectedIndex = _tabController.index);
-    widget.onTypeChanged?.call(_searchController.text, _types[_selectedIndex]);
+    widget.onTypeChanged?.call(_textController.text, _types[_selectedIndex]);
   }
 
   void _submit() {
-    final keyword = _searchController.text.trim();
+    final keyword = _textController.text.trim();
     if (keyword.isEmpty) {
       showAppSnackBar(context, context.l10n.searchInputEmpty);
       return;
     }
     ref.read(searchAutocompleteProvider.notifier).cancel();
-    if (_searchController.isOpen) {
-      _searchController.closeView(null);
-    }
     openSearchResults(context, _query(keyword));
   }
 
@@ -317,39 +320,47 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   }
 
   void _onSearchChanged(String value) {
-    setState(() {});
     ref.read(searchAutocompleteProvider.notifier).update(value);
   }
 
-  void _selectSuggestion(
-    SearchController controller,
-    SearchSuggestion suggestion,
-  ) {
-    controller
+  void _selectSuggestion(SearchSuggestion suggestion) {
+    _textController
       ..text = suggestion.keyword
       ..selection = TextSelection.collapsed(offset: suggestion.keyword.length);
     _submit();
   }
 
+  void _clear() {
+    _textController.clear();
+    ref.read(searchAutocompleteProvider.notifier).update('');
+    _focusNode.requestFocus();
+  }
+
   Widget _clearSearchAction() {
     return ValueListenableBuilder<TextEditingValue>(
-      valueListenable: _searchController,
+      valueListenable: _textController,
       builder: (context, value, _) {
         if (value.text.isEmpty) return const SizedBox.shrink();
         return IconButton(
           tooltip: context.l10n.searchClear,
-          onPressed: _searchController.clear,
+          onPressed: _clear,
           icon: const Icon(Icons.clear),
         );
       },
     );
   }
 
-  Widget _buildSearchAnchor(BuildContext context) {
-    return SearchAnchor(
-      searchController: _searchController,
-      viewHintText: context.l10n.searchHint,
-      viewTrailing: [
+  /// M3 SearchBar look, inline behaviour: no SearchAnchor view. The type
+  /// tabs and the filter button must stay visible while typing, and the
+  /// suggestions render in the page body exactly like the pre-M3 page did.
+  Widget _buildSearchBar(BuildContext context) {
+    return SearchBar(
+      controller: _textController,
+      focusNode: _focusNode,
+      constraints: const BoxConstraints(minHeight: 48),
+      hintText: context.l10n.searchHint,
+      leading: const Icon(Icons.search),
+      trailing: [
         _clearSearchAction(),
         IconButton(
           tooltip: context.l10n.searchSubmit,
@@ -357,34 +368,9 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           icon: const Icon(Icons.search),
         ),
       ],
-      viewOnChanged: _onSearchChanged,
-      viewOnSubmitted: (_) => _submit(),
+      onChanged: _onSearchChanged,
+      onSubmitted: (_) => _submit(),
       textInputAction: TextInputAction.search,
-      builder: (context, controller) => SearchBar(
-        controller: controller,
-        constraints: const BoxConstraints(minHeight: 48),
-        hintText: context.l10n.searchHint,
-        leading: const Icon(Icons.search),
-        trailing: [
-          _clearSearchAction(),
-          IconButton(
-            tooltip: context.l10n.searchSubmit,
-            onPressed: _submit,
-            icon: const Icon(Icons.search),
-          ),
-        ],
-        onTap: controller.openView,
-        onChanged: (_) => controller.openView(),
-        onSubmitted: (_) => _submit(),
-        textInputAction: TextInputAction.search,
-      ),
-      suggestionsBuilder: (context, controller) => [
-        _SearchAutocompletePanel(
-          onSelected: (suggestion) => _selectSuggestion(controller, suggestion),
-        ),
-      ],
-      viewBuilder: (suggestions) =>
-          suggestions.isEmpty ? const SizedBox.shrink() : suggestions.single,
     );
   }
 
@@ -399,7 +385,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           icon: const Icon(Icons.arrow_back),
         ),
         titleSpacing: 0,
-        title: _buildSearchAnchor(context),
+        title: _buildSearchBar(context),
         bottom: TabBar(
           controller: _tabController,
           tabs: [
@@ -408,9 +394,11 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           ],
         ),
       ),
-      body: supportsFilters
-          ? Align(
-              alignment: Alignment.topRight,
+      body: Column(
+        children: [
+          if (supportsFilters)
+            Align(
+              alignment: Alignment.centerRight,
               child: Padding(
                 padding: const EdgeInsets.only(right: 12, top: 8),
                 child: OutlinedButton.icon(
@@ -419,8 +407,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
                   label: Text(context.l10n.searchFilters),
                 ),
               ),
-            )
-          : const SizedBox.shrink(),
+            ),
+          Expanded(
+            child: _SearchAutocompletePanel(onSelected: _selectSuggestion),
+          ),
+        ],
+      ),
     );
   }
 }
