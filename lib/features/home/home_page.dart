@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/icons/app_icons.dart';
+import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
@@ -148,15 +149,11 @@ class _HomePageState extends State<HomePage>
     Icons.person_outline,
   ];
 
-  /// Compact layouts keep the bottom NavigationBar; medium and expanded
-  /// widths switch to a NavigationRail whose trailing slot holds the app
-  /// settings entry — the same peer level the bottom bar's gear row gives
-  /// narrow screens through each tab AppBar.
-  static const _kRailBreakpoint = 600.0;
-
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= _kRailBreakpoint;
+    final wide = AppBreakpoints.useNavigationRail(
+      MediaQuery.sizeOf(context).width,
+    );
     if (wide) {
       _scheduleChromeClear();
     } else {

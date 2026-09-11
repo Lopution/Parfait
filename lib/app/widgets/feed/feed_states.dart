@@ -108,12 +108,14 @@ class FeedEmpty extends StatelessWidget {
     super.key,
     this.icon = Icons.inbox_outlined,
     required this.title,
+    this.detail,
     this.onRefresh,
     this.retryLabel = 'Refresh',
   });
 
   final IconData icon;
   final String title;
+  final String? detail;
   final Future<void> Function()? onRefresh;
   final String retryLabel;
 
@@ -127,6 +129,14 @@ class FeedEmpty extends StatelessWidget {
           Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
           const SizedBox(height: 12),
           Text(title),
+          if (detail != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              detail!,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
           if (onRefresh != null) ...[
             const SizedBox(height: 12),
             OutlinedButton.icon(
