@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
+import 'package:pixiv_func/core/platform/platform_caps.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
@@ -75,6 +76,13 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          // The root exit coordinator is Android-only; the test host is
+          // Linux, so inject Android caps for the back-press path.
+          platformCapsProvider.overrideWithValue(
+            const PlatformCaps(isAndroid: true),
+          ),
+        ],
         child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,

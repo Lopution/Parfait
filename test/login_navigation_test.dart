@@ -8,6 +8,7 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
+import 'package:pixiv_func/core/platform/platform_caps.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart' hide NetworkMode;
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
@@ -170,6 +171,11 @@ void main() {
         ...accountProviderOverrides(),
         oauthServiceProvider.overrideWithValue(
           OAuthService(exchangeTimeout: Duration.zero),
+        ),
+        // Widget tests run on Linux: without an Android cap override the
+        // /login/web route would select the InAppWebView desktop page.
+        platformCapsProvider.overrideWithValue(
+          const PlatformCaps(isAndroid: true),
         ),
       ],
       child: MaterialApp.router(

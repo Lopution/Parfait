@@ -10,6 +10,7 @@ import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
+import 'package:pixiv_func/core/platform/platform_caps.dart';
 import 'package:pixiv_func/core/platform/root_back_coordinator.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
@@ -105,6 +106,11 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            // Root double-back-to-exit is Android-only; the test host is
+            // Linux, so the coordinator path needs Android caps injected.
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isAndroid: true),
+            ),
             ...accountProviderOverrides(
               credentialStore: FakeCredentialStore(
                 values: const {
