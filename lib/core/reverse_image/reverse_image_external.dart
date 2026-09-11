@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+import '../platform/android_intent_channel.dart';
 
 abstract interface class ReverseImageExternalLauncher {
   Future<void> open(Uri uri);
@@ -17,21 +18,19 @@ void validateExternalResultUrl(Uri uri) {
   }
 }
 
-/// Desktop launcher: the host browser via `url_launcher`.
-class UrlLauncherReverseImageExternalLauncher
+/// Adapts the app-scoped [OutboundUrlOpener] capability: Android routes to
+/// the platform channel, desktop to `url_launcher` — selected by
+/// `outboundUrlOpenerProvider`, so no platform check lives here.
+class OutboundReverseImageExternalLauncher
     implements ReverseImageExternalLauncher {
-  const UrlLauncherReverseImageExternalLauncher();
+  const OutboundReverseImageExternalLauncher(this._opener);
+
+  final OutboundUrlOpener _opener;
 
   @override
   Future<void> open(Uri uri) async {
     validateExternalResultUrl(uri);
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened) {
-      throw PlatformException(
-        code: 'external_unavailable',
-        message: 'external browser did not accept the URL',
-      );
-    }
+    await _opener.openExternal(uri.toString());
   }
 }
 

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../core/platform/android_intent_channel.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/desktop_image_input.dart';
@@ -63,9 +64,9 @@ class _ReverseImageSearchPageState
     );
     _externalLauncher =
         widget.externalLauncher ??
-        (ref.read(platformCapsProvider).isAndroid
-            ? MethodChannelReverseImageExternalLauncher()
-            : const UrlLauncherReverseImageExternalLauncher());
+        OutboundReverseImageExternalLauncher(
+          ref.read(outboundUrlOpenerProvider),
+        );
     _flowSubscription = ref.listenManual(
       reverseImageSearchControllerProvider(_session),
       (_, _) {
