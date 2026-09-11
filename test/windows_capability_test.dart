@@ -12,6 +12,7 @@ import 'package:pixiv_func/core/platform/desktop_file_sink.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
 import 'package:pixiv_func/core/platform/platform_caps.dart';
 import 'package:pixiv_func/core/platform/saf_tree.dart';
+import 'package:pixiv_func/core/reverse_image/reverse_image_external.dart';
 import 'package:pixiv_func/core/updater/update_platform.dart';
 
 const _windows = PlatformCaps(isWindows: true);
@@ -242,6 +243,33 @@ void main() {
     test('capabilities report no sensitive-mark support', () async {
       final caps = await FlutterTransferClipboard().capabilities();
       expect(caps.sensitiveMarkSupported, isFalse);
+    });
+  });
+
+  group('reverse-image external result allowlist', () {
+    test('plain https result urls are accepted', () {
+      expect(
+        () => validateExternalResultUrl(
+          Uri.parse('https://saucenao.com/search.php?db=999'),
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('non-https and credential/port/fragment urls are rejected', () {
+      for (final raw in [
+        'http://saucenao.com/x',
+        'pixiv://illust/1',
+        'https://user:pw@host/x',
+        'https://host:8443/x',
+        'https://host/x#frag',
+      ]) {
+        expect(
+          () => validateExternalResultUrl(Uri.parse(raw)),
+          throwsFormatException,
+          reason: raw,
+        );
+      }
     });
   });
 }
