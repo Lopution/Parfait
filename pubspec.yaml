@@ -16,9 +16,11 @@ dependencies:
   crypto: ^3.0.0
   cupertino_ui: ^1.0.2
   easy_refresh: ^3.5.1
+  file_selector: ^1.1.0
   flutter:
     sdk: flutter
   flutter_cache_manager: ^3.4.2
+  flutter_inappwebview: ^6.1.5
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^3.0.0
@@ -38,6 +40,7 @@ dependencies:
   shared_preferences: ^2.5.0
   sqflite: ^2.4.3
   sqflite_common_ffi: ^2.3.5
+  url_launcher: ^6.3.2
   visibility_detector: ^0.4.0
   webview_flutter: ^4.13.0
 dev_dependencies:

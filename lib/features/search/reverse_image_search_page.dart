@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/platform/intent_router.dart';
+import '../../core/platform/platform_caps.dart';
+import '../../core/reverse_image/desktop_image_input.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/reverse_image/reverse_image_controller.dart';
 import '../../core/reverse_image/reverse_image_external.dart';
@@ -47,7 +49,11 @@ class _ReverseImageSearchPageState
   void initState() {
     super.initState();
     _session = ReverseImageSearchSession(
-      platform: widget.platform ?? MethodChannelReverseImageInputPlatform(),
+      platform:
+          widget.platform ??
+          (PlatformCaps.system().isAndroid
+              ? MethodChannelReverseImageInputPlatform()
+              : const DesktopReverseImageInputPlatform()),
       provider:
           widget.provider ??
           SauceNaoWebViewProvider(
