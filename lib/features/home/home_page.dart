@@ -9,6 +9,7 @@ import '../../core/navigation/route_observer.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/widgets/settings_action_button.dart';
+import '../../core/platform/platform_caps.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../l10n/context.dart';
 
@@ -111,6 +112,10 @@ class _HomePageState extends State<HomePage>
 
   void _handleRootBack(bool didPop) {
     if (didPop) return;
+    // Double-back-to-exit is an Android pattern. Desktop has no root back
+    // gesture that reaches this callback; a stray one must not show an
+    // exit hint for a window that closes via the title bar.
+    if (!PlatformCaps.system().isAndroid) return;
     switch (_backCoordinator.handleBackPress()) {
       case RootBackAction.showExitHint:
         ScaffoldMessenger.of(context)
