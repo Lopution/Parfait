@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
+import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/settings_load_error.dart';
 import '../../../core/auth/account.dart';
 import '../../../core/auth/account_store.dart';
@@ -76,7 +77,7 @@ class AccountSettingsPage extends ConsumerWidget {
         ],
       ),
       body: accounts.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const FeedLoading(),
         error: (error, _) => SettingsLoadError(
           error: error,
           onRetry: () => ref.read(accountStoreProvider.notifier).reload(),

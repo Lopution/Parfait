@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
@@ -37,7 +38,7 @@ Widget settingsUnavailable(
   return Scaffold(
     appBar: AppBar(title: Text(settingsText(context, titleKey))),
     body: state.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => SettingsLoadError(
         error: error,
         onRetry: () => ref.read(settingsProvider.notifier).reload(),

@@ -73,6 +73,33 @@ class FeedTail extends StatelessWidget {
   }
 }
 
+/// Shared first-load state: one centred indicator with an optional
+/// translated caption. Pages must not open-code
+/// `Center(CircularProgressIndicator())` for a content area's initial load.
+class FeedLoading extends StatelessWidget {
+  const FeedLoading({super.key, this.label});
+
+  /// Optional translated caption under the indicator; doubles as the
+  /// indicator's semantics label.
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(semanticsLabel: label),
+          if (label != null) ...[
+            const SizedBox(height: 12),
+            Text(label!, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Shared empty/status widget for a feed with no content (or a transient
 /// status such as loading/restricted). Renders icon + title, plus an optional
 /// refresh button when [onRefresh] is provided.
