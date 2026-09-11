@@ -339,6 +339,18 @@ List<RouteBase> _commonBranchRoutes(
     pageBuilder: (context, state) =>
         _page(context, state, branchObserver, const HistoryPage()),
   ),
+  // Tag search opens on top of whatever stack the tag was tapped in (detail
+  // page, user page, reverse-image result). Routing it to the search branch
+  // would switch tabs and lose the page the user came from.
+  GoRoute(
+    path: 'tag/:keyword',
+    pageBuilder: (context, state) => _page(
+      context,
+      state,
+      branchObserver,
+      TagSearchPage(keyword: state.pathParameters['keyword']!),
+    ),
+  ),
 ];
 
 StatefulShellBranch _branch({
@@ -485,6 +497,14 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                 : null,
           ),
         ),
+        // Results open illust/user pages on top of the reverse-image page
+        // itself (root stack). Pushing a shell location from here would stack
+        // a second home shell on the root navigator.
+        routes: _commonBranchRoutes(
+          appRootRouteObserver,
+          rootNavigatorKey: appRootNavigatorKey,
+          rootObserver: appRootRouteObserver,
+        ),
       ),
       StatefulShellRoute.indexedStack(
         restorationScopeId: 'home-shell',
@@ -563,15 +583,6 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                   state,
                   searchRouteObserver,
                   SearchResultPage(query: _searchQuery(state)),
-                ),
-              ),
-              GoRoute(
-                path: 'tag/:keyword',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  searchRouteObserver,
-                  TagSearchPage(keyword: state.pathParameters['keyword']!),
                 ),
               ),
             ],
@@ -803,17 +814,22 @@ Future<void> routeExternalIntent(
 /// Navigation facade — the only file in the app allowed to import feature
 /// pages from more than one feature. Callers pass ids and typed query objects;
 /// durable navigation state is encoded in go_router paths and queries.
-const _homeBranchRoots = <String>[
+///
+/// Every page that can host a detail/user/tag push has the common routes
+/// mounted under it: the five home tabs and the root-level reverse-image
+/// page. Pushes stay inside the stack the user is looking at.
+const _stackRoots = <String>[
   '/recommended',
   '/ranking',
   '/new',
   '/search',
   '/settings',
+  '/reverse-image',
 ];
 
-String _currentBranch(BuildContext context) {
+String _currentStackRoot(BuildContext context) {
   final path = GoRouter.of(context).state.uri.path;
-  return _homeBranchRoots.firstWhere(
+  return _stackRoots.firstWhere(
     (root) => path == root || path.startsWith('$root/'),
     orElse: () => '/recommended',
   );
@@ -836,7 +852,7 @@ Future<void> openIllust(
 }) async {
   await _push(
     context,
-    '${_currentBranch(context)}/illust/$illustId',
+    '${_currentStackRoot(context)}/illust/$illustId',
     extra: IllustRouteExtra(
       entity: initialEntity,
       heroScope: heroScope,
@@ -846,15 +862,15 @@ Future<void> openIllust(
 }
 
 Future<void> openUser(BuildContext context, int userId) async {
-  await _push(context, '${_currentBranch(context)}/user/$userId');
+  await _push(context, '${_currentStackRoot(context)}/user/$userId');
 }
 
 Future<void> openMe(BuildContext context) async {
-  await _push(context, '${_currentBranch(context)}/me');
+  await _push(context, '${_currentStackRoot(context)}/me');
 }
 
 Future<void> openNovel(BuildContext context, int novelId) async {
-  await _push(context, '${_currentBranch(context)}/novel/$novelId');
+  await _push(context, '${_currentStackRoot(context)}/novel/$novelId');
 }
 
 Future<void> openSearchInput(
@@ -949,7 +965,7 @@ Future<void> openImageViewer(
 }) async {
   await _push(
     context,
-    '${_currentBranch(context)}/illust/${entity.id}/viewer/$page'
+    '${_currentStackRoot(context)}/illust/${entity.id}/viewer/$page'
     '?quality=${quality.code}',
     extra: ImageViewerRouteExtra(
       urls: entity.viewerUrls(quality),
@@ -967,7 +983,7 @@ void replaceImageViewerPage(
   ImageViewerRouteExtra? extra,
 }) {
   context.replace(
-    '${_currentBranch(context)}/illust/$illustId/viewer/$page'
+    '${_currentStackRoot(context)}/illust/$illustId/viewer/$page'
     '?quality=${quality.code}',
     extra: extra,
   );
@@ -975,7 +991,10 @@ void replaceImageViewerPage(
 
 Future<void> openIllustComments(BuildContext context, int illustId) async {
   if (illustId <= 0) return;
-  await _push(context, '${_currentBranch(context)}/illust/$illustId/comments');
+  await _push(
+    context,
+    '${_currentStackRoot(context)}/illust/$illustId/comments',
+  );
 }
 
 Future<void> openCommentReplies(
@@ -984,7 +1003,7 @@ Future<void> openCommentReplies(
 ) async {
   await _push(
     context,
-    '${_currentBranch(context)}/illust/${rootComment.illustId}'
+    '${_currentStackRoot(context)}/illust/${rootComment.illustId}'
     '/comments/${rootComment.id}',
     extra: rootComment,
   );
@@ -1011,9 +1030,12 @@ Future<void> openLogin(
 }
 
 Future<void> openProfileEdit(BuildContext context, int userId) async {
-  await _push(context, '${_currentBranch(context)}/profile/$userId/edit');
+  await _push(context, '${_currentStackRoot(context)}/profile/$userId/edit');
 }
 
 Future<void> openTagSearch(BuildContext context, String keyword) async {
-  await _push(context, '/search/tag/${Uri.encodeComponent(keyword)}');
+  await _push(
+    context,
+    '${_currentStackRoot(context)}/tag/${Uri.encodeComponent(keyword)}',
+  );
 }
