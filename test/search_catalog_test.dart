@@ -531,9 +531,7 @@ void main() {
     expect(find.text('#风景'), findsOneWidget);
   });
 
-  testWidgets('trending grid keeps the final partial row actionable', (
-    tester,
-  ) async {
+  testWidgets('trending grid trims to complete rows of three', (tester) async {
     final repository = _FakeSearchRepository(trendingTagCount: 4);
     await tester.pumpWidget(
       ProviderScope(
@@ -550,7 +548,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('#标签4'), findsOneWidget);
+    expect(find.text('#标签3'), findsOneWidget);
+    expect(find.text('#标签4'), findsNothing);
   });
 
   testWidgets('U2: tapping a trending tag still searches that tag', (

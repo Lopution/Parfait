@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/settings_action_button.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
@@ -14,6 +13,7 @@ import 'search_filter_sheet.dart';
 import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 class SearchHomePage extends ConsumerWidget {
@@ -23,90 +23,96 @@ class SearchHomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(context.l10n.searchTitle),
-        actions: const [SettingsActionButton()],
-      ),
-      body: CustomScrollView(
-        key: const PageStorageKey('search-home'),
-        restorationId: 'search-home',
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
-            sliver: SliverToBoxAdapter(
-              child: _SearchGuideBox(onTap: () => openSearchInput(context)),
+      appBar: AppBar(title: Text(context.l10n.searchTitle)),
+      body: SmoothWheelScroll(
+        builder: (context, controller, physics) => CustomScrollView(
+          key: const PageStorageKey('search-home'),
+          restorationId: 'search-home',
+          controller: controller,
+          physics: physics,
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+              sliver: SliverToBoxAdapter(
+                child: _SearchGuideBox(onTap: () => openSearchInput(context)),
+              ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverToBoxAdapter(
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                    ),
+                    onPressed: () => openReverseImageSearch(context),
+                    icon: const Icon(Icons.image_search_outlined),
+                    label: Text(context.l10n.searchReverseImage),
                   ),
-                  onPressed: () => openReverseImageSearch(context),
-                  icon: const Icon(Icons.image_search_outlined),
-                  label: Text(context.l10n.searchReverseImage),
                 ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
-            sliver: SliverToBoxAdapter(
-              child: Text(
-                context.l10n.searchTrending,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-          ),
-          trending.when(
-            loading: () => const SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(28),
-                  child: CircularProgressIndicator(),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+              sliver: SliverToBoxAdapter(
+                child: Text(
+                  context.l10n.searchTrending,
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
             ),
-            error: (error, _) => SliverToBoxAdapter(
-              child: FeedError(
-                title: context.l10n.searchTrendingFailed,
-                error: error,
-                retryLabel: context.l10n.searchRetry,
-                onRetry: () => ref.invalidate(trendingTagsProvider),
-                scrollable: false,
-              ),
-            ),
-            data: (tags) {
-              if (tags.isEmpty) {
-                return SliverToBoxAdapter(
+            trending.when(
+              loading: () => const SliverToBoxAdapter(
+                child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(28),
-                    child: Center(child: Text(context.l10n.searchNoTrending)),
+                    padding: EdgeInsets.all(28),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              ),
+              error: (error, _) => SliverToBoxAdapter(
+                child: FeedError(
+                  title: context.l10n.searchTrendingFailed,
+                  error: error,
+                  retryLabel: context.l10n.searchRetry,
+                  onRetry: () => ref.invalidate(trendingTagsProvider),
+                  scrollable: false,
+                ),
+              ),
+              data: (tags) {
+                if (tags.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(28),
+                      child: Center(child: Text(context.l10n.searchNoTrending)),
+                    ),
+                  );
+                }
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                  sliver: SliverGrid.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                    // Trim to full rows: a dangling partial row looks like a
+                    // layout bug, and the grid only ever shows a teaser of the
+                    // server's trending list anyway. Lists shorter than one
+                    // full row keep everything — an empty section is worse.
+                    itemCount: tags.length >= 3
+                        ? tags.length - (tags.length % 3)
+                        : tags.length,
+                    itemBuilder: (context, index) =>
+                        _TrendingTagTile(tag: tags[index]),
                   ),
                 );
-              }
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-                sliver: SliverGrid.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                  ),
-                  // Keep the final partial row: every server-provided tag is
-                  // actionable, including the fourth or fifth result.
-                  itemCount: tags.length,
-                  itemBuilder: (context, index) =>
-                      _TrendingTagTile(tag: tags[index]),
-                ),
-              );
-            },
-          ),
-        ],
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
