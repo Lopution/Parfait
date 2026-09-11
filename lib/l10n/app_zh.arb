@@ -39,6 +39,8 @@
       }
     }
   },
+  "loginWebView2Missing": "登录需要 WebView2 Runtime，但当前系统未检测到它。请安装后重新打开本页。",
+  "loginInstallWebView2": "安装 WebView2 Runtime",
   "loginFailed": "登录失败: {error}",
   "@loginFailed": {
     "placeholders": {

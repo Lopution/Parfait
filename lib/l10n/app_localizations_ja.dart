@@ -69,6 +69,13 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get loginWebView2Missing =>
+      'ログインには WebView2 Runtime が必要ですが、このシステムでは検出されませんでした。インストールしてからこのページを開き直してください。';
+
+  @override
+  String get loginInstallWebView2 => 'WebView2 Runtime をインストール';
+
+  @override
   String loginFailed(String error) {
     return 'ログインに失敗しました: $error';
   }

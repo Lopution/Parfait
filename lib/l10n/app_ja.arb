@@ -39,6 +39,8 @@
       }
     }
   },
+  "loginWebView2Missing": "ログインには WebView2 Runtime が必要ですが、このシステムでは検出されませんでした。インストールしてからこのページを開き直してください。",
+  "loginInstallWebView2": "WebView2 Runtime をインストール",
   "loginFailed": "ログインに失敗しました: {error}",
   "@loginFailed": {
     "placeholders": {

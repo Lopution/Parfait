@@ -69,6 +69,13 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get loginWebView2Missing =>
+      'Для входа требуется WebView2 Runtime, который не обнаружен в системе. Установите его и откройте страницу заново.';
+
+  @override
+  String get loginInstallWebView2 => 'Установить WebView2 Runtime';
+
+  @override
   String loginFailed(String error) {
     return 'Не удалось войти: $error';
   }

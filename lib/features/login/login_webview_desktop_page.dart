@@ -5,10 +5,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
+import '../../core/platform/platform_caps.dart';
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
 
@@ -46,7 +49,12 @@ class _LoginWebViewDesktopPageState
   double? _progress;
   String? _error;
   bool _fatal = false;
+  bool _webView2Missing = false;
   late final Uri _initialUrl;
+
+  static final Uri _webView2InstallUri = Uri.parse(
+    'https://developer.microsoft.com/microsoft-edge/webview2/',
+  );
 
   @override
   void initState() {
@@ -61,6 +69,21 @@ class _LoginWebViewDesktopPageState
     // page: reading a second authorize URL would discard the verifier.
     final session = widget.oauthService.beginSession();
     _initialUrl = session.authorizeUrl;
+    if (PlatformCaps.system().isWindows) unawaited(_probeWebView2());
+  }
+
+  /// WebView2 is a runtime dependency, not bundled: on systems without it
+  /// the platform view fails late and silently, so probe up front and show
+  /// an actionable install prompt instead.
+  Future<void> _probeWebView2() async {
+    String? version;
+    try {
+      version = await WebViewEnvironment.getAvailableVersion();
+    } on Object {
+      version = null;
+    }
+    if (!mounted || version != null) return;
+    setState(() => _webView2Missing = true);
   }
 
   @override
@@ -164,46 +187,75 @@ class _LoginWebViewDesktopPageState
       ),
       body: Stack(
         children: [
-          InAppWebView(
-            initialUrlRequest: URLRequest(url: WebUri.uri(_initialUrl)),
-            initialSettings: InAppWebViewSettings(
-              javaScriptEnabled: true,
-              useShouldOverrideUrlLoading: true,
-            ),
-            onWebViewCreated: (controller) => _controller = controller,
-            shouldOverrideUrlLoading: (controller, action) async {
-              final url = action.request.url?.toString();
-              if (url == null) return NavigationActionPolicy.ALLOW;
-              return _handleNavigation(url)
-                  ? NavigationActionPolicy.CANCEL
-                  : NavigationActionPolicy.ALLOW;
-            },
+          if (_webView2Missing)
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.public_off, size: 56),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      context.l10n.loginWebView2Missing,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.open_in_new),
+                    label: Text(context.l10n.loginInstallWebView2),
+                    onPressed: () => unawaited(
+                      launchUrl(
+                        _webView2InstallUri,
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            InAppWebView(
+              initialUrlRequest: URLRequest(url: WebUri.uri(_initialUrl)),
+              initialSettings: InAppWebViewSettings(
+                javaScriptEnabled: true,
+                useShouldOverrideUrlLoading: true,
+              ),
+              onWebViewCreated: (controller) => _controller = controller,
+              shouldOverrideUrlLoading: (controller, action) async {
+                final url = action.request.url?.toString();
+                if (url == null) return NavigationActionPolicy.ALLOW;
+                return _handleNavigation(url)
+                    ? NavigationActionPolicy.CANCEL
+                    : NavigationActionPolicy.ALLOW;
+              },
 
-            // Fallback for server-side 302 chains that skip
-            // shouldOverrideUrlLoading on WebView2.
-            onUpdateVisitedHistory: (controller, url, isReload) {
-              if (url == null) return;
-              final raw = url.toString();
-              if (_handleNavigation(raw)) {
-                controller.stopLoading();
-              }
-            },
-            onProgressChanged: (controller, progress) {
-              if (mounted) setState(() => _progress = progress / 100.0);
-            },
-            onReceivedError: (controller, request, error) {
-              if (request.isForMainFrame == false) return;
-              _reportRecoverable(
-                context.l10n.loginPageLoadFailed('${error.type}'),
-              );
-            },
-            onReceivedHttpError: (controller, request, response) {
-              if (request.isForMainFrame == false) return;
-              _reportRecoverable(
-                context.l10n.loginNetworkError('${response.statusCode}'),
-              );
-            },
-          ),
+              // Fallback for server-side 302 chains that skip
+              // shouldOverrideUrlLoading on WebView2.
+              onUpdateVisitedHistory: (controller, url, isReload) {
+                if (url == null) return;
+                final raw = url.toString();
+                if (_handleNavigation(raw)) {
+                  controller.stopLoading();
+                }
+              },
+              onProgressChanged: (controller, progress) {
+                if (mounted) setState(() => _progress = progress / 100.0);
+              },
+              onReceivedError: (controller, request, error) {
+                if (request.isForMainFrame == false) return;
+                _reportRecoverable(
+                  context.l10n.loginPageLoadFailed('${error.type}'),
+                );
+              },
+              onReceivedHttpError: (controller, request, response) {
+                if (request.isForMainFrame == false) return;
+                _reportRecoverable(
+                  context.l10n.loginNetworkError('${response.statusCode}'),
+                );
+              },
+            ),
           if (_exchanging)
             // Opaque scrim identical to the mobile page's loading surface.
             const ColoredBox(color: Colors.black38, child: FeedLoading()),
