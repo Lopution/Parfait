@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/func_tokens.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
@@ -27,9 +28,7 @@ class LanguagePage extends ConsumerWidget {
     return ref
         .watch(settingsProvider)
         .when(
-          loading: () => const ReplicaScaffold(
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          loading: () => const ReplicaScaffold(child: FeedLoading()),
           error: (error, stackTrace) => ReplicaScaffold(
             child: SettingsLoadError(
               error: error,

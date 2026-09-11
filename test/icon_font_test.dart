@@ -59,9 +59,12 @@ void main() {
     }
   });
 
-  testWidgets('home bar renders four iconFont icons plus Icons.settings', (
+  testWidgets('home bar renders four iconFont icons plus the me tab icon', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp.router(
@@ -90,8 +93,9 @@ void main() {
       expect(iconWidgets[i].icon!.fontFamily, 'iconFont');
       expect(iconWidgets[i].icon!.matchTextDirection, isTrue);
     }
-    // The fifth tab keeps the Material settings icon in the original app.
-    expect(identical(iconWidgets[4].icon, Icons.settings), isTrue);
+    // The fifth tab is the "我的" destination; settings is an app-level
+    // action (AppBar gear / rail trailing), not a personal-content tab.
+    expect(identical(iconWidgets[4].icon, Icons.person_outline), isTrue);
   });
 
   testWidgets('home bar renders real glyphs from the bundled font', (
@@ -105,6 +109,9 @@ void main() {
     final loader = FontLoader('iconFont')..addFont(Future.value(fontData));
     await loader.load();
 
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp.router(

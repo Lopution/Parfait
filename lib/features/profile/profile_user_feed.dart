@@ -23,7 +23,7 @@ class ProfileUserFeed extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(profileUserFeedProvider(feedKey));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: context.l10n.profileLoadFailed,
         error: error,
@@ -43,7 +43,7 @@ class ProfileUserFeed extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
+          return const FeedLoading();
         }
         final storedUsers = ref.watch(userStoreProvider);
         final users = [

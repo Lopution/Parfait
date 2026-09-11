@@ -13,6 +13,7 @@ import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/settings_action_button.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
@@ -98,6 +99,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
               Tab(text: _newText(context, _scopeLabelKey(scope))),
           ],
         ),
+        actions: const [SettingsActionButton()],
       ),
       body: Column(
         children: [

@@ -110,7 +110,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
                       Expanded(
                         child: MaterialButton(
                           elevation: 0,
-                          color: colorScheme.surfaceContainerHighest,
+                          color: colorScheme.surfaceContainer,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(40),
                             side: BorderSide.none,
@@ -296,7 +296,7 @@ class _RestrictSelect extends StatelessWidget {
                       border: value == restrict
                           ? Border.all(color: colorScheme.primary)
                           : null,
-                      color: colorScheme.surfaceContainerHighest,
+                      color: colorScheme.surfaceContainer,
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,

@@ -3,7 +3,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/navigation/routes.dart';
@@ -17,6 +16,9 @@ import '../../../core/user/user_store.dart';
 import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
+import '../../../app/widgets/author_summary.dart';
+import '../../../app/widgets/settings_action_button.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
 import '../../../l10n/lookup.dart';
@@ -88,6 +90,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           onChanged: _selectType,
           controller: _tabController,
         ),
+        actions: const [SettingsActionButton()],
       ),
       body: Stack(
         fit: StackFit.expand,
@@ -156,7 +159,7 @@ class _RecommendedFeedView extends ConsumerWidget {
     final feedAsync = ref.watch(recommendedFeedProvider(key));
 
     return feedAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: context.l10n.recommendedLoadFailed,
         error: error,
@@ -174,7 +177,7 @@ class _RecommendedFeedView extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
+          return const FeedLoading();
         }
         if (feed.isEmptyAndReady) {
           return FeedEmpty(
@@ -397,7 +400,7 @@ class _NovelCover extends StatelessWidget {
       return Container(
         width: 56,
         height: 72,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         child: const Icon(Icons.menu_book_outlined),
       );
     }
@@ -410,9 +413,7 @@ class _NovelCover extends StatelessWidget {
           url,
           layoutWidth: 56,
           fit: BoxFit.cover,
-          placeholderColor: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest,
+          placeholderColor: Theme.of(context).colorScheme.surfaceContainer,
         ),
       ),
     );
@@ -430,31 +431,17 @@ class _UserRow extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: InkWell(
         onTap: () => openUser(context, entity.id),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: FuncShape.control,
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(FuncSpacing.md),
           child: Row(
             children: [
-              PersonAvatar(imageUrl: entity.profileImageUrl, radius: 24),
-              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entity.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      entity.account,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+                child: AuthorSummary(
+                  name: entity.name,
+                  account: entity.account,
+                  imageUrl: entity.profileImageUrl,
+                  avatarRadius: 24,
                 ),
               ),
               const Icon(Icons.chevron_right),

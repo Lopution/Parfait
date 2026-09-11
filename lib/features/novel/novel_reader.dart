@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
 import '../../app/motion/motion_tokens.dart';
+import '../../app/widgets/feed/feed_states.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import 'novel_layout.dart';
@@ -287,7 +288,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
               );
               final layout = _layout;
               if (layout == null) {
-                return const Center(child: CircularProgressIndicator());
+                return const FeedLoading();
               }
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,

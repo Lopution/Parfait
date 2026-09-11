@@ -786,6 +786,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeRanking => '排行';
 
   @override
+  String get homeMe => '我的';
+
+  @override
   String get homeExitHint => '再按一次退出';
 
   @override

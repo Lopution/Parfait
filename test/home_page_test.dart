@@ -84,6 +84,11 @@ Future<void> _pumpHome(
   AndroidIntentSource? intentSource,
   Locale? locale,
 }) async {
+  // Pin a compact surface so the shell renders the bottom NavigationBar
+  // rather than the wide NavigationRail.
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
   await tester.pumpWidget(_homeApp(intentSource: intentSource, locale: locale));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));

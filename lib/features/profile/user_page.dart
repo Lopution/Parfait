@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
+import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/replica_scaffold.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/user/user_entity.dart';
@@ -45,8 +47,7 @@ class MePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(accountStoreProvider);
     return accounts.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => const Scaffold(body: FeedLoading()),
       error: (error, _) => _ProfileStatusPage(
         icon: Icons.cloud_off,
         title: context.l10n.profileLoadFailed,
@@ -473,37 +474,16 @@ class _ProfileStatusPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: Navigator.of(context).canPop()
-            ? IconButton(
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_ios_new),
-              )
-            : null,
-      ),
-      body: Center(
+    return ReplicaScaffold(
+      child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 48),
-              const SizedBox(height: 12),
-              Text(title, textAlign: TextAlign.center),
-              if (detail != null) ...[
-                const SizedBox(height: 8),
-                Text(detail!, textAlign: TextAlign.center),
-              ],
-              if (onRetry != null) ...[
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: onRetry,
-                  child: Text(context.l10n.profileRetry),
-                ),
-              ],
-            ],
+          child: FeedEmpty(
+            icon: icon,
+            title: title,
+            detail: detail,
+            onRefresh: onRetry,
+            retryLabel: context.l10n.profileRetry,
           ),
         ),
       ),

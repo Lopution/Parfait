@@ -19,7 +19,7 @@ class ProfileNovelFeed extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(userNovelFeedProvider(userId));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: context.l10n.profileLoadFailed,
         error: error,
@@ -38,7 +38,7 @@ class ProfileNovelFeed extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const Center(child: CircularProgressIndicator());
+          return const FeedLoading();
         }
         final storedNovels = ref.watch(novelStoreProvider);
         final novels = [

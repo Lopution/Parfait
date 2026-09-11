@@ -822,6 +822,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeRanking => 'Ranking';
 
   @override
+  String get homeMe => 'Me';
+
+  @override
   String get homeExitHint => 'Press back again to exit';
 
   @override

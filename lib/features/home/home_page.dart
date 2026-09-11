@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/icons/app_icons.dart';
+import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
+import '../../app/widgets/settings_action_button.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../l10n/context.dart';
 
@@ -91,6 +93,22 @@ class _HomePageState extends State<HomePage>
     });
   }
 
+  /// Wide layouts use a NavigationRail and have no bottom bar — report an
+  /// empty measurement so Hero flights clip against the viewport edge instead
+  /// of a phantom bar.
+  void _scheduleChromeClear() {
+    if (_bottomNavMeasureScheduled) return;
+    _bottomNavMeasureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((timestamp) {
+      _bottomNavMeasureScheduled = false;
+      if (mounted) {
+        ProviderScope.containerOf(
+          context,
+        ).read(homeShellMetricsProvider.notifier).publish(null, 0);
+      }
+    });
+  }
+
   void _handleRootBack(bool didPop) {
     if (didPop) return;
     switch (_backCoordinator.handleBackPress()) {
@@ -128,50 +146,80 @@ class _HomePageState extends State<HomePage>
     AppIcons.ranking,
     AppIcons.n,
     AppIcons.search,
-    Icons.settings,
+    Icons.person_outline,
   ];
 
   @override
   Widget build(BuildContext context) {
-    _scheduleBottomNavMeasure();
+    final wide = AppBreakpoints.useNavigationRail(
+      MediaQuery.sizeOf(context).width,
+    );
+    if (wide) {
+      _scheduleChromeClear();
+    } else {
+      _scheduleBottomNavMeasure();
+    }
     final index = widget.navigationShell.currentIndex;
+    final labels = [
+      context.l10n.homeRecommended,
+      context.l10n.homeRanking,
+      context.l10n.newTitle,
+      context.l10n.searchTitle,
+      context.l10n.homeMe,
+    ];
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
       child: Scaffold(
-        body: widget.navigationShell,
-        bottomNavigationBar: SizedBox(
-          key: _bottomNavKey,
-          // NavigationBar already includes the M3 80dp row plus the bottom
-          // safe-area inset; the extra margin the old BottomAppBar needed
-          // left a strip of scaffold background under the bar.
-          child: NavigationBar(
-            selectedIndex: index,
-            onDestinationSelected: widget.navigationShell.goBranch,
-            destinations: [
-              NavigationDestination(
-                icon: Icon(icons[0], size: 30),
-                label: context.l10n.homeRecommended,
+        body: wide
+            ? Row(
+                children: [
+                  NavigationRail(
+                    selectedIndex: index,
+                    onDestinationSelected: widget.navigationShell.goBranch,
+                    labelType: NavigationRailLabelType.all,
+                    destinations: [
+                      for (var i = 0; i < icons.length; i++)
+                        NavigationRailDestination(
+                          icon: Icon(icons[i], size: 26),
+                          label: Text(labels[i]),
+                        ),
+                    ],
+                    trailing: const Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: SettingsActionButton(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const VerticalDivider(thickness: 1, width: 1),
+                  Expanded(child: widget.navigationShell),
+                ],
+              )
+            : widget.navigationShell,
+        bottomNavigationBar: wide
+            ? null
+            : SizedBox(
+                key: _bottomNavKey,
+                // NavigationBar already includes the M3 80dp row plus the
+                // bottom safe-area inset; the extra margin the old
+                // BottomAppBar needed left a strip of scaffold background
+                // under the bar.
+                child: NavigationBar(
+                  selectedIndex: index,
+                  onDestinationSelected: widget.navigationShell.goBranch,
+                  destinations: [
+                    for (var i = 0; i < icons.length; i++)
+                      NavigationDestination(
+                        icon: Icon(icons[i], size: 30),
+                        label: labels[i],
+                      ),
+                  ],
+                ),
               ),
-              NavigationDestination(
-                icon: Icon(icons[1], size: 30),
-                label: context.l10n.homeRanking,
-              ),
-              NavigationDestination(
-                icon: Icon(icons[2], size: 30),
-                label: context.l10n.newTitle,
-              ),
-              NavigationDestination(
-                icon: Icon(icons[3], size: 30),
-                label: context.l10n.searchTitle,
-              ),
-              NavigationDestination(
-                icon: Icon(icons[4], size: 30),
-                label: context.l10n.settingsTitle,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
