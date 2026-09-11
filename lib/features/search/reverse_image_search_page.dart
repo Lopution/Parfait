@@ -144,7 +144,7 @@ class _ReverseImageSearchPageState
     BuildContext context,
     ReverseImageSearchWebView webView,
   ) {
-    return PlatformCaps.system().isDesktop
+    return ref.read(platformCapsProvider).isDesktop
         ? _ControlledSauceNaoInAppWebView(
             webView: webView,
             onOpenExternal: _openExternal,

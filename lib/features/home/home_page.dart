@@ -115,7 +115,11 @@ class _HomePageState extends State<HomePage>
     // Double-back-to-exit is an Android pattern. Desktop has no root back
     // gesture that reaches this callback; a stray one must not show an
     // exit hint for a window that closes via the title bar.
-    if (!PlatformCaps.system().isAndroid) return;
+    if (!ProviderScope.containerOf(
+      context,
+    ).read(platformCapsProvider).isAndroid) {
+      return;
+    }
     switch (_backCoordinator.handleBackPress()) {
       case RootBackAction.showExitHint:
         ScaffoldMessenger.of(context)
