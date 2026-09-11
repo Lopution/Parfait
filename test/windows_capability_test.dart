@@ -10,10 +10,8 @@ import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/desktop_clipboard.dart';
 import 'package:pixiv_func/core/platform/desktop_file_sink.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
-import 'package:pixiv_func/core/platform/media_store_channel.dart';
 import 'package:pixiv_func/core/platform/platform_caps.dart';
 import 'package:pixiv_func/core/platform/saf_tree.dart';
-import 'package:pixiv_func/core/updater/update_models.dart';
 import 'package:pixiv_func/core/updater/update_platform.dart';
 
 const _windows = PlatformCaps(isWindows: true);
