@@ -455,14 +455,14 @@ void main() {
     await tester.tap(find.byType(SearchBar));
     await tester.pumpAndSettle();
     expect(find.byType(SearchInputPage), findsOneWidget);
-    expect(find.byType(SearchAnchor), findsOneWidget);
+    expect(find.byType(SearchAnchor), findsNothing);
     expect(find.byType(SearchBar), findsOneWidget);
     expect(find.text('插画 & 漫画'), findsOneWidget);
     expect(find.text('小说'), findsOneWidget);
     expect(find.text('用户'), findsOneWidget);
   });
 
-  testWidgets('SearchAnchor suggestions submit the existing typed query', (
+  testWidgets('inline suggestions submit the existing typed query', (
     tester,
   ) async {
     final repository = _FakeSearchRepository(
@@ -485,10 +485,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(SearchBar));
-    await tester.pumpAndSettle();
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.last, 'cat');
+    await tester.enterText(find.byType(TextField), 'cat');
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
