@@ -217,15 +217,15 @@ class _LoginWebViewDesktopPageState
             )
           else
             InAppWebView(
-              // NOTE: no initialUrlRequest — with useShouldOverrideUrlLoading
-              // the Windows plugin intercepts via CDP Fetch.requestPaused; a
-              // navigation started before that listener attaches stays paused
-              // and dies as CONNECTION_ABORTED. Load only after the view and
-              // its delegates exist.
-              initialSettings: InAppWebViewSettings(
-                javaScriptEnabled: true,
-                useShouldOverrideUrlLoading: true,
-              ),
+              // NOTE: no initialUrlRequest and no useShouldOverrideUrlLoading.
+              // On Windows the plugin implements the latter via CDP
+              // Fetch.requestPaused, which pauses every Document hop — Pixiv's
+              // authorize → post-redirect → login chain dies mid-redirect as
+              // CONNECTION_ABORTED. Interception instead runs on
+              // onLoadStart (NavigationStarting event) + onUpdateVisitedHistory
+              // fallback; a consumed pixiv:// callback never completes loading
+              // anyway, we just need the URL.
+              initialSettings: InAppWebViewSettings(javaScriptEnabled: true),
               onWebViewCreated: (controller) {
                 _controller = controller;
                 unawaited(
@@ -234,20 +234,16 @@ class _LoginWebViewDesktopPageState
                   ),
                 );
               },
-              shouldOverrideUrlLoading: (controller, action) async {
-                final url = action.request.url?.toString();
-                if (url == null) return NavigationActionPolicy.ALLOW;
-                return _handleNavigation(url)
-                    ? NavigationActionPolicy.CANCEL
-                    : NavigationActionPolicy.ALLOW;
+              onLoadStart: (controller, url) {
+                if (url == null) return;
+                if (_handleNavigation(url.toString())) {
+                  controller.stopLoading();
+                }
               },
-
-              // Fallback for server-side 302 chains that skip
-              // shouldOverrideUrlLoading on WebView2.
+              // Fallback for server-side 302 chains that skip NavigationStarting.
               onUpdateVisitedHistory: (controller, url, isReload) {
                 if (url == null) return;
-                final raw = url.toString();
-                if (_handleNavigation(raw)) {
+                if (_handleNavigation(url.toString())) {
                   controller.stopLoading();
                 }
               },
