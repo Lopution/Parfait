@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -143,10 +144,15 @@ class _ReverseImageSearchPageState
     BuildContext context,
     ReverseImageSearchWebView webView,
   ) {
-    return _ControlledSauceNaoWebView(
-      webView: webView,
-      onOpenExternal: _openExternal,
-    );
+    return PlatformCaps.system().isDesktop
+        ? _ControlledSauceNaoInAppWebView(
+            webView: webView,
+            onOpenExternal: _openExternal,
+          )
+        : _ControlledSauceNaoWebView(
+            webView: webView,
+            onOpenExternal: _openExternal,
+          );
   }
 
   Widget _idle(BuildContext context) {
@@ -420,49 +426,16 @@ class _ControlledSauceNaoWebViewState
   }
 
   NavigationDecision _onNavigationRequest(NavigationRequest request) {
-    final action = SauceNaoNavigationPolicy.decide(Uri.tryParse(request.url));
-    switch (action) {
-      case SauceNaoNavigationAction.navigate:
-        return NavigationDecision.navigate;
-      case SauceNaoNavigationAction.openIllust:
-        final id = _illustId(request.url);
-        if (id != null) {
-          openIllust(context, id);
-        } else {
-          unawaited(widget.onOpenExternal(Uri.parse(request.url)));
-        }
-        return NavigationDecision.prevent;
-      case SauceNaoNavigationAction.openUser:
-        final id = _userId(request.url);
-        if (id != null) {
-          openUser(context, id);
-        } else {
-          unawaited(widget.onOpenExternal(Uri.parse(request.url)));
-        }
-        return NavigationDecision.prevent;
-      case SauceNaoNavigationAction.openExternal:
-        final uri = Uri.tryParse(request.url);
-        if (uri != null) unawaited(widget.onOpenExternal(uri));
-        return NavigationDecision.prevent;
-      case SauceNaoNavigationAction.reject:
-        return NavigationDecision.prevent;
-    }
-  }
-
-  static int? _illustId(String url) {
-    final route = IntentRouter.route(Uri.parse(url));
-    return switch (route) {
-      IllustRoute(:final illustId) => illustId,
-      _ => null,
-    };
-  }
-
-  static int? _userId(String url) {
-    final route = IntentRouter.route(Uri.parse(url));
-    return switch (route) {
-      UserRoute(:final userId) => userId,
-      _ => null,
-    };
+    // Shared adapter around SauceNaoNavigationPolicy — see
+    // [_applySauceNaoAction]. Returns prevent when the link was consumed.
+    return _applySauceNaoAction(
+          context,
+          SauceNaoNavigationPolicy.decide(Uri.tryParse(request.url)),
+          request.url,
+          widget.onOpenExternal,
+        )
+        ? NavigationDecision.prevent
+        : NavigationDecision.navigate;
   }
 
   @override
@@ -485,6 +458,136 @@ class _ControlledSauceNaoWebViewState
     return Stack(
       children: [
         WebViewWidget(controller: _controller),
+        if (_progress != null && _progress! < 1.0)
+          LinearProgressIndicator(value: _progress, minHeight: 2),
+      ],
+    );
+  }
+}
+
+/// Shared adapter around [SauceNaoNavigationPolicy]: returns true when the
+/// link was consumed (routed in-app, handed to the external launcher, or
+/// rejected) and the webview must not navigate.
+bool _applySauceNaoAction(
+  BuildContext context,
+  SauceNaoNavigationAction action,
+  String rawUrl,
+  Future<void> Function(Uri uri) onOpenExternal,
+) {
+  switch (action) {
+    case SauceNaoNavigationAction.navigate:
+      return false;
+    case SauceNaoNavigationAction.openIllust:
+      final id = switch (IntentRouter.route(Uri.parse(rawUrl))) {
+        IllustRoute(:final illustId) => illustId,
+        _ => null,
+      };
+      if (id != null) {
+        openIllust(context, id);
+      } else {
+        unawaited(onOpenExternal(Uri.parse(rawUrl)));
+      }
+      return true;
+    case SauceNaoNavigationAction.openUser:
+      final id = switch (IntentRouter.route(Uri.parse(rawUrl))) {
+        UserRoute(:final userId) => userId,
+        _ => null,
+      };
+      if (id != null) {
+        openUser(context, id);
+      } else {
+        unawaited(onOpenExternal(Uri.parse(rawUrl)));
+      }
+      return true;
+    case SauceNaoNavigationAction.openExternal:
+      final uri = Uri.tryParse(rawUrl);
+      if (uri != null) unawaited(onOpenExternal(uri));
+      return true;
+    case SauceNaoNavigationAction.reject:
+      return true;
+  }
+}
+
+/// InAppWebView (WebView2) variant of the SauceNAO result surface for
+/// desktop — same navigation policy, progress and error contract as
+/// [_ControlledSauceNaoWebView].
+class _ControlledSauceNaoInAppWebView extends StatefulWidget {
+  const _ControlledSauceNaoInAppWebView({
+    required this.webView,
+    required this.onOpenExternal,
+  });
+
+  final ReverseImageSearchWebView webView;
+  final Future<void> Function(Uri uri) onOpenExternal;
+
+  @override
+  State<_ControlledSauceNaoInAppWebView> createState() =>
+      _ControlledSauceNaoInAppWebViewState();
+}
+
+class _ControlledSauceNaoInAppWebViewState
+    extends State<_ControlledSauceNaoInAppWebView> {
+  String? _error;
+  double? _progress;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 56),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(_error!, textAlign: TextAlign.center),
+            ),
+          ],
+        ),
+      );
+    }
+    final result = widget.webView;
+    return Stack(
+      children: [
+        InAppWebView(
+          initialUrlRequest: result.resultUrl != null
+              ? URLRequest(url: WebUri.uri(result.resultUrl!))
+              : null,
+          initialData: result.html != null
+              ? InAppWebViewInitialData(
+                  data: result.html!,
+                  baseUrl: WebUri(SauceNaoWebViewProvider.defaultEndpoint),
+                )
+              : null,
+          initialSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            useShouldOverrideUrlLoading: true,
+          ),
+          shouldOverrideUrlLoading: (controller, action) async {
+            final url = action.request.url?.toString();
+            if (url == null) return NavigationActionPolicy.ALLOW;
+            return _applySauceNaoAction(
+                  context,
+                  SauceNaoNavigationPolicy.decide(Uri.tryParse(url)),
+                  url,
+                  widget.onOpenExternal,
+                )
+                ? NavigationActionPolicy.CANCEL
+                : NavigationActionPolicy.ALLOW;
+          },
+          onProgressChanged: (controller, progress) {
+            if (mounted) setState(() => _progress = progress / 100.0);
+          },
+          onReceivedError: (controller, request, error) {
+            if (request.isForMainFrame == false || !mounted) return;
+            setState(() {
+              _error =
+                  '${context.l10n.searchReversePageLoadFailed} '
+                  '(${error.type})';
+            });
+          },
+        ),
         if (_progress != null && _progress! < 1.0)
           LinearProgressIndicator(value: _progress, minHeight: 2),
       ],
