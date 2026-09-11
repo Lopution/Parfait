@@ -68,8 +68,7 @@ void main() {
         find.byType(SliverMasonryGrid),
       );
       final delegate =
-          grid.gridDelegate
-              as SliverSimpleGridDelegateWithFixedCrossAxisCount;
+          grid.gridDelegate as SliverSimpleGridDelegateWithFixedCrossAxisCount;
       // 400 - 2*10 horizontal padding = 380 -> floor(380/180) = 2.
       expect(delegate.crossAxisCount, 2);
     },
