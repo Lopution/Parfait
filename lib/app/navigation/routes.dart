@@ -9,6 +9,7 @@ import '../../core/entity/illust_store.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/platform/intent_router.dart';
+import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
 import '../../core/settings/app_settings.dart';
@@ -19,6 +20,7 @@ import '../../features/home/recommended/recommended_home_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
 import '../../features/illust/viewer/image_viewer_page.dart';
 import '../../features/login/login_page.dart';
+import '../../features/login/login_webview_desktop_page.dart';
 import '../../features/login/login_webview_page.dart';
 import '../../features/new/new_page.dart';
 import '../../features/novel/novel_page.dart';
@@ -458,17 +460,17 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
         routes: [
           GoRoute(
             path: 'web',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              LoginWebViewPage(
-                oauthService: ProviderScope.containerOf(
-                  context,
-                ).read(oauthServiceProvider),
-                create: state.uri.queryParameters['create'] == 'true',
-              ),
-            ),
+            pageBuilder: (context, state) {
+              final container = ProviderScope.containerOf(context);
+              final oauth = container.read(oauthServiceProvider);
+              final create = state.uri.queryParameters['create'] == 'true';
+              // Desktop uses the InAppWebView (WebView2) implementation;
+              // webview_flutter has no Windows backend.
+              final page = container.read(platformCapsProvider).isDesktop
+                  ? LoginWebViewDesktopPage(oauthService: oauth, create: create)
+                  : LoginWebViewPage(oauthService: oauth, create: create);
+              return _page(context, state, appRootRouteObserver, page);
+            },
           ),
           GoRoute(
             path: 'callback',
