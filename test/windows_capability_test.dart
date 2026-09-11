@@ -68,11 +68,14 @@ void main() {
   });
 
   group('UnsupportedUpdatePlatform', () {
-    test('reports storeManaged so the updater takes the disabled path', () async {
-      final capability = await const UnsupportedUpdatePlatform().capability();
-      expect(capability.storeManaged, isTrue);
-      expect(capability.enabled, isFalse);
-    });
+    test(
+      'reports storeManaged so the updater takes the disabled path',
+      () async {
+        final capability = await const UnsupportedUpdatePlatform().capability();
+        expect(capability.storeManaged, isTrue);
+        expect(capability.enabled, isFalse);
+      },
+    );
 
     test('other verbs fail loudly', () {
       expect(
@@ -107,9 +110,7 @@ void main() {
     setUp(() async {
       dir = await Directory.systemTemp.createTemp('pixiv_sink_test');
       saf = const DesktopSafDocumentSinkFactory();
-      mediaStore = DesktopFileMediaStoreSession(
-        baseDirectory: () async => dir,
-      );
+      mediaStore = DesktopFileMediaStoreSession(baseDirectory: () async => dir);
     });
 
     tearDown(() async {
@@ -143,20 +144,22 @@ void main() {
       expect(File('${dir.path}/b.png').existsSync(), isFalse);
     });
 
-    test('mediastore session maps Pictures/<album> under the base dir',
-        () async {
-      final handle = await mediaStore.begin(
-        displayName: 'c.png',
-        mimeType: 'image/png',
-        relativePath: 'Pictures/MyAlbum',
-      );
-      await handle.write([4, 5]);
-      final uri = await handle.finalize();
-      expect(uri.scheme, 'file');
-      final file = File('${dir.path}/MyAlbum/c.png');
-      expect(file.existsSync(), isTrue);
-      expect(await file.readAsBytes(), [4, 5]);
-    });
+    test(
+      'mediastore session maps Pictures/<album> under the base dir',
+      () async {
+        final handle = await mediaStore.begin(
+          displayName: 'c.png',
+          mimeType: 'image/png',
+          relativePath: 'Pictures/MyAlbum',
+        );
+        await handle.write([4, 5]);
+        final uri = await handle.finalize();
+        expect(uri.scheme, 'file');
+        final file = File('${dir.path}/MyAlbum/c.png');
+        expect(file.existsSync(), isTrue);
+        expect(await file.readAsBytes(), [4, 5]);
+      },
+    );
 
     test('default album lands under <base>/PixivFunc', () async {
       final handle = await mediaStore.begin(
@@ -201,8 +204,7 @@ void main() {
           .setMockMethodCallHandler(SystemChannels.platform, (call) async {
             switch (call.method) {
               case 'Clipboard.setData':
-                clipboardText =
-                    (call.arguments as Map)['text'] as String?;
+                clipboardText = (call.arguments as Map)['text'] as String?;
                 return null;
               case 'Clipboard.getData':
                 return <String, dynamic>{'text': clipboardText};
@@ -224,16 +226,18 @@ void main() {
       expect(content?.fingerprint, transferClipboardFingerprint('hello'));
     });
 
-    test('clearIfCurrent only clears while the fingerprint still owns it',
-        () async {
-      final clipboard = FlutterTransferClipboard();
-      await clipboard.write('owned', clearAfter: const Duration(minutes: 5));
-      expect(await clipboard.clearIfCurrent('wrong'), isFalse);
-      expect((await clipboard.read())?.text, 'owned');
-      final fingerprint = transferClipboardFingerprint('owned');
-      expect(await clipboard.clearIfCurrent(fingerprint), isTrue);
-      expect(await clipboard.read(), isNull);
-    });
+    test(
+      'clearIfCurrent only clears while the fingerprint still owns it',
+      () async {
+        final clipboard = FlutterTransferClipboard();
+        await clipboard.write('owned', clearAfter: const Duration(minutes: 5));
+        expect(await clipboard.clearIfCurrent('wrong'), isFalse);
+        expect((await clipboard.read())?.text, 'owned');
+        final fingerprint = transferClipboardFingerprint('owned');
+        expect(await clipboard.clearIfCurrent(fingerprint), isTrue);
+        expect(await clipboard.read(), isNull);
+      },
+    );
 
     test('capabilities report no sensitive-mark support', () async {
       final caps = await FlutterTransferClipboard().capabilities();
