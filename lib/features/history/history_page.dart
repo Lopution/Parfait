@@ -438,7 +438,7 @@ class _SnapshotCover extends StatelessWidget {
       aspectRatio: 1,
       child: record.snapshot.coverUrl == null
           ? ColoredBox(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               child: Icon(icon, size: 42),
             )
           : PixivImage.feed(

@@ -22,13 +22,7 @@ class PersonAvatar extends StatelessWidget {
   Widget neutral(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [colors.surfaceContainerHighest, colors.surfaceContainerHigh],
-        ),
-      ),
+      decoration: BoxDecoration(color: colors.surfaceContainer),
       child: Center(
         child: Icon(
           Icons.person_outline,

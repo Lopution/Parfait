@@ -70,7 +70,7 @@ class _NovelCover extends StatelessWidget {
         height: 88,
         child: entity.coverImageUrl == null
             ? ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 child: const Icon(Icons.menu_book_outlined),
               )
             : PixivImage.feed(entity.coverImageUrl!, layoutWidth: 68),

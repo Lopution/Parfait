@@ -234,7 +234,7 @@ class _NovelSeriesBar extends ConsumerWidget {
             : null;
         if (previous == null && next == null) return const SizedBox.shrink();
         return Material(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           child: Row(
             children: [
               IconButton(

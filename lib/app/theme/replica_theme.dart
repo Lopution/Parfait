@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'func_semantic_tokens.dart';
 import 'func_tokens.dart';
 
 ThemeData replicaTheme(Brightness brightness) {
@@ -8,6 +9,9 @@ ThemeData replicaTheme(Brightness brightness) {
       ? FuncTokens.darkBackground
       : FuncTokens.lightBackground;
   final surface = dark ? FuncTokens.darkSurface : FuncTokens.lightSurface;
+  final surfaceRaised = dark
+      ? FuncTokens.darkSurfaceRaised
+      : FuncTokens.lightSurfaceRaised;
   final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
   final subdued = dark ? FuncTokens.darkSubdued : FuncTokens.lightSubdued;
 
@@ -26,8 +30,8 @@ ThemeData replicaTheme(Brightness brightness) {
         surfaceContainerLowest: background,
         surfaceContainerLow: surface,
         surfaceContainer: surface,
-        surfaceContainerHigh: surface,
-        surfaceContainerHighest: surface,
+        surfaceContainerHigh: surfaceRaised,
+        surfaceContainerHighest: surfaceRaised,
         onPrimary: FuncTokens.lightBackground,
         onSecondary: subdued,
         onSurface: text,
@@ -41,6 +45,7 @@ ThemeData replicaTheme(Brightness brightness) {
   return ThemeData(
     brightness: brightness,
     primaryColor: FuncTokens.primary,
+    extensions: [FuncSemanticTokens.fromBrightness(brightness)],
     // Keep app hints floating so their entrance and exit use the same
     // readable fade behavior across copy, saved, and exit messages.
     snackBarTheme:
