@@ -397,7 +397,7 @@ class _NovelCover extends StatelessWidget {
       return Container(
         width: 56,
         height: 72,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         child: const Icon(Icons.menu_book_outlined),
       );
     }
@@ -410,9 +410,7 @@ class _NovelCover extends StatelessWidget {
           url,
           layoutWidth: 56,
           fit: BoxFit.cover,
-          placeholderColor: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest,
+          placeholderColor: Theme.of(context).colorScheme.surfaceContainer,
         ),
       ),
     );

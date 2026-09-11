@@ -94,7 +94,7 @@ class _CommentComposerState extends State<CommentComposer> {
                         hintText: context.l10n.commentInput,
                         isDense: true,
                         filled: true,
-                        fillColor: theme.colorScheme.surfaceContainerHighest,
+                        fillColor: theme.colorScheme.surfaceContainer,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 10,

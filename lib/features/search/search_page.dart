@@ -162,7 +162,7 @@ class _TrendingTagTile extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: ColoredBox(
-          color: scheme.surfaceContainerHighest,
+          color: scheme.surfaceContainer,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -434,7 +434,7 @@ class _SearchAutocompletePanel extends ConsumerWidget {
       );
     }
     if (state.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const FeedLoading();
     }
     if (state.error != null) {
       return FeedError(

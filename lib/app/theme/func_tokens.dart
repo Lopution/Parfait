@@ -17,9 +17,26 @@ abstract final class FuncTokens {
   static const Color error = Color(0xFFF44336);
   static const Color imageOverlay = Color(0x3DFFFFFF);
 
+  /// Raised surface above [darkSurface]/[lightSurface] (dialogs, sheets,
+  /// switch track): the middle step between canvas and content.
+  static const Color darkSurfaceRaised = Color(0xFF303135);
+  static const Color lightSurfaceRaised = Color(0xFFF7F7F8);
+
+  /// Hairline separators; intentionally fainter than the subdued text tint.
+  static const Color darkDivider = Color(0x1FD5D5D5);
+  static const Color lightDivider = Color(0x1F383838);
+
+  /// Scrim/overlay tone for dimming content under floating surfaces.
+  static const Color surfaceOverlay = Color(0x52000000);
+
+  /// Generic status tones; domain-specific aliases keep one literal each.
+  static const Color success = Color(0xFF388E3C);
+  static const Color warning = Color(0xFFF57C00);
+  static const Color danger = error;
+
   static const Color networkProbeDnsWarning = Color(0xFFEF6C00);
-  static const Color networkProbeSuccess = Color(0xFF388E3C);
-  static const Color networkProbeWarning = Color(0xFFF57C00);
+  static const Color networkProbeSuccess = success;
+  static const Color networkProbeWarning = warning;
   static const Color networkProbeError = Color(0xFFD32F2F);
   static const Color networkProbeEch = Color(0xFF00796B);
   static const Color networkProbeNoSni = Color(0xFF303F9F);
