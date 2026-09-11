@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/pixiv_image.dart';
-import '../../../app/motion/drag_to_dismiss.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
@@ -105,79 +104,74 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
         ? widget.width / widget.height
         : 1.0;
 
-    return DragToDismiss(
-      onDismissed: () => Navigator.of(context).pop<void>(),
-      child: VisibilityDetector(
-        key: ValueKey('ugoira-${widget.illustId}'),
-        onVisibilityChanged: (info) {
-          final activeScheduler = _scheduler;
-          _visible = info.visibleFraction > 0;
-          if (activeScheduler == null) return;
-          if (!_visible) {
-            activeScheduler.stop();
-          } else {
-            unawaited(_startPlaybackIfReady(activeScheduler));
-          }
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _togglePlayback,
-          onLongPress: widget.onLongPress,
-          child: AspectRatio(
-            aspectRatio: aspectRatio,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildCover(currentImage),
-                if (_loading)
-                  const Center(child: CircularProgressIndicator())
-                else if (_error != null)
-                  _ErrorOverlay(message: _error!, onRetry: _togglePlayback)
-                else if (scheduler == null || !scheduler.isPlaying)
-                  const _PlayOverlay(),
+    return VisibilityDetector(
+      key: ValueKey('ugoira-${widget.illustId}'),
+      onVisibilityChanged: (info) {
+        final activeScheduler = _scheduler;
+        _visible = info.visibleFraction > 0;
+        if (activeScheduler == null) return;
+        if (!_visible) {
+          activeScheduler.stop();
+        } else {
+          unawaited(_startPlaybackIfReady(activeScheduler));
+        }
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _togglePlayback,
+        onLongPress: widget.onLongPress,
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildCover(currentImage),
+              if (_loading)
+                const Center(child: CircularProgressIndicator())
+              else if (_error != null)
+                _ErrorOverlay(message: _error!, onRetry: _togglePlayback)
+              else if (scheduler == null || !scheduler.isPlaying)
+                const _PlayOverlay(),
+              Positioned(
+                left: 7,
+                bottom: 7,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(5),
+                    color: const Color(0x99343838),
+                  ),
+                  child: const Icon(
+                    Icons.gif_box_outlined,
+                    color: FuncTokens.lightBackground,
+                    size: 30,
+                  ),
+                ),
+              ),
+              if (widget.downloadMode && _asset != null)
                 Positioned(
-                  left: 7,
-                  bottom: 7,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(5),
-                      color: const Color(0x99343838),
-                    ),
-                    child: const Icon(
-                      Icons.gif_box_outlined,
-                      color: FuncTokens.lightBackground,
-                      size: 30,
+                  top: 12,
+                  right: 12,
+                  child: Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      tooltip: context.l10n.ugoiraSaveGif,
+                      onPressed: _export,
+                      icon:
+                          _exportJob?.snapshot.status ==
+                                  UgoiraExportStatus.running ||
+                              _exportJob?.snapshot.status ==
+                                  UgoiraExportStatus.finalizing
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.file_download_outlined),
                     ),
                   ),
                 ),
-                if (widget.downloadMode && _asset != null)
-                  Positioned(
-                    top: 12,
-                    right: 12,
-                    child: Material(
-                      color: Theme.of(context).colorScheme.surface,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        tooltip: context.l10n.ugoiraSaveGif,
-                        onPressed: _export,
-                        icon:
-                            _exportJob?.snapshot.status ==
-                                    UgoiraExportStatus.running ||
-                                _exportJob?.snapshot.status ==
-                                    UgoiraExportStatus.finalizing
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.file_download_outlined),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
         ),
       ),

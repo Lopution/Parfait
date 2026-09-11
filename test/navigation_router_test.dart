@@ -11,7 +11,9 @@ import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
+import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
+import 'package:pixiv_func/features/search/tag_search_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
@@ -96,5 +98,71 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pump();
     expect(find.text('再按一次退出'), findsOneWidget);
+  });
+
+  Future<GoRouter> pumpRouter(WidgetTester tester, String location) async {
+    final router = createPixivRouter(initialLocation: location);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    return router;
+  }
+
+  testWidgets('tag search stays on the stack it was opened from', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/ranking');
+    expect(find.byType(RankingPage), findsOneWidget);
+
+    unawaited(openTagSearch(tester.element(find.byType(RankingPage)), '猫'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(router.state.uri.path, '/ranking/tag/%E7%8C%AB');
+    expect(find.byType(TagSearchPage), findsOneWidget);
+    expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
+    expect(find.byType(SearchHomePage, skipOffstage: false), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/ranking');
+    expect(find.byType(RankingPage), findsOneWidget);
+  });
+
+  testWidgets('detail pushed from the reverse-image page does not stack a '
+      'second home shell', (tester) async {
+    final router = await pumpRouter(tester, '/recommended');
+    unawaited(router.push('/reverse-image'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(ReverseImageSearchPage), findsOneWidget);
+
+    unawaited(
+      openIllust(tester.element(find.byType(ReverseImageSearchPage)), 5),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(router.state.uri.path, '/reverse-image/illust/5');
+    expect(
+      find.byType(StatefulNavigationShell, skipOffstage: false),
+      findsOneWidget,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/reverse-image');
   });
 }

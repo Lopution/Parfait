@@ -142,37 +142,34 @@ class _HomePageState extends State<HomePage>
         body: widget.navigationShell,
         bottomNavigationBar: SizedBox(
           key: _bottomNavKey,
-          child: Padding(
-            // Leave a small, real hit-target margin above the gesture area.
-            // Translating only the pixels made the bar look higher while its
-            // semantic/touch bounds stayed at the very bottom of the screen.
-            padding: const EdgeInsets.only(bottom: 8),
-            child: NavigationBar(
-              selectedIndex: index,
-              onDestinationSelected: widget.navigationShell.goBranch,
-              destinations: [
-                NavigationDestination(
-                  icon: Icon(icons[0], size: 30),
-                  label: context.l10n.homeRecommended,
-                ),
-                NavigationDestination(
-                  icon: Icon(icons[1], size: 30),
-                  label: context.l10n.homeRanking,
-                ),
-                NavigationDestination(
-                  icon: Icon(icons[2], size: 30),
-                  label: context.l10n.newTitle,
-                ),
-                NavigationDestination(
-                  icon: Icon(icons[3], size: 30),
-                  label: context.l10n.searchTitle,
-                ),
-                NavigationDestination(
-                  icon: Icon(icons[4], size: 30),
-                  label: context.l10n.settingsTitle,
-                ),
-              ],
-            ),
+          // NavigationBar already includes the M3 80dp row plus the bottom
+          // safe-area inset; the extra margin the old BottomAppBar needed
+          // left a strip of scaffold background under the bar.
+          child: NavigationBar(
+            selectedIndex: index,
+            onDestinationSelected: widget.navigationShell.goBranch,
+            destinations: [
+              NavigationDestination(
+                icon: Icon(icons[0], size: 30),
+                label: context.l10n.homeRecommended,
+              ),
+              NavigationDestination(
+                icon: Icon(icons[1], size: 30),
+                label: context.l10n.homeRanking,
+              ),
+              NavigationDestination(
+                icon: Icon(icons[2], size: 30),
+                label: context.l10n.newTitle,
+              ),
+              NavigationDestination(
+                icon: Icon(icons[3], size: 30),
+                label: context.l10n.searchTitle,
+              ),
+              NavigationDestination(
+                icon: Icon(icons[4], size: 30),
+                label: context.l10n.settingsTitle,
+              ),
+            ],
           ),
         ),
       ),
