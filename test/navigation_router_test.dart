@@ -19,6 +19,7 @@ import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 
 void main() {
   setUp(() {
@@ -148,6 +149,44 @@ void main() {
     expect(find.byType(RankingPage), findsOneWidget);
   });
 
+  testWidgets('bottom bar hides on pushed branch routes and returns at root', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = createPixivRouter(initialLocation: '/recommended');
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(FuncBottomNav), findsOneWidget);
+
+    unawaited(router.push('/recommended/history'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(FuncBottomNav), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(router.state.uri.path, '/recommended');
+    expect(find.byType(FuncBottomNav), findsOneWidget);
+  });
+
   testWidgets('settings pushes over the shell and returns to the tab', (
     tester,
   ) async {
@@ -163,7 +202,7 @@ void main() {
 
     expect(router.state.uri.path, '/settings');
     expect(find.byType(SettingsPage), findsOneWidget);
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(FuncBottomNav), findsNothing);
 
     await tester.binding.handlePopRoute();
     await tester.pump();
@@ -189,7 +228,7 @@ void main() {
     final router = await pumpRouter(tester, '/recommended');
 
     expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(FuncBottomNav), findsNothing);
 
     await tester.tap(
       find.descendant(

@@ -25,6 +25,7 @@ import 'package:pixiv_func/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 
 class _ScriptedIntentSource implements AndroidIntentSource {
   const _ScriptedIntentSource(this.initial);
@@ -85,7 +86,7 @@ Future<void> _pumpHome(
   AndroidIntentSource? intentSource,
   Locale? locale,
 }) async {
-  // Pin a compact surface so the shell renders the bottom NavigationBar
+  // Pin a compact surface so the shell renders the bottom navigation bar
   // rather than the wide NavigationRail.
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -207,12 +208,12 @@ void main() {
     expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
   });
 
-  testWidgets('NavigationBar labels render in every supported locale', (
+  testWidgets('Bottom navigation labels render in every supported locale', (
     tester,
   ) async {
     for (final locale in AppLocalizations.supportedLocales) {
       await _pumpHome(tester, locale: locale);
-      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byType(FuncBottomNav), findsOneWidget);
     }
   });
 
