@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
@@ -73,8 +74,7 @@ class LanguagePage extends ConsumerWidget {
                 value: settings.languageTag == item.$2,
                 title: Text(
                   item.$1,
-                  style: const TextStyle(
-                    fontSize: 18,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -102,7 +102,7 @@ class LanguagePage extends ConsumerWidget {
                 child: Text(
                   l10nLookupFor(language.locale, 'later'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14),
+                  style: FuncSemanticTokens.of(context).body,
                 ),
               ),
             ),

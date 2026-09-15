@@ -432,9 +432,8 @@ class _ConclusionBadge extends StatelessWidget {
       ),
       child: Text(
         _probeText(context, key),
-        style: TextStyle(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onPrimary,
-          fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
       ),

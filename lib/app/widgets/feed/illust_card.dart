@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../theme/func_semantic_tokens.dart';
 import '../../theme/func_tokens.dart';
 import '../../motion/hero_transition.dart';
 import '../../navigation/routes.dart';
@@ -53,7 +54,7 @@ class IllustCard extends ConsumerWidget {
           previewTier,
         ),
         const SizedBox(height: 4),
-        _buildTitle(),
+        _buildTitle(context),
       ],
     );
   }
@@ -269,7 +270,7 @@ class IllustCard extends ConsumerWidget {
     ];
   }
 
-  Widget _buildTitle() {
+  Widget _buildTitle(BuildContext context) {
     // Beta56 title row: 10px indent, title/user block, bookmark heart on the
     // right (BookmarkSwitchButton isButton variant).
     return Row(
@@ -283,16 +284,15 @@ class IllustCard extends ConsumerWidget {
                 entity.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: FuncSemanticTokens.of(
+                  context,
+                ).label.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(
                 entity.user.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
+                style: FuncSemanticTokens.of(context).caption,
               ),
             ],
           ),

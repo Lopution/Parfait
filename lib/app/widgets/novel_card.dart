@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/novel/novel_entity.dart';
 import '../navigation/routes.dart';
 import '../pixiv_image.dart';
+import '../theme/func_semantic_tokens.dart';
 
 /// Compact novel row card used by the New feed, profile novel tab and the
 /// novel search results (three call sites — shared-component evidence).
@@ -40,10 +41,7 @@ class NovelCard extends StatelessWidget {
                       entity.user.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                      style: FuncSemanticTokens.of(context).caption,
                     ),
                   ],
                 ),
