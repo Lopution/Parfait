@@ -149,102 +149,109 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
           ? null
           : () => _openViewer(context, quality: viewQuality),
       onLongPress: isPagePlaceholder ? null : widget.onLongPress,
-      child: AspectRatio(
-        // Per-page ratio (R7): meta_pages carry their own width/height and
-        // multi-page works legitimately differ page to page. Using the
-        // work-level ratio + BoxFit.cover cropped every non-first page
-        // (visible on the 31-page strip work).
-        aspectRatio: entity.pageAspectRatioAt(widget.index),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Keep download controls out of the Hero flight. The matching
-            // feed Hero contains only this image, so a page-count badge can
-            // never be scaled or retained by a detail pop transition.
-            // Both directions use the same progress-aware endpoint boundary
-            // (see illustHeroFlightShuttleBuilder), so occlusion follows the
-            // route chrome continuously instead of hard-cutting at landing.
-            if (isPagePlaceholder)
-              _DetailImageFallback()
-            else
-              Hero(
-                tag: widget.heroTag,
-                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                child: IllustHeroFlightChild(
-                  // The detail endpoint stays sharp for the normal page and
-                  // for a viewer push. The shared shuttle swaps to the
-                  // already-decoded card preview only on a reverse flight.
-                  popChild: widget.heroImageUrl == null
-                      ? null
-                      : PixivImage.detail(
-                          widget.heroImageUrl!,
-                          fit: BoxFit.contain,
-                          transitionKey: widget.heroTag,
-                          tierKey: entity.imageTierKeyAt(widget.index),
-                          tier: entity.imageTierOf(widget.heroImageUrl!),
-                          tierUpgrade: false,
-                          decodeWidth: widget.heroImageDecodeWidth,
-                          filterColor: downloadMode
-                              ? FuncTokens.imageOverlay
-                              : null,
-                          filterBlendMode: downloadMode
-                              ? BlendMode.srcOver
-                              : null,
-                        ),
-                  child: PixivImage.detail(
-                    previewUrl,
-                    fit: BoxFit.contain,
-                    transitionKey: widget.heroTag,
-                    tierKey: entity.imageTierKeyAt(widget.index),
-                    tier: entity.imageTierOf(previewUrl),
-                    tierUpgrade: !onHeroPhase,
-                    // The hero-phase URL is the feed card's image: decode it
-                    // at the feed's width so the landing frame is the
-                    // already-decoded cache entry. Once detailUrl arrives,
-                    // the normal page endpoint uses screen width.
-                    decodeWidth: onHeroPhase
-                        ? widget.heroImageDecodeWidth
-                        : null,
-                    filterColor: downloadMode ? FuncTokens.imageOverlay : null,
-                    filterBlendMode: downloadMode ? BlendMode.srcOver : null,
+      // Loose stack: the loaded image sizes itself to its intrinsic aspect
+      // ratio at full width. The app API's meta_pages never carries
+      // per-page width/height, so a fixed AspectRatio always resolved to the
+      // work-level (= first page) ratio and letterboxed every non-matching
+      // page. PixEz does the same: the slot only holds an estimated box
+      // until the decode lands, then the real dimensions take over.
+      child: Stack(
+        children: [
+          // Keep download controls out of the Hero flight. The matching
+          // feed Hero contains only this image, so a page-count badge can
+          // never be scaled or retained by a detail pop transition.
+          // Both directions use the same progress-aware endpoint boundary
+          // (see illustHeroFlightShuttleBuilder), so occlusion follows the
+          // route chrome continuously instead of hard-cutting at landing.
+          if (isPagePlaceholder)
+            AspectRatio(
+              // No page payload yet — the work-level ratio is the only
+              // estimate available and keeps the list from collapsing.
+              aspectRatio: entity.pageAspectRatioAt(widget.index),
+              child: _DetailImageFallback(),
+            )
+          else
+            Hero(
+              tag: widget.heroTag,
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+              child: IllustHeroFlightChild(
+                // The detail endpoint stays sharp for the normal page and
+                // for a viewer push. The shared shuttle swaps to the
+                // already-decoded card preview only on a reverse flight.
+                popChild: widget.heroImageUrl == null
+                    ? null
+                    : PixivImage.detail(
+                        widget.heroImageUrl!,
+                        fit: BoxFit.contain,
+                        transitionKey: widget.heroTag,
+                        tierKey: entity.imageTierKeyAt(widget.index),
+                        tier: entity.imageTierOf(widget.heroImageUrl!),
+                        tierUpgrade: false,
+                        decodeWidth: widget.heroImageDecodeWidth,
+                        filterColor: downloadMode
+                            ? FuncTokens.imageOverlay
+                            : null,
+                        filterBlendMode: downloadMode
+                            ? BlendMode.srcOver
+                            : null,
+                      ),
+                child: PixivImage.detail(
+                  previewUrl,
+                  fit: BoxFit.contain,
+                  transitionKey: widget.heroTag,
+                  tierKey: entity.imageTierKeyAt(widget.index),
+                  tier: entity.imageTierOf(previewUrl),
+                  tierUpgrade: !onHeroPhase,
+                  // The hero-phase URL is the feed card's image: decode it
+                  // at the feed's width so the landing frame is the
+                  // already-decoded cache entry. Once detailUrl arrives,
+                  // the normal page endpoint uses screen width.
+                  decodeWidth: onHeroPhase ? widget.heroImageDecodeWidth : null,
+                  filterColor: downloadMode ? FuncTokens.imageOverlay : null,
+                  filterBlendMode: downloadMode ? BlendMode.srcOver : null,
+                  // Estimated box until the first frame: after decode the
+                  // image's own aspect ratio sizes the slot instead.
+                  placeholderWidget: AspectRatio(
+                    aspectRatio: entity.pageAspectRatioAt(widget.index),
+                    child: const ColoredBox(color: Color(0x33383838)),
                   ),
                 ),
               ),
-            if (downloadMode && !isPagePlaceholder)
-              Positioned(
-                top: 20,
-                right: 20,
-                child: _DownloadBadge(
-                  state:
-                      _optimisticDownloading &&
-                          state == IllustPageSaveState.none &&
-                          hasActiveTask
-                      ? IllustPageSaveState.downloading
-                      : state,
-                  onTap: () {
-                    try {
-                      download.download(entity, widget.index);
-                      // Immediate visual feedback: the spinner shows before
-                      // the coordinator/task notification round trip.
-                      setState(() => _optimisticDownloading = true);
-                      showAppSnackBar(
-                        context,
-                        context.l10n.downloadQueuedMessage,
-                      );
-                    } catch (error) {
-                      // Any submission failure must be visible on device: the
-                      // manager/ownership/channel errors that are not
-                      // FormatException otherwise vanish with no UI feedback.
-                      showAppSnackBar(
-                        context,
-                        context.l10n.downloadSubmissionFailed(error.toString()),
-                      );
-                    }
-                  },
-                ),
+            ),
+          if (downloadMode && !isPagePlaceholder)
+            Positioned(
+              top: 20,
+              right: 20,
+              child: _DownloadBadge(
+                state:
+                    _optimisticDownloading &&
+                        state == IllustPageSaveState.none &&
+                        hasActiveTask
+                    ? IllustPageSaveState.downloading
+                    : state,
+                onTap: () {
+                  try {
+                    download.download(entity, widget.index);
+                    // Immediate visual feedback: the spinner shows before
+                    // the coordinator/task notification round trip.
+                    setState(() => _optimisticDownloading = true);
+                    showAppSnackBar(
+                      context,
+                      context.l10n.downloadQueuedMessage,
+                    );
+                  } catch (error) {
+                    // Any submission failure must be visible on device: the
+                    // manager/ownership/channel errors that are not
+                    // FormatException otherwise vanish with no UI feedback.
+                    showAppSnackBar(
+                      context,
+                      context.l10n.downloadSubmissionFailed(error.toString()),
+                    );
+                  }
+                },
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
     return image;
