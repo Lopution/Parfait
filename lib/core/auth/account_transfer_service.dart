@@ -4,6 +4,8 @@ import '../network/api_error.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../platform/account_transfer_clipboard.dart';
+import '../platform/desktop_clipboard.dart';
+import '../platform/platform_caps.dart';
 import '../user/user_entity.dart';
 import 'account.dart';
 import 'account_store.dart';
@@ -337,7 +339,9 @@ class AccountTransferService {
 }
 
 final transferClipboardProvider = Provider<TransferClipboard>((ref) {
-  return MethodChannelTransferClipboard();
+  return ref.watch(platformCapsProvider).isAndroid
+      ? MethodChannelTransferClipboard()
+      : FlutterTransferClipboard();
 });
 
 final _transferCredentialVerifierProvider =

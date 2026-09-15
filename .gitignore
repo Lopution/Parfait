@@ -44,6 +44,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /android/build
+# Vendored plugin Gradle caches/build outputs
+plugins/**/.gradle/
+plugins/**/build/
 
 # Widget Preview related
 .widget_preview/

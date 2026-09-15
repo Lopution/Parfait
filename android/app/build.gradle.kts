@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android Gradle Plugin.
@@ -46,11 +48,23 @@ android {
     // error until the GitHub release variant is requested. F-Droid's release
     // artifact is intentionally store-managed and must remain buildable
     // without the project's private keystore.
+    // Local developers may keep the generated release material in the
+    // documented out-of-repository directory. CI properties always win, so
+    // this fallback never changes the GitHub Actions secret contract.
+    val localReleaseDir = File(System.getProperty("user.home"), ".pixivfunc-release")
+    fun localSecret(name: String): String? = runCatching {
+        localReleaseDir.resolve(name).takeIf { it.isFile }?.readText()?.trim()
+    }.getOrNull()?.takeIf { it.isNotEmpty() }
     val releaseKeystorePath = providers.gradleProperty("PIXIV_RELEASE_KEYSTORE").orNull
+        ?: localReleaseDir.resolve("pixivfunc-release.jks")
+            .takeIf { it.isFile }?.path
     val releaseStorePassword =
         providers.gradleProperty("PIXIV_RELEASE_KEYSTORE_PASSWORD").orNull
+            ?: localSecret(".keystore-password")
     val releaseKeyAlias = providers.gradleProperty("PIXIV_RELEASE_KEY_ALIAS").orNull
+        ?: "pixivfunc"
     val releaseKeyPassword = providers.gradleProperty("PIXIV_RELEASE_KEY_PASSWORD").orNull
+        ?: localSecret(".key-password")
     val hasOfficialReleaseMaterial = releaseKeystorePath != null &&
         releaseStorePassword != null &&
         releaseKeyAlias != null &&
@@ -79,6 +93,7 @@ android {
             buildConfigField("boolean", "UPDATE_SELF_UPDATER_ENABLED", "true")
             val publicKey = providers.gradleProperty("PIXIV_UPDATE_PUBLIC_KEY_DER_B64")
                 .orNull
+                ?: localSecret("update-signing-key.pub.b64")
                 ?.trim()
                 ?.replace("\\", "\\\\")
                 ?.replace("\"", "\\\"")
@@ -140,14 +155,23 @@ android {
 // store-managed flavor too.
 val verifyGithubReleaseSigning = tasks.register("verifyGithubReleaseSigning") {
     doLast {
-        val hasOfficialMaterial = providers.gradleProperty("PIXIV_RELEASE_KEYSTORE")
-            .orNull?.isNotEmpty() == true &&
-            providers.gradleProperty("PIXIV_RELEASE_KEYSTORE_PASSWORD")
-                .orNull?.isNotEmpty() == true &&
-            providers.gradleProperty("PIXIV_RELEASE_KEY_ALIAS")
-                .orNull?.isNotEmpty() == true &&
-            providers.gradleProperty("PIXIV_RELEASE_KEY_PASSWORD")
-                .orNull?.isNotEmpty() == true
+        val localReleaseDir = File(System.getProperty("user.home"), ".pixivfunc-release")
+        fun localSecret(name: String): String? = runCatching {
+            localReleaseDir.resolve(name).takeIf { it.isFile }?.readText()?.trim()
+        }.getOrNull()?.takeIf { it.isNotEmpty() }
+        val keystorePath = providers.gradleProperty("PIXIV_RELEASE_KEYSTORE").orNull
+            ?: localReleaseDir.resolve("pixivfunc-release.jks")
+                .takeIf { it.isFile }?.path
+        val storePassword = providers.gradleProperty("PIXIV_RELEASE_KEYSTORE_PASSWORD")
+            .orNull ?: localSecret(".keystore-password")
+        val keyAlias = providers.gradleProperty("PIXIV_RELEASE_KEY_ALIAS").orNull
+            ?: "pixivfunc"
+        val keyPassword = providers.gradleProperty("PIXIV_RELEASE_KEY_PASSWORD").orNull
+            ?: localSecret(".key-password")
+        val hasOfficialMaterial = keystorePath?.isNotEmpty() == true &&
+            storePassword?.isNotEmpty() == true &&
+            keyAlias.isNotEmpty() &&
+            keyPassword?.isNotEmpty() == true
         val allowDebug = providers.gradleProperty("PIXIV_ALLOW_DEBUG_RELEASE_SIGNING")
             .orNull?.equals("true", ignoreCase = true) == true
         if (!hasOfficialMaterial && !allowDebug) {

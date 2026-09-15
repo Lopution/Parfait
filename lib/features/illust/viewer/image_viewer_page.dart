@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/motion/drag_to_dismiss.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
+import '../../../core/entity/illust_entity.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
 import '../../../l10n/context.dart';
@@ -18,12 +19,20 @@ class ImageViewerPage extends StatefulWidget {
     this.initialPage = 0,
     this.heroTagForPage,
     this.onPageChanged,
+    this.tierKeyForPage,
+    this.tier,
   }) : assert(initialPage >= 0);
 
   final List<String> urls;
   final int initialPage;
   final Object? Function(int page)? heroTagForPage;
   final ValueChanged<int>? onPageChanged;
+
+  /// Per-(work,page) tier registry key + requested tier, so viewer images can
+  /// be served from an already-cached higher tier and so the flight back to
+  /// detail reuses the same transition history.
+  final String? Function(int page)? tierKeyForPage;
+  final IllustImageTier? tier;
 
   /// Zoom bounds (PRD R3: strictly 0.9–6.0).
   static const double minScale = 0.9;
@@ -124,6 +133,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                     : const PageScrollPhysics(),
                 itemCount: _pageCount,
                 itemBuilder: (context, page) {
+                  final heroTag = widget.heroTagForPage?.call(page);
                   final viewer = InteractiveViewer(
                     key: ValueKey('viewer-page-$page'),
                     transformationController: _transformationFor(page),
@@ -136,18 +146,41 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                     // nothing to fill. Expanding forces the image to fill
                     // the viewport, giving the zoom a real target.
                     child: SizedBox.expand(
+                      // transitionKey hooks the viewer into the detail page's
+                      // quality history — the last decoded tier paints as the
+                      // placeholder while the requested tier resolves, so a
+                      // large->original hand-off never shows a grey box.
                       child: PixivImage(
                         url: widget.urls[page],
                         fit: BoxFit.contain,
+                        transitionKey: heroTag,
+                        tierKey: widget.tierKeyForPage?.call(page),
+                        tier: widget.tier,
                       ),
                     ),
                   );
-                  final heroTag = widget.heroTagForPage?.call(page);
                   if (heroTag == null) return viewer;
                   return Hero(
                     tag: heroTag,
                     flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                    child: viewer,
+                    child: IllustHeroFlightChild(
+                      // The return shuttle paints the exact provider the
+                      // viewer is showing (same URL + uncapped decode =>
+                      // same decoded cache entry => identical pixels).
+                      // Painting the fixed detail tier here downgraded an
+                      // already-loaded original to large at flight start —
+                      // the flash seen when popping back to the detail page.
+                      popChild: SizedBox.expand(
+                        child: PixivImage(
+                          url: widget.urls[page],
+                          fit: BoxFit.contain,
+                          transitionKey: heroTag,
+                          tierKey: widget.tierKeyForPage?.call(page),
+                          tier: widget.tier,
+                        ),
+                      ),
+                      child: viewer,
+                    ),
                   );
                 },
               ),

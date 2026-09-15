@@ -8,7 +8,9 @@ import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
+import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/settings_action_button.dart';
+import '../../core/platform/platform_caps.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../l10n/context.dart';
 
@@ -24,8 +26,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with WidgetsBindingObserver, RouteAware {
   late final RootBackCoordinator _backCoordinator;
-  final GlobalKey _bottomNavKey = GlobalKey();
-  bool _bottomNavMeasureScheduled = false;
+  bool _chromeClearScheduled = false;
   RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
   bool _routeSubscribed = false;
 
@@ -34,9 +35,6 @@ class _HomePageState extends State<HomePage>
     super.initState();
     _backCoordinator = RootBackCoordinator();
     WidgetsBinding.instance.addObserver(this);
-    // Publish the real bottom-row height so the Hero flight can clip
-    // against the actual chrome instead of a guessed constant.
-    _scheduleBottomNavMeasure();
   }
 
   @override
@@ -64,9 +62,6 @@ class _HomePageState extends State<HomePage>
   }
 
   @override
-  void didChangeMetrics() => _scheduleBottomNavMeasure();
-
-  @override
   void dispose() {
     if (_routeSubscribed) _routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
@@ -74,33 +69,15 @@ class _HomePageState extends State<HomePage>
     super.dispose();
   }
 
-  void _measureBottomNav(Duration _) {
-    final box = _bottomNavKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize && box.size.height > 0) {
-      final origin = box.localToGlobal(Offset.zero);
-      ProviderScope.containerOf(context)
-          .read(homeShellMetricsProvider.notifier)
-          .publish(origin.dy, box.size.height);
-    }
-  }
-
-  void _scheduleBottomNavMeasure() {
-    if (_bottomNavMeasureScheduled) return;
-    _bottomNavMeasureScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((timestamp) {
-      _bottomNavMeasureScheduled = false;
-      if (mounted) _measureBottomNav(timestamp);
-    });
-  }
-
   /// Wide layouts use a NavigationRail and have no bottom bar — report an
-  /// empty measurement so Hero flights clip against the viewport edge instead
-  /// of a phantom bar.
+  /// empty measurement so Hero flights clip against the viewport edge
+  /// instead of a phantom bar. In narrow layouts the per-branch
+  /// [FuncBranchBottomNav] publishes its own measured geometry.
   void _scheduleChromeClear() {
-    if (_bottomNavMeasureScheduled) return;
-    _bottomNavMeasureScheduled = true;
+    if (_chromeClearScheduled) return;
+    _chromeClearScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((timestamp) {
-      _bottomNavMeasureScheduled = false;
+      _chromeClearScheduled = false;
       if (mounted) {
         ProviderScope.containerOf(
           context,
@@ -111,8 +88,24 @@ class _HomePageState extends State<HomePage>
 
   void _handleRootBack(bool didPop) {
     if (didPop) return;
+    // Double-back-to-exit is an Android pattern. Desktop has no root back
+    // gesture that reaches this callback; a stray one must not show an
+    // exit hint for a window that closes via the title bar.
+    if (!ProviderScope.containerOf(
+      context,
+    ).read(platformCapsProvider).isAndroid) {
+      return;
+    }
     switch (_backCoordinator.handleBackPress()) {
       case RootBackAction.showExitHint:
+        final shellMetrics = ProviderScope.containerOf(
+          context,
+        ).read(homeShellMetricsProvider);
+        // HomePage's ScaffoldMessenger is above the branch-root Scaffold that
+        // owns the bottom bar. A floating SnackBar otherwise anchors to the
+        // screen edge and covers the bar; reserve the measured bar height
+        // (plus a small gap) so the hint stays inside the content area.
+        final bottomMargin = (shellMetrics.bottomNavHeight ?? 64) + 12;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           // U4 (R7): the hint's lifetime must equal the exit window — with
@@ -126,6 +119,7 @@ class _HomePageState extends State<HomePage>
               content: Text(context.l10n.homeExitHint),
               duration: RootBackCoordinator.exitWindow,
               behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
             ),
             snackBarAnimationStyle: const AnimationStyle(
               // M2 floating fades inside the 0.4-1.0 interval, so a 120ms
@@ -154,11 +148,6 @@ class _HomePageState extends State<HomePage>
     final wide = AppBreakpoints.useNavigationRail(
       MediaQuery.sizeOf(context).width,
     );
-    if (wide) {
-      _scheduleChromeClear();
-    } else {
-      _scheduleBottomNavMeasure();
-    }
     final index = widget.navigationShell.currentIndex;
     final labels = [
       context.l10n.homeRecommended,
@@ -167,6 +156,11 @@ class _HomePageState extends State<HomePage>
       context.l10n.searchTitle,
       context.l10n.homeMe,
     ];
+    // Narrow layout: each branch-root page owns its bottom bar, which a
+    // pushed route simply covers — no shell-level hide machinery here.
+    // Wide layout: no bar at all; clear the metric so Hero flights do not
+    // clip against a phantom edge.
+    if (wide) _scheduleChromeClear();
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
@@ -200,26 +194,6 @@ class _HomePageState extends State<HomePage>
                 ],
               )
             : widget.navigationShell,
-        bottomNavigationBar: wide
-            ? null
-            : SizedBox(
-                key: _bottomNavKey,
-                // NavigationBar already includes the M3 80dp row plus the
-                // bottom safe-area inset; the extra margin the old
-                // BottomAppBar needed left a strip of scaffold background
-                // under the bar.
-                child: NavigationBar(
-                  selectedIndex: index,
-                  onDestinationSelected: widget.navigationShell.goBranch,
-                  destinations: [
-                    for (var i = 0; i < icons.length; i++)
-                      NavigationDestination(
-                        icon: Icon(icons[i], size: 30),
-                        label: labels[i],
-                      ),
-                  ],
-                ),
-              ),
       ),
     );
   }

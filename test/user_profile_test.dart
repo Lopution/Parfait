@@ -353,7 +353,7 @@ void main() {
     },
   );
 
-  test('expanded details leave before the toolbar title appears', () {
+  test('expanded details crossfade into the toolbar without a blank stage', () {
     final beforeFade = geometryAt(
       ReplicaProfileHeaderGeometry.expandedDetailsFadeStart,
     );
@@ -362,7 +362,7 @@ void main() {
     );
     expect(beforeFade.expandedDetailsOpacity, 1);
     expect(afterExit.expandedDetailsOpacity, 0);
-    expect(afterExit.collapsedOpacity, 0);
+    expect(afterExit.collapsedOpacity, greaterThan(0));
     expect(geometryAt(1).collapsedOpacity, 1);
   });
 
@@ -493,7 +493,9 @@ void main() {
     expect(find.byKey(const ValueKey('profile-expanded-avatar')), findsNothing);
   });
 
-  testWidgets('current profile header has no settings entry', (tester) async {
+  testWidgets('current profile header hosts the settings entry', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: appLocalizationsDelegates,
@@ -522,11 +524,11 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsWidgets);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pump();
-    expect(find.byIcon(Icons.settings_outlined), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsWidgets);
   });
 
   testWidgets(

@@ -53,18 +53,24 @@ class ProfileIllustFeed extends ConsumerWidget {
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
+                  notification is ScrollUpdateNotification &&
+                  notification.metrics.extentAfter <
+                      notification.metrics.viewportDimension * 1.2) {
                 ref
                     .read(profileIllustFeedProvider(feedKey).notifier)
                     .loadMore();
               }
               return false;
             },
+            // No SmoothWheelScroll here: this is the inner scrollable of a
+            // NestedScrollView — driving its position via animateTo bypasses
+            // the nested coordinator, so the profile header would never
+            // collapse on wheel. Native wheel keeps header folding intact.
             child: CustomScrollView(
               key: PageStorageKey(feedKey),
               restorationId: 'profile-${feedKey.toString()}',
               physics: const AlwaysScrollableScrollPhysics(),
+              scrollCacheExtent: kFeedCacheExtent,
               slivers: [
                 const HeaderLocator.sliver(),
                 if (entities.isEmpty)
@@ -84,6 +90,7 @@ class ProfileIllustFeed extends ConsumerWidget {
                     padding: const EdgeInsets.all(10),
                     mainAxisSpacing: 5,
                     crossAxisSpacing: 10,
+                    prefetchEntities: entities,
                     itemCount: entities.length,
                     itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],

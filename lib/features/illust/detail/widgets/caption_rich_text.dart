@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,16 +15,60 @@ import '../../../../l10n/context.dart';
 /// pixiv-internal links (www.pixiv.net users/artworks) navigate inside the
 /// app with the same right-in rhythm as feed cards; anything else opens via
 /// the outbound Android intent.
-class CaptionRichText extends ConsumerWidget {
+class CaptionRichText extends ConsumerStatefulWidget {
   const CaptionRichText({super.key, required this.caption});
 
   final String caption;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CaptionRichText> createState() => _CaptionRichTextState();
+}
+
+class _CaptionRichTextState extends ConsumerState<CaptionRichText> {
+  /// One recognizer per distinct href, reused across rebuilds. TextSpan
+  /// recognizers are not pooled — each must be disposed with the state.
+  final Map<String, TapGestureRecognizer> _recognizers = {};
+
+  @override
+  void dispose() {
+    for (final recognizer in _recognizers.values) {
+      recognizer.dispose();
+    }
+    super.dispose();
+  }
+
+  void _openLink(String href, ({String kind, String id})? target) {
+    if (target != null) {
+      _openPixivRoute(context, target);
+      return;
+    }
+    final opener = ref.read(outboundUrlOpenerProvider);
+    unawaited(
+      opener.openExternal(href).catchError((Object error) {
+        if (mounted) {
+          showAppSnackBar(
+            context,
+            context.l10n.illustDetailOpenLinkFailed(error.toString()),
+          );
+        }
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final linkColor = theme.colorScheme.primary;
-    final parsed = parseIllustCaption(caption);
+    final bodyStyle = theme.textTheme.bodyMedium;
+    // Links stay ordinary inline text: they wrap mid-token with the rest of
+    // the caption and inherit the body style — a WidgetSpan renders as an
+    // atomic box that can only break at its own edge and falls back to
+    // DefaultTextStyle, which is what made link text look oversized.
+    final linkStyle = bodyStyle?.copyWith(
+      color: theme.colorScheme.primary,
+      decoration: TextDecoration.underline,
+      decorationColor: theme.colorScheme.primary,
+    );
+    final parsed = parseIllustCaption(widget.caption);
 
     final spans = <InlineSpan>[];
     for (final span in parsed.spans) {
@@ -33,47 +78,23 @@ class CaptionRichText extends ConsumerWidget {
         case CaptionBreak():
           spans.add(const TextSpan(text: '\n'));
         case CaptionLink(:final href, :final text):
-          final target = _resolvePixivRoute(href);
+          final recognizer = _recognizers.putIfAbsent(
+            href,
+            () =>
+                TapGestureRecognizer()
+                  ..onTap = () => _openLink(href, _resolvePixivRoute(href)),
+          );
           spans.add(
-            WidgetSpan(
-              alignment: PlaceholderAlignment.top,
-              child: GestureDetector(
-                onTap: () {
-                  if (target != null) {
-                    _openPixivRoute(context, target);
-                    return;
-                  }
-                  final opener = ref.read(outboundUrlOpenerProvider);
-                  unawaited(
-                    opener.openExternal(href).catchError((Object error) {
-                      if (context.mounted) {
-                        showAppSnackBar(
-                          context,
-                          context.l10n.illustDetailOpenLinkFailed(
-                            error.toString(),
-                          ),
-                        );
-                      }
-                    }),
-                  );
-                },
-                child: Text(
-                  text.isEmpty ? href : text,
-                  style: TextStyle(
-                    color: linkColor,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
+            TextSpan(
+              text: text.isEmpty ? href : text,
+              style: linkStyle,
+              recognizer: recognizer,
             ),
           );
       }
     }
 
-    return Text.rich(
-      TextSpan(children: spans),
-      style: theme.textTheme.bodyMedium,
-    );
+    return Text.rich(TextSpan(children: spans), style: bodyStyle);
   }
 }
 

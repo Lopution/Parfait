@@ -17,11 +17,11 @@ import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/widgets/author_summary.dart';
-import '../../../app/widgets/settings_action_button.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
 import '../../../l10n/lookup.dart';
+import '../../../app/widgets/smooth_wheel_scroll.dart';
 
 String _recommendedText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -90,7 +90,6 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           onChanged: _selectType,
           controller: _tabController,
         ),
-        actions: const [SettingsActionButton()],
       ),
       body: Stack(
         fit: StackFit.expand,
@@ -124,8 +123,8 @@ class _RecommendedTypeSelector extends StatelessWidget {
     // provides the surface).
     return TabBar(
       controller: controller,
-      // Evenly distribute across the full width (same logic as the bottom
-      // navigation row) instead of a start-aligned scrollable.
+      // Keep the primary tab bar aligned like the bottom navigation: every
+      // destination owns an equal-width slot in every supported locale.
       isScrollable: false,
       indicatorSize: TabBarIndicatorSize.label,
       indicatorPadding: const EdgeInsets.only(bottom: 5),
@@ -133,7 +132,16 @@ class _RecommendedTypeSelector extends StatelessWidget {
       onTap: (index) => onChanged(RecommendedContentType.values[index]),
       tabs: [
         for (final value in RecommendedContentType.values)
-          Tab(text: _recommendedText(context, _labelKey(value))),
+          Tab(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                _recommendedText(context, _labelKey(value)),
+                maxLines: 1,
+                softWrap: false,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -252,17 +260,23 @@ class _RecommendedFeedBody extends ConsumerWidget {
       onRefresh: onRefresh,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          if (notification is ScrollEndNotification &&
-              notification.metrics.extentAfter < 400) {
+          if (notification is ScrollUpdateNotification &&
+              notification.metrics.extentAfter <
+                  notification.metrics.viewportDimension * 1.2) {
             onLoadMore();
           }
           return false;
         },
-        child: CustomScrollView(
-          key: PageStorageKey('recommended-${type.name}'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          restorationId: 'recommended-${type.name}',
-          slivers: slivers,
+        child: SmoothWheelScroll(
+          basePhysics: const AlwaysScrollableScrollPhysics(),
+          builder: (context, controller, physics) => CustomScrollView(
+            key: PageStorageKey('recommended-${type.name}'),
+            physics: physics,
+            scrollCacheExtent: kFeedCacheExtent,
+            restorationId: 'recommended-${type.name}',
+            controller: controller,
+            slivers: slivers,
+          ),
         ),
       ),
     );
@@ -280,6 +294,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
         mainAxisSpacing: 5,
         crossAxisSpacing: 10,
+        prefetchEntities: entities,
         itemCount: entities.length,
         itemBuilder: (context, index) => IllustCard(
           entity: entities[index],

@@ -117,8 +117,15 @@ class PixivNetworkFactory {
 
   final NetworkAccessPolicy policy;
   final Map<PixivDestinationPurpose, PixivPolicyHttpClient> _clients = {};
+  // CacheManager keeps its HttpFileService for the lifetime of the cache.
+  // NetworkAccessPolicy intentionally closes pooled clients when the account
+  // or network revision changes, so handing the manager a concrete client
+  // would leave every later image request using a closed socket pool (the
+  // post-first-login all-grey screen). The proxy resolves the current image
+  // client for each request and therefore survives a policy revision while
+  // retaining decoded/file cache entries.
   late final PixivImageCache _imageCache = PixivImageCache(
-    httpClient: client(PixivDestinationPurpose.image),
+    httpClient: _ImageClientProxy(this),
   );
   Future<void>? _warmupFuture;
 
@@ -151,5 +158,16 @@ class PixivNetworkFactory {
   Future<void> dispose() async {
     await _imageCache.dispose();
     await policy.dispose();
+  }
+}
+
+class _ImageClientProxy extends http.BaseClient {
+  _ImageClientProxy(this.owner);
+
+  final PixivNetworkFactory owner;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    return owner.client(PixivDestinationPurpose.image).send(request);
   }
 }

@@ -9,6 +9,7 @@ import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 
 void main() {
   group('iconFont asset registration', () {
@@ -82,7 +83,7 @@ void main() {
     final iconWidgets = tester
         .widgetList<Icon>(
           find.descendant(
-            of: find.byType(NavigationBar),
+            of: find.byType(FuncBottomNav),
             matching: find.byType(Icon),
           ),
         )
@@ -125,7 +126,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await expectLater(
-      find.byType(NavigationBar),
+      find.byType(FuncBottomNav),
       matchesGoldenFile('goldens/home_bar.png'),
     );
   });

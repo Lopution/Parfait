@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../settings/shared_preferences.dart';
 
 import '../auth/account_store.dart';
+import '../platform/desktop_file_sink.dart';
 import '../platform/media_store_channel.dart';
+import '../platform/platform_caps.dart';
 import '../platform/saf_tree.dart';
 import '../settings/settings_controller.dart';
 import '../network/compat/network_providers.dart';
@@ -34,7 +36,11 @@ final downloadSinkFactoryProvider = Provider<DownloadSinkFactory>((ref) {
   // the destination, losing queued/recoverable jobs. The manager passes the
   // captured destination to every begin call instead.
   return DestinationAwareSinkFactory(
-    mediaStore: MediaStoreSinkFactory(const MethodChannelMediaStoreSession()),
+    mediaStore: MediaStoreSinkFactory(
+      ref.watch(platformCapsProvider).isAndroid
+          ? const MethodChannelMediaStoreSession()
+          : const DesktopFileMediaStoreSession(),
+    ),
     saf: ref.watch(safDocumentSinkFactoryProvider),
   );
 });

@@ -6,8 +6,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
-import '../../core/auth/pkce.dart';
+
 import '../../l10n/context.dart';
+import 'login_navigation_decision.dart';
 
 /// OAuth login WebView.
 ///
@@ -128,28 +129,27 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// Shared PKCE navigation decision. Returns true when the navigation must
   /// be stopped (callback consumed or invalid); false lets it proceed.
   ///
-  /// Used by both modes: webview_flutter's [NavigationDelegate] and the
-  /// native PlatformView's `shouldOverrideUrlLoading` → Dart. The callback
-  /// match must be identical in both, otherwise a `pixiv://` callback would
-  /// exchange in one mode and silently navigate in the other.
+  /// The pure rule lives in [decideLoginNavigation] so the Windows
+  /// `InAppWebView` page applies the exact same contract — a `pixiv://`
+  /// callback must exchange in one mode, not silently navigate in the other.
   bool _decideNavigation(String rawUrl) {
-    final uri = _parseNavigationUri(rawUrl);
-    if (uri == null) return false;
-    final parsed = widget.oauthService.validateRedirect(uri);
-    switch (parsed) {
-      case PixivCallbackCode(:final code):
+    return switch (decideLoginNavigation(widget.oauthService, rawUrl)) {
+      LoginNavExchange(:final code) => () {
         _exchange(code);
         return true;
-      case PixivCallbackInvalid(:final reason):
+      }(),
+      LoginNavAbort(:final reason) => () {
         // The callback was consumed with unusable parameters; the verifier
         // cannot be reused for another attempt.
-        _abortLogin(context.l10n.loginCallbackInvalid(reason.toString()));
+        _abortLogin(context.l10n.loginCallbackInvalid(reason));
         return true;
-      case PixivCallbackOther():
-        // Every other destination is the login page doing its own work.
+      }(),
+      LoginNavAllow(:final uri) => () {
         _mainFrameUri = uri;
         return false;
-    }
+      }(),
+      LoginNavIgnore() => false,
+    };
   }
 
   void _onPageStarted(String rawUrl) {

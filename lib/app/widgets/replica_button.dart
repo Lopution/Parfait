@@ -35,9 +35,8 @@ class ReplicaButton extends StatelessWidget {
           child: Center(
             child: Text(
               label,
-              style: TextStyle(
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: foregroundColor,
-                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),

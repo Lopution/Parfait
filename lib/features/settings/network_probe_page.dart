@@ -19,8 +19,8 @@ import '../../core/log.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 
-/// Same string as the About page (pubspec `version: 0.1.0+1`).
-const _kAppVersion = '0.1.0+1';
+/// Same string as the About page (pubspec `version: 0.1.0`).
+const _kAppVersion = '0.1.0';
 
 String _probeText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -432,9 +432,8 @@ class _ConclusionBadge extends StatelessWidget {
       ),
       child: Text(
         _probeText(context, key),
-        style: TextStyle(
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onPrimary,
-          fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
       ),

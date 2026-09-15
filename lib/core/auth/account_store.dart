@@ -115,7 +115,11 @@ class AccountStore extends AsyncNotifier<AccountState> {
   Future<void> upsertAccount(Account account, Credential credential) async {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final credentials = ref.read(credentialStoreProvider);
-    final current = state.requireValue;
+    // A first-login tap can arrive before the cold-start hydration has
+    // completed. Waiting for the same observable snapshot avoids a transient
+    // StateError that leaves the WebView on its loading surface and makes the
+    // login appear stuck. Subsequent calls are already completed futures.
+    final current = await future;
     final hasExistingMetadata = current.accounts.any(
       (existing) => existing.id == account.id,
     );

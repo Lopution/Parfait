@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
+import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import '../widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
@@ -74,10 +75,8 @@ class BookmarkSwitchButton extends ConsumerWidget {
                             context,
                             isNovel ? 'bookmarkNovel' : 'bookmarkIllust',
                           ),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
                       _RestrictSelect(
@@ -97,8 +96,11 @@ class BookmarkSwitchButton extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 16)),
-                      Text('$illustId', style: const TextStyle(fontSize: 12)),
+                      Text(title, style: FuncSemanticTokens.of(context).title),
+                      Text(
+                        '$illustId',
+                        style: FuncSemanticTokens.of(context).caption,
+                      ),
                     ],
                   ),
                 ),
@@ -120,11 +122,11 @@ class BookmarkSwitchButton extends ConsumerWidget {
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Text(
                               context.l10n.cancel,
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                           ),
                           onPressed: () => Navigator.of(sheetContext).pop(),
@@ -143,11 +145,11 @@ class BookmarkSwitchButton extends ConsumerWidget {
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: Text(
                               context.l10n.confirm,
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: colorScheme.onPrimary,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    color: colorScheme.onPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                           ),
                           onPressed: () {
@@ -314,7 +316,7 @@ class _RestrictSelect extends StatelessWidget {
                                 ? 'restrictPrivate'
                                 : 'restrictPublic',
                           ),
-                          style: const TextStyle(fontSize: 14),
+                          style: FuncSemanticTokens.of(context).body,
                         ),
                         const SizedBox(width: 4),
                       ],

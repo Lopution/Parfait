@@ -74,6 +74,7 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
         <!-- Controlled file sharing only (R5): non-exported, minimal paths. -->
         <provider
             android:name="androidx.core.content.FileProvider"

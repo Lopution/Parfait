@@ -2,12 +2,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../download/download_recovery.dart';
+import 'desktop_file_sink.dart';
+import 'platform_caps.dart';
 
-/// Opens the Android system directory chooser (ACTION_OPEN_DOCUMENT_TREE)
-/// and returns the persisted tree URI (D5). No custom file browser, no raw
-/// path input: the platform owns permission persistence.
-abstract class _SafTreePicker {
-  /// Returns the tree URI string, or null when the user cancelled.
+/// Opens the platform directory chooser (ACTION_OPEN_DOCUMENT_TREE on
+/// Android; `file_selector` on desktop) and returns the persisted tree
+/// identifier — a `content://` tree URI on Android, a filesystem path on
+/// desktop. No custom file browser, no raw path input: the platform owns
+/// permission persistence.
+abstract class SafTreePicker {
+  /// Returns the tree identifier string, or null when the user cancelled.
   Future<String?> pickTree();
 }
 
@@ -40,7 +44,7 @@ abstract class SafDocumentSinkFactory {
 /// `saf_create_failed`, `saf_write_failed`, `saf_not_found`,
 /// `saf_delete_failed`, `saf_io_failed`). [create] may send `ownerId`;
 /// the Kotlin handler does not read it.
-class MethodChannelSafTree implements _SafTreePicker, SafDocumentSinkFactory {
+class MethodChannelSafTree implements SafTreePicker, SafDocumentSinkFactory {
   const MethodChannelSafTree([
     this._channel = const MethodChannel('pixivfunc/saf_tree'),
   ]);
@@ -92,16 +96,16 @@ class _MethodChannelSafDocumentSink implements SafDocumentSink {
   Future<void> delete() => _channel.invokeMethod<void>('delete', {'uri': _uri});
 }
 
-final _safTreeProvider = Provider<MethodChannelSafTree>((ref) {
-  return const MethodChannelSafTree();
-});
-
-final safTreePickerProvider = Provider<_SafTreePicker>((ref) {
-  return ref.watch(_safTreeProvider);
+final safTreePickerProvider = Provider<SafTreePicker>((ref) {
+  return ref.watch(platformCapsProvider).isAndroid
+      ? const MethodChannelSafTree()
+      : const DesktopDirectoryPicker();
 });
 
 final safDocumentSinkFactoryProvider = Provider<SafDocumentSinkFactory>((ref) {
-  return ref.watch(_safTreeProvider);
+  return ref.watch(platformCapsProvider).isAndroid
+      ? const MethodChannelSafTree()
+      : const DesktopSafDocumentSinkFactory();
 });
 
 class _SafTreeChannelException implements Exception {

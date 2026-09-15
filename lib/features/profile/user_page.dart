@@ -274,6 +274,10 @@ class _UserPageState extends ConsumerState<UserPage>
                 delegate: ReplicaProfileHeaderDelegate(
                   user: user,
                   isMe: widget.isMe,
+                  // The artwork band now stops well short of the old 430dp
+                  // (it covered over half the screen). The /me header needs
+                  // a little more room for the extra edit/settings row.
+                  expandedExtent: widget.isMe ? 350 : 320,
                   selectedTabIndex: _selectedIndex,
                   showRestrictSelector: showRestrictSelector,
                   restrict: _restrict,

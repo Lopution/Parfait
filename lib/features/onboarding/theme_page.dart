@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/navigation/routes.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
@@ -47,9 +48,16 @@ class ThemePage extends ConsumerWidget {
         child: Column(
           children: [
             const Spacer(flex: 2),
-            Text(
-              text('selectTheme'),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                text('selectTheme'),
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const Spacer(),
             ReplicaSwitchTile(
@@ -57,8 +65,7 @@ class ThemePage extends ConsumerWidget {
               value: settings.themeCode == AppSettings.darkTheme,
               title: Text(
                 text('dark'),
-                style: const TextStyle(
-                  fontSize: 18,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -72,8 +79,7 @@ class ThemePage extends ConsumerWidget {
               value: settings.themeCode == AppSettings.lightTheme,
               title: Text(
                 text('light'),
-                style: const TextStyle(
-                  fontSize: 18,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -87,8 +93,7 @@ class ThemePage extends ConsumerWidget {
               value: settings.themeCode == AppSettings.systemTheme,
               title: Text(
                 text('system'),
-                style: const TextStyle(
-                  fontSize: 18,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -115,7 +120,18 @@ class ThemePage extends ConsumerWidget {
               ),
             ),
             const Spacer(),
-            Text(text('later'), style: const TextStyle(fontSize: 14)),
+            // Same fixed-height slot as LanguagePage — two-line locales keep
+            // the same anchor as one-line ones.
+            SizedBox(
+              height: 44,
+              child: Center(
+                child: Text(
+                  text('later'),
+                  textAlign: TextAlign.center,
+                  style: FuncSemanticTokens.of(context).body,
+                ),
+              ),
+            ),
             const Spacer(),
           ],
         ),

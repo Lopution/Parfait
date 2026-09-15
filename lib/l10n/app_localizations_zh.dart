@@ -45,6 +45,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginTitle => '注册 或 登录';
 
   @override
+  String get loginProxyNoticeTitle => '提示';
+
+  @override
+  String get loginProxyNoticeBody =>
+      '由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Pixiv Func 不提供内置代理。';
+
+  @override
+  String get loginProxyNoticeCancel => '取消';
+
+  @override
+  String get loginProxyNoticeContinue => '我已开启代理';
+
+  @override
   String get register => '注册';
 
   @override
@@ -69,6 +82,13 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get loginWebView2Missing =>
+      '登录需要 WebView2 Runtime，但当前系统未检测到它。请安装后重新打开本页。';
+
+  @override
+  String get loginInstallWebView2 => '安装 WebView2 Runtime';
+
+  @override
   String loginFailed(String error) {
     return '登录失败: $error';
   }
@@ -79,7 +99,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get networkCompatibility => '自动兼容网络';
+  String get networkCompatibility => 'Pixiv 官方网络兼容';
 
   @override
   String get networkCompatibilityHint =>
@@ -138,6 +158,51 @@ class AppLocalizationsZh extends AppLocalizations {
   String get userAgreement => '《Pixiv Func用户使用协议》';
 
   @override
+  String get agreementTitle => 'Pixiv Func用户使用协议';
+
+  @override
+  String get agreementIntro =>
+      '感谢使用 Pixiv Func。使用本应用即表示你已阅读并同意以下条款；如不同意，请停止使用本应用。';
+
+  @override
+  String get agreementAccountTitle => '账号与授权';
+
+  @override
+  String get agreementAccountBody =>
+      '本应用通过 Pixiv 官方登录流程获取授权，不会要求你在本应用中输入或分享 Pixiv 密码。请妥善保管账号和设备，账号行为及授权撤销由 Pixiv 账户设置负责。';
+
+  @override
+  String get agreementContentTitle => '内容与版权';
+
+  @override
+  String get agreementContentBody =>
+      '作品、评论、用户资料等内容由 Pixiv 及其用户提供，版权归相应权利人所有。请仅在法律和 Pixiv 规则允许的范围内浏览、保存或分享，不得利用本应用侵犯他人权益。';
+
+  @override
+  String get agreementNetworkTitle => '网络访问';
+
+  @override
+  String get agreementNetworkBody =>
+      '本应用仅为访问 Pixiv 官方服务提供网络兼容策略；兼容线路只用于官方域名，仍会校验证书，不代理其他流量。网络可用性、接口变更和服务中断不由本应用保证。';
+
+  @override
+  String get agreementPrivacyTitle => '隐私与本地数据';
+
+  @override
+  String get agreementPrivacyBody =>
+      '登录凭据保存在系统安全存储中；设置、缓存、历史和下载文件保存在本地。除你主动使用的 Pixiv 或反向搜图服务外，本应用不会出售个人信息。卸载应用或清理数据可能删除本地内容。';
+
+  @override
+  String get agreementDisclaimerTitle => '免责声明';
+
+  @override
+  String get agreementDisclaimerBody =>
+      '本应用是非官方第三方客户端，与 Pixiv Inc. 没有隶属关系。因网络、账号、第三方服务或不可抗力造成的内容丢失、访问失败或其他损失，应用作者在法律允许范围内不承担责任。';
+
+  @override
+  String get agreementUpdates => '协议可能因功能或法律变化更新；继续使用即表示接受更新后的协议。';
+
+  @override
   String get settingsTitle => '设置';
 
   @override
@@ -147,7 +212,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkSettings => '网络';
 
   @override
-  String get networkMode => '自动兼容网络';
+  String get networkMode => 'Pixiv 官方网络兼容';
 
   @override
   String get networkModeHint =>
@@ -719,7 +784,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutLicenseText => '本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。';
 
   @override
-  String get aboutAttributionText => '原项目作者：git-xiaocao（小草）。';
+  String get aboutAttributionText => '版权所有及维护：Lopution。';
 
   @override
   String get settingsReadFailed => '读取设置失败';
@@ -1376,4 +1441,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelReadingProgress => '阅读进度';
+
+  @override
+  String get aboutDisplayRefreshRate => '显示刷新率';
 }
