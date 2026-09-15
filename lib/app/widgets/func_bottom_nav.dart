@@ -14,9 +14,10 @@ import '../navigation/home_shell_metrics.dart';
 ///
 /// Tap feedback and the selection indicator replicate the app bar's `TabBar`
 /// exactly: `InkWell` + `overlayColor` (primary 10% pressed, onSurface 8%
-/// hovered) with the theme's `InkSparkle`/`InkRipple` splash and no
-/// `highlightColor` block, and a 3dp underline whose left/right edges are
-/// eased asymmetrically (M3 `TabIndicatorAnimation.elastic`) so the line
+/// hovered) with the theme's `InkSparkle`/`InkRipple` splash — which takes
+/// its colour from the pressed overlay resolve, like a real `InkResponse`
+/// splash — and a 3dp underline whose left/right edges are eased
+/// asymmetrically (M3 `TabIndicatorAnimation.elastic`) so the line
 /// stretches toward the destination before contracting.
 class FuncBottomNav extends StatefulWidget {
   const FuncBottomNav({
@@ -24,11 +25,17 @@ class FuncBottomNav extends StatefulWidget {
     required this.destinations,
     required this.selectedIndex,
     required this.onSelected,
+    this.visible = true,
   });
 
   final List<FuncBottomNavDestination> destinations;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
+
+  /// False while this bar belongs to an IndexedStack branch that is not the
+  /// current one — the branch swap rebuilds every branch's bar, but only the
+  /// visible one may spend ink on the landing splash.
+  final bool visible;
 
   static const double _height = 64;
   static const double _indicatorHeight = 3;
@@ -49,15 +56,27 @@ class _FuncBottomNavState extends State<FuncBottomNav>
   /// continuous across the instantaneous branch swap.
   static int? _lastSelectedIndex;
 
-  /// Driven to `pressed` for a beat when a freshly mounted bar is the one
-  /// the user just tapped into — the branch swap cuts the old bar's ripple
-  /// short, so the new bar lands the press on its destination instead.
-  final WidgetStatesController _pressPulse = WidgetStatesController();
-  Timer? _pressPulseTimer;
+  /// One key per destination so the landing ink can locate the tapped
+  /// item's render box after the branch swap.
+  late final List<GlobalKey> _itemKeys;
+
+  /// A branch switch discards the tapped item's InkWell along with the old
+  /// branch page: its real ink keeps playing in a subtree that is no
+  /// longer painted, so the user sees nothing. Re-issuing the same two
+  /// features a real press paints — the pressed [InkHighlight] block and
+  /// the theme splash — on the destination item restores the landing half
+  /// of the tap, identical to what the top TabBar shows (the top bar is
+  /// one instance across switches, so it never loses its own ink).
+  InteractiveInkFeature? _landingInk;
+  InkHighlight? _landingHighlight;
+  Timer? _landingInkTimer;
 
   @override
   void initState() {
     super.initState();
+    _itemKeys = [
+      for (var i = 0; i < widget.destinations.length; i++) GlobalKey(),
+    ];
     // Seeded by the tap that triggered this branch switch — recorded at
     // press time so the ordering cannot race against rebuilds.
     _indicatorFrom = _lastSelectedIndex ?? widget.selectedIndex;
@@ -71,12 +90,10 @@ class _FuncBottomNavState extends State<FuncBottomNav>
       // This bar mounted because the user switched branches: play the
       // elastic indicator + the landing half of the tap's ink.
       _indicatorController.value = 0;
-      _pressPulse.update(WidgetState.pressed, true);
-      _pressPulseTimer = Timer(const Duration(milliseconds: 180), () {
-        _pressPulse.update(WidgetState.pressed, false);
-      });
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _indicatorController.forward();
+        if (!mounted) return;
+        _indicatorController.forward();
+        _spawnLandingInk();
       });
     }
   }
@@ -84,21 +101,112 @@ class _FuncBottomNavState extends State<FuncBottomNav>
   @override
   void didUpdateWidget(covariant FuncBottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.destinations.length != widget.destinations.length) {
+      // The replay timer and features capture the old item keys' render
+      // boxes — release them before the keys are replaced.
+      _releaseLandingInk();
+      _itemKeys
+        ..clear()
+        ..addAll([
+          for (var i = 0; i < widget.destinations.length; i++) GlobalKey(),
+        ]);
+    }
     if (oldWidget.selectedIndex != widget.selectedIndex) {
       _indicatorFrom = oldWidget.selectedIndex;
       _indicatorController.forward(from: 0);
-      _pressPulseTimer?.cancel();
-      _pressPulse.update(WidgetState.pressed, true);
-      _pressPulseTimer = Timer(const Duration(milliseconds: 180), () {
-        _pressPulse.update(WidgetState.pressed, false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _spawnLandingInk();
       });
     }
   }
 
+  /// Paints the same two ink features a real `InkResponse` press produces
+  /// on the destination item: the flat pressed `InkHighlight` plus the
+  /// theme's splash (InkSparkle on Android). Both take their colour from
+  /// `overlayColor` resolved with `pressed` — primary 10% — exactly as
+  /// `InkResponse` colours its own splash, so the replay reads identically
+  /// to the pink press the top bar shows. The timing mirrors a real tap:
+  /// ~130ms held, then the splash confirms and the highlight fades.
+  void _spawnLandingInk() {
+    if (!widget.visible) return;
+    final index = widget.selectedIndex;
+    if (index < 0 || index >= _itemKeys.length) return;
+    final itemContext = _itemKeys[index].currentContext;
+    if (itemContext == null) return;
+    final box = itemContext.findRenderObject() as RenderBox?;
+    final material = Material.maybeOf(itemContext);
+    if (box == null || !box.attached || !box.hasSize || material == null) {
+      return;
+    }
+    final theme = Theme.of(itemContext);
+    final pressedColor =
+        _resolveDestinationOverlay(theme.colorScheme, const {
+          WidgetState.selected,
+          WidgetState.pressed,
+        }) ??
+        theme.splashColor;
+    // Ink features self-register with the controller in their constructor —
+    // calling addInkFeature again would double-add the same feature. A
+    // confirmed feature removes and disposes itself, so the reference must
+    // be cleared via onRemoved rather than re-disposed.
+    _releaseLandingInk();
+    Rect rectCallback() => Offset.zero & box.size;
+    final textDirection = Directionality.of(itemContext);
+    InteractiveInkFeature? splash;
+    splash = theme.splashFactory.create(
+      controller: material,
+      referenceBox: box,
+      position: box.size.center(Offset.zero),
+      color: pressedColor,
+      textDirection: textDirection,
+      containedInkWell: true,
+      rectCallback: rectCallback,
+      onRemoved: () {
+        if (identical(_landingInk, splash)) _landingInk = null;
+      },
+    );
+    InkHighlight? highlight;
+    highlight = InkHighlight(
+      controller: material,
+      referenceBox: box,
+      color: pressedColor,
+      shape: BoxShape.rectangle,
+      rectCallback: rectCallback,
+      onRemoved: () {
+        if (identical(_landingHighlight, highlight)) _landingHighlight = null;
+      },
+      textDirection: textDirection,
+      // InkResponse's pressed-highlight fade duration.
+      fadeDuration: const Duration(milliseconds: 200),
+    );
+    _landingInk = splash;
+    _landingHighlight = highlight;
+    _landingInkTimer = Timer(const Duration(milliseconds: 130), () {
+      splash?.confirm();
+      highlight?.deactivate();
+    });
+  }
+
+  void _releaseLandingInk() {
+    _landingInkTimer?.cancel();
+    _landingInkTimer = null;
+    _landingInk?.dispose();
+    _landingHighlight?.dispose();
+  }
+
+  @override
+  void deactivate() {
+    // The ink feature's tickers are vsync'd on this bar's own Material — a
+    // descendant that unmounts before this state. InkWell handles the same
+    // teardown in deactivate(): kill the feature here so the inner
+    // Material's ticker accounting is already clean by the time it unmounts.
+    _releaseLandingInk();
+    super.deactivate();
+  }
+
   @override
   void dispose() {
-    _pressPulseTimer?.cancel();
-    _pressPulse.dispose();
+    _releaseLandingInk();
     _indicatorController.dispose();
     super.dispose();
   }
@@ -159,12 +267,22 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                   final from = _indicatorRect(
                     itemWidth,
                     _indicatorFrom,
-                    _labelWidth(context, _indicatorFrom, itemWidth, labelFontSize),
+                    _labelWidth(
+                      context,
+                      _indicatorFrom,
+                      itemWidth,
+                      labelFontSize,
+                    ),
                   );
                   final to = _indicatorRect(
                     itemWidth,
                     widget.selectedIndex,
-                    _labelWidth(context, widget.selectedIndex, itemWidth, labelFontSize),
+                    _labelWidth(
+                      context,
+                      widget.selectedIndex,
+                      itemWidth,
+                      labelFontSize,
+                    ),
                   );
                   final movingRight = widget.selectedIndex > _indicatorFrom;
                   final leftT = movingRight
@@ -182,12 +300,10 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                           for (var i = 0; i < widget.destinations.length; i++)
                             Expanded(
                               child: _FuncBottomNavItem(
+                                key: _itemKeys[i],
                                 destination: widget.destinations[i],
                                 fontSize: labelFontSize,
                                 selected: i == widget.selectedIndex,
-                                statesController: i == widget.selectedIndex
-                                    ? _pressPulse
-                                    : null,
                                 onTap: () {
                                   // Record the pre-switch index at press
                                   // time: the destination bar mounts in
@@ -292,48 +408,68 @@ class FuncBottomNavDestination {
   final String label;
 }
 
+/// Destination overlay mirroring `_TabsPrimaryDefaultsM3`: pressed always
+/// resolves primary 10%; hover/focus split on selected like the TabBar's
+/// tabs. Shared by the item's `InkWell.overlayColor` and the branch-swap
+/// landing replay, which resolves `{selected, pressed}` for its ink.
+Color? _resolveDestinationOverlay(ColorScheme colors, Set<WidgetState> states) {
+  if (states.contains(WidgetState.selected)) {
+    if (states.contains(WidgetState.pressed)) {
+      return colors.primary.withValues(alpha: 0.1);
+    }
+    if (states.contains(WidgetState.hovered)) {
+      return colors.primary.withValues(alpha: 0.08);
+    }
+    if (states.contains(WidgetState.focused)) {
+      return colors.primary.withValues(alpha: 0.1);
+    }
+    return null;
+  }
+  if (states.contains(WidgetState.pressed)) {
+    return colors.primary.withValues(alpha: 0.1);
+  }
+  if (states.contains(WidgetState.hovered)) {
+    return colors.onSurface.withValues(alpha: 0.08);
+  }
+  if (states.contains(WidgetState.focused)) {
+    return colors.onSurface.withValues(alpha: 0.1);
+  }
+  return null;
+}
+
 class _FuncBottomNavItem extends StatelessWidget {
   const _FuncBottomNavItem({
+    super.key,
     required this.destination,
     required this.fontSize,
     required this.selected,
     required this.onTap,
-    this.statesController,
   });
 
   final FuncBottomNavDestination destination;
   final double fontSize;
   final bool selected;
   final VoidCallback onTap;
-  final WidgetStatesController? statesController;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final color = selected ? colors.primary : colors.onSurfaceVariant;
-    // Same ink as the TabBar above: no borderRadius (the tab splash fills
-    // the whole item rect — the square pressed effect) and no
-    // highlightColor block. Overlay states mirror _TabsPrimaryDefaultsM3.
+    // Same ink as the TabBar above: the theme's InkSparkle splash (no
+    // splashFactory override) coloured by the pressed overlay resolve, a
+    // pink pressed InkHighlight, and overlay states mirroring
+    // _TabsPrimaryDefaultsM3 — pressed/hover/focus resolve identically
+    // for selected and unselected tabs. `selected` is a widget-side prop
+    // InkResponse's controller doesn't know, so it is merged in here.
     final selectedStates = <WidgetState>{if (selected) WidgetState.selected};
     return InkWell(
       onTap: onTap,
-      statesController: statesController,
-      overlayColor: WidgetStateProperty.resolveWith((states) {
-        final effective = selectedStates.toSet()..addAll(states);
-        final pressed = effective.contains(WidgetState.pressed);
-        final hovered = effective.contains(WidgetState.hovered);
-        final focused = effective.contains(WidgetState.focused);
-        if (effective.contains(WidgetState.selected)) {
-          if (pressed) return colors.primary.withValues(alpha: 0.1);
-          if (hovered) return colors.primary.withValues(alpha: 0.08);
-          if (focused) return colors.primary.withValues(alpha: 0.1);
-          return null;
-        }
-        if (pressed) return colors.primary.withValues(alpha: 0.1);
-        if (hovered) return colors.onSurface.withValues(alpha: 0.08);
-        if (focused) return colors.onSurface.withValues(alpha: 0.1);
-        return null;
-      }),
+      overlayColor: WidgetStateProperty.resolveWith(
+        (states) => _resolveDestinationOverlay(
+          colors,
+          selectedStates.toSet()..addAll(states),
+        ),
+      ),
       highlightColor: Colors.transparent,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -463,8 +599,9 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
       context.l10n.searchTitle,
       context.l10n.homeMe,
     ];
-    Widget bar(int index) => FuncBottomNav(
+    Widget bar(int index, {bool visible = true}) => FuncBottomNav(
       selectedIndex: index,
+      visible: visible,
       onSelected: shell?.goBranch ?? (_) {},
       destinations: [
         for (var i = 0; i < labels.length; i++)
@@ -483,7 +620,7 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
           _activeAtBuild = active;
           if (active) _scheduleMeasure();
         }
-        return bar(shell?.currentIndex ?? widget.branchIndex);
+        return bar(shell?.currentIndex ?? widget.branchIndex, visible: active);
       },
     );
   }

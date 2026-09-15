@@ -37,11 +37,38 @@ void main() {
     expect(tapped, 3);
   });
 
-  testWidgets('destinations ripple through InkWell like app bar buttons', (
-    tester,
-  ) async {
+  testWidgets('branch switch landing replay settles cleanly', (tester) async {
+    // A branch swap rebuilds this bar with a new selectedIndex — the same
+    // didUpdateWidget path FuncBranchBottomNav drives on goBranch. The
+    // replay spawns an InkHighlight + theme splash on the destination
+    // item, holds ~130ms, then confirms/fades both.
     await tester.pumpWidget(host());
-    expect(find.byType(InkWell), findsNWidgets(destinations.length));
+    await tester.pumpWidget(host(selected: 2));
+    // Run the whole lifecycle: 130ms hold + splash fade + 200ms highlight
+    // fade + margin. Any ticker leak, double registration, or teardown
+    // assertion surfaces as an exception here.
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(tester.takeException(), isNull);
+
+    // A rapid second switch while the first replay is still alive must
+    // also settle: the pending features are released, not left ticking.
+    await tester.pumpWidget(host(selected: 4));
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.pumpWidget(host(selected: 1));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('destinations ink matches the app bar TabBar', (tester) async {
+    await tester.pumpWidget(host());
+    final wells = tester.widgetList<InkWell>(find.byType(InkWell)).toList();
+    expect(wells, hasLength(destinations.length));
+    for (final well in wells) {
+      // No splashFactory override: the items inherit the theme's splash —
+      // the same InkSparkle the TabBar above resolves.
+      expect(well.splashFactory, isNull);
+      expect(well.overlayColor, isNotNull);
+    }
   });
 
   testWidgets('indicator re-animates on every selection change', (
