@@ -142,9 +142,18 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
   @override
   Widget build(BuildContext context) {
     // Wheel smoothing is a desktop affordance; on touch platforms this is a
-    // transparent pass-through.
+    // transparent pass-through — including the scrollable's controller:
+    // handing it our private controller would detach it from the
+    // PrimaryScrollController the page relied on before this wrapper
+    // existed.
     if (!PlatformCaps.system().isDesktop) {
-      return widget.builder(context, _controller, widget.basePhysics);
+      return widget.builder(
+        context,
+        widget.controller ??
+            PrimaryScrollController.maybeOf(context) ??
+            _controller,
+        widget.basePhysics,
+      );
     }
 
     Widget child = Listener(

@@ -353,7 +353,7 @@ void main() {
     },
   );
 
-  test('expanded details leave before the toolbar title appears', () {
+  test('expanded details crossfade into the toolbar without a blank stage', () {
     final beforeFade = geometryAt(
       ReplicaProfileHeaderGeometry.expandedDetailsFadeStart,
     );
@@ -362,7 +362,7 @@ void main() {
     );
     expect(beforeFade.expandedDetailsOpacity, 1);
     expect(afterExit.expandedDetailsOpacity, 0);
-    expect(afterExit.collapsedOpacity, 0);
+    expect(afterExit.collapsedOpacity, greaterThan(0));
     expect(geometryAt(1).collapsedOpacity, 1);
   });
 

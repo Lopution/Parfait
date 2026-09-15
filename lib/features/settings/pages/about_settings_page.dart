@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,12 +22,11 @@ class AboutSettingsPage extends ConsumerWidget {
           const ListTile(
             leading: Icon(Icons.apps),
             title: Text('Pixiv Func'),
-            subtitle: Text('0.1.0+1'),
           ),
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: Text(context.l10n.aboutVersion),
-            trailing: const Text('0.1.0+1'),
+            trailing: const Text('0.1.0'),
           ),
           ListTile(
             leading: const Icon(Icons.menu_book_outlined),
@@ -33,7 +35,7 @@ class AboutSettingsPage extends ConsumerWidget {
             onTap: () => showLicensePage(
               context: context,
               applicationName: appName,
-              applicationVersion: '0.1.0+1',
+              applicationVersion: '0.1.0',
             ),
           ),
           ListTile(
@@ -46,6 +48,24 @@ class AboutSettingsPage extends ConsumerWidget {
             title: Text(context.l10n.aboutSource),
             subtitle: const Text('github.com/Lopution/Pixiv-func'),
           ),
+          // Read-back of the display mode the engine actually got —
+          // OEM ROMs (MIUI/HyperOS, ColorOS) can keep a third-party app at
+          // 60Hz despite the preferred-mode request, which looks exactly
+          // like a uniform low-fps app. This is the only user-visible way
+          // to check it without adb.
+          if (Platform.isAndroid)
+            FutureBuilder<DisplayMode>(
+              future: FlutterDisplayMode.active,
+              builder: (context, snapshot) => ListTile(
+                leading: const Icon(Icons.speed_outlined),
+                title: Text(context.l10n.aboutDisplayRefreshRate),
+                trailing: Text(
+                  snapshot.hasData
+                      ? '${snapshot.data!.refreshRate.toStringAsFixed(0)} Hz'
+                      : '—',
+                ),
+              ),
+            ),
           const Divider(),
           updateService.when(
             loading: () => ListTile(
@@ -172,7 +192,9 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
             leading: const Icon(Icons.system_update_outlined),
             title: Text(context.l10n.aboutCheckUpdate),
             subtitle: Text(
-              _checking || _applying
+              _checking
+                  ? context.l10n.aboutCheckingUpdate
+                  : _applying
                   ? context.l10n.aboutUpdateDownloading
                   : statusText ?? '',
             ),

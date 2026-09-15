@@ -11,7 +11,6 @@ import '../../core/network/api_error.dart';
 import '../../core/profile/profile_feed_controller.dart';
 import '../../core/profile/profile_models.dart';
 import '../../l10n/context.dart';
-import '../../app/widgets/smooth_wheel_scroll.dart';
 
 class ProfileIllustFeed extends ConsumerWidget {
   const ProfileIllustFeed({super.key, required this.feedKey});
@@ -54,60 +53,63 @@ class ProfileIllustFeed extends ConsumerWidget {
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
+                  notification is ScrollUpdateNotification &&
+                  notification.metrics.extentAfter <
+                      notification.metrics.viewportDimension * 1.2) {
                 ref
                     .read(profileIllustFeedProvider(feedKey).notifier)
                     .loadMore();
               }
               return false;
             },
-            child: SmoothWheelScroll(
-              basePhysics: const AlwaysScrollableScrollPhysics(),
-              builder: (context, controller, physics) => CustomScrollView(
-                key: PageStorageKey(feedKey),
-                restorationId: 'profile-${feedKey.toString()}',
-                physics: physics,
-                controller: controller,
-                slivers: [
-                  const HeaderLocator.sliver(),
-                  if (entities.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: FeedEmpty(
-                        icon: Icons.inbox_outlined,
-                        title: context.l10n.profileItemsEmpty,
-                        retryLabel: context.l10n.profileRetry,
-                        onRefresh: () => ref
-                            .read(profileIllustFeedProvider(feedKey).notifier)
-                            .refresh(),
-                      ),
-                    )
-                  else
-                    IllustFeedGrid(
-                      padding: const EdgeInsets.all(10),
-                      mainAxisSpacing: 5,
-                      crossAxisSpacing: 10,
-                      itemCount: entities.length,
-                      itemBuilder: (context, index) => IllustCard(
-                        entity: entities[index],
-                        heroScope:
-                            'profile:${feedKey.userId}:${feedKey.kind.name}:'
-                            '${feedKey.workType.name}:${feedKey.restrict.name}',
-                      ),
-                    ),
-                  SliverToBoxAdapter(
-                    child: FeedTail(
-                      feed: feed,
-                      onRetry: () => ref
-                          .read(profileIllustFeedProvider(feedKey).notifier)
-                          .retryLoadMore(),
-                      errorTitle: context.l10n.profileLoadMoreFailed,
+            // No SmoothWheelScroll here: this is the inner scrollable of a
+            // NestedScrollView — driving its position via animateTo bypasses
+            // the nested coordinator, so the profile header would never
+            // collapse on wheel. Native wheel keeps header folding intact.
+            child: CustomScrollView(
+              key: PageStorageKey(feedKey),
+              restorationId: 'profile-${feedKey.toString()}',
+              physics: const AlwaysScrollableScrollPhysics(),
+              scrollCacheExtent: kFeedCacheExtent,
+              slivers: [
+                const HeaderLocator.sliver(),
+                if (entities.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: FeedEmpty(
+                      icon: Icons.inbox_outlined,
+                      title: context.l10n.profileItemsEmpty,
                       retryLabel: context.l10n.profileRetry,
+                      onRefresh: () => ref
+                          .read(profileIllustFeedProvider(feedKey).notifier)
+                          .refresh(),
+                    ),
+                  )
+                else
+                  IllustFeedGrid(
+                    padding: const EdgeInsets.all(10),
+                    mainAxisSpacing: 5,
+                    crossAxisSpacing: 10,
+                    prefetchEntities: entities,
+                    itemCount: entities.length,
+                    itemBuilder: (context, index) => IllustCard(
+                      entity: entities[index],
+                      heroScope:
+                          'profile:${feedKey.userId}:${feedKey.kind.name}:'
+                          '${feedKey.workType.name}:${feedKey.restrict.name}',
                     ),
                   ),
-                ],
-              ),
+                SliverToBoxAdapter(
+                  child: FeedTail(
+                    feed: feed,
+                    onRetry: () => ref
+                        .read(profileIllustFeedProvider(feedKey).notifier)
+                        .retryLoadMore(),
+                    errorTitle: context.l10n.profileLoadMoreFailed,
+                    retryLabel: context.l10n.profileRetry,
+                  ),
+                ),
+              ],
             ),
           ),
         );

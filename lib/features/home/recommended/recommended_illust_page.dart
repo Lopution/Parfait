@@ -71,8 +71,9 @@ class RecommendedIllustPage extends ConsumerWidget {
                 .refresh(),
             child: NotificationListener<ScrollNotification>(
               onNotification: (notification) {
-                if (notification is ScrollEndNotification &&
-                    notification.metrics.extentAfter < 400) {
+                if (notification is ScrollUpdateNotification &&
+                    notification.metrics.extentAfter <
+                        notification.metrics.viewportDimension * 1.2) {
                   ref
                       .read(recommendedIllustControllerProvider.notifier)
                       .loadMore();
@@ -91,6 +92,7 @@ class RecommendedIllustPage extends ConsumerWidget {
                   restorationId: 'recommended-illust',
                   controller: controller,
                   physics: physics,
+                  scrollCacheExtent: kFeedCacheExtent,
                   slivers: [
                     IllustFeedGrid(
                       padding: EdgeInsets.fromLTRB(
@@ -101,6 +103,7 @@ class RecommendedIllustPage extends ConsumerWidget {
                       ),
                       mainAxisSpacing: 5,
                       crossAxisSpacing: 10,
+                      prefetchEntities: entities,
                       itemCount: entities.length,
                       itemBuilder: (context, index) => IllustCard(
                         entity: entities[index],

@@ -211,6 +211,36 @@ void main() {
     expect(find.byType(RecommendedHomePage), findsOneWidget);
   });
 
+  testWidgets('pop slides the outgoing page as a snapshot texture', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/recommended');
+    unawaited(openSettings(tester.element(find.byType(RecommendedHomePage))));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(SettingsPage), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    // While the reverse animation runs, both routes hand their subtree to a
+    // SnapshotWidget so each frame blits a captured texture.
+    await tester.pump(const Duration(milliseconds: 16));
+    final snapshots = tester.widgetList<SnapshotWidget>(
+      find.byType(SnapshotWidget, skipOffstage: false),
+    );
+    expect(
+      snapshots.where((s) => s.controller.allowSnapshotting),
+      isNotEmpty,
+    );
+    // The live subtree stays mounted so a cancelled pop or route state
+    // survives the snapshot window.
+    expect(find.byType(SettingsPage, skipOffstage: false), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/recommended');
+    expect(find.byType(RecommendedHomePage), findsOneWidget);
+  });
+
   testWidgets('/settings deep links still resolve as a root flow', (
     tester,
   ) async {

@@ -308,6 +308,13 @@ void main() {
       final image = tester.getSize(find.byType(IllustCard).first);
       expect(image.width, 300);
       expect(image.height, greaterThan(700));
+      expect(
+        tester
+            .widget<CachedNetworkImage>(find.byType(CachedNetworkImage).first)
+            .imageUrl,
+        'https://i.pximg.net/7/large.jpg',
+        reason: 'ultra-tall cards use the sharper uncropped source',
+      );
       expect(find.bySemanticsLabel('illust 7'), findsOneWidget);
       expect(find.bySemanticsLabel('author'), findsOneWidget);
       expect(find.bySemanticsLabel('illust 7, author'), findsOneWidget);
@@ -323,7 +330,7 @@ void main() {
     },
   );
 
-  testWidgets('IllustCard keeps the artwork loading transition enabled', (
+  testWidgets('IllustCard keeps the artwork loading transition in the feed', (
     tester,
   ) async {
     final (container, _) = await makeWorld();
@@ -359,7 +366,7 @@ void main() {
     expect(
       image.fade,
       isTrue,
-      reason: 'cold feed artwork should use a visible loading transition',
+      reason: 'feed artwork should transition out of its placeholder',
     );
   });
 

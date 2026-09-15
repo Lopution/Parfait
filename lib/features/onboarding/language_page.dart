@@ -52,9 +52,16 @@ class LanguagePage extends ConsumerWidget {
         child: Column(
           children: [
             const Spacer(flex: 2),
-            Text(
-              l10nLookupFor(language.locale, 'selectLanguage'),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                l10nLookupFor(language.locale, 'selectLanguage'),
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const Spacer(),
             for (final item in _items) ...[
@@ -87,9 +94,17 @@ class LanguagePage extends ConsumerWidget {
               ),
             ),
             const Spacer(),
-            Text(
-              l10nLookupFor(language.locale, 'later'),
-              style: const TextStyle(fontSize: 14),
+            // Fixed-height slot: long translations (ru/en wrap to two
+            // lines) keep the same visual anchor as one-line locales.
+            SizedBox(
+              height: 44,
+              child: Center(
+                child: Text(
+                  l10nLookupFor(language.locale, 'later'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
             ),
             const Spacer(),
           ],

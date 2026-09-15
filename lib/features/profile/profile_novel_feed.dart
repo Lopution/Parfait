@@ -52,8 +52,8 @@ class ProfileNovelFeed extends ConsumerWidget {
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
+                  notification is ScrollUpdateNotification &&
+                  notification.metrics.extentAfter < notification.metrics.viewportDimension * 1.2) {
                 ref.read(userNovelFeedProvider(userId).notifier).loadMore();
               }
               return false;

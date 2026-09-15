@@ -22,6 +22,7 @@ class DetailPageImage extends ConsumerStatefulWidget {
     required this.heroTag,
     required this.heroScope,
     this.heroImageUrl,
+    this.heroImageDecodeWidth,
     this.detailUrl,
     required this.downloadMode,
     required this.onLongPress,
@@ -33,6 +34,11 @@ class DetailPageImage extends ConsumerStatefulWidget {
   final String heroTag;
   final String heroScope;
   final String? heroImageUrl;
+
+  /// Decode width of the feed card that produced [heroImageUrl]. While the
+  /// hero URL is displayed the image decodes at this width — the exact cache
+  /// entry the feed already painted — so the hero landing frame is instant.
+  final int? heroImageDecodeWidth;
 
   /// True while the detail payload is still loading for a multi-page work:
   /// the page renders a neutral placeholder instead of an image whose URL
@@ -55,8 +61,51 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   /// the moment the user taps, before the coordinator notification arrives.
   bool _optimisticDownloading = false;
 
+  /// Detail data can arrive while the route is still flying. Keep the feed
+  /// preview as the Hero child until the route settles; swapping its provider
+  /// during the flight makes the image appear to be sampled or rescaled on
+  /// every frame, especially on Android. The quality upgrade happens in the
+  /// first settled build and remains gapless through PixivImage's cache.
+  bool _routeTransitionComplete = true;
+  Animation<double>? _routeAnimation;
+
   IllustEntity get entity => widget.entity;
   bool get downloadMode => widget.downloadMode;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (identical(animation, _routeAnimation)) return;
+
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    _routeAnimation = animation;
+    if (animation == null || animation.status == AnimationStatus.completed) {
+      _routeTransitionComplete = true;
+    } else {
+      _routeTransitionComplete = false;
+      animation.addStatusListener(_handleRouteAnimationStatus);
+    }
+  }
+
+  void _handleRouteAnimationStatus(AnimationStatus status) {
+    if (!mounted) return;
+    if (status == AnimationStatus.completed) {
+      if (_routeTransitionComplete) return;
+      setState(() => _routeTransitionComplete = true);
+      return;
+    }
+    // A pop keeps the detail-tier URL painted while the page slides out —
+    // the reverse flight shuttle uses IllustHeroFlightChild.popChild, so
+    // swapping this provider mid-flight only adds a re-resolve and a
+    // repaint to frames that are already animating.
+  }
+
+  @override
+  void dispose() {
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,13 +134,16 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
     // gives every quality hand-off (preview -> detail and medium -> large ->
     // original) the same gapless behavior without a second preload state in
     // each page widget.
-    final previewUrl =
-        widget.detailUrl ??
-        (widget.index == 0 && widget.heroImageUrl != null
-            ? widget.heroImageUrl!
-            : entity.pageCount > 1 && widget.index < entity.metaPages.length
-            ? entity.metaPages[widget.index].large
-            : entity.imageUrls.large);
+    final onHeroPhase =
+        widget.index == 0 &&
+        widget.heroImageUrl != null &&
+        (widget.detailUrl == null || !_routeTransitionComplete);
+    final previewUrl = onHeroPhase
+        ? widget.heroImageUrl!
+        : widget.detailUrl ??
+              (entity.pageCount > 1 && widget.index < entity.metaPages.length
+                  ? entity.metaPages[widget.index].large
+                  : entity.imageUrls.large);
     final image = GestureDetector(
       onTap: isPagePlaceholder
           ? null
@@ -118,15 +170,44 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               Hero(
                 tag: widget.heroTag,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                child: PixivImage.detail(
-                  previewUrl,
-                  fit: BoxFit.contain,
-                  transitionKey: widget.heroTag,
-                  // Keep the loading transition for cold detail images. A
-                  // cached Hero hand-off is still instantaneous because
-                  // PixivImage disables its fade for completed cache entries.
-                  filterColor: downloadMode ? FuncTokens.imageOverlay : null,
-                  filterBlendMode: downloadMode ? BlendMode.srcOver : null,
+                child: IllustHeroFlightChild(
+                  // The detail endpoint stays sharp for the normal page and
+                  // for a viewer push. The shared shuttle swaps to the
+                  // already-decoded card preview only on a reverse flight.
+                  popChild: widget.heroImageUrl == null
+                      ? null
+                      : PixivImage.detail(
+                          widget.heroImageUrl!,
+                          fit: BoxFit.contain,
+                          transitionKey: widget.heroTag,
+                          tierKey: entity.imageTierKeyAt(widget.index),
+                          tier: entity.imageTierOf(widget.heroImageUrl!),
+                          tierUpgrade: false,
+                          decodeWidth: widget.heroImageDecodeWidth,
+                          filterColor: downloadMode
+                              ? FuncTokens.imageOverlay
+                              : null,
+                          filterBlendMode: downloadMode
+                              ? BlendMode.srcOver
+                              : null,
+                        ),
+                  child: PixivImage.detail(
+                    previewUrl,
+                    fit: BoxFit.contain,
+                    transitionKey: widget.heroTag,
+                    tierKey: entity.imageTierKeyAt(widget.index),
+                    tier: entity.imageTierOf(previewUrl),
+                    tierUpgrade: !onHeroPhase,
+                    // The hero-phase URL is the feed card's image: decode it
+                    // at the feed's width so the landing frame is the
+                    // already-decoded cache entry. Once detailUrl arrives,
+                    // the normal page endpoint uses screen width.
+                    decodeWidth: onHeroPhase
+                        ? widget.heroImageDecodeWidth
+                        : null,
+                    filterColor: downloadMode ? FuncTokens.imageOverlay : null,
+                    filterBlendMode: downloadMode ? BlendMode.srcOver : null,
+                  ),
                 ),
               ),
             if (downloadMode && !isPagePlaceholder)

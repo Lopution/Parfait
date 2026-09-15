@@ -36,27 +36,38 @@ class WelcomePage extends StatelessWidget {
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          l10nLookupFor(
-                            parseAppLocale(languageTag),
-                            'welcome1',
-                          ),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                        // Single-line scaleDown: long translations shrink to
+                        // fit instead of wrapping to a second line, so the
+                        // layout anchor is identical in every locale.
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            l10nLookupFor(
+                              parseAppLocale(languageTag),
+                              'welcome1',
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          l10nLookupFor(
-                            parseAppLocale(languageTag),
-                            'welcome2',
-                          ),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            l10nLookupFor(
+                              parseAppLocale(languageTag),
+                              'welcome2',
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],

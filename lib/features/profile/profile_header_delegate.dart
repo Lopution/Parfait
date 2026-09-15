@@ -37,15 +37,17 @@ class ReplicaProfileHeaderGeometry {
   static const _avatarOverhang = 8.0;
 
   /// The expanded identity block is laid out as one unit and translated out
-  /// of the shrinking header. It leaves a little earlier than the toolbar
-  /// title starts, so neither the avatar nor the expanded name can cross it.
+  /// of the shrinking header. The toolbar begins fading in while the details
+  /// fade out, so the header has one continuous hand-off instead of a blank
+  /// second stage between the two states.
   static const expandedIdentityExitProgress = 0.78;
   static const expandedDetailsFadeStart = 0.55;
 
   /// A native flexible-space header scrolls its background content out of the
-  /// pinned toolbar. The factor gives the identity block enough travel to
-  /// clear the toolbar before the header reaches its minimum extent.
-  static const _expandedContentTravelFactor = 1.25;
+  /// pinned toolbar. Matching the header's scroll distance keeps the identity
+  /// movement at one speed instead of producing a second apparent jump near
+  /// the collapsed threshold.
+  static const _expandedContentTravelFactor = 1.0;
 
   final double shrinkOffset;
   final double minExtent;
@@ -102,8 +104,7 @@ class ReplicaProfileHeaderGeometry {
 
   /// Opacity of the collapsed toolbar chrome (back button, title, actions).
   double get collapsedOpacity =>
-      ((progress - expandedIdentityExitProgress) /
-              (1 - expandedIdentityExitProgress))
+      ((progress - expandedDetailsFadeStart) / (1 - expandedDetailsFadeStart))
           .clamp(0.0, 1.0);
 }
 
@@ -694,28 +695,85 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
         children: [
           SizedBox(
             height: kToolbarHeight,
-            child: TabBar(
-              controller: controller,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              onTap: onTabTap,
-              tabs: [
-                for (final label in labels) Tab(text: _text(context, label)),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Uniform label scale: all tabs share one font size, shrunk
+                // until the widest translation fits its equal-width slot.
+                // Same layout in every locale — longer languages just render
+                // at a smaller size instead of crowding or truncating.
+                const baseSize = 14.0;
+                final slotWidth =
+                    constraints.maxWidth / labels.length -
+                        16; // labelPadding horizontal 8 x2
+                var maxLabelWidth = 0.0;
+                for (final key in labels) {
+                  final painter = TextPainter(
+                    text: TextSpan(
+                      text: _text(context, key),
+                      style: const TextStyle(
+                        fontSize: baseSize,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    textDirection: Directionality.of(context),
+                    maxLines: 1,
+                    textScaler: MediaQuery.textScalerOf(context),
+                  )..layout();
+                  if (painter.width > maxLabelWidth) {
+                    maxLabelWidth = painter.width;
+                  }
+                }
+                final scale = slotWidth > 0 && maxLabelWidth > 0
+                    ? (slotWidth / maxLabelWidth).clamp(0.55, 1.0)
+                    : 1.0;
+                final labelStyle = TextStyle(
+                  fontSize: baseSize * scale,
+                  fontWeight: FontWeight.w500,
+                );
+                return TabBar(
+                  controller: controller,
+                  // Profile tabs mirror the five-slot bottom navigation. Keep
+                  // every tab in an equal-width slot; the shared scaled font
+                  // keeps long translations inside the header without
+                  // horizontal scrolling.
+                  isScrollable: false,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  labelStyle: labelStyle,
+                  unselectedLabelStyle: labelStyle,
+                  onTap: onTabTap,
+                  tabs: [
+                    for (final label in labels)
+                      Tab(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _text(context, label),
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
           if (expanded && isWorkTab)
             SizedBox(
               height: 64,
-              child: Center(
-                child: Wrap(
-                  spacing: 8,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     for (final type in [
                       UserWorkType.illust,
                       UserWorkType.manga,
                       UserWorkType.novel,
-                    ])
+                    ]) ...[
+                      if (type != UserWorkType.illust) const SizedBox(width: 8),
                       ChoiceChip(
                         label: Text(
                           _text(context, switch (type) {
@@ -727,6 +785,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
                         selected: workType == type,
                         onSelected: (_) => onWorkTypeChanged(type),
                       ),
+                    ],
                   ],
                 ),
               ),

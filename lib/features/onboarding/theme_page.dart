@@ -47,9 +47,16 @@ class ThemePage extends ConsumerWidget {
         child: Column(
           children: [
             const Spacer(flex: 2),
-            Text(
-              text('selectTheme'),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                text('selectTheme'),
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const Spacer(),
             ReplicaSwitchTile(
@@ -115,7 +122,18 @@ class ThemePage extends ConsumerWidget {
               ),
             ),
             const Spacer(),
-            Text(text('later'), style: const TextStyle(fontSize: 14)),
+            // Same fixed-height slot as LanguagePage — two-line locales keep
+            // the same anchor as one-line ones.
+            SizedBox(
+              height: 44,
+              child: Center(
+                child: Text(
+                  text('later'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            ),
             const Spacer(),
           ],
         ),
