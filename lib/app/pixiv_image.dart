@@ -85,7 +85,7 @@ class PixivImage extends ConsumerWidget {
          // Feed cards keep a short load transition even during a fling. The
          // completion log below still skips it for decoded cache entries,
          // while newly revealed cards retain the requested visual continuity.
-         fadeDuration: MotionTokens.medium,
+         fadeDuration: MotionTokens.imageFadeFeed,
        );
 
   /// Avatar variant: decode width derives from the avatar box [size].
@@ -115,6 +115,7 @@ class PixivImage extends ConsumerWidget {
     String? tierKey,
     IllustImageTier? tier,
     bool tierUpgrade = true,
+    Widget? placeholderWidget,
     // Hero hand-off phase: decode at the source card's width so the first
     // frame is the exact cache entry the feed already decoded — without
     // this, the detail page re-decodes the same file at screen width and
@@ -132,6 +133,7 @@ class PixivImage extends ConsumerWidget {
          tierKey: tierKey,
          tier: tier,
          tierUpgrade: tierUpgrade,
+         placeholderWidget: placeholderWidget,
        );
 
   /// Hero hand-off variant: keeps the transition history keyed by [tag] so a
@@ -268,7 +270,21 @@ class PixivImage extends ConsumerWidget {
   /// and crossfaded in from transparent on every first frame (the flash).
   /// We therefore track completion ourselves, keyed by the exact decode
   /// width the widget resolves.
-  static final Set<String> _completedDecodes = {};
+  ///
+  /// The log records "decoded at least once" while the real imageCache
+  /// evicts on LRU pressure — so it is bounded FIFO and only ever used for
+  /// choices whose stale hit is benign (history placeholder, width
+  /// promotion). The fade decision cannot trust it: OctoImage's own
+  /// `wasSynchronouslyLoaded` is the accurate signal for "decoded now".
+  static const _maxCompletedDecodes = 1024;
+  static final LinkedHashSet<String> _completedDecodes = LinkedHashSet();
+
+  static void _markCompleted(String decodeKey) {
+    _completedDecodes.add(decodeKey);
+    if (_completedDecodes.length > _maxCompletedDecodes) {
+      _completedDecodes.remove(_completedDecodes.first);
+    }
+  }
 
   static String _decodeKey(String url, int? memCacheWidth) =>
       '${memCacheWidth ?? 0}|$url';
@@ -393,7 +409,7 @@ class PixivImage extends ConsumerWidget {
     if (tierKey != null &&
         tier != null &&
         IllustTierCache.isRecorded(tierKey, tier, url)) {
-      _completedDecodes.add(decodeKey);
+      _markCompleted(decodeKey);
       return;
     }
     final pending = '$decodeKey|${tierKey ?? ''}';
@@ -417,7 +433,7 @@ class PixivImage extends ConsumerWidget {
     }
 
     listener = ImageStreamListener((_, _) {
-      _completedDecodes.add(decodeKey);
+      _markCompleted(decodeKey);
       if (tierKey != null && tier != null) {
         IllustTierCache.record(tierKey, tier, url);
       }
@@ -456,7 +472,7 @@ class PixivImage extends ConsumerWidget {
       );
     }
     await precacheImage(imageProvider, context);
-    _completedDecodes.add(_decodeKey(resolved.$1, memCacheWidth));
+    _markCompleted(_decodeKey(resolved.$1, memCacheWidth));
     if (tierKey != null && resolved.$2 != null) {
       IllustTierCache.record(tierKey, resolved.$2!, resolved.$1);
     }
@@ -504,14 +520,16 @@ class PixivImage extends ConsumerWidget {
       cacheManager,
       effectiveWidth,
     );
-    final imageCompleted = _imageCompleted(imageUrl, effectiveWidth);
     final previousTransition = _rememberTransitionUrl(
       transitionKey,
       imageUrl,
       effectiveWidth,
     );
-    final isImageTransition = previousTransition != null;
-    final transitionPlaceholder = !isImageTransition || imageCompleted
+    // A completed current frame resolves synchronously and never reaches the
+    // placeholder at all — so whenever a decoded-once previous entry exists,
+    // it is always the better stand-in while the next tier resolves. Only
+    // the absence of history falls back to the flat colour box.
+    final transitionPlaceholder = previousTransition == null
         ? placeholderWidget
         : _lastDecodedFrame(
             previousTransition,
@@ -524,6 +542,14 @@ class PixivImage extends ConsumerWidget {
             filterBlendMode: filterBlendMode,
             filterQuality: filterQuality,
           );
+    // A tier/width hand-off swaps onto an already-decoded frame. Fading the
+    // new frame in leaves a half-transparent composite over the dissolving
+    // old frame and the page background — the "contrast dip" flash.
+    // Glide/PixEz replace the drawable instantly in that case; the crossfade
+    // is only for a real cold load (placeholder colour → image). OctoImage
+    // separately skips fades entirely when the first frame is synchronous
+    // (wasSynchronouslyLoaded).
+    final crossfade = fade && previousTransition == null;
     final image = CachedNetworkImage(
       imageUrl: imageUrl,
       httpHeaders: headers,
@@ -544,18 +570,8 @@ class PixivImage extends ConsumerWidget {
       color: filterColor,
       colorBlendMode: filterBlendMode,
       filterQuality: filterQuality,
-      // Crossfade only for artwork that has not completed decoding yet:
-      // already-cached images (Hero hand-off targets, preloaded URLs) must
-      // appear instantly — a translucent fade over the page background is
-      // the white flash.
-      fadeInDuration: fade && !imageCompleted && !isImageTransition
-          ? fadeDuration
-          : Duration.zero,
-      // Gapless playback already keeps the previous decoded frame visible
-      // while a new quality URL is pending. Never fade that frame out: a
-      // translucent placeholder between medium/large/original (including
-      // multi-page and GIF covers) is perceived as a white flash.
-      fadeOutDuration: Duration.zero,
+      fadeInDuration: crossfade ? fadeDuration : Duration.zero,
+      fadeOutDuration: crossfade ? MotionTokens.imageFadeOut : Duration.zero,
       placeholder: (_, _) =>
           transitionPlaceholder ?? ColoredBox(color: placeholderColor),
       errorWidget: (_, _, _) => ColoredBox(

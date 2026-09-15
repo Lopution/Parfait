@@ -15,8 +15,20 @@ abstract final class MotionTokens {
   /// Medium UI transitions (root-back exit hint window pieces).
   static const medium = Duration(milliseconds: 200);
 
-  /// Image fade-in inside PixivImage.
-  static const imageFade = Duration(milliseconds: 350);
+  /// Image fade-in inside PixivImage. 500ms matches CachedNetworkImage's
+  /// default and PixEz; PixShaft's Glide crossfade is 300ms.
+  static const imageFade = Duration(milliseconds: 500);
+
+  /// Feed-card fade-in — shorter than [imageFade] so a settling grid does
+  /// not leave a long trail of animating tiles behind a scroll.
+  static const imageFadeFeed = Duration(milliseconds: 300);
+
+  /// Placeholder fade-out under the incoming frame. This must outlive
+  /// [imageFade]: the disappearing layer finishing first leaves the
+  /// half-transparent new frame over the page background for the rest of
+  /// the fade — the white flash on a quality-tier swap. PixEz uses 1000ms
+  /// for exactly this reason.
+  static const imageFadeOut = Duration(milliseconds: 1000);
 
   /// Reduced-motion gate: collapses [base] to zero when the platform asks
   /// for disabled animations. Reduced motion must remove the flight, never

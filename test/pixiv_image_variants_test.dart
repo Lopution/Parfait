@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -104,6 +105,11 @@ void main() {
       find.byType(CachedNetworkImage),
     );
     expect(image.useOldImageOnUrlChange, isTrue);
-    expect(image.fadeOutDuration, Duration.zero);
+    // No decoded predecessor exists in this test (old.jpg never resolves),
+    // so the widget stays on the cold-load path: placeholder crossfades
+    // over the shared PixEz-style window. A real decoded predecessor swaps
+    // instantly with no fade — the contrast-dip flash fix.
+    expect(image.fadeOutDuration, MotionTokens.imageFadeOut);
+    expect(image.fadeInDuration, MotionTokens.imageFade);
   });
 }
