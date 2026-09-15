@@ -20,6 +20,11 @@ class IllustUser {
   final String? profileImageUrl;
 }
 
+/// The three pixiv size tiers that share one aspect ratio. `squareMedium`
+/// is deliberately excluded: it is a square crop, not a resize, so it can
+/// never substitute for another tier.
+enum IllustImageTier { medium, large, original }
+
 class IllustImageUrls {
   const IllustImageUrls({
     required this.squareMedium,
@@ -206,6 +211,25 @@ class IllustEntity {
       DetailQuality.original =>
         metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large,
     };
+  }
+
+  /// Per-(work,page) key for [IllustTierCache]-style registries.
+  String imageTierKeyAt(int pageIndex) => '${id}_$pageIndex';
+
+  /// Which tier [url] represents on this work, or null when the URL is not
+  /// one of this work's known image URLs (e.g. squareMedium crops).
+  IllustImageTier? imageTierOf(String url) {
+    if (url == imageUrls.medium) return IllustImageTier.medium;
+    if (url == imageUrls.large) return IllustImageTier.large;
+    if (url == metaSinglePageOriginalUrl || url == imageUrls.original) {
+      return IllustImageTier.original;
+    }
+    for (final page in metaPages) {
+      if (url == page.original) return IllustImageTier.original;
+      if (url == page.large) return IllustImageTier.large;
+      if (url == page.medium) return IllustImageTier.medium;
+    }
+    return null;
   }
 
   /// Quality-aware single-page viewer URL with original-first fallback.

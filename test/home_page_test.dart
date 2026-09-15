@@ -10,6 +10,7 @@ import 'package:pixiv_func/core/auth/account_repository.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/intent_router.dart';
+import 'package:pixiv_func/core/platform/platform_caps.dart';
 import 'package:pixiv_func/core/platform/root_back_coordinator.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
@@ -24,6 +25,7 @@ import 'package:pixiv_func/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 
 class _ScriptedIntentSource implements AndroidIntentSource {
   const _ScriptedIntentSource(this.initial);
@@ -84,7 +86,7 @@ Future<void> _pumpHome(
   AndroidIntentSource? intentSource,
   Locale? locale,
 }) async {
-  // Pin a compact surface so the shell renders the bottom NavigationBar
+  // Pin a compact surface so the shell renders the bottom navigation bar
   // rather than the wide NavigationRail.
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -105,6 +107,11 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            // Root double-back-to-exit is Android-only; the test host is
+            // Linux, so the coordinator path needs Android caps injected.
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isAndroid: true),
+            ),
             ...accountProviderOverrides(
               credentialStore: FakeCredentialStore(
                 values: const {
@@ -201,12 +208,12 @@ void main() {
     expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
   });
 
-  testWidgets('NavigationBar labels render in every supported locale', (
+  testWidgets('Bottom navigation labels render in every supported locale', (
     tester,
   ) async {
     for (final locale in AppLocalizations.supportedLocales) {
       await _pumpHome(tester, locale: locale);
-      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byType(FuncBottomNav), findsOneWidget);
     }
   });
 

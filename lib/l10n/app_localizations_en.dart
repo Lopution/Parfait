@@ -45,6 +45,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginTitle => 'Register or Login';
 
   @override
+  String get loginProxyNoticeTitle => 'Notice';
+
+  @override
+  String get loginProxyNoticeBody =>
+      'Because of network restrictions, turn on a system or external proxy before logging in or registering. Pixiv Func does not include a built-in proxy.';
+
+  @override
+  String get loginProxyNoticeCancel => 'Cancel';
+
+  @override
+  String get loginProxyNoticeContinue => 'I have enabled it';
+
+  @override
   String get register => 'Register';
 
   @override
@@ -69,6 +82,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get loginWebView2Missing =>
+      'Signing in requires the WebView2 Runtime, which was not detected on this system. Install it and reopen this page.';
+
+  @override
+  String get loginInstallWebView2 => 'Install WebView2 Runtime';
+
+  @override
   String loginFailed(String error) {
     return 'Login failed: $error';
   }
@@ -79,7 +99,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get networkCompatibility => 'Automatic compatibility network';
+  String get networkCompatibility => 'Pixiv official network compatibility';
 
   @override
   String get networkCompatibilityHint =>
@@ -149,6 +169,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String get userAgreement => '《Pixiv Func User Agreement》';
 
   @override
+  String get agreementTitle => 'Pixiv Func User Agreement';
+
+  @override
+  String get agreementIntro =>
+      'Thank you for using Pixiv Func. By using this app, you confirm that you have read and agree to these terms. Stop using the app if you do not agree.';
+
+  @override
+  String get agreementAccountTitle => 'Account and authorization';
+
+  @override
+  String get agreementAccountBody =>
+      'The app uses Pixiv\'s official sign-in flow and never asks you to enter or share your Pixiv password here. Keep your account and device secure; Pixiv account settings control account activity and revocation.';
+
+  @override
+  String get agreementContentTitle => 'Content and copyright';
+
+  @override
+  String get agreementContentBody =>
+      'Artwork, comments, and profiles are provided by Pixiv and its users, with rights held by their respective owners. Browse, save, and share only where the law and Pixiv rules allow, and do not use the app to infringe others\' rights.';
+
+  @override
+  String get agreementNetworkTitle => 'Network access';
+
+  @override
+  String get agreementNetworkBody =>
+      'The app provides compatibility routing only for official Pixiv destinations. It does not proxy other traffic and keeps certificate verification enabled. Network availability, API changes, and outages are not guaranteed.';
+
+  @override
+  String get agreementPrivacyTitle => 'Privacy and local data';
+
+  @override
+  String get agreementPrivacyBody =>
+      'Credentials are kept in the system secure store; settings, cache, history, and downloads remain local. The app does not sell personal information. Uninstalling or clearing app data may remove local content.';
+
+  @override
+  String get agreementDisclaimerTitle => 'Disclaimer';
+
+  @override
+  String get agreementDisclaimerBody =>
+      'This is an unofficial third-party client and is not affiliated with Pixiv Inc. To the extent permitted by law, the author is not responsible for loss or access failures caused by networks, accounts, third-party services, or events beyond control.';
+
+  @override
+  String get agreementUpdates =>
+      'This agreement may change with product or legal requirements. Continued use means you accept the updated agreement.';
+
+  @override
   String get settingsTitle => 'Settings';
 
   @override
@@ -158,7 +224,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkSettings => 'Network';
 
   @override
-  String get networkMode => 'Auto compatibility mode';
+  String get networkMode => 'Pixiv official network compatibility';
 
   @override
   String get networkModeHint =>
@@ -755,7 +821,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'This project is based on the public Pixiv Func source and follows GNU AGPL v3.0.';
 
   @override
-  String get aboutAttributionText => 'Original author: git-xiaocao.';
+  String get aboutAttributionText => 'Copyright and maintained by Lopution.';
 
   @override
   String get settingsReadFailed => 'Failed to read settings';
@@ -1420,4 +1486,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelReadingProgress => 'Reading progress';
+
+  @override
+  String get aboutDisplayRefreshRate => 'Display refresh rate';
 }

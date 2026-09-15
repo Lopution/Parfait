@@ -20,6 +20,7 @@ import '../../app/widgets/follow_switch_button.dart';
 import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
 import '../../l10n/context.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 
 class SearchResultPage extends ConsumerWidget {
   const SearchResultPage({super.key, required this.query});
@@ -137,38 +138,45 @@ class _IllustSearchFeed extends ConsumerWidget {
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          if (notification is ScrollEndNotification &&
-              notification.metrics.extentAfter < 400) {
+          if (notification is ScrollUpdateNotification &&
+              notification.metrics.extentAfter <
+                  notification.metrics.viewportDimension * 1.2) {
             ref.read(searchFeedProvider(query).notifier).loadMore();
           }
           return false;
         },
-        child: CustomScrollView(
-          key: PageStorageKey(query.cacheKey),
-          physics: const AlwaysScrollableScrollPhysics(),
-          restorationId: 'search-${query.cacheKey}',
-          slivers: [
-            IllustFeedGrid(
-              padding: const EdgeInsets.all(10),
-              mainAxisSpacing: 5,
-              crossAxisSpacing: 10,
-              itemCount: entities.length,
-              itemBuilder: (context, index) => IllustCard(
-                entity: entities[index],
-                heroScope: 'search:${query.cacheKey}',
+        child: SmoothWheelScroll(
+          basePhysics: const AlwaysScrollableScrollPhysics(),
+          builder: (context, controller, physics) => CustomScrollView(
+            key: PageStorageKey(query.cacheKey),
+            physics: physics,
+            scrollCacheExtent: kFeedCacheExtent,
+            restorationId: 'search-${query.cacheKey}',
+            controller: controller,
+            slivers: [
+              IllustFeedGrid(
+                padding: const EdgeInsets.all(10),
+                mainAxisSpacing: 5,
+                crossAxisSpacing: 10,
+                prefetchEntities: entities,
+                itemCount: entities.length,
+                itemBuilder: (context, index) => IllustCard(
+                  entity: entities[index],
+                  heroScope: 'search:${query.cacheKey}',
+                ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: FeedTail(
-                feed: feed,
-                onRetry: () => ref
-                    .read(searchFeedProvider(query).notifier)
-                    .retryLoadMore(),
-                errorTitle: context.l10n.searchLoadMoreFailed,
-                retryLabel: context.l10n.searchRetry,
+              SliverToBoxAdapter(
+                child: FeedTail(
+                  feed: feed,
+                  onRetry: () => ref
+                      .read(searchFeedProvider(query).notifier)
+                      .retryLoadMore(),
+                  errorTitle: context.l10n.searchLoadMoreFailed,
+                  retryLabel: context.l10n.searchRetry,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -200,8 +208,9 @@ class _NovelSearchFeed extends ConsumerWidget {
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          if (notification is ScrollEndNotification &&
-              notification.metrics.extentAfter < 400) {
+          if (notification is ScrollUpdateNotification &&
+              notification.metrics.extentAfter <
+                  notification.metrics.viewportDimension * 1.2) {
             ref.read(searchFeedProvider(query).notifier).loadMore();
           }
           return false;
@@ -209,6 +218,7 @@ class _NovelSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          scrollCacheExtent: kFeedCacheExtent,
           restorationId: 'search-${query.cacheKey}',
           itemCount: entities.length + 1,
           itemBuilder: (context, index) {
@@ -255,8 +265,9 @@ class _UserSearchFeed extends ConsumerWidget {
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          if (notification is ScrollEndNotification &&
-              notification.metrics.extentAfter < 400) {
+          if (notification is ScrollUpdateNotification &&
+              notification.metrics.extentAfter <
+                  notification.metrics.viewportDimension * 1.2) {
             ref.read(searchFeedProvider(query).notifier).loadMore();
           }
           return false;
@@ -264,6 +275,7 @@ class _UserSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          scrollCacheExtent: kFeedCacheExtent,
           restorationId: 'search-${query.cacheKey}',
           itemCount: users.length + 1,
           itemBuilder: (context, index) {

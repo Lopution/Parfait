@@ -30,7 +30,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get next => 'Далее';
 
   @override
-  String get later => 'Позже вы сможете измененить в настройках';
+  String get later => 'Позже вы сможете изменить в настройках';
 
   @override
   String get dark => 'Тёмный';
@@ -43,6 +43,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get loginTitle => 'Вход или Регистрация';
+
+  @override
+  String get loginProxyNoticeTitle => 'Внимание';
+
+  @override
+  String get loginProxyNoticeBody =>
+      'Из-за ограничений сети перед входом или регистрацией включите системный или внешний прокси. Pixiv Func не содержит встроенного прокси.';
+
+  @override
+  String get loginProxyNoticeCancel => 'Отмена';
+
+  @override
+  String get loginProxyNoticeContinue => 'Прокси включён';
 
   @override
   String get register => 'Регистрация';
@@ -69,6 +82,13 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get loginWebView2Missing =>
+      'Для входа требуется WebView2 Runtime, который не обнаружен в системе. Установите его и откройте страницу заново.';
+
+  @override
+  String get loginInstallWebView2 => 'Установить WebView2 Runtime';
+
+  @override
   String loginFailed(String error) {
     return 'Не удалось войти: $error';
   }
@@ -79,7 +99,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get networkCompatibility => 'Автоматическая совместимость сети';
+  String get networkCompatibility => 'Совместимость с официальной сетью Pixiv';
 
   @override
   String get networkCompatibilityHint =>
@@ -148,6 +168,52 @@ class AppLocalizationsRu extends AppLocalizations {
   String get userAgreement => '《Пользовательское соглашение Pixiv Func》';
 
   @override
+  String get agreementTitle => 'Пользовательское соглашение Pixiv Func';
+
+  @override
+  String get agreementIntro =>
+      'Спасибо за использование Pixiv Func. Используя приложение, вы подтверждаете, что прочитали и приняли эти условия. Если вы не согласны, прекратите использование.';
+
+  @override
+  String get agreementAccountTitle => 'Аккаунт и авторизация';
+
+  @override
+  String get agreementAccountBody =>
+      'Приложение использует официальный вход Pixiv и не просит вводить или передавать пароль Pixiv внутри приложения. Защищайте аккаунт и устройство; действия аккаунта и отзыв авторизации управляются в настройках Pixiv.';
+
+  @override
+  String get agreementContentTitle => 'Контент и авторские права';
+
+  @override
+  String get agreementContentBody =>
+      'Иллюстрации, комментарии и профили предоставляются Pixiv и его пользователями, а права принадлежат соответствующим правообладателям. Просматривайте, сохраняйте и делитесь только в рамках закона и правил Pixiv.';
+
+  @override
+  String get agreementNetworkTitle => 'Сетевой доступ';
+
+  @override
+  String get agreementNetworkBody =>
+      'Стратегия совместимости используется только для официальных адресов Pixiv. Другой трафик не проксируется, проверка сертификатов включена. Доступность сети, изменения API и сбои сервиса не гарантируются.';
+
+  @override
+  String get agreementPrivacyTitle => 'Конфиденциальность и локальные данные';
+
+  @override
+  String get agreementPrivacyBody =>
+      'Учётные данные хранятся в защищённом хранилище системы; настройки, кэш, история и загрузки остаются локальными. Приложение не продаёт персональные данные. Удаление приложения или его данных может удалить локальное содержимое.';
+
+  @override
+  String get agreementDisclaimerTitle => 'Отказ от ответственности';
+
+  @override
+  String get agreementDisclaimerBody =>
+      'Это неофициальный сторонний клиент, не связанный с Pixiv Inc. В пределах, разрешённых законом, автор не отвечает за потерю данных или сбои доступа из-за сети, аккаунта, сторонних сервисов или неподконтрольных событий.';
+
+  @override
+  String get agreementUpdates =>
+      'Соглашение может обновляться из-за изменений продукта или закона. Продолжение использования означает принятие обновлённого соглашения.';
+
+  @override
   String get settingsTitle => 'Настройки';
 
   @override
@@ -157,7 +223,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkSettings => 'Сеть';
 
   @override
-  String get networkMode => 'Автосовместимость сети';
+  String get networkMode => 'Совместимость с официальной сетью Pixiv';
 
   @override
   String get networkModeHint =>
@@ -749,7 +815,8 @@ class AppLocalizationsRu extends AppLocalizations {
       'Проект основан на открытом исходном коде Pixiv Func и распространяется по GNU AGPL v3.0.';
 
   @override
-  String get aboutAttributionText => 'Автор исходного проекта: git-xiaocao.';
+  String get aboutAttributionText =>
+      'Авторские права и сопровождение: Lopution.';
 
   @override
   String get settingsReadFailed => 'Не удалось прочитать настройки';
@@ -1417,4 +1484,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get novelReadingProgress => 'Прогресс чтения';
+
+  @override
+  String get aboutDisplayRefreshRate => 'Частота обновления';
 }

@@ -1,7 +1,37 @@
 import 'package:flutter/services.dart';
 
+import '../platform/android_intent_channel.dart';
+
 abstract interface class ReverseImageExternalLauncher {
   Future<void> open(Uri uri);
+}
+
+/// Same allowlist for every platform: external results are plain https
+/// links — no credentials, ports, fragments or non-web schemes.
+void validateExternalResultUrl(Uri uri) {
+  if (uri.scheme != 'https' ||
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasPort ||
+      uri.fragment.isNotEmpty) {
+    throw const FormatException('external result URL is not allowed');
+  }
+}
+
+/// Adapts the app-scoped [OutboundUrlOpener] capability: Android routes to
+/// the platform channel, desktop to `url_launcher` — selected by
+/// `outboundUrlOpenerProvider`, so no platform check lives here.
+class OutboundReverseImageExternalLauncher
+    implements ReverseImageExternalLauncher {
+  const OutboundReverseImageExternalLauncher(this._opener);
+
+  final OutboundUrlOpener _opener;
+
+  @override
+  Future<void> open(Uri uri) async {
+    validateExternalResultUrl(uri);
+    await _opener.openExternal(uri.toString());
+  }
 }
 
 class MethodChannelReverseImageExternalLauncher
@@ -14,13 +44,7 @@ class MethodChannelReverseImageExternalLauncher
 
   @override
   Future<void> open(Uri uri) async {
-    if (uri.scheme != 'https' ||
-        uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty ||
-        uri.hasPort ||
-        uri.fragment.isNotEmpty) {
-      throw const FormatException('external result URL is not allowed');
-    }
+    validateExternalResultUrl(uri);
     try {
       final opened = await _channel.invokeMethod<Object?>('openExternal', {
         'url': uri.toString(),

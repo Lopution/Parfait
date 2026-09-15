@@ -8,10 +8,15 @@ abstract final class FuncTokens {
   static const Color darkText = Color(0xFFD5D5D5);
   static const Color darkSubdued = Color(0xFF606163);
 
+  /// Secondary *text* must stay readable (the low-alpha subdued colors are
+  /// for borders/dividers and were never meant to carry glyphs).
+  static const Color darkTextSecondary = Color(0xFF9C9CA1);
+
   static const Color lightBackground = Color(0xFFFFFFFF);
   static const Color lightSurface = Color(0xFFE9E9EA);
   static const Color lightText = Color(0xFF383838);
   static const Color lightSubdued = Color(0x40383838);
+  static const Color lightTextSecondary = Color(0xFF6B6B70);
 
   static const Color transparent = Color(0x00000000);
   static const Color error = Color(0xFFF44336);

@@ -12,6 +12,10 @@
   "light": "明亮",
   "system": "跟随系统",
   "loginTitle": "注册 或 登录",
+  "loginProxyNoticeTitle": "提示",
+  "loginProxyNoticeBody": "由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Pixiv Func 不提供内置代理。",
+  "loginProxyNoticeCancel": "取消",
+  "loginProxyNoticeContinue": "我已开启代理",
   "register": "注册",
   "login": "登录",
   "loginPageClosed": "页面已关闭，请重新打开",
@@ -39,6 +43,8 @@
       }
     }
   },
+  "loginWebView2Missing": "登录需要 WebView2 Runtime，但当前系统未检测到它。请安装后重新打开本页。",
+  "loginInstallWebView2": "安装 WebView2 Runtime",
   "loginFailed": "登录失败: {error}",
   "@loginFailed": {
     "placeholders": {
@@ -55,7 +61,7 @@
       }
     }
   },
-  "networkCompatibility": "自动兼容网络",
+  "networkCompatibility": "Pixiv 官方网络兼容",
   "networkCompatibilityHint": "默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。",
   "getMoreHelp": "获取更多帮助 >>",
   "useLoginWithClipboardHint": "或使用\\n长按头像复制账号数据",
@@ -74,10 +80,23 @@
   "accountTransferStorageFailure": "账号迁移记录无法安全保存",
   "loginAgree": "登录即表示您同意",
   "userAgreement": "《Pixiv Func用户使用协议》",
+  "agreementTitle": "Pixiv Func用户使用协议",
+  "agreementIntro": "感谢使用 Pixiv Func。使用本应用即表示你已阅读并同意以下条款；如不同意，请停止使用本应用。",
+  "agreementAccountTitle": "账号与授权",
+  "agreementAccountBody": "本应用通过 Pixiv 官方登录流程获取授权，不会要求你在本应用中输入或分享 Pixiv 密码。请妥善保管账号和设备，账号行为及授权撤销由 Pixiv 账户设置负责。",
+  "agreementContentTitle": "内容与版权",
+  "agreementContentBody": "作品、评论、用户资料等内容由 Pixiv 及其用户提供，版权归相应权利人所有。请仅在法律和 Pixiv 规则允许的范围内浏览、保存或分享，不得利用本应用侵犯他人权益。",
+  "agreementNetworkTitle": "网络访问",
+  "agreementNetworkBody": "本应用仅为访问 Pixiv 官方服务提供网络兼容策略；兼容线路只用于官方域名，仍会校验证书，不代理其他流量。网络可用性、接口变更和服务中断不由本应用保证。",
+  "agreementPrivacyTitle": "隐私与本地数据",
+  "agreementPrivacyBody": "登录凭据保存在系统安全存储中；设置、缓存、历史和下载文件保存在本地。除你主动使用的 Pixiv 或反向搜图服务外，本应用不会出售个人信息。卸载应用或清理数据可能删除本地内容。",
+  "agreementDisclaimerTitle": "免责声明",
+  "agreementDisclaimerBody": "本应用是非官方第三方客户端，与 Pixiv Inc. 没有隶属关系。因网络、账号、第三方服务或不可抗力造成的内容丢失、访问失败或其他损失，应用作者在法律允许范围内不承担责任。",
+  "agreementUpdates": "协议可能因功能或法律变化更新；继续使用即表示接受更新后的协议。",
   "settingsTitle": "设置",
   "accountSettings": "账号",
   "networkSettings": "网络",
-  "networkMode": "自动兼容网络",
+  "networkMode": "Pixiv 官方网络兼容",
   "networkModeHint": "默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。",
   "networkModeListTitle": "网络模式",
   "networkModeAutomatic": "自动",
@@ -301,7 +320,7 @@
   "aboutAttribution": "归属",
   "aboutSource": "项目源码",
   "aboutLicenseText": "本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。",
-  "aboutAttributionText": "原项目作者：git-xiaocao（小草）。",
+  "aboutAttributionText": "版权所有及维护：Lopution。",
   "settingsReadFailed": "读取设置失败",
   "settingsWriteFailed": "设置保存失败",
   "add": "添加",
@@ -598,5 +617,6 @@
   "novelNext": "下一篇",
   "novelDecreaseFont": "减小字号",
   "novelIncreaseFont": "增大字号",
-  "novelReadingProgress": "阅读进度"
+  "novelReadingProgress": "阅读进度",
+  "aboutDisplayRefreshRate": "显示刷新率"
 }

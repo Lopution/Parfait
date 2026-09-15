@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../core/platform/platform_caps.dart';
+import '../../core/reverse_image/desktop_image_input.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/profile/profile_edit_controller.dart';
 import '../../core/profile/profile_edit_models.dart';
@@ -180,7 +182,9 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
                 session: session,
                 imagePlatform:
                     widget.imagePlatform ??
-                    MethodChannelReverseImageInputPlatform(),
+                    (PlatformCaps.system().isAndroid
+                        ? MethodChannelReverseImageInputPlatform()
+                        : const DesktopReverseImageInputPlatform()),
               ),
       ),
     );

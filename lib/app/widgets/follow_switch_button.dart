@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
+import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import 'app_snack_bar.dart';
 import '../../l10n/lookup.dart';
@@ -55,15 +56,19 @@ class FollowSwitchButton extends ConsumerWidget {
                 children: [
                   Text(
                     _text(sheetContext, 'followUser'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: Theme.of(sheetContext).textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  Text(userName, style: const TextStyle(fontSize: 16)),
+                  Text(
+                    userName,
+                    style: FuncSemanticTokens.of(sheetContext).title,
+                  ),
                   if (userAccount.isNotEmpty)
-                    Text(userAccount, style: const TextStyle(fontSize: 12)),
+                    Text(
+                      userAccount,
+                      style: FuncSemanticTokens.of(sheetContext).caption,
+                    ),
                   const SizedBox(height: 16),
                   SegmentedButton<FollowRestrict>(
                     segments: [

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -23,11 +24,13 @@ int? _memCacheWidthOf(WidgetTester tester) => tester
 
 void main() {
   installMemoryPreferences();
-  test('decodeWidthFor: DPR width, capped at 1.5x logical pixels', () {
-    // DPR 1 below the cap: pure logical width.
+  test('decodeWidthFor: decodes at the physical display width', () {
+    // The decode target is layout x DPR — capping it at 1.5x *logical* pixels
+    // decoded high-DPR devices at half resolution and upscaled them (the
+    // blurry/jagged thumbnail regression).
     expect(PixivImage.decodeWidthFor(200, devicePixelRatio: 1), 200);
-    // DPR 2 above the cap: 200x2=400 clamps to 200x1.5=300.
-    expect(PixivImage.decodeWidthFor(200, devicePixelRatio: 2), 300);
+    expect(PixivImage.decodeWidthFor(200, devicePixelRatio: 2), 400);
+    expect(PixivImage.decodeWidthFor(200, devicePixelRatio: 3), 600);
     // Tiny boxes never decode below 1px.
     expect(PixivImage.decodeWidthFor(0.1, devicePixelRatio: 2), 1);
   });
@@ -40,8 +43,8 @@ void main() {
       _host(PixivImage.feed('https://i.pximg.net/test.jpg', layoutWidth: 200)),
     );
     await tester.pump();
-    // 200x3=600 clamps to the 1.5x cap -> 300.
-    expect(_memCacheWidthOf(tester), 300);
+    // 200 logical at DPR 3 -> 600 physical decode.
+    expect(_memCacheWidthOf(tester), 600);
   });
 
   testWidgets('avatar variant decodes at the avatar box size', (tester) async {
@@ -49,8 +52,8 @@ void main() {
       _host(PixivImage.avatar('https://i.pximg.net/test.jpg', size: 54)),
     );
     await tester.pump();
-    // 54x3=162 clamps to 54x1.5=81.
-    expect(_memCacheWidthOf(tester), 81);
+    // 54 logical at DPR 3 -> 162 physical decode.
+    expect(_memCacheWidthOf(tester), 162);
   });
 
   testWidgets('detail variant decodes at the screen width', (tester) async {
@@ -69,5 +72,44 @@ void main() {
     await tester.pump();
 
     expect(_memCacheWidthOf(tester), isNull);
+  });
+
+  testWidgets('quality handoff keeps an old decoded frame placeholder', (
+    tester,
+  ) async {
+    const key = 'pixiv-image-transition-test';
+    await tester.pumpWidget(
+      _host(
+        PixivImage(
+          key: const ValueKey(key),
+          url: 'https://i.pximg.net/old.jpg',
+          transitionKey: key,
+          memCacheWidth: 300,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpWidget(
+      _host(
+        PixivImage(
+          key: const ValueKey(key),
+          url: 'https://i.pximg.net/new.jpg',
+          transitionKey: key,
+          memCacheWidth: 900,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final image = tester.widget<CachedNetworkImage>(
+      find.byType(CachedNetworkImage),
+    );
+    expect(image.useOldImageOnUrlChange, isTrue);
+    // No decoded predecessor exists in this test (old.jpg never resolves),
+    // so the widget stays on the cold-load path: placeholder crossfades
+    // over the shared PixEz-style window. A real decoded predecessor swaps
+    // instantly with no fade — the contrast-dip flash fix.
+    expect(image.fadeOutDuration, MotionTokens.imageFadeOut);
+    expect(image.fadeInDuration, MotionTokens.imageFade);
   });
 }

@@ -15,6 +15,24 @@ import 'hero_rect_clip.dart';
 String illustHeroTag(String scope, int illustId) =>
     'IllustHero:$scope:$illustId';
 
+/// Optional lightweight source used only when a Hero flies back to a feed.
+///
+/// Detail pages keep their full-quality [child] mounted so opening the viewer
+/// still starts from the sharp image. Returning to a card, however, should
+/// shuttle the card-sized preview that was already decoded by the feed; the
+/// large detail texture otherwise has to be uploaded and resampled on the
+/// first reverse-flight frame. The wrapper is intentionally transparent in
+/// the normal widget tree and is interpreted by the shared shuttle below.
+class IllustHeroFlightChild extends StatelessWidget {
+  const IllustHeroFlightChild({super.key, this.popChild, required this.child});
+
+  final Widget child;
+  final Widget? popChild;
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
 /// Conservative fallback for the home shell bottom navigation before its
 /// first rendered global edge has been published by [HomePage]. The normal
 /// path uses [HomeShellMetrics.bottomNavTop], so this is only used in a
@@ -43,14 +61,48 @@ Widget illustHeroFlightShuttleBuilder(
       ? toHeroContext
       : fromHeroContext;
   final hero = heroContext.widget as Hero;
+  // RepaintBoundary keeps the image's own layer alive between frames: the
+  // clip boundary changes every frame, so without the boundary the whole
+  // image subtree repaints each tick. With it, only the clip layer is
+  // re-composited.
+  final heroChild = hero.child;
+  final shuttleChild =
+      direction == HeroFlightDirection.pop &&
+          heroChild is IllustHeroFlightChild &&
+          heroChild.popChild != null
+      ? heroChild.popChild!
+      : heroChild;
   final child = ClipRRect(
     borderRadius: _illustHeroBorderRadius,
-    child: hero.child,
+    child: RepaintBoundary(child: shuttleChild),
   );
+  // Resolve all geometry before the animation starts. The old implementation
+  // performed RenderObject walks and NestedScrollView header discovery from
+  // AnimatedBuilder; the first return therefore paid that cost on a frame
+  // budget and often fell to 30/60 FPS. The viewport and chrome are stable for
+  // one flight, so the shuttle only interpolates two plain Rects below.
+  final size = _heroScreenSize(flightContext, fromHeroContext, toHeroContext);
+  final measuredFrom = size.isEmpty
+      ? null
+      : _heroMeasuredViewport(fromHeroContext, size);
+  final measuredTo = size.isEmpty
+      ? null
+      : _heroMeasuredViewport(toHeroContext, size);
+  final fallbackFrom = size.isEmpty
+      ? null
+      : _fallbackHeroEndpoint(flightContext, fromHeroContext, size);
+  final fallbackTo = size.isEmpty
+      ? null
+      : _fallbackHeroEndpoint(flightContext, toHeroContext, size);
+  final from = measuredFrom ?? fallbackFrom;
+  final to = measuredTo ?? fallbackTo;
   return AnimatedBuilder(
     animation: animation,
     child: child,
     builder: (context, child) {
+      if (size.isEmpty) {
+        return HeroRectClip(globalRect: Rect.zero, child: child!);
+      }
       return HeroRectClip(
         globalRect: _heroFlightClipRect(
           flightContext,
@@ -58,6 +110,11 @@ Widget illustHeroFlightShuttleBuilder(
           toHeroContext,
           direction,
           animation.value,
+          size: size,
+          from: from,
+          to: to,
+          fallbackFrom: fallbackFrom,
+          fallbackTo: fallbackTo,
         ),
         child: child!,
       );
@@ -65,96 +122,10 @@ Widget illustHeroFlightShuttleBuilder(
   );
 }
 
-/// Returns the UI occlusion boundary for one frame of a Hero flight.
-///
-/// [Animation.value] is the route animation value. A push runs 0 -> 1; a pop
-/// runs 1 -> 0, while Flutter's Hero overlay uses a reversed proxy for the
-/// latter. Normalising here keeps the clip and the shuttle position moving in
-/// the same direction for both transitions.
-Rect _heroFlightClipRect(
-  BuildContext flightContext,
-  BuildContext fromContext,
-  BuildContext toContext,
-  HeroFlightDirection direction,
-  double animationValue,
-) {
-  final size = _heroScreenSize(flightContext, fromContext, toContext);
-  if (size.isEmpty) return Rect.zero;
-  final screen = Offset.zero & size;
-  final from = _heroEndpointViewport(flightContext, fromContext, size);
-  final to = _heroEndpointViewport(flightContext, toContext, size);
-
-  final rawProgress = direction == HeroFlightDirection.push
-      ? animationValue
-      : 1 - animationValue;
-  final progress = rawProgress.isFinite
-      ? rawProgress.clamp(0.0, 1.0).toDouble()
-      : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
-
-  // Horizontal route-slide transforms are intentionally ignored. The Hero
-  // rect itself is already in Navigator coordinates, while the chrome spans
-  // the navigator width; interpolating endpoint x values would make the clip
-  // disappear into the offstage route for the first frames.
-  final top = _lerp(
-    from.top,
-    to.top,
-    progress,
-  ).clamp(0.0, size.height).toDouble();
-  final bottom = _lerp(
-    from.bottom,
-    to.bottom,
-    progress,
-  ).clamp(0.0, size.height).toDouble();
-  if (bottom <= top) {
-    // A route can be offstage for one frame while HeroController measures it.
-    // Fall back to conservative chrome bounds rather than returning an empty
-    // clip (which makes the artwork disappear for the whole flight).
-    return _fallbackHeroFlightClipRect(
-      flightContext,
-      fromContext,
-      toContext,
-      size,
-      progress,
-    );
-  }
-  return Rect.fromLTRB(0, top, size.width, bottom).intersect(screen);
-}
-
-double _lerp(double begin, double end, double t) => begin + (end - begin) * t;
-
-Size _heroScreenSize(
-  BuildContext flightContext,
-  BuildContext fromContext,
-  BuildContext toContext,
-) {
-  for (final context in [flightContext, fromContext, toContext]) {
-    final media = MediaQuery.maybeOf(context);
-    final size = media?.size;
-    if (size != null && size.isFinite && !size.isEmpty) return size;
-  }
-  final navigator = Navigator.maybeOf(flightContext);
-  final renderObject = navigator?.context.findRenderObject();
-  if (renderObject is RenderBox && renderObject.hasSize) {
-    try {
-      final bounds = MatrixUtils.transformRect(
-        renderObject.getTransformTo(null),
-        Offset.zero & renderObject.size,
-      );
-      if (bounds.isFinite && !bounds.isEmpty) return bounds.size;
-    } on Object {
-      // A detached overlay has no usable global transform. Returning an
-      // empty size below makes the clip a safe no-op instead of throwing
-      // during a route transition.
-    }
-  }
-  return Size.zero;
-}
-
-Rect _heroEndpointViewport(
-  BuildContext flightContext,
-  BuildContext heroContext,
-  Size size,
-) {
+/// The measured viewport clip for one flight endpoint, or null when the
+/// endpoint is not laid out yet (detached route on the first flight frame).
+/// Null keeps the fallback path in [_heroFlightClipRect].
+Rect? _heroMeasuredViewport(BuildContext heroContext, Size size) {
   RenderObject? renderObject = heroContext.findRenderObject();
   RenderSliver? viewportSliver;
   while (renderObject != null) {
@@ -190,11 +161,7 @@ Rect _heroEndpointViewport(
           // combine both measurements instead of trusting viewport.size
           // alone. This also keeps non-scrollable Hero endpoints consistent
           // with scrollable ones.
-          final chrome = _fallbackHeroEndpoint(
-            flightContext,
-            heroContext,
-            size,
-          );
+          final chrome = _fallbackHeroEndpoint(null, heroContext, size);
           final top = math.max(viewportBounds.top, chrome.top);
           final bottom = math.min(viewportBounds.bottom, chrome.bottom);
           if (bottom > top) {
@@ -204,32 +171,135 @@ Rect _heroEndpointViewport(
         }
       } on Object {
         // The route may be detached while a diverted flight is being
-        // measured. The conservative fallback below keeps the shuttle
-        // visible and bounded instead of failing the transition.
+        // measured. A null result keeps recomputing on the next frame.
       }
+      return null;
     }
     renderObject = renderObject.parent;
   }
-  return _fallbackHeroEndpoint(flightContext, heroContext, size);
+  return null;
 }
 
-Rect _fallbackHeroFlightClipRect(
+/// Returns the UI occlusion boundary for one frame of a Hero flight.
+///
+/// [Animation.value] is the route animation value. A push runs 0 -> 1; a pop
+/// runs 1 -> 0, while Flutter's Hero overlay uses a reversed proxy for the
+/// latter. Normalising here keeps the clip and the shuttle position moving in
+/// the same direction for both transitions.
+Rect _heroFlightClipRect(
   BuildContext flightContext,
   BuildContext fromContext,
   BuildContext toContext,
-  Size size,
-  double progress,
-) {
-  final from = _fallbackHeroEndpoint(flightContext, fromContext, size);
-  final to = _fallbackHeroEndpoint(flightContext, toContext, size);
+  HeroFlightDirection direction,
+  double animationValue, {
+  required Size size,
+  Rect? from,
+  Rect? to,
+  Rect? fallbackFrom,
+  Rect? fallbackTo,
+}) {
+  if (size.isEmpty) return Rect.zero;
+  final screen = Offset.zero & size;
+  final fromRect =
+      from ??
+      fallbackFrom ??
+      _fallbackHeroEndpoint(flightContext, fromContext, size);
+  final toRect =
+      to ?? fallbackTo ?? _fallbackHeroEndpoint(flightContext, toContext, size);
+
+  final rawProgress = direction == HeroFlightDirection.push
+      ? animationValue
+      : 1 - animationValue;
+  final progress = rawProgress.isFinite
+      ? rawProgress.clamp(0.0, 1.0).toDouble()
+      : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
+
+  // Horizontal route-slide transforms are intentionally ignored. The Hero
+  // rect itself is already in Navigator coordinates, while the chrome spans
+  // the navigator width; interpolating endpoint x values would make the clip
+  // disappear into the offstage route for the first frames.
+  //
+  // fromHeroContext/toHeroContext are already departure/arrival endpoints
+  // for both directions, and progress is normalised to flight progress —
+  // lerp(from, to, progress) is correct as-is for push and pop.
   final top = _lerp(
-    from.top,
-    to.top,
+    fromRect.top,
+    toRect.top,
     progress,
   ).clamp(0.0, size.height).toDouble();
   final bottom = _lerp(
-    from.bottom,
-    to.bottom,
+    fromRect.bottom,
+    toRect.bottom,
+    progress,
+  ).clamp(0.0, size.height).toDouble();
+  if (bottom <= top) {
+    // A route can be offstage for one frame while HeroController measures it.
+    // Fall back to conservative chrome bounds rather than returning an empty
+    // clip (which makes the artwork disappear for the whole flight).
+    return _fallbackHeroFlightClipRect(
+      flightContext,
+      departureContext: fromContext,
+      arrivalContext: toContext,
+      size: size,
+      progress: progress,
+      from: fallbackFrom,
+      to: fallbackTo,
+    );
+  }
+  return Rect.fromLTRB(0, top, size.width, bottom).intersect(screen);
+}
+
+double _lerp(double begin, double end, double t) => begin + (end - begin) * t;
+
+Size _heroScreenSize(
+  BuildContext flightContext,
+  BuildContext fromContext,
+  BuildContext toContext,
+) {
+  for (final context in [flightContext, fromContext, toContext]) {
+    final media = MediaQuery.maybeOf(context);
+    final size = media?.size;
+    if (size != null && size.isFinite && !size.isEmpty) return size;
+  }
+  final navigator = Navigator.maybeOf(flightContext);
+  final renderObject = navigator?.context.findRenderObject();
+  if (renderObject is RenderBox && renderObject.hasSize) {
+    try {
+      final bounds = MatrixUtils.transformRect(
+        renderObject.getTransformTo(null),
+        Offset.zero & renderObject.size,
+      );
+      if (bounds.isFinite && !bounds.isEmpty) return bounds.size;
+    } on Object {
+      // A detached overlay has no usable global transform. Returning an
+      // empty size below makes the clip a safe no-op instead of throwing
+      // during a route transition.
+    }
+  }
+  return Size.zero;
+}
+
+Rect _fallbackHeroFlightClipRect(
+  BuildContext flightContext, {
+  required BuildContext departureContext,
+  required BuildContext arrivalContext,
+  required Size size,
+  required double progress,
+  Rect? from,
+  Rect? to,
+}) {
+  final departure =
+      from ?? _fallbackHeroEndpoint(flightContext, departureContext, size);
+  final arrival =
+      to ?? _fallbackHeroEndpoint(flightContext, arrivalContext, size);
+  final top = _lerp(
+    departure.top,
+    arrival.top,
+    progress,
+  ).clamp(0.0, size.height).toDouble();
+  final bottom = _lerp(
+    departure.bottom,
+    arrival.bottom,
     progress,
   ).clamp(0.0, size.height).toDouble();
   if (bottom <= top) return Offset.zero & size;
@@ -237,7 +307,7 @@ Rect _fallbackHeroFlightClipRect(
 }
 
 Rect _fallbackHeroEndpoint(
-  BuildContext flightContext,
+  BuildContext? flightContext,
   BuildContext heroContext,
   Size size,
 ) {
@@ -247,8 +317,10 @@ Rect _fallbackHeroEndpoint(
 }
 
 /// Status bar + app bar + pinned header of one flight end.
-double _heroTopChrome(BuildContext context, BuildContext heroContext) {
-  final media = MediaQuery.maybeOf(heroContext) ?? MediaQuery.maybeOf(context);
+double _heroTopChrome(BuildContext? context, BuildContext heroContext) {
+  final media =
+      MediaQuery.maybeOf(heroContext) ??
+      (context == null ? null : MediaQuery.maybeOf(context));
   final statusTop = media?.viewPadding.top ?? media?.padding.top ?? 0;
   final scaffold = heroContext.findAncestorWidgetOfExactType<Scaffold>();
   final appBar = scaffold?.appBar;

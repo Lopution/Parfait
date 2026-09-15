@@ -669,6 +669,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(profile.MePage), findsOneWidget);
+    // The account route renders its own profile state here; whatever the
+    // shell-level gear shows on /me does not leak into this pushed page.
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 

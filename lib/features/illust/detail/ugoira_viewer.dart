@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../app/motion/hero_transition.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
+import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_recovery.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
@@ -38,16 +40,56 @@ class UgoiraViewer extends ConsumerStatefulWidget {
     this.onLongPress,
     this.heroTag,
     this.flightShuttleBuilder,
+    this.heroImageUrl,
+    this.heroDecodeWidth,
+    this.heroTier,
+    this.detailUrl,
+    this.heroPopUrl,
+    this.heroPopDecodeWidth,
+    this.tier,
   });
 
   final int illustId;
+
+  /// Always-available fallback URL ([IllustEntity.imageUrls.large]); the
+  /// cover only reaches it once the Hero hand-off phase is over and no
+  /// detail-tier URL exists.
   final String previewUrl;
+
+  /// Detail-quality URL once the detail payload is merged — same role as
+  /// [DetailPageImage.detailUrl].
+  final String? detailUrl;
+
+  /// Feed-provided preview URL for the opening Hero hand-off. While the
+  /// route transition is running the cover must stay on this exact cache
+  /// entry — switching to the detail URL mid-flight leaves the shuttle on
+  /// the grey placeholder until a fresh screen-width decode finishes.
+  final String? heroImageUrl;
+
+  /// The quality tier [heroImageUrl] represents.
+  final IllustImageTier? heroTier;
+
+  /// The quality tier the non-hero cover URL represents — feeds the
+  /// per-(work,page) tier registry so later higher-tier requests can serve
+  /// from cache.
+  final IllustImageTier? tier;
   final int width;
   final int height;
   final bool downloadMode;
   final VoidCallback? onLongPress;
   final Object? heroTag;
   final HeroFlightShuttleBuilder? flightShuttleBuilder;
+
+  /// Decode width of the feed image that opened this detail route. Keeping
+  /// the first Hero frame at that width lets the existing card texture travel
+  /// into the detail page without a second large texture upload.
+  final int? heroDecodeWidth;
+
+  /// Lightweight destination texture used only during a reverse Hero flight.
+  /// Keeping it separate from the animated cover prevents a decoded frame or
+  /// original-sized upload from replacing the destination card mid-flight.
+  final String? heroPopUrl;
+  final int? heroPopDecodeWidth;
 
   @override
   ConsumerState<UgoiraViewer> createState() => _UgoiraViewerState();
@@ -78,10 +120,40 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   int? _lastFrameIndex;
   var _disposed = false;
 
+  /// Same hand-off guard as DetailPageImage: detail data can land while the
+  /// route is still flying. The cover keeps the feed preview URL (and its
+  /// card-width decode) until the transition completes, then upgrades
+  /// gaplessly. Without this the first frame after landing is a fresh
+  /// screen-width decode and the shuttle spends the flight on grey.
+  bool _routeTransitionComplete = true;
+  Animation<double>? _routeAnimation;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (identical(animation, _routeAnimation)) return;
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    _routeAnimation = animation;
+    if (animation == null || animation.status == AnimationStatus.completed) {
+      _routeTransitionComplete = true;
+    } else {
+      _routeTransitionComplete = false;
+      animation.addStatusListener(_handleRouteAnimationStatus);
+    }
+  }
+
+  void _handleRouteAnimationStatus(AnimationStatus status) {
+    if (!mounted) return;
+    if (status == AnimationStatus.completed && !_routeTransitionComplete) {
+      setState(() => _routeTransitionComplete = true);
+    }
   }
 
   @override
@@ -185,14 +257,31 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     // this makes preview URL changes use the same gapless PixivImage path as
     // still and multi-page works. The decoded frame simply paints above the
     // cover while it is available.
+    // Hero hand-off phase: while the route is flying (or the detail payload
+    // has not produced a URL yet) the cover stays on the feed card's URL at
+    // the feed card's decode width — the exact decoded cache entry. A cached
+    // detail otherwise promotes the cover to the detail tier mid-flight and
+    // the shuttle renders the grey placeholder until that decode lands.
+    final onHeroPhase =
+        widget.heroImageUrl != null &&
+        (widget.detailUrl == null || !_routeTransitionComplete);
+    final coverUrl = onHeroPhase
+        ? widget.heroImageUrl!
+        : (widget.detailUrl ?? widget.previewUrl);
     final image = Stack(
       fit: StackFit.expand,
       children: [
         Positioned.fill(
           child: PixivImage.hero(
-            widget.previewUrl,
+            coverUrl,
             tag: widget.heroTag,
             fit: BoxFit.fitWidth,
+            tierKey: '${widget.illustId}_0',
+            tier: onHeroPhase ? widget.heroTier : widget.tier,
+            // A recorded higher tier must not replace the feed URL during
+            // the flight — the upgrade would point at an undecoded entry.
+            tierUpgrade: !onHeroPhase,
+            decodeWidth: onHeroPhase ? widget.heroDecodeWidth : null,
           ),
         ),
         if (currentImage != null)
@@ -207,12 +296,27 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     );
     final tag = widget.heroTag;
     if (tag == null) return image;
+    final popUrl = widget.heroPopUrl;
+    final popChild = popUrl == null
+        ? null
+        : SizedBox.expand(
+            child: PixivImage.detail(
+              popUrl,
+              fit: BoxFit.fitWidth,
+              transitionKey: tag,
+              decodeWidth: widget.heroPopDecodeWidth,
+              tierUpgrade: false,
+            ),
+          );
     return Hero(
       tag: tag,
       flightShuttleBuilder: widget.flightShuttleBuilder,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-        child: image,
+      child: IllustHeroFlightChild(
+        popChild: popChild,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          child: image,
+        ),
       ),
     );
   }
@@ -502,6 +606,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   @override
   void dispose() {
     _disposed = true;
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
     WidgetsBinding.instance.removeObserver(this);
     _loadCancelToken?.cancel();
     _scheduler?.dispose();

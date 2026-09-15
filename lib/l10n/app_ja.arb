@@ -12,6 +12,10 @@
   "light": "ライト",
   "system": "システムのデフォルト",
   "loginTitle": "登録･ログイン",
+  "loginProxyNoticeTitle": "お知らせ",
+  "loginProxyNoticeBody": "ネットワーク環境の制限により、ログインまたは登録の前にシステムまたは外部プロキシを有効にしてください。Pixiv Funcに内蔵プロキシはありません。",
+  "loginProxyNoticeCancel": "キャンセル",
+  "loginProxyNoticeContinue": "有効にしました",
   "register": "登録",
   "login": "ログイン",
   "loginPageClosed": "ページが閉じられました。再度開いてください。",
@@ -39,6 +43,8 @@
       }
     }
   },
+  "loginWebView2Missing": "ログインには WebView2 Runtime が必要ですが、このシステムでは検出されませんでした。インストールしてからこのページを開き直してください。",
+  "loginInstallWebView2": "WebView2 Runtime をインストール",
   "loginFailed": "ログインに失敗しました: {error}",
   "@loginFailed": {
     "placeholders": {
@@ -55,7 +61,7 @@
       }
     }
   },
-  "networkCompatibility": "自動互換ネットワーク",
+  "networkCompatibility": "Pixiv公式ネットワーク互換",
   "networkCompatibilityHint": "まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。",
   "getMoreHelp": "詳細なヘルプ >>",
   "useLoginWithClipboardHint": "もしくは\\nプロフィール画像を長押ししてアカウントデータをコピー",
@@ -74,10 +80,23 @@
   "accountTransferStorageFailure": "アカウント移行記録を安全に保存できません",
   "loginAgree": "ログインすると利用規約に同意したものとみなします",
   "userAgreement": "《Pixiv Func利用規約》",
+  "agreementTitle": "Pixiv Func利用規約",
+  "agreementIntro": "Pixiv Funcをご利用いただきありがとうございます。本アプリを利用した時点で、以下の条項に同意したものとします。同意できない場合は利用を中止してください。",
+  "agreementAccountTitle": "アカウントと認証",
+  "agreementAccountBody": "本アプリはPixiv公式のログインフローを使用し、Pixivのパスワードを本アプリに入力または共有するよう求めません。アカウントと端末を安全に管理し、利用状況や認証の取り消しはPixivの設定で管理してください。",
+  "agreementContentTitle": "コンテンツと著作権",
+  "agreementContentBody": "作品、コメント、プロフィールなどはPixivおよびユーザーが提供し、権利は各権利者に帰属します。法律とPixivの規約が許す範囲でのみ閲覧・保存・共有し、他者の権利を侵害しないでください。",
+  "agreementNetworkTitle": "ネットワークアクセス",
+  "agreementNetworkBody": "本アプリの互換ルーティングはPixiv公式宛先のみに使用します。他の通信をプロキシせず、証明書検証も有効です。ネットワーク状況、API変更、サービス停止は保証されません。",
+  "agreementPrivacyTitle": "プライバシーとローカルデータ",
+  "agreementPrivacyBody": "認証情報はシステムの安全な保存領域に保管し、設定・キャッシュ・履歴・ダウンロードは端末内に保存します。個人情報を販売することはありません。アンインストールやデータ消去でローカル内容が失われる場合があります。",
+  "agreementDisclaimerTitle": "免責事項",
+  "agreementDisclaimerBody": "本アプリはPixiv Inc.とは無関係の非公式サードパーティークライアントです。法律で認められる範囲で、ネットワーク、アカウント、第三者サービス、不可抗力による損失やアクセス障害について作者は責任を負いません。",
+  "agreementUpdates": "本規約は機能や法令の変更に応じて更新されることがあります。利用を続けることで更新後の規約に同意したものとします。",
   "settingsTitle": "設定",
   "accountSettings": "アカウント",
   "networkSettings": "ネットワーク",
-  "networkMode": "自動互換ネットワーク",
+  "networkMode": "Pixiv公式ネットワーク互換",
   "networkModeHint": "デフォルトは直結。Pixiv 公式ドメインのみ、明確な転送失敗時に厳格 HTTPS 候補を試します。他トラフィックはプロキシせず、証明書検証は無効化しません。",
   "networkModeListTitle": "ネットワークモード",
   "networkModeAutomatic": "自動",
@@ -301,7 +320,7 @@
   "aboutAttribution": "帰属表示",
   "aboutSource": "ソースコード",
   "aboutLicenseText": "このプロジェクトは公開された Pixiv Func のソースを基にし、GNU AGPL v3.0 に従います。",
-  "aboutAttributionText": "原作者：git-xiaocao。",
+  "aboutAttributionText": "著作権およびメンテナンス：Lopution。",
   "settingsReadFailed": "設定の読み込みに失敗しました",
   "settingsWriteFailed": "設定の保存に失敗しました",
   "add": "追加",
@@ -598,5 +617,6 @@
   "novelNext": "次の小説",
   "novelDecreaseFont": "文字を小さく",
   "novelIncreaseFont": "文字を大きく",
-  "novelReadingProgress": "読書進捗"
+  "novelReadingProgress": "読書進捗",
+  "aboutDisplayRefreshRate": "画面リフレッシュレート"
 }

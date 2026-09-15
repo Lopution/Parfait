@@ -174,6 +174,41 @@ class MethodChannelUpdatePlatform implements UpdatePlatform {
   }
 }
 
+/// Non-Android platforms: the updater reports `storeManaged` so the service
+/// construction takes the existing disabled path and never builds its own
+/// transport. Every other verb fails loudly — callers must never reach them
+/// because the capability check gates them off.
+class UnsupportedUpdatePlatform implements UpdatePlatform {
+  const UnsupportedUpdatePlatform();
+
+  static const _unavailable = UpdatePlatformException('platform_unavailable');
+
+  @override
+  Future<UpdateCapability> capability() async =>
+      const UpdateCapability.fdroid();
+
+  @override
+  Future<UpdatePlatformInfo> info() => throw _unavailable;
+
+  @override
+  Future<UpdateManifestVerification> verifyManifestSignature({
+    required List<int> message,
+    required List<int> signature,
+  }) => throw _unavailable;
+
+  @override
+  Future<UpdateApkVerification> verifyApk({
+    required String path,
+    required UpdateReleaseAsset asset,
+  }) => throw _unavailable;
+
+  @override
+  Future<UpdateInstallResult> installApk(String path) => throw _unavailable;
+
+  @override
+  Future<bool> deleteApk(String path) => throw _unavailable;
+}
+
 class UpdatePlatformException implements Exception {
   const UpdatePlatformException(this.code);
 

@@ -15,6 +15,7 @@ import '../download/pixiv_download_transport.dart';
 import 'update_download.dart';
 import 'update_service.dart';
 import '../network/http_client_providers.dart';
+import '../platform/platform_caps.dart';
 
 const _updaterSubmissionContext = DownloadSubmissionContext(
   accountId: 'pixivfunc-updater',
@@ -27,7 +28,9 @@ const _updaterSubmissionContext = DownloadSubmissionContext(
 /// The updater has its own exact-host transport and recovery namespace. It
 /// never inherits Pixiv cookies, account ownership or image CDN policy.
 final updateServiceProvider = FutureProvider<UpdateService>((ref) async {
-  final platform = MethodChannelUpdatePlatform();
+  final platform = ref.watch(platformCapsProvider).isAndroid
+      ? MethodChannelUpdatePlatform()
+      : const UnsupportedUpdatePlatform();
   final capability = await platform.capability();
   if (capability.storeManaged || capability.flavor == UpdateFlavor.fdroid) {
     // Do not even construct an HttpClient in the F-Droid graph. The native

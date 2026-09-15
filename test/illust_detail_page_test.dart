@@ -181,7 +181,7 @@ Future<void> pumpDetail(
 }
 
 Future<void> longPressImage(WidgetTester tester) async {
-  final center = tester.getCenter(find.byType(AspectRatio).first);
+  final center = tester.getCenter(find.byType(PixivImage).first);
   final gesture = await tester.startGesture(center);
   await tester.pump(const Duration(milliseconds: 700));
   await gesture.up();

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../core/platform/android_intent_channel.dart';
 import '../core/platform/intent_router.dart';
+import '../core/platform/platform_caps.dart';
 import '../l10n/context.dart';
 import 'navigation/routes.dart';
 import 'widgets/app_snack_bar.dart';
@@ -36,7 +37,10 @@ class _ExternalIntentBridgeState extends State<ExternalIntentBridge> {
   void initState() {
     super.initState();
     _intentSource =
-        widget.intentSource ?? const MethodChannelAndroidIntentSource();
+        widget.intentSource ??
+        (PlatformCaps.system().isAndroid
+            ? const MethodChannelAndroidIntentSource()
+            : const NoopAndroidIntentSource());
     _intentSubscription = _intentSource.onNewIntent.listen(
       _handleExternalIntent,
       onError: _handleExternalIntentStreamError,

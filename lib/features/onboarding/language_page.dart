@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
@@ -52,9 +53,16 @@ class LanguagePage extends ConsumerWidget {
         child: Column(
           children: [
             const Spacer(flex: 2),
-            Text(
-              l10nLookupFor(language.locale, 'selectLanguage'),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                l10nLookupFor(language.locale, 'selectLanguage'),
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             const Spacer(),
             for (final item in _items) ...[
@@ -66,8 +74,7 @@ class LanguagePage extends ConsumerWidget {
                 value: settings.languageTag == item.$2,
                 title: Text(
                   item.$1,
-                  style: const TextStyle(
-                    fontSize: 18,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -87,9 +94,17 @@ class LanguagePage extends ConsumerWidget {
               ),
             ),
             const Spacer(),
-            Text(
-              l10nLookupFor(language.locale, 'later'),
-              style: const TextStyle(fontSize: 14),
+            // Fixed-height slot: long translations (ru/en wrap to two
+            // lines) keep the same visual anchor as one-line locales.
+            SizedBox(
+              height: 44,
+              child: Center(
+                child: Text(
+                  l10nLookupFor(language.locale, 'later'),
+                  textAlign: TextAlign.center,
+                  style: FuncSemanticTokens.of(context).body,
+                ),
+              ),
             ),
             const Spacer(),
           ],

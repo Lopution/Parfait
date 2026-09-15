@@ -211,6 +211,18 @@ Future<void> PixivImage.preload(
   appear immediately rather than fading a translucent frame over the route
   background. This is the distinction between a useful first-load transition
   and the white flash regression.
+- Detail pages size multi-page images by each decoded frame's intrinsic
+  ratio — never by a fixed `AspectRatio` on the container. The app API's
+  `meta_pages[]` carries only `image_urls` (no per-page width/height), so
+  `pageAspectRatioAt` falls back to the work-level (= first page) ratio and
+  letterboxes every non-matching page. Estimated-ratio boxes are placeholder
+  real estate only: the slot must hold an estimated box until the decode
+  lands, then let the real dimensions take over.
+- The decoded image cache must survive backgrounding: Android posts
+  TRIM_MEMORY_UI_HIDDEN on every hide and the stock binding answers it with
+  `imageCache.clear()`, which re-fades every artwork on resume. The app's
+  `WidgetsFlutterBinding` subclass keeps decoded frames and only clears live
+  streams + `rootBundle`.
 - A card may call `PixivImage.preload` on pointer down, but must not await it
   before pushing the detail route. The detail frame creates a fixed-size
   avatar provider immediately; a cold avatar may fill after the transition.
@@ -340,6 +352,12 @@ const PullToRefresh({
   tab body owns one nested `PullToRefresh` wrapper, following PixEz's
   `EasyRefresh` locator pattern. Do not add another wrapper around the whole
   `NestedScrollView`. Ordinary lists use the default `isNested: false` path.
+- Touch scroll physics are unified app-wide through `FuncScrollBehavior`:
+  `BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())` plus no
+  platform overscroll indicator — the same scheme `_ERScrollPhysics` installs
+  inside `PullToRefresh` subtrees, so non-feed pages (detail, settings,
+  search) and `NestedScrollView` outer scrolls share the feed's feel. Do not
+  reintroduce a `ClampingScrollPhysics` region.
 - Indicator behavior, stated as observable outcomes:
   - A pull that reverses before release moves the indicator back with the
     finger; releasing below the threshold cancels without calling `onRefresh`.
