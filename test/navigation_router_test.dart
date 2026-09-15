@@ -228,10 +228,7 @@ void main() {
     final snapshots = tester.widgetList<SnapshotWidget>(
       find.byType(SnapshotWidget, skipOffstage: false),
     );
-    expect(
-      snapshots.where((s) => s.controller.allowSnapshotting),
-      isNotEmpty,
-    );
+    expect(snapshots.where((s) => s.controller.allowSnapshotting), isNotEmpty);
     // The live subtree stays mounted so a cancelled pop or route state
     // survives the snapshot window.
     expect(find.byType(SettingsPage, skipOffstage: false), findsOneWidget);

@@ -100,7 +100,8 @@ class _ImageViewerRoute extends ConsumerWidget {
     // payload lands mid-session it carries original-tier URLs the snapshot
     // lacked, and recomputing urls lets PixivImage's gapless URL swap
     // upgrade to the real tier instead of staying on large forever.
-    final entity = ref.watch(illustStoreProvider).get(illustId) ?? extra?.entity;
+    final entity =
+        ref.watch(illustStoreProvider).get(illustId) ?? extra?.entity;
     final urls = entity?.viewerUrls(quality) ?? extra?.urls ?? const <String>[];
     return ImageViewerPage(
       urls: urls,
@@ -224,8 +225,7 @@ class _SecondaryAnimationTickerGateState
     return TickerMode(
       enabled: !(secondary?.isAnimating ?? false),
       child: _RoutePopSnapshot(
-        animation:
-            _route?.animation ?? const AlwaysStoppedAnimation<double>(1),
+        animation: _route?.animation ?? const AlwaysStoppedAnimation<double>(1),
         secondaryAnimation:
             secondary ?? const AlwaysStoppedAnimation<double>(0),
         child: widget.child,
@@ -1209,9 +1209,10 @@ Future<void> openImageViewer(
     PixivImage.preload(
       context,
       entity.viewerUrlAt(page, quality),
-      cacheManager: ProviderScope.containerOf(context, listen: false)
-          .read(pixivNetworkFactoryProvider)
-          .imageCacheManager,
+      cacheManager: ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(pixivNetworkFactoryProvider).imageCacheManager,
       tierKey: entity.imageTierKeyAt(page),
       tier: quality.tier,
       // A context that unmounts mid-push (branch switch racing the tap)

@@ -59,9 +59,7 @@ void scheduleFeedPreviewPrefetch(
 ) {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!context.mounted) return;
-    unawaited(
-      _prefetchFeedWindow(context, entities, fromIndex, decodeWidth),
-    );
+    unawaited(_prefetchFeedWindow(context, entities, fromIndex, decodeWidth));
   });
 }
 
@@ -79,8 +77,9 @@ Future<void> _prefetchFeedWindow(
     // prefetch is best-effort, so skip rather than fail an unawaited path.
     return;
   }
-  final cacheManager =
-      container.read(pixivNetworkFactoryProvider).imageCacheManager;
+  final cacheManager = container
+      .read(pixivNetworkFactoryProvider)
+      .imageCacheManager;
   final previewQuality = container.read(previewQualityProvider);
   final end = math.min(entities.length, fromIndex + _kFeedPrefetchAhead);
   for (var i = fromIndex; i < end; i += _kFeedPrefetchConcurrent) {
