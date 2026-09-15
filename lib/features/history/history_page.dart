@@ -108,7 +108,8 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.extentAfter < 400) {
+    if (_scrollController.position.extentAfter <
+        _scrollController.position.viewportDimension * 1.2) {
       unawaited(
         ref
             .read(historyFeedControllerProvider(widget.accountId).notifier)
@@ -171,6 +172,7 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
               key: PageStorageKey('history-${widget.accountId}'),
               controller: controller,
               physics: physics,
+              scrollCacheExtent: kFeedCacheExtent,
               restorationId: 'history-${widget.accountId}',
               slivers: [
                 IllustFeedGrid(

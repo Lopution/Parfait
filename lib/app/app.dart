@@ -71,9 +71,13 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
       loading: () => _materialApp(
         settings: AppSettings.defaults(),
         themeMode: themeMode,
-        overlay: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        // Settings are a prerequisite for routing decisions, so the gate
+        // stays inert while the async preference read completes — defaults
+        // would read guideCompleted == false and bounce a signed-in user
+        // through /welcome. The initial route is /splash, a neutral surface
+        // that hands off once the data branch mounts the real gate.
+        startupSettings: AppSettings.defaults(),
+        settingsPending: true,
       ),
       error: (error, stackTrace) => _materialApp(
         settings: AppSettings.defaults(),
@@ -107,6 +111,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     required ThemeMode themeMode,
     Widget? overlay,
     AppSettings? startupSettings,
+    bool settingsPending = false,
   }) {
     return MaterialApp.router(
       title: 'Pixiv Func',
@@ -137,6 +142,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
                 : StartupGate(
                     settings: startupSettings,
                     router: _router,
+                    settingsPending: settingsPending,
                     child: routeChild,
                   ));
         // ignore: deprecated_member_use
@@ -144,7 +150,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
           child: ExternalIntentBridge(
             router: _router,
             intentSource: widget.intentSource,
-            child: content,
+            child: PipelineWarmup(child: content),
           ),
         );
       },

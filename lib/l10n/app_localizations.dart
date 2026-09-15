@@ -174,6 +174,30 @@ abstract class AppLocalizations {
   /// **'注册 或 登录'**
   String get loginTitle;
 
+  /// No description provided for @loginProxyNoticeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示'**
+  String get loginProxyNoticeTitle;
+
+  /// No description provided for @loginProxyNoticeBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Pixiv Func 不提供内置代理。'**
+  String get loginProxyNoticeBody;
+
+  /// No description provided for @loginProxyNoticeCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get loginProxyNoticeCancel;
+
+  /// No description provided for @loginProxyNoticeContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'我已开启代理'**
+  String get loginProxyNoticeContinue;
+
   /// No description provided for @register.
   ///
   /// In zh, this message translates to:
@@ -237,7 +261,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkCompatibility.
   ///
   /// In zh, this message translates to:
-  /// **'自动兼容网络'**
+  /// **'Pixiv 官方网络兼容'**
   String get networkCompatibility;
 
   /// No description provided for @networkCompatibilityHint.
@@ -348,6 +372,84 @@ abstract class AppLocalizations {
   /// **'《Pixiv Func用户使用协议》'**
   String get userAgreement;
 
+  /// No description provided for @agreementTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'Pixiv Func用户使用协议'**
+  String get agreementTitle;
+
+  /// No description provided for @agreementIntro.
+  ///
+  /// In zh, this message translates to:
+  /// **'感谢使用 Pixiv Func。使用本应用即表示你已阅读并同意以下条款；如不同意，请停止使用本应用。'**
+  String get agreementIntro;
+
+  /// No description provided for @agreementAccountTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号与授权'**
+  String get agreementAccountTitle;
+
+  /// No description provided for @agreementAccountBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'本应用通过 Pixiv 官方登录流程获取授权，不会要求你在本应用中输入或分享 Pixiv 密码。请妥善保管账号和设备，账号行为及授权撤销由 Pixiv 账户设置负责。'**
+  String get agreementAccountBody;
+
+  /// No description provided for @agreementContentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容与版权'**
+  String get agreementContentTitle;
+
+  /// No description provided for @agreementContentBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品、评论、用户资料等内容由 Pixiv 及其用户提供，版权归相应权利人所有。请仅在法律和 Pixiv 规则允许的范围内浏览、保存或分享，不得利用本应用侵犯他人权益。'**
+  String get agreementContentBody;
+
+  /// No description provided for @agreementNetworkTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络访问'**
+  String get agreementNetworkTitle;
+
+  /// No description provided for @agreementNetworkBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'本应用仅为访问 Pixiv 官方服务提供网络兼容策略；兼容线路只用于官方域名，仍会校验证书，不代理其他流量。网络可用性、接口变更和服务中断不由本应用保证。'**
+  String get agreementNetworkBody;
+
+  /// No description provided for @agreementPrivacyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐私与本地数据'**
+  String get agreementPrivacyTitle;
+
+  /// No description provided for @agreementPrivacyBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录凭据保存在系统安全存储中；设置、缓存、历史和下载文件保存在本地。除你主动使用的 Pixiv 或反向搜图服务外，本应用不会出售个人信息。卸载应用或清理数据可能删除本地内容。'**
+  String get agreementPrivacyBody;
+
+  /// No description provided for @agreementDisclaimerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'免责声明'**
+  String get agreementDisclaimerTitle;
+
+  /// No description provided for @agreementDisclaimerBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'本应用是非官方第三方客户端，与 Pixiv Inc. 没有隶属关系。因网络、账号、第三方服务或不可抗力造成的内容丢失、访问失败或其他损失，应用作者在法律允许范围内不承担责任。'**
+  String get agreementDisclaimerBody;
+
+  /// No description provided for @agreementUpdates.
+  ///
+  /// In zh, this message translates to:
+  /// **'协议可能因功能或法律变化更新；继续使用即表示接受更新后的协议。'**
+  String get agreementUpdates;
+
   /// No description provided for @settingsTitle.
   ///
   /// In zh, this message translates to:
@@ -369,7 +471,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkMode.
   ///
   /// In zh, this message translates to:
-  /// **'自动兼容网络'**
+  /// **'Pixiv 官方网络兼容'**
   String get networkMode;
 
   /// No description provided for @networkModeHint.
@@ -1480,7 +1582,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutAttributionText.
   ///
   /// In zh, this message translates to:
-  /// **'原项目作者：git-xiaocao（小草）。'**
+  /// **'版权所有及维护：Lopution。'**
   String get aboutAttributionText;
 
   /// No description provided for @settingsReadFailed.
@@ -2742,6 +2844,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'阅读进度'**
   String get novelReadingProgress;
+
+  /// No description provided for @aboutDisplayRefreshRate.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示刷新率'**
+  String get aboutDisplayRefreshRate;
 }
 
 class _AppLocalizationsDelegate

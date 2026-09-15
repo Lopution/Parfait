@@ -45,6 +45,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginTitle => '登録･ログイン';
 
   @override
+  String get loginProxyNoticeTitle => 'お知らせ';
+
+  @override
+  String get loginProxyNoticeBody =>
+      'ネットワーク環境の制限により、ログインまたは登録の前にシステムまたは外部プロキシを有効にしてください。Pixiv Funcに内蔵プロキシはありません。';
+
+  @override
+  String get loginProxyNoticeCancel => 'キャンセル';
+
+  @override
+  String get loginProxyNoticeContinue => '有効にしました';
+
+  @override
   String get register => '登録';
 
   @override
@@ -86,7 +99,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get networkCompatibility => '自動互換ネットワーク';
+  String get networkCompatibility => 'Pixiv公式ネットワーク互換';
 
   @override
   String get networkCompatibilityHint =>
@@ -150,6 +163,52 @@ class AppLocalizationsJa extends AppLocalizations {
   String get userAgreement => '《Pixiv Func利用規約》';
 
   @override
+  String get agreementTitle => 'Pixiv Func利用規約';
+
+  @override
+  String get agreementIntro =>
+      'Pixiv Funcをご利用いただきありがとうございます。本アプリを利用した時点で、以下の条項に同意したものとします。同意できない場合は利用を中止してください。';
+
+  @override
+  String get agreementAccountTitle => 'アカウントと認証';
+
+  @override
+  String get agreementAccountBody =>
+      '本アプリはPixiv公式のログインフローを使用し、Pixivのパスワードを本アプリに入力または共有するよう求めません。アカウントと端末を安全に管理し、利用状況や認証の取り消しはPixivの設定で管理してください。';
+
+  @override
+  String get agreementContentTitle => 'コンテンツと著作権';
+
+  @override
+  String get agreementContentBody =>
+      '作品、コメント、プロフィールなどはPixivおよびユーザーが提供し、権利は各権利者に帰属します。法律とPixivの規約が許す範囲でのみ閲覧・保存・共有し、他者の権利を侵害しないでください。';
+
+  @override
+  String get agreementNetworkTitle => 'ネットワークアクセス';
+
+  @override
+  String get agreementNetworkBody =>
+      '本アプリの互換ルーティングはPixiv公式宛先のみに使用します。他の通信をプロキシせず、証明書検証も有効です。ネットワーク状況、API変更、サービス停止は保証されません。';
+
+  @override
+  String get agreementPrivacyTitle => 'プライバシーとローカルデータ';
+
+  @override
+  String get agreementPrivacyBody =>
+      '認証情報はシステムの安全な保存領域に保管し、設定・キャッシュ・履歴・ダウンロードは端末内に保存します。個人情報を販売することはありません。アンインストールやデータ消去でローカル内容が失われる場合があります。';
+
+  @override
+  String get agreementDisclaimerTitle => '免責事項';
+
+  @override
+  String get agreementDisclaimerBody =>
+      '本アプリはPixiv Inc.とは無関係の非公式サードパーティークライアントです。法律で認められる範囲で、ネットワーク、アカウント、第三者サービス、不可抗力による損失やアクセス障害について作者は責任を負いません。';
+
+  @override
+  String get agreementUpdates =>
+      '本規約は機能や法令の変更に応じて更新されることがあります。利用を続けることで更新後の規約に同意したものとします。';
+
+  @override
   String get settingsTitle => '設定';
 
   @override
@@ -159,7 +218,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkSettings => 'ネットワーク';
 
   @override
-  String get networkMode => '自動互換ネットワーク';
+  String get networkMode => 'Pixiv公式ネットワーク互換';
 
   @override
   String get networkModeHint =>
@@ -737,7 +796,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'このプロジェクトは公開された Pixiv Func のソースを基にし、GNU AGPL v3.0 に従います。';
 
   @override
-  String get aboutAttributionText => '原作者：git-xiaocao。';
+  String get aboutAttributionText => '著作権およびメンテナンス：Lopution。';
 
   @override
   String get settingsReadFailed => '設定の読み込みに失敗しました';
@@ -1396,4 +1455,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelReadingProgress => '読書進捗';
+
+  @override
+  String get aboutDisplayRefreshRate => '画面リフレッシュレート';
 }

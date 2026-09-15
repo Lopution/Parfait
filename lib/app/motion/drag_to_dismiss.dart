@@ -97,7 +97,13 @@ class _DragToDismissState extends State<DragToDismiss>
       offset: Offset(0, offset),
       child: Transform.scale(
         scale: 1 - progress * 0.15,
-        child: Opacity(opacity: 1 - progress * 0.35, child: widget.child),
+        child: Opacity(
+          opacity: 1 - progress * 0.35,
+          // The return controller only changes the transform/opacity. Keep
+          // the detail surface in its own raster layer so a canceled drag
+          // does not rebuild and repaint every image on each reverse tick.
+          child: RepaintBoundary(child: widget.child),
+        ),
       ),
     );
 

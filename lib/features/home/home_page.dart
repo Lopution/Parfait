@@ -26,20 +26,15 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with WidgetsBindingObserver, RouteAware {
   late final RootBackCoordinator _backCoordinator;
-  final GlobalKey _bottomNavKey = GlobalKey();
-  bool _bottomNavMeasureScheduled = false;
+  bool _chromeClearScheduled = false;
   RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
   bool _routeSubscribed = false;
-  GoRouterDelegate? _routerDelegate;
 
   @override
   void initState() {
     super.initState();
     _backCoordinator = RootBackCoordinator();
     WidgetsBinding.instance.addObserver(this);
-    // Publish the real bottom-row height so the Hero flight can clip
-    // against the actual chrome instead of a guessed constant.
-    _scheduleBottomNavMeasure();
   }
 
   @override
@@ -56,18 +51,6 @@ class _HomePageState extends State<HomePage>
       _routeObserver.subscribe(this, route);
       _routeSubscribed = true;
     }
-    // Branch-internal pushes don't rebuild the shell — subscribe to the
-    // delegate so the bottom bar can hide whenever the top location leaves
-    // a branch root.
-    final delegate = GoRouter.of(context).routerDelegate;
-    if (!identical(delegate, _routerDelegate)) {
-      _routerDelegate?.removeListener(_onRouteChanged);
-      _routerDelegate = delegate..addListener(_onRouteChanged);
-    }
-  }
-
-  void _onRouteChanged() {
-    if (mounted) setState(() {});
   }
 
   @override
@@ -79,44 +62,22 @@ class _HomePageState extends State<HomePage>
   }
 
   @override
-  void didChangeMetrics() => _scheduleBottomNavMeasure();
-
-  @override
   void dispose() {
     if (_routeSubscribed) _routeObserver.unsubscribe(this);
-    _routerDelegate?.removeListener(_onRouteChanged);
     WidgetsBinding.instance.removeObserver(this);
     _backCoordinator.dispose();
     super.dispose();
   }
 
-  void _measureBottomNav(Duration _) {
-    final box = _bottomNavKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize && box.size.height > 0) {
-      final origin = box.localToGlobal(Offset.zero);
-      ProviderScope.containerOf(context)
-          .read(homeShellMetricsProvider.notifier)
-          .publish(origin.dy, box.size.height);
-    }
-  }
-
-  void _scheduleBottomNavMeasure() {
-    if (_bottomNavMeasureScheduled) return;
-    _bottomNavMeasureScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((timestamp) {
-      _bottomNavMeasureScheduled = false;
-      if (mounted) _measureBottomNav(timestamp);
-    });
-  }
-
   /// Wide layouts use a NavigationRail and have no bottom bar — report an
-  /// empty measurement so Hero flights clip against the viewport edge instead
-  /// of a phantom bar.
+  /// empty measurement so Hero flights clip against the viewport edge
+  /// instead of a phantom bar. In narrow layouts the per-branch
+  /// [FuncBranchBottomNav] publishes its own measured geometry.
   void _scheduleChromeClear() {
-    if (_bottomNavMeasureScheduled) return;
-    _bottomNavMeasureScheduled = true;
+    if (_chromeClearScheduled) return;
+    _chromeClearScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((timestamp) {
-      _bottomNavMeasureScheduled = false;
+      _chromeClearScheduled = false;
       if (mounted) {
         ProviderScope.containerOf(
           context,
@@ -137,6 +98,14 @@ class _HomePageState extends State<HomePage>
     }
     switch (_backCoordinator.handleBackPress()) {
       case RootBackAction.showExitHint:
+        final shellMetrics = ProviderScope.containerOf(
+          context,
+        ).read(homeShellMetricsProvider);
+        // HomePage's ScaffoldMessenger is above the branch-root Scaffold that
+        // owns the bottom bar. A floating SnackBar otherwise anchors to the
+        // screen edge and covers the bar; reserve the measured bar height
+        // (plus a small gap) so the hint stays inside the content area.
+        final bottomMargin = (shellMetrics.bottomNavHeight ?? 64) + 12;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           // U4 (R7): the hint's lifetime must equal the exit window — with
@@ -150,6 +119,7 @@ class _HomePageState extends State<HomePage>
               content: Text(context.l10n.homeExitHint),
               duration: RootBackCoordinator.exitWindow,
               behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
             ),
             snackBarAnimationStyle: const AnimationStyle(
               // M2 floating fades inside the 0.4-1.0 interval, so a 120ms
@@ -186,23 +156,11 @@ class _HomePageState extends State<HomePage>
       context.l10n.searchTitle,
       context.l10n.homeMe,
     ];
-    // The bar belongs to the primary destinations only — pushed routes
-    // (illust detail, user page, history…) reclaim the full height. The
-    // shell context keeps the branch-root state, so read the router's
-    // topmost state directly.
-    final location = GoRouter.of(context).state.matchedLocation;
-    final atBranchRoot = const {
-      '/recommended',
-      '/ranking',
-      '/new',
-      '/search',
-      '/me',
-    }.contains(location);
-    if (wide || !atBranchRoot) {
-      _scheduleChromeClear();
-    } else {
-      _scheduleBottomNavMeasure();
-    }
+    // Narrow layout: each branch-root page owns its bottom bar, which a
+    // pushed route simply covers — no shell-level hide machinery here.
+    // Wide layout: no bar at all; clear the metric so Hero flights do not
+    // clip against a phantom edge.
+    if (wide) _scheduleChromeClear();
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
@@ -236,29 +194,6 @@ class _HomePageState extends State<HomePage>
                 ],
               )
             : widget.navigationShell,
-        bottomNavigationBar: wide
-            ? null
-            : SizedBox(
-                key: _bottomNavKey,
-                child: AnimatedSize(
-                  duration: MotionTokens.fast,
-                  curve: MotionTokens.fastCurve,
-                  alignment: Alignment.topCenter,
-                  child: atBranchRoot
-                      ? FuncBottomNav(
-                          selectedIndex: index,
-                          onSelected: widget.navigationShell.goBranch,
-                          destinations: [
-                            for (var i = 0; i < icons.length; i++)
-                              FuncBottomNavDestination(
-                                icon: icons[i],
-                                label: labels[i],
-                              ),
-                          ],
-                        )
-                      : const SizedBox(height: 0, width: double.infinity),
-                ),
-              ),
       ),
     );
   }

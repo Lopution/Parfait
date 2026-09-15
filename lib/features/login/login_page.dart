@@ -128,6 +128,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _openLoginWebview({bool create = false}) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.loginProxyNoticeTitle),
+        content: Text(context.l10n.loginProxyNoticeBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.l10n.loginProxyNoticeCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.l10n.loginProxyNoticeContinue),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     // R7 was cancelled: the first login always uses the stable webview_flutter
     // path (C16). The native interception entry is removed.
     final result = await context.push<bool>(
@@ -264,9 +282,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
           const Spacer(),
           Text(text('loginAgree'), style: const TextStyle(fontSize: 14)),
-          Text(
-            text('userAgreement'),
-            style: const TextStyle(fontSize: 14, color: FuncTokens.primary),
+          TextButton(
+            onPressed: () => context.push<void>('/user-agreement'),
+            style: TextButton.styleFrom(
+              foregroundColor: FuncTokens.primary,
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              text('userAgreement'),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const Spacer(),
         ],

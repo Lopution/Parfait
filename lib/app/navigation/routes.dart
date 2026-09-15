@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -5,9 +7,11 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_entity.dart';
+import '../image_tier_cache.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
+import '../../core/network/compat/network_providers.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/image_input.dart';
@@ -26,6 +30,7 @@ import '../../features/new/new_page.dart';
 import '../../features/novel/novel_page.dart';
 import '../../features/onboarding/language_page.dart';
 import '../../features/onboarding/theme_page.dart';
+import '../../features/onboarding/user_agreement_page.dart';
 import '../../features/onboarding/welcome_page.dart';
 import '../../features/profile/profile_edit_page.dart';
 import '../../features/profile/user_page.dart';
@@ -41,18 +46,27 @@ import '../../features/settings/pages/translation_credentials_page.dart';
 import '../../l10n/context.dart';
 import '../motion/hero_transition.dart';
 import '../motion/motion_tokens.dart';
+import '../pixiv_image.dart';
+import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
+import '../widgets/func_bottom_nav.dart';
 
 class IllustRouteExtra {
   const IllustRouteExtra({
     this.entity,
     this.heroScope = 'feed',
     this.heroImageUrl,
+    this.heroImageDecodeWidth,
   });
 
   final IllustEntity? entity;
   final String heroScope;
   final String? heroImageUrl;
+
+  /// Decode width of the feed card that produced [heroImageUrl]. The detail
+  /// page decodes its hero-phase image at this width so the first frame is
+  /// the same cache entry the feed already painted.
+  final int? heroImageDecodeWidth;
 }
 
 class ImageViewerRouteExtra {
@@ -82,9 +96,12 @@ class _ImageViewerRoute extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entity =
-        extra?.entity ?? ref.watch(illustStoreProvider).get(illustId);
-    final urls = extra?.urls ?? entity?.viewerUrls(quality) ?? const <String>[];
+    // Prefer the store entity over the tap-time snapshot: when the detail
+    // payload lands mid-session it carries original-tier URLs the snapshot
+    // lacked, and recomputing urls lets PixivImage's gapless URL swap
+    // upgrade to the real tier instead of staying on large forever.
+    final entity = ref.watch(illustStoreProvider).get(illustId) ?? extra?.entity;
+    final urls = entity?.viewerUrls(quality) ?? extra?.urls ?? const <String>[];
     return ImageViewerPage(
       urls: urls,
       initialPage: page,
@@ -94,6 +111,10 @@ class _ImageViewerRoute extends ConsumerWidget {
               final base = illustHeroTag(extra!.heroScope!, illustId);
               return page == 0 ? base : '$base-$page';
             },
+      tierKeyForPage: entity == null
+          ? null
+          : (page) => entity.imageTierKeyAt(page),
+      tier: quality.tier,
       onPageChanged: (page) => replaceImageViewerPage(
         context,
         illustId: illustId,
@@ -122,6 +143,10 @@ Page<dynamic> _page(
     restorationId: RestorationScope.maybeOf(context) == null
         ? null
         : state.pageKey.value,
+    // The detail route slides at the same time as the Hero overlay. Keeping
+    // its static subtree in one repaint layer prevents the route animation
+    // from repainting every image card on each tick; Hero still extracts its
+    // own child into the navigator overlay and keeps the custom flight clip.
     child: _scoped(observer, child),
     transitionDuration: duration,
     reverseTransitionDuration: duration,
@@ -130,15 +155,167 @@ Page<dynamic> _page(
         parent: animation,
         curve: MotionTokens.pageCurve,
       );
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(curved),
-        child: child,
+      // A live in-page animation (loaders, image fades, scroll ballistic,
+      // playing GIFs) marks its enclosing repaint boundary dirty every
+      // frame, so a route transition turns into a repaint storm instead of
+      // pure layer compositing. Freeze tickers on both sides for the
+      // transition window — the outgoing route animates, the incoming one
+      // drives secondaryAnimation — and let them resume afterwards.
+      final inTransition =
+          animation.isAnimating || secondaryAnimation.isAnimating;
+      return TickerMode(
+        enabled: !inTransition,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(curved),
+          child: _RoutePopSnapshot(
+            animation: animation,
+            secondaryAnimation: secondaryAnimation,
+            child: child,
+          ),
+        ),
       );
     },
   );
+}
+
+/// Applies the same transition freeze + raster snapshot as `_page`'s
+/// builder, driven by the enclosing route's `secondaryAnimation`. The home
+/// shell is a [NoTransitionPage], so root-level pushes/pops (settings,
+/// viewer) over it would otherwise re-raster the whole shell — branch
+/// feeds, bottom navigation and the active branch page — on every frame.
+class _SecondaryAnimationTickerGate extends StatefulWidget {
+  const _SecondaryAnimationTickerGate({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_SecondaryAnimationTickerGate> createState() =>
+      _SecondaryAnimationTickerGateState();
+}
+
+class _SecondaryAnimationTickerGateState
+    extends State<_SecondaryAnimationTickerGate> {
+  ModalRoute<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (identical(route, _route)) return;
+    _route?.secondaryAnimation?.removeStatusListener(_onStatus);
+    _route = route;
+    _route?.secondaryAnimation?.addStatusListener(_onStatus);
+  }
+
+  @override
+  void dispose() {
+    _route?.secondaryAnimation?.removeStatusListener(_onStatus);
+    super.dispose();
+  }
+
+  void _onStatus(AnimationStatus status) => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    final secondary = _route?.secondaryAnimation;
+    return TickerMode(
+      enabled: !(secondary?.isAnimating ?? false),
+      child: _RoutePopSnapshot(
+        animation:
+            _route?.animation ?? const AlwaysStoppedAnimation<double>(1),
+        secondaryAnimation:
+            secondary ?? const AlwaysStoppedAnimation<double>(0),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Freezes a page into a single texture while a route transition slides.
+///
+/// Impeller re-executes a route's whole display list on every frame of the
+/// slide — both the outgoing page AND the one being revealed underneath.
+/// On a device whose GPU/display pipeline has idled down after a few still
+/// seconds (the "leave the page 2-3s then return" repro), that per-frame
+/// re-raster blows the budget uniformly — a constant low-FPS animation
+/// rather than dropped frames. [SnapshotWidget] is the same mechanism the
+/// Material zoom/fade-forwards transitions use: while either animation is
+/// running, the page is captured once at paint time and the remaining
+/// frames blit one texture. The live subtree stays mounted, so cancelled
+/// pops (predictive-back back-outs) restore instantly.
+class _RoutePopSnapshot extends StatefulWidget {
+  const _RoutePopSnapshot({
+    required this.animation,
+    required this.secondaryAnimation,
+    required this.child,
+  });
+
+  /// This route's own transition — animates while it enters or pops.
+  final Animation<double> animation;
+
+  /// The animation of the route stacked above — animates while that route
+  /// covers or reveals this page.
+  final Animation<double> secondaryAnimation;
+  final Widget child;
+
+  @override
+  State<_RoutePopSnapshot> createState() => _RoutePopSnapshotState();
+}
+
+class _RoutePopSnapshotState extends State<_RoutePopSnapshot> {
+  final _controller = SnapshotController();
+
+  bool get _animating =>
+      widget.animation.isAnimating || widget.secondaryAnimation.isAnimating;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.animation.addStatusListener(_sync);
+    widget.secondaryAnimation.addStatusListener(_sync);
+    _sync();
+  }
+
+  @override
+  void dispose() {
+    widget.animation.removeStatusListener(_sync);
+    widget.secondaryAnimation.removeStatusListener(_sync);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _sync([AnimationStatus? _]) {
+    if (!_animating) {
+      _controller.allowSnapshotting = false;
+      return;
+    }
+    if (_controller.allowSnapshotting) return;
+    // Defer snapshotting by one frame: HeroController also starts flights
+    // from a post-frame callback, so the source Hero still paints its child
+    // on the very first transition frame. Capturing then would bake the
+    // image into this page's frozen texture — the pop would show it sliding
+    // with the page AND flying as the shuttle (double image). One live
+    // frame lets the placeholder swap land first.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _animating) {
+        _controller.allowSnapshotting = true;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SnapshotWidget(
+      // permissive: a route containing a platform view/texture paints live
+      // instead of throwing on an uncapturable subtree.
+      mode: SnapshotMode.permissive,
+      controller: _controller,
+      child: RepaintBoundary(child: widget.child),
+    );
+  }
 }
 
 int _pathId(GoRouterState state, String name) =>
@@ -258,6 +435,9 @@ List<RouteBase> _commonBranchRoutes(
             initialEntity: initialEntity,
             heroScope: extra is IllustRouteExtra ? extra.heroScope : 'feed',
             heroImageUrl: extra is IllustRouteExtra ? extra.heroImageUrl : null,
+            heroImageDecodeWidth: extra is IllustRouteExtra
+                ? extra.heroImageDecodeWidth
+                : null,
           ),
         );
       },
@@ -364,6 +544,7 @@ List<RouteBase> _commonBranchRoutes(
 
 StatefulShellBranch _branch({
   required String path,
+  required int branchIndex,
   required Widget home,
   Widget Function(BuildContext context, GoRouterState state)? homeBuilder,
   required GlobalKey<NavigatorState> navigatorKey,
@@ -392,7 +573,13 @@ StatefulShellBranch _branch({
           context,
           state,
           observer,
-          homeBuilder?.call(context, state) ?? home,
+          // The bottom bar lives at this layer (inside the branch
+          // navigator's root page), so a pushed secondary route covers it
+          // naturally — no hide animation, full-height from frame one.
+          BranchRootScaffold(
+            branchIndex: branchIndex,
+            child: homeBuilder?.call(context, state) ?? home,
+          ),
         ),
         routes: [...commonRoutes, ...routes],
       ),
@@ -400,7 +587,7 @@ StatefulShellBranch _branch({
   );
 }
 
-GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
+GoRouter createPixivRouter({String initialLocation = '/splash'}) {
   final appRootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
   final recommendedNavigatorKey = GlobalKey<NavigatorState>(
     debugLabel: 'recommended',
@@ -425,6 +612,11 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
     routes: [
       GoRoute(path: '/', redirect: (_, _) => '/recommended'),
       GoRoute(
+        path: '/splash',
+        pageBuilder: (context, state) =>
+            _page(context, state, appRootRouteObserver, const SplashPage()),
+      ),
+      GoRoute(
         path: '/welcome',
         pageBuilder: (context, state) =>
             _page(context, state, appRootRouteObserver, const WelcomePage()),
@@ -444,6 +636,15 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                 _page(context, state, appRootRouteObserver, const ThemePage()),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/user-agreement',
+        pageBuilder: (context, state) => _page(
+          context,
+          state,
+          appRootRouteObserver,
+          const UserAgreementPage(),
+        ),
       ),
       GoRoute(
         path: '/login',
@@ -687,7 +888,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
                   appRootRouteObserver,
                   const LicensePage(
                     applicationName: 'Pixiv Func',
-                    applicationVersion: '0.1.0+1',
+                    applicationVersion: '0.1.0',
                   ),
                 ),
               ),
@@ -704,12 +905,15 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
               : 'home-shell-page',
           child: _scoped(
             appRootRouteObserver,
-            HomePage(navigationShell: navigationShell),
+            _SecondaryAnimationTickerGate(
+              child: HomePage(navigationShell: navigationShell),
+            ),
           ),
         ),
         branches: [
           _branch(
             path: '/recommended',
+            branchIndex: 0,
             home: const RecommendedHomePage(),
             navigatorKey: recommendedNavigatorKey,
             observer: recommendedRouteObserver,
@@ -719,6 +923,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
           ),
           _branch(
             path: '/ranking',
+            branchIndex: 1,
             home: const RankingPage(),
             homeBuilder: (context, state) => RankingPage(
               initialMode: _rankingMode(state.uri.queryParameters['mode']),
@@ -732,6 +937,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
           ),
           _branch(
             path: '/new',
+            branchIndex: 2,
             home: const NewPage(),
             navigatorKey: newNavigatorKey,
             observer: newRouteObserver,
@@ -741,6 +947,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
           ),
           _branch(
             path: '/search',
+            branchIndex: 3,
             home: const SearchHomePage(),
             navigatorKey: searchNavigatorKey,
             observer: searchRouteObserver,
@@ -778,6 +985,7 @@ GoRouter createPixivRouter({String initialLocation = '/welcome'}) {
           ),
           _branch(
             path: '/me',
+            branchIndex: 4,
             home: const MePage(),
             navigatorKey: meNavigatorKey,
             observer: meRouteObserver,
@@ -868,6 +1076,7 @@ Future<void> openIllust(
   IllustEntity? initialEntity,
   String heroScope = 'feed',
   String? heroImageUrl,
+  int? heroImageDecodeWidth,
 }) async {
   await _push(
     context,
@@ -876,6 +1085,7 @@ Future<void> openIllust(
       entity: initialEntity,
       heroScope: heroScope,
       heroImageUrl: heroImageUrl,
+      heroImageDecodeWidth: heroImageDecodeWidth,
     ),
   );
 }
@@ -990,6 +1200,24 @@ Future<void> openImageViewer(
   required ViewQuality quality,
   String? heroScope,
 }) async {
+  // Warm the tapped page's viewer URL before the route mounts. precacheImage
+  // shares the in-flight decode stream for the same provider key, so the
+  // viewer's first frame lands on an already-resolving entry instead of a
+  // cold placeholder — the flash seen when zooming while the detail page
+  // was still loading. Runs uncapped like the viewer's own provider.
+  unawaited(
+    PixivImage.preload(
+      context,
+      entity.viewerUrlAt(page, quality),
+      cacheManager: ProviderScope.containerOf(context, listen: false)
+          .read(pixivNetworkFactoryProvider)
+          .imageCacheManager,
+      tierKey: entity.imageTierKeyAt(page),
+      tier: quality.tier,
+      // A context that unmounts mid-push (branch switch racing the tap)
+      // makes the deferred precache throw — best-effort, so swallow.
+    ).then((_) {}, onError: (_, _) {}),
+  );
   await _push(
     context,
     '${_currentStackRoot(context)}/illust/${entity.id}/viewer/$page'

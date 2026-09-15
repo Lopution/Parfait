@@ -158,8 +158,9 @@ class _RankingModeBody extends ConsumerWidget {
               ref.read(rankingFeedControllerProvider(mode).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              if (notification is ScrollEndNotification &&
-                  notification.metrics.extentAfter < 400) {
+              if (notification is ScrollUpdateNotification &&
+                  notification.metrics.extentAfter <
+                      notification.metrics.viewportDimension * 1.2) {
                 ref
                     .read(rankingFeedControllerProvider(mode).notifier)
                     .loadMore();
@@ -173,12 +174,14 @@ class _RankingModeBody extends ConsumerWidget {
                 key: PageStorageKey('ranking-${mode.name}'),
                 controller: controller,
                 physics: physics,
+                scrollCacheExtent: kFeedCacheExtent,
                 restorationId: 'ranking-${mode.name}',
                 slivers: [
                   IllustFeedGrid(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     mainAxisSpacing: 5,
                     crossAxisSpacing: 10,
+                    prefetchEntities: entities,
                     itemCount: entities.length,
                     itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],

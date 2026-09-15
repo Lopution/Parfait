@@ -138,8 +138,9 @@ class _IllustSearchFeed extends ConsumerWidget {
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          if (notification is ScrollEndNotification &&
-              notification.metrics.extentAfter < 400) {
+          if (notification is ScrollUpdateNotification &&
+              notification.metrics.extentAfter <
+                  notification.metrics.viewportDimension * 1.2) {
             ref.read(searchFeedProvider(query).notifier).loadMore();
           }
           return false;
@@ -149,6 +150,7 @@ class _IllustSearchFeed extends ConsumerWidget {
           builder: (context, controller, physics) => CustomScrollView(
             key: PageStorageKey(query.cacheKey),
             physics: physics,
+            scrollCacheExtent: kFeedCacheExtent,
             restorationId: 'search-${query.cacheKey}',
             controller: controller,
             slivers: [
@@ -156,6 +158,7 @@ class _IllustSearchFeed extends ConsumerWidget {
                 padding: const EdgeInsets.all(10),
                 mainAxisSpacing: 5,
                 crossAxisSpacing: 10,
+                prefetchEntities: entities,
                 itemCount: entities.length,
                 itemBuilder: (context, index) => IllustCard(
                   entity: entities[index],
@@ -205,8 +208,9 @@ class _NovelSearchFeed extends ConsumerWidget {
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          if (notification is ScrollEndNotification &&
-              notification.metrics.extentAfter < 400) {
+          if (notification is ScrollUpdateNotification &&
+              notification.metrics.extentAfter <
+                  notification.metrics.viewportDimension * 1.2) {
             ref.read(searchFeedProvider(query).notifier).loadMore();
           }
           return false;
@@ -214,6 +218,7 @@ class _NovelSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          scrollCacheExtent: kFeedCacheExtent,
           restorationId: 'search-${query.cacheKey}',
           itemCount: entities.length + 1,
           itemBuilder: (context, index) {
@@ -260,8 +265,9 @@ class _UserSearchFeed extends ConsumerWidget {
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
-          if (notification is ScrollEndNotification &&
-              notification.metrics.extentAfter < 400) {
+          if (notification is ScrollUpdateNotification &&
+              notification.metrics.extentAfter <
+                  notification.metrics.viewportDimension * 1.2) {
             ref.read(searchFeedProvider(query).notifier).loadMore();
           }
           return false;
@@ -269,6 +275,7 @@ class _UserSearchFeed extends ConsumerWidget {
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
           physics: const AlwaysScrollableScrollPhysics(),
+          scrollCacheExtent: kFeedCacheExtent,
           restorationId: 'search-${query.cacheKey}',
           itemCount: users.length + 1,
           itemBuilder: (context, index) {

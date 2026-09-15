@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/pixiv_image.dart';
+import '../../../app/motion/hero_transition.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
+import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_recovery.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
@@ -38,16 +40,35 @@ class UgoiraViewer extends ConsumerStatefulWidget {
     this.onLongPress,
     this.heroTag,
     this.flightShuttleBuilder,
+    this.heroDecodeWidth,
+    this.heroPopUrl,
+    this.heroPopDecodeWidth,
+    this.tier,
   });
 
   final int illustId;
   final String previewUrl;
+
+  /// The quality tier [previewUrl] represents — feeds the per-(work,page)
+  /// tier registry so later higher-tier requests can serve from cache.
+  final IllustImageTier? tier;
   final int width;
   final int height;
   final bool downloadMode;
   final VoidCallback? onLongPress;
   final Object? heroTag;
   final HeroFlightShuttleBuilder? flightShuttleBuilder;
+
+  /// Decode width of the feed image that opened this detail route. Keeping
+  /// the first Hero frame at that width lets the existing card texture travel
+  /// into the detail page without a second large texture upload.
+  final int? heroDecodeWidth;
+
+  /// Lightweight destination texture used only during a reverse Hero flight.
+  /// Keeping it separate from the animated cover prevents a decoded frame or
+  /// original-sized upload from replacing the destination card mid-flight.
+  final String? heroPopUrl;
+  final int? heroPopDecodeWidth;
 
   @override
   ConsumerState<UgoiraViewer> createState() => _UgoiraViewerState();
@@ -193,6 +214,15 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
             widget.previewUrl,
             tag: widget.heroTag,
             fit: BoxFit.fitWidth,
+            tierKey: '${widget.illustId}_0',
+            tier: widget.tier,
+            // Only the feed URL needs the card-sized decode during the
+            // opening flight. Once the detail endpoint arrives, return to a
+            // screen-sized decode so Ugoira covers do not stay blurry after
+            // the transition settles.
+            decodeWidth: widget.previewUrl == widget.heroPopUrl
+                ? widget.heroDecodeWidth ?? PixivImage.screenDecodeWidth
+                : PixivImage.screenDecodeWidth,
           ),
         ),
         if (currentImage != null)
@@ -207,12 +237,27 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     );
     final tag = widget.heroTag;
     if (tag == null) return image;
+    final popUrl = widget.heroPopUrl;
+    final popChild = popUrl == null
+        ? null
+        : SizedBox.expand(
+            child: PixivImage.detail(
+              popUrl,
+              fit: BoxFit.fitWidth,
+              transitionKey: tag,
+              decodeWidth: widget.heroPopDecodeWidth,
+              tierUpgrade: false,
+            ),
+          );
     return Hero(
       tag: tag,
       flightShuttleBuilder: widget.flightShuttleBuilder,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-        child: image,
+      child: IllustHeroFlightChild(
+        popChild: popChild,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          child: image,
+        ),
       ),
     );
   }

@@ -40,6 +40,13 @@ flutter build apk --release --flavor github \
   -PPIXIV_RELEASE_KEY_PASSWORD=...
 ```
 
+This repository's local Gradle configuration also reads the generated files
+from `~/.pixivfunc-release` automatically (`pixivfunc-release.jks`,
+`.keystore-password`, `.key-password`, and `update-signing-key.pub.b64`).
+Explicit `-P` properties and the CI workflow always take precedence. The
+private files remain outside the repository and are never placed in APKs or
+logs.
+
 Missing material: the release build fails with an explicit error. A local
 debug-signed test APK is available only when the command explicitly adds
 `-PPIXIV_ALLOW_DEBUG_RELEASE_SIGNING=true`; it is **NOT publishable** and has

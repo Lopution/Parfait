@@ -32,12 +32,18 @@ class IllustDetailPage extends ConsumerStatefulWidget {
     this.initialEntity,
     this.heroScope = 'feed',
     this.heroImageUrl,
+    this.heroImageDecodeWidth,
   });
 
   final int illustId;
   final IllustEntity? initialEntity;
   final String heroScope;
   final String? heroImageUrl;
+
+  /// The feed card's decode width for [heroImageUrl] — decoding the hero
+  /// phase at this width reuses the feed's decoded cache entry, so the
+  /// landing frame does not re-decode the same file at screen width.
+  final int? heroImageDecodeWidth;
 
   @override
   ConsumerState<IllustDetailPage> createState() => _IllustDetailPageState();
@@ -280,6 +286,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                     onLongPress: _toggleDownloadMode,
                     heroTag: illustHeroTag(widget.heroScope, entity.id),
                     flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                    heroDecodeWidth: widget.heroImageDecodeWidth,
+                    heroPopUrl: widget.heroImageUrl,
+                    heroPopDecodeWidth: widget.heroImageDecodeWidth,
+                    tier: entity.imageTierOf(
+                      detailUrlFor(0) ??
+                          widget.heroImageUrl ??
+                          entity.imageUrls.large,
+                    ),
                   ),
                 )
               else if (entity.pageCount == 1)
@@ -291,6 +305,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                     heroTag: illustHeroTag(widget.heroScope, entity.id),
                     heroScope: widget.heroScope,
                     heroImageUrl: widget.heroImageUrl,
+                    heroImageDecodeWidth: widget.heroImageDecodeWidth,
                     detailUrl: detailUrlFor(0),
                     downloadMode: _downloadMode,
                     onLongPress: _toggleDownloadMode,
@@ -314,6 +329,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                             : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
                         heroScope: widget.heroScope,
                         heroImageUrl: index == 0 ? widget.heroImageUrl : null,
+                        heroImageDecodeWidth: index == 0
+                            ? widget.heroImageDecodeWidth
+                            : null,
                         detailUrl: detailUrlFor(index),
                         downloadMode: _downloadMode,
                         onLongPress: _toggleDownloadMode,

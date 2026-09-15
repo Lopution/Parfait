@@ -193,6 +193,8 @@ void main() {
 
     await tester.tap(find.byType(ReplicaButton).last);
     await tester.pumpAndSettle();
+    await tester.tap(find.text('我已开启代理'));
+    await tester.pumpAndSettle();
 
     expect(find.byType(LoginWebViewPage), findsOneWidget);
   });
@@ -202,6 +204,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byType(ReplicaButton).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('我已开启代理'));
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginWebViewPage), findsOneWidget);
