@@ -6,7 +6,6 @@ import '../../app/icons/app_icons.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
-import '../../app/theme/func_tokens.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../app/widgets/follow_switch_button.dart';
@@ -124,7 +123,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onRestrictChanged,
     required this.onShare,
     this.onEditProfile,
-    this.expandedExtent = 430,
+    this.expandedExtent = 320,
     this.topInset = 0,
   });
 
@@ -373,18 +372,21 @@ class _ProfileBackground extends StatelessWidget {
           fit: BoxFit.cover,
           alignment: Alignment.topCenter,
         ),
-        // Gradient low enough to keep the name/stat rows legible without
-        // hiding the artwork around the avatar.
-        IgnorePointer(
+        // PixShaft-style flat dim: the whole band drops contrast so the
+        // white identity text stays readable over any artwork — a
+        // surface-tinted gradient only worked near the bottom edge and
+        // let names collide with light artwork.
+        const IgnorePointer(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                stops: const [0.45, 1],
+                stops: [0.0, 0.5, 1.0],
                 colors: [
-                  FuncTokens.transparent,
-                  colors.surface.withValues(alpha: 0.94),
+                  Color(0x59000000),
+                  Color(0x66000000),
+                  Color(0x8C000000),
                 ],
               ),
             ),
@@ -412,6 +414,14 @@ class _ExpandedProfileDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The identity block sits on the dimmed artwork band: white text/icons
+    // like PixShaft's user page. Without an artwork background the band is
+    // the plain page surface, so theme colours must stay.
+    final onArtwork = user.backgroundImageUrl != null;
+    final Color? textColor = onArtwork ? Colors.white : null;
+    final Color? secondaryColor = onArtwork
+        ? Colors.white.withValues(alpha: 0.85)
+        : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -429,9 +439,9 @@ class _ExpandedProfileDetails extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
                 ),
@@ -442,6 +452,7 @@ class _ExpandedProfileDetails extends StatelessWidget {
                 child: IconButton(
                   tooltip: context.l10n.profileShare,
                   onPressed: onShare,
+                  color: textColor,
                   icon: const Icon(Icons.share_outlined),
                 ),
               ),
@@ -449,13 +460,30 @@ class _ExpandedProfileDetails extends StatelessWidget {
           ),
         ),
         if (user.account.isNotEmpty)
-          Text(user.account, style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            user.account,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: secondaryColor),
+          ),
         const SizedBox(height: 7),
         Row(
           children: [
-            _Stat(icon: AppIcons.follow, label: '${user.totalFollowUsers}'),
-            _Stat(icon: AppIcons.friend, label: '${user.totalMyPixivUsers}'),
-            _Stat(icon: Icons.palette_outlined, label: '${user.totalIllusts}'),
+            _Stat(
+              icon: AppIcons.follow,
+              label: '${user.totalFollowUsers}',
+              color: textColor,
+            ),
+            _Stat(
+              icon: AppIcons.friend,
+              label: '${user.totalMyPixivUsers}',
+              color: textColor,
+            ),
+            _Stat(
+              icon: Icons.palette_outlined,
+              label: '${user.totalIllusts}',
+              color: textColor,
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -467,11 +495,13 @@ class _ExpandedProfileDetails extends StatelessWidget {
                 IconButton(
                   tooltip: context.l10n.profileEditTitle,
                   onPressed: onEditProfile,
+                  color: textColor,
                   icon: const Icon(Icons.edit_outlined),
                 ),
               IconButton(
                 tooltip: context.l10n.settingsTitle,
                 onPressed: () => openSettings(context),
+                color: textColor,
                 icon: const Icon(Icons.settings_outlined),
               ),
             ],
@@ -622,10 +652,14 @@ class _Avatar extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.label});
+  const _Stat({required this.icon, required this.label, this.color});
 
   final IconData icon;
   final String label;
+
+  /// White over the dimmed artwork band; null keeps the theme colour for
+  /// the no-background variant.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -633,7 +667,11 @@ class _Stat extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
-        children: [Icon(icon, size: 14), const SizedBox(width: 4), Text(label)],
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: color)),
+        ],
       ),
     );
   }
@@ -704,7 +742,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
                 const baseSize = 14.0;
                 final slotWidth =
                     constraints.maxWidth / labels.length -
-                        16; // labelPadding horizontal 8 x2
+                    16; // labelPadding horizontal 8 x2
                 var maxLabelWidth = 0.0;
                 for (final key in labels) {
                   final painter = TextPainter(
