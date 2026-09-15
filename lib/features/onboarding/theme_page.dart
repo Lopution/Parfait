@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/navigation/routes.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
@@ -64,8 +65,7 @@ class ThemePage extends ConsumerWidget {
               value: settings.themeCode == AppSettings.darkTheme,
               title: Text(
                 text('dark'),
-                style: const TextStyle(
-                  fontSize: 18,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -79,8 +79,7 @@ class ThemePage extends ConsumerWidget {
               value: settings.themeCode == AppSettings.lightTheme,
               title: Text(
                 text('light'),
-                style: const TextStyle(
-                  fontSize: 18,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -94,8 +93,7 @@ class ThemePage extends ConsumerWidget {
               value: settings.themeCode == AppSettings.systemTheme,
               title: Text(
                 text('system'),
-                style: const TextStyle(
-                  fontSize: 18,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -130,7 +128,7 @@ class ThemePage extends ConsumerWidget {
                 child: Text(
                   text('later'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14),
+                  style: FuncSemanticTokens.of(context).body,
                 ),
               ),
             ),

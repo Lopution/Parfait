@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
@@ -281,7 +282,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ),
           const Spacer(),
-          Text(text('loginAgree'), style: const TextStyle(fontSize: 14)),
+          Text(text('loginAgree'), style: FuncSemanticTokens.of(context).body),
           TextButton(
             onPressed: () => context.push<void>('/user-agreement'),
             style: TextButton.styleFrom(
@@ -320,10 +321,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         if (_help)
           RichText(
             text: TextSpan(
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSecondary,
-              ),
+              style: FuncSemanticTokens.of(
+                context,
+              ).body.copyWith(color: Theme.of(context).colorScheme.onSecondary),
               children: [
                 TextSpan(text: text('networkCompatibilityHint')),
                 TextSpan(
@@ -350,7 +350,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Flexible(
           child: Text(
             text('networkCompatibility'),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(width: 8),
@@ -388,13 +390,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Text(
           text('accountTransferWarning'),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 13),
+          style: FuncSemanticTokens.of(context).caption,
         ),
         const SizedBox(height: 8),
         Text(
           text('useLoginWithClipboardHint'),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 10),
         SizedBox(

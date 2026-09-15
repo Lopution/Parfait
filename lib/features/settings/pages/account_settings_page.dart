@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/settings_load_error.dart';
 import '../../../core/auth/account.dart';
@@ -26,7 +27,7 @@ class AccountCard extends StatelessWidget {
         leading: _AccountAvatar(account: value),
         title: Text(
           value?.name ?? context.l10n.signedOut,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          style: FuncSemanticTokens.of(context).display,
         ),
         subtitle: Text(
           value == null
