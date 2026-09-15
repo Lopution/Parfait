@@ -102,13 +102,15 @@ jobs:
           done
 
       - name: Report split APK sizes
-        # F8 defaults = measured fdroid split bytes after UI modernization
-        # + 1_000_000 (arm64 27,981,038 / armeabi-v7a 23,805,284,
-        # 2026-09-10). Repo vars override; the arm64 32_000_000 hard cap
-        # still applies (stricter wins).
+        # F8 defaults = measured github split bytes + 1_000_000
+        # (arm64 28,985,336 / armeabi-v7a 24,891,502, 2026-09-16; growth
+        # from feature deps: flutter_inappwebview, url_launcher,
+        # file_selector, flutter_displaymode). fdroid runs ~12 KB under.
+        # Repo vars override; the arm64 32_000_000 hard cap still
+        # applies (stricter wins).
         env:
-          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28981038' }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24830000' }}
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '29985336' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '25891502' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
@@ -166,13 +168,15 @@ jobs:
             --split-per-abi --target-platform android-arm64,android-arm \
             --obfuscate --split-debug-info=build/symbols/fdroid
       - name: Report split APK sizes
-        # F8 defaults = measured fdroid split bytes after UI modernization
-        # + 1_000_000 (arm64 27,981,038 / armeabi-v7a 23,805,284,
-        # 2026-09-10). Repo vars override; the arm64 32_000_000 hard cap
-        # still applies (stricter wins).
+        # F8 defaults = measured github split bytes + 1_000_000
+        # (arm64 28,985,336 / armeabi-v7a 24,891,502, 2026-09-16; growth
+        # from feature deps: flutter_inappwebview, url_launcher,
+        # file_selector, flutter_displaymode). fdroid runs ~12 KB under.
+        # Repo vars override; the arm64 32_000_000 hard cap still
+        # applies (stricter wins).
         env:
-          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28981038' }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24830000' }}
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '29985336' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '25891502' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-fdroid-release.apk \

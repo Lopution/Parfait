@@ -96,11 +96,11 @@ jobs:
           echo "FINGERPRINT=$FINGERPRINT" >> "$GITHUB_ENV"
 
       - name: Report split APK sizes
-        # Same F8 defaults as ci.yml (measured fdroid bytes + 1_000_000;
-        # github flavor is ~25 KB larger).
+        # Same F8 defaults as ci.yml (measured github bytes + 1_000_000;
+        # fdroid flavor runs ~12 KB under).
         env:
-          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '28981038' }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '24830000' }}
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '29985336' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '25891502' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
