@@ -255,6 +255,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   late final FocusNode _focusNode;
   SearchFilters _filters = SearchFilters.defaults;
   late int _selectedIndex;
+  Animation<double>? _routeAnimation;
 
   static const _types = SearchResultType.values;
 
@@ -278,12 +279,31 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       }
       // The page exists to type a query: focus the field on arrival so the
       // keyboard is up without a second tap (pre-go_router behaviour).
-      _focusNode.requestFocus();
+      // But not mid-transition: _RoutePopSnapshot freezes the page into a
+      // fixed-size texture while the IME animates viewInsets, so a keyboard
+      // that opens during the push would let the route fly in squeezed and
+      // then snap when the snapshot releases. Waiting for the transition to
+      // complete keeps both animations out of each other's way.
+      final animation = ModalRoute.of(context)?.animation;
+      if (animation == null || animation.isCompleted) {
+        _focusNode.requestFocus();
+        return;
+      }
+      _routeAnimation = animation;
+      animation.addStatusListener(_focusWhenRouteSettles);
     });
+  }
+
+  void _focusWhenRouteSettles(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    _routeAnimation?.removeStatusListener(_focusWhenRouteSettles);
+    _routeAnimation = null;
+    if (mounted) _focusNode.requestFocus();
   }
 
   @override
   void dispose() {
+    _routeAnimation?.removeStatusListener(_focusWhenRouteSettles);
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
