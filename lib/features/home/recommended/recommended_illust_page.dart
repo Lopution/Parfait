@@ -87,8 +87,9 @@ class RecommendedIllustPage extends ConsumerWidget {
                   // on edge-to-edge Android 15+ the top padding is otherwise
                   // zero and the feed overlaps the status bar. Only the top
                   // safe inset is added — no AppBar — so the immersive feed
-                  // look is kept. The RefreshIndicator overscroll zone stays
-                  // above the padding, so pull-to-refresh still triggers.
+                  // look is kept. The refresh indicator's overscroll zone
+                  // stays above the padding, so pull-to-refresh still
+                  // triggers.
                   restorationId: 'recommended-illust',
                   controller: controller,
                   physics: physics,
