@@ -310,7 +310,8 @@ class _CommentFeedView extends ConsumerWidget {
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification &&
-                  notification.metrics.extentAfter < notification.metrics.viewportDimension * 1.2) {
+                  notification.metrics.extentAfter <
+                      notification.metrics.viewportDimension * 1.2) {
                 ref.read(commentFeedProvider(query).notifier).loadMore();
               }
               return false;

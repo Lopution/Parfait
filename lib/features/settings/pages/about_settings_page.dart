@@ -19,10 +19,7 @@ class AboutSettingsPage extends ConsumerWidget {
       appBar: AppBar(title: Text(context.l10n.aboutSettings)),
       body: ListView(
         children: [
-          const ListTile(
-            leading: Icon(Icons.apps),
-            title: Text('Pixiv Func'),
-          ),
+          const ListTile(leading: Icon(Icons.apps), title: Text('Pixiv Func')),
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: Text(context.l10n.aboutVersion),
