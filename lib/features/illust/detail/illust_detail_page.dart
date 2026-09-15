@@ -270,16 +270,18 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 SliverToBoxAdapter(
                   child: UgoiraViewer(
                     illustId: entity.id,
-                    // Keep the first frame on the exact feed URL during the
-                    // initial Hero hand-off, then follow the same detail
-                    // quality selection as still and multi-page works. The
-                    // shared PixivImage inside UgoiraViewer keeps this URL
-                    // change gapless while a decoded frame (if any) remains
-                    // above it.
-                    previewUrl:
-                        detailUrlFor(0) ??
-                        widget.heroImageUrl ??
-                        entity.imageUrls.large,
+                    // Same contract as DetailPageImage: the viewer keeps the
+                    // feed card's URL for the opening Hero flight and only
+                    // upgrades to the detail quality once the route settles —
+                    // without the guard a cached detail payload would swap
+                    // the cover mid-flight onto an undecoded entry (the
+                    // grey-shuttle regression).
+                    previewUrl: entity.imageUrls.large,
+                    detailUrl: detailUrlFor(0),
+                    heroImageUrl: widget.heroImageUrl,
+                    heroTier: widget.heroImageUrl == null
+                        ? null
+                        : entity.imageTierOf(widget.heroImageUrl!),
                     width: entity.width,
                     height: entity.height,
                     downloadMode: _downloadMode,
@@ -290,9 +292,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                     heroPopUrl: widget.heroImageUrl,
                     heroPopDecodeWidth: widget.heroImageDecodeWidth,
                     tier: entity.imageTierOf(
-                      detailUrlFor(0) ??
-                          widget.heroImageUrl ??
-                          entity.imageUrls.large,
+                      detailUrlFor(0) ?? entity.imageUrls.large,
                     ),
                   ),
                 )
