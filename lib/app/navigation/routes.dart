@@ -820,12 +820,12 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             ],
           ),
           GoRoute(
-            path: 'blocked',
+            path: 'muted',
             pageBuilder: (context, state) => _page(
               context,
               state,
               appRootRouteObserver,
-              const BlockedTagsPage(),
+              const MutedItemsPage(),
             ),
           ),
           GoRoute(

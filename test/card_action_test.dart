@@ -17,7 +17,9 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
+import 'package:pixiv_func/core/mute/mute_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/features/settings/pages/muted_items_page.dart';
 import 'package:pixiv_func/core/watchlater/watch_later_database.dart';
 import 'package:pixiv_func/core/watchlater/watch_later_repository.dart';
 import 'package:pixiv_func/core/watchlater/watch_later_store.dart';
@@ -35,6 +37,15 @@ import 'helpers/test_preferences.dart';
 /// adapter can be verified against real wire requests.
 class _BookmarkApiFixture {
   final List<Uri> posts = [];
+  final List<Map<String, String>> postBodies = [];
+
+  /// Hydration payload for `/v1/mute/list`; tests override to seed
+  /// server-side muted tags/users.
+  Map<String, dynamic> muteList = {
+    'muted_tags': <dynamic>[],
+    'muted_users': <dynamic>[],
+    'mute_limit_count': 500,
+  };
 
   http.Client build() {
     return MockClient((request) async {
@@ -42,16 +53,19 @@ class _BookmarkApiFixture {
       if (request.method == 'GET' &&
           request.url.path.endsWith('/v1/mute/list')) {
         return http.Response(
-          jsonEncode({
-            'muted_tags': <dynamic>[],
-            'muted_users': <dynamic>[],
-            'mute_limit_count': 500,
-          }),
+          jsonEncode(muteList),
           200,
           headers: {'content-type': 'application/json'},
         );
       }
       posts.add(request.url);
+      Map<String, String> fields;
+      try {
+        fields = (jsonDecode(request.body) as Map).cast<String, String>();
+      } on FormatException {
+        fields = Uri.splitQueryString(request.body);
+      }
+      postBodies.add(fields);
       return http.Response(
         jsonEncode({'message': '', 'is_success': true}),
         200,
@@ -199,9 +213,11 @@ void main() {
       'bookmark',
       'download',
       'watch-later',
+      'mute-work',
+      'mute-user',
       'share',
     ]);
-    for (final label in ['收藏', '下载', '稍后再看', '分享']) {
+    for (final label in ['收藏', '下载', '稍后再看', '屏蔽此作品', '屏蔽作者', '分享']) {
       expect(
         find.widgetWithText(ListTile, label),
         findsOneWidget,
@@ -338,5 +354,122 @@ void main() {
       await tester.pumpAndSettle();
     });
     expect(find.text('暂存的作品会显示在这里'), findsOneWidget);
+  });
+
+  testWidgets('mute-work action toggles the local work mute', (tester) async {
+    final (container, fixture, _) = await _makeWorld();
+    final entity = parseIllust(illustJson(31));
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+      await _openSheet(tester);
+      await _tapEntry(tester, '屏蔽此作品');
+      await tester.pump();
+      await tester.pump();
+    });
+
+    expect(
+      container.read(muteStoreProvider.select((s) => s.isWorkMuted(31))),
+      isTrue,
+    );
+    // Work mute is local-only: no mute/edit request may leave the client.
+    expect(
+      fixture.posts.where((u) => u.path.endsWith('/v1/mute/edit')),
+      isEmpty,
+    );
+
+    await mockNetworkImagesFor(() async {
+      await _openSheet(tester);
+    });
+    expect(find.widgetWithText(ListTile, '取消屏蔽此作品'), findsOneWidget);
+  });
+
+  testWidgets('mute-author action sends add_user_ids to mute/edit', (
+    tester,
+  ) async {
+    final (container, fixture, _) = await _makeWorld();
+    final entity = parseIllust(illustJson(33));
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+      await _openSheet(tester);
+      await _tapEntry(tester, '屏蔽作者');
+      await tester.pump();
+      await tester.pump();
+    });
+
+    final edit = fixture.posts.indexWhere(
+      (u) => u.path.endsWith('/v1/mute/edit'),
+    );
+    expect(edit, isNonNegative);
+    expect(fixture.postBodies[edit]['add_user_ids[]'], '${entity.user.id}');
+    expect(
+      container.read(
+        muteStoreProvider.select((s) => s.isUserMuted(entity.user.id)),
+      ),
+      isTrue,
+    );
+
+    await mockNetworkImagesFor(() async {
+      await _openSheet(tester);
+    });
+    expect(find.widgetWithText(ListTile, '取消屏蔽作者'), findsOneWidget);
+  });
+
+  testWidgets('muted items page lists entries and removes them', (
+    tester,
+  ) async {
+    final (container, fixture, _) = await _makeWorld();
+    fixture.muteList = {
+      'muted_tags': [
+        {'tag': 'tagA'},
+      ],
+      'muted_users': [
+        {
+          'user_id': 5,
+          'user_name': 'user5',
+          'user_account': 'u5',
+          'user_profile_image_urls': {'medium': 'https://i.pximg.net/m.png'},
+        },
+      ],
+      'mute_limit_count': 500,
+    };
+    // Seed a local work mute before the page builds.
+    await container.read(muteStoreProvider.notifier).toggleWork(41);
+
+    await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('tagA'), findsOneWidget);
+    expect(find.text('user5'), findsOneWidget);
+    expect(find.text('#41'), findsOneWidget);
+
+    // Unmute tag → server delete_tags[] request, row disappears.
+    final tagTile = find.widgetWithText(ListTile, 'tagA');
+    await tester.tap(
+      find.descendant(of: tagTile, matching: find.byIcon(Icons.delete_outline)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('tagA'), findsNothing);
+    final edit = fixture.posts.indexWhere(
+      (u) => u.path.endsWith('/v1/mute/edit'),
+    );
+    expect(edit, isNonNegative);
+    expect(fixture.postBodies[edit]['delete_tags[]'], 'tagA');
+
+    // Unmute work → local only, no additional HTTP.
+    final postsBefore = fixture.posts.length;
+    final workTile = find.widgetWithText(ListTile, '#41');
+    await tester.tap(
+      find.descendant(
+        of: workTile,
+        matching: find.byIcon(Icons.delete_outline),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('#41'), findsNothing);
+    expect(fixture.posts, hasLength(postsBefore));
+    expect(
+      container.read(muteStoreProvider.select((s) => s.isWorkMuted(41))),
+      isFalse,
+    );
   });
 }
