@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
+import '../motion/app_overlays.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import '../widgets/app_snack_bar.dart';
@@ -43,7 +44,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
   void _showRestrictSheet(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     var restrict = BookmarkRestrict.public;
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
       backgroundColor: FuncTokens.transparent,
       builder: (sheetContext) => StatefulBuilder(

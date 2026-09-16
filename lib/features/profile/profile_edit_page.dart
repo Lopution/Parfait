@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/motion/app_overlays.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/platform/platform_caps.dart';
@@ -131,7 +132,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
     final controller = ref.read(
       profileEditControllerProvider(session).notifier,
     );
-    final leave = await showDialog<bool>(
+    final leave = await showAppDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.profileEditLeaveTitle),
