@@ -531,6 +531,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get blockAI => '本地屏蔽 AI 作品';
 
   @override
+  String get reduceMotion => '减少动态效果';
+
+  @override
+  String get reduceMotionHint => '关闭页面转场、列表进场与按压反馈等装饰性动画';
+
+  @override
   String get maxDownloadCount => '最大并行下载数';
 
   @override

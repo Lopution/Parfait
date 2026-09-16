@@ -201,6 +201,8 @@
   "pixivHistory": "Pixiv browsing history",
   "blockR18": "Locally block R-18 works",
   "blockAI": "Locally block AI works",
+  "reduceMotion": "Reduce motion",
+  "reduceMotionHint": "Turn off decorative animation: page transitions, list entrances and press feedback",
   "maxDownloadCount": "Maximum concurrent downloads",
   "namingRule": "File naming rule",
   "namingRuleHint": "Leave empty to use the default name",
