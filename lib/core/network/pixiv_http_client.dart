@@ -409,6 +409,7 @@ class PixivHttpClient {
           name: result.profile.name,
           mailAddress: result.profile.mailAddress,
           profileImageUrl: result.profile.profileImageUrl,
+          isPremium: result.profile.isPremium,
         ),
         result.credential,
       );
