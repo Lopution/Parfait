@@ -63,16 +63,20 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
 
   BookmarkEntry? entryOf(BookmarkKey key) => state[key];
 
-  BookmarkOp? beginAdd(BookmarkKey key, BookmarkRestrict restrict) =>
-      _begin(key, BookmarkOpKind.add, restrict);
+  BookmarkOp? beginAdd(
+    BookmarkKey key,
+    BookmarkRestrict restrict, {
+    List<String> tags = const [],
+  }) => _begin(key, BookmarkOpKind.add, restrict, tags);
 
   BookmarkOp? beginDelete(BookmarkKey key) =>
-      _begin(key, BookmarkOpKind.delete, BookmarkRestrict.public);
+      _begin(key, BookmarkOpKind.delete, BookmarkRestrict.public, const []);
 
   BookmarkOp? _begin(
     BookmarkKey key,
     BookmarkOpKind kind,
     BookmarkRestrict restrict,
+    List<String> tags,
   ) {
     final boundary = _requireBoundary();
     final envelope = _ledger.begin(
@@ -89,12 +93,14 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
       envelope: envelope,
       kind: kind,
       restrict: restrict,
+      tags: tags,
     );
     state = {
       ...state,
       key: BookmarkEntry(
         bookmarked: previous?.bookmarked ?? false,
         restrict: previous?.restrict,
+        tags: previous?.tags ?? const [],
         pending: operation,
         status: MutationStatus.pending,
       ),
@@ -113,6 +119,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
       operation.key: BookmarkEntry(
         bookmarked: added,
         restrict: added ? operation.restrict : null,
+        tags: added ? operation.tags : const [],
         confirmedRevision: operation.revision,
         status: MutationStatus.confirmed,
       ),
@@ -139,6 +146,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
       operation.key: BookmarkEntry(
         bookmarked: previous.bookmarked,
         restrict: previous.restrict,
+        tags: previous.tags,
         error: cancelled ? null : error,
         confirmedRevision: previous.confirmedRevision,
         status: cancelled ? MutationStatus.cancelled : MutationStatus.failed,
@@ -157,6 +165,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
       operation.key: BookmarkEntry(
         bookmarked: previous!.bookmarked,
         restrict: previous.restrict,
+        tags: previous.tags,
         confirmedRevision: previous.confirmedRevision,
         status: MutationStatus.cancelled,
       ),
@@ -188,6 +197,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
       key: BookmarkEntry(
         bookmarked: bookmarked ?? entry?.bookmarked ?? false,
         restrict: restrict ?? entry?.restrict,
+        tags: entry?.tags ?? const [],
         confirmedRevision: entry?.confirmedRevision,
         status: MutationStatus.idle,
       ),
@@ -241,6 +251,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
       next[item.key] = BookmarkEntry(
         bookmarked: item.value.bookmarked,
         restrict: item.value.restrict,
+        tags: item.value.tags,
         confirmedRevision: item.value.confirmedRevision,
         status: MutationStatus.cancelled,
       );
@@ -256,6 +267,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
       operation.key: BookmarkEntry(
         bookmarked: previous!.bookmarked,
         restrict: previous.restrict,
+        tags: previous.tags,
         confirmedRevision: previous.confirmedRevision,
         status: MutationStatus.cancelled,
       ),

@@ -35,6 +35,67 @@ class BookmarkKey {
 
 enum BookmarkOpKind { add, delete }
 
+/// One tag on a work's bookmark detail (`/v2/{illust,novel}/bookmark/detail`).
+/// [isRegistered] marks the tag as already present in the user's own bookmark
+/// tag collection — suggestion chips use it for ranking, not visibility.
+@immutable
+class BookmarkTagFacet {
+  const BookmarkTagFacet({required this.name, required this.isRegistered});
+
+  final String name;
+  final bool isRegistered;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BookmarkTagFacet &&
+      other.name == name &&
+      other.isRegistered == isRegistered;
+
+  @override
+  int get hashCode => Object.hash(name, isRegistered);
+}
+
+/// Confirmed state of one bookmark (`bookmark_detail` payload).
+@immutable
+class BookmarkDetail {
+  const BookmarkDetail({
+    required this.isBookmarked,
+    required this.restrict,
+    required this.tags,
+  });
+
+  final bool isBookmarked;
+  final BookmarkRestrict? restrict;
+  final List<BookmarkTagFacet> tags;
+
+  List<String> get tagNames => [for (final tag in tags) tag.name];
+}
+
+/// One entry of the user's own bookmark tag collection
+/// (`/v1/user/bookmark-tags/{illust,novel}`).
+@immutable
+class UserBookmarkTag {
+  const UserBookmarkTag({required this.name, required this.count});
+
+  final String name;
+  final int count;
+
+  @override
+  bool operator ==(Object other) =>
+      other is UserBookmarkTag && other.name == name && other.count == count;
+
+  @override
+  int get hashCode => Object.hash(name, count);
+}
+
+@immutable
+class UserBookmarkTagPage {
+  const UserBookmarkTagPage({required this.tags, required this.nextUrl});
+
+  final List<UserBookmarkTag> tags;
+  final String? nextUrl;
+}
+
 /// In-flight mutation handle carrying the store revision at which the
 /// operation began. Late completions whose revision no longer matches the
 /// pending entry are dropped (R5: 晚到响应不触发重复 mutation).
@@ -45,12 +106,18 @@ class BookmarkOp {
     required this.envelope,
     required this.kind,
     required this.restrict,
+    this.tags = const [],
   });
 
   final BookmarkKey key;
   final MutationEnvelope envelope;
   final BookmarkOpKind kind;
   final BookmarkRestrict restrict;
+
+  /// Full target tag set for an add. Bookmark add is an overwrite on the
+  /// server (Shaft `API.kt`: same endpoint, non-additive), so this always
+  /// carries the complete selection, never a diff.
+  final List<String> tags;
 
   int get revision => envelope.revision;
 
@@ -71,6 +138,7 @@ class BookmarkEntry {
   const BookmarkEntry({
     required this.bookmarked,
     this.restrict,
+    this.tags = const [],
     this.pending,
     this.error,
     this.confirmedRevision,
@@ -83,6 +151,10 @@ class BookmarkEntry {
 
   /// Visibility of the current bookmark (null when unknown/not bookmarked).
   final BookmarkRestrict? restrict;
+
+  /// Tags confirmed by the last locally committed add. Remote snapshots carry
+  /// no tag dimension, so [observeRemote] never touches this.
+  final List<String> tags;
 
   /// Operation in flight, if any.
   final BookmarkOp? pending;
@@ -103,6 +175,7 @@ class BookmarkEntry {
   BookmarkEntry copyWith({
     bool? bookmarked,
     BookmarkRestrict? restrict,
+    List<String>? tags,
     BookmarkOp? pending,
     Object? error,
     int? confirmedRevision,
@@ -114,6 +187,7 @@ class BookmarkEntry {
     return BookmarkEntry(
       bookmarked: bookmarked ?? this.bookmarked,
       restrict: clearRestrict ? null : (restrict ?? this.restrict),
+      tags: tags ?? this.tags,
       pending: clearPending ? null : (pending ?? this.pending),
       error: clearError ? null : (error ?? this.error),
       confirmedRevision: confirmedRevision ?? this.confirmedRevision,

@@ -671,5 +671,11 @@
   "linkCopied": "链接已复制",
   "watchLaterAdded": "已加入稍后再看",
   "watchLaterTitle": "稍后再看",
-  "watchLaterEmpty": "暂存的作品会显示在这里"
+  "watchLaterEmpty": "暂存的作品会显示在这里",
+  "bookmarkEditTitle": "编辑收藏",
+  "bookmarkTags": "收藏标签",
+  "bookmarkTagNewHint": "输入新标签，回车添加",
+  "bookmarkTagSuggestions": "常用标签",
+  "bookmarkTagsEmpty": "还没有收藏标签",
+  "bookmarkTagsLoadFailed": "收藏标签加载失败"
 }

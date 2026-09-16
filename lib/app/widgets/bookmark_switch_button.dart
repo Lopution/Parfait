@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
+import '../../core/bookmark/bookmark_tag_providers.dart';
 import '../motion/app_overlays.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
@@ -41,134 +42,16 @@ class BookmarkSwitchButton extends ConsumerWidget {
     illustId,
   );
 
-  void _showRestrictSheet(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    var restrict = BookmarkRestrict.public;
+  void _showBookmarkSheet(BuildContext context, {required bool bookmarked}) {
     showAppBottomSheet<void>(
       context: context,
       backgroundColor: FuncTokens.transparent,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setState) => Container(
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-            color: colorScheme.surface,
-          ),
-          child: ConstrainedBox(
-            // Beta56: fixed ~35% of screen height with the same spacer rhythm.
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.heightOf(context) * 0.35,
-              maxHeight: MediaQuery.heightOf(context) * 0.35,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Spacer(flex: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 30),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _bookmarkText(
-                            context,
-                            isNovel ? 'bookmarkNovel' : 'bookmarkIllust',
-                          ),
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      _RestrictSelect(
-                        value: restrict,
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => restrict = value);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(flex: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 30),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: FuncSemanticTokens.of(context).title),
-                      Text(
-                        '$illustId',
-                        style: FuncSemanticTokens.of(context).caption,
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(flex: 2),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: MaterialButton(
-                          elevation: 0,
-                          color: colorScheme.surfaceContainer,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(40),
-                            side: BorderSide.none,
-                          ),
-                          minWidth: double.infinity,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                            child: Text(
-                              context.l10n.cancel,
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ),
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                        ),
-                      ),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: MaterialButton(
-                          elevation: 0,
-                          color: colorScheme.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(40),
-                          ),
-                          minWidth: double.infinity,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                            child: Text(
-                              context.l10n.confirm,
-                              style: Theme.of(context).textTheme.headlineSmall
-                                  ?.copyWith(
-                                    color: colorScheme.onPrimary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ),
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            ref
-                                .read(bookmarkActionsProvider)
-                                .addWithRestrict(_key, restrict);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(flex: 1),
-              ],
-            ),
-          ),
-        ),
+      isScrollControlled: true,
+      builder: (sheetContext) => _BookmarkEditSheet(
+        bookmarkKey: _key,
+        title: title,
+        isNovel: isNovel,
+        initiallyBookmarked: bookmarked,
       ),
     );
   }
@@ -217,9 +100,11 @@ class BookmarkSwitchButton extends ConsumerWidget {
       );
     }
 
-    final onLongPress = pending || bookmarked
+    // Long-press opens the sheet in both directions: create for a fresh work,
+    // edit (prefilled from bookmark detail) for an already-bookmarked one.
+    final onLongPress = pending
         ? null
-        : () => _showRestrictSheet(context, ref);
+        : () => _showBookmarkSheet(context, bookmarked: bookmarked);
 
     if (isButton) {
       return Semantics(
@@ -261,6 +146,285 @@ class BookmarkSwitchButton extends ConsumerWidget {
           child: bookmarked
               ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
               : const Icon(Icons.favorite_outline_sharp, size: 24),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bookmark create/edit sheet: restrict selector plus a tag editor — selected
+/// chips, a free-text input for new tags, and suggestion chips from the
+/// user's own tag collection. For an already-bookmarked work the sheet
+/// prefills from `bookmark_detail` once it arrives.
+class _BookmarkEditSheet extends ConsumerStatefulWidget {
+  const _BookmarkEditSheet({
+    required this.bookmarkKey,
+    required this.title,
+    required this.isNovel,
+    required this.initiallyBookmarked,
+  });
+
+  final BookmarkKey bookmarkKey;
+  final String title;
+  final bool isNovel;
+  final bool initiallyBookmarked;
+
+  @override
+  ConsumerState<_BookmarkEditSheet> createState() => _BookmarkEditSheetState();
+}
+
+class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
+  final TextEditingController _tagInput = TextEditingController();
+  BookmarkRestrict _restrict = BookmarkRestrict.public;
+  List<String> _tags = const [];
+  bool _prefilled = false;
+
+  @override
+  void dispose() {
+    _tagInput.dispose();
+    super.dispose();
+  }
+
+  void _addTag(String raw) {
+    final tag = raw.trim();
+    if (tag.isEmpty || _tags.contains(tag)) return;
+    setState(() => _tags = [..._tags, tag]);
+    _tagInput.clear();
+  }
+
+  void _removeTag(String tag) {
+    setState(
+      () => _tags = [
+        for (final item in _tags)
+          if (item != tag) item,
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+
+    if (widget.initiallyBookmarked) {
+      ref.listen(bookmarkDetailProvider(widget.bookmarkKey), (previous, next) {
+        final detail = next.value;
+        if (detail != null && !_prefilled) {
+          setState(() {
+            _prefilled = true;
+            _restrict = detail.restrict ?? _restrict;
+            _tags = detail.tagNames;
+          });
+        }
+      });
+    }
+
+    final suggestions = ref.watch(
+      userBookmarkTagSuggestionsProvider((widget.bookmarkKey.type, _restrict)),
+    );
+
+    final awaitingPrefill = widget.initiallyBookmarked && !_prefilled;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        color: colorScheme.surface,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.heightOf(context) * 0.35,
+          maxHeight: MediaQuery.heightOf(context) * 0.75,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.initiallyBookmarked
+                          ? l10n.bookmarkEditTitle
+                          : _bookmarkText(
+                              context,
+                              widget.isNovel
+                                  ? 'bookmarkNovel'
+                                  : 'bookmarkIllust',
+                            ),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  _RestrictSelect(
+                    value: _restrict,
+                    onChanged: (value) {
+                      if (value != null) setState(() => _restrict = value);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 30),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: FuncSemanticTokens.of(context).title,
+                    ),
+                    Text(
+                      '${widget.bookmarkKey.id}',
+                      style: FuncSemanticTokens.of(context).caption,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.bookmarkTags,
+                      style: FuncSemanticTokens.of(context).body,
+                    ),
+                    const SizedBox(height: 8),
+                    if (awaitingPrefill)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      if (_tags.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            for (final tag in _tags)
+                              InputChip(
+                                label: Text(tag),
+                                onDeleted: () => _removeTag(tag),
+                              ),
+                          ],
+                        ),
+                      TextField(
+                        controller: _tagInput,
+                        decoration: InputDecoration(
+                          hintText: l10n.bookmarkTagNewHint,
+                          isDense: true,
+                        ),
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: _addTag,
+                      ),
+                      switch (suggestions) {
+                        AsyncData(:final value) when value.isNotEmpty => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 12),
+                            Text(
+                              l10n.bookmarkTagSuggestions,
+                              style: FuncSemanticTokens.of(context).caption,
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                for (final suggestion in value)
+                                  if (!_tags.contains(suggestion.name))
+                                    FilterChip(
+                                      label: Text(suggestion.name),
+                                      selected: false,
+                                      onSelected: (_) =>
+                                          _addTag(suggestion.name),
+                                    ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        _ => const SizedBox.shrink(),
+                      },
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: MaterialButton(
+                      elevation: 0,
+                      color: colorScheme.surfaceContainer,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(40),
+                        side: BorderSide.none,
+                      ),
+                      minWidth: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          l10n.cancel,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                color: colorScheme.onSurface,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: MaterialButton(
+                      elevation: 0,
+                      color: colorScheme.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(40),
+                      ),
+                      minWidth: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          l10n.confirm,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                color: colorScheme.onPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ),
+                      onPressed: () {
+                        final pending = _tagInput.text.trim();
+                        Navigator.of(context).pop();
+                        ref
+                            .read(bookmarkActionsProvider)
+                            .addWithRestrict(
+                              widget.bookmarkKey,
+                              _restrict,
+                              tags: pending.isEmpty
+                                  ? _tags
+                                  : [..._tags, pending],
+                            );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );

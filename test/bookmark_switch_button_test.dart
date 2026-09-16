@@ -24,19 +24,29 @@ class _StubAccountStore extends AccountStore {
 }
 
 class _RecordingRepository implements BookmarkRepository {
-  final List<(int id, String restrict)> adds = [];
+  final List<(int id, String restrict, List<String>? tags)> adds = [];
   final List<int> deletes = [];
   Object? addError;
+  BookmarkDetail detail = const BookmarkDetail(
+    isBookmarked: false,
+    restrict: BookmarkRestrict.public,
+    tags: [],
+  );
+  UserBookmarkTagPage tagPage = const UserBookmarkTagPage(
+    tags: [],
+    nextUrl: null,
+  );
 
   @override
   Future<void> addIllust(
     int id,
     BookmarkRestrict restrict, {
+    List<String>? tags,
     CancelToken? cancelToken,
   }) async {
     final error = addError;
     if (error != null) throw error;
-    adds.add((id, restrict.name));
+    adds.add((id, restrict.name, tags));
   }
 
   @override
@@ -48,17 +58,41 @@ class _RecordingRepository implements BookmarkRepository {
   Future<void> addNovel(
     int id,
     BookmarkRestrict restrict, {
+    List<String>? tags,
     CancelToken? cancelToken,
   }) async {
     final error = addError;
     if (error != null) throw error;
-    adds.add((id, restrict.name));
+    adds.add((id, restrict.name, tags));
   }
 
   @override
   Future<void> deleteNovel(int id, {CancelToken? cancelToken}) async {
     deletes.add(id);
   }
+
+  @override
+  Future<BookmarkDetail> fetchDetail(
+    BookmarkKey key, {
+    CancelToken? cancelToken,
+  }) async => detail;
+
+  @override
+  Future<UserBookmarkTagPage> fetchUserTags(
+    int userId, {
+    required BookmarkEntityType entityType,
+    required BookmarkRestrict restrict,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async => tagPage;
+
+  @override
+  bool validateUserTagsCursor(
+    int userId, {
+    required BookmarkEntityType entityType,
+    required BookmarkRestrict restrict,
+    required String cursor,
+  }) => false;
 }
 
 Future<(ProviderContainer, _RecordingRepository)> _pump(
@@ -166,19 +200,72 @@ void main() {
     expect(find.byIcon(Icons.favorite_outline_sharp), findsNothing);
   });
 
-  testWidgets('bookmarked long press opens no sheet (R6)', (tester) async {
-    final (container, _) = await _pump(tester);
-    const key = BookmarkKey(BookmarkEntityType.illust, 1);
-    container
-        .read(bookmarkStoreProvider.notifier)
-        .observeRemote(key, bookmarked: true, snapshotRevision: 0);
-    await tester.pump();
+  testWidgets(
+    'bookmarked long press opens the edit sheet prefilled from detail',
+    (tester) async {
+      final (container, repository) = await _pump(tester);
+      const key = BookmarkKey(BookmarkEntityType.illust, 1);
+      repository.detail = const BookmarkDetail(
+        isBookmarked: true,
+        restrict: BookmarkRestrict.private,
+        tags: [
+          BookmarkTagFacet(name: 'procreate', isRegistered: true),
+          BookmarkTagFacet(name: 'らくがき', isRegistered: false),
+        ],
+      );
+      container
+          .read(bookmarkStoreProvider.notifier)
+          .observeRemote(key, bookmarked: true, snapshotRevision: 0);
+      await tester.pump();
+
+      await tester.longPress(find.byType(BookmarkSwitchButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('编辑收藏'), findsOneWidget);
+      expect(find.text('procreate'), findsOneWidget);
+      expect(find.text('らくがき'), findsOneWidget);
+
+      // Prefilled restrict is private; confirming overwrites with the same
+      // tag set.
+      await tester.ensureVisible(find.text('确定'));
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+
+      expect(repository.adds, hasLength(1));
+      expect(repository.adds.single.$2, 'private');
+      expect(repository.adds.single.$3, ['procreate', 'らくがき']);
+    },
+  );
+
+  testWidgets('tag input and suggestion chips reach the add call', (
+    tester,
+  ) async {
+    final (_, repository) = await _pump(tester);
+    repository.tagPage = const UserBookmarkTagPage(
+      tags: [UserBookmarkTag(name: 'illustration', count: 5)],
+      nextUrl: null,
+    );
 
     await tester.longPress(find.byType(BookmarkSwitchButton));
     await tester.pumpAndSettle();
 
-    expect(find.text('收藏插画'), findsNothing);
-    expect(find.text('确定'), findsNothing);
+    expect(find.text('收藏插画'), findsOneWidget);
+    expect(find.text('常用标签'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '新タグ');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(find.text('新タグ'), findsOneWidget);
+
+    await tester.tap(find.text('illustration'));
+    await tester.pump();
+
+    await tester.ensureVisible(find.text('确定'));
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(repository.adds, hasLength(1));
+    expect(repository.adds.single.$3, ['新タグ', 'illustration']);
   });
 
   testWidgets('unbookmarked long press opens the restrict sheet; confirm '

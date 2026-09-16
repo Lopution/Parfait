@@ -26,14 +26,16 @@ class _BookmarkActions {
     await _run(store, op);
   }
 
-  /// Long-press sheet confirm: add with the chosen restrict. Pending entries
-  /// suppress the request.
+  /// Sheet confirm: add (or overwrite an existing bookmark — the server treats
+  /// add as replace) with the chosen restrict and full tag set. Pending
+  /// entries suppress the request.
   Future<void> addWithRestrict(
     BookmarkKey key,
-    BookmarkRestrict restrict,
-  ) async {
+    BookmarkRestrict restrict, {
+    List<String> tags = const [],
+  }) async {
     final store = _ref.read(bookmarkStoreProvider.notifier);
-    final op = store.beginAdd(key, restrict);
+    final op = store.beginAdd(key, restrict, tags: tags);
     if (op == null) return;
     await _run(store, op);
   }
@@ -46,6 +48,7 @@ class _BookmarkActions {
           await repository.addIllust(
             op.key.id,
             op.restrict,
+            tags: op.tags,
             cancelToken: op.cancelToken,
           );
         case (BookmarkEntityType.illust, BookmarkOpKind.delete):
@@ -54,6 +57,7 @@ class _BookmarkActions {
           await repository.addNovel(
             op.key.id,
             op.restrict,
+            tags: op.tags,
             cancelToken: op.cancelToken,
           );
         case (BookmarkEntityType.novel, BookmarkOpKind.delete):

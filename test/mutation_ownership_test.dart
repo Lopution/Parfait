@@ -46,6 +46,7 @@ class _BookmarkRepository implements BookmarkRepository {
   Future<void> addIllust(
     int id,
     BookmarkRestrict restrict, {
+    List<String>? tags,
     CancelToken? cancelToken,
   }) async {
     requests.add('add:$id');
@@ -64,6 +65,7 @@ class _BookmarkRepository implements BookmarkRepository {
   Future<void> addNovel(
     int id,
     BookmarkRestrict restrict, {
+    List<String>? tags,
     CancelToken? cancelToken,
   }) async {
     requests.add('addNovel:$id');
@@ -77,6 +79,29 @@ class _BookmarkRepository implements BookmarkRepository {
     tokens.add(cancelToken);
     await gate.future;
   }
+
+  @override
+  Future<BookmarkDetail> fetchDetail(
+    BookmarkKey key, {
+    CancelToken? cancelToken,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<UserBookmarkTagPage> fetchUserTags(
+    int userId, {
+    required BookmarkEntityType entityType,
+    required BookmarkRestrict restrict,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) => throw UnimplementedError();
+
+  @override
+  bool validateUserTagsCursor(
+    int userId, {
+    required BookmarkEntityType entityType,
+    required BookmarkRestrict restrict,
+    required String cursor,
+  }) => false;
 }
 
 void main() {
