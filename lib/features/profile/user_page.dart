@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -497,7 +498,7 @@ class _ProfileStatusPage extends StatelessWidget {
 
 void _showProfileShare(BuildContext context, UserEntity user) {
   final url = 'https://www.pixiv.net/users/${user.id}';
-  showDialog<void>(
+  showAppDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(_profileText(dialogContext, 'profileShare')),

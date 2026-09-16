@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/platform/platform_caps.dart';
+import '../motion/motion_tokens.dart';
 
 /// Turns mouse-wheel ticks into an animated scroll instead of the default
 /// fixed-step jump (desktop UX: wheels without tick detents and precision
@@ -75,7 +76,7 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
   final int _id = _nextId++;
   static int _nextId = 0;
 
-  static const _animationDuration = Duration(milliseconds: 240);
+  static const _animationDuration = MotionTokens.wheelScroll;
 
   @override
   void didChangeDependencies() {

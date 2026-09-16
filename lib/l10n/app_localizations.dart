@@ -1098,6 +1098,18 @@ abstract class AppLocalizations {
   /// **'本地屏蔽 AI 作品'**
   String get blockAI;
 
+  /// No description provided for @reduceMotion.
+  ///
+  /// In zh, this message translates to:
+  /// **'减少动态效果'**
+  String get reduceMotion;
+
+  /// No description provided for @reduceMotionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭页面转场、列表进场与按压反馈等装饰性动画'**
+  String get reduceMotionHint;
+
   /// No description provided for @maxDownloadCount.
   ///
   /// In zh, this message translates to:

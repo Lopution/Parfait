@@ -179,6 +179,7 @@ class AppSettings {
     this.enablePixivHistory = true,
     this.enableLocalBlockR18 = false,
     this.enableLocalBlockAI = false,
+    this.reduceMotion = false,
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
     this.downloadDestination = DownloadDestination.builtin,
@@ -237,6 +238,11 @@ class AppSettings {
   final bool enablePixivHistory;
   final bool enableLocalBlockR18;
   final bool enableLocalBlockAI;
+
+  /// Collapses decorative motion (transitions, entrance stagger, press
+  /// scale, sheet/dialog presentation) to instant state changes. Merged
+  /// with the platform `disableAnimations` flag inside `MotionTokens`.
+  final bool reduceMotion;
   final int translateIndex;
   final int maxDownloadCount;
   final DownloadDestination downloadDestination;
@@ -321,6 +327,7 @@ class AppSettings {
         json['enableLocalBlockAI'],
         base.enableLocalBlockAI,
       ),
+      reduceMotion: _bool(json['reduceMotion'], base.reduceMotion),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
       downloadDestination: _readDestination(json, base.downloadDestination),
@@ -347,6 +354,7 @@ class AppSettings {
       'enablePixivHistory': enablePixivHistory,
       'enableLocalBlockR18': enableLocalBlockR18,
       'enableLocalBlockAI': enableLocalBlockAI,
+      'reduceMotion': reduceMotion,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
       ...downloadDestination.toJson(),
@@ -456,6 +464,7 @@ class AppSettings {
     bool? enablePixivHistory,
     bool? enableLocalBlockR18,
     bool? enableLocalBlockAI,
+    bool? reduceMotion,
     int? translateIndex,
     int? maxDownloadCount,
     Object? downloadDestination = _unset,
@@ -485,6 +494,7 @@ class AppSettings {
       enablePixivHistory: enablePixivHistory ?? this.enablePixivHistory,
       enableLocalBlockR18: enableLocalBlockR18 ?? this.enableLocalBlockR18,
       enableLocalBlockAI: enableLocalBlockAI ?? this.enableLocalBlockAI,
+      reduceMotion: reduceMotion ?? this.reduceMotion,
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??
           this.translateIndex,

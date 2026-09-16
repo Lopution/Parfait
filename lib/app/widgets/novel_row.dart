@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/novel/novel_entity.dart';
 import '../../l10n/context.dart';
+import '../motion/press_scale.dart';
 import '../navigation/routes.dart';
 import '../pixiv_image.dart';
 
@@ -14,45 +15,47 @@ class NovelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: InkWell(
-        onTap: () => openNovel(context, entity.id),
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _NovelCover(entity: entity),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entity.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      entity.user.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${entity.textLength} ${context.l10n.novelWords}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+    return PressScale(
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: InkWell(
+          onTap: () => openNovel(context, entity.id),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _NovelCover(entity: entity),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entity.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        entity.user.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${entity.textLength} ${context.l10n.novelWords}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
+                const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
       ),

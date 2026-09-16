@@ -9,6 +9,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../../theme/func_tokens.dart';
 import '../../motion/hero_transition.dart';
+import '../../motion/press_scale.dart';
 import '../../navigation/routes.dart';
 import '../../pixiv_image.dart';
 import '../../image_tier_cache.dart';
@@ -136,35 +137,37 @@ class IllustCard extends ConsumerWidget {
     final previewHeight = entity.width > 0
         ? cardWidth / entity.width * entity.height
         : cardWidth;
-    return Semantics(
-      container: true,
-      button: true,
-      image: true,
-      label: '${entity.title}, ${entity.user.name}',
-      onTap: openDetail,
-      child: GestureDetector(
-        excludeFromSemantics: true,
-        onTapDown: (_) => _preloadTransitionImages(
-          context,
-          ref,
-          previewUrl,
-          previewTier,
-          cardDecodeWidth,
-        ),
+    return PressScale(
+      child: Semantics(
+        container: true,
+        button: true,
+        image: true,
+        label: '${entity.title}, ${entity.user.name}',
         onTap: openDetail,
-        // No outer ClipRRect: the Hero child already clips the image to
-        // the same 12px radius and every badge sits 7px inside the
-        // bounds, so the extra clip only cost a saveLayer per card per
-        // frame while scrolling.
-        child: SizedBox(
-          width: cardWidth,
-          height: previewHeight,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildHeroImage(previewUrl, heroTag, cardWidth, previewTier),
-              ..._buildBadges(colorScheme),
-            ],
+        child: GestureDetector(
+          excludeFromSemantics: true,
+          onTapDown: (_) => _preloadTransitionImages(
+            context,
+            ref,
+            previewUrl,
+            previewTier,
+            cardDecodeWidth,
+          ),
+          onTap: openDetail,
+          // No outer ClipRRect: the Hero child already clips the image to
+          // the same 12px radius and every badge sits 7px inside the
+          // bounds, so the extra clip only cost a saveLayer per card per
+          // frame while scrolling.
+          child: SizedBox(
+            width: cardWidth,
+            height: previewHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildHeroImage(previewUrl, heroTag, cardWidth, previewTier),
+                ..._buildBadges(colorScheme),
+              ],
+            ),
           ),
         ),
       ),

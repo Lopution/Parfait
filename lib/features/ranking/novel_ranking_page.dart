@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/motion/feed_entrance.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -170,8 +171,10 @@ class _NovelRankingModeBody extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: 8),
                     sliver: SliverList.builder(
                       itemCount: entities.length,
-                      itemBuilder: (context, index) =>
-                          NovelRow(entity: entities[index]),
+                      itemBuilder: (context, index) => StaggeredEntrance(
+                        index: index,
+                        child: NovelRow(entity: entities[index]),
+                      ),
                     ),
                   ),
                   SliverToBoxAdapter(

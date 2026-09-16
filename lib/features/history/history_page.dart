@@ -7,6 +7,7 @@ import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 
 import '../../app/pixiv_image.dart';
+import '../../app/motion/app_overlays.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/replica_empty_state.dart';
@@ -457,7 +458,7 @@ class _SnapshotCover extends StatelessWidget {
 }
 
 Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
-  return showModalBottomSheet<bool>(
+  return showAppBottomSheet<bool>(
     context: context,
     builder: (sheetContext) {
       return SafeArea(

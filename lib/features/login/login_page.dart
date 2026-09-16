@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/motion/app_overlays.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -130,7 +131,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _openLoginWebview({bool create = false}) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.loginProxyNoticeTitle),

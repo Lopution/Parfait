@@ -201,6 +201,8 @@
   "pixivHistory": "Pixiv 浏览历史",
   "blockR18": "本地屏蔽 R-18 作品",
   "blockAI": "本地屏蔽 AI 作品",
+  "reduceMotion": "减少动态效果",
+  "reduceMotionHint": "关闭页面转场、列表进场与按压反馈等装饰性动画",
   "maxDownloadCount": "最大并行下载数",
   "namingRule": "文件命名规则",
   "namingRuleHint": "留空使用默认命名",

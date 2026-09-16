@@ -201,6 +201,8 @@
   "pixivHistory": "Pixiv 閲覧履歴",
   "blockR18": "R-18作品をローカルで非表示",
   "blockAI": "AI作品をローカルで非表示",
+  "reduceMotion": "視覚効果を減らす",
+  "reduceMotionHint": "画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします",
   "maxDownloadCount": "同時ダウンロード数の上限",
   "namingRule": "ファイル名規則",
   "namingRuleHint": "空欄で標準の名前を使用",
