@@ -29,7 +29,8 @@ class _CommentActions {
     request.validate();
     final store = _ref.read(commentStoreProvider.notifier);
     final operation = store.beginSend(
-      illustId: request.illustId,
+      workId: request.workId,
+      kind: request.kind,
       parentCommentId: request.parentCommentId,
       rootCommentId: request.rootCommentId,
     );
@@ -56,7 +57,11 @@ class _CommentActions {
     try {
       await _ref
           .read(commentRepositoryProvider)
-          .deleteComment(comment.id, cancelToken: operation.cancelToken);
+          .deleteComment(
+            comment.id,
+            kind: comment.kind,
+            cancelToken: operation.cancelToken,
+          );
       store.commitDelete(operation);
       return true;
     } on Object catch (error) {

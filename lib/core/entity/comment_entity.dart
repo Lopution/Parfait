@@ -5,6 +5,10 @@ import 'package:flutter/foundation.dart';
 import '../user/user_entity.dart';
 import 'json_read.dart';
 
+/// Comment-bearing work type. Selects the endpoint family and namespaces
+/// store/feed keys so an illust id and a novel id never collide.
+enum CommentWorkKind { illust, novel }
+
 /// The canonical identity and thread relationship of one Pixiv comment.
 ///
 /// Pixiv's comment payload does not always echo a parent ID on replies. The
@@ -16,7 +20,8 @@ import 'json_read.dart';
 class CommentEntity {
   const CommentEntity({
     required this.id,
-    required this.illustId,
+    required this.workId,
+    required this.kind,
     required this.parentCommentId,
     required this.rootCommentId,
     required this.user,
@@ -27,7 +32,7 @@ class CommentEntity {
     this.hasReplies = false,
     this.replyCount = 0,
   }) : assert(id > 0),
-       assert(illustId > 0),
+       assert(workId > 0),
        assert(rootCommentId > 0),
        assert(parentCommentId == null || parentCommentId > 0),
        assert(parentCommentId != id),
@@ -35,7 +40,8 @@ class CommentEntity {
        assert(stampId == null || stampId > 0);
 
   final int id;
-  final int illustId;
+  final int workId;
+  final CommentWorkKind kind;
 
   /// Direct parent. Null means this is a root comment.
   final int? parentCommentId;
@@ -58,7 +64,8 @@ class CommentEntity {
   /// response model omits the parent field.
   factory CommentEntity.fromJson(
     Map<String, dynamic> json, {
-    required int illustId,
+    required int workId,
+    CommentWorkKind kind = CommentWorkKind.illust,
     int? rootCommentId,
   }) {
     final id = requireParsedPositiveInt(json['id'], 'comment.id');
@@ -103,7 +110,8 @@ class CommentEntity {
         : replyCount > 0;
     return CommentEntity(
       id: id,
-      illustId: requireParsedPositiveInt(illustId, 'illustId'),
+      workId: requireParsedPositiveInt(workId, 'workId'),
+      kind: kind,
       parentCommentId: effectiveParent,
       rootCommentId: effectiveRoot,
       user: UserEntity.fromUserJson(userJson),
@@ -118,7 +126,8 @@ class CommentEntity {
 
   CommentEntity copyWith({
     int? id,
-    int? illustId,
+    int? workId,
+    CommentWorkKind? kind,
     Object? parentCommentId = _unset,
     int? rootCommentId,
     UserEntity? user,
@@ -131,7 +140,8 @@ class CommentEntity {
   }) {
     return CommentEntity(
       id: id ?? this.id,
-      illustId: illustId ?? this.illustId,
+      workId: workId ?? this.workId,
+      kind: kind ?? this.kind,
       parentCommentId: identical(parentCommentId, _unset)
           ? this.parentCommentId
           : parentCommentId as int?,
@@ -150,7 +160,11 @@ class CommentEntity {
 
   /// Merges a later payload into the single canonical entity copy.
   CommentEntity merge(CommentEntity incoming) {
-    if (incoming.id != id || incoming.illustId != illustId) return this;
+    if (incoming.id != id ||
+        incoming.workId != workId ||
+        incoming.kind != kind) {
+      return this;
+    }
     final incomingReplyCount = incoming.replyCount > replyCount
         ? incoming.replyCount
         : replyCount;
@@ -169,7 +183,7 @@ class CommentEntity {
 
   @override
   String toString() =>
-      'CommentEntity(${jsonEncode({'id': id, 'illustId': illustId, 'parentCommentId': parentCommentId, 'rootCommentId': rootCommentId, 'userId': user.id})})';
+      'CommentEntity(${jsonEncode({'id': id, 'kind': kind.name, 'workId': workId, 'parentCommentId': parentCommentId, 'rootCommentId': rootCommentId, 'userId': user.id})})';
 }
 
 const _unset = Object();

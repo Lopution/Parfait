@@ -122,14 +122,16 @@ Map<String, dynamic> _commentJson(
 
 CommentEntity _comment(
   int id, {
-  int illustId = 1,
+  int workId = 1,
+  CommentWorkKind kind = CommentWorkKind.illust,
   int userId = 10,
   int? parentCommentId,
   int? rootCommentId,
   int replyCount = 0,
 }) => CommentEntity(
   id: id,
-  illustId: illustId,
+  workId: workId,
+  kind: kind,
   parentCommentId: parentCommentId,
   rootCommentId: rootCommentId ?? id,
   user: UserEntity(id: userId, name: 'user $userId', account: 'user_$userId'),
@@ -146,14 +148,15 @@ class _FakeCommentRepository implements CommentRepository {
 
   @override
   Future<CommentPage> fetchComments(
-    int illustId, {
+    int workId, {
+    CommentWorkKind kind = CommentWorkKind.illust,
     String? cursor,
     CancelToken? cancelToken,
   }) async {
-    final query = CommentFeedQuery.root(illustId: illustId);
+    final query = CommentFeedQuery.root(workId: workId, kind: kind);
     requests.add(query);
     return CommentPage(
-      comments: [_comment(11, illustId: illustId, replyCount: 1)],
+      comments: [_comment(11, workId: workId, replyCount: 1)],
       nextUrl: null,
     );
   }
@@ -161,12 +164,14 @@ class _FakeCommentRepository implements CommentRepository {
   @override
   Future<CommentPage> fetchReplies(
     int rootCommentId, {
-    required int illustId,
+    required int workId,
+    CommentWorkKind kind = CommentWorkKind.illust,
     String? cursor,
     CancelToken? cancelToken,
   }) async {
     final query = CommentFeedQuery.replies(
-      illustId: illustId,
+      workId: workId,
+      kind: kind,
       rootCommentId: rootCommentId,
     );
     requests.add(query);
@@ -174,7 +179,7 @@ class _FakeCommentRepository implements CommentRepository {
       comments: [
         _comment(
           12,
-          illustId: illustId,
+          workId: workId,
           parentCommentId: rootCommentId,
           rootCommentId: rootCommentId,
         ),
@@ -193,7 +198,11 @@ class _FakeCommentRepository implements CommentRepository {
   }) => addCompleter?.future ?? Future.value(_comment(20));
 
   @override
-  Future<void> deleteComment(int commentId, {CancelToken? cancelToken}) async {
+  Future<void> deleteComment(
+    int commentId, {
+    CommentWorkKind kind = CommentWorkKind.illust,
+    CancelToken? cancelToken,
+  }) async {
     deleteCalls++;
   }
 }
@@ -202,11 +211,11 @@ void main() {
   test('comment parsing keeps root, parent and stamp fields distinct', () {
     final root = CommentEntity.fromJson(
       _commentJson(100, replyCount: 2),
-      illustId: 50,
+      workId: 50,
     );
     final reply = CommentEntity.fromJson(
       _commentJson(101, userId: 11),
-      illustId: 50,
+      workId: 50,
       rootCommentId: root.id,
     );
     final stamped = CommentEntity.fromJson(
@@ -214,7 +223,7 @@ void main() {
         102,
         stamp: {'stamp_id': 101, 'stamp_url': 'https://example.test/101.jpg'},
       ),
-      illustId: 50,
+      workId: 50,
     );
 
     expect(root.isRoot, isTrue);
@@ -266,10 +275,10 @@ void main() {
     final repository = container.read(commentRepositoryProvider);
 
     final rootPage = await repository.fetchComments(50);
-    final replyPage = await repository.fetchReplies(100, illustId: 50);
+    final replyPage = await repository.fetchReplies(100, workId: 50);
     final added = await repository.addComment(
       const CommentAddRequest(
-        illustId: 50,
+        workId: 50,
         parentCommentId: 100,
         rootCommentId: 100,
         text: 'new comment',
@@ -289,14 +298,73 @@ void main() {
     ]);
   });
 
+  test('novel comments use the novel endpoint family and novel_id', () async {
+    final paths = <String>[];
+    final container = await _apiContainer((request) async {
+      paths.add(request.url.path);
+      switch (request.url.path) {
+        case '/v3/novel/comments':
+          expect(request.url.queryParameters, {'novel_id': '60'});
+          return _json({
+            'comments': [_commentJson(200)],
+            'next_url': null,
+          });
+        case '/v2/novel/comment/replies':
+          expect(request.url.queryParameters, {'comment_id': '200'});
+          return _json({
+            'comments': [_commentJson(201, userId: 11)],
+            'next_url': null,
+          });
+        case '/v1/novel/comment/add':
+          expect(request.method, 'POST');
+          expect(request.bodyFields, {
+            'novel_id': '60',
+            'comment': 'hello novel',
+          });
+          return _json({'comment': _commentJson(202)});
+        case '/v1/novel/comment/delete':
+          expect(request.bodyFields, {'comment_id': '202'});
+          return _json({'is_success': true});
+        default:
+          return http.Response('unexpected path', 404);
+      }
+    });
+    addTearDown(container.dispose);
+    final repository = container.read(commentRepositoryProvider);
+
+    final page = await repository.fetchComments(
+      60,
+      kind: CommentWorkKind.novel,
+    );
+    await repository.fetchReplies(200, workId: 60, kind: CommentWorkKind.novel);
+    final added = await repository.addComment(
+      const CommentAddRequest(
+        workId: 60,
+        kind: CommentWorkKind.novel,
+        text: 'hello novel',
+      ),
+    );
+    await repository.deleteComment(202, kind: CommentWorkKind.novel);
+
+    expect(page.comments.single.kind, CommentWorkKind.novel);
+    expect(page.comments.single.workId, 60);
+    expect(added.kind, CommentWorkKind.novel);
+    expect(paths, [
+      '/v3/novel/comments',
+      '/v2/novel/comment/replies',
+      '/v1/novel/comment/add',
+      '/v1/novel/comment/delete',
+    ]);
+  });
+
   test('comment cursors are pinned to their endpoint and thread', () async {
     final container = await _apiContainer(
       (_) async => _json({'comments': <Object?>[], 'next_url': null}),
     );
     addTearDown(container.dispose);
     final repository = container.read(commentRepositoryProvider);
-    const root = CommentFeedQuery.root(illustId: 50);
-    const replies = CommentFeedQuery.replies(illustId: 50, rootCommentId: 100);
+    const root = CommentFeedQuery.root(workId: 50);
+    const replies = CommentFeedQuery.replies(workId: 50, rootCommentId: 100);
     expect(
       repository.validateCursor(
         root,
@@ -341,9 +409,9 @@ void main() {
       addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
-      final rootQuery = const CommentFeedQuery.root(illustId: 1);
+      final rootQuery = const CommentFeedQuery.root(workId: 1);
       final replyQuery = const CommentFeedQuery.replies(
-        illustId: 1,
+        workId: 1,
         rootCommentId: 10,
       );
       final root = _comment(10, replyCount: 0);
@@ -357,12 +425,12 @@ void main() {
       expect(store.get(11)!.rootCommentId, 10);
 
       final op = store.beginSend(
-        illustId: 1,
+        workId: 1,
         parentCommentId: 10,
         rootCommentId: 10,
       )!;
       expect(
-        store.beginSend(illustId: 1, parentCommentId: 10, rootCommentId: 10),
+        store.beginSend(workId: 1, parentCommentId: 10, rootCommentId: 10),
         isNull,
       );
       final newReply = _comment(12, parentCommentId: 10, rootCommentId: 10);
@@ -390,8 +458,8 @@ void main() {
       addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
 
-      const root = CommentFeedQuery.root(illustId: 1);
-      const replies = CommentFeedQuery.replies(illustId: 1, rootCommentId: 11);
+      const root = CommentFeedQuery.root(workId: 1);
+      const replies = CommentFeedQuery.replies(workId: 1, rootCommentId: 11);
       final rootState = await container.read(commentFeedProvider(root).future);
       final replyState = await container.read(
         commentFeedProvider(replies).future,
@@ -415,18 +483,18 @@ void main() {
       addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
-      final rootQuery = const CommentFeedQuery.root(illustId: 1);
+      final rootQuery = const CommentFeedQuery.root(workId: 1);
       final repliesQuery = const CommentFeedQuery.replies(
-        illustId: 1,
+        workId: 1,
         rootCommentId: 20,
       );
       store.mergePage(rootQuery, [_comment(20, replyCount: 1)]);
       store.mergePage(repliesQuery, [
         _comment(21, parentCommentId: 20, rootCommentId: 20),
       ]);
-      final first = store.beginSend(illustId: 1)!;
+      final first = store.beginSend(workId: 1)!;
       store.failSend(first, StateError('network'));
-      final second = store.beginSend(illustId: 1)!;
+      final second = store.beginSend(workId: 1)!;
       store.commitSend(first, _comment(22));
       expect(store.idsFor(rootQuery), [20]);
       store.failSend(second, StateError('still unavailable'));
@@ -455,7 +523,7 @@ void main() {
       final result = _comment(20);
       repository.addCompleter = Completer<CommentEntity>();
       final pending = action.send(
-        const CommentAddRequest(illustId: 1, text: 'pending'),
+        const CommentAddRequest(workId: 1, text: 'pending'),
       );
       await Future<void>.delayed(Duration.zero);
       expect(container.read(commentStoreProvider.notifier).get(20), isNull);
