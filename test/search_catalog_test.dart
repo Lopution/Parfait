@@ -667,6 +667,61 @@ void main() {
   );
 
   test(
+    'search feed applies client-side bookmark and AI-only predicates',
+    () async {
+      final repository = _FakeSearchRepository()
+        ..illustPage = SearchIllustPage(
+          illusts: [
+            parseIllust(illustJson(1, totalBookmarks: 50)),
+            parseIllust(illustJson(2, totalBookmarks: 500, aiType: 2)),
+            parseIllust(illustJson(3, totalBookmarks: 5000, aiType: 2)),
+          ],
+          nextUrl: null,
+        );
+      final container = ProviderContainer(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+
+      // bookmark_num_min is Premium-only on the wire — the client-side
+      // predicate must still drop low-bookmark works on free accounts.
+      final ranged = await container.read(
+        searchFeedProvider(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(bookmarkMin: 100),
+          ),
+        ).future,
+      );
+      expect(ranged.ids, [2, 3]);
+
+      // "Only AI" has no wire value; filtering is entirely client-side.
+      final aiOnly = await container.read(
+        searchFeedProvider(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(aiFilter: SearchAiFilter.only),
+          ),
+        ).future,
+      );
+      expect(aiOnly.ids, [2, 3]);
+
+      final combined = await container.read(
+        searchFeedProvider(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(
+              aiFilter: SearchAiFilter.only,
+              bookmarkMin: 1000,
+            ),
+          ),
+        ).future,
+      );
+      expect(combined.ids, [3]);
+    },
+  );
+
+  test(
     'autocomplete debounce suppresses a late response from an old query',
     () async {
       final oldResponse = Completer<List<SearchSuggestion>>();

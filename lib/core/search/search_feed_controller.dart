@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
+import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
 import '../novel/novel_store.dart';
 import '../paging/paged_feed_controller.dart';
@@ -21,6 +22,53 @@ class _SearchFeedController extends PagedFeedController {
   /// have local-block semantics; novel/user searches stay unfiltered.
   @override
   bool get localFilterEnabled => query is IllustSearchQuery;
+
+  /// Client-side enforcement for filters the server does not honor:
+  /// `bookmark_num_min/max` are Premium-only (free accounts are silently
+  /// ignored, per Shaft's verification) and "only AI" has no wire value at
+  /// all. Both predicates re-run against the returned entities so the
+  /// filter holds on every account tier — idempotent when the server did
+  /// apply them.
+  @override
+  List<int> filterPageIds(
+    List<int> ids, {
+    Map<int, IllustEntity>? incomingIllusts,
+  }) {
+    final visible = super.filterPageIds(ids, incomingIllusts: incomingIllusts);
+    final query = this.query;
+    if (query is! IllustSearchQuery) return visible;
+    final filters = query.filters;
+    final aiOnly = filters.aiFilter == SearchAiFilter.only;
+    final min = filters.bookmarkMin;
+    final max = filters.bookmarkMax;
+    if (!aiOnly && min == null && max == null) return visible;
+    final store = ref.read(illustStoreProvider);
+    return [
+      for (final id in visible)
+        if (_passesSearchPredicates(
+          incomingIllusts?[id] ?? store.get(id),
+          aiOnly: aiOnly,
+          min: min,
+          max: max,
+        ))
+          id,
+    ];
+  }
+
+  bool _passesSearchPredicates(
+    IllustEntity? entity, {
+    required bool aiOnly,
+    required int? min,
+    required int? max,
+  }) {
+    // Entities not yet in the store are kept — same no-evidence rule as
+    // the shared predicate.
+    if (entity == null) return true;
+    if (aiOnly && !entity.isAi) return false;
+    if (min != null && entity.totalBookmarks < min) return false;
+    if (max != null && entity.totalBookmarks > max) return false;
+    return true;
+  }
 
   @override
   int get filterMinVisible => 24;
