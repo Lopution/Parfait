@@ -90,11 +90,16 @@ class _FakeSearchRepository implements SearchRepository {
   }
 
   int trendingTagsCallCount = 0;
+  SearchResultType? trendingTagsLastType;
   final int trendingTagCount;
 
   @override
-  Future<List<TrendingTag>> trendingTags({CancelToken? cancelToken}) async {
+  Future<List<TrendingTag>> trendingTags({
+    SearchResultType type = SearchResultType.illust,
+    CancelToken? cancelToken,
+  }) async {
     trendingTagsCallCount++;
+    trendingTagsLastType = type;
     final tags = <TrendingTag>[
       TrendingTag(name: '风景', representative: parseIllust(illustJson(901))),
       const TrendingTag(name: '猫'),
@@ -681,6 +686,35 @@ void main() {
 
     expect(find.text('#标签3'), findsOneWidget);
     expect(find.text('#标签4'), findsNothing);
+  });
+
+  testWidgets('switching the trending kind re-requests the novel endpoint', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+
+            home: SearchHomePage(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(repository.trendingTagsLastType, SearchResultType.illust);
+
+      await tester.tap(find.text('小说'));
+      await tester.pump();
+      await tester.pump();
+    });
+    expect(repository.trendingTagsLastType, SearchResultType.novel);
+    expect(repository.trendingTagsCallCount, 2);
   });
 
   testWidgets('U2: tapping a trending tag still searches that tag', (

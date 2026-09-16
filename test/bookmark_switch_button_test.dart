@@ -43,6 +43,22 @@ class _RecordingRepository implements BookmarkRepository {
   Future<void> deleteIllust(int id, {CancelToken? cancelToken}) async {
     deletes.add(id);
   }
+
+  @override
+  Future<void> addNovel(
+    int id,
+    BookmarkRestrict restrict, {
+    CancelToken? cancelToken,
+  }) async {
+    final error = addError;
+    if (error != null) throw error;
+    adds.add((id, restrict.name));
+  }
+
+  @override
+  Future<void> deleteNovel(int id, {CancelToken? cancelToken}) async {
+    deletes.add(id);
+  }
 }
 
 Future<(ProviderContainer, _RecordingRepository)> _pump(

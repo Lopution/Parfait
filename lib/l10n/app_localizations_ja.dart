@@ -928,6 +928,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingWeekRookie => 'ウィークリー (ルーキー)';
 
   @override
+  String get rankingWeekAi => 'ウィークリー (AI)';
+
+  @override
+  String get rankingWeekAiR18 => 'ウィークリー (AI & R-18)';
+
+  @override
+  String get rankingWeekR18G => 'ウィークリー (R-18G)';
+
+  @override
   String get rankingMonth => 'マンスリー';
 
   @override
@@ -1443,6 +1452,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelSeries => 'シリーズ';
+
+  @override
+  String get novelRanking => '小説ランキング';
 
   @override
   String get novelSeriesUnavailable => 'シリーズ情報を利用できません';

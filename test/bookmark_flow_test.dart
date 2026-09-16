@@ -16,6 +16,9 @@ import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/novel/novel_entity.dart';
+import 'package:pixiv_func/core/novel/novel_store.dart';
+import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -246,7 +249,69 @@ void main() {
       expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isFalse);
     },
   );
+
+  test(
+    'novel toggle hits the novel endpoints and mirrors to the store',
+    () async {
+      final (container, fixture) = await _makeWorld();
+      const key = BookmarkKey(BookmarkEntityType.novel, 77);
+      // Bind onConfirmed (owned by illustStoreProvider) and seed the entity.
+      container.read(illustStoreProvider);
+      container.read(novelStoreProvider.notifier).mergeAll([_novel(77)]);
+
+      await container.read(bookmarkActionsProvider).toggle(key);
+      expect(fixture.requests.single.uri.path, '/v2/novel/bookmark/add');
+      expect(fixture.requests.single.body['novel_id'], '77');
+      expect(fixture.requests.single.body['restrict'], 'public');
+      expect(container.read(novelStoreProvider)[77]!.isBookmarked, isTrue);
+
+      await container.read(bookmarkActionsProvider).toggle(key);
+      expect(fixture.requests.last.uri.path, '/v1/novel/bookmark/delete');
+      expect(fixture.requests.last.body['novel_id'], '77');
+      expect(container.read(novelStoreProvider)[77]!.isBookmarked, isFalse);
+    },
+  );
+
+  test('novel feed merge cannot erase a pending local bookmark', () async {
+    final inFlight = Completer<void>();
+    final (container, fixture) = await _makeWorld(
+      gate: (_) {
+        if (!inFlight.isCompleted) inFlight.complete();
+      },
+    );
+    const key = BookmarkKey(BookmarkEntityType.novel, 78);
+    container.read(illustStoreProvider);
+    final novels = container.read(novelStoreProvider.notifier);
+    novels.mergeAll([_novel(78)]);
+
+    final action = container.read(bookmarkActionsProvider).toggle(key);
+    await inFlight.future;
+
+    // A feed snapshot landing mid-mutation must not apply over the pending op.
+    novels.mergeAll([_novel(78, bookmarked: false)]);
+    expect(
+      container.read(bookmarkStoreProvider)[key]!.isPending,
+      isTrue,
+      reason: 'snapshot gated behind the pending mutation',
+    );
+
+    await action;
+    expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
+    expect(container.read(novelStoreProvider)[78]!.isBookmarked, isTrue);
+  });
 }
 
 IllustEntity _entity(int id, {required bool bookmarked}) =>
     parseIllust(illustJson(id, bookmarked: bookmarked));
+
+NovelEntity _novel(int id, {bool bookmarked = false}) => NovelEntity(
+  id: id,
+  title: 'novel $id',
+  caption: '',
+  user: const UserEntity(id: 8, name: 'author', account: 'author'),
+  tags: const [],
+  textLength: 0,
+  contentVersion: 'v$id',
+  paragraphs: const [],
+  isBookmarked: bookmarked,
+);

@@ -14,14 +14,16 @@ import '../entity/json_read.dart';
 /// JSON boundary for Pixiv comments and replies.
 abstract interface class CommentRepository {
   Future<CommentPage> fetchComments(
-    int illustId, {
+    int workId, {
+    CommentWorkKind kind = CommentWorkKind.illust,
     String? cursor,
     CancelToken? cancelToken,
   });
 
   Future<CommentPage> fetchReplies(
     int rootCommentId, {
-    required int illustId,
+    required int workId,
+    CommentWorkKind kind = CommentWorkKind.illust,
     String? cursor,
     CancelToken? cancelToken,
   });
@@ -33,29 +35,48 @@ abstract interface class CommentRepository {
     CancelToken? cancelToken,
   });
 
-  Future<void> deleteComment(int commentId, {CancelToken? cancelToken});
+  Future<void> deleteComment(
+    int commentId, {
+    CommentWorkKind kind = CommentWorkKind.illust,
+    CancelToken? cancelToken,
+  });
 }
 
 /// Pixiv app-api implementation for the beta56 comment contract.
 class _PixivCommentRepository implements CommentRepository {
   _PixivCommentRepository(this._client);
 
-  static const _commentsPath = '/v3/illust/comments';
-  static const _repliesPath = '/v2/illust/comment/replies';
-  static const _addPath = '/v1/illust/comment/add';
-  static const _deletePath = '/v1/illust/comment/delete';
+  static const _commentsPaths = {
+    CommentWorkKind.illust: '/v3/illust/comments',
+    CommentWorkKind.novel: '/v3/novel/comments',
+  };
+  static const _repliesPaths = {
+    CommentWorkKind.illust: '/v2/illust/comment/replies',
+    CommentWorkKind.novel: '/v2/novel/comment/replies',
+  };
+  static const _addPaths = {
+    CommentWorkKind.illust: '/v1/illust/comment/add',
+    CommentWorkKind.novel: '/v1/novel/comment/add',
+  };
+  static const _deletePaths = {
+    CommentWorkKind.illust: '/v1/illust/comment/delete',
+    CommentWorkKind.novel: '/v1/novel/comment/delete',
+  };
+
+  static String _workIdField(CommentWorkKind kind) => '${kind.name}_id';
 
   final PixivHttpClient _client;
 
   @override
   Future<CommentPage> fetchComments(
-    int illustId, {
+    int workId, {
+    CommentWorkKind kind = CommentWorkKind.illust,
     String? cursor,
     CancelToken? cancelToken,
   }) async {
-    _requirePositive(illustId, 'illustId');
+    _requirePositive(workId, 'workId');
     return _fetch(
-      CommentFeedQuery.root(illustId: illustId),
+      CommentFeedQuery.root(workId: workId, kind: kind),
       cursor: cursor,
       cancelToken: cancelToken,
     );
@@ -64,15 +85,17 @@ class _PixivCommentRepository implements CommentRepository {
   @override
   Future<CommentPage> fetchReplies(
     int rootCommentId, {
-    required int illustId,
+    required int workId,
+    CommentWorkKind kind = CommentWorkKind.illust,
     String? cursor,
     CancelToken? cancelToken,
   }) async {
     _requirePositive(rootCommentId, 'rootCommentId');
-    _requirePositive(illustId, 'illustId');
+    _requirePositive(workId, 'workId');
     return _fetch(
       CommentFeedQuery.replies(
-        illustId: illustId,
+        workId: workId,
+        kind: kind,
         rootCommentId: rootCommentId,
       ),
       cursor: cursor,
@@ -97,14 +120,14 @@ class _PixivCommentRepository implements CommentRepository {
   }) async {
     request.validate();
     final body = <String, String>{
-      'illust_id': '${request.illustId}',
+      _workIdField(request.kind): '${request.workId}',
       if (request.normalizedText != null) 'comment': request.normalizedText!,
       if (request.stampId != null) 'stamp_id': '${request.stampId}',
       if (request.parentCommentId != null)
         'parent_comment_id': '${request.parentCommentId}',
     };
     final response = await _client.post(
-      PixivClientIdentity.appApiBase.replace(path: _addPath),
+      PixivClientIdentity.appApiBase.replace(path: _addPaths[request.kind]!),
       body: body,
       cancelToken: cancelToken,
       // C2: an explicit auth rejection refreshes the credential and replays
@@ -119,7 +142,8 @@ class _PixivCommentRepository implements CommentRepository {
     try {
       return CommentEntity.fromJson(
         rawComment,
-        illustId: request.illustId,
+        workId: request.workId,
+        kind: request.kind,
         rootCommentId: request.rootCommentId,
       ).copyWith(
         parentCommentId: request.parentCommentId,
@@ -131,10 +155,14 @@ class _PixivCommentRepository implements CommentRepository {
   }
 
   @override
-  Future<void> deleteComment(int commentId, {CancelToken? cancelToken}) async {
+  Future<void> deleteComment(
+    int commentId, {
+    CommentWorkKind kind = CommentWorkKind.illust,
+    CancelToken? cancelToken,
+  }) async {
     _requirePositive(commentId, 'commentId');
     final response = await _client.post(
-      PixivClientIdentity.appApiBase.replace(path: _deletePath),
+      PixivClientIdentity.appApiBase.replace(path: _deletePaths[kind]!),
       body: {'comment_id': '$commentId'},
       cancelToken: cancelToken,
       allowAuthReplay: true,
@@ -165,7 +193,8 @@ class _PixivCommentRepository implements CommentRepository {
         comments.add(
           CommentEntity.fromJson(
             item,
-            illustId: query.illustId,
+            workId: query.workId,
+            kind: query.kind,
             rootCommentId: query.rootCommentId,
           ),
         );
@@ -183,10 +212,12 @@ class _PixivCommentRepository implements CommentRepository {
     CommentFeedQuery query, {
     required String? cursor,
   }) {
-    final path = query.isReplies ? _repliesPath : _commentsPath;
+    final path = query.isReplies
+        ? _repliesPaths[query.kind]!
+        : _commentsPaths[query.kind]!;
     final expected = query.isReplies
         ? {'comment_id': '${query.rootCommentId}'}
-        : {'illust_id': '${query.illustId}'};
+        : {_workIdField(query.kind): '${query.workId}'};
     try {
       final request = cursor == null
           ? NextPageParser.firstPage(path, expected)

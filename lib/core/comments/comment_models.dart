@@ -7,35 +7,46 @@ import '../network/pixiv_http_client.dart';
 /// Identifies either the root comment feed of a work or one reply thread.
 @immutable
 class CommentFeedQuery {
-  const CommentFeedQuery({required this.illustId, this.rootCommentId})
-    : assert(illustId > 0),
-      assert(rootCommentId == null || rootCommentId > 0);
+  const CommentFeedQuery({
+    required this.workId,
+    this.kind = CommentWorkKind.illust,
+    this.rootCommentId,
+  }) : assert(workId > 0),
+       assert(rootCommentId == null || rootCommentId > 0);
 
-  const CommentFeedQuery.root({required int illustId})
-    : this(illustId: illustId);
+  const CommentFeedQuery.root({
+    required int workId,
+    CommentWorkKind kind = CommentWorkKind.illust,
+  }) : this(workId: workId, kind: kind);
 
   const CommentFeedQuery.replies({
-    required int illustId,
+    required int workId,
     required int rootCommentId,
-  }) : this(illustId: illustId, rootCommentId: rootCommentId);
+    CommentWorkKind kind = CommentWorkKind.illust,
+  }) : this(workId: workId, kind: kind, rootCommentId: rootCommentId);
 
-  final int illustId;
+  final int workId;
+  final CommentWorkKind kind;
   final int? rootCommentId;
 
   bool get isReplies => rootCommentId != null;
 
+  /// Namespace for per-work indexes (store root map, mutation keys).
+  String get workKey => '${kind.name}:$workId';
+
   String get cacheKey => isReplies
-      ? 'illust:$illustId:replies:$rootCommentId'
-      : 'illust:$illustId:comments';
+      ? '${kind.name}:$workId:replies:$rootCommentId'
+      : '${kind.name}:$workId:comments';
 
   @override
   bool operator ==(Object other) =>
       other is CommentFeedQuery &&
-      other.illustId == illustId &&
+      other.workId == workId &&
+      other.kind == kind &&
       other.rootCommentId == rootCommentId;
 
   @override
-  int get hashCode => Object.hash(illustId, rootCommentId);
+  int get hashCode => Object.hash(workId, kind, rootCommentId);
 
   @override
   String toString() => 'CommentFeedQuery($cacheKey)';
@@ -55,17 +66,19 @@ class CommentPage {
 @immutable
 class CommentAddRequest {
   const CommentAddRequest({
-    required this.illustId,
+    required this.workId,
+    this.kind = CommentWorkKind.illust,
     this.parentCommentId,
     this.rootCommentId,
     this.text,
     this.stampId,
-  }) : assert(illustId > 0),
+  }) : assert(workId > 0),
        assert(parentCommentId == null || parentCommentId > 0),
        assert(rootCommentId == null || rootCommentId > 0),
        assert(stampId == null || stampId > 0);
 
-  final int illustId;
+  final int workId;
+  final CommentWorkKind kind;
   final int? parentCommentId;
   final int? rootCommentId;
   final String? text;
@@ -93,13 +106,15 @@ enum CommentMutationKind { send, delete }
 @immutable
 class CommentSendOperation {
   const CommentSendOperation({
-    required this.illustId,
+    required this.workId,
+    required this.kind,
     required this.parentCommentId,
     required this.rootCommentId,
     required this.envelope,
   });
 
-  final int illustId;
+  final int workId;
+  final CommentWorkKind kind;
   final int? parentCommentId;
   final int? rootCommentId;
   final MutationEnvelope envelope;
@@ -108,7 +123,7 @@ class CommentSendOperation {
 
   CancelToken get cancelToken => envelope.cancelToken;
 
-  String get key => 'send:$illustId:${parentCommentId ?? 'root'}';
+  String get key => 'send:${kind.name}:$workId:${parentCommentId ?? 'root'}';
 
   @override
   String toString() => 'CommentSendOperation(#$revision $key)';

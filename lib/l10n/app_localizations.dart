@@ -1819,6 +1819,24 @@ abstract class AppLocalizations {
   /// **'每周(新人)'**
   String get rankingWeekRookie;
 
+  /// No description provided for @rankingWeekAi.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周(AI)'**
+  String get rankingWeekAi;
+
+  /// No description provided for @rankingWeekAiR18.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周(AI & R-18)'**
+  String get rankingWeekAiR18;
+
+  /// No description provided for @rankingWeekR18G.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周(R-18G)'**
+  String get rankingWeekR18G;
+
   /// No description provided for @rankingMonth.
   ///
   /// In zh, this message translates to:
@@ -2820,6 +2838,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'系列'**
   String get novelSeries;
+
+  /// No description provided for @novelRanking.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说排行'**
+  String get novelRanking;
 
   /// No description provided for @novelSeriesUnavailable.
   ///

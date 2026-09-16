@@ -1,53 +1,44 @@
 import 'package:material_ui/material_ui.dart';
-
-import '../../app/navigation/routes.dart';
-import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/feed/feed_grid.dart';
+import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/novel_row.dart';
 import '../../app/widgets/replica_empty_state.dart';
-import '../../core/entity/illust_store.dart';
+import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
-
-import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/feed/illust_card.dart';
-import '../../core/illust/ranking_repository.dart';
-import '../../core/illust/ranking_feed_controller.dart';
+import '../../core/novel/novel_ranking_feed_controller.dart';
+import '../../core/novel/novel_repository.dart';
+import '../../core/novel/novel_store.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
-import '../../app/widgets/smooth_wheel_scroll.dart';
 
-/// Ranking page with beta56's horizontally scrollable 11-mode tab bar.
-/// Only the selected mode is built, while controllers and scroll positions
-/// remain cached by the page for tab switching.
-class RankingPage extends StatefulWidget {
-  const RankingPage({
-    super.key,
-    this.initialMode = RankingMode.day,
-    this.onModeChanged,
-  });
+/// Novel ranking page mirroring [RankingPage]: a horizontally scrollable
+/// 9-mode tab bar with one keyed feed body per mode.
+class NovelRankingPage extends StatefulWidget {
+  const NovelRankingPage({super.key, this.initialMode = NovelRankingMode.day});
 
-  final RankingMode initialMode;
-  final ValueChanged<RankingMode>? onModeChanged;
+  final NovelRankingMode initialMode;
 
   @override
-  State<RankingPage> createState() => _RankingPageState();
+  State<NovelRankingPage> createState() => _NovelRankingPageState();
 }
 
-class _RankingPageState extends State<RankingPage>
+class _NovelRankingPageState extends State<NovelRankingPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final _scrollControllers = <RankingMode, ScrollController>{};
+  final _scrollControllers = <NovelRankingMode, ScrollController>{};
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: RankingMode.values.length,
+      length: NovelRankingMode.values.length,
       vsync: this,
-      initialIndex: RankingMode.values.indexOf(widget.initialMode),
+      initialIndex: NovelRankingMode.values.indexOf(widget.initialMode),
     )..addListener(_handleTabChanged);
     _selectedIndex = _tabController.index;
   }
@@ -65,12 +56,10 @@ class _RankingPageState extends State<RankingPage>
 
   void _handleTabChanged() {
     if (_selectedIndex == _tabController.index) return;
-    final mode = RankingMode.values[_tabController.index];
     setState(() => _selectedIndex = _tabController.index);
-    widget.onModeChanged?.call(mode);
   }
 
-  ScrollController _scrollControllerFor(RankingMode mode) {
+  ScrollController _scrollControllerFor(NovelRankingMode mode) {
     return _scrollControllers.putIfAbsent(mode, ScrollController.new);
   }
 
@@ -79,17 +68,10 @@ class _RankingPageState extends State<RankingPage>
     final language = ReplicaLanguage.fromTag(
       Localizations.localeOf(context).toLanguageTag(),
     );
-    final mode = RankingMode.values[_selectedIndex];
+    final mode = NovelRankingMode.values[_selectedIndex];
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        actions: [
-          IconButton(
-            tooltip: context.l10n.novelRanking,
-            onPressed: () => openNovelRanking(context),
-            icon: const Icon(Icons.menu_book_outlined),
-          ),
-        ],
         title: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -98,12 +80,12 @@ class _RankingPageState extends State<RankingPage>
           indicatorPadding: const EdgeInsets.only(bottom: 5),
           labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           tabs: [
-            for (final item in RankingMode.values)
+            for (final item in NovelRankingMode.values)
               Tab(text: l10nLookupFor(language.locale, item.labelKey)),
           ],
         ),
       ),
-      body: _RankingModeBody(
+      body: _NovelRankingModeBody(
         key: ValueKey(mode),
         mode: mode,
         scrollController: _scrollControllerFor(mode),
@@ -112,29 +94,28 @@ class _RankingPageState extends State<RankingPage>
   }
 }
 
-class _RankingModeBody extends ConsumerWidget {
-  const _RankingModeBody({
+class _NovelRankingModeBody extends ConsumerWidget {
+  const _NovelRankingModeBody({
     super.key,
     required this.mode,
     required this.scrollController,
   });
 
-  final RankingMode mode;
+  final NovelRankingMode mode;
   final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(rankingFeedControllerProvider(mode));
-    final store = ref.watch(illustStoreProvider);
+    final state = ref.watch(novelRankingFeedProvider(mode));
+    final store = ref.watch(novelStoreProvider);
     return state.when(
       loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
         title: l10nLookup(context.l10n, 'rankingLoadFailed'),
         error: error,
         retryLabel: context.l10n.retry,
-        onRetry: () => ref
-            .read(rankingFeedControllerProvider(mode).notifier)
-            .retryInitial(),
+        onRetry: () =>
+            ref.read(novelRankingFeedProvider(mode).notifier).retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
@@ -143,7 +124,7 @@ class _RankingModeBody extends ConsumerWidget {
             error: feed.initialError ?? const ApiParseError('unknown error'),
             retryLabel: context.l10n.retry,
             onRetry: () => ref
-                .read(rankingFeedControllerProvider(mode).notifier)
+                .read(novelRankingFeedProvider(mode).notifier)
                 .retryInitial(),
           );
         }
@@ -154,24 +135,24 @@ class _RankingModeBody extends ConsumerWidget {
           return ReplicaEmptyState(
             message: context.l10n.rankingEmpty,
             retryLabel: context.l10n.retry,
-            onRetry: () => ref
-                .read(rankingFeedControllerProvider(mode).notifier)
-                .refresh(),
+            onRetry: () =>
+                ref.read(novelRankingFeedProvider(mode).notifier).refresh(),
           );
         }
 
-        final entities = store.getAll(feed.ids);
+        final entities = [
+          for (final id in feed.ids)
+            if (store[id] != null) store[id]!,
+        ];
         return PullToRefresh(
           onRefresh: () =>
-              ref.read(rankingFeedControllerProvider(mode).notifier).refresh(),
+              ref.read(novelRankingFeedProvider(mode).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification &&
                   notification.metrics.extentAfter <
                       notification.metrics.viewportDimension * 1.2) {
-                ref
-                    .read(rankingFeedControllerProvider(mode).notifier)
-                    .loadMore();
+                ref.read(novelRankingFeedProvider(mode).notifier).loadMore();
               }
               return false;
             },
@@ -179,28 +160,25 @@ class _RankingModeBody extends ConsumerWidget {
               controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),
               builder: (context, controller, physics) => CustomScrollView(
-                key: PageStorageKey('ranking-${mode.name}'),
+                key: PageStorageKey('novel-ranking-${mode.name}'),
                 controller: controller,
                 physics: physics,
                 scrollCacheExtent: kFeedCacheExtent,
-                restorationId: 'ranking-${mode.name}',
+                restorationId: 'novel-ranking-${mode.name}',
                 slivers: [
-                  IllustFeedGrid(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 10,
-                    prefetchEntities: entities,
-                    itemCount: entities.length,
-                    itemBuilder: (context, index) => IllustCard(
-                      entity: entities[index],
-                      heroScope: 'ranking:${mode.name}',
+                  SliverPadding(
+                    padding: const EdgeInsets.only(top: 8),
+                    sliver: SliverList.builder(
+                      itemCount: entities.length,
+                      itemBuilder: (context, index) =>
+                          NovelRow(entity: entities[index]),
                     ),
                   ),
                   SliverToBoxAdapter(
                     child: FeedTail(
                       feed: feed,
                       onRetry: () => ref
-                          .read(rankingFeedControllerProvider(mode).notifier)
+                          .read(novelRankingFeedProvider(mode).notifier)
                           .retryLoadMore(),
                       errorTitle: context.l10n.rankingLoadMoreFailed,
                       retryLabel: context.l10n.retry,
