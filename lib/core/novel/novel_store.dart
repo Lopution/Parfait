@@ -6,6 +6,8 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
+import '../bookmark/bookmark_models.dart';
+import '../bookmark/bookmark_store.dart';
 import 'novel_entity.dart';
 
 /// Account-scoped canonical Novel entity map. Feeds keep ordered IDs and
@@ -25,11 +27,24 @@ class _NovelStore extends Notifier<Map<int, NovelEntity>> {
   ];
 
   void mergeAll(Iterable<NovelEntity> incoming) {
+    final bookmarks = ref.read(bookmarkStoreProvider.notifier);
     final next = Map<int, NovelEntity>.of(state);
     for (final entity in incoming) {
+      // Forward the remote snapshot first so a pending/confirmed mutation
+      // wins over whatever the feed or detail payload claims (same R2 rule
+      // as IllustStore).
+      bookmarks.observeRemote(
+        BookmarkKey(BookmarkEntityType.novel, entity.id),
+        bookmarked: entity.isBookmarked,
+      );
+      final bookmarkAuthority = bookmarks
+          .entryOf(BookmarkKey(BookmarkEntityType.novel, entity.id))
+          ?.bookmarked;
       final existing = next[entity.id];
       if (existing == null) {
-        next[entity.id] = entity;
+        next[entity.id] = bookmarkAuthority == null
+            ? entity
+            : entity.copyWith(isBookmarked: bookmarkAuthority);
         continue;
       }
       // Metadata feeds do not contain body content. A preview must never
@@ -53,9 +68,19 @@ class _NovelStore extends Notifier<Map<int, NovelEntity>> {
         seriesNextId: entity.seriesNextId ?? existing.seriesNextId,
         caption: entity.caption.isNotEmpty ? entity.caption : existing.caption,
         tags: entity.tags.isNotEmpty ? entity.tags : existing.tags,
+        isBookmarked:
+            bookmarkAuthority ?? (entity.isBookmarked || existing.isBookmarked),
       );
     }
     state = next;
+  }
+
+  /// Applies a confirmed bookmark change from the shared BookmarkStore.
+  void updateBookmark(int id, bool bookmarked) {
+    final existing = state[id];
+    if (existing != null) {
+      state = {...state, id: existing.copyWith(isBookmarked: bookmarked)};
+    }
   }
 
   void clear() => state = {};

@@ -59,6 +59,24 @@ class _BookmarkRepository implements BookmarkRepository {
     tokens.add(cancelToken);
     await gate.future;
   }
+
+  @override
+  Future<void> addNovel(
+    int id,
+    BookmarkRestrict restrict, {
+    CancelToken? cancelToken,
+  }) async {
+    requests.add('addNovel:$id');
+    tokens.add(cancelToken);
+    await gate.future;
+  }
+
+  @override
+  Future<void> deleteNovel(int id, {CancelToken? cancelToken}) async {
+    requests.add('deleteNovel:$id');
+    tokens.add(cancelToken);
+    await gate.future;
+  }
 }
 
 void main() {
