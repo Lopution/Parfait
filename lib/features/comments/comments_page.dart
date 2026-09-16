@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/pull_to_refresh.dart';
@@ -104,7 +105,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   }
 
   Future<void> _confirmAndDelete(CommentEntity comment) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.commentDelete),
@@ -238,7 +239,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   }
 
   Future<void> _confirmAndDelete(CommentEntity comment) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.commentDelete),
