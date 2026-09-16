@@ -70,7 +70,6 @@ class MuteRepository {
       'delete_user_ids[]': ?deleteUserId?.toString(),
     };
     if (body.isEmpty) return;
-    if (body.isEmpty) return;
     final response = await _client.post(
       PixivClientIdentity.appApiBase.replace(path: '/v1/mute/edit'),
       body: body,
