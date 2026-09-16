@@ -5,6 +5,7 @@ import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
+import 'package:pixiv_func/core/mute/mute_store.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
@@ -23,13 +24,16 @@ class _StubAccountStore extends AccountStore {
 }
 
 class _SettingsController extends SettingsController {
-  _SettingsController({this.blockR18 = false});
+  _SettingsController({this.blockR18 = false, this.hideMuted = false});
 
   final bool blockR18;
+  final bool hideMuted;
 
   @override
-  Future<AppSettings> build() async =>
-      AppSettings.defaults().copyWith(enableLocalBlockR18: blockR18);
+  Future<AppSettings> build() async => AppSettings.defaults().copyWith(
+    enableLocalBlockR18: blockR18,
+    hideMuted: hideMuted,
+  );
 }
 
 class _RefillScript {
@@ -96,13 +100,13 @@ FeedPage _page(List<IllustEntity> illusts, {String? nextCursor}) {
   );
 }
 
-ProviderContainer _container({required bool blockR18}) {
+ProviderContainer _container({required bool blockR18, bool hideMuted = false}) {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   return ProviderContainer(
     overrides: [
       accountStoreProvider.overrideWith(_StubAccountStore.new),
       settingsProvider.overrideWith(
-        () => _SettingsController(blockR18: blockR18),
+        () => _SettingsController(blockR18: blockR18, hideMuted: hideMuted),
       ),
     ],
   );
@@ -264,4 +268,48 @@ void main() {
     expect(state.ids, [1, 2]);
     expect(state.initialPhase, FeedPhase.idle);
   });
+
+  test('hide-muted mode drops muted works from the page', () async {
+    final script = _RefillScript(
+      filterMinVisible: 1,
+      filterMaxRefillPages: 1,
+      pages: [
+        _page([_visible(1), _visible(2)]),
+      ],
+    );
+    final container = _container(blockR18: false, hideMuted: true);
+    addTearDown(container.dispose);
+    await container.read(accountStoreProvider.future);
+    await container.read(settingsProvider.future);
+    // Work mute is local-only: seeding through the store needs no server.
+    await container.read(muteStoreProvider.notifier).toggleWork(2);
+
+    final state = await container.read(_refillFeedProvider(script).future);
+
+    expect(state.ids, [1]);
+    expect(state.initialPhase, FeedPhase.idle);
+  });
+
+  test(
+    'blur mode keeps muted works in the feed for the card to render',
+    () async {
+      final script = _RefillScript(
+        filterMinVisible: 1,
+        filterMaxRefillPages: 1,
+        pages: [
+          _page([_visible(1), _visible(2)]),
+        ],
+      );
+      final container = _container(blockR18: false);
+      addTearDown(container.dispose);
+      await container.read(accountStoreProvider.future);
+      await container.read(settingsProvider.future);
+      await container.read(muteStoreProvider.notifier).toggleWork(2);
+
+      final state = await container.read(_refillFeedProvider(script).future);
+
+      expect(state.ids, [1, 2]);
+      expect(state.initialPhase, FeedPhase.idle);
+    },
+  );
 }

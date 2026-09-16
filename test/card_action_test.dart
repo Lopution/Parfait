@@ -10,6 +10,7 @@ import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
+import 'package:pixiv_func/app/widgets/feed/muted_cover.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
@@ -412,6 +413,34 @@ void main() {
       await _openSheet(tester);
     });
     expect(find.widgetWithText(ListTile, '取消屏蔽作者'), findsOneWidget);
+  });
+
+  testWidgets('muted card blurs the cover and tap reveals in place', (
+    tester,
+  ) async {
+    final (container, _, _) = await _makeWorld();
+    final entity = parseIllust(illustJson(51));
+    await container.read(muteStoreProvider.notifier).toggleWork(51);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+      await tester.pump();
+    });
+
+    expect(find.byType(MutedCover), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('已屏蔽.*illust 51')), findsOneWidget);
+
+    await mockNetworkImagesFor(() async {
+      await tester.tap(find.byType(MutedCover));
+      await tester.pump();
+    });
+
+    // Reveal swaps the cover for the normal card; the mute itself is
+    // untouched (session-local presentation only).
+    expect(find.byType(MutedCover), findsNothing);
+    expect(
+      container.read(muteStoreProvider.select((s) => s.isWorkMuted(51))),
+      isTrue,
+    );
   });
 
   testWidgets('muted items page lists entries and removes them', (
