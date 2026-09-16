@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
+import '../motion/app_overlays.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import 'app_snack_bar.dart';
@@ -34,7 +35,7 @@ class FollowSwitchButton extends ConsumerWidget {
 
   Future<void> _showRestrictSheet(BuildContext context, WidgetRef ref) async {
     var restrict = FollowRestrict.public;
-    final selected = await showModalBottomSheet<FollowRestrict>(
+    final selected = await showAppBottomSheet<FollowRestrict>(
       context: context,
       backgroundColor: FuncTokens.transparent,
       builder: (sheetContext) => StatefulBuilder(

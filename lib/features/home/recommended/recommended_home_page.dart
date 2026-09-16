@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/motion/feed_entrance.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -319,7 +320,10 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 8),
         sliver: SliverList.builder(
           itemCount: novels.length,
-          itemBuilder: (context, index) => NovelRow(entity: novels[index]),
+          itemBuilder: (context, index) => StaggeredEntrance(
+            index: index,
+            child: NovelRow(entity: novels[index]),
+          ),
         ),
       ),
       ...tail,
@@ -341,7 +345,10 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 8),
         sliver: SliverList.builder(
           itemCount: users.length,
-          itemBuilder: (context, index) => _UserRow(entity: users[index]),
+          itemBuilder: (context, index) => StaggeredEntrance(
+            index: index,
+            child: _UserRow(entity: users[index]),
+          ),
         ),
       ),
       ...tail,

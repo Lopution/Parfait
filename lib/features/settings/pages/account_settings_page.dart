@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/motion/app_overlays.dart';
 import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -140,7 +141,7 @@ class AccountSettingsPage extends ConsumerWidget {
     WidgetRef ref,
     Account account,
   ) async {
-    final remove = await showDialog<bool>(
+    final remove = await showAppDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.removeAccount),

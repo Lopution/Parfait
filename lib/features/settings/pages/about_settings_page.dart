@@ -4,6 +4,7 @@ import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/motion/app_overlays.dart';
 import '../../../core/updater/update_providers.dart';
 import '../../../core/updater/update_service.dart';
 import '../../../l10n/context.dart';
@@ -274,7 +275,7 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
     BuildContext context,
     UpdateRelease release,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.aboutUpdateConfirmTitle),

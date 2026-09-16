@@ -11,6 +11,7 @@ import '../../../core/entity/illust_entity.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../image_tier_cache.dart';
+import '../../motion/feed_entrance.dart';
 import '../../pixiv_image.dart';
 
 /// Minimum card width used to derive the masonry column count.
@@ -258,7 +259,10 @@ class IllustFeedGrid extends StatelessWidget {
                 }
                 return FeedItemExtent(
                   width: columnWidth,
-                  child: itemBuilder(context, index),
+                  child: StaggeredEntrance(
+                    index: index,
+                    child: itemBuilder(context, index),
+                  ),
                 );
               },
               childCount: itemCount,

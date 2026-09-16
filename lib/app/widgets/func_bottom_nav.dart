@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../l10n/context.dart';
 import '../layout/app_breakpoints.dart';
+import '../motion/motion_tokens.dart';
 import '../icons/app_icons.dart';
 import '../navigation/home_shell_metrics.dart';
 
@@ -80,10 +81,10 @@ class _FuncBottomNavState extends State<FuncBottomNav>
     // Seeded by the tap that triggered this branch switch — recorded at
     // press time so the ordering cannot race against rebuilds.
     _indicatorFrom = _lastSelectedIndex ?? widget.selectedIndex;
-    // kTabScrollDuration = 300ms, matching the TabBar above.
+    // Matches the TabBar's kTabScrollDuration sweep above.
     _indicatorController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: MotionTokens.navIndicator,
       value: 1.0,
     );
     if (_indicatorFrom != widget.selectedIndex) {
@@ -92,8 +93,12 @@ class _FuncBottomNavState extends State<FuncBottomNav>
       _indicatorController.value = 0;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _indicatorController.forward();
-        _spawnLandingInk();
+        if (MotionTokens.enabled(context)) {
+          _indicatorController.forward();
+          _spawnLandingInk();
+        } else {
+          _indicatorController.value = 1;
+        }
       });
     }
   }
@@ -113,10 +118,14 @@ class _FuncBottomNavState extends State<FuncBottomNav>
     }
     if (oldWidget.selectedIndex != widget.selectedIndex) {
       _indicatorFrom = oldWidget.selectedIndex;
-      _indicatorController.forward(from: 0);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _spawnLandingInk();
-      });
+      if (MotionTokens.enabled(context)) {
+        _indicatorController.forward(from: 0);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _spawnLandingInk();
+        });
+      } else {
+        _indicatorController.value = 1;
+      }
     }
   }
 
@@ -177,11 +186,11 @@ class _FuncBottomNavState extends State<FuncBottomNav>
       },
       textDirection: textDirection,
       // InkResponse's pressed-highlight fade duration.
-      fadeDuration: const Duration(milliseconds: 200),
+      fadeDuration: MotionTokens.inkFade,
     );
     _landingInk = splash;
     _landingHighlight = highlight;
-    _landingInkTimer = Timer(const Duration(milliseconds: 130), () {
+    _landingInkTimer = Timer(MotionTokens.inkHold, () {
       splash?.confirm();
       highlight?.deactivate();
     });

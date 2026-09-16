@@ -12,6 +12,7 @@ import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
 import '../core/platform/android_intent_channel.dart';
 import 'external_intent_bridge.dart';
+import 'motion/motion_tokens.dart';
 import 'scroll_behavior.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
@@ -145,12 +146,15 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
                     settingsPending: settingsPending,
                     child: routeChild,
                   ));
-        // ignore: deprecated_member_use
-        return MaterialUiCompatibilityBridge(
-          child: ExternalIntentBridge(
-            router: _router,
-            intentSource: widget.intentSource,
-            child: PipelineWarmup(child: content),
+        return MotionScope(
+          reduce: settings.reduceMotion,
+          // ignore: deprecated_member_use
+          child: MaterialUiCompatibilityBridge(
+            child: ExternalIntentBridge(
+              router: _router,
+              intentSource: widget.intentSource,
+              child: PipelineWarmup(child: content),
+            ),
           ),
         );
       },

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth/account_store.dart';
 import '../../core/search/search_models.dart';
+import '../../app/motion/app_overlays.dart';
 import 'search_text.dart';
 import '../../l10n/context.dart';
 
@@ -10,7 +11,7 @@ Future<SearchFilters?> showSearchFilterSheet(
   BuildContext context, {
   required SearchFilters initial,
 }) {
-  return showModalBottomSheet<SearchFilters>(
+  return showAppBottomSheet<SearchFilters>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _SearchFilterSheet(initial: initial),
