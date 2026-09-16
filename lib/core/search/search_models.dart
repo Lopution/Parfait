@@ -85,24 +85,56 @@ class SearchFilters {
 
   static const defaults = SearchFilters();
 
+  /// Serializes the filter set into app-API query parameters.
+  ///
+  /// `duration` is never sent: Pixiv's honoring of `within_last_*` on the
+  /// app API is unreliable, so a preset is resolved client-side into
+  /// `start_date`/`end_date` (today−N .. today, local time) like every
+  /// other client (PixEz/Shaft/pxview). A duration also overrides any
+  /// custom date bounds: the two are mutually exclusive in the sheet UI,
+  /// and this keeps the wire shape sane for stale states.
   Map<String, String> toQuery({required String word}) {
     final normalized = word.trim();
     if (normalized.isEmpty) {
       throw const FormatException('search word must not be empty');
     }
+    final range = _effectiveDateRange();
     final query = <String, String>{
       'word': normalized,
       'search_target': target.wireValue,
       'sort': sort.wireValue,
       'filter': 'for_android',
-      if (duration != null) 'duration': duration!.wireValue,
-      if (startDate != null) 'start_date': _formatDate(startDate!),
-      if (endDate != null) 'end_date': _formatDate(endDate!),
+      if (range.$1 != null) 'start_date': _formatDate(range.$1!),
+      if (range.$2 != null) 'end_date': _formatDate(range.$2!),
     };
-    if (startDate != null && endDate != null && startDate!.isAfter(endDate!)) {
+    if (range.$1 != null && range.$2 != null && range.$1!.isAfter(range.$2!)) {
       throw const FormatException('search start date is after end date');
     }
     return query;
+  }
+
+  /// Same request shape minus `sort`: the `popular-preview` endpoints carry
+  /// the popularity ordering implicitly and reject a sort parameter.
+  Map<String, String> toPreviewQuery({required String word}) {
+    final query = toQuery(word: word)..remove('sort');
+    return query;
+  }
+
+  /// Resolves [duration] into an absolute range; a set duration wins over
+  /// any custom bounds. Both endpoints are date-only, local time.
+  (DateTime?, DateTime?) _effectiveDateRange() {
+    final days = switch (duration) {
+      SearchDuration.day => 1,
+      SearchDuration.week => 7,
+      SearchDuration.month => 30,
+      null => 0,
+    };
+    if (days > 0) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      return (today.subtract(Duration(days: days)), today);
+    }
+    return (startDate, endDate);
   }
 
   SearchFilters copyWith({
