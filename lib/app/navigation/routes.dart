@@ -19,6 +19,7 @@ import '../../core/search/search_models.dart';
 import '../../core/settings/app_settings.dart';
 import '../../features/comments/comments_page.dart';
 import '../../features/history/history_page.dart';
+import '../../features/watchlater/watchlater_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
@@ -482,6 +483,11 @@ List<RouteBase> _commonBranchRoutes(
       path: 'history',
       pageBuilder: (context, state) =>
           _page(context, state, branchObserver, const HistoryPage()),
+    ),
+    GoRoute(
+      path: 'watchlater',
+      pageBuilder: (context, state) =>
+          _page(context, state, branchObserver, const WatchLaterPage()),
     ),
     // Tag search opens on top of whatever stack the tag was tapped in (detail
     // page, user page, reverse-image result). Routing it to the search branch
@@ -1072,6 +1078,10 @@ Future<void> openNovel(BuildContext context, int novelId) async {
 
 Future<void> openNovelRanking(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/novel-ranking');
+}
+
+Future<void> openWatchLater(BuildContext context) async {
+  await _push(context, '${_currentStackRoot(context)}/watchlater');
 }
 
 Future<void> openSearchInput(

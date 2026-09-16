@@ -14,6 +14,7 @@ import '../../navigation/routes.dart';
 import '../../pixiv_image.dart';
 import '../../image_tier_cache.dart';
 import '../../widgets/bookmark_switch_button.dart';
+import '../card_actions/card_action_sheet.dart';
 import 'feed_grid.dart';
 
 /// Illust preview card replicating beta56 IllustPreviewer semantics:
@@ -144,6 +145,7 @@ class IllustCard extends ConsumerWidget {
         image: true,
         label: '${entity.title}, ${entity.user.name}',
         onTap: openDetail,
+        onLongPress: () => showCardActionSheet(context, entity),
         child: GestureDetector(
           excludeFromSemantics: true,
           onTapDown: (_) => _preloadTransitionImages(
@@ -154,6 +156,7 @@ class IllustCard extends ConsumerWidget {
             cardDecodeWidth,
           ),
           onTap: openDetail,
+          onLongPress: () => showCardActionSheet(context, entity),
           // No outer ClipRRect: the Hero child already clips the image to
           // the same 12px radius and every badge sits 7px inside the
           // bounds, so the extra clip only cost a saveLayer per card per
