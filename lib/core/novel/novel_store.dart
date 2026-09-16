@@ -43,6 +43,14 @@ class _NovelStore extends Notifier<Map<int, NovelEntity>> {
             ? entity.contentVersion
             : existing.contentVersion,
         contentAvailable: entity.contentAvailable || existing.contentAvailable,
+        embeddedImages: entity.embeddedImages.isNotEmpty
+            ? entity.embeddedImages
+            : existing.embeddedImages,
+        embeddedIllustThumbs: entity.embeddedIllustThumbs.isNotEmpty
+            ? entity.embeddedIllustThumbs
+            : existing.embeddedIllustThumbs,
+        seriesPrevId: entity.seriesPrevId ?? existing.seriesPrevId,
+        seriesNextId: entity.seriesNextId ?? existing.seriesNextId,
         caption: entity.caption.isNotEmpty ? entity.caption : existing.caption,
         tags: entity.tags.isNotEmpty ? entity.tags : existing.tags,
       );
