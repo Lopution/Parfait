@@ -1211,6 +1211,75 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchPopularDesc => 'Popular';
 
   @override
+  String get searchPopularMaleDesc => 'Popular (male)';
+
+  @override
+  String get searchPopularFemaleDesc => 'Popular (female)';
+
+  @override
+  String get searchAiSection => 'AI works';
+
+  @override
+  String get searchAiAll => 'All';
+
+  @override
+  String get searchAiExclude => 'Hide AI';
+
+  @override
+  String get searchAiOnly => 'AI only';
+
+  @override
+  String get searchBookmarkSection => 'Bookmarks';
+
+  @override
+  String get searchMin => 'Min';
+
+  @override
+  String get searchMax => 'Max';
+
+  @override
+  String get searchRatioSection => 'Aspect ratio';
+
+  @override
+  String get searchRatioAny => 'Any';
+
+  @override
+  String get searchRatioLandscape => 'Landscape';
+
+  @override
+  String get searchRatioPortrait => 'Portrait';
+
+  @override
+  String get searchRatioSquare => 'Square';
+
+  @override
+  String get searchContentSection => 'Content type';
+
+  @override
+  String get searchContentAll => 'Illust·manga·ugoira';
+
+  @override
+  String get searchContentIllustUgoira => 'Illust·ugoira';
+
+  @override
+  String get searchContentIllust => 'Illust only';
+
+  @override
+  String get searchContentUgoira => 'Ugoira only';
+
+  @override
+  String get searchContentManga => 'Manga only';
+
+  @override
+  String get searchResolutionSection => 'Resolution';
+
+  @override
+  String get searchWidth => 'Width';
+
+  @override
+  String get searchHeight => 'Height';
+
+  @override
   String get searchDuration => 'Published';
 
   @override

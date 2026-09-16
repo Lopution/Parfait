@@ -10,18 +10,24 @@ import '../../l10n/context.dart';
 Future<SearchFilters?> showSearchFilterSheet(
   BuildContext context, {
   required SearchFilters initial,
+  required SearchResultType type,
 }) {
   return showAppBottomSheet<SearchFilters>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _SearchFilterSheet(initial: initial),
+    builder: (_) => _SearchFilterSheet(initial: initial, type: type),
   );
 }
 
 class _SearchFilterSheet extends ConsumerStatefulWidget {
-  const _SearchFilterSheet({required this.initial});
+  const _SearchFilterSheet({required this.initial, required this.type});
 
   final SearchFilters initial;
+
+  /// Illust-only groups (AI-only, ratio, content type, resolution) are
+  /// hidden for novel/user searches — the novel endpoint does not accept
+  /// those parameters.
+  final SearchResultType type;
 
   @override
   ConsumerState<_SearchFilterSheet> createState() => _SearchFilterSheetState();
@@ -29,6 +35,41 @@ class _SearchFilterSheet extends ConsumerStatefulWidget {
 
 class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
   late SearchFilters _filters = widget.initial;
+
+  late final TextEditingController _bookmarkMin;
+  late final TextEditingController _bookmarkMax;
+  late final TextEditingController _widthMin;
+  late final TextEditingController _widthMax;
+  late final TextEditingController _heightMin;
+  late final TextEditingController _heightMax;
+
+  @override
+  void initState() {
+    super.initState();
+    String text(int? value) => value?.toString() ?? '';
+    _bookmarkMin = TextEditingController(text: text(_filters.bookmarkMin));
+    _bookmarkMax = TextEditingController(text: text(_filters.bookmarkMax));
+    _widthMin = TextEditingController(text: text(_filters.widthMin));
+    _widthMax = TextEditingController(text: text(_filters.widthMax));
+    _heightMin = TextEditingController(text: text(_filters.heightMin));
+    _heightMax = TextEditingController(text: text(_filters.heightMax));
+  }
+
+  @override
+  void dispose() {
+    _bookmarkMin.dispose();
+    _bookmarkMax.dispose();
+    _widthMin.dispose();
+    _widthMax.dispose();
+    _heightMin.dispose();
+    _heightMax.dispose();
+    super.dispose();
+  }
+
+  int? _parseBound(String raw) {
+    final value = int.tryParse(raw.trim());
+    return value == null || value < 0 ? null : value;
+  }
 
   bool get _invalidRange {
     final start = _filters.startDate;
@@ -85,8 +126,19 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () =>
-                      setState(() => _filters = SearchFilters.defaults),
+                  onPressed: () => setState(() {
+                    _filters = SearchFilters.defaults;
+                    for (final controller in [
+                      _bookmarkMin,
+                      _bookmarkMax,
+                      _widthMin,
+                      _widthMax,
+                      _heightMin,
+                      _heightMax,
+                    ]) {
+                      controller.clear();
+                    }
+                  }),
                   child: Text(context.l10n.searchReset),
                 ),
               ],
@@ -177,6 +229,149 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                       () => _filters = _filters.copyWith(endDate: null),
                     ),
             ),
+            if (widget.type == SearchResultType.illust) ...[
+              const SizedBox(height: 12),
+              Text(
+                context.l10n.searchAiSection,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final value in SearchAiFilter.values)
+                    ChoiceChip(
+                      label: Text(searchText(context, value.labelKey)),
+                      selected: _filters.aiFilter == value,
+                      onSelected: (_) => setState(
+                        () => _filters = _filters.copyWith(aiFilter: value),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                context.l10n.searchBookmarkSection,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: _NumberField(
+                      controller: _bookmarkMin,
+                      hint: context.l10n.searchMin,
+                      onChanged: (value) => setState(
+                        () => _filters = _filters.copyWith(
+                          bookmarkMin: _parseBound(value),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _NumberField(
+                      controller: _bookmarkMax,
+                      hint: context.l10n.searchMax,
+                      onChanged: (value) => setState(
+                        () => _filters = _filters.copyWith(
+                          bookmarkMax: _parseBound(value),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                context.l10n.searchRatioSection,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  ChoiceChip(
+                    label: Text(context.l10n.searchRatioAny),
+                    selected: _filters.ratio == null,
+                    onSelected: (_) => setState(
+                      () => _filters = _filters.copyWith(ratio: null),
+                    ),
+                  ),
+                  for (final value in SearchRatioPattern.values)
+                    ChoiceChip(
+                      label: Text(searchText(context, value.labelKey)),
+                      selected: _filters.ratio == value,
+                      onSelected: (_) => setState(
+                        () => _filters = _filters.copyWith(ratio: value),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                context.l10n.searchContentSection,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final value in SearchContentType.values)
+                    ChoiceChip(
+                      label: Text(searchText(context, value.labelKey)),
+                      selected: _filters.contentType == value,
+                      onSelected: (_) => setState(
+                        () => _filters = _filters.copyWith(contentType: value),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                context.l10n.searchResolutionSection,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              _BoundRow(
+                label: context.l10n.searchWidth,
+                minController: _widthMin,
+                maxController: _widthMax,
+                minHint: context.l10n.searchMin,
+                maxHint: context.l10n.searchMax,
+                onMinChanged: (value) => setState(
+                  () => _filters = _filters.copyWith(
+                    widthMin: _parseBound(value),
+                  ),
+                ),
+                onMaxChanged: (value) => setState(
+                  () => _filters = _filters.copyWith(
+                    widthMax: _parseBound(value),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _BoundRow(
+                label: context.l10n.searchHeight,
+                minController: _heightMin,
+                maxController: _heightMax,
+                minHint: context.l10n.searchMin,
+                maxHint: context.l10n.searchMax,
+                onMinChanged: (value) => setState(
+                  () => _filters = _filters.copyWith(
+                    heightMin: _parseBound(value),
+                  ),
+                ),
+                onMaxChanged: (value) => setState(
+                  () => _filters = _filters.copyWith(
+                    heightMax: _parseBound(value),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -227,6 +422,76 @@ class _FilterGroup<T> extends StatelessWidget {
                 onSelected: (_) => onSelected(value),
               ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+class _NumberField extends StatelessWidget {
+  const _NumberField({
+    required this.controller,
+    required this.hint,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        hintText: hint,
+        isDense: true,
+        border: const OutlineInputBorder(),
+      ),
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _BoundRow extends StatelessWidget {
+  const _BoundRow({
+    required this.label,
+    required this.minController,
+    required this.maxController,
+    required this.minHint,
+    required this.maxHint,
+    required this.onMinChanged,
+    required this.onMaxChanged,
+  });
+
+  final String label;
+  final TextEditingController minController;
+  final TextEditingController maxController;
+  final String minHint;
+  final String maxHint;
+  final ValueChanged<String> onMinChanged;
+  final ValueChanged<String> onMaxChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(width: 32, child: Text(label)),
+        Expanded(
+          child: _NumberField(
+            controller: minController,
+            hint: minHint,
+            onChanged: onMinChanged,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _NumberField(
+            controller: maxController,
+            hint: maxHint,
+            onChanged: onMaxChanged,
+          ),
         ),
       ],
     );

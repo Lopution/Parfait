@@ -2311,6 +2311,144 @@ abstract class AppLocalizations {
   /// **'热门排序'**
   String get searchPopularDesc;
 
+  /// No description provided for @searchPopularMaleDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'男性向人气'**
+  String get searchPopularMaleDesc;
+
+  /// No description provided for @searchPopularFemaleDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'女性向人气'**
+  String get searchPopularFemaleDesc;
+
+  /// No description provided for @searchAiSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 作品'**
+  String get searchAiSection;
+
+  /// No description provided for @searchAiAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get searchAiAll;
+
+  /// No description provided for @searchAiExclude.
+  ///
+  /// In zh, this message translates to:
+  /// **'排除 AI'**
+  String get searchAiExclude;
+
+  /// No description provided for @searchAiOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅 AI'**
+  String get searchAiOnly;
+
+  /// No description provided for @searchBookmarkSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏数'**
+  String get searchBookmarkSection;
+
+  /// No description provided for @searchMin.
+  ///
+  /// In zh, this message translates to:
+  /// **'最小'**
+  String get searchMin;
+
+  /// No description provided for @searchMax.
+  ///
+  /// In zh, this message translates to:
+  /// **'最大'**
+  String get searchMax;
+
+  /// No description provided for @searchRatioSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'纵横比'**
+  String get searchRatioSection;
+
+  /// No description provided for @searchRatioAny.
+  ///
+  /// In zh, this message translates to:
+  /// **'不限'**
+  String get searchRatioAny;
+
+  /// No description provided for @searchRatioLandscape.
+  ///
+  /// In zh, this message translates to:
+  /// **'横向'**
+  String get searchRatioLandscape;
+
+  /// No description provided for @searchRatioPortrait.
+  ///
+  /// In zh, this message translates to:
+  /// **'纵向'**
+  String get searchRatioPortrait;
+
+  /// No description provided for @searchRatioSquare.
+  ///
+  /// In zh, this message translates to:
+  /// **'方形'**
+  String get searchRatioSquare;
+
+  /// No description provided for @searchContentSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品类别'**
+  String get searchContentSection;
+
+  /// No description provided for @searchContentAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'插画·漫画·动图'**
+  String get searchContentAll;
+
+  /// No description provided for @searchContentIllustUgoira.
+  ///
+  /// In zh, this message translates to:
+  /// **'插画·动图'**
+  String get searchContentIllustUgoira;
+
+  /// No description provided for @searchContentIllust.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅插画'**
+  String get searchContentIllust;
+
+  /// No description provided for @searchContentUgoira.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅动图'**
+  String get searchContentUgoira;
+
+  /// No description provided for @searchContentManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅漫画'**
+  String get searchContentManga;
+
+  /// No description provided for @searchResolutionSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'分辨率'**
+  String get searchResolutionSection;
+
+  /// No description provided for @searchWidth.
+  ///
+  /// In zh, this message translates to:
+  /// **'宽'**
+  String get searchWidth;
+
+  /// No description provided for @searchHeight.
+  ///
+  /// In zh, this message translates to:
+  /// **'高'**
+  String get searchHeight;
+
   /// No description provided for @searchDuration.
   ///
   /// In zh, this message translates to:
