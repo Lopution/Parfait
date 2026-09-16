@@ -4,8 +4,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/mute/mute_predicate.dart';
+import '../../../core/mute/mute_store.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../l10n/context.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../../theme/func_tokens.dart';
 import '../../motion/hero_transition.dart';
@@ -16,6 +19,7 @@ import '../../image_tier_cache.dart';
 import '../../widgets/bookmark_switch_button.dart';
 import '../card_actions/card_action_sheet.dart';
 import 'feed_grid.dart';
+import 'muted_cover.dart';
 
 /// Illust preview card replicating beta56 IllustPreviewer semantics:
 /// R-18 top-left, ugoira gif bottom-left, page count top-right, AI
@@ -117,6 +121,17 @@ class IllustCard extends ConsumerWidget {
     double cardWidth,
   ) {
     final cardDecodeWidth = PixivImage.decodeWidthFor(cardWidth);
+    // Mute presentation (default blur mode): a hit renders the blurred
+    // cover and the first tap reveals in place instead of opening the
+    // detail. Hide mode never reaches here — the feed filter already
+    // removed the id. Reveal is session-local and never edits the store.
+    final mutedHit = ref.watch(
+      muteStoreProvider.select((s) => muteHitFor(entity, s)),
+    );
+    final revealed = ref.watch(
+      revealedMuteIdsProvider.select((ids) => ids.contains(entity.id)),
+    );
+    final muted = mutedHit != null && !revealed;
     void openDetail() {
       _preloadTransitionImages(
         context,
@@ -138,24 +153,32 @@ class IllustCard extends ConsumerWidget {
     final previewHeight = entity.width > 0
         ? cardWidth / entity.width * entity.height
         : cardWidth;
+    void reveal() {
+      ref.read(revealedMuteIdsProvider.notifier).reveal(entity.id);
+    }
+
     return PressScale(
       child: Semantics(
         container: true,
         button: true,
         image: true,
-        label: '${entity.title}, ${entity.user.name}',
-        onTap: openDetail,
+        label: muted
+            ? '${context.l10n.mutedContent}: ${entity.title}, ${entity.user.name}'
+            : '${entity.title}, ${entity.user.name}',
+        onTap: muted ? reveal : openDetail,
         onLongPress: () => showCardActionSheet(context, entity),
         child: GestureDetector(
           excludeFromSemantics: true,
-          onTapDown: (_) => _preloadTransitionImages(
-            context,
-            ref,
-            previewUrl,
-            previewTier,
-            cardDecodeWidth,
-          ),
-          onTap: openDetail,
+          onTapDown: muted
+              ? null
+              : (_) => _preloadTransitionImages(
+                  context,
+                  ref,
+                  previewUrl,
+                  previewTier,
+                  cardDecodeWidth,
+                ),
+          onTap: muted ? reveal : openDetail,
           onLongPress: () => showCardActionSheet(context, entity),
           // No outer ClipRRect: the Hero child already clips the image to
           // the same 12px radius and every badge sits 7px inside the
@@ -164,13 +187,28 @@ class IllustCard extends ConsumerWidget {
           child: SizedBox(
             width: cardWidth,
             height: previewHeight,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildHeroImage(previewUrl, heroTag, cardWidth, previewTier),
-                ..._buildBadges(colorScheme),
-              ],
-            ),
+            child: muted
+                ? MutedCover(
+                    reasonLabel: mutedHit.label,
+                    child: _buildHeroImage(
+                      previewUrl,
+                      heroTag,
+                      cardWidth,
+                      previewTier,
+                    ),
+                  )
+                : Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildHeroImage(
+                        previewUrl,
+                        heroTag,
+                        cardWidth,
+                        previewTier,
+                      ),
+                      ..._buildBadges(colorScheme),
+                    ],
+                  ),
           ),
         ),
       ),

@@ -18,7 +18,7 @@ import 'settings_helpers.dart';
 
 export 'pages/about_settings_page.dart';
 export 'pages/account_settings_page.dart';
-export 'pages/blocked_tags_page.dart';
+export 'pages/muted_items_page.dart';
 export 'pages/browse_settings_page.dart';
 export 'pages/download_settings_page.dart';
 export 'pages/download_destination_page.dart';
@@ -134,8 +134,8 @@ class _SettingsList extends ConsumerWidget {
         ),
         SettingsTile(
           icon: Icons.block_outlined,
-          title: context.l10n.blockTagSettings,
-          onTap: () => openSettingsPage(context, '/settings/blocked'),
+          title: context.l10n.mutedItemsSettings,
+          onTap: () => openSettingsPage(context, '/settings/muted'),
         ),
         const Divider(),
         SettingsTile(

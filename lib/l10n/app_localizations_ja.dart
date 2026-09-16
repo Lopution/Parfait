@@ -392,9 +392,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get historyDeleteHint => '削除した履歴は復元できません。';
 
   @override
-  String get blockTagSettings => 'ブロックタグ';
-
-  @override
   String get downloaderSettings => 'ダウンロード状況';
 
   @override
@@ -537,6 +534,53 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get blockAI => 'AI作品をローカルで非表示';
+
+  @override
+  String get hideMuted => 'ミュートした作品を非表示';
+
+  @override
+  String get hideMutedHint => 'オフの場合、ミュート対象はぼかしカードで表示され、タップで一時的に確認できます';
+
+  @override
+  String get mutedContent => 'ミュート中';
+
+  @override
+  String get mutedItemsSettings => 'ミュート管理';
+
+  @override
+  String get mutedTagsSection => 'ミュートタグ';
+
+  @override
+  String get mutedUsersSection => 'ミュートユーザー';
+
+  @override
+  String get mutedWorksSection => 'ミュート作品';
+
+  @override
+  String get mutedEmpty => 'ミュート項目はありません';
+
+  @override
+  String get muteTagInputHint => 'ミュートするタグ';
+
+  @override
+  String get muteWork => 'この作品をミュート';
+
+  @override
+  String get unmuteWork => 'この作品のミュートを解除';
+
+  @override
+  String get muteAuthor => '作者をミュート';
+
+  @override
+  String get unmuteAuthor => '作者のミュートを解除';
+
+  @override
+  String get unmuteTag => 'ミュート解除';
+
+  @override
+  String muteFailed(Object error) {
+    return 'ミュート操作に失敗しました:$error';
+  }
 
   @override
   String get reduceMotion => '視覚効果を減らす';
@@ -704,12 +748,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get historySettingsHint => '履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。';
-
-  @override
-  String get blockTagInputHint => 'タグを入力して追加';
-
-  @override
-  String get noBlockedTags => 'ブロックタグはありません';
 
   @override
   String get downloaderSettingsHint =>

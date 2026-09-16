@@ -399,9 +399,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get historyDeleteHint => 'Удалённую историю нельзя восстановить.';
 
   @override
-  String get blockTagSettings => 'Заблокированные теги';
-
-  @override
   String get downloaderSettings => 'Задачи загрузки';
 
   @override
@@ -549,6 +546,54 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get blockAI => 'Локально скрывать работы AI';
+
+  @override
+  String get hideMuted => 'Скрывать заглушенные работы';
+
+  @override
+  String get hideMutedHint =>
+      'Если выключено, заглушенные работы показываются размытыми карточками; нажатие временно показывает их';
+
+  @override
+  String get mutedContent => 'Заглушено';
+
+  @override
+  String get mutedItemsSettings => 'Заглушенные';
+
+  @override
+  String get mutedTagsSection => 'Теги';
+
+  @override
+  String get mutedUsersSection => 'Пользователи';
+
+  @override
+  String get mutedWorksSection => 'Работы';
+
+  @override
+  String get mutedEmpty => 'Ничего не заглушено';
+
+  @override
+  String get muteTagInputHint => 'Тег для заглушения';
+
+  @override
+  String get muteWork => 'Заглушить работу';
+
+  @override
+  String get unmuteWork => 'Снять заглушение работы';
+
+  @override
+  String get muteAuthor => 'Заглушить автора';
+
+  @override
+  String get unmuteAuthor => 'Снять заглушение автора';
+
+  @override
+  String get unmuteTag => 'Снять заглушение';
+
+  @override
+  String muteFailed(Object error) {
+    return 'Ошибка заглушения: $error';
+  }
 
   @override
   String get reduceMotion => 'Меньше анимаций';
@@ -721,12 +766,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get historySettingsHint =>
       'Модуль истории читает эти переключатели; отключённая история не получает новые записи.';
-
-  @override
-  String get blockTagInputHint => 'Введите тег для добавления';
-
-  @override
-  String get noBlockedTags => 'Нет заблокированных тегов';
 
   @override
   String get downloaderSettingsHint =>

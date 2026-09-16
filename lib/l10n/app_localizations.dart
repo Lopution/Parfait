@@ -804,12 +804,6 @@ abstract class AppLocalizations {
   /// **'删除后将不可恢复'**
   String get historyDeleteHint;
 
-  /// No description provided for @blockTagSettings.
-  ///
-  /// In zh, this message translates to:
-  /// **'屏蔽标签'**
-  String get blockTagSettings;
-
   /// No description provided for @downloaderSettings.
   ///
   /// In zh, this message translates to:
@@ -1097,6 +1091,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'本地屏蔽 AI 作品'**
   String get blockAI;
+
+  /// No description provided for @hideMuted.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接隐藏被屏蔽的作品'**
+  String get hideMuted;
+
+  /// No description provided for @hideMutedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭后,被屏蔽的作品以模糊卡片显示,点按可临时查看'**
+  String get hideMutedHint;
+
+  /// No description provided for @mutedContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'已屏蔽'**
+  String get mutedContent;
+
+  /// No description provided for @mutedItemsSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽管理'**
+  String get mutedItemsSettings;
+
+  /// No description provided for @mutedTagsSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽标签'**
+  String get mutedTagsSection;
+
+  /// No description provided for @mutedUsersSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽用户'**
+  String get mutedUsersSection;
+
+  /// No description provided for @mutedWorksSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽作品'**
+  String get mutedWorksSection;
+
+  /// No description provided for @mutedEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无屏蔽条目'**
+  String get mutedEmpty;
+
+  /// No description provided for @muteTagInputHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入要屏蔽的标签'**
+  String get muteTagInputHint;
+
+  /// No description provided for @muteWork.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽此作品'**
+  String get muteWork;
+
+  /// No description provided for @unmuteWork.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消屏蔽此作品'**
+  String get unmuteWork;
+
+  /// No description provided for @muteAuthor.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽作者'**
+  String get muteAuthor;
+
+  /// No description provided for @unmuteAuthor.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消屏蔽作者'**
+  String get unmuteAuthor;
+
+  /// No description provided for @unmuteTag.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消屏蔽'**
+  String get unmuteTag;
+
+  /// No description provided for @muteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽操作失败:{error}'**
+  String muteFailed(Object error);
 
   /// No description provided for @reduceMotion.
   ///
@@ -1404,18 +1488,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'历史记录开关由历史模块读取；关闭后不会新增对应记录。'**
   String get historySettingsHint;
-
-  /// No description provided for @blockTagInputHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'输入标签后添加'**
-  String get blockTagInputHint;
-
-  /// No description provided for @noBlockedTags.
-  ///
-  /// In zh, this message translates to:
-  /// **'暂无屏蔽标签'**
-  String get noBlockedTags;
 
   /// No description provided for @downloaderSettingsHint.
   ///

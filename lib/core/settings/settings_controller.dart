@@ -105,6 +105,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setLocalBlockAI(bool enabled) =>
       _update((settings) => settings.copyWith(enableLocalBlockAI: enabled));
 
+  Future<void> setHideMuted(bool enabled) =>
+      _update((settings) => settings.copyWith(hideMuted: enabled));
+
   Future<void> setReduceMotion(bool enabled) =>
       _update((settings) => settings.copyWith(reduceMotion: enabled));
 

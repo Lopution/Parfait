@@ -398,7 +398,7 @@ void main() {
       'browseSettings',
       'downloadSettings',
       'historySettings',
-      'blockTagSettings',
+      'mutedItemsSettings',
       'downloaderSettings',
       'aboutSettings',
       'imageSourceNormal',
