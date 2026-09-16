@@ -58,12 +58,17 @@ class OAuthUserProfile {
     required this.name,
     this.mailAddress,
     this.profileImageUrl,
+    this.isPremium = false,
   });
 
   final int userId;
   final String name;
   final String? mailAddress;
   final String? profileImageUrl;
+
+  /// `user.is_premium` from the token response — gates premium-only search
+  /// filters (popularity sort, date range) server-side.
+  final bool isPremium;
 }
 
 /// Result of a completed OAuth login.
@@ -339,6 +344,7 @@ class OAuthService {
         profileImageUrl: profileImageUrls is Map<String, dynamic>
             ? profileImageUrls['main'] as String?
             : null,
+        isPremium: user['is_premium'] == true,
       ),
     );
   }

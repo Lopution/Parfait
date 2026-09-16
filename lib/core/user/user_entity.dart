@@ -19,6 +19,7 @@ class UserEntity {
     this.twitterUrl,
     this.pawooUrl,
     this.isFollowed,
+    this.isPremium,
     this.totalFollowUsers = 0,
     this.totalMyPixivUsers = 0,
     this.totalIllusts = 0,
@@ -46,6 +47,11 @@ class UserEntity {
   /// different from an explicit `false`, which must be allowed to clear a
   /// stale remote value.
   final bool? isFollowed;
+
+  /// `user.is_premium` when the payload carries it (OAuth user object,
+  /// `/v1/user/detail`). Null when absent — preview envelopes only reliably
+  /// carry it for the viewing account.
+  final bool? isPremium;
 
   final int totalFollowUsers;
   final int totalMyPixivUsers;
@@ -87,6 +93,7 @@ class UserEntity {
       ]),
       comment: readOptionalString(json['comment']),
       isFollowed: _optionalBool(json['is_followed']),
+      isPremium: _optionalBool(json['is_premium']),
       visible: visible,
       isMuted: _optionalBool(json['is_muted']) ?? false,
     );
@@ -159,6 +166,7 @@ class UserEntity {
     Object? twitterUrl = _unset,
     Object? pawooUrl = _unset,
     Object? isFollowed = _unset,
+    Object? isPremium = _unset,
     int? totalFollowUsers,
     int? totalMyPixivUsers,
     int? totalIllusts,
@@ -192,6 +200,9 @@ class UserEntity {
       isFollowed: identical(isFollowed, _unset)
           ? this.isFollowed
           : isFollowed as bool?,
+      isPremium: identical(isPremium, _unset)
+          ? this.isPremium
+          : isPremium as bool?,
       totalFollowUsers: totalFollowUsers ?? this.totalFollowUsers,
       totalMyPixivUsers: totalMyPixivUsers ?? this.totalMyPixivUsers,
       totalIllusts: totalIllusts ?? this.totalIllusts,
@@ -227,6 +238,7 @@ class UserEntity {
       twitterUrl: detail.twitterUrl,
       pawooUrl: detail.pawooUrl,
       isFollowed: incoming.isFollowed ?? isFollowed,
+      isPremium: incoming.isPremium ?? isPremium,
       totalFollowUsers: detail.totalFollowUsers,
       totalMyPixivUsers: detail.totalMyPixivUsers,
       totalIllusts: detail.totalIllusts,

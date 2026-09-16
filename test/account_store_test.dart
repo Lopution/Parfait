@@ -328,6 +328,13 @@ void main() {
     expect(metadata.stored!.single.authState, AccountAuthState.reauthRequired);
   });
 
+  test('isPremium survives the metadata JSON round-trip', () {
+    final premium = account('100').copyWith(isPremium: true);
+    expect(Account.fromJson(premium.toJson()).isPremium, isTrue);
+    // Older payloads without the flag deserialize as free, never premium.
+    expect(Account.fromJson(account('100').toJson()).isPremium, isFalse);
+  });
+
   test('metadata serialization never contains secret fields', () async {
     final (container, _, _) = makeContainer();
     final store = container.read(accountStoreProvider.notifier);

@@ -100,6 +100,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   name: result.profile.name,
                   mailAddress: result.profile.mailAddress,
                   profileImageUrl: result.profile.profileImageUrl,
+                  isPremium: result.profile.isPremium,
                 ),
                 result.credential,
               );
