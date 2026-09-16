@@ -916,6 +916,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingWeekRookie => '每周(新人)';
 
   @override
+  String get rankingWeekAi => '每周(AI)';
+
+  @override
+  String get rankingWeekAiR18 => '每周(AI & R-18)';
+
+  @override
+  String get rankingWeekR18G => '每周(R-18G)';
+
+  @override
   String get rankingMonth => '每月';
 
   @override
@@ -1429,6 +1438,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelSeries => '系列';
+
+  @override
+  String get novelRanking => '小说排行';
 
   @override
   String get novelSeriesUnavailable => '系列信息暂不可用';

@@ -34,6 +34,7 @@ import '../../features/onboarding/user_agreement_page.dart';
 import '../../features/onboarding/welcome_page.dart';
 import '../../features/profile/profile_edit_page.dart';
 import '../../features/profile/user_page.dart';
+import '../../features/ranking/novel_ranking_page.dart';
 import '../../features/ranking/ranking_page.dart';
 import '../../features/search/reverse_image_search_page.dart';
 import '../../features/search/search_page.dart';
@@ -547,6 +548,11 @@ List<RouteBase> _commonBranchRoutes(
           ),
         ),
       ],
+    ),
+    GoRoute(
+      path: 'novel-ranking',
+      pageBuilder: (context, state) =>
+          _page(context, state, branchObserver, const NovelRankingPage()),
     ),
     GoRoute(
       path: 'history',
@@ -1138,6 +1144,10 @@ Future<void> openSettings(BuildContext context) async {
 
 Future<void> openNovel(BuildContext context, int novelId) async {
   await _push(context, '${_currentStackRoot(context)}/novel/$novelId');
+}
+
+Future<void> openNovelRanking(BuildContext context) async {
+  await _push(context, '${_currentStackRoot(context)}/novel-ranking');
 }
 
 Future<void> openSearchInput(
