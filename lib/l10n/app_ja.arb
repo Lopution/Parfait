@@ -488,6 +488,8 @@
   "searchWithinMonth": "1か月以内",
   "searchStartDate": "開始日",
   "searchEndDate": "終了日",
+  "searchInvalidDateRange": "開始日は終了日より後にできません",
+  "searchPopularPreviewHint": "プレミアム未加入のため、人気順はプレビュー結果を使用します",
   "searchNoSuggestions": "候補はありません",
   "searchUserAccount": "アカウント",
   "illustDetailTitle": "作品詳細",

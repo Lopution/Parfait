@@ -1138,6 +1138,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchEndDate => '结束日期';
 
   @override
+  String get searchInvalidDateRange => '开始日期不能晚于结束日期';
+
+  @override
+  String get searchPopularPreviewHint => '未开通会员，热门排序将使用人气预览结果';
+
+  @override
   String get searchNoSuggestions => '没有匹配建议';
 
   @override
