@@ -2898,6 +2898,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'显示刷新率'**
   String get aboutDisplayRefreshRate;
+
+  /// No description provided for @cardActionBookmark.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏'**
+  String get cardActionBookmark;
+
+  /// No description provided for @cardActionUnbookmark.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消收藏'**
+  String get cardActionUnbookmark;
+
+  /// No description provided for @cardActionDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载'**
+  String get cardActionDownload;
+
+  /// No description provided for @cardActionWatchLater.
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后再看'**
+  String get cardActionWatchLater;
+
+  /// No description provided for @cardActionRemoveWatchLater.
+  ///
+  /// In zh, this message translates to:
+  /// **'从稍后再看移除'**
+  String get cardActionRemoveWatchLater;
+
+  /// No description provided for @cardActionShare.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享'**
+  String get cardActionShare;
+
+  /// No description provided for @linkCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'链接已复制'**
+  String get linkCopied;
+
+  /// No description provided for @watchLaterAdded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入稍后再看'**
+  String get watchLaterAdded;
+
+  /// No description provided for @watchLaterTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后再看'**
+  String get watchLaterTitle;
+
+  /// No description provided for @watchLaterEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂存的作品会显示在这里'**
+  String get watchLaterEmpty;
 }
 
 class _AppLocalizationsDelegate

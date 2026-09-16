@@ -626,5 +626,15 @@
   "novelDecreaseFont": "Decrease font size",
   "novelIncreaseFont": "Increase font size",
   "novelReadingProgress": "Reading progress",
-  "aboutDisplayRefreshRate": "Display refresh rate"
+  "aboutDisplayRefreshRate": "Display refresh rate",
+  "cardActionBookmark": "Bookmark",
+  "cardActionUnbookmark": "Remove bookmark",
+  "cardActionDownload": "Download",
+  "cardActionWatchLater": "Watch later",
+  "cardActionRemoveWatchLater": "Remove from Watch later",
+  "cardActionShare": "Share",
+  "linkCopied": "Link copied",
+  "watchLaterAdded": "Added to Watch later",
+  "watchLaterTitle": "Watch later",
+  "watchLaterEmpty": "Stashed works appear here"
 }
