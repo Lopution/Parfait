@@ -539,6 +539,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get blockAI => 'AI作品をローカルで非表示';
 
   @override
+  String get reduceMotion => '視覚効果を減らす';
+
+  @override
+  String get reduceMotionHint => '画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします';
+
+  @override
   String get maxDownloadCount => '同時ダウンロード数の上限';
 
   @override

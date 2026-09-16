@@ -551,6 +551,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get blockAI => 'Локально скрывать работы AI';
 
   @override
+  String get reduceMotion => 'Меньше анимаций';
+
+  @override
+  String get reduceMotionHint =>
+      'Отключить декоративную анимацию: переходы страниц, появление списков и отклик на нажатие';
+
+  @override
   String get maxDownloadCount => 'Максимум параллельных загрузок';
 
   @override

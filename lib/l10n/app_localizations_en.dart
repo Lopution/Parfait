@@ -553,6 +553,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockAI => 'Locally block AI works';
 
   @override
+  String get reduceMotion => 'Reduce motion';
+
+  @override
+  String get reduceMotionHint =>
+      'Turn off decorative animation: page transitions, list entrances and press feedback';
+
+  @override
   String get maxDownloadCount => 'Maximum concurrent downloads';
 
   @override
