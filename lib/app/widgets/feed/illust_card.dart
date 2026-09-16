@@ -19,7 +19,13 @@ import 'feed_grid.dart';
 /// R-18 top-left, ugoira gif bottom-left, page count top-right, AI
 /// bottom-right, title (14 bold) + user name (12) beneath the image.
 class IllustCard extends ConsumerWidget {
-  const IllustCard({super.key, required this.entity, this.heroScope = 'feed'});
+  /// The default key follows the work id so a feed refresh keeps each
+  /// element attached to its own work instead of recycling the slot for a
+  /// different one — the image widget then sees a slot hand-off only when
+  /// the element genuinely changed works. The scope disambiguates the same
+  /// work appearing in two feeds at once (e.g. ranking + search copies).
+  IllustCard({Key? key, required this.entity, this.heroScope = 'feed'})
+    : super(key: key ?? ValueKey('illust-$heroScope-${entity.id}'));
 
   final IllustEntity entity;
   final String heroScope;
