@@ -21,6 +21,7 @@ import 'package:pixiv_func/core/search/search_feed_controller.dart';
 import 'package:pixiv_func/core/search/search_models.dart';
 import 'package:pixiv_func/core/search/search_repository.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
+import 'package:pixiv_func/features/search/search_filter_sheet.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/search_result_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -789,6 +790,103 @@ void main() {
       subscription.close();
     },
   );
+
+  testWidgets('filter sheet renders illust groups and returns selections', (
+    tester,
+  ) async {
+    SearchFilters? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: ProviderScope(
+          child: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await showSearchFilterSheet(
+                    context,
+                    initial: SearchFilters.defaults,
+                    type: SearchResultType.illust,
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    for (final section in ['AI 作品', '收藏数', '纵横比', '作品类别', '分辨率']) {
+      expect(find.text(section), findsOneWidget, reason: section);
+    }
+
+    Future<void> tapLabel(String text) async {
+      await tester.ensureVisible(find.text(text));
+      await tester.pump();
+      await tester.tap(find.text(text));
+      await tester.pump();
+    }
+
+    await tapLabel('排除 AI');
+    await tapLabel('纵向');
+    await tapLabel('仅漫画');
+
+    await tester.enterText(find.widgetWithText(TextField, '最小').first, '100');
+    await tester.pump();
+
+    await tester.ensureVisible(find.text('应用'));
+    await tester.pump();
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.aiFilter, SearchAiFilter.exclude);
+    expect(result!.ratio, SearchRatioPattern.portrait);
+    expect(result!.contentType, SearchContentType.manga);
+    expect(result!.bookmarkMin, 100);
+    expect(result!.bookmarkMax, isNull);
+  });
+
+  testWidgets('filter sheet hides illust groups for novel search', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: ProviderScope(
+          child: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  await showSearchFilterSheet(
+                    context,
+                    initial: SearchFilters.defaults,
+                    type: SearchResultType.novel,
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    for (final section in ['AI 作品', '收藏数', '纵横比', '作品类别', '分辨率']) {
+      expect(find.text(section), findsNothing, reason: section);
+    }
+    // Shared groups still render.
+    expect(find.text('排序'), findsOneWidget);
+  });
 
   testWidgets('search guide renders trending tags and the three input tabs', (
     tester,
