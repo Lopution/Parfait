@@ -21,6 +21,7 @@ import 'package:pixiv_func/core/search/search_feed_controller.dart';
 import 'package:pixiv_func/core/search/search_models.dart';
 import 'package:pixiv_func/core/search/search_repository.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
+import 'package:pixiv_func/features/search/search_filter_sheet.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/search_result_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -252,6 +253,178 @@ void main() {
     expect(query.containsKey('sort'), isFalse);
     expect(query['word'], 'cat');
     expect(query['filter'], 'for_android');
+  });
+
+  test('illust-only filters serialize on illust, never on novel', () {
+    const filters = SearchFilters(
+      aiFilter: SearchAiFilter.exclude,
+      bookmarkMin: 100,
+      bookmarkMax: 5000,
+      ratio: SearchRatioPattern.landscape,
+      contentType: SearchContentType.ugoira,
+      widthMin: 1024,
+      widthMax: 4096,
+      heightMin: 768,
+      heightMax: 2160,
+    );
+
+    final illust = const IllustSearchQuery(
+      keyword: 'cat',
+      filters: filters,
+    ).toQuery();
+    expect(illust, {
+      'word': 'cat',
+      'search_target': 'partial_match_for_tags',
+      'sort': 'date_desc',
+      'filter': 'for_android',
+      'search_ai_type': '1',
+      'bookmark_num_min': '100',
+      'bookmark_num_max': '5000',
+      'ratio_pattern': 'landscape',
+      'content_type': 'ugoira',
+      'width_min': '1024',
+      'width_max': '4096',
+      'height_min': '768',
+      'height_max': '2160',
+    });
+
+    final novel = const NovelSearchQuery(
+      keyword: 'cat',
+      filters: filters,
+    ).toQuery();
+    for (final key in [
+      'ratio_pattern',
+      'content_type',
+      'width_min',
+      'width_max',
+      'height_min',
+      'height_max',
+    ]) {
+      expect(novel.containsKey(key), isFalse, reason: key);
+    }
+    // Shared params do cross over — the novel endpoint accepts them.
+    expect(novel['search_ai_type'], '1');
+    expect(novel['bookmark_num_min'], '100');
+  });
+
+  test('gendered sorts normalize to popular_desc on the novel wire', () {
+    for (final sort in [
+      SearchSort.popularMaleDesc,
+      SearchSort.popularFemaleDesc,
+    ]) {
+      final query = NovelSearchQuery(
+        keyword: 'cat',
+        filters: SearchFilters(sort: sort),
+      ).toQuery();
+      // The novel endpoint 400s on male/female sorts — never emit them.
+      expect(query['sort'], 'popular_desc');
+    }
+    final illust = const IllustSearchQuery(
+      keyword: 'cat',
+      filters: SearchFilters(sort: SearchSort.popularMaleDesc),
+    ).toQuery();
+    expect(illust['sort'], 'popular_male_desc');
+  });
+
+  test('ai-only has no wire value; exclude serializes search_ai_type=1', () {
+    final only = const IllustSearchQuery(
+      keyword: 'cat',
+      filters: SearchFilters(aiFilter: SearchAiFilter.only),
+    ).toQuery();
+    expect(only.containsKey('search_ai_type'), isFalse);
+
+    final all = const IllustSearchQuery(
+      keyword: 'cat',
+      filters: SearchFilters(aiFilter: SearchAiFilter.all),
+    ).toQuery();
+    expect(all.containsKey('search_ai_type'), isFalse);
+  });
+
+  test('premium gendered sort stays on the full search endpoint', () async {
+    final container = await _apiContainer((request) async {
+      expect(request.url.path, '/v1/search/illust');
+      expect(request.url.queryParameters['sort'], 'popular_male_desc');
+      return _json({
+        'illusts': [illustJson(63)],
+        'next_url': null,
+      });
+    }, accountIsPremium: true);
+    addTearDown(container.dispose);
+
+    final page = await container
+        .read(searchRepositoryProvider)
+        .searchIllust(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(sort: SearchSort.popularMaleDesc),
+          ),
+        );
+    expect(page.illusts.single.id, 63);
+  });
+
+  test('non-premium gendered sort reroutes to popular-preview', () async {
+    final container = await _apiContainer((request) async {
+      expect(request.url.path, '/v1/search/popular-preview/illust');
+      expect(request.url.queryParameters.containsKey('sort'), isFalse);
+      return _json({'illusts': <Object?>[], 'next_url': null});
+    });
+    addTearDown(container.dispose);
+
+    await container
+        .read(searchRepositoryProvider)
+        .searchIllust(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(sort: SearchSort.popularFemaleDesc),
+          ),
+        );
+  });
+
+  test('search cursors accept the new filter parameters', () async {
+    final container = await _apiContainer(
+      (request) async => _json({'illusts': <Object?>[], 'next_url': null}),
+    );
+    addTearDown(container.dispose);
+    final repository = container.read(searchRepositoryProvider);
+
+    final cursor =
+        'https://app-api.pixiv.net/v1/search/illust?'
+        'word=cat&search_target=partial_match_for_tags&sort=date_desc&'
+        'filter=for_android&search_ai_type=1&bookmark_num_min=100&'
+        'ratio_pattern=portrait&content_type=manga&width_min=1024&offset=30';
+    expect(
+      repository.validateCursor(
+        const IllustSearchQuery(
+          keyword: 'cat',
+          filters: SearchFilters(
+            aiFilter: SearchAiFilter.exclude,
+            bookmarkMin: 100,
+            ratio: SearchRatioPattern.portrait,
+            contentType: SearchContentType.manga,
+            widthMin: 1024,
+          ),
+        ),
+        cursor: cursor,
+      ),
+      isTrue,
+    );
+    // A pinned filter param mismatch belongs to another feed and is refused.
+    expect(
+      repository.validateCursor(
+        const IllustSearchQuery(
+          keyword: 'cat',
+          filters: SearchFilters(
+            aiFilter: SearchAiFilter.exclude,
+            bookmarkMin: 200,
+            ratio: SearchRatioPattern.portrait,
+            contentType: SearchContentType.manga,
+            widthMin: 1024,
+          ),
+        ),
+        cursor: cursor,
+      ),
+      isFalse,
+    );
   });
 
   test('search cache keys include the active filter set', () {
@@ -495,6 +668,61 @@ void main() {
   );
 
   test(
+    'search feed applies client-side bookmark and AI-only predicates',
+    () async {
+      final repository = _FakeSearchRepository()
+        ..illustPage = SearchIllustPage(
+          illusts: [
+            parseIllust(illustJson(1, totalBookmarks: 50)),
+            parseIllust(illustJson(2, totalBookmarks: 500, aiType: 2)),
+            parseIllust(illustJson(3, totalBookmarks: 5000, aiType: 2)),
+          ],
+          nextUrl: null,
+        );
+      final container = ProviderContainer(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+
+      // bookmark_num_min is Premium-only on the wire — the client-side
+      // predicate must still drop low-bookmark works on free accounts.
+      final ranged = await container.read(
+        searchFeedProvider(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(bookmarkMin: 100),
+          ),
+        ).future,
+      );
+      expect(ranged.ids, [2, 3]);
+
+      // "Only AI" has no wire value; filtering is entirely client-side.
+      final aiOnly = await container.read(
+        searchFeedProvider(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(aiFilter: SearchAiFilter.only),
+          ),
+        ).future,
+      );
+      expect(aiOnly.ids, [2, 3]);
+
+      final combined = await container.read(
+        searchFeedProvider(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(
+              aiFilter: SearchAiFilter.only,
+              bookmarkMin: 1000,
+            ),
+          ),
+        ).future,
+      );
+      expect(combined.ids, [3]);
+    },
+  );
+
+  test(
     'autocomplete debounce suppresses a late response from an old query',
     () async {
       final oldResponse = Completer<List<SearchSuggestion>>();
@@ -562,6 +790,103 @@ void main() {
       subscription.close();
     },
   );
+
+  testWidgets('filter sheet renders illust groups and returns selections', (
+    tester,
+  ) async {
+    SearchFilters? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: ProviderScope(
+          child: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await showSearchFilterSheet(
+                    context,
+                    initial: SearchFilters.defaults,
+                    type: SearchResultType.illust,
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    for (final section in ['AI 作品', '收藏数', '纵横比', '作品类别', '分辨率']) {
+      expect(find.text(section), findsOneWidget, reason: section);
+    }
+
+    Future<void> tapLabel(String text) async {
+      await tester.ensureVisible(find.text(text));
+      await tester.pump();
+      await tester.tap(find.text(text));
+      await tester.pump();
+    }
+
+    await tapLabel('排除 AI');
+    await tapLabel('纵向');
+    await tapLabel('仅漫画');
+
+    await tester.enterText(find.widgetWithText(TextField, '最小').first, '100');
+    await tester.pump();
+
+    await tester.ensureVisible(find.text('应用'));
+    await tester.pump();
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNotNull);
+    expect(result!.aiFilter, SearchAiFilter.exclude);
+    expect(result!.ratio, SearchRatioPattern.portrait);
+    expect(result!.contentType, SearchContentType.manga);
+    expect(result!.bookmarkMin, 100);
+    expect(result!.bookmarkMax, isNull);
+  });
+
+  testWidgets('filter sheet hides illust groups for novel search', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: ProviderScope(
+          child: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  await showSearchFilterSheet(
+                    context,
+                    initial: SearchFilters.defaults,
+                    type: SearchResultType.novel,
+                  );
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    for (final section in ['AI 作品', '收藏数', '纵横比', '作品类别', '分辨率']) {
+      expect(find.text(section), findsNothing, reason: section);
+    }
+    // Shared groups still render.
+    expect(find.text('排序'), findsOneWidget);
+  });
 
   testWidgets('search guide renders trending tags and the three input tabs', (
     tester,

@@ -32,9 +32,72 @@ enum SearchTarget {
 enum SearchSort {
   dateDesc('date_desc', 'searchDateDesc'),
   dateAsc('date_asc', 'searchDateAsc'),
-  popularDesc('popular_desc', 'searchPopularDesc');
+  popularDesc('popular_desc', 'searchPopularDesc'),
+  popularMaleDesc('popular_male_desc', 'searchPopularMaleDesc'),
+  popularFemaleDesc('popular_female_desc', 'searchPopularFemaleDesc');
 
   const SearchSort(this.wireValue, this.labelKey);
+
+  final String wireValue;
+  final String labelKey;
+
+  /// All popularity sorts are Premium-only server-side; free accounts are
+  /// rerouted to the popular-preview endpoint by the repository.
+  bool get isPopular =>
+      this == popularDesc ||
+      this == popularMaleDesc ||
+      this == popularFemaleDesc;
+
+  /// The novel endpoint does not recognize the gendered popularity sorts
+  /// (400 Invalid value) — normalize to the closest semantic value before
+  /// serializing, like Shaft's `SortType.novelSafe`.
+  SearchSort get novelSafe => isPopular ? popularDesc : this;
+}
+
+/// AI-work selector. Pixiv's `search_ai_type` is binary (0=all, 1=exclude);
+/// "only AI" has no wire value and is applied client-side on
+/// `illust_ai_type == 2` in the search feed's page filter.
+enum SearchAiFilter {
+  all('searchAiAll'),
+  exclude('searchAiExclude'),
+  only('searchAiOnly');
+
+  const SearchAiFilter(this.labelKey);
+
+  final String labelKey;
+
+  /// `null` = omit the parameter (server default shows everything).
+  String? get wireValue => switch (this) {
+    SearchAiFilter.all => null,
+    SearchAiFilter.exclude => '1',
+    SearchAiFilter.only => null,
+  };
+}
+
+/// Aspect-ratio buckets on the official `ratio_pattern` parameter
+/// (illust/manga only; confirmed against Shaft `RatioPattern`).
+enum SearchRatioPattern {
+  landscape('landscape', 'searchRatioLandscape'),
+  portrait('portrait', 'searchRatioPortrait'),
+  square('square', 'searchRatioSquare');
+
+  const SearchRatioPattern(this.wireValue, this.labelKey);
+
+  final String wireValue;
+  final String labelKey;
+}
+
+/// Content buckets on the official `content_type` parameter (illust/manga
+/// only; confirmed against Shaft `IllustContentType`). The default is the
+/// server behavior and is never sent.
+enum SearchContentType {
+  illustAndMangaAndUgoira('illust_and_manga_and_ugoira', 'searchContentAll'),
+  illustAndUgoira('illust_and_ugoira', 'searchContentIllustUgoira'),
+  illust('illust', 'searchContentIllust'),
+  ugoira('ugoira', 'searchContentUgoira'),
+  manga('manga', 'searchContentManga');
+
+  const SearchContentType(this.wireValue, this.labelKey);
 
   final String wireValue;
   final String labelKey;
@@ -61,6 +124,15 @@ class SearchFilters {
     this.duration,
     this.startDate,
     this.endDate,
+    this.aiFilter = SearchAiFilter.all,
+    this.bookmarkMin,
+    this.bookmarkMax,
+    this.ratio,
+    this.contentType = SearchContentType.illustAndMangaAndUgoira,
+    this.widthMin,
+    this.widthMax,
+    this.heightMin,
+    this.heightMax,
   });
 
   final SearchTarget target;
@@ -68,6 +140,24 @@ class SearchFilters {
   final SearchDuration? duration;
   final DateTime? startDate;
   final DateTime? endDate;
+
+  /// AI-work selector; `only` is enforced client-side (no wire value).
+  final SearchAiFilter aiFilter;
+
+  /// Bookmark-count range. `bookmark_num_min/max` are Premium-only
+  /// server-side — the params are still sent (free accounts are silently
+  /// ignored per Shaft's verification) and the search feed re-applies the
+  /// range client-side so the filter always takes effect.
+  final int? bookmarkMin;
+  final int? bookmarkMax;
+
+  /// Illust-only selectors — never serialized on novel queries.
+  final SearchRatioPattern? ratio;
+  final SearchContentType contentType;
+  final int? widthMin;
+  final int? widthMax;
+  final int? heightMin;
+  final int? heightMax;
 
   /// Stable identity for feed/page-storage scopes.
   ///
@@ -81,6 +171,15 @@ class SearchFilters {
     duration?.wireValue ?? '',
     startDate == null ? '' : _formatDate(startDate!),
     endDate == null ? '' : _formatDate(endDate!),
+    aiFilter.name,
+    bookmarkMin?.toString() ?? '',
+    bookmarkMax?.toString() ?? '',
+    ratio?.wireValue ?? '',
+    contentType.wireValue,
+    widthMin?.toString() ?? '',
+    widthMax?.toString() ?? '',
+    heightMin?.toString() ?? '',
+    heightMax?.toString() ?? '',
   ].join('|');
 
   static const defaults = SearchFilters();
@@ -93,7 +192,10 @@ class SearchFilters {
   /// other client (PixEz/Shaft/pxview). A duration also overrides any
   /// custom date bounds: the two are mutually exclusive in the sheet UI,
   /// and this keeps the wire shape sane for stale states.
-  Map<String, String> toQuery({required String word}) {
+  Map<String, String> toQuery({
+    required String word,
+    bool includeIllustParams = false,
+  }) {
     final normalized = word.trim();
     if (normalized.isEmpty) {
       throw const FormatException('search word must not be empty');
@@ -102,10 +204,25 @@ class SearchFilters {
     final query = <String, String>{
       'word': normalized,
       'search_target': target.wireValue,
-      'sort': sort.wireValue,
+      // The novel endpoint 400s on the gendered popularity sorts — callers
+      // pass a normalized sort via [novelSafe] when includeIllustParams is
+      // false.
+      'sort': includeIllustParams ? sort.wireValue : sort.novelSafe.wireValue,
       'filter': 'for_android',
       if (range.$1 != null) 'start_date': _formatDate(range.$1!),
       if (range.$2 != null) 'end_date': _formatDate(range.$2!),
+      if (aiFilter.wireValue != null) 'search_ai_type': aiFilter.wireValue!,
+      if (bookmarkMin != null) 'bookmark_num_min': '$bookmarkMin',
+      if (bookmarkMax != null) 'bookmark_num_max': '$bookmarkMax',
+      if (includeIllustParams) ...{
+        if (ratio != null) 'ratio_pattern': ratio!.wireValue,
+        if (contentType != SearchContentType.illustAndMangaAndUgoira)
+          'content_type': contentType.wireValue,
+        if (widthMin != null) 'width_min': '$widthMin',
+        if (widthMax != null) 'width_max': '$widthMax',
+        if (heightMin != null) 'height_min': '$heightMin',
+        if (heightMax != null) 'height_max': '$heightMax',
+      },
     };
     if (range.$1 != null && range.$2 != null && range.$1!.isAfter(range.$2!)) {
       throw const FormatException('search start date is after end date');
@@ -115,8 +232,12 @@ class SearchFilters {
 
   /// Same request shape minus `sort`: the `popular-preview` endpoints carry
   /// the popularity ordering implicitly and reject a sort parameter.
-  Map<String, String> toPreviewQuery({required String word}) {
-    final query = toQuery(word: word)..remove('sort');
+  Map<String, String> toPreviewQuery({
+    required String word,
+    bool includeIllustParams = false,
+  }) {
+    final query = toQuery(word: word, includeIllustParams: includeIllustParams)
+      ..remove('sort');
     return query;
   }
 
@@ -143,6 +264,15 @@ class SearchFilters {
     Object? duration = _unset,
     Object? startDate = _unset,
     Object? endDate = _unset,
+    SearchAiFilter? aiFilter,
+    Object? bookmarkMin = _unset,
+    Object? bookmarkMax = _unset,
+    Object? ratio = _unset,
+    SearchContentType? contentType,
+    Object? widthMin = _unset,
+    Object? widthMax = _unset,
+    Object? heightMin = _unset,
+    Object? heightMax = _unset,
   }) {
     return SearchFilters(
       target: target ?? this.target,
@@ -154,6 +284,25 @@ class SearchFilters {
           ? this.startDate
           : startDate as DateTime?,
       endDate: identical(endDate, _unset) ? this.endDate : endDate as DateTime?,
+      aiFilter: aiFilter ?? this.aiFilter,
+      bookmarkMin: identical(bookmarkMin, _unset)
+          ? this.bookmarkMin
+          : bookmarkMin as int?,
+      bookmarkMax: identical(bookmarkMax, _unset)
+          ? this.bookmarkMax
+          : bookmarkMax as int?,
+      ratio: identical(ratio, _unset)
+          ? this.ratio
+          : ratio as SearchRatioPattern?,
+      contentType: contentType ?? this.contentType,
+      widthMin: identical(widthMin, _unset) ? this.widthMin : widthMin as int?,
+      widthMax: identical(widthMax, _unset) ? this.widthMax : widthMax as int?,
+      heightMin: identical(heightMin, _unset)
+          ? this.heightMin
+          : heightMin as int?,
+      heightMax: identical(heightMax, _unset)
+          ? this.heightMax
+          : heightMax as int?,
     );
   }
 
@@ -166,7 +315,16 @@ class SearchFilters {
       other.sort == sort &&
       _sameDay(other.startDate, startDate) &&
       _sameDay(other.endDate, endDate) &&
-      other.duration == duration;
+      other.duration == duration &&
+      other.aiFilter == aiFilter &&
+      other.bookmarkMin == bookmarkMin &&
+      other.bookmarkMax == bookmarkMax &&
+      other.ratio == ratio &&
+      other.contentType == contentType &&
+      other.widthMin == widthMin &&
+      other.widthMax == widthMax &&
+      other.heightMin == heightMin &&
+      other.heightMax == heightMax;
 
   @override
   int get hashCode => Object.hash(
@@ -175,6 +333,15 @@ class SearchFilters {
     duration,
     _dateHash(startDate),
     _dateHash(endDate),
+    aiFilter,
+    bookmarkMin,
+    bookmarkMax,
+    ratio,
+    contentType,
+    widthMin,
+    widthMax,
+    heightMin,
+    heightMax,
   );
 }
 
@@ -208,7 +375,8 @@ class IllustSearchQuery extends SearchQuery {
   String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
 
   @override
-  Map<String, String> toQuery() => filters.toQuery(word: keyword);
+  Map<String, String> toQuery() =>
+      filters.toQuery(word: keyword, includeIllustParams: true);
 
   IllustSearchQuery copyWith({String? keyword, SearchFilters? filters}) =>
       IllustSearchQuery(

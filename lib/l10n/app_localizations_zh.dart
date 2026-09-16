@@ -1170,6 +1170,75 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchPopularDesc => '热门排序';
 
   @override
+  String get searchPopularMaleDesc => '男性向人气';
+
+  @override
+  String get searchPopularFemaleDesc => '女性向人气';
+
+  @override
+  String get searchAiSection => 'AI 作品';
+
+  @override
+  String get searchAiAll => '全部';
+
+  @override
+  String get searchAiExclude => '排除 AI';
+
+  @override
+  String get searchAiOnly => '仅 AI';
+
+  @override
+  String get searchBookmarkSection => '收藏数';
+
+  @override
+  String get searchMin => '最小';
+
+  @override
+  String get searchMax => '最大';
+
+  @override
+  String get searchRatioSection => '纵横比';
+
+  @override
+  String get searchRatioAny => '不限';
+
+  @override
+  String get searchRatioLandscape => '横向';
+
+  @override
+  String get searchRatioPortrait => '纵向';
+
+  @override
+  String get searchRatioSquare => '方形';
+
+  @override
+  String get searchContentSection => '作品类别';
+
+  @override
+  String get searchContentAll => '插画·漫画·动图';
+
+  @override
+  String get searchContentIllustUgoira => '插画·动图';
+
+  @override
+  String get searchContentIllust => '仅插画';
+
+  @override
+  String get searchContentUgoira => '仅动图';
+
+  @override
+  String get searchContentManga => '仅漫画';
+
+  @override
+  String get searchResolutionSection => '分辨率';
+
+  @override
+  String get searchWidth => '宽';
+
+  @override
+  String get searchHeight => '高';
+
+  @override
   String get searchDuration => '发布时间';
 
   @override

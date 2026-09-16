@@ -1183,6 +1183,75 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchPopularDesc => '人気順';
 
   @override
+  String get searchPopularMaleDesc => '男性向け人気';
+
+  @override
+  String get searchPopularFemaleDesc => '女性向け人気';
+
+  @override
+  String get searchAiSection => 'AI 作品';
+
+  @override
+  String get searchAiAll => 'すべて';
+
+  @override
+  String get searchAiExclude => 'AI を除外';
+
+  @override
+  String get searchAiOnly => 'AI のみ';
+
+  @override
+  String get searchBookmarkSection => 'ブックマーク数';
+
+  @override
+  String get searchMin => '最小';
+
+  @override
+  String get searchMax => '最大';
+
+  @override
+  String get searchRatioSection => '縦横比';
+
+  @override
+  String get searchRatioAny => '指定なし';
+
+  @override
+  String get searchRatioLandscape => '横長';
+
+  @override
+  String get searchRatioPortrait => '縦長';
+
+  @override
+  String get searchRatioSquare => '正方形';
+
+  @override
+  String get searchContentSection => '作品タイプ';
+
+  @override
+  String get searchContentAll => 'イラスト・マンガ・うごイラ';
+
+  @override
+  String get searchContentIllustUgoira => 'イラスト・うごイラ';
+
+  @override
+  String get searchContentIllust => 'イラストのみ';
+
+  @override
+  String get searchContentUgoira => 'うごイラのみ';
+
+  @override
+  String get searchContentManga => 'マンガのみ';
+
+  @override
+  String get searchResolutionSection => '解像度';
+
+  @override
+  String get searchWidth => '幅';
+
+  @override
+  String get searchHeight => '高さ';
+
+  @override
   String get searchDuration => '投稿日';
 
   @override
