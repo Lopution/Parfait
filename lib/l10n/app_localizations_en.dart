@@ -1653,4 +1653,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get watchLaterEmpty => 'Stashed works appear here';
+
+  @override
+  String get bookmarkEditTitle => 'Edit bookmark';
+
+  @override
+  String get bookmarkTags => 'Bookmark tags';
+
+  @override
+  String get bookmarkTagNewHint => 'Type a tag and press enter';
+
+  @override
+  String get bookmarkTagSuggestions => 'Frequent tags';
+
+  @override
+  String get bookmarkTagsEmpty => 'No bookmark tags yet';
+
+  @override
+  String get bookmarkTagsLoadFailed => 'Failed to load bookmark tags';
 }

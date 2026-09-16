@@ -1652,4 +1652,22 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchLaterEmpty => 'Отложенные работы появятся здесь';
+
+  @override
+  String get bookmarkEditTitle => 'Изменить закладку';
+
+  @override
+  String get bookmarkTags => 'Теги закладок';
+
+  @override
+  String get bookmarkTagNewHint => 'Введите тег и нажмите Enter';
+
+  @override
+  String get bookmarkTagSuggestions => 'Частые теги';
+
+  @override
+  String get bookmarkTagsEmpty => 'Тегов закладок пока нет';
+
+  @override
+  String get bookmarkTagsLoadFailed => 'Не удалось загрузить теги закладок';
 }

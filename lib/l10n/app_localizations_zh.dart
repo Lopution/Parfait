@@ -1605,4 +1605,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get watchLaterEmpty => '暂存的作品会显示在这里';
+
+  @override
+  String get bookmarkEditTitle => '编辑收藏';
+
+  @override
+  String get bookmarkTags => '收藏标签';
+
+  @override
+  String get bookmarkTagNewHint => '输入新标签，回车添加';
+
+  @override
+  String get bookmarkTagSuggestions => '常用标签';
+
+  @override
+  String get bookmarkTagsEmpty => '还没有收藏标签';
+
+  @override
+  String get bookmarkTagsLoadFailed => '收藏标签加载失败';
 }

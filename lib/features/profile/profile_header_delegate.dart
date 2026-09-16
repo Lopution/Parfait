@@ -123,6 +123,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onRestrictChanged,
     required this.onShare,
     this.onEditProfile,
+    this.onOpenBookmarkTags,
     this.expandedExtent = 320,
     this.topInset = 0,
   });
@@ -135,6 +136,9 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final ValueChanged<UserRestrict> onRestrictChanged;
   final VoidCallback onShare;
   final VoidCallback? onEditProfile;
+
+  /// Own-profile bookmarks tab only: opens the bookmark-tag collection.
+  final VoidCallback? onOpenBookmarkTags;
   final double expandedExtent;
   final double topInset;
 
@@ -242,6 +246,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                               onRestrictChanged: onRestrictChanged,
                               onShare: onShare,
                               onEditProfile: onEditProfile,
+                              onOpenBookmarkTags: onOpenBookmarkTags,
                             ),
                           ),
                         ),
@@ -264,6 +269,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.showRestrictSelector != showRestrictSelector ||
         oldDelegate.restrict != restrict ||
         oldDelegate.onEditProfile != onEditProfile ||
+        oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
         oldDelegate.onShare != onShare ||
         oldDelegate.onRestrictChanged != onRestrictChanged ||
         oldDelegate.expandedExtent != expandedExtent ||
@@ -527,6 +533,7 @@ class _CollapsedProfile extends StatelessWidget {
     required this.onRestrictChanged,
     required this.onShare,
     required this.onEditProfile,
+    required this.onOpenBookmarkTags,
   });
 
   final UserEntity user;
@@ -537,6 +544,7 @@ class _CollapsedProfile extends StatelessWidget {
   final ValueChanged<UserRestrict> onRestrictChanged;
   final VoidCallback onShare;
   final VoidCallback? onEditProfile;
+  final VoidCallback? onOpenBookmarkTags;
 
   String _text(BuildContext context, String key) =>
       l10nLookup(context.l10n, key);
@@ -568,6 +576,12 @@ class _CollapsedProfile extends StatelessWidget {
                 ],
                 icon: const Icon(Icons.filter_alt_outlined),
               ),
+              if (onOpenBookmarkTags != null)
+                IconButton(
+                  tooltip: _text(context, 'bookmarkTags'),
+                  onPressed: onOpenBookmarkTags,
+                  icon: const Icon(Icons.label_outline),
+                ),
               if (onEditProfile != null)
                 IconButton(
                   tooltip: _text(context, 'profileEditTitle'),

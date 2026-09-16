@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/auth/account_store.dart';
+import '../../core/bookmark/bookmark_models.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_entity.dart';
 import '../image_tier_cache.dart';
@@ -17,6 +18,8 @@ import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
 import '../../core/settings/app_settings.dart';
+import '../../features/bookmark/bookmark_tags_page.dart';
+import '../../features/profile/bookmark_tag_feed_page.dart';
 import '../../features/comments/comments_page.dart';
 import '../../features/history/history_page.dart';
 import '../../features/watchlater/watchlater_page.dart';
@@ -488,6 +491,25 @@ List<RouteBase> _commonBranchRoutes(
       path: 'watchlater',
       pageBuilder: (context, state) =>
           _page(context, state, branchObserver, const WatchLaterPage()),
+    ),
+    GoRoute(
+      path: 'bookmarks/tags',
+      pageBuilder: (context, state) =>
+          _page(context, state, branchObserver, const BookmarkTagsPage()),
+    ),
+    GoRoute(
+      path: 'bookmarks/tag',
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        BookmarkTagFeedPage(
+          tag: state.uri.queryParameters['tag'] ?? '',
+          restrict: state.uri.queryParameters['restrict'] == 'private'
+              ? BookmarkRestrict.private
+              : BookmarkRestrict.public,
+        ),
+      ),
     ),
     // Tag search opens on top of whatever stack the tag was tapped in (detail
     // page, user page, reverse-image result). Routing it to the search branch
@@ -1082,6 +1104,22 @@ Future<void> openNovelRanking(BuildContext context) async {
 
 Future<void> openWatchLater(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/watchlater');
+}
+
+Future<void> openBookmarkTags(BuildContext context) async {
+  await _push(context, '${_currentStackRoot(context)}/bookmarks/tags');
+}
+
+Future<void> openBookmarkTagFeed(
+  BuildContext context, {
+  required String tag,
+  required BookmarkRestrict restrict,
+}) async {
+  final location = Uri(
+    path: '${_currentStackRoot(context)}/bookmarks/tag',
+    queryParameters: {'tag': tag, 'restrict': restrict.name},
+  ).toString();
+  await _push(context, location);
 }
 
 Future<void> openSearchInput(

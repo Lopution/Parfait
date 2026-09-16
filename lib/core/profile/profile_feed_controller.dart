@@ -51,6 +51,7 @@ class _ProfileIllustFeedController extends PagedFeedController {
         : await repository.fetchBookmarks(
             key.userId,
             restrict: key.restrict,
+            tag: key.bookmarkTag,
             cursor: context.cursor,
             cancelToken: context.cancelToken,
           );
@@ -78,6 +79,7 @@ class _ProfileIllustFeedController extends PagedFeedController {
         : repository.validateBookmarksCursor(
             key.userId,
             restrict: key.restrict,
+            tag: key.bookmarkTag,
             cursor: rawCursor,
           );
     return valid ? rawCursor : null;

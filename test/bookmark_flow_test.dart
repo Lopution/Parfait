@@ -272,6 +272,63 @@ void main() {
     },
   );
 
+  test('addWithRestrict sends tags[] and stores them on the entry', () async {
+    final (container, fixture) = await _makeWorld();
+    const key = BookmarkKey(BookmarkEntityType.illust, 20);
+
+    await container
+        .read(bookmarkActionsProvider)
+        .addWithRestrict(
+          key,
+          BookmarkRestrict.private,
+          tags: const ['procreate', 'らくがき'],
+        );
+
+    expect(fixture.requests.single.body['tags[]'], 'procreate らくがき');
+    final entry = container.read(bookmarkStoreProvider)[key]!;
+    expect(entry.bookmarked, isTrue);
+    expect(entry.restrict, BookmarkRestrict.private);
+    expect(entry.tags, ['procreate', 'らくがき']);
+  });
+
+  test('delete clears the confirmed tags', () async {
+    final (container, _) = await _makeWorld();
+    const key = BookmarkKey(BookmarkEntityType.illust, 21);
+    final actions = container.read(bookmarkActionsProvider);
+
+    await actions.addWithRestrict(
+      key,
+      BookmarkRestrict.public,
+      tags: const ['tag-a'],
+    );
+    await actions.toggle(key); // bookmarked → delete
+
+    final entry = container.read(bookmarkStoreProvider)[key]!;
+    expect(entry.bookmarked, isFalse);
+    expect(entry.tags, isEmpty);
+  });
+
+  test('remote snapshots never touch the confirmed tags', () async {
+    final (container, _) = await _makeWorld();
+    const key = BookmarkKey(BookmarkEntityType.illust, 22);
+
+    await container
+        .read(bookmarkActionsProvider)
+        .addWithRestrict(key, BookmarkRestrict.public, tags: const ['tag-a']);
+
+    container
+        .read(bookmarkStoreProvider.notifier)
+        .observeRemote(
+          key,
+          bookmarked: true,
+          snapshotRevision: container
+              .read(bookmarkStoreProvider.notifier)
+              .revisionNow(),
+        );
+
+    expect(container.read(bookmarkStoreProvider)[key]!.tags, ['tag-a']);
+  });
+
   test('novel feed merge cannot erase a pending local bookmark', () async {
     final inFlight = Completer<void>();
     final (container, fixture) = await _makeWorld(

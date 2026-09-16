@@ -285,6 +285,11 @@ class _UserPageState extends ConsumerState<UserPage>
                   onRestrictChanged: _onRestrictChanged,
                   onShare: () => _showProfileShare(context, user),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
+                  // Bookmarks tab only: the tag collection entry sits in the
+                  // collapsed toolbar next to the restrict selector.
+                  onOpenBookmarkTags: widget.isMe && _selectedIndex == 0
+                      ? () => openBookmarkTags(context)
+                      : null,
                   topInset: MediaQuery.viewPaddingOf(context).top,
                 ),
               ),
