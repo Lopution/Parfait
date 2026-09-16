@@ -1211,6 +1211,75 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchPopularDesc => 'Популярные';
 
   @override
+  String get searchPopularMaleDesc => 'Популярное (муж.)';
+
+  @override
+  String get searchPopularFemaleDesc => 'Популярное (жен.)';
+
+  @override
+  String get searchAiSection => 'AI-работы';
+
+  @override
+  String get searchAiAll => 'Все';
+
+  @override
+  String get searchAiExclude => 'Скрыть AI';
+
+  @override
+  String get searchAiOnly => 'Только AI';
+
+  @override
+  String get searchBookmarkSection => 'Закладки';
+
+  @override
+  String get searchMin => 'Мин.';
+
+  @override
+  String get searchMax => 'Макс.';
+
+  @override
+  String get searchRatioSection => 'Формат';
+
+  @override
+  String get searchRatioAny => 'Любая';
+
+  @override
+  String get searchRatioLandscape => 'Альбомная';
+
+  @override
+  String get searchRatioPortrait => 'Портретная';
+
+  @override
+  String get searchRatioSquare => 'Квадрат';
+
+  @override
+  String get searchContentSection => 'Тип работ';
+
+  @override
+  String get searchContentAll => 'Илл.+манга+угоира';
+
+  @override
+  String get searchContentIllustUgoira => 'Илл.+угоира';
+
+  @override
+  String get searchContentIllust => 'Только иллюстр.';
+
+  @override
+  String get searchContentUgoira => 'Только угоира';
+
+  @override
+  String get searchContentManga => 'Только манга';
+
+  @override
+  String get searchResolutionSection => 'Разрешение';
+
+  @override
+  String get searchWidth => 'Ширина';
+
+  @override
+  String get searchHeight => 'Высота';
+
+  @override
   String get searchDuration => 'Дата публикации';
 
   @override

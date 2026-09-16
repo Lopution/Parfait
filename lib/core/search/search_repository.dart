@@ -253,10 +253,13 @@ class _PixivSearchRepository implements SearchRepository {
   _spec(SearchQuery query) {
     return switch (query) {
       IllustSearchQuery(:final filters)
-          when filters.sort == SearchSort.popularDesc && !isPremium =>
+          when filters.sort.isPopular && !isPremium =>
         (
           path: '/v1/search/popular-preview/illust',
-          requestQuery: filters.toPreviewQuery(word: query.keyword),
+          requestQuery: filters.toPreviewQuery(
+            word: query.keyword,
+            includeIllustParams: true,
+          ),
           // The preview endpoint's next_url is not guaranteed to echo our
           // filter params, so only the keyword is pinned — the cursor itself
           // carries the rest of the paging state.
@@ -268,7 +271,7 @@ class _PixivSearchRepository implements SearchRepository {
         requiredQuery: query.toQuery(),
       ),
       NovelSearchQuery(:final filters)
-          when filters.sort == SearchSort.popularDesc && !isPremium =>
+          when filters.sort.isPopular && !isPremium =>
         (
           path: '/v1/search/popular-preview/novel',
           requestQuery: filters.toPreviewQuery(word: query.keyword),

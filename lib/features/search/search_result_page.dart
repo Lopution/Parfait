@@ -36,7 +36,11 @@ class SearchResultPage extends ConsumerWidget {
   Future<void> _editFilters(BuildContext context) async {
     final filters = _filters;
     if (filters == null) return;
-    final selected = await showSearchFilterSheet(context, initial: filters);
+    final selected = await showSearchFilterSheet(
+      context,
+      initial: filters,
+      type: query.type,
+    );
     if (!context.mounted || selected == null) return;
     final updated = switch (query) {
       IllustSearchQuery() => (query as IllustSearchQuery).copyWith(

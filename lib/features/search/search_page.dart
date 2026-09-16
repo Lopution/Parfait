@@ -373,7 +373,11 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   };
 
   Future<void> _editFilters() async {
-    final selected = await showSearchFilterSheet(context, initial: _filters);
+    final selected = await showSearchFilterSheet(
+      context,
+      initial: _filters,
+      type: _types[_selectedIndex],
+    );
     if (!mounted || selected == null) return;
     setState(() => _filters = selected);
   }
