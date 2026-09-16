@@ -84,10 +84,11 @@ class _FakeUserRepository implements UserRepository {
   Future<UserIllustPage> fetchBookmarks(
     int userId, {
     required UserRestrict restrict,
+    String? tag,
     String? cursor,
     CancelToken? cancelToken,
   }) async {
-    requests.add('bookmarks:$userId:${restrict.name}');
+    requests.add('bookmarks:$userId:${restrict.name}:${tag ?? ''}');
     return const UserIllustPage(illusts: [], nextUrl: null);
   }
 
@@ -102,6 +103,7 @@ class _FakeUserRepository implements UserRepository {
   bool validateBookmarksCursor(
     int userId, {
     required UserRestrict restrict,
+    String? tag,
     required String cursor,
   }) => false;
 
