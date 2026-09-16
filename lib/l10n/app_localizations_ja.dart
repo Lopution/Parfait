@@ -1151,6 +1151,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchEndDate => '終了日';
 
   @override
+  String get searchInvalidDateRange => '開始日は終了日より後にできません';
+
+  @override
+  String get searchPopularPreviewHint => 'プレミアム未加入のため、人気順はプレビュー結果を使用します';
+
+  @override
   String get searchNoSuggestions => '候補はありません';
 
   @override

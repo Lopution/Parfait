@@ -1177,6 +1177,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchEndDate => 'End date';
 
   @override
+  String get searchInvalidDateRange => 'Start date cannot be after end date';
+
+  @override
+  String get searchPopularPreviewHint =>
+      'Without Pixiv Premium, popular sort uses preview results';
+
+  @override
   String get searchNoSuggestions => 'No suggestions';
 
   @override
