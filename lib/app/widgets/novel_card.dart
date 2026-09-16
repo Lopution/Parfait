@@ -8,7 +8,10 @@ import '../theme/func_semantic_tokens.dart';
 /// Compact novel row card used by the New feed, profile novel tab and the
 /// novel search results (three call sites — shared-component evidence).
 class NovelCard extends StatelessWidget {
-  const NovelCard({super.key, required this.entity});
+  /// Work-id default key — see [IllustCard] for why the element must track
+  /// the work rather than the recycled slot index.
+  NovelCard({Key? key, required this.entity})
+    : super(key: key ?? ValueKey('novel-${entity.id}'));
 
   final NovelEntity entity;
 
