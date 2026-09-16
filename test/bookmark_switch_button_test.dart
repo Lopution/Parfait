@@ -24,19 +24,25 @@ class _StubAccountStore extends AccountStore {
 }
 
 class _RecordingRepository implements BookmarkRepository {
-  final List<(int id, String restrict)> adds = [];
+  final List<(int id, String restrict, List<String>? tags)> adds = [];
   final List<int> deletes = [];
   Object? addError;
+  BookmarkDetail detail = const BookmarkDetail(
+    isBookmarked: false,
+    restrict: BookmarkRestrict.public,
+    tags: [],
+  );
 
   @override
   Future<void> addIllust(
     int id,
     BookmarkRestrict restrict, {
+    List<String>? tags,
     CancelToken? cancelToken,
   }) async {
     final error = addError;
     if (error != null) throw error;
-    adds.add((id, restrict.name));
+    adds.add((id, restrict.name, tags));
   }
 
   @override
@@ -48,17 +54,41 @@ class _RecordingRepository implements BookmarkRepository {
   Future<void> addNovel(
     int id,
     BookmarkRestrict restrict, {
+    List<String>? tags,
     CancelToken? cancelToken,
   }) async {
     final error = addError;
     if (error != null) throw error;
-    adds.add((id, restrict.name));
+    adds.add((id, restrict.name, tags));
   }
 
   @override
   Future<void> deleteNovel(int id, {CancelToken? cancelToken}) async {
     deletes.add(id);
   }
+
+  @override
+  Future<BookmarkDetail> fetchDetail(
+    BookmarkKey key, {
+    CancelToken? cancelToken,
+  }) async => detail;
+
+  @override
+  Future<UserBookmarkTagPage> fetchUserTags(
+    int userId, {
+    required BookmarkEntityType entityType,
+    required BookmarkRestrict restrict,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) => throw UnimplementedError();
+
+  @override
+  bool validateUserTagsCursor(
+    int userId, {
+    required BookmarkEntityType entityType,
+    required BookmarkRestrict restrict,
+    required String cursor,
+  }) => false;
 }
 
 Future<(ProviderContainer, _RecordingRepository)> _pump(
