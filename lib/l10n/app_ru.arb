@@ -671,5 +671,11 @@
   "linkCopied": "Ссылка скопирована",
   "watchLaterAdded": "Добавлено в «Посмотреть позже»",
   "watchLaterTitle": "Посмотреть позже",
-  "watchLaterEmpty": "Отложенные работы появятся здесь"
+  "watchLaterEmpty": "Отложенные работы появятся здесь",
+  "bookmarkEditTitle": "Изменить закладку",
+  "bookmarkTags": "Теги закладок",
+  "bookmarkTagNewHint": "Введите тег и нажмите Enter",
+  "bookmarkTagSuggestions": "Частые теги",
+  "bookmarkTagsEmpty": "Тегов закладок пока нет",
+  "bookmarkTagsLoadFailed": "Не удалось загрузить теги закладок"
 }
