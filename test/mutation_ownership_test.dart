@@ -59,6 +59,24 @@ class _BookmarkRepository implements BookmarkRepository {
     tokens.add(cancelToken);
     await gate.future;
   }
+
+  @override
+  Future<void> addNovel(
+    int id,
+    BookmarkRestrict restrict, {
+    CancelToken? cancelToken,
+  }) async {
+    requests.add('addNovel:$id');
+    tokens.add(cancelToken);
+    await gate.future;
+  }
+
+  @override
+  Future<void> deleteNovel(int id, {CancelToken? cancelToken}) async {
+    requests.add('deleteNovel:$id');
+    tokens.add(cancelToken);
+    await gate.future;
+  }
 }
 
 void main() {
@@ -212,7 +230,7 @@ void main() {
       final follow = container.read(followStoreProvider.notifier).beginAdd(7)!;
       final comment = container
           .read(commentStoreProvider.notifier)
-          .beginSend(illustId: 42)!;
+          .beginSend(workId: 42)!;
 
       for (final envelope in [follow.envelope, comment.envelope]) {
         expect(envelope.accountId, 'a');
@@ -236,7 +254,7 @@ void main() {
       await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
 
-      final cancelled = store.beginSend(illustId: 42)!;
+      final cancelled = store.beginSend(workId: 42)!;
       expect(store.mutationFor(cancelled.key)!.status, MutationStatus.pending);
       expect(store.cancelSend(cancelled), isTrue);
       expect(
@@ -244,12 +262,12 @@ void main() {
         MutationStatus.cancelled,
       );
 
-      final failed = store.beginSend(illustId: 42)!;
+      final failed = store.beginSend(workId: 42)!;
       store.failSend(failed, const ApiNetworkError('offline'));
       expect(store.mutationFor(failed.key)!.status, MutationStatus.failed);
       expect(store.mutationFor(failed.key)!.error, isA<ApiNetworkError>());
 
-      final rateLimited = store.beginSend(illustId: 42)!;
+      final rateLimited = store.beginSend(workId: 42)!;
       store.failSend(rateLimited, const ApiRateLimited(Duration(seconds: 7)));
       final rateError = store.mutationFor(rateLimited.key)!.error;
       expect(rateError, isA<ApiRateLimited>());
@@ -258,12 +276,13 @@ void main() {
         const Duration(seconds: 7),
       );
 
-      final confirmed = store.beginSend(illustId: 42)!;
+      final confirmed = store.beginSend(workId: 42)!;
       store.commitSend(
         confirmed,
         CommentEntity(
           id: 700,
-          illustId: 42,
+          workId: 42,
+          kind: CommentWorkKind.illust,
           parentCommentId: null,
           rootCommentId: 700,
           user: UserEntity(id: 10, name: 'A', account: 'a'),

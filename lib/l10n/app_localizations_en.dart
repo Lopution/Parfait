@@ -953,6 +953,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingWeekRookie => 'Weekly (Rookie)';
 
   @override
+  String get rankingWeekAi => 'Weekly (AI)';
+
+  @override
+  String get rankingWeekAiR18 => 'Weekly (AI & R-18)';
+
+  @override
+  String get rankingWeekR18G => 'Weekly (R-18G)';
+
+  @override
   String get rankingMonth => 'Monthly';
 
   @override
@@ -1475,6 +1484,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelSeries => 'Series';
+
+  @override
+  String get novelRanking => 'Novel Ranking';
 
   @override
   String get novelSeriesUnavailable => 'Series information unavailable';

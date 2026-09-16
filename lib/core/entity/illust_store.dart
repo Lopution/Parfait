@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/account_store.dart';
 import '../bookmark/bookmark_models.dart';
 import '../bookmark/bookmark_store.dart';
+import '../novel/novel_store.dart';
 import 'illust_entity.dart';
 
 /// Payload provenance for entity merges (C3/audit R7.3).
@@ -179,7 +180,10 @@ final illustStoreProvider = Provider<IllustStore>((ref) {
         ?.bookmarked,
     revisionNow: bookmarks.revisionNow,
   );
-  bookmarks.onConfirmed = (key, bookmarked) =>
-      store.updateBookmark(key.id, bookmarked);
+  bookmarks.onConfirmed = (key, bookmarked) => switch (key.type) {
+    BookmarkEntityType.illust => store.updateBookmark(key.id, bookmarked),
+    BookmarkEntityType.novel =>
+      ref.read(novelStoreProvider.notifier).updateBookmark(key.id, bookmarked),
+  };
   return store;
 });

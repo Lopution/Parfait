@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/json_read.dart';
@@ -7,6 +9,7 @@ import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import 'novel_entity.dart';
+import 'novel_webview_text.dart';
 
 /// The API returned metadata without a body for this novel. This is distinct
 /// from a valid, intentionally empty body and is shown as an explicit error.
@@ -40,12 +43,43 @@ class NovelSeriesPage {
   final String? nextUrl;
 }
 
-/// JSON-only Novel API adapter.
+/// Novel API adapter.
 ///
-/// `/webview/v2/novel` is intentionally absent here: it is the legacy HTML
-/// route and cannot be used as a silent fallback when the JSON body is absent.
+/// `/v2/novel/detail` only returns metadata: pixiv never ships `novel_text`
+/// in the JSON envelope. The body lives in the `/webview/v2/novel` page's
+/// embedded pixiv bootstrap object (the same source every working client
+/// uses), so [fetchDetail] always merges both responses. A missing or
+/// malformed webview payload is an error, never a silent empty body.
+/// `/v1/novel/ranking` modes (PixEz's 9-mode list, same values Shaft uses).
+/// The fixed order is part of the visible contract; API values are explicit
+/// so an enum reorder cannot silently change a request.
+enum NovelRankingMode {
+  day('day', 'rankingDay'),
+  dayMale('day_male', 'rankingDayMale'),
+  dayFemale('day_female', 'rankingDayFemale'),
+  week('week', 'rankingWeek'),
+  weekAi('week_ai', 'rankingWeekAi'),
+  weekAiR18('week_ai_r18', 'rankingWeekAiR18'),
+  dayR18('day_r18', 'rankingDayR18'),
+  weekR18('week_r18', 'rankingWeekR18'),
+  weekR18G('week_r18g', 'rankingWeekR18G');
+
+  const NovelRankingMode(this.apiValue, this.labelKey);
+
+  final String apiValue;
+  final String labelKey;
+}
+
 abstract interface class _NovelRepository {
   Future<NovelEntity> fetchDetail(int novelId, {CancelToken? cancelToken});
+
+  Future<NovelPage> fetchRanking(
+    NovelRankingMode mode, {
+    String? cursor,
+    CancelToken? cancelToken,
+  });
+
+  bool validateRankingCursor(NovelRankingMode mode, {required String cursor});
 
   Future<NovelPage> fetchUserNovels(
     int userId, {
@@ -77,8 +111,10 @@ class _PixivNovelRepository implements _NovelRepository {
   final PixivHttpClient _client;
 
   static const _detailPath = '/v2/novel/detail';
+  static const _webviewPath = '/webview/v2/novel';
   static const _userNovelsPath = '/v1/user/novels';
   static const _recommendedPath = '/v1/novel/recommended';
+  static const _rankingPath = '/v1/novel/ranking';
   static const _seriesPath = '/v2/novel/series';
 
   @override
@@ -95,8 +131,16 @@ class _PixivNovelRepository implements _NovelRepository {
       cancelToken: cancelToken,
     );
     try {
-      final novel = NovelEntity.fromDetailJson(json);
+      var novel = NovelEntity.fromDetailJson(json);
       if (!novel.visible || novel.isXRestricted) return novel;
+      final payload = await _fetchWebPayload(novelId, cancelToken);
+      novel = novel.withWebContent(
+        payload.text,
+        embeddedImages: payload.images,
+        embeddedIllustThumbs: payload.illustThumbs,
+        seriesPrevId: payload.seriesPrevId,
+        seriesNextId: payload.seriesNextId,
+      );
       if (!novel.contentAvailable) {
         throw _NovelContentUnavailableException(novel.id);
       }
@@ -106,6 +150,22 @@ class _PixivNovelRepository implements _NovelRepository {
     } on FormatException catch (error) {
       throw ApiParseError(error);
     }
+  }
+
+  /// Fetches the HTML bootstrap page that carries the novel body. The
+  /// response is not JSON; [extractNovelWebPayload] decodes it.
+  Future<NovelWebPayload> _fetchWebPayload(
+    int novelId,
+    CancelToken? cancelToken,
+  ) async {
+    final response = await _client.get(
+      PixivClientIdentity.appApiBase.replace(
+        path: _webviewPath,
+        queryParameters: {'id': '$novelId'},
+      ),
+      cancelToken: cancelToken,
+    );
+    return extractNovelWebPayload(utf8.decode(response.bodyBytes));
   }
 
   @override
@@ -159,6 +219,33 @@ class _PixivNovelRepository implements _NovelRepository {
     return _isValidCursor(
       path: _recommendedPath,
       expected: {'filter': 'for_android'},
+      cursor: cursor,
+    );
+  }
+
+  @override
+  Future<NovelPage> fetchRanking(
+    NovelRankingMode mode, {
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    final request = _pageRequest(
+      path: _rankingPath,
+      expected: {'filter': 'for_android', 'mode': mode.apiValue},
+      cursor: cursor,
+    );
+    final json = await _client.getJson(
+      _target(request),
+      cancelToken: cancelToken,
+    );
+    return _parseNovelPage(json);
+  }
+
+  @override
+  bool validateRankingCursor(NovelRankingMode mode, {required String cursor}) {
+    return _isValidCursor(
+      path: _rankingPath,
+      expected: {'filter': 'for_android', 'mode': mode.apiValue},
       cursor: cursor,
     );
   }

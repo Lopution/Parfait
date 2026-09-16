@@ -20,25 +20,31 @@ import 'comment_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 
-class IllustCommentsPage extends ConsumerStatefulWidget {
-  const IllustCommentsPage({super.key, required this.illustId});
+class CommentsPage extends ConsumerStatefulWidget {
+  const CommentsPage({
+    super.key,
+    required this.workId,
+    this.kind = CommentWorkKind.illust,
+  });
 
-  final int illustId;
+  final int workId;
+  final CommentWorkKind kind;
 
   @override
-  ConsumerState<IllustCommentsPage> createState() => _IllustCommentsPageState();
+  ConsumerState<CommentsPage> createState() => _CommentsPageState();
 }
 
-class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
+class _CommentsPageState extends ConsumerState<CommentsPage> {
   CommentEntity? _replyTarget;
 
   CommentFeedQuery get _query =>
-      CommentFeedQuery.root(illustId: widget.illustId);
+      CommentFeedQuery.root(workId: widget.workId, kind: widget.kind);
 
   @override
   Widget build(BuildContext context) {
     final store = ref.watch(commentStoreProvider);
-    final mutationKey = 'send:${widget.illustId}:${_replyTarget?.id ?? 'root'}';
+    final mutationKey =
+        'send:${widget.kind.name}:${widget.workId}:${_replyTarget?.id ?? 'root'}';
     final sending = store.mutations[mutationKey]?.pending == true;
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.commentTitle)),
@@ -75,7 +81,8 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
         .read(commentActionsProvider)
         .send(
           CommentAddRequest(
-            illustId: widget.illustId,
+            workId: widget.workId,
+            kind: widget.kind,
             parentCommentId: target?.id,
             rootCommentId: target?.rootCommentId,
             text: text,
@@ -127,12 +134,14 @@ class _IllustCommentsPageState extends ConsumerState<IllustCommentsPage> {
 class CommentRepliesPage extends ConsumerStatefulWidget {
   const CommentRepliesPage({
     super.key,
-    required this.illustId,
+    required this.workId,
     required this.rootCommentId,
+    this.kind = CommentWorkKind.illust,
     this.rootComment,
   });
 
-  final int illustId;
+  final int workId;
+  final CommentWorkKind kind;
   final int rootCommentId;
   final CommentEntity? rootComment;
 
@@ -144,7 +153,8 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   CommentEntity? _replyTarget;
 
   CommentFeedQuery get _query => CommentFeedQuery.replies(
-    illustId: widget.illustId,
+    workId: widget.workId,
+    kind: widget.kind,
     rootCommentId: widget.rootCommentId,
   );
 
@@ -154,7 +164,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
     final root = store.get(widget.rootCommentId) ?? widget.rootComment;
     final replyTarget = _replyTarget ?? root;
     final mutationKey =
-        'send:${widget.illustId}:${replyTarget?.id ?? widget.rootCommentId}';
+        'send:${widget.kind.name}:${widget.workId}:${replyTarget?.id ?? widget.rootCommentId}';
     final sending = store.mutations[mutationKey]?.pending == true;
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.commentReplies)),
@@ -208,7 +218,8 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
         .read(commentActionsProvider)
         .send(
           CommentAddRequest(
-            illustId: widget.illustId,
+            workId: widget.workId,
+            kind: widget.kind,
             parentCommentId: _replyTarget?.id ?? widget.rootCommentId,
             rootCommentId: widget.rootCommentId,
             text: text,

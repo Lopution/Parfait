@@ -14,6 +14,8 @@ import 'bookmark_models.dart';
 /// acceptance):
 /// - POST /v2/illust/bookmark/add   body: illust_id, restrict
 /// - POST /v1/illust/bookmark/delete body: illust_id
+/// - POST /v2/novel/bookmark/add    body: novel_id, restrict
+/// - POST /v1/novel/bookmark/delete body: novel_id
 class BookmarkRepository {
   BookmarkRepository(this._client);
 
@@ -23,10 +25,30 @@ class BookmarkRepository {
     int id,
     BookmarkRestrict restrict, {
     CancelToken? cancelToken,
-  }) async {
+  }) => _add(id, 'illust_id', '/v2/illust/bookmark/add', restrict, cancelToken);
+
+  Future<void> deleteIllust(int id, {CancelToken? cancelToken}) =>
+      _delete(id, 'illust_id', '/v1/illust/bookmark/delete', cancelToken);
+
+  Future<void> addNovel(
+    int id,
+    BookmarkRestrict restrict, {
+    CancelToken? cancelToken,
+  }) => _add(id, 'novel_id', '/v2/novel/bookmark/add', restrict, cancelToken);
+
+  Future<void> deleteNovel(int id, {CancelToken? cancelToken}) =>
+      _delete(id, 'novel_id', '/v1/novel/bookmark/delete', cancelToken);
+
+  Future<void> _add(
+    int id,
+    String idField,
+    String path,
+    BookmarkRestrict restrict,
+    CancelToken? cancelToken,
+  ) async {
     final response = await _client.post(
-      PixivClientIdentity.appApiBase.replace(path: '/v2/illust/bookmark/add'),
-      body: {'illust_id': '$id', 'restrict': bookmarkRestrictWire(restrict)},
+      PixivClientIdentity.appApiBase.replace(path: path),
+      body: {idField: '$id', 'restrict': bookmarkRestrictWire(restrict)},
       cancelToken: cancelToken,
       // C2: an explicit auth rejection (401 / 400 invalid_grant) refreshes
       // the credential and replays this operation exactly once; timeouts
@@ -36,12 +58,15 @@ class BookmarkRepository {
     _ensureSuccess(response);
   }
 
-  Future<void> deleteIllust(int id, {CancelToken? cancelToken}) async {
+  Future<void> _delete(
+    int id,
+    String idField,
+    String path,
+    CancelToken? cancelToken,
+  ) async {
     final response = await _client.post(
-      PixivClientIdentity.appApiBase.replace(
-        path: '/v1/illust/bookmark/delete',
-      ),
-      body: {'illust_id': '$id'},
+      PixivClientIdentity.appApiBase.replace(path: path),
+      body: {idField: '$id'},
       cancelToken: cancelToken,
       allowAuthReplay: true,
     );

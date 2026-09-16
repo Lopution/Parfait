@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/author_summary.dart';
+import '../../app/widgets/bookmark_switch_button.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/tag_chips.dart';
 import '../../app/navigation/routes.dart';
@@ -57,10 +58,19 @@ class NovelPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_novelDetailProvider(novelId));
-    final title = async.value?.title ?? context.l10n.profileNovel;
+    final novel = async.value;
+    final title = novel?.title ?? context.l10n.profileNovel;
     return Scaffold(
       appBar: AppBar(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          if (novel != null && !novel.isRestricted)
+            BookmarkSwitchButton(
+              illustId: novel.id,
+              title: novel.title,
+              isNovel: true,
+            ),
+        ],
       ),
       body: async.when(
         loading: () => FeedEmpty(
@@ -117,7 +127,12 @@ class _NovelDetailBodyState extends ConsumerState<_NovelDetailBody> {
       children: [
         _NovelMetadata(novel: novel),
         if (novel.seriesId != null)
-          _NovelSeriesBar(seriesId: novel.seriesId!, novelId: novel.id),
+          _NovelSeriesBar(seriesId: novel.seriesId!, novelId: novel.id)
+        else if (novel.seriesPrevId != null || novel.seriesNextId != null)
+          _NovelAdjacentBar(
+            prevId: novel.seriesPrevId,
+            nextId: novel.seriesNextId,
+          ),
         Expanded(
           child: NovelReader(
             novel: novel,
@@ -187,8 +202,62 @@ class _NovelMetadata extends StatelessWidget {
                 ],
               ),
             ],
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => openNovelComments(context, novel.id),
+                icon: const Icon(Icons.comment_outlined),
+                label: Text(
+                  novel.totalComments > 0
+                      ? '${context.l10n.commentTitle} (${novel.totalComments})'
+                      : context.l10n.commentTitle,
+                ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Prev/next navigation supplied by the webview payload when the detail
+/// metadata carries no `series` object of its own.
+class _NovelAdjacentBar extends StatelessWidget {
+  const _NovelAdjacentBar({required this.prevId, required this.nextId});
+
+  final int? prevId;
+  final int? nextId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: context.l10n.novelPrevious,
+            onPressed: prevId == null
+                ? null
+                : () => _showNovelPage(context, prevId!),
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Text(
+              context.l10n.novelSeries,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            tooltip: context.l10n.novelNext,
+            onPressed: nextId == null
+                ? null
+                : () => _showNovelPage(context, nextId!),
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
       ),
     );
   }
