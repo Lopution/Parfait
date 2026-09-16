@@ -7,6 +7,7 @@ import '../../app/icons/app_icons.dart';
 import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../app/motion/motion_tokens.dart';
+import '../../app/motion/page_transitions.dart';
 import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/settings_action_button.dart';
@@ -190,10 +191,15 @@ class _HomePageState extends State<HomePage>
                     ),
                   ),
                   const VerticalDivider(thickness: 1, width: 1),
-                  Expanded(child: widget.navigationShell),
+                  Expanded(
+                    child: FuncBranchFade(
+                      index: index,
+                      child: widget.navigationShell,
+                    ),
+                  ),
                 ],
               )
-            : widget.navigationShell,
+            : FuncBranchFade(index: index, child: widget.navigationShell),
       ),
     );
   }

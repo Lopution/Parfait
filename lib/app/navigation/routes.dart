@@ -47,6 +47,7 @@ import '../../features/settings/pages/translation_credentials_page.dart';
 import '../../l10n/context.dart';
 import '../motion/hero_transition.dart';
 import '../motion/motion_tokens.dart';
+import '../motion/page_transitions.dart';
 import '../pixiv_image.dart';
 import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
@@ -153,31 +154,38 @@ Page<dynamic> _page(
     transitionDuration: duration,
     reverseTransitionDuration: duration,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: MotionTokens.pageCurve,
+      return FuncRouteTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
       );
-      // A live in-page animation (loaders, image fades, scroll ballistic,
-      // playing GIFs) marks its enclosing repaint boundary dirty every
-      // frame, so a route transition turns into a repaint storm instead of
-      // pure layer compositing. Freeze tickers on both sides for the
-      // transition window — the outgoing route animates, the incoming one
-      // drives secondaryAnimation — and let them resume afterwards.
-      final inTransition =
-          animation.isAnimating || secondaryAnimation.isAnimating;
-      return TickerMode(
-        enabled: !inTransition,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1, 0),
-            end: Offset.zero,
-          ).animate(curved),
-          child: _RoutePopSnapshot(
-            animation: animation,
-            secondaryAnimation: secondaryAnimation,
-            child: child,
-          ),
-        ),
+    },
+  );
+}
+
+/// Modal page variant of [_page]: keyboard-first surfaces (search input)
+/// rise a short distance from the bottom edge with a fade instead of the
+/// full trailing-edge slide.
+Page<dynamic> _modalPage(
+  BuildContext context,
+  GoRouterState state,
+  RouteObserver<ModalRoute<dynamic>> observer,
+  Widget child,
+) {
+  final duration = MotionTokens.resolve(context, MotionTokens.modalTransition);
+  return CustomTransitionPage<dynamic>(
+    key: state.pageKey,
+    restorationId: RestorationScope.maybeOf(context) == null
+        ? null
+        : state.pageKey.value,
+    child: _scoped(observer, child),
+    transitionDuration: duration,
+    reverseTransitionDuration: duration,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FuncModalTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
       );
     },
   );
@@ -225,96 +233,12 @@ class _SecondaryAnimationTickerGateState
     final secondary = _route?.secondaryAnimation;
     return TickerMode(
       enabled: !(secondary?.isAnimating ?? false),
-      child: _RoutePopSnapshot(
+      child: RoutePopSnapshot(
         animation: _route?.animation ?? const AlwaysStoppedAnimation<double>(1),
         secondaryAnimation:
             secondary ?? const AlwaysStoppedAnimation<double>(0),
         child: widget.child,
       ),
-    );
-  }
-}
-
-/// Freezes a page into a single texture while a route transition slides.
-///
-/// Impeller re-executes a route's whole display list on every frame of the
-/// slide — both the outgoing page AND the one being revealed underneath.
-/// On a device whose GPU/display pipeline has idled down after a few still
-/// seconds (the "leave the page 2-3s then return" repro), that per-frame
-/// re-raster blows the budget uniformly — a constant low-FPS animation
-/// rather than dropped frames. [SnapshotWidget] is the same mechanism the
-/// Material zoom/fade-forwards transitions use: while either animation is
-/// running, the page is captured once at paint time and the remaining
-/// frames blit one texture. The live subtree stays mounted, so cancelled
-/// pops (predictive-back back-outs) restore instantly.
-class _RoutePopSnapshot extends StatefulWidget {
-  const _RoutePopSnapshot({
-    required this.animation,
-    required this.secondaryAnimation,
-    required this.child,
-  });
-
-  /// This route's own transition — animates while it enters or pops.
-  final Animation<double> animation;
-
-  /// The animation of the route stacked above — animates while that route
-  /// covers or reveals this page.
-  final Animation<double> secondaryAnimation;
-  final Widget child;
-
-  @override
-  State<_RoutePopSnapshot> createState() => _RoutePopSnapshotState();
-}
-
-class _RoutePopSnapshotState extends State<_RoutePopSnapshot> {
-  final _controller = SnapshotController();
-
-  bool get _animating =>
-      widget.animation.isAnimating || widget.secondaryAnimation.isAnimating;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.animation.addStatusListener(_sync);
-    widget.secondaryAnimation.addStatusListener(_sync);
-    _sync();
-  }
-
-  @override
-  void dispose() {
-    widget.animation.removeStatusListener(_sync);
-    widget.secondaryAnimation.removeStatusListener(_sync);
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _sync([AnimationStatus? _]) {
-    if (!_animating) {
-      _controller.allowSnapshotting = false;
-      return;
-    }
-    if (_controller.allowSnapshotting) return;
-    // Defer snapshotting by one frame: HeroController also starts flights
-    // from a post-frame callback, so the source Hero still paints its child
-    // on the very first transition frame. Capturing then would bake the
-    // image into this page's frozen texture — the pop would show it sliding
-    // with the page AND flying as the shuttle (double image). One live
-    // frame lets the placeholder swap land first.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _animating) {
-        _controller.allowSnapshotting = true;
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SnapshotWidget(
-      // permissive: a route containing a platform view/texture paints live
-      // instead of throwing on an uncapturable subtree.
-      mode: SnapshotMode.permissive,
-      controller: _controller,
-      child: RepaintBoundary(child: widget.child),
     );
   }
 }
@@ -993,7 +917,7 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             routes: [
               GoRoute(
                 path: 'input',
-                pageBuilder: (context, state) => _page(
+                pageBuilder: (context, state) => _modalPage(
                   context,
                   state,
                   searchRouteObserver,
