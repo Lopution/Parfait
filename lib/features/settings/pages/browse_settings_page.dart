@@ -166,6 +166,15 @@ class BrowseSettingsPage extends ConsumerWidget {
               () => ref.read(settingsProvider.notifier).setLocalBlockAI(value),
             ),
           ),
+          SettingsControl(
+            title: Text(context.l10n.hideMuted),
+            subtitle: Text(context.l10n.hideMutedHint),
+            value: settings.hideMuted,
+            onChanged: (value) => persistSettings(
+              context,
+              () => ref.read(settingsProvider.notifier).setHideMuted(value),
+            ),
+          ),
           const Divider(),
           SettingsControl(
             title: Text(context.l10n.reduceMotion),

@@ -551,6 +551,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get blockAI => 'Локально скрывать работы AI';
 
   @override
+  String get hideMuted => 'Скрывать заглушенные работы';
+
+  @override
+  String get hideMutedHint =>
+      'Если выключено, заглушенные работы показываются размытыми карточками; нажатие временно показывает их';
+
+  @override
+  String get mutedContent => 'Заглушено';
+
+  @override
   String get reduceMotion => 'Меньше анимаций';
 
   @override

@@ -539,6 +539,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get blockAI => 'AI作品をローカルで非表示';
 
   @override
+  String get hideMuted => 'ミュートした作品を非表示';
+
+  @override
+  String get hideMutedHint => 'オフの場合、ミュート対象はぼかしカードで表示され、タップで一時的に確認できます';
+
+  @override
+  String get mutedContent => 'ミュート中';
+
+  @override
   String get reduceMotion => '視覚効果を減らす';
 
   @override

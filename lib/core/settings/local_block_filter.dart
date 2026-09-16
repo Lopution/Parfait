@@ -1,22 +1,18 @@
 import '../entity/illust_entity.dart';
 
-/// Pure C9 local-blocking predicate shared by discovery feeds and the
-/// desktop widget. No UI, network or settings side effects: callers pass the
-/// resolved booleans and the blocked tag set.
+/// Pure C9 content-rating predicate shared by discovery feeds and the
+/// desktop widget. No UI, network or settings side effects: callers pass
+/// the resolved booleans.
 ///
-/// One hit hides the work: R18 switch, AI switch, or any intersection with
-/// the blocked tag set.
+/// Tag/user/work blocking is owned by `core/mute` (MuteStore +
+/// `muteHitFor`), not this predicate — the legacy `blocked_tags` pref is
+/// migrated into the mute set on hydrate.
 bool isLocallyBlocked(
   IllustEntity entity, {
   required bool blockR18,
   required bool blockAI,
-  required Set<String> blockedTags,
 }) {
   if (blockR18 && entity.isR18) return true;
   if (blockAI && entity.isAi) return true;
-  if (blockedTags.isEmpty) return false;
-  for (final tag in entity.tags) {
-    if (blockedTags.contains(tag.name)) return true;
-  }
   return false;
 }

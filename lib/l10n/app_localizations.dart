@@ -1098,6 +1098,24 @@ abstract class AppLocalizations {
   /// **'本地屏蔽 AI 作品'**
   String get blockAI;
 
+  /// No description provided for @hideMuted.
+  ///
+  /// In zh, this message translates to:
+  /// **'直接隐藏被屏蔽的作品'**
+  String get hideMuted;
+
+  /// No description provided for @hideMutedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭后,被屏蔽的作品以模糊卡片显示,点按可临时查看'**
+  String get hideMutedHint;
+
+  /// No description provided for @mutedContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'已屏蔽'**
+  String get mutedContent;
+
   /// No description provided for @reduceMotion.
   ///
   /// In zh, this message translates to:

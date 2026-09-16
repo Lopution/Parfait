@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
+import 'package:pixiv_func/core/mute/mute_models.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
@@ -130,7 +131,7 @@ _makeWorld({
   WidgetSnapshotStore? snapshotStore,
   bool blockR18 = false,
   bool blockAI = false,
-  Set<String> blockedTags = const {},
+  MuteState muteState = const MuteState(),
 }) async {
   final transports = _Transports();
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -183,7 +184,7 @@ _makeWorld({
     storeFactory: () async => store,
     blockR18: blockR18,
     blockAI: blockAI,
-    blockedTags: blockedTags,
+    muteState: muteState,
   );
   return (container, loader, store, transports);
 }
@@ -344,9 +345,9 @@ void main() {
     expect(store.read()!.items.map((item) => item.illustId), [3]);
   });
 
-  test('blocked-tag works are filtered from the snapshot', () async {
+  test('muted-tag works are filtered from the snapshot', () async {
     final (container, loader, store, transports) = await _makeWorld(
-      blockedTags: const {'blocked-tag'},
+      muteState: const MuteState(tags: {'blocked-tag'}),
     );
     addTearDown(container.dispose);
     transports.pageBehavior = _pageBody([
