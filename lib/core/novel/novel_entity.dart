@@ -516,6 +516,10 @@ class NovelEntity {
     this.novelAiType = 0,
     this.createDate,
     this.contentAvailable = false,
+    this.embeddedImages = const {},
+    this.embeddedIllustThumbs = const {},
+    this.seriesPrevId,
+    this.seriesNextId,
   });
 
   final int id;
@@ -545,6 +549,18 @@ class NovelEntity {
   final String? createDate;
   final bool contentAvailable;
 
+  /// `uploadedimage` identifier → URL resolved from the webview payload.
+  final Map<String, String> embeddedImages;
+
+  /// `pixivimage` identifier → preview URL resolved from the webview
+  /// payload's `illusts` map.
+  final Map<String, String> embeddedIllustThumbs;
+
+  /// Adjacent series entries reported by the webview payload. Fallback
+  /// navigation for novels whose `seriesId` is absent.
+  final int? seriesPrevId;
+  final int? seriesNextId;
+
   UserEntity get author => user;
 
   bool get isRestricted => !visible || isXRestricted;
@@ -567,6 +583,10 @@ class NovelEntity {
     Object? isBookmarked = _unset,
     Object? visible = _unset,
     Object? contentAvailable = _unset,
+    Object? embeddedImages = _unset,
+    Object? embeddedIllustThumbs = _unset,
+    Object? seriesPrevId = _unset,
+    Object? seriesNextId = _unset,
   }) {
     return NovelEntity(
       id: id,
@@ -611,10 +631,65 @@ class NovelEntity {
       contentAvailable: identical(contentAvailable, _unset)
           ? this.contentAvailable
           : contentAvailable as bool,
+      embeddedImages: identical(embeddedImages, _unset)
+          ? this.embeddedImages
+          : embeddedImages as Map<String, String>,
+      embeddedIllustThumbs: identical(embeddedIllustThumbs, _unset)
+          ? this.embeddedIllustThumbs
+          : embeddedIllustThumbs as Map<String, String>,
+      seriesPrevId: identical(seriesPrevId, _unset)
+          ? this.seriesPrevId
+          : seriesPrevId as int?,
+      seriesNextId: identical(seriesNextId, _unset)
+          ? this.seriesNextId
+          : seriesNextId as int?,
     );
   }
 
   static const _unset = Object();
+
+  /// Merges the body resolved from `/webview/v2/novel` into a metadata entity.
+  ///
+  /// `/v2/novel/detail` never carries `novel_text`; the webview page's
+  /// embedded pixiv object is the only source. A null [text] keeps the
+  /// entity metadata-only while still recording navigation/image fields.
+  NovelEntity withWebContent(
+    String? text, {
+    Map<String, String> embeddedImages = const {},
+    Map<String, String> embeddedIllustThumbs = const {},
+    int? seriesPrevId,
+    int? seriesNextId,
+  }) {
+    if (text == null) {
+      return copyWith(
+        embeddedImages: Map<String, String>.unmodifiable(embeddedImages),
+        embeddedIllustThumbs: Map<String, String>.unmodifiable(
+          embeddedIllustThumbs,
+        ),
+        seriesPrevId: seriesPrevId,
+        seriesNextId: seriesNextId,
+      );
+    }
+    final markup = NovelContentMapper.parse(text);
+    final paragraphs = markup.paragraphs;
+    final version = sha256.convert(utf8.encode(jsonEncode(text))).toString();
+    return copyWith(
+      textLength: paragraphs.fold<int>(
+        0,
+        (total, item) => total + item.text.length,
+      ),
+      contentVersion: version,
+      paragraphs: List<NovelParagraph>.unmodifiable(paragraphs),
+      markup: markup,
+      contentAvailable: true,
+      embeddedImages: Map<String, String>.unmodifiable(embeddedImages),
+      embeddedIllustThumbs: Map<String, String>.unmodifiable(
+        embeddedIllustThumbs,
+      ),
+      seriesPrevId: seriesPrevId,
+      seriesNextId: seriesNextId,
+    );
+  }
 
   /// Parses either a list/detail novel object.  The parser never accepts an
   /// HTML body; only JSON `content` or a structured JSON content list is used.
