@@ -20,16 +20,16 @@ import 'comment_models.dart';
 class _CommentStoreState {
   _CommentStoreState({
     Map<int, CommentEntity>? entities,
-    Map<int, List<int>>? rootIdsByIllust,
+    Map<String, List<int>>? rootIdsByWork,
     Map<int, List<int>>? replyIdsByRoot,
     Map<String, CommentMutation>? mutations,
   }) : entities = Map.unmodifiable(entities ?? const {}),
-       rootIdsByIllust = _freezeIndex(rootIdsByIllust),
+       rootIdsByWork = _freezeIndex(rootIdsByWork),
        replyIdsByRoot = _freezeIndex(replyIdsByRoot),
        mutations = Map.unmodifiable(mutations ?? const {});
 
   final Map<int, CommentEntity> entities;
-  final Map<int, List<int>> rootIdsByIllust;
+  final Map<String, List<int>> rootIdsByWork;
   final Map<int, List<int>> replyIdsByRoot;
   final Map<String, CommentMutation> mutations;
 
@@ -42,11 +42,11 @@ class _CommentStoreState {
 
   List<int> idsFor(CommentFeedQuery query) => query.isReplies
       ? replyIdsByRoot[query.rootCommentId] ?? const []
-      : rootIdsByIllust[query.illustId] ?? const [];
+      : rootIdsByWork[query.workKey] ?? const [];
 
-  static Map<int, List<int>> _freezeIndex(Map<int, List<int>>? source) {
-    final input = source ?? const <int, List<int>>{};
-    return Map.unmodifiable(<int, List<int>>{
+  static Map<K, List<int>> _freezeIndex<K>(Map<K, List<int>>? source) {
+    final input = source ?? <K, List<int>>{};
+    return Map.unmodifiable(<K, List<int>>{
       for (final entry in input.entries)
         entry.key: List<int>.unmodifiable(entry.value),
     });
@@ -105,7 +105,7 @@ class _CommentStore extends Notifier<_CommentStoreState> {
   /// are ignored in the ordered index while payloads are merged canonically.
   void mergePage(CommentFeedQuery query, Iterable<CommentEntity> comments) {
     final entities = Map<int, CommentEntity>.of(state.entities);
-    final roots = _copyIndex(state.rootIdsByIllust);
+    final roots = _copyIndex(state.rootIdsByWork);
     final replies = _copyIndex(state.replyIdsByRoot);
     for (final incoming in comments) {
       if (!_belongsToQuery(query, incoming)) continue;
@@ -117,7 +117,7 @@ class _CommentStore extends Notifier<_CommentStoreState> {
     }
     state = _CommentStoreState(
       entities: entities,
-      rootIdsByIllust: roots,
+      rootIdsByWork: roots,
       replyIdsByRoot: replies,
       mutations: state.mutations,
     );
@@ -132,16 +132,16 @@ class _CommentStore extends Notifier<_CommentStoreState> {
         (existing) => existing.merge(comment),
         ifAbsent: () => comment,
       );
-    final roots = _copyIndex(state.rootIdsByIllust);
+    final roots = _copyIndex(state.rootIdsByWork);
     final replies = _copyIndex(state.replyIdsByRoot);
     final ids = query.isReplies
         ? (replies[query.rootCommentId!] ??= <int>[])
-        : (roots[query.illustId] ??= <int>[]);
+        : (roots[query.workKey] ??= <int>[]);
     ids.remove(comment.id);
     ids.insert(0, comment.id);
     state = _CommentStoreState(
       entities: entities,
-      rootIdsByIllust: roots,
+      rootIdsByWork: roots,
       replyIdsByRoot: replies,
       mutations: state.mutations,
     );
@@ -150,11 +150,12 @@ class _CommentStore extends Notifier<_CommentStoreState> {
   /// Starts a send operation. One pending send is allowed per exact parent
   /// key, so a repeated tap cannot create duplicate server requests.
   CommentSendOperation? beginSend({
-    required int illustId,
+    required int workId,
+    CommentWorkKind kind = CommentWorkKind.illust,
     int? parentCommentId,
     int? rootCommentId,
   }) {
-    _requirePositive(illustId, 'illustId');
+    _requirePositive(workId, 'workId');
     _optionalPositive(parentCommentId, 'parentCommentId');
     _optionalPositive(rootCommentId, 'rootCommentId');
     if (rootCommentId == null && parentCommentId != null) {
@@ -164,13 +165,14 @@ class _CommentStore extends Notifier<_CommentStoreState> {
     final envelope = _ledger.begin(
       boundary: boundary,
       entityType: 'comment',
-      entityId: 'illust:$illustId:${parentCommentId ?? 'root'}',
+      entityId: '${kind.name}:$workId:${parentCommentId ?? 'root'}',
       operation: 'comment.send',
-      ownerId: 'comment-send:$illustId:${parentCommentId ?? 'root'}',
+      ownerId: 'comment-send:${kind.name}:$workId:${parentCommentId ?? 'root'}',
     );
     if (envelope == null) return null;
     final operation = CommentSendOperation(
-      illustId: illustId,
+      workId: workId,
+      kind: kind,
       parentCommentId: parentCommentId,
       rootCommentId: rootCommentId,
       envelope: envelope,
@@ -191,7 +193,8 @@ class _CommentStore extends Notifier<_CommentStoreState> {
       return;
     }
     final normalized = comment.copyWith(
-      illustId: operation.illustId,
+      workId: operation.workId,
+      kind: operation.kind,
       parentCommentId: operation.parentCommentId,
       rootCommentId: operation.rootCommentId ?? comment.id,
     );
@@ -205,9 +208,10 @@ class _CommentStore extends Notifier<_CommentStoreState> {
       ),
     );
     final query = operation.rootCommentId == null
-        ? CommentFeedQuery.root(illustId: operation.illustId)
+        ? CommentFeedQuery.root(workId: operation.workId, kind: operation.kind)
         : CommentFeedQuery.replies(
-            illustId: operation.illustId,
+            workId: operation.workId,
+            kind: operation.kind,
             rootCommentId: operation.rootCommentId!,
           );
     prepend(query, normalized);
@@ -369,7 +373,7 @@ class _CommentStore extends Notifier<_CommentStoreState> {
       );
     state = _CommentStoreState(
       entities: entities,
-      rootIdsByIllust: state.rootIdsByIllust,
+      rootIdsByWork: state.rootIdsByWork,
       replyIdsByRoot: state.replyIdsByRoot,
       mutations: state.mutations,
     );
@@ -436,7 +440,7 @@ class _CommentStore extends Notifier<_CommentStoreState> {
     }
     state = _CommentStoreState(
       entities: state.entities,
-      rootIdsByIllust: state.rootIdsByIllust,
+      rootIdsByWork: state.rootIdsByWork,
       replyIdsByRoot: state.replyIdsByRoot,
       mutations: next,
     );
@@ -462,7 +466,7 @@ class _CommentStore extends Notifier<_CommentStoreState> {
   void _setMutation(String key, CommentMutation mutation) {
     state = _CommentStoreState(
       entities: state.entities,
-      rootIdsByIllust: state.rootIdsByIllust,
+      rootIdsByWork: state.rootIdsByWork,
       replyIdsByRoot: state.replyIdsByRoot,
       mutations: {...state.mutations, key: mutation},
     );
@@ -479,7 +483,7 @@ class _CommentStore extends Notifier<_CommentStoreState> {
     }
     final entities = Map<int, CommentEntity>.of(state.entities)
       ..removeWhere((id, _) => removeIds.contains(id));
-    final roots = _copyIndex(state.rootIdsByIllust)
+    final roots = _copyIndex(state.rootIdsByWork)
       ..updateAll((_, ids) => ids..removeWhere(removeIds.contains));
     final replies = _copyIndex(state.replyIdsByRoot)
       ..removeWhere((rootId, ids) {
@@ -497,14 +501,16 @@ class _CommentStore extends Notifier<_CommentStoreState> {
     }
     state = _CommentStoreState(
       entities: entities,
-      rootIdsByIllust: roots,
+      rootIdsByWork: roots,
       replyIdsByRoot: replies,
       mutations: state.mutations,
     );
   }
 
   bool _belongsToQuery(CommentFeedQuery query, CommentEntity comment) {
-    if (comment.illustId != query.illustId) return false;
+    if (comment.workId != query.workId || comment.kind != query.kind) {
+      return false;
+    }
     if (query.isReplies) {
       return !comment.isRoot && comment.rootCommentId == query.rootCommentId;
     }
@@ -514,16 +520,16 @@ class _CommentStore extends Notifier<_CommentStoreState> {
   void _addId(
     CommentFeedQuery query,
     int id,
-    Map<int, List<int>> roots,
+    Map<String, List<int>> roots,
     Map<int, List<int>> replies,
   ) {
     final ids = query.isReplies
         ? (replies[query.rootCommentId!] ??= <int>[])
-        : (roots[query.illustId] ??= <int>[]);
+        : (roots[query.workKey] ??= <int>[]);
     if (!ids.contains(id)) ids.add(id);
   }
 
-  Map<int, List<int>> _copyIndex(Map<int, List<int>> source) => {
+  Map<K, List<int>> _copyIndex<K>(Map<K, List<int>> source) => {
     for (final entry in source.entries) entry.key: List<int>.of(entry.value),
   };
 

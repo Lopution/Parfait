@@ -471,7 +471,7 @@ List<RouteBase> _commonBranchRoutes(
             context,
             state,
             branchObserver,
-            IllustCommentsPage(illustId: _pathId(state, 'illustId')),
+            CommentsPage(workId: _pathId(state, 'illustId')),
           ),
         ),
         GoRoute(
@@ -481,7 +481,7 @@ List<RouteBase> _commonBranchRoutes(
             state,
             branchObserver,
             CommentRepliesPage(
-              illustId: _pathId(state, 'illustId'),
+              workId: _pathId(state, 'illustId'),
               rootCommentId: _pathId(state, 'rootCommentId'),
               rootComment: state.extra is CommentEntity
                   ? state.extra! as CommentEntity
@@ -517,6 +517,36 @@ List<RouteBase> _commonBranchRoutes(
         branchObserver,
         NovelPage(novelId: _pathId(state, 'novelId')),
       ),
+      routes: [
+        GoRoute(
+          path: 'comments',
+          pageBuilder: (context, state) => _page(
+            context,
+            state,
+            branchObserver,
+            CommentsPage(
+              workId: _pathId(state, 'novelId'),
+              kind: CommentWorkKind.novel,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: 'comments/:rootCommentId',
+          pageBuilder: (context, state) => _page(
+            context,
+            state,
+            branchObserver,
+            CommentRepliesPage(
+              workId: _pathId(state, 'novelId'),
+              kind: CommentWorkKind.novel,
+              rootCommentId: _pathId(state, 'rootCommentId'),
+              rootComment: state.extra is CommentEntity
+                  ? state.extra! as CommentEntity
+                  : null,
+            ),
+          ),
+        ),
+      ],
     ),
     GoRoute(
       path: 'history',
@@ -1253,13 +1283,22 @@ Future<void> openIllustComments(BuildContext context, int illustId) async {
   );
 }
 
+Future<void> openNovelComments(BuildContext context, int novelId) async {
+  if (novelId <= 0) return;
+  await _push(context, '${_currentStackRoot(context)}/novel/$novelId/comments');
+}
+
 Future<void> openCommentReplies(
   BuildContext context,
   CommentEntity rootComment,
 ) async {
+  final workPath = switch (rootComment.kind) {
+    CommentWorkKind.illust => 'illust',
+    CommentWorkKind.novel => 'novel',
+  };
   await _push(
     context,
-    '${_currentStackRoot(context)}/illust/${rootComment.illustId}'
+    '${_currentStackRoot(context)}/$workPath/${rootComment.workId}'
     '/comments/${rootComment.id}',
     extra: rootComment,
   );

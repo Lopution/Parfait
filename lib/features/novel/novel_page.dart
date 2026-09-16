@@ -202,6 +202,18 @@ class _NovelMetadata extends StatelessWidget {
                 ],
               ),
             ],
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => openNovelComments(context, novel.id),
+                icon: const Icon(Icons.comment_outlined),
+                label: Text(
+                  novel.totalComments > 0
+                      ? '${context.l10n.commentTitle} (${novel.totalComments})'
+                      : context.l10n.commentTitle,
+                ),
+              ),
+            ),
           ],
         ),
       ),

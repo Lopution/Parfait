@@ -24,12 +24,14 @@ class _CommentFeedController extends PagedFeedController {
     final page = query.isReplies
         ? await repository.fetchReplies(
             query.rootCommentId!,
-            illustId: query.illustId,
+            workId: query.workId,
+            kind: query.kind,
             cursor: context.cursor,
             cancelToken: context.cancelToken,
           )
         : await repository.fetchComments(
-            query.illustId,
+            query.workId,
+            kind: query.kind,
             cursor: context.cursor,
             cancelToken: context.cancelToken,
           );
