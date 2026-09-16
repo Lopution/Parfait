@@ -553,6 +553,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get blockAI => 'Locally block AI works';
 
   @override
+  String get hideMuted => 'Hide muted works';
+
+  @override
+  String get hideMutedHint =>
+      'When off, muted works appear as blurred cards; tap once to peek';
+
+  @override
+  String get mutedContent => 'Muted';
+
+  @override
   String get reduceMotion => 'Reduce motion';
 
   @override

@@ -531,6 +531,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get blockAI => '本地屏蔽 AI 作品';
 
   @override
+  String get hideMuted => '直接隐藏被屏蔽的作品';
+
+  @override
+  String get hideMutedHint => '关闭后,被屏蔽的作品以模糊卡片显示,点按可临时查看';
+
+  @override
+  String get mutedContent => '已屏蔽';
+
+  @override
   String get reduceMotion => '减少动态效果';
 
   @override

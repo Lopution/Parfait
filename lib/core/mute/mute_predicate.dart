@@ -8,6 +8,13 @@ class MuteHit {
 
   final MuteKind kind;
   final String label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MuteHit && other.kind == kind && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(kind, label);
 }
 
 /// Pure effective-mute predicate. Work wins over user wins over tag so the

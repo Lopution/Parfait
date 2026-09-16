@@ -179,6 +179,7 @@ class AppSettings {
     this.enablePixivHistory = true,
     this.enableLocalBlockR18 = false,
     this.enableLocalBlockAI = false,
+    this.hideMuted = false,
     this.reduceMotion = false,
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
@@ -238,6 +239,12 @@ class AppSettings {
   final bool enablePixivHistory;
   final bool enableLocalBlockR18;
   final bool enableLocalBlockAI;
+
+  /// Muted works presentation: false renders the blur+reveal card variant
+  /// in feeds; true restores the old filter-them-out behaviour. Either way
+  /// the mute set itself is the MuteStore (tag/user server-synced, works
+  /// local); this flag only picks the presentation.
+  final bool hideMuted;
 
   /// Collapses decorative motion (transitions, entrance stagger, press
   /// scale, sheet/dialog presentation) to instant state changes. Merged
@@ -327,6 +334,7 @@ class AppSettings {
         json['enableLocalBlockAI'],
         base.enableLocalBlockAI,
       ),
+      hideMuted: _bool(json['hideMuted'], base.hideMuted),
       reduceMotion: _bool(json['reduceMotion'], base.reduceMotion),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
@@ -354,6 +362,7 @@ class AppSettings {
       'enablePixivHistory': enablePixivHistory,
       'enableLocalBlockR18': enableLocalBlockR18,
       'enableLocalBlockAI': enableLocalBlockAI,
+      'hideMuted': hideMuted,
       'reduceMotion': reduceMotion,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
@@ -464,6 +473,7 @@ class AppSettings {
     bool? enablePixivHistory,
     bool? enableLocalBlockR18,
     bool? enableLocalBlockAI,
+    bool? hideMuted,
     bool? reduceMotion,
     int? translateIndex,
     int? maxDownloadCount,
@@ -494,6 +504,7 @@ class AppSettings {
       enablePixivHistory: enablePixivHistory ?? this.enablePixivHistory,
       enableLocalBlockR18: enableLocalBlockR18 ?? this.enableLocalBlockR18,
       enableLocalBlockAI: enableLocalBlockAI ?? this.enableLocalBlockAI,
+      hideMuted: hideMuted ?? this.hideMuted,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??

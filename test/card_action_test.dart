@@ -38,6 +38,19 @@ class _BookmarkApiFixture {
 
   http.Client build() {
     return MockClient((request) async {
+      // The card watches MuteStore, whose hydrate fetches the server list.
+      if (request.method == 'GET' &&
+          request.url.path.endsWith('/v1/mute/list')) {
+        return http.Response(
+          jsonEncode({
+            'muted_tags': <dynamic>[],
+            'muted_users': <dynamic>[],
+            'mute_limit_count': 500,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
       posts.add(request.url);
       return http.Response(
         jsonEncode({'message': '', 'is_success': true}),
