@@ -1619,4 +1619,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get watchLaterEmpty => '一時保存した作品がここに表示されます';
+
+  @override
+  String get bookmarkEditTitle => 'ブックマークを編集';
+
+  @override
+  String get bookmarkTags => 'ブックマークタグ';
+
+  @override
+  String get bookmarkTagNewHint => 'タグを入力して確定';
+
+  @override
+  String get bookmarkTagSuggestions => 'よく使うタグ';
+
+  @override
+  String get bookmarkTagsEmpty => 'ブックマークタグはまだありません';
+
+  @override
+  String get bookmarkTagsLoadFailed => 'ブックマークタグを読み込めませんでした';
 }

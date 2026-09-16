@@ -3168,6 +3168,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂存的作品会显示在这里'**
   String get watchLaterEmpty;
+
+  /// No description provided for @bookmarkEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑收藏'**
+  String get bookmarkEditTitle;
+
+  /// No description provided for @bookmarkTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏标签'**
+  String get bookmarkTags;
+
+  /// No description provided for @bookmarkTagNewHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入新标签，回车添加'**
+  String get bookmarkTagNewHint;
+
+  /// No description provided for @bookmarkTagSuggestions.
+  ///
+  /// In zh, this message translates to:
+  /// **'常用标签'**
+  String get bookmarkTagSuggestions;
+
+  /// No description provided for @bookmarkTagsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有收藏标签'**
+  String get bookmarkTagsEmpty;
+
+  /// No description provided for @bookmarkTagsLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏标签加载失败'**
+  String get bookmarkTagsLoadFailed;
 }
 
 class _AppLocalizationsDelegate

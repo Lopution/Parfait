@@ -671,5 +671,11 @@
   "linkCopied": "リンクをコピーしました",
   "watchLaterAdded": "あとで見るに追加しました",
   "watchLaterTitle": "あとで見る",
-  "watchLaterEmpty": "一時保存した作品がここに表示されます"
+  "watchLaterEmpty": "一時保存した作品がここに表示されます",
+  "bookmarkEditTitle": "ブックマークを編集",
+  "bookmarkTags": "ブックマークタグ",
+  "bookmarkTagNewHint": "タグを入力して確定",
+  "bookmarkTagSuggestions": "よく使うタグ",
+  "bookmarkTagsEmpty": "ブックマークタグはまだありません",
+  "bookmarkTagsLoadFailed": "ブックマークタグを読み込めませんでした"
 }

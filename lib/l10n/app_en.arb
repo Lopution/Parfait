@@ -671,5 +671,11 @@
   "linkCopied": "Link copied",
   "watchLaterAdded": "Added to Watch later",
   "watchLaterTitle": "Watch later",
-  "watchLaterEmpty": "Stashed works appear here"
+  "watchLaterEmpty": "Stashed works appear here",
+  "bookmarkEditTitle": "Edit bookmark",
+  "bookmarkTags": "Bookmark tags",
+  "bookmarkTagNewHint": "Type a tag and press enter",
+  "bookmarkTagSuggestions": "Frequent tags",
+  "bookmarkTagsEmpty": "No bookmark tags yet",
+  "bookmarkTagsLoadFailed": "Failed to load bookmark tags"
 }
