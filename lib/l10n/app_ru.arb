@@ -488,6 +488,8 @@
   "searchWithinMonth": "За месяц",
   "searchStartDate": "Дата начала",
   "searchEndDate": "Дата окончания",
+  "searchInvalidDateRange": "Дата начала не может быть позже даты окончания",
+  "searchPopularPreviewHint": "Без Premium сортировка по популярности использует предпросмотр",
   "searchNoSuggestions": "Нет подходящих вариантов",
   "searchUserAccount": "Аккаунт",
   "illustDetailTitle": "Работа",

@@ -2251,6 +2251,18 @@ abstract class AppLocalizations {
   /// **'结束日期'**
   String get searchEndDate;
 
+  /// No description provided for @searchInvalidDateRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始日期不能晚于结束日期'**
+  String get searchInvalidDateRange;
+
+  /// No description provided for @searchPopularPreviewHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'未开通会员，热门排序将使用人气预览结果'**
+  String get searchPopularPreviewHint;
+
   /// No description provided for @searchNoSuggestions.
   ///
   /// In zh, this message translates to:

@@ -211,6 +211,23 @@ Future<void> PixivImage.preload(
   appear immediately rather than fading a translucent frame over the route
   background. This is the distinction between a useful first-load transition
   and the white flash regression.
+- A feed slot being reused for a different work is a **slot hand-off**, not a
+  cold load: `PixivImage` tracks the URL each element last committed to, and
+  a changed URL on a live element drops the fade to zero — OctoImage's
+  `useOldImageOnUrlChange` retains the old frame and the new one replaces it
+  instantly (Glide semantics). Fading work B in over retained work A reads as
+  a cross-work dissolve across the whole refreshed grid. Feed cards therefore
+  carry a `ValueKey` scoped by feed + work id (`illust-<scope>-<id>`,
+  `novel-<id>`) so the element follows the work on refresh rather than being
+  recycled by index.
+- Pixiv Premium gates `sort=popular_desc` server-side: the app API silently
+  ignores it for free accounts. `SearchFilters` therefore resolves `duration`
+  presets client-side into `start_date`/`end_date` (never sends
+  `within_last_*`), the sheet keeps duration and custom dates mutually
+  exclusive with a `start > end` guard, and the search repository reroutes
+  non-premium popular sorts to the `/v1/search/popular-preview/*` endpoints
+  (which reject a `sort` parameter). `Account.isPremium` comes from the OAuth
+  `user.is_premium` field and persists in account metadata JSON.
 - Detail pages size multi-page images by each decoded frame's intrinsic
   ratio — never by a fixed `AspectRatio` on the container. The app API's
   `meta_pages[]` carries only `image_urls` (no per-page width/height), so

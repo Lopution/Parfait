@@ -1177,6 +1177,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchEndDate => 'Дата окончания';
 
   @override
+  String get searchInvalidDateRange =>
+      'Дата начала не может быть позже даты окончания';
+
+  @override
+  String get searchPopularPreviewHint =>
+      'Без Premium сортировка по популярности использует предпросмотр';
+
+  @override
   String get searchNoSuggestions => 'Нет подходящих вариантов';
 
   @override

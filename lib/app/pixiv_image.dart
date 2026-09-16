@@ -31,7 +31,7 @@ enum PixivImageSize {
 /// app-API Referer or the CDN answers 403 (beta56 PixivImage semantics).
 typedef _HistoryEntry = (String url, int? decodeWidth);
 
-class PixivImage extends ConsumerWidget {
+class PixivImage extends ConsumerStatefulWidget {
   const PixivImage({
     super.key,
     required this.url,
@@ -242,6 +242,9 @@ class PixivImage extends ConsumerWidget {
   /// since an upgraded file decodes to the same output size anyway and only
   /// adds file-read cost.
   final bool tierUpgrade;
+
+  @override
+  ConsumerState<PixivImage> createState() => _PixivImageState();
 
   // Keep this bounded: a long feed can create many Hero tags over time.
   // (url, decodeWidth) per transition key — the placeholder for a quality
@@ -477,19 +480,33 @@ class PixivImage extends ConsumerWidget {
       IllustTierCache.record(tierKey, resolved.$2!, resolved.$1);
     }
   }
+}
+
+class _PixivImageState extends ConsumerState<PixivImage> {
+  /// The URL this element was asked to paint last build. Feed lists
+  /// recycle card elements by index, so a pull-to-refresh can land a
+  /// *different work* on the same element: `url` changes while the element
+  /// — and OctoImage's retained old frame — stays. That is a slot
+  /// hand-off, not a cold load.
+  String? _lastShownUrl;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final widget = this.widget;
     // PixivImage is also used by the standalone viewer tests and by embedders
     // that do not install Riverpod. Keep the original URL in that context;
     // the application shell always provides the settings scope.
-    var imageUrl = url;
-    var effectiveTier = tier;
-    if (tierKey != null && tier != null && tierUpgrade) {
+    var imageUrl = widget.url;
+    var effectiveTier = widget.tier;
+    if (widget.tierKey != null && widget.tier != null && widget.tierUpgrade) {
       // Serve the best cached tier for this page: a request for medium after
       // large already decoded paints large instead of re-fetching (and
       // briefly flashing) the blurrier URL.
-      (imageUrl, effectiveTier) = IllustTierCache.resolve(tierKey!, tier!, url);
+      (imageUrl, effectiveTier) = IllustTierCache.resolve(
+        widget.tierKey!,
+        widget.tier!,
+        widget.url,
+      );
     }
     // A URL's only decoded entry can be the viewer's uncapped frame (the
     // viewer decodes without a memCacheWidth cap). Requesting a fresh
@@ -497,10 +514,10 @@ class PixivImage extends ConsumerWidget {
     // when a detail page re-lands after the viewer fetched the original.
     // The uncapped entry is decoded and strictly sharper than the
     // requested width, so paint it directly.
-    var effectiveWidth = memCacheWidth;
+    var effectiveWidth = widget.memCacheWidth;
     if (effectiveWidth != null &&
-        !_imageCompleted(imageUrl, effectiveWidth) &&
-        _imageCompleted(imageUrl, null)) {
+        !PixivImage._imageCompleted(imageUrl, effectiveWidth) &&
+        PixivImage._imageCompleted(imageUrl, null)) {
       effectiveWidth = null;
     }
     BaseCacheManager? cacheManager;
@@ -513,15 +530,15 @@ class PixivImage extends ConsumerWidget {
     if (hasProviderScope) {
       cacheManager = ref.watch(pixivNetworkFactoryProvider).imageCacheManager;
     }
-    _recordWhenDecoded(
+    PixivImage._recordWhenDecoded(
       imageUrl,
-      tierKey,
+      widget.tierKey,
       effectiveTier,
       cacheManager,
       effectiveWidth,
     );
-    final previousTransition = _rememberTransitionUrl(
-      transitionKey,
+    final previousTransition = PixivImage._rememberTransitionUrl(
+      widget.transitionKey,
       imageUrl,
       effectiveWidth,
     );
@@ -530,17 +547,17 @@ class PixivImage extends ConsumerWidget {
     // it is always the better stand-in while the next tier resolves. Only
     // the absence of history falls back to the flat colour box.
     final transitionPlaceholder = previousTransition == null
-        ? placeholderWidget
-        : _lastDecodedFrame(
+        ? widget.placeholderWidget
+        : PixivImage._lastDecodedFrame(
             previousTransition,
             cacheManager: cacheManager,
-            fit: fit,
-            width: width,
-            height: height,
-            alignment: alignment,
-            filterColor: filterColor,
-            filterBlendMode: filterBlendMode,
-            filterQuality: filterQuality,
+            fit: widget.fit,
+            width: widget.width,
+            height: widget.height,
+            alignment: widget.alignment,
+            filterColor: widget.filterColor,
+            filterBlendMode: widget.filterBlendMode,
+            filterQuality: widget.filterQuality,
           );
     // A tier/width hand-off swaps onto an already-decoded frame. Fading the
     // new frame in leaves a half-transparent composite over the dissolving
@@ -549,10 +566,21 @@ class PixivImage extends ConsumerWidget {
     // is only for a real cold load (placeholder colour → image). OctoImage
     // separately skips fades entirely when the first frame is synchronous
     // (wasSynchronouslyLoaded).
-    final crossfade = fade && previousTransition == null;
+    //
+    // A slot hand-off is the same story one level down: this element was
+    // already committed to a different URL (a recycled feed slot now
+    // showing a different work, or a quality swap on the same slot).
+    // OctoImage retains whatever old frame exists via
+    // useOldImageOnUrlChange, so the replacement must be instant — fading
+    // work B in over retained work A reads as a cross-work dissolve on
+    // every refreshed slot. Glide behaves identically: a URL change on a
+    // live target never plays the load transition.
+    final slotHandoff = _lastShownUrl != null && _lastShownUrl != imageUrl;
+    final crossfade = widget.fade && previousTransition == null && !slotHandoff;
+    _lastShownUrl = imageUrl;
     final image = CachedNetworkImage(
       imageUrl: imageUrl,
-      httpHeaders: headers,
+      httpHeaders: PixivImage.headers,
       cacheManager: cacheManager,
       // Keep the last decoded frame as the placeholder while a different
       // quality tier is resolving.  This is the important distinction
@@ -562,20 +590,20 @@ class PixivImage extends ConsumerWidget {
       // gapless playback and applies it consistently to every caller:
       // cards, detail pages, multi-page items, GIF covers and the viewer.
       useOldImageOnUrlChange: true,
-      width: width,
-      height: height,
-      fit: fit,
-      alignment: alignment,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
+      alignment: widget.alignment,
       memCacheWidth: effectiveWidth,
-      color: filterColor,
-      colorBlendMode: filterBlendMode,
-      filterQuality: filterQuality,
-      fadeInDuration: crossfade ? fadeDuration : Duration.zero,
+      color: widget.filterColor,
+      colorBlendMode: widget.filterBlendMode,
+      filterQuality: widget.filterQuality,
+      fadeInDuration: crossfade ? widget.fadeDuration : Duration.zero,
       fadeOutDuration: crossfade ? MotionTokens.imageFadeOut : Duration.zero,
       placeholder: (_, _) =>
-          transitionPlaceholder ?? ColoredBox(color: placeholderColor),
+          transitionPlaceholder ?? ColoredBox(color: widget.placeholderColor),
       errorWidget: (_, _, _) => ColoredBox(
-        color: placeholderColor,
+        color: widget.placeholderColor,
         child: const Icon(Icons.broken_image),
       ),
     );

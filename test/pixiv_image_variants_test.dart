@@ -105,11 +105,71 @@ void main() {
       find.byType(CachedNetworkImage),
     );
     expect(image.useOldImageOnUrlChange, isTrue);
-    // No decoded predecessor exists in this test (old.jpg never resolves),
-    // so the widget stays on the cold-load path: placeholder crossfades
-    // over the shared PixEz-style window. A real decoded predecessor swaps
-    // instantly with no fade — the contrast-dip flash fix.
-    expect(image.fadeOutDuration, MotionTokens.imageFadeOut);
+    // A URL swap on a live element is a slot hand-off regardless of
+    // whether the previous frame resolved — Glide replaces instantly on a
+    // live target and never replays the load transition.
+    expect(image.fadeOutDuration, Duration.zero);
+    expect(image.fadeInDuration, Duration.zero);
+  });
+
+  testWidgets('a recycled slot swapping to another work never crossfades', (
+    tester,
+  ) async {
+    // Feed lists reuse card elements by position; pull-to-refresh can land
+    // a different work on the same element. The swap must be instant —
+    // fading work B in over retained work A reads as a cross-work dissolve
+    // on every refreshed slot.
+    await tester.pumpWidget(
+      _host(const PixivImage(url: 'https://i.pximg.net/work-a.jpg')),
+    );
+    await tester.pump();
+    await tester.pumpWidget(
+      _host(const PixivImage(url: 'https://i.pximg.net/work-b.jpg')),
+    );
+    await tester.pump();
+
+    final image = tester.widget<CachedNetworkImage>(
+      find.byType(CachedNetworkImage),
+    );
+    expect(image.fadeInDuration, Duration.zero);
+    expect(image.fadeOutDuration, Duration.zero);
+  });
+
+  testWidgets('the same URL on a reused slot keeps the cold-load fade', (
+    tester,
+  ) async {
+    // Same work re-landing on the same element (e.g. the identical feed
+    // after refresh) is not a hand-off: nothing changed visually, so the
+    // ordinary fade policy still applies.
+    await tester.pumpWidget(
+      _host(const PixivImage(url: 'https://i.pximg.net/work-a.jpg')),
+    );
+    await tester.pump();
+    await tester.pumpWidget(
+      _host(const PixivImage(url: 'https://i.pximg.net/work-a.jpg')),
+    );
+    await tester.pump();
+
+    final image = tester.widget<CachedNetworkImage>(
+      find.byType(CachedNetworkImage),
+    );
     expect(image.fadeInDuration, MotionTokens.imageFade);
+    expect(image.fadeOutDuration, MotionTokens.imageFadeOut);
+  });
+
+  testWidgets('a freshly created slot keeps the cold-load fade', (
+    tester,
+  ) async {
+    // A new element has no previous URL at all — the genuine cold load.
+    await tester.pumpWidget(
+      _host(const PixivImage(url: 'https://i.pximg.net/work-a.jpg')),
+    );
+    await tester.pump();
+
+    final image = tester.widget<CachedNetworkImage>(
+      find.byType(CachedNetworkImage),
+    );
+    expect(image.fadeInDuration, MotionTokens.imageFade);
+    expect(image.fadeOutDuration, MotionTokens.imageFadeOut);
   });
 }

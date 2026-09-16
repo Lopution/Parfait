@@ -488,6 +488,8 @@
   "searchWithinMonth": "一个月内",
   "searchStartDate": "开始日期",
   "searchEndDate": "结束日期",
+  "searchInvalidDateRange": "开始日期不能晚于结束日期",
+  "searchPopularPreviewHint": "未开通会员，热门排序将使用人气预览结果",
   "searchNoSuggestions": "没有匹配建议",
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",

@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/auth/account_store.dart';
 import '../../core/search/search_models.dart';
 import 'search_text.dart';
 import '../../l10n/context.dart';
@@ -15,17 +17,29 @@ Future<SearchFilters?> showSearchFilterSheet(
   );
 }
 
-class _SearchFilterSheet extends StatefulWidget {
+class _SearchFilterSheet extends ConsumerStatefulWidget {
   const _SearchFilterSheet({required this.initial});
 
   final SearchFilters initial;
 
   @override
-  State<_SearchFilterSheet> createState() => _SearchFilterSheetState();
+  ConsumerState<_SearchFilterSheet> createState() => _SearchFilterSheetState();
 }
 
-class _SearchFilterSheetState extends State<_SearchFilterSheet> {
+class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
   late SearchFilters _filters = widget.initial;
+
+  bool get _invalidRange {
+    final start = _filters.startDate;
+    final end = _filters.endDate;
+    return start != null && end != null && start.isAfter(end);
+  }
+
+  bool get _isPremium =>
+      ref.watch(
+        accountStoreProvider.select((async) => async.value?.current?.isPremium),
+      ) ??
+      false;
 
   Future<void> _pickDate({required bool start}) async {
     final selected = await showDatePicker(
@@ -38,9 +52,11 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
     );
     if (!mounted || selected == null) return;
     setState(() {
+      // A custom date bound is mutually exclusive with a duration preset —
+      // the wire request only ever carries one of them.
       _filters = start
-          ? _filters.copyWith(startDate: selected)
-          : _filters.copyWith(endDate: selected);
+          ? _filters.copyWith(startDate: selected, duration: null)
+          : _filters.copyWith(endDate: selected, duration: null);
     });
   }
 
@@ -91,6 +107,18 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
               onSelected: (value) =>
                   setState(() => _filters = _filters.copyWith(sort: value)),
             ),
+            // popular_desc is Premium-only server-side; free accounts are
+            // silently rerouted to the popular-preview endpoint. Say so.
+            if (_filters.sort == SearchSort.popularDesc && !_isPremium)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  context.l10n.searchPopularPreviewHint,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             const SizedBox(height: 12),
             Text(
               context.l10n.searchDuration,
@@ -113,7 +141,13 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
                     label: Text(searchText(context, value.labelKey)),
                     selected: _filters.duration == value,
                     onSelected: (_) => setState(
-                      () => _filters = _filters.copyWith(duration: value),
+                      // A duration preset resolves to a concrete date range
+                      // on the wire, so it replaces any custom bounds.
+                      () => _filters = _filters.copyWith(
+                        duration: value,
+                        startDate: null,
+                        endDate: null,
+                      ),
                     ),
                   ),
               ],
@@ -133,6 +167,9 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
               label: context.l10n.searchEndDate,
               value: _dateText(_filters.endDate),
               onTap: () => _pickDate(start: false),
+              errorText: _invalidRange
+                  ? context.l10n.searchInvalidDateRange
+                  : null,
               onClear: _filters.endDate == null
                   ? null
                   : () => setState(
@@ -143,7 +180,9 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => Navigator.of(context).pop(_filters),
+                onPressed: _invalidRange
+                    ? null
+                    : () => Navigator.of(context).pop(_filters),
                 child: Text(context.l10n.searchApply),
               ),
             ),
@@ -199,19 +238,27 @@ class _DateFilterTile extends StatelessWidget {
     required this.value,
     required this.onTap,
     required this.onClear,
+    this.errorText,
   });
 
   final String label;
   final String value;
   final VoidCallback onTap;
   final VoidCallback? onClear;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
+    final errorText = this.errorText;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(label),
-      subtitle: Text(value),
+      subtitle: errorText == null
+          ? Text(value)
+          : Text(
+              errorText,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
       onTap: onTap,
       trailing: onClear == null
           ? const Icon(Icons.calendar_today_outlined)

@@ -218,6 +218,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
               name: result.profile.name,
               mailAddress: result.profile.mailAddress,
               profileImageUrl: result.profile.profileImageUrl,
+              isPremium: result.profile.isPremium,
             ),
             result.credential,
           );
