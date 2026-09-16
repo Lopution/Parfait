@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/author_summary.dart';
+import '../../app/widgets/bookmark_switch_button.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/tag_chips.dart';
 import '../../app/navigation/routes.dart';
@@ -57,10 +58,19 @@ class NovelPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_novelDetailProvider(novelId));
-    final title = async.value?.title ?? context.l10n.profileNovel;
+    final novel = async.value;
+    final title = novel?.title ?? context.l10n.profileNovel;
     return Scaffold(
       appBar: AppBar(
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          if (novel != null && !novel.isRestricted)
+            BookmarkSwitchButton(
+              illustId: novel.id,
+              title: novel.title,
+              isNovel: true,
+            ),
+        ],
       ),
       body: async.when(
         loading: () => FeedEmpty(

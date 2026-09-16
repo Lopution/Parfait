@@ -41,15 +41,23 @@ class _BookmarkActions {
   Future<void> _run(BookmarkStore store, BookmarkOp op) async {
     final repository = _ref.read(bookmarkRepositoryProvider);
     try {
-      switch (op.kind) {
-        case BookmarkOpKind.add:
+      switch ((op.key.type, op.kind)) {
+        case (BookmarkEntityType.illust, BookmarkOpKind.add):
           await repository.addIllust(
             op.key.id,
             op.restrict,
             cancelToken: op.cancelToken,
           );
-        case BookmarkOpKind.delete:
+        case (BookmarkEntityType.illust, BookmarkOpKind.delete):
           await repository.deleteIllust(op.key.id, cancelToken: op.cancelToken);
+        case (BookmarkEntityType.novel, BookmarkOpKind.add):
+          await repository.addNovel(
+            op.key.id,
+            op.restrict,
+            cancelToken: op.cancelToken,
+          );
+        case (BookmarkEntityType.novel, BookmarkOpKind.delete):
+          await repository.deleteNovel(op.key.id, cancelToken: op.cancelToken);
       }
       store.commit(op);
     } on ApiCancelled {
