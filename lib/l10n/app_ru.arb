@@ -626,5 +626,15 @@
   "novelDecreaseFont": "Уменьшить шрифт",
   "novelIncreaseFont": "Увеличить шрифт",
   "novelReadingProgress": "Прогресс чтения",
-  "aboutDisplayRefreshRate": "Частота обновления"
+  "aboutDisplayRefreshRate": "Частота обновления",
+  "cardActionBookmark": "В закладки",
+  "cardActionUnbookmark": "Убрать из закладок",
+  "cardActionDownload": "Скачать",
+  "cardActionWatchLater": "Посмотреть позже",
+  "cardActionRemoveWatchLater": "Убрать из «Посмотреть позже»",
+  "cardActionShare": "Поделиться",
+  "linkCopied": "Ссылка скопирована",
+  "watchLaterAdded": "Добавлено в «Посмотреть позже»",
+  "watchLaterTitle": "Посмотреть позже",
+  "watchLaterEmpty": "Отложенные работы появятся здесь"
 }

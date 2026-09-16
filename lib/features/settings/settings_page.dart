@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_tile.dart';
@@ -125,6 +126,11 @@ class _SettingsList extends ConsumerWidget {
           icon: Icons.history,
           title: context.l10n.historySettings,
           onTap: () => openSettingsPage(context, '/settings/history'),
+        ),
+        SettingsTile(
+          icon: Icons.bookmark_border,
+          title: context.l10n.watchLaterTitle,
+          onTap: () => openWatchLater(context),
         ),
         SettingsTile(
           icon: Icons.block_outlined,

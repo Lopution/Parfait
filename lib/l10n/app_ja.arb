@@ -626,5 +626,15 @@
   "novelDecreaseFont": "文字を小さく",
   "novelIncreaseFont": "文字を大きく",
   "novelReadingProgress": "読書進捗",
-  "aboutDisplayRefreshRate": "画面リフレッシュレート"
+  "aboutDisplayRefreshRate": "画面リフレッシュレート",
+  "cardActionBookmark": "ブックマーク",
+  "cardActionUnbookmark": "ブックマークを解除",
+  "cardActionDownload": "ダウンロード",
+  "cardActionWatchLater": "あとで見る",
+  "cardActionRemoveWatchLater": "あとで見るから削除",
+  "cardActionShare": "共有",
+  "linkCopied": "リンクをコピーしました",
+  "watchLaterAdded": "あとで見るに追加しました",
+  "watchLaterTitle": "あとで見る",
+  "watchLaterEmpty": "一時保存した作品がここに表示されます"
 }

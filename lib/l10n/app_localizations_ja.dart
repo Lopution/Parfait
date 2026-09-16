@@ -1482,4 +1482,34 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aboutDisplayRefreshRate => '画面リフレッシュレート';
+
+  @override
+  String get cardActionBookmark => 'ブックマーク';
+
+  @override
+  String get cardActionUnbookmark => 'ブックマークを解除';
+
+  @override
+  String get cardActionDownload => 'ダウンロード';
+
+  @override
+  String get cardActionWatchLater => 'あとで見る';
+
+  @override
+  String get cardActionRemoveWatchLater => 'あとで見るから削除';
+
+  @override
+  String get cardActionShare => '共有';
+
+  @override
+  String get linkCopied => 'リンクをコピーしました';
+
+  @override
+  String get watchLaterAdded => 'あとで見るに追加しました';
+
+  @override
+  String get watchLaterTitle => 'あとで見る';
+
+  @override
+  String get watchLaterEmpty => '一時保存した作品がここに表示されます';
 }

@@ -18,6 +18,15 @@ class IllustUser {
   final String name;
   final String account;
   final String? profileImageUrl;
+
+  /// Serializes back to the API shape so [IllustEntity.fromJson] round-trips
+  /// (watch-later payload, feed snapshots).
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'account': account,
+    'profile_image_urls': {'medium': profileImageUrl},
+  };
 }
 
 /// The three pixiv size tiers that share one aspect ratio. `squareMedium`
@@ -45,6 +54,13 @@ class IllustImageUrls {
   /// [IllustEntity.width]/[IllustEntity.height] then.
   final int? width;
   final int? height;
+
+  Map<String, dynamic> toJson() => {
+    'square_medium': squareMedium,
+    'medium': medium,
+    'large': large,
+    'original': original,
+  };
 }
 
 class IllustTag {
@@ -52,6 +68,11 @@ class IllustTag {
 
   final String name;
   final String? translatedName;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'translated_name': translatedName,
+  };
 }
 
 enum IllustType { illust, manga, ugoira }
@@ -304,6 +325,38 @@ class IllustEntity {
   }
 
   static const _sentinel = Object();
+
+  /// Serializes to the API field shape; [IllustEntity.fromJson] accepts the
+  /// output unchanged. Used for local persistence payloads (watch-later
+  /// records, feed snapshots) — not a network wire format.
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'type': type.name,
+    'image_urls': imageUrls.toJson(),
+    'caption': caption,
+    'user': user.toJson(),
+    'tags': [for (final tag in tags) tag.toJson()],
+    'page_count': pageCount,
+    'width': width,
+    'height': height,
+    'x_restrict': xRestrict,
+    'illust_ai_type': aiType,
+    'is_bookmarked': isBookmarked,
+    'total_view': totalView,
+    'total_bookmarks': totalBookmarks,
+    'meta_pages': [
+      for (final page in metaPages)
+        {
+          'image_urls': page.toJson(),
+          'width': page.width,
+          'height': page.height,
+        },
+    ],
+    'meta_single_page': {'original_image_url': metaSinglePageOriginalUrl},
+    'visible': visible,
+    'create_date': createDate,
+  };
 
   /// Parses one illust object. Unknown/optional fields degrade gracefully;
   /// structural violations (missing id/title/user/urls) throw

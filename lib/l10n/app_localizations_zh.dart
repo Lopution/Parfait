@@ -1468,4 +1468,34 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aboutDisplayRefreshRate => '显示刷新率';
+
+  @override
+  String get cardActionBookmark => '收藏';
+
+  @override
+  String get cardActionUnbookmark => '取消收藏';
+
+  @override
+  String get cardActionDownload => '下载';
+
+  @override
+  String get cardActionWatchLater => '稍后再看';
+
+  @override
+  String get cardActionRemoveWatchLater => '从稍后再看移除';
+
+  @override
+  String get cardActionShare => '分享';
+
+  @override
+  String get linkCopied => '链接已复制';
+
+  @override
+  String get watchLaterAdded => '已加入稍后再看';
+
+  @override
+  String get watchLaterTitle => '稍后再看';
+
+  @override
+  String get watchLaterEmpty => '暂存的作品会显示在这里';
 }
