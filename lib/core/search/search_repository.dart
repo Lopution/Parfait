@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/account_store.dart';
 import '../entity/illust_entity.dart';
 import '../network/api_error.dart';
 import '../network/next_page_parser.dart';
@@ -89,9 +90,14 @@ abstract interface class SearchRepository {
 /// JSON-only Search API adapter. All raw response shapes are normalized here;
 /// result pages only receive typed entities and a validated next URL.
 class _PixivSearchRepository implements SearchRepository {
-  _PixivSearchRepository(this._client);
+  _PixivSearchRepository(this._client, {required this.isPremium});
 
   final PixivHttpClient _client;
+
+  /// Current account's Pixiv Premium flag. Popularity sorts are premium-only
+  /// server-side; for free accounts the repository reroutes them to the
+  /// `popular-preview` endpoints instead of emitting a sort Pixiv ignores.
+  final bool isPremium;
 
   @override
   Future<SearchIllustPage> searchIllust(
@@ -199,7 +205,7 @@ class _PixivSearchRepository implements SearchRepository {
     final spec = _spec(query);
     try {
       final request = cursor == null
-          ? NextPageParser.firstPage(spec.path, query.toQuery())
+          ? NextPageParser.firstPage(spec.path, spec.requestQuery)
           : NextPageParser.parse(cursor);
       if (request == null) {
         throw const NextPageParseError('missing next page request');
@@ -224,18 +230,43 @@ class _PixivSearchRepository implements SearchRepository {
     }
   }
 
-  ({String path, Map<String, String> requiredQuery}) _spec(SearchQuery query) {
+  ({
+    String path,
+    Map<String, String> requestQuery,
+    Map<String, String> requiredQuery,
+  })
+  _spec(SearchQuery query) {
     return switch (query) {
+      IllustSearchQuery(:final filters)
+          when filters.sort == SearchSort.popularDesc && !isPremium =>
+        (
+          path: '/v1/search/popular-preview/illust',
+          requestQuery: filters.toPreviewQuery(word: query.keyword),
+          // The preview endpoint's next_url is not guaranteed to echo our
+          // filter params, so only the keyword is pinned — the cursor itself
+          // carries the rest of the paging state.
+          requiredQuery: {'word': query.keyword.trim()},
+        ),
       IllustSearchQuery() => (
         path: '/v1/search/illust',
+        requestQuery: query.toQuery(),
         requiredQuery: query.toQuery(),
       ),
+      NovelSearchQuery(:final filters)
+          when filters.sort == SearchSort.popularDesc && !isPremium =>
+        (
+          path: '/v1/search/popular-preview/novel',
+          requestQuery: filters.toPreviewQuery(word: query.keyword),
+          requiredQuery: {'word': query.keyword.trim()},
+        ),
       NovelSearchQuery() => (
         path: '/v1/search/novel',
+        requestQuery: query.toQuery(),
         requiredQuery: query.toQuery(),
       ),
       UserSearchQuery() => (
         path: '/v1/search/user',
+        requestQuery: query.toQuery(),
         requiredQuery: query.toQuery(),
       ),
     };
@@ -355,5 +386,14 @@ class _PixivSearchRepository implements SearchRepository {
 }
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return _PixivSearchRepository(ref.watch(pixivHttpClientProvider));
+  return _PixivSearchRepository(
+    ref.watch(pixivHttpClientProvider),
+    isPremium:
+        ref.watch(
+          accountStoreProvider.select(
+            (async) => async.value?.current?.isPremium,
+          ),
+        ) ??
+        false,
+  );
 });

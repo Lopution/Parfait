@@ -260,6 +260,26 @@ void main() {
       timeout: const Timeout(Duration(minutes: 2)),
     );
 
+    test('is_premium on the token response user reaches the profile', () async {
+      await tolerant(() async {
+        service.beginSession();
+        final result = await service.exchangeCode('code-free');
+        // A missing flag defaults to free — never assume premium.
+        expect(result.profile.isPremium, isFalse);
+      });
+
+      (responseJson! as Map<String, dynamic>)['user'] = {
+        'id': '100',
+        'name': 'tester',
+        'is_premium': true,
+      };
+      await tolerant(() async {
+        service.beginSession();
+        final result = await service.exchangeCode('code-premium');
+        expect(result.profile.isPremium, isTrue);
+      });
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
     test('exchange without a live session fails', () async {
       await expectLater(
         service.exchangeCode('code'),

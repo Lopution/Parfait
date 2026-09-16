@@ -30,7 +30,13 @@ class _SearchFeedController extends PagedFeedController {
 
   @override
   Future<PagedFeedState> build() {
-    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    // Account identity and its premium flag both decide the search route
+    // (premium-only sorts reroute to popular-preview for free accounts).
+    ref.watch(
+      accountStoreProvider.select(
+        (async) => (async.value?.current?.id, async.value?.current?.isPremium),
+      ),
+    );
     return super.build();
   }
 

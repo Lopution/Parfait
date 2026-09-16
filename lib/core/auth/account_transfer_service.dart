@@ -193,6 +193,7 @@ class PixivTransferCredentialVerifier implements TransferCredentialVerifier {
         userId: user.id,
         name: user.name,
         profileImageUrl: user.profileImageUrl,
+        isPremium: user.isPremium ?? false,
       ),
       credential: credential,
     );

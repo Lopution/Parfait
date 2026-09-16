@@ -488,6 +488,8 @@
   "searchWithinMonth": "Within a month",
   "searchStartDate": "Start date",
   "searchEndDate": "End date",
+  "searchInvalidDateRange": "Start date cannot be after end date",
+  "searchPopularPreviewHint": "Without Pixiv Premium, popular sort uses preview results",
   "searchNoSuggestions": "No suggestions",
   "searchUserAccount": "Account",
   "illustDetailTitle": "Artwork",

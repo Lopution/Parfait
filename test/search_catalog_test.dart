@@ -107,8 +107,9 @@ class _FakeSearchRepository implements SearchRepository {
 }
 
 Future<ProviderContainer> _apiContainer(
-  Future<http.Response> Function(http.Request) handler,
-) async {
+  Future<http.Response> Function(http.Request) handler, {
+  bool accountIsPremium = false,
+}) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = FakeCredentialStore(
     values: const {
@@ -124,7 +125,14 @@ Future<ProviderContainer> _apiContainer(
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
-          accounts: const [Account(id: 'account', userId: 8, name: 'tester')],
+          accounts: [
+            Account(
+              id: 'account',
+              userId: 8,
+              name: 'tester',
+              isPremium: accountIsPremium,
+            ),
+          ],
           currentId: 'account',
         ),
       ),
@@ -164,7 +172,6 @@ void main() {
     final filters = SearchFilters(
       target: SearchTarget.titleAndCaption,
       sort: SearchSort.popularDesc,
-      duration: SearchDuration.week,
       startDate: DateTime(2026, 8, 1),
       endDate: DateTime(2026, 8, 27),
     );
@@ -173,7 +180,6 @@ void main() {
       'word': 'cat',
       'search_target': 'title_and_caption',
       'sort': 'popular_desc',
-      'duration': 'within_last_week',
       'start_date': '2026-08-01',
       'end_date': '2026-08-27',
       'filter': 'for_android',
@@ -187,6 +193,60 @@ void main() {
           .toQuery(word: 'cat'),
       throwsFormatException,
     );
+  });
+
+  test('partial-match tag target serializes explicitly', () {
+    // search_target defaults to partial_match_for_tags server-side; every
+    // comparable client sends it explicitly rather than relying on the
+    // undocumented default.
+    final query = const IllustSearchQuery(keyword: 'cat').toQuery();
+    expect(query['search_target'], 'partial_match_for_tags');
+    expect(query['sort'], 'date_desc');
+  });
+
+  test('duration presets resolve into absolute start/end dates', () {
+    String fmt(DateTime value) =>
+        '${value.year.toString().padLeft(4, '0')}-'
+        '${value.month.toString().padLeft(2, '0')}-'
+        '${value.day.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    for (final (duration, days) in [
+      (SearchDuration.day, 1),
+      (SearchDuration.week, 7),
+      (SearchDuration.month, 30),
+    ]) {
+      final query = SearchFilters(duration: duration).toQuery(word: 'cat');
+      // `within_last_*` is never sent — Pixiv's honoring of it on the app
+      // API is unreliable, so every comparable client resolves presets
+      // client-side.
+      expect(query.containsKey('duration'), isFalse);
+      expect(query['start_date'], fmt(today.subtract(Duration(days: days))));
+      expect(query['end_date'], fmt(today));
+    }
+  });
+
+  test('a duration preset wins over stale custom dates', () {
+    final query = SearchFilters(
+      duration: SearchDuration.day,
+      startDate: DateTime(2020, 1, 1),
+      endDate: DateTime(2020, 1, 2),
+    ).toQuery(word: 'cat');
+    // Mutually exclusive on the wire: the preset's resolved range replaces
+    // the custom bounds instead of sending a contradictory mix.
+    expect(query['start_date'], isNot('2020-01-01'));
+    expect(query['end_date'], isNot('2020-01-02'));
+    expect(query.containsKey('duration'), isFalse);
+  });
+
+  test('preview query drops the sort the preview endpoint rejects', () {
+    final query = const SearchFilters(
+      sort: SearchSort.popularDesc,
+    ).toPreviewQuery(word: 'cat');
+    expect(query.containsKey('sort'), isFalse);
+    expect(query['word'], 'cat');
+    expect(query['filter'], 'for_android');
   });
 
   test('search cache keys include the active filter set', () {
@@ -310,6 +370,77 @@ void main() {
         ),
         isTrue,
       );
+    },
+  );
+
+  test(
+    'non-premium popular sort reroutes to the popular-preview endpoint',
+    () async {
+      final container = await _apiContainer((request) async {
+        expect(request.url.path, '/v1/search/popular-preview/illust');
+        // The preview endpoint orders by popularity implicitly — sending a
+        // sort parameter is rejected.
+        expect(request.url.queryParameters.containsKey('sort'), isFalse);
+        expect(request.url.queryParameters['word'], 'cat');
+        return _json({
+          'illusts': [illustJson(61)],
+          'next_url': null,
+        });
+      });
+      addTearDown(container.dispose);
+
+      final page = await container
+          .read(searchRepositoryProvider)
+          .searchIllust(
+            const IllustSearchQuery(
+              keyword: 'cat',
+              filters: SearchFilters(sort: SearchSort.popularDesc),
+            ),
+          );
+      expect(page.illusts.single.id, 61);
+    },
+  );
+
+  test('premium popular sort stays on the full search endpoint', () async {
+    final container = await _apiContainer((request) async {
+      expect(request.url.path, '/v1/search/illust');
+      expect(request.url.queryParameters['sort'], 'popular_desc');
+      return _json({
+        'illusts': [illustJson(62)],
+        'next_url': null,
+      });
+    }, accountIsPremium: true);
+    addTearDown(container.dispose);
+
+    final page = await container
+        .read(searchRepositoryProvider)
+        .searchIllust(
+          const IllustSearchQuery(
+            keyword: 'cat',
+            filters: SearchFilters(sort: SearchSort.popularDesc),
+          ),
+        );
+    expect(page.illusts.single.id, 62);
+  });
+
+  test(
+    'non-premium popular novel search uses the novel preview endpoint',
+    () async {
+      final container = await _apiContainer((request) async {
+        expect(request.url.path, '/v1/search/popular-preview/novel');
+        expect(request.url.queryParameters.containsKey('sort'), isFalse);
+        return _json({'novels': <Object?>[], 'next_url': null});
+      });
+      addTearDown(container.dispose);
+
+      await container
+          .read(searchRepositoryProvider)
+          .searchNovel(
+            const NovelSearchQuery(
+              keyword: 'cat',
+              filters: SearchFilters(sort: SearchSort.popularDesc),
+            ),
+          );
     },
   );
 

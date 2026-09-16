@@ -18,6 +18,7 @@ class Account {
     required this.name,
     this.mailAddress,
     this.profileImageUrl,
+    this.isPremium = false,
     this.authState = AccountAuthState.authenticated,
   });
 
@@ -27,6 +28,11 @@ class Account {
   final String name;
   final String? mailAddress;
   final String? profileImageUrl;
+
+  /// Pixiv Premium flag from the OAuth `user.is_premium` field. Imported or
+  /// pre-migration accounts default to false until their next login or token
+  /// refresh repopulates it.
+  final bool isPremium;
   final AccountAuthState authState;
 
   Account copyWith({
@@ -35,6 +41,7 @@ class Account {
     String? name,
     String? mailAddress,
     String? profileImageUrl,
+    bool? isPremium,
     AccountAuthState? authState,
   }) {
     return Account(
@@ -43,6 +50,7 @@ class Account {
       name: name ?? this.name,
       mailAddress: mailAddress ?? this.mailAddress,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      isPremium: isPremium ?? this.isPremium,
       authState: authState ?? this.authState,
     );
   }
@@ -54,6 +62,7 @@ class Account {
       name: json['name'] as String,
       mailAddress: json['mailAddress'] as String?,
       profileImageUrl: json['profileImageUrl'] as String?,
+      isPremium: json['isPremium'] == true,
       authState: json['authState'] == 'reauthRequired'
           ? AccountAuthState.reauthRequired
           : AccountAuthState.authenticated,
@@ -67,6 +76,7 @@ class Account {
       'name': name,
       if (mailAddress != null) 'mailAddress': mailAddress,
       if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+      if (isPremium) 'isPremium': true,
       'authState': authState == AccountAuthState.reauthRequired
           ? 'reauthRequired'
           : 'authenticated',
@@ -82,8 +92,9 @@ class Account {
           other.name == name &&
           other.mailAddress == mailAddress &&
           other.profileImageUrl == profileImageUrl &&
+          other.isPremium == isPremium &&
           other.authState == authState;
 
   @override
-  int get hashCode => Object.hash(id, userId, name, authState);
+  int get hashCode => Object.hash(id, userId, name, isPremium, authState);
 }
