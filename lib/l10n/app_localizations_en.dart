@@ -401,9 +401,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historyDeleteHint => 'Deleted history cannot be recovered.';
 
   @override
-  String get blockTagSettings => 'Blocked tags';
-
-  @override
   String get downloaderSettings => 'Download tasks';
 
   @override
@@ -551,6 +548,54 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get blockAI => 'Locally block AI works';
+
+  @override
+  String get hideMuted => 'Hide muted works';
+
+  @override
+  String get hideMutedHint =>
+      'When off, muted works appear as blurred cards; tap once to peek';
+
+  @override
+  String get mutedContent => 'Muted';
+
+  @override
+  String get mutedItemsSettings => 'Muted items';
+
+  @override
+  String get mutedTagsSection => 'Muted tags';
+
+  @override
+  String get mutedUsersSection => 'Muted users';
+
+  @override
+  String get mutedWorksSection => 'Muted works';
+
+  @override
+  String get mutedEmpty => 'Nothing muted yet';
+
+  @override
+  String get muteTagInputHint => 'Tag to mute';
+
+  @override
+  String get muteWork => 'Mute this work';
+
+  @override
+  String get unmuteWork => 'Unmute this work';
+
+  @override
+  String get muteAuthor => 'Mute author';
+
+  @override
+  String get unmuteAuthor => 'Unmute author';
+
+  @override
+  String get unmuteTag => 'Unmute';
+
+  @override
+  String muteFailed(Object error) {
+    return 'Mute operation failed: $error';
+  }
 
   @override
   String get reduceMotion => 'Reduce motion';
@@ -725,12 +770,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get historySettingsHint =>
       'The history module reads these switches; disabled histories do not receive new records.';
-
-  @override
-  String get blockTagInputHint => 'Enter a tag to add it';
-
-  @override
-  String get noBlockedTags => 'No blocked tags';
 
   @override
   String get downloaderSettingsHint =>

@@ -384,9 +384,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historyDeleteHint => '删除后将不可恢复';
 
   @override
-  String get blockTagSettings => '屏蔽标签';
-
-  @override
   String get downloaderSettings => '下载任务';
 
   @override
@@ -529,6 +526,53 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get blockAI => '本地屏蔽 AI 作品';
+
+  @override
+  String get hideMuted => '直接隐藏被屏蔽的作品';
+
+  @override
+  String get hideMutedHint => '关闭后,被屏蔽的作品以模糊卡片显示,点按可临时查看';
+
+  @override
+  String get mutedContent => '已屏蔽';
+
+  @override
+  String get mutedItemsSettings => '屏蔽管理';
+
+  @override
+  String get mutedTagsSection => '屏蔽标签';
+
+  @override
+  String get mutedUsersSection => '屏蔽用户';
+
+  @override
+  String get mutedWorksSection => '屏蔽作品';
+
+  @override
+  String get mutedEmpty => '暂无屏蔽条目';
+
+  @override
+  String get muteTagInputHint => '输入要屏蔽的标签';
+
+  @override
+  String get muteWork => '屏蔽此作品';
+
+  @override
+  String get unmuteWork => '取消屏蔽此作品';
+
+  @override
+  String get muteAuthor => '屏蔽作者';
+
+  @override
+  String get unmuteAuthor => '取消屏蔽作者';
+
+  @override
+  String get unmuteTag => '取消屏蔽';
+
+  @override
+  String muteFailed(Object error) {
+    return '屏蔽操作失败:$error';
+  }
 
   @override
   String get reduceMotion => '减少动态效果';
@@ -695,12 +739,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get historySettingsHint => '历史记录开关由历史模块读取；关闭后不会新增对应记录。';
-
-  @override
-  String get blockTagInputHint => '输入标签后添加';
-
-  @override
-  String get noBlockedTags => '暂无屏蔽标签';
 
   @override
   String get downloaderSettingsHint => '下载任务由共享 DownloadManager 实时维护。';

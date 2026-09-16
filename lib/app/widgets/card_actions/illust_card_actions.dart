@@ -7,6 +7,8 @@ import '../../../core/bookmark/bookmark_models.dart';
 import '../../../core/bookmark/bookmark_store.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/illust/illust_download_controller.dart';
+import '../../../core/mute/mute_models.dart';
+import '../../../core/mute/mute_store.dart';
 import '../../../core/watchlater/watch_later_store.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
@@ -21,6 +23,8 @@ final illustCardActionsProvider = Provider<List<CardAction>>((ref) {
     _BookmarkAction(),
     _DownloadAction(),
     _WatchLaterAction(),
+    _MuteWorkAction(),
+    _MuteUserAction(),
     _ShareAction(),
   ];
 });
@@ -140,6 +144,84 @@ class _WatchLaterAction extends CardAction {
         ),
       ),
     );
+  }
+}
+
+/// Single-work mute stays local (no official endpoint); failures from the
+/// server-backed user/tag edits roll back in the store and surface here.
+class _MuteWorkAction extends CardAction {
+  const _MuteWorkAction();
+
+  @override
+  String get id => 'mute-work';
+
+  bool _muted(WidgetRef ref, IllustEntity entity) =>
+      ref.watch(muteStoreProvider.select((s) => s.isWorkMuted(entity.id)));
+
+  @override
+  IconData iconFor(WidgetRef ref, IllustEntity entity) => _muted(ref, entity)
+      ? Icons.visibility_off
+      : Icons.visibility_off_outlined;
+
+  @override
+  String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
+      _muted(ref, entity) ? l10n.unmuteWork : l10n.muteWork;
+
+  @override
+  Future<void> run(
+    BuildContext context,
+    WidgetRef ref,
+    IllustEntity entity,
+  ) async {
+    try {
+      await ref.read(muteStoreProvider.notifier).toggleWork(entity.id);
+    } catch (error) {
+      if (context.mounted) {
+        showAppSnackBar(context, context.l10n.muteFailed('$error'));
+      }
+    }
+  }
+}
+
+class _MuteUserAction extends CardAction {
+  const _MuteUserAction();
+
+  @override
+  String get id => 'mute-user';
+
+  bool _muted(WidgetRef ref, IllustEntity entity) =>
+      ref.watch(muteStoreProvider.select((s) => s.isUserMuted(entity.user.id)));
+
+  @override
+  IconData iconFor(WidgetRef ref, IllustEntity entity) =>
+      _muted(ref, entity) ? Icons.person_off : Icons.person_off_outlined;
+
+  @override
+  String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
+      _muted(ref, entity) ? l10n.unmuteAuthor : l10n.muteAuthor;
+
+  @override
+  Future<void> run(
+    BuildContext context,
+    WidgetRef ref,
+    IllustEntity entity,
+  ) async {
+    try {
+      await ref
+          .read(muteStoreProvider.notifier)
+          .toggleUser(
+            MutedUser(
+              userId: entity.user.id,
+              name: entity.user.name,
+              account: entity.user.account,
+              profileImageUrl: entity.user.profileImageUrl,
+            ),
+          );
+    } catch (error) {
+      if (context.mounted) {
+        showAppSnackBar(context, context.l10n.muteFailed('$error'));
+      }
+    }
   }
 }
 

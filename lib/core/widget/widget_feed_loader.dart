@@ -13,9 +13,11 @@ import '../entity/illust_entity.dart';
 import '../network/api_error.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_providers.dart';
+import '../mute/mute_models.dart';
+import '../mute/mute_predicate.dart';
+import '../mute/mute_store.dart';
 import '../network/pixiv_http_client.dart';
 import '../settings/local_block_filter.dart';
-import '../settings/blocked_tags.dart';
 import '../settings/settings_controller.dart';
 import '../../core/illust/recommended_repository.dart';
 import 'widget_snapshot.dart';
@@ -88,7 +90,7 @@ class WidgetFeedLoader {
     required FutureOr<WidgetSnapshotStore> Function() storeFactory,
     this.blockR18 = false,
     this.blockAI = false,
-    this.blockedTags = const {},
+    this.muteState = const MuteState(),
     DateTime Function() now = _defaultNow,
   }) : _apiClient = apiClient,
        _imageClient = imageClient,
@@ -107,7 +109,10 @@ class WidgetFeedLoader {
   /// C9 widget filtering: the same pure predicate as discovery feeds.
   final bool blockR18;
   final bool blockAI;
-  final Set<String> blockedTags;
+
+  /// Widget tiles have no reveal affordance, so muted works are always
+  /// hidden here regardless of the app's hide/blur display mode.
+  final MuteState muteState;
 
   Future<WidgetFeedResult> load() async {
     final AccountState state;
@@ -256,12 +261,8 @@ class WidgetFeedLoader {
         .where(
           (illust) =>
               !illust.isR18 &&
-              !isLocallyBlocked(
-                illust,
-                blockR18: blockR18,
-                blockAI: blockAI,
-                blockedTags: blockedTags,
-              ),
+              !isLocallyBlocked(illust, blockR18: blockR18, blockAI: blockAI) &&
+              muteHitFor(illust, muteState) == null,
         )
         .take(widgetSnapshotMaxItems)
         .toList(growable: false);
@@ -350,7 +351,6 @@ class WidgetFeedLoader {
 final widgetFeedLoaderProvider = Provider<WidgetFeedLoader>((ref) {
   final network = ref.watch(pixivNetworkFactoryProvider);
   final settings = ref.watch(settingsProvider).value;
-  final blockedTags = ref.watch(blockedTagsProvider);
   return WidgetFeedLoader(
     apiClient: ref.watch(pixivHttpClientProvider),
     imageClient: network.client(PixivDestinationPurpose.image),
@@ -359,6 +359,6 @@ final widgetFeedLoaderProvider = Provider<WidgetFeedLoader>((ref) {
     storeFactory: WidgetSnapshotStore.standard,
     blockR18: settings?.enableLocalBlockR18 ?? false,
     blockAI: settings?.enableLocalBlockAI ?? false,
-    blockedTags: blockedTags,
+    muteState: ref.watch(muteStoreProvider),
   );
 });

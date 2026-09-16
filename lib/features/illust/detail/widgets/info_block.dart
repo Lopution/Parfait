@@ -1,12 +1,15 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
+import '../../../../app/widgets/app_snack_bar.dart';
 import '../../../../app/widgets/author_summary.dart';
 import '../../../../app/widgets/tag_chips.dart';
 import '../../../../core/entity/illust_entity.dart';
-import '../../../../core/settings/blocked_tags.dart';
+import '../../../../core/mute/mute_store.dart';
 import '../../../../l10n/context.dart';
 import 'caption_rich_text.dart';
 
@@ -26,8 +29,10 @@ class InfoBlock extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = FuncSemanticTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
-    final blockedTags = ref.watch(blockedTagsProvider);
-    final blockedController = ref.read(blockedTagsProvider.notifier);
+    // Tag chips now block through the MuteStore: tag mutes sync with the
+    // official /v1/mute list instead of the legacy local-only pref.
+    final mutedTags = ref.watch(muteStoreProvider.select((s) => s.tags));
+    final muteStore = ref.read(muteStoreProvider.notifier);
     final createDate = DateTime.tryParse(entity.createDate ?? '');
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -105,10 +110,18 @@ class InfoBlock extends ConsumerWidget {
                   label: tag.name,
                   translated: tag.translatedName,
                   blockMode: blockMode,
-                  blocked: blockedTags.contains(tag.name),
+                  blocked: mutedTags.contains(tag.name),
                   onTap: () {
                     if (blockMode) {
-                      blockedController.toggle(tag.name);
+                      unawaited(
+                        muteStore.toggleTag(tag.name).catchError((
+                          Object error,
+                        ) {
+                          if (context.mounted) {
+                            showAppSnackBar(context, '$error');
+                          }
+                        }),
+                      );
                     } else {
                       openTagSearch(context, tag.name);
                     }

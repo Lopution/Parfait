@@ -56,6 +56,19 @@ class _RankingFixture {
   bool blockResponses = false;
 
   http.Client client() => MockClient((request) async {
+    // Feed builds hydrate MuteStore; the mute list is housekeeping, not a
+    // ranking request, so it stays out of `requests`.
+    if (request.url.path.endsWith('/v1/mute/list')) {
+      return http.Response(
+        jsonEncode({
+          'muted_tags': <dynamic>[],
+          'muted_users': <dynamic>[],
+          'mute_limit_count': 500,
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
     requests.add(request.url);
     if (blockResponses) await release.future;
     final mode = request.url.queryParameters['mode']!;

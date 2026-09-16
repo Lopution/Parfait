@@ -12,8 +12,10 @@ import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
 import '../network/api_error.dart';
 import '../network/pixiv_http_client.dart';
+import '../mute/mute_models.dart';
+import '../mute/mute_predicate.dart';
+import '../mute/mute_store.dart';
 import '../settings/app_settings.dart';
-import '../settings/blocked_tags.dart';
 import '../settings/local_block_filter.dart';
 import '../settings/settings_controller.dart';
 import 'feed_request_context.dart';
@@ -133,14 +135,16 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     final store = ref.read(illustStoreProvider);
     final settings = ref.read(settingsProvider).value;
     if (settings == null) return ids;
-    final blockedTags = ref.read(blockedTagsProvider);
+    // Mute hits are only filtered here when the user chose "hide". In blur
+    // mode the card renders the muted variant instead and the id stays.
+    final muteState = settings.hideMuted ? ref.read(muteStoreProvider) : null;
     return [
       for (final id in ids)
         if (!_isFilteredId(
           id,
           store,
           settings,
-          blockedTags,
+          muteState,
           incomingIllusts: incomingIllusts,
         ))
           id,
@@ -151,17 +155,19 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     int id,
     IllustStore store,
     AppSettings settings,
-    Set<String> blockedTags, {
+    MuteState? muteState, {
     Map<int, IllustEntity>? incomingIllusts,
   }) {
     final entity = incomingIllusts?[id] ?? store.get(id);
     if (entity == null) return false;
-    return isLocallyBlocked(
+    if (isLocallyBlocked(
       entity,
       blockR18: settings.enableLocalBlockR18,
       blockAI: settings.enableLocalBlockAI,
-      blockedTags: blockedTags,
-    );
+    )) {
+      return true;
+    }
+    return muteState != null && muteHitFor(entity, muteState) != null;
   }
 
   /// Minimum visible items after filtering. When a server page leaves fewer
@@ -301,16 +307,19 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     );
     // C9 R1.4: a settings change in the filter section must invalidate
     // discovery feeds so the next visit already reflects the new rules.
-    ref.watch(
+    final (_, _, hideMuted) = ref.watch(
       settingsProvider.select(
         (async) => (
           async.value?.enableLocalBlockR18 ?? false,
           async.value?.enableLocalBlockAI ?? false,
+          async.value?.hideMuted ?? false,
         ),
       ),
     );
-    if (localFilterEnabled) {
-      ref.watch(blockedTagsProvider);
+    // Hide-mode feeds re-filter when the mute set changes; blur-mode feeds
+    // keep the ids and the card watches the store itself.
+    if (localFilterEnabled && hideMuted) {
+      ref.watch(muteStoreProvider);
     }
     // Do not await AccountStore here. Public feeds may be rendered before
     // account hydration completes, while authenticated repositories already
