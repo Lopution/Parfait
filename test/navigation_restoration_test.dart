@@ -63,7 +63,10 @@ class _StaticSearchRepository implements SearchRepository {
   }) async => const [];
 
   @override
-  Future<List<TrendingTag>> trendingTags({CancelToken? cancelToken}) async => [
+  Future<List<TrendingTag>> trendingTags({
+    SearchResultType type = SearchResultType.illust,
+    CancelToken? cancelToken,
+  }) async => [
     for (var index = 0; index < 18; index++)
       TrendingTag(name: 'tag-${index + 1}'),
   ];

@@ -21,6 +21,7 @@ class SearchHomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final trendingType = ref.watch(trendingKindProvider);
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.searchTitle)),
@@ -56,9 +57,32 @@ class SearchHomePage extends ConsumerWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
               sliver: SliverToBoxAdapter(
-                child: Text(
-                  context.l10n.searchTrending,
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        context.l10n.searchTrending,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    SegmentedButton<SearchResultType>(
+                      segments: [
+                        for (final type in const [
+                          SearchResultType.illust,
+                          SearchResultType.novel,
+                        ])
+                          ButtonSegment(
+                            value: type,
+                            label: Text(searchText(context, type.labelKey)),
+                          ),
+                      ],
+                      selected: {trendingType},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (selected) => ref
+                          .read(trendingKindProvider.notifier)
+                          .select(selected.first),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -106,7 +130,7 @@ class SearchHomePage extends ConsumerWidget {
                         ? tags.length - (tags.length % 3)
                         : tags.length,
                     itemBuilder: (context, index) =>
-                        _TrendingTagTile(tag: tags[index]),
+                        _TrendingTagTile(tag: tags[index], type: trendingType),
                   ),
                 );
               },
@@ -146,9 +170,10 @@ class _SearchGuideBox extends StatelessWidget {
 }
 
 class _TrendingTagTile extends StatelessWidget {
-  const _TrendingTagTile({required this.tag});
+  const _TrendingTagTile({required this.tag, required this.type});
 
   final TrendingTag tag;
+  final SearchResultType type;
 
   void _openRepresentative(BuildContext context) {
     final representative = tag.representative;
@@ -166,8 +191,12 @@ class _TrendingTagTile extends StatelessWidget {
     return GestureDetector(
       // Tapping still means "search this tag" — the image is context, not a
       // new primary action. Opening the representative work stays secondary.
-      onTap: () =>
-          openSearchResults(context, IllustSearchQuery(keyword: tag.name)),
+      onTap: () => openSearchResults(
+        context,
+        type == SearchResultType.novel
+            ? NovelSearchQuery(keyword: tag.name)
+            : IllustSearchQuery(keyword: tag.name),
+      ),
       onLongPress: () => _openRepresentative(context),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),

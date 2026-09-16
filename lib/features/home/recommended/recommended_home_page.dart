@@ -3,12 +3,10 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/pixiv_image.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/network/api_error.dart';
-import '../../../core/novel/novel_entity.dart';
 import '../../../core/novel/novel_store.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/user/user_entity.dart';
@@ -17,6 +15,7 @@ import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/widgets/author_summary.dart';
+import '../../../app/widgets/novel_row.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
@@ -320,7 +319,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 8),
         sliver: SliverList.builder(
           itemCount: novels.length,
-          itemBuilder: (context, index) => _NovelRow(entity: novels[index]),
+          itemBuilder: (context, index) => NovelRow(entity: novels[index]),
         ),
       ),
       ...tail,
@@ -347,91 +346,6 @@ class _RecommendedFeedBody extends ConsumerWidget {
       ),
       ...tail,
     ];
-  }
-}
-
-class _NovelRow extends StatelessWidget {
-  const _NovelRow({required this.entity});
-
-  final NovelEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: InkWell(
-        onTap: () => openNovel(context, entity.id),
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _NovelCover(entity: entity),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entity.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      entity.user.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${entity.textLength} ${context.l10n.novelWords}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NovelCover extends StatelessWidget {
-  const _NovelCover({required this.entity});
-
-  final NovelEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = entity.coverImageUrl;
-    if (url == null) {
-      return Container(
-        width: 56,
-        height: 72,
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        child: const Icon(Icons.menu_book_outlined),
-      );
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        width: 56,
-        height: 72,
-        child: PixivImage.feed(
-          url,
-          layoutWidth: 56,
-          fit: BoxFit.cover,
-          placeholderColor: Theme.of(context).colorScheme.surfaceContainer,
-        ),
-      ),
-    );
   }
 }
 

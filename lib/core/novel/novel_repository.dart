@@ -50,8 +50,36 @@ class NovelSeriesPage {
 /// embedded pixiv bootstrap object (the same source every working client
 /// uses), so [fetchDetail] always merges both responses. A missing or
 /// malformed webview payload is an error, never a silent empty body.
+/// `/v1/novel/ranking` modes (PixEz's 9-mode list, same values Shaft uses).
+/// The fixed order is part of the visible contract; API values are explicit
+/// so an enum reorder cannot silently change a request.
+enum NovelRankingMode {
+  day('day', 'rankingDay'),
+  dayMale('day_male', 'rankingDayMale'),
+  dayFemale('day_female', 'rankingDayFemale'),
+  week('week', 'rankingWeek'),
+  weekAi('week_ai', 'rankingWeekAi'),
+  weekAiR18('week_ai_r18', 'rankingWeekAiR18'),
+  dayR18('day_r18', 'rankingDayR18'),
+  weekR18('week_r18', 'rankingWeekR18'),
+  weekR18G('week_r18g', 'rankingWeekR18G');
+
+  const NovelRankingMode(this.apiValue, this.labelKey);
+
+  final String apiValue;
+  final String labelKey;
+}
+
 abstract interface class _NovelRepository {
   Future<NovelEntity> fetchDetail(int novelId, {CancelToken? cancelToken});
+
+  Future<NovelPage> fetchRanking(
+    NovelRankingMode mode, {
+    String? cursor,
+    CancelToken? cancelToken,
+  });
+
+  bool validateRankingCursor(NovelRankingMode mode, {required String cursor});
 
   Future<NovelPage> fetchUserNovels(
     int userId, {
@@ -86,6 +114,7 @@ class _PixivNovelRepository implements _NovelRepository {
   static const _webviewPath = '/webview/v2/novel';
   static const _userNovelsPath = '/v1/user/novels';
   static const _recommendedPath = '/v1/novel/recommended';
+  static const _rankingPath = '/v1/novel/ranking';
   static const _seriesPath = '/v2/novel/series';
 
   @override
@@ -190,6 +219,33 @@ class _PixivNovelRepository implements _NovelRepository {
     return _isValidCursor(
       path: _recommendedPath,
       expected: {'filter': 'for_android'},
+      cursor: cursor,
+    );
+  }
+
+  @override
+  Future<NovelPage> fetchRanking(
+    NovelRankingMode mode, {
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    final request = _pageRequest(
+      path: _rankingPath,
+      expected: {'filter': 'for_android', 'mode': mode.apiValue},
+      cursor: cursor,
+    );
+    final json = await _client.getJson(
+      _target(request),
+      cancelToken: cancelToken,
+    );
+    return _parseNovelPage(json);
+  }
+
+  @override
+  bool validateRankingCursor(NovelRankingMode mode, {required String cursor}) {
+    return _isValidCursor(
+      path: _rankingPath,
+      expected: {'filter': 'for_android', 'mode': mode.apiValue},
       cursor: cursor,
     );
   }

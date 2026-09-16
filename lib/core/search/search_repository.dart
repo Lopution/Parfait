@@ -84,7 +84,10 @@ abstract interface class SearchRepository {
     CancelToken? cancelToken,
   });
 
-  Future<List<TrendingTag>> trendingTags({CancelToken? cancelToken});
+  Future<List<TrendingTag>> trendingTags({
+    SearchResultType type = SearchResultType.illust,
+    CancelToken? cancelToken,
+  });
 }
 
 /// JSON-only Search API adapter. All raw response shapes are normalized here;
@@ -182,10 +185,22 @@ class _PixivSearchRepository implements SearchRepository {
   }
 
   @override
-  Future<List<TrendingTag>> trendingTags({CancelToken? cancelToken}) async {
+  Future<List<TrendingTag>> trendingTags({
+    SearchResultType type = SearchResultType.illust,
+    CancelToken? cancelToken,
+  }) async {
+    final path = switch (type) {
+      SearchResultType.illust => '/v1/trending-tags/illust',
+      SearchResultType.novel => '/v1/trending-tags/novel',
+      SearchResultType.user => throw ArgumentError.value(
+        type,
+        'type',
+        'no trending-tags endpoint',
+      ),
+    };
     final json = await _client.getJson(
       PixivClientIdentity.appApiBase.replace(
-        path: '/v1/trending-tags/illust',
+        path: path,
         queryParameters: {'filter': 'for_android'},
       ),
       cancelToken: cancelToken,

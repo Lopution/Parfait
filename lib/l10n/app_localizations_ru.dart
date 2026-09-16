@@ -948,6 +948,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get rankingWeekRookie => 'Еженедельно (Дебют)';
 
   @override
+  String get rankingWeekAi => 'Еженедельно (AI)';
+
+  @override
+  String get rankingWeekAiR18 => 'Еженедельно (AI и R-18)';
+
+  @override
+  String get rankingWeekR18G => 'Еженедельно (R-18G)';
+
+  @override
   String get rankingMonth => 'Ежемесячно';
 
   @override
@@ -1474,6 +1483,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get novelSeries => 'Серия';
+
+  @override
+  String get novelRanking => 'Рейтинг новелл';
 
   @override
   String get novelSeriesUnavailable => 'Информация о серии недоступна';
