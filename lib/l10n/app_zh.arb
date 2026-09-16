@@ -626,5 +626,15 @@
   "novelDecreaseFont": "减小字号",
   "novelIncreaseFont": "增大字号",
   "novelReadingProgress": "阅读进度",
-  "aboutDisplayRefreshRate": "显示刷新率"
+  "aboutDisplayRefreshRate": "显示刷新率",
+  "cardActionBookmark": "收藏",
+  "cardActionUnbookmark": "取消收藏",
+  "cardActionDownload": "下载",
+  "cardActionWatchLater": "稍后再看",
+  "cardActionRemoveWatchLater": "从稍后再看移除",
+  "cardActionShare": "分享",
+  "linkCopied": "链接已复制",
+  "watchLaterAdded": "已加入稍后再看",
+  "watchLaterTitle": "稍后再看",
+  "watchLaterEmpty": "暂存的作品会显示在这里"
 }

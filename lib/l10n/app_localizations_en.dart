@@ -1515,4 +1515,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutDisplayRefreshRate => 'Display refresh rate';
+
+  @override
+  String get cardActionBookmark => 'Bookmark';
+
+  @override
+  String get cardActionUnbookmark => 'Remove bookmark';
+
+  @override
+  String get cardActionDownload => 'Download';
+
+  @override
+  String get cardActionWatchLater => 'Watch later';
+
+  @override
+  String get cardActionRemoveWatchLater => 'Remove from Watch later';
+
+  @override
+  String get cardActionShare => 'Share';
+
+  @override
+  String get linkCopied => 'Link copied';
+
+  @override
+  String get watchLaterAdded => 'Added to Watch later';
+
+  @override
+  String get watchLaterTitle => 'Watch later';
+
+  @override
+  String get watchLaterEmpty => 'Stashed works appear here';
 }

@@ -1514,4 +1514,34 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get aboutDisplayRefreshRate => 'Частота обновления';
+
+  @override
+  String get cardActionBookmark => 'В закладки';
+
+  @override
+  String get cardActionUnbookmark => 'Убрать из закладок';
+
+  @override
+  String get cardActionDownload => 'Скачать';
+
+  @override
+  String get cardActionWatchLater => 'Посмотреть позже';
+
+  @override
+  String get cardActionRemoveWatchLater => 'Убрать из «Посмотреть позже»';
+
+  @override
+  String get cardActionShare => 'Поделиться';
+
+  @override
+  String get linkCopied => 'Ссылка скопирована';
+
+  @override
+  String get watchLaterAdded => 'Добавлено в «Посмотреть позже»';
+
+  @override
+  String get watchLaterTitle => 'Посмотреть позже';
+
+  @override
+  String get watchLaterEmpty => 'Отложенные работы появятся здесь';
 }
