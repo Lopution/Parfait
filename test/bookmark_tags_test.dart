@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,8 +12,12 @@ import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_repository.dart';
+import 'package:pixiv_func/core/bookmark/bookmark_tags_controller.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/user/user_repository.dart';
+import 'package:pixiv_func/features/bookmark/bookmark_tags_page.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -251,4 +256,165 @@ void main() {
       throwsA(isA<ApiError>()),
     );
   });
+
+  test('fetchBookmarks carries the tag parameter onto the wire', () async {
+    final (container, requests) = await _makeWorld({
+      'GET /v1/user/bookmarks/illust': {
+        'illusts': <dynamic>[],
+        'next_url': null,
+      },
+    });
+    final repository = container.read(userRepositoryProvider);
+
+    await repository.fetchBookmarks(
+      100,
+      restrict: UserRestrict.private,
+      tag: 'procreate',
+    );
+
+    final query = requests.single.uri.queryParameters;
+    expect(requests.single.uri.path, '/v1/user/bookmarks/illust');
+    expect(query['tag'], 'procreate');
+    expect(query['restrict'], 'private');
+  });
+
+  test('validateBookmarksCursor pins the tag alongside restrict', () async {
+    final (container, _) = await _makeWorld({});
+    final repository = container.read(userRepositoryProvider);
+
+    expect(
+      repository.validateBookmarksCursor(
+        100,
+        restrict: UserRestrict.private,
+        tag: 'procreate',
+        cursor:
+            'https://app-api.pixiv.net/v1/user/bookmarks/illust'
+            '?user_id=100&restrict=private&tag=procreate&offset=30',
+      ),
+      isTrue,
+    );
+    expect(
+      repository.validateBookmarksCursor(
+        100,
+        restrict: UserRestrict.private,
+        tag: 'procreate',
+        cursor:
+            'https://app-api.pixiv.net/v1/user/bookmarks/illust'
+            '?user_id=100&restrict=private&tag=other&offset=30',
+      ),
+      isFalse,
+      reason: 'a cursor from a different tag must not resume this feed',
+    );
+    expect(
+      repository.validateBookmarksCursor(
+        100,
+        restrict: UserRestrict.private,
+        cursor:
+            'https://app-api.pixiv.net/v1/user/bookmarks/illust'
+            '?user_id=100&restrict=private&offset=30',
+      ),
+      isTrue,
+      reason: 'untagged feeds keep accepting untagged cursors',
+    );
+  });
+
+  test('userBookmarkTagsProvider pages via next_url', () async {
+    final (container, requests) = await _makeWorld({
+      'GET /v1/user/bookmark-tags/illust': <String, dynamic>{
+        'bookmark_tags': [
+          {'name': 'a', 'count': 1},
+        ],
+        'next_url':
+            'https://app-api.pixiv.net/v1/user/bookmark-tags/illust'
+            '?user_id=100&restrict=public&offset=30',
+      },
+    });
+    const query = (BookmarkEntityType.illust, BookmarkRestrict.public);
+
+    final first = await container.read(userBookmarkTagsProvider(query).future);
+    expect(first.tags.single.name, 'a');
+    expect(first.hasMore, isTrue);
+
+    // Second call serves the cursor URL — the mock keys on method+path, so a
+    // paged response arrives through the same route.
+    await container.read(userBookmarkTagsProvider(query).notifier).loadMore();
+    final state = container.read(userBookmarkTagsProvider(query)).value!;
+    expect(state.tags, hasLength(2));
+    expect(requests, hasLength(2));
+    expect(requests.last.uri.queryParameters['offset'], '30');
+  });
+
+  testWidgets('BookmarkTagsPage lists tags and switches restrict', (
+    tester,
+  ) async {
+    final repository = _FakeTagRepository();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    final container = ProviderContainer(
+      overrides: [
+        accountStoreProvider.overrideWith(_StubAccountStore.new),
+        bookmarkRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: appLocalizationsDelegates,
+          home: BookmarkTagsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('收藏标签'), findsOneWidget);
+    expect(find.text('procreate'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
+    expect(repository.requests, ['tags:100:public']);
+
+    repository.page = const UserBookmarkTagPage(
+      tags: [UserBookmarkTag(name: 'hidden', count: 2)],
+      nextUrl: null,
+    );
+    await tester.tap(find.text('私密'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('hidden'), findsOneWidget);
+    expect(repository.requests.last, 'tags:100:private');
+  });
+}
+
+class _StubAccountStore extends AccountStore {
+  @override
+  Future<AccountState> build() async => const AccountState(
+    status: AccountStatus.ready,
+    accounts: [Account(id: '100', userId: 100, name: 'a')],
+    currentId: '100',
+  );
+}
+
+class _FakeTagRepository implements BookmarkRepository {
+  final requests = <String>[];
+  UserBookmarkTagPage page = const UserBookmarkTagPage(
+    tags: [UserBookmarkTag(name: 'procreate', count: 5)],
+    nextUrl: null,
+  );
+
+  @override
+  Future<UserBookmarkTagPage> fetchUserTags(
+    int userId, {
+    required BookmarkEntityType entityType,
+    required BookmarkRestrict restrict,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    requests.add('tags:$userId:${restrict.name}');
+    return page;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName}');
 }

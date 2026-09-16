@@ -58,6 +58,7 @@ abstract interface class UserRepository {
   Future<UserIllustPage> fetchBookmarks(
     int userId, {
     required UserRestrict restrict,
+    String? tag,
     String? cursor,
     CancelToken? cancelToken,
   });
@@ -71,6 +72,7 @@ abstract interface class UserRepository {
   bool validateBookmarksCursor(
     int userId, {
     required UserRestrict restrict,
+    String? tag,
     required String cursor,
   });
 
@@ -171,11 +173,16 @@ class _PixivUserRepository implements UserRepository {
   Future<UserIllustPage> fetchBookmarks(
     int userId, {
     required UserRestrict restrict,
+    String? tag,
     String? cursor,
     CancelToken? cancelToken,
   }) async {
     final path = '/v1/user/bookmarks/illust';
-    final query = {'user_id': '$userId', 'restrict': restrict.wireValue};
+    final query = {
+      'user_id': '$userId',
+      'restrict': restrict.wireValue,
+      if (tag != null && tag.isNotEmpty) 'tag': tag,
+    };
     final request = _pageRequest(path: path, query: query, cursor: cursor);
     final json = await _client.getJson(
       _target(request),
@@ -206,11 +213,16 @@ class _PixivUserRepository implements UserRepository {
   bool validateBookmarksCursor(
     int userId, {
     required UserRestrict restrict,
+    String? tag,
     required String cursor,
   }) {
     return _validCursor(
       path: '/v1/user/bookmarks/illust',
-      query: {'user_id': '$userId', 'restrict': restrict.wireValue},
+      query: {
+        'user_id': '$userId',
+        'restrict': restrict.wireValue,
+        if (tag != null && tag.isNotEmpty) 'tag': tag,
+      },
       cursor: cursor,
     );
   }

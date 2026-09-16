@@ -13,6 +13,7 @@ class ProfileFeedKey {
     required this.kind,
     this.workType = UserWorkType.illust,
     this.restrict = UserRestrict.public,
+    this.bookmarkTag,
   });
 
   final int userId;
@@ -20,19 +21,26 @@ class ProfileFeedKey {
   final UserWorkType workType;
   final UserRestrict restrict;
 
+  /// Bookmark tag filter (`/v1/user/bookmarks/illust?tag=`); only meaningful
+  /// for [ProfileFeedKind.bookmarks].
+  final String? bookmarkTag;
+
   @override
   bool operator ==(Object other) =>
       other is ProfileFeedKey &&
       other.userId == userId &&
       other.kind == kind &&
       other.workType == workType &&
-      other.restrict == restrict;
+      other.restrict == restrict &&
+      other.bookmarkTag == bookmarkTag;
 
   @override
-  int get hashCode => Object.hash(userId, kind, workType, restrict);
+  int get hashCode =>
+      Object.hash(userId, kind, workType, restrict, bookmarkTag);
 
   @override
   String toString() =>
       'ProfileFeedKey(user:$userId, kind:${kind.name}, '
-      'type:${workType.name}, restrict:${restrict.name})';
+      'type:${workType.name}, restrict:${restrict.name}, '
+      'tag:$bookmarkTag)';
 }
