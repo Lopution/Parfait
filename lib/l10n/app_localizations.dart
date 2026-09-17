@@ -1539,15 +1539,8 @@ abstract class AppLocalizations {
   /// No description provided for @namingTemplateVariables.
   ///
   /// In zh, this message translates to:
-  /// **'变量：{artist} {title} {id} {page} {ext} {date}；非法字符自动替换为 _，超长自动裁剪。'**
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  );
+  /// **'变量：{variables}；非法字符自动替换为 _，超长自动裁剪。'**
+  String namingTemplateVariables(String variables);
 
   /// No description provided for @notConfigured.
   ///
@@ -1818,6 +1811,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'枚举作品失败：{error}'**
   String downloadAuthorFailed(String error);
+
+  /// No description provided for @downloadCaption.
+  ///
+  /// In zh, this message translates to:
+  /// **'同时导出作品简介'**
+  String get downloadCaption;
+
+  /// No description provided for @downloadCaptionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载插画/漫画时，把标题、作者与简介保存为同名 .txt'**
+  String get downloadCaptionHint;
 
   /// No description provided for @aboutVersion.
   ///

@@ -801,15 +801,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get namingPreview => 'Preview';
 
   @override
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  ) {
-    return 'Variables: $artist $title $id $page $ext $date; illegal characters become _, and long names are trimmed.';
+  String namingTemplateVariables(String variables) {
+    return 'Variables: $variables; illegal characters become _, and long names are trimmed.';
   }
 
   @override
@@ -965,6 +958,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String downloadAuthorFailed(String error) {
     return 'Failed to enumerate works: $error';
   }
+
+  @override
+  String get downloadCaption => 'Export work caption';
+
+  @override
+  String get downloadCaptionHint =>
+      'Save the title, author and caption as a matching .txt next to downloaded illusts and manga';
 
   @override
   String get aboutVersion => 'Version';

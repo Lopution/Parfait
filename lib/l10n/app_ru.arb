@@ -314,25 +314,10 @@
   },
   "namingTemplateInvalid": "Шаблон содержит недопустимые переменные или символы",
   "namingPreview": "Предпросмотр",
-  "namingTemplateVariables": "Переменные: {artist} {title} {id} {page} {ext} {date}; недопустимые символы заменяются на _, длинные имена обрезаются.",
+  "namingTemplateVariables": "Переменные: {variables}; недопустимые символы заменяются на _, длинные имена обрезаются.",
   "@namingTemplateVariables": {
     "placeholders": {
-      "artist": {
-        "type": "String"
-      },
-      "title": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      },
-      "page": {
-        "type": "String"
-      },
-      "ext": {
-        "type": "String"
-      },
-      "date": {
+      "variables": {
         "type": "String"
       }
     }
@@ -430,6 +415,8 @@
       }
     }
   },
+  "downloadCaption": "Экспортировать описание работы",
+  "downloadCaptionHint": "При скачивании иллюстраций и манги сохранять название, автора и описание в одноимённый .txt",
   "aboutVersion": "Версия",
   "aboutCheckUpdate": "Проверить обновления",
   "aboutCheckingUpdate": "Проверка обновлений…",

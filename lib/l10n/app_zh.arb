@@ -314,25 +314,10 @@
   },
   "namingTemplateInvalid": "模板包含不支持的变量或非法字符",
   "namingPreview": "预览",
-  "namingTemplateVariables": "变量：{artist} {title} {id} {page} {ext} {date}；非法字符自动替换为 _，超长自动裁剪。",
+  "namingTemplateVariables": "变量：{variables}；非法字符自动替换为 _，超长自动裁剪。",
   "@namingTemplateVariables": {
     "placeholders": {
-      "artist": {
-        "type": "String"
-      },
-      "title": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      },
-      "page": {
-        "type": "String"
-      },
-      "ext": {
-        "type": "String"
-      },
-      "date": {
+      "variables": {
         "type": "String"
       }
     }
@@ -430,6 +415,8 @@
       }
     }
   },
+  "downloadCaption": "同时导出作品简介",
+  "downloadCaptionHint": "下载插画/漫画时，把标题、作者与简介保存为同名 .txt",
   "aboutVersion": "版本",
   "aboutCheckUpdate": "检查更新",
   "aboutCheckingUpdate": "正在检查更新…",

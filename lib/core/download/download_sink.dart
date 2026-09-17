@@ -81,6 +81,18 @@ abstract interface class ResumableDownloadSinkFactory {
   );
 }
 
+/// Optional factory capability: non-download outputs (caption sidecars)
+/// that materialize straight at the final display name — no `.part`
+/// staging and no resume anchor.
+abstract interface class RawDownloadSinkFactory {
+  Future<DownloadSink> beginRaw({
+    required String displayName,
+    required String mimeType,
+    required DownloadDestination destination,
+    DownloadOutputOwner? owner,
+  });
+}
+
 /// Minimum payload sent for a platform-channel download write.
 const downloadChannelWriteSize = 256 * 1024;
 
@@ -189,6 +201,30 @@ class MediaStoreSinkFactory
       mimeType: request.mimeType,
       relativePath: _relativePathFor(destination),
     );
+    return _MediaStoreSink(handle);
+  }
+
+  /// Caption-sidecar entry point ([RawDownloadSinkFactory] via the routing
+  /// factory): a pending row at the final name with no request context.
+  Future<DownloadSink> beginRaw({
+    required String displayName,
+    required String mimeType,
+    DownloadOutputOwner? owner,
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async {
+    final relativePath = _relativePathFor(destination);
+    final handle = owner != null && _session is OwnedMediaStoreSession
+        ? await (_session as OwnedMediaStoreSession).beginOwned(
+            displayName: displayName,
+            mimeType: mimeType,
+            owner: owner,
+            relativePath: relativePath,
+          )
+        : await _session.begin(
+            displayName: displayName,
+            mimeType: mimeType,
+            relativePath: relativePath,
+          );
     return _MediaStoreSink(handle);
   }
 
@@ -357,8 +393,15 @@ class MemorySink implements DownloadSink {
 
 /// Factory handing out fresh memory sinks; records every sink for assertions.
 class MemorySinkFactory
-    implements DownloadSinkFactory, OwnedDownloadSinkFactory {
+    implements
+        DownloadSinkFactory,
+        OwnedDownloadSinkFactory,
+        RawDownloadSinkFactory {
   final sinks = <MemorySink>[];
+
+  /// Display names handed to [beginRaw], in order — caption tests assert
+  /// the `<stem>.txt` name here.
+  final rawNames = <String>[];
 
   @override
   Future<DownloadSink> begin(
@@ -378,6 +421,19 @@ class MemorySinkFactory
     DownloadOutputOwner owner, {
     DownloadDestination destination = DownloadDestination.builtin,
   }) => begin(request, displayName, destination: destination);
+
+  @override
+  Future<DownloadSink> beginRaw({
+    required String displayName,
+    required String mimeType,
+    required DownloadDestination destination,
+    DownloadOutputOwner? owner,
+  }) async {
+    rawNames.add(displayName);
+    final sink = MemorySink();
+    sinks.add(sink);
+    return sink;
+  }
 }
 
 /// SAF-backed sink writing into a persisted tree URI (D5). When [staged]
@@ -473,7 +529,8 @@ class DestinationAwareSinkFactory
     implements
         DownloadSinkFactory,
         OwnedDownloadSinkFactory,
-        ResumableDownloadSinkFactory {
+        ResumableDownloadSinkFactory,
+        RawDownloadSinkFactory {
   DestinationAwareSinkFactory({
     required MediaStoreSinkFactory mediaStore,
     required SafDocumentSinkFactory saf,
@@ -509,6 +566,32 @@ class DestinationAwareSinkFactory
       request,
       displayName,
       owner,
+      destination: destination,
+    );
+  }
+
+  @override
+  Future<DownloadSink> beginRaw({
+    required String displayName,
+    required String mimeType,
+    required DownloadDestination destination,
+    DownloadOutputOwner? owner,
+  }) async {
+    if (destination.isSafFolder) {
+      // Caption sidecars are single small writes — straight to the final
+      // name, no `.part` staging.
+      final doc = await _saf.create(
+        treeUri: destination.safTreeUri ?? '',
+        displayName: displayName,
+        mimeType: mimeType,
+        owner: owner,
+      );
+      return SafDownloadSink(doc, owner: owner);
+    }
+    return _mediaStore.beginRaw(
+      displayName: displayName,
+      mimeType: mimeType,
+      owner: owner,
       destination: destination,
     );
   }

@@ -801,15 +801,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get namingPreview => 'Предпросмотр';
 
   @override
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  ) {
-    return 'Переменные: $artist $title $id $page $ext $date; недопустимые символы заменяются на _, длинные имена обрезаются.';
+  String namingTemplateVariables(String variables) {
+    return 'Переменные: $variables; недопустимые символы заменяются на _, длинные имена обрезаются.';
   }
 
   @override
@@ -963,6 +956,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String downloadAuthorFailed(String error) {
     return 'Не удалось перечислить работы: $error';
   }
+
+  @override
+  String get downloadCaption => 'Экспортировать описание работы';
+
+  @override
+  String get downloadCaptionHint =>
+      'При скачивании иллюстраций и манги сохранять название, автора и описание в одноимённый .txt';
 
   @override
   String get aboutVersion => 'Версия';

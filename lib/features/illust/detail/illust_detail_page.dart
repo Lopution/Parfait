@@ -156,13 +156,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         if (_downloadMode && entity != null)
           IconButton(
             tooltip: context.l10n.downloadAll,
-            onPressed: () {
+            onPressed: () async {
               try {
-                download.downloadAll(entity);
+                await download.downloadAll(entity);
               } catch (error) {
                 // Any submission failure must be visible on device: the
                 // manager/ownership/channel errors that are not
                 // FormatException otherwise vanish with no UI feedback.
+                if (!context.mounted) return;
                 showAppSnackBar(
                   context,
                   context.l10n.downloadSubmissionFailed(error.toString()),

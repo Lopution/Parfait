@@ -81,19 +81,21 @@ class _AuthorWorksDownloadDialogState
     Navigator.of(context).pop();
   }
 
-  void _confirm() {
+  Future<void> _confirm() async {
     final works = _result!.works;
     // Submission failure (ownership, validation, channel) must stay visible —
     // it surfaces as the dialog's failure state instead of a silent pop.
     try {
-      final group = ref
+      final group = await ref
           .read(illustDownloadCoordinatorProvider)
           .downloadAuthorWorks(
             works: works,
             namingRule: ref.read(namingRuleProvider),
           );
+      if (!mounted) return;
       Navigator.of(context).pop(group.childCount);
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         _error = error;
         _phase = _Phase.failed;

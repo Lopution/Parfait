@@ -133,6 +133,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setNamingRule(NamingRule rule) =>
       _update((settings) => settings.copyWith(namingRule: rule));
 
+  Future<void> setDownloadCaption(bool enabled) =>
+      _update((settings) => settings.copyWith(downloadCaption: enabled));
+
   /// Whole-object replace used by backup import. Per-field validation
   /// already happened in [AppSettings.fromJson]; the write goes through
   /// the same serialized persistence path as every other change.
@@ -217,6 +220,13 @@ final downloadDestinationProvider = Provider<DownloadDestination>((ref) {
       (async) =>
           async.value?.downloadDestination ?? DownloadDestination.builtin,
     ),
+  );
+});
+
+/// Caption sidecar export toggle (implement.md step 5).
+final downloadCaptionProvider = Provider<bool>((ref) {
+  return ref.watch(
+    settingsProvider.select((async) => async.value?.downloadCaption ?? false),
   );
 });
 

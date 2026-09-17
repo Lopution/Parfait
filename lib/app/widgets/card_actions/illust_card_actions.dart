@@ -85,7 +85,7 @@ class _DownloadAction extends CardAction {
     IllustEntity entity,
   ) async {
     try {
-      ref.read(illustDownloadControllerProvider).downloadAll(entity);
+      await ref.read(illustDownloadControllerProvider).downloadAll(entity);
       if (context.mounted) {
         showAppSnackBar(context, context.l10n.downloadQueuedMessage);
       }
