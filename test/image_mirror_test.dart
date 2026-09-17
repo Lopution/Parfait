@@ -82,13 +82,18 @@ void main() {
         'https://host.com/?q=1',
         'https://host.com/#frag',
         'https://host..com/',
+        // The destination registry only trusts DNS names on 443 — IP
+        // literals and non-443 ports must be rejected at validation time
+        // rather than failing every image request at the allowlist.
+        'https://192.168.1.5/pximg',
+        'https://proxy.example.com:8443/',
       ]) {
         expect(ImageMirror.normalizeCustomSource(bad), isNull, reason: bad);
       }
     });
 
-    test('canonical form is idempotent and keeps port/path', () {
-      const canonical = 'https://192.168.1.5:8443/pximg';
+    test('canonical form is idempotent and keeps path', () {
+      const canonical = 'https://proxy.example.com/pximg';
       expect(ImageMirror.normalizeCustomSource(canonical), canonical);
     });
   });

@@ -2,13 +2,15 @@
 ///
 /// Semantics follow Shaft `ImageHostManager` (issue #865): presets mirror
 /// both the `i.` and `s.` pximg subdomains; a custom source is a full URL
-/// prefix (`https://host[:port][/path]`) that replaces the pximg origin
-/// wholesale while preserving the original path tail and query.
+/// prefix (`https://host[/path]`) that replaces the pximg origin wholesale
+/// while preserving the original path tail and query.
 ///
 /// The resolver is pure data: [of] parses the persisted `imageSource`
 /// string and [rewrite] maps one URL. Wiring (registry allowlist, image
 /// client) lives in the network layer.
 library;
+
+import 'dart:io' show InternetAddress;
 
 /// Image source exposed by settings. [custom] carries no fixed host — the
 /// actual prefix is the persisted `imageSource` string itself (normalized
@@ -95,9 +97,14 @@ class ImageMirror {
         uri.hasFragment) {
       return null;
     }
+    // The destination registry only trusts https DNS names on 443 — IP
+    // literals and explicit ports would pass this normalization but be
+    // rejected at request time, so they are invalid here too.
+    if (uri.hasPort && uri.port != 443) return null;
     final host = uri.host.toLowerCase();
     if (host.endsWith('.') ||
         host.contains('..') ||
+        InternetAddress.tryParse(host) != null ||
         host.codeUnits.any((c) => c > 0x7f)) {
       return null;
     }
@@ -105,12 +112,7 @@ class ImageMirror {
     while (path.endsWith('/')) {
       path = path.substring(0, path.length - 1);
     }
-    return Uri(
-      scheme: 'https',
-      host: host,
-      port: uri.hasPort ? uri.port : null,
-      path: path,
-    ).toString();
+    return Uri(scheme: 'https', host: host, path: path).toString();
   }
 
   /// Hosts the image-purpose allowlist must accept for this selection,

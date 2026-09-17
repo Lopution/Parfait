@@ -271,6 +271,18 @@ final dohEndpointsProvider = Provider<List<String>>((ref) {
       .toList(growable: false);
 });
 
+/// Effective image-source mirror resolved from the persisted
+/// `imageSource` (preset or canonical custom prefix). Consumers rebuild
+/// on selection change because the select yields a String.
+final imageMirrorProvider = Provider<ImageMirror>((ref) {
+  final source = ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.imageSource ?? AppSettings.normalImageSource,
+    ),
+  );
+  return ImageMirror.of(source);
+});
+
 /// ECH front host (HTTPS RR query target for ECH config).
 final echFrontHostProvider = Provider<String>((ref) {
   return ref.watch(
