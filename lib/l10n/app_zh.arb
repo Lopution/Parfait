@@ -677,5 +677,36 @@
   "bookmarkTagNewHint": "输入新标签，回车添加",
   "bookmarkTagSuggestions": "常用标签",
   "bookmarkTagsEmpty": "还没有收藏标签",
-  "bookmarkTagsLoadFailed": "收藏标签加载失败"
+  "bookmarkTagsLoadFailed": "收藏标签加载失败",
+  "seriesTitle": "系列",
+  "seriesLoadFailed": "系列加载失败",
+  "seriesLoadMoreFailed": "加载更多失败",
+  "seriesEmpty": "该系列暂无作品",
+  "seriesWorksCount": "共 {count} 个作品",
+  "@seriesWorksCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesEpisode": "第 {order} 话",
+  "@seriesEpisode": {
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesPrevious": "上一话",
+  "seriesNext": "下一话",
+  "profileSeries": "系列",
+  "spotlightTitle": "特辑",
+  "spotlightArticleLoadFailed": "文章加载失败",
+  "spotlightCategoryAll": "全部",
+  "spotlightCategoryIllust": "插画",
+  "spotlightCategoryManga": "漫画",
+  "spotlightLoadFailed": "特辑加载失败",
+  "spotlightLoadMoreFailed": "特辑加载更多失败",
+  "spotlightEmpty": "暂无特辑"
 }

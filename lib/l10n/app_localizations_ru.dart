@@ -1670,4 +1670,59 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => 'Не удалось загрузить теги закладок';
+
+  @override
+  String get seriesTitle => 'Серия';
+
+  @override
+  String get seriesLoadFailed => 'Не удалось загрузить серию';
+
+  @override
+  String get seriesLoadMoreFailed => 'Не удалось загрузить ещё';
+
+  @override
+  String get seriesEmpty => 'В этой серии пока нет работ';
+
+  @override
+  String seriesWorksCount(int count) {
+    return '$count работ';
+  }
+
+  @override
+  String seriesEpisode(int order) {
+    return 'Часть $order';
+  }
+
+  @override
+  String get seriesPrevious => 'Предыдущая';
+
+  @override
+  String get seriesNext => 'Следующая';
+
+  @override
+  String get profileSeries => 'Серии';
+
+  @override
+  String get spotlightTitle => 'Спотлайт';
+
+  @override
+  String get spotlightArticleLoadFailed => 'Не удалось загрузить статью';
+
+  @override
+  String get spotlightCategoryAll => 'Все';
+
+  @override
+  String get spotlightCategoryIllust => 'Иллюстрации';
+
+  @override
+  String get spotlightCategoryManga => 'Манга';
+
+  @override
+  String get spotlightLoadFailed => 'Не удалось загрузить спотлайт';
+
+  @override
+  String get spotlightLoadMoreFailed => 'Не удалось загрузить ещё статьи';
+
+  @override
+  String get spotlightEmpty => 'Нет статей спотлайта';
 }

@@ -55,6 +55,19 @@ class SearchHomePage extends ConsumerWidget {
               ),
             ),
             SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => openSpotlight(context),
+                    icon: const Icon(Icons.newspaper_outlined),
+                    label: Text(context.l10n.spotlightTitle),
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
               sliver: SliverToBoxAdapter(
                 child: Row(

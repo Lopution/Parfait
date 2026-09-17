@@ -44,6 +44,9 @@ import '../../features/search/reverse_image_search_page.dart';
 import '../../features/search/search_page.dart';
 import '../../features/search/search_result_page.dart';
 import '../../features/search/tag_search_page.dart';
+import '../../features/series/illust_series_page.dart';
+import '../../features/spotlight/spotlight_article_page.dart';
+import '../../features/spotlight/spotlight_feed_page.dart';
 import '../../features/settings/network_probe_page.dart';
 import '../../features/settings/network_settings_page.dart';
 import '../../features/settings/settings_page.dart';
@@ -427,6 +430,32 @@ List<RouteBase> _commonBranchRoutes(
         state,
         branchObserver,
         UserPage(userId: _pathId(state, 'userId')),
+      ),
+    ),
+    GoRoute(
+      path: 'series/:seriesId',
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        IllustSeriesPage(seriesId: _pathId(state, 'seriesId')),
+      ),
+    ),
+    GoRoute(
+      path: 'spotlight',
+      pageBuilder: (context, state) =>
+          _page(context, state, branchObserver, const SpotlightFeedPage()),
+    ),
+    GoRoute(
+      path: 'spotlight/article/:articleId',
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        SpotlightArticlePage(
+          articleId: _pathId(state, 'articleId'),
+          articleUrl: state.uri.queryParameters['url'],
+        ),
       ),
     ),
     GoRoute(
@@ -1080,6 +1109,26 @@ Future<void> openIllust(
 
 Future<void> openUser(BuildContext context, int userId) async {
   await _push(context, '${_currentStackRoot(context)}/user/$userId');
+}
+
+Future<void> openIllustSeries(BuildContext context, int seriesId) async {
+  await _push(context, '${_currentStackRoot(context)}/series/$seriesId');
+}
+
+Future<void> openSpotlight(BuildContext context) async {
+  await _push(context, '${_currentStackRoot(context)}/spotlight');
+}
+
+Future<void> openSpotlightArticle(
+  BuildContext context, {
+  required int articleId,
+  String? articleUrl,
+}) async {
+  final location = Uri(
+    path: '${_currentStackRoot(context)}/spotlight/article/$articleId',
+    queryParameters: {'url': ?articleUrl},
+  ).toString();
+  await _push(context, location);
 }
 
 Future<void> openMe(BuildContext context) async {

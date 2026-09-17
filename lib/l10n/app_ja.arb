@@ -677,5 +677,36 @@
   "bookmarkTagNewHint": "タグを入力して確定",
   "bookmarkTagSuggestions": "よく使うタグ",
   "bookmarkTagsEmpty": "ブックマークタグはまだありません",
-  "bookmarkTagsLoadFailed": "ブックマークタグを読み込めませんでした"
+  "bookmarkTagsLoadFailed": "ブックマークタグを読み込めませんでした",
+  "seriesTitle": "シリーズ",
+  "seriesLoadFailed": "シリーズの読み込みに失敗しました",
+  "seriesLoadMoreFailed": "追加読み込みに失敗しました",
+  "seriesEmpty": "このシリーズにはまだ作品がありません",
+  "seriesWorksCount": "全 {count} 作品",
+  "@seriesWorksCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesEpisode": "第 {order} 話",
+  "@seriesEpisode": {
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesPrevious": "前の作品",
+  "seriesNext": "次の作品",
+  "profileSeries": "シリーズ",
+  "spotlightTitle": "スポットライト",
+  "spotlightArticleLoadFailed": "記事の読み込みに失敗しました",
+  "spotlightCategoryAll": "すべて",
+  "spotlightCategoryIllust": "イラスト",
+  "spotlightCategoryManga": "マンガ",
+  "spotlightLoadFailed": "スポットライトの読み込みに失敗しました",
+  "spotlightLoadMoreFailed": "続きの読み込みに失敗しました",
+  "spotlightEmpty": "スポットライト記事がありません"
 }
