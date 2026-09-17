@@ -203,6 +203,19 @@ Symptoms to recognize: `TimeoutException after 0:00:30` from an unrelated-feelin
 **Required pattern**: for non-ASCII mock bodies use
 `http.Response.bytes(utf8.encode(body), status, headers: {'content-type': 'text/html; charset=utf-8'})`.
 
+### `material_ui` shadows Flutter's material widgets in tests
+
+**Problem**: the app's pages import `package:material_ui/material_ui.dart`, whose `SwitchListTile`, `SnackBar`, `ScaffoldMessenger`, `ListTile` are its own classes, not `flutter/material.dart`'s. A test importing `flutter/material.dart` then finds nothing with `find.byType(SnackBar)` / `find.widgetWithText(SwitchListTile, …)`, and — worse — `showAppSnackBar` resolves `material_ui`'s `ScaffoldMessenger.maybeOf`, which a plain Flutter `MaterialApp` does not provide, so the snackbar is silently dropped and the failure looks like the write path never ran (seen 2026-09-16 in `server_display_settings_test.dart`).
+
+**Required pattern**: widget tests pump `material_ui`'s `MaterialApp` and assert on the app's wrapper types (`SettingsControl`) or `material_ui`'s `SnackBar`/`SwitchListTile`; import `package:material_ui/material_ui.dart` instead of `flutter/material.dart` in test files that touch snackbars or switch tiles.
+
+### A failing `AsyncNotifierProvider.build` never settles `.future`
+
+**Problem**: Riverpod 3 retries a failed `build()` with infinite backoff, so `container.read(provider.future)` stays pending through every retry cycle and only completes at `container.dispose` ("disposed during loading state", seen 2026-09-16 in `server_display_settings_test.dart` for a no-account `ApiUnauthorized`).
+
+**Required pattern**: assert the error *state* instead of awaiting `.future` —
+`container.listen(provider, (prev, next) { if (next case AsyncError(:final error)) … })` — or poll `container.read(provider)` until it leaves `AsyncLoading`. This is also why an intentionally erroring provider must not be created inside `tester.pumpAndSettle()` windows without a listener: the retry timers keep scheduling work.
+
 ---
 
 ## Code Review Checklist
