@@ -118,6 +118,7 @@ class DownloadManager {
     DownloadRequest request, {
     String? groupId,
     DownloadSubmissionContext? context,
+    ResumeAnchor? resumeAnchor,
   }) {
     _checkUsable();
     validateDownloadUrl(request.url, target: request.target);
@@ -168,6 +169,9 @@ class DownloadManager {
       submission: snapshot,
       owner: owner,
     );
+    // The anchor must be attached before _schedule() runs the job: _run
+    // reads it synchronously before its first await (D8).
+    job.resumeAnchor = resumeAnchor;
     _jobs[key] = job;
     _notifyChange();
     _persist(job);
@@ -204,9 +208,44 @@ class DownloadManager {
     return _groupSnapshot(_groups[resolvedGroupId]!);
   }
 
+  /// Pauses a queued or running task and preserves its written bytes when the
+  /// sink supports resume (D8). A paused task lands in
+  /// [DownloadStatus.retryable] — never `canceled` — and the next [retry]
+  /// attempt may append via `Range`. Pause is distinct from [cancel], which
+  /// still aborts and deletes partial output.
+  Future<void> pause(String taskId) async {
+    final job = _findById(taskId);
+    if (job == null || isTerminal(job.snapshot.status)) return;
+    switch (job.snapshot.status) {
+      case DownloadStatus.queued:
+        _transition(job, DownloadStatus.retryable);
+        _update(
+          job,
+          job.snapshot.copyWith(
+            error: 'download paused',
+            failureKind: DownloadFailureKind.paused,
+          ),
+        );
+      case DownloadStatus.running:
+        job.pauseRequested = true;
+        job.cancelToken.cancel();
+      case DownloadStatus.canceling:
+      case DownloadStatus.finalizing:
+      // Unwinding/finalizing already has a committed outcome; a pause at
+      // this point is a no-op rather than a second lifecycle.
+      case DownloadStatus.retryable:
+      case DownloadStatus.succeeded:
+      case DownloadStatus.failed:
+      case DownloadStatus.canceled:
+      case DownloadStatus.orphaned:
+        return;
+    }
+  }
+
   /// Cancels a queued/retryable task immediately or asks a running transfer
   /// to unwind. Once finalization has started, cancellation cannot make an
   /// already-visible output disappear; the finalization result wins.
+  /// Cancellation deletes preserved partial output — it is not a pause.
   Future<void> cancel(String taskId) async {
     final job = _findById(taskId);
     if (job == null || isTerminal(job.snapshot.status)) return;
@@ -242,11 +281,12 @@ class DownloadManager {
             job.snapshot.status != DownloadStatus.retryable)) {
       return null;
     }
+    final anchor = job.resumeAnchor;
     _jobs.remove(job.key);
     _persistRemove(job.id);
     final oldJobId = job.id;
     final groupId = job.snapshot.groupId;
-    final retried = submit(job.request, groupId: groupId);
+    final retried = submit(job.request, groupId: groupId, resumeAnchor: anchor);
     final group = groupId == null ? null : _groups[groupId];
     if (group != null) {
       final index = group.jobIds.indexOf(oldJobId);
@@ -257,6 +297,38 @@ class DownloadManager {
       }
     }
     return retried;
+  }
+
+  /// Pauses every non-terminal child of a group (D8). Each child follows
+  /// the same [pause] semantics: resumable outputs keep their anchor and
+  /// land in `retryable`, never `canceled`.
+  Future<void> pauseGroup(String groupId) async {
+    final group = _groups[groupId];
+    if (group == null) return;
+    for (final id in List.of(group.jobIds)) {
+      await pause(id);
+    }
+  }
+
+  /// Retries every failed/canceled/retryable child of a group. Running and
+  /// succeeded children are left alone — [retry] rejects them already.
+  void resumeGroup(String groupId) {
+    final group = _groups[groupId];
+    if (group == null) return;
+    // retry() replaces the child id inside group.jobIds — iterate a copy.
+    for (final id in List.of(group.jobIds)) {
+      retry(id);
+    }
+  }
+
+  /// Cancels every non-terminal child of a group. Cancellation still
+  /// deletes preserved partial output — it is not a pause.
+  Future<void> cancelGroup(String groupId) async {
+    final group = _groups[groupId];
+    if (group == null) return;
+    for (final id in List.of(group.jobIds)) {
+      await cancel(id);
+    }
   }
 
   /// Scans durable metadata after process start. Only a complete record whose
@@ -329,7 +401,11 @@ class DownloadManager {
       final pendingId = record.pendingMediaStoreId ?? scannedPending?.id;
       if (pendingId != null) matchedPending.add(pendingId);
       var cleanupOk = true;
-      if (pendingId != null && record.status != DownloadStatus.succeeded) {
+      // A record carrying a resume anchor keeps its pending row on purpose:
+      // the row IS the resume payload (D8), not interrupted output to clean.
+      if (pendingId != null &&
+          record.status != DownloadStatus.succeeded &&
+          record.resumeAnchor == null) {
         cleanupOk = await _cleanupPendingOutput(pendingId, record.owner);
         if (!cleanupOk) {
           cleanupFailed.add(record.jobId);
@@ -550,9 +626,17 @@ class DownloadManager {
         // Closing a drained/canceled transport must not mask its task result.
       }
     };
+    var resumeOffset = 0;
     try {
       _checkOwner(job);
-      sink = await _beginSink(job);
+      final anchor = job.resumeAnchor;
+      if (anchor != null) {
+        sink = await _resumeSink(job, anchor);
+        if (sink != null) {
+          resumeOffset = anchor.storedBytes;
+        }
+      }
+      sink ??= await _beginSink(job);
       if (job.cancelToken.isCancelled) {
         throw const DownloadCancelledException();
       }
@@ -562,14 +646,37 @@ class DownloadManager {
         _persist(job);
       }
       _checkOwner(job);
-      final openedResponse = await _transport.open(
-        job.request.url,
-        headers: PixivHeaders.image(userAgent: true),
-        cancelToken: job.cancelToken,
-      );
+      var openedResponse = await _open(job, resumeOffset);
       response = openedResponse;
       if (job.cancelToken.isCancelled) {
         throw const DownloadCancelledException();
+      }
+      if (resumeOffset > 0 &&
+          (openedResponse.statusCode == 200 ||
+              openedResponse.statusCode == 416)) {
+        // The server ignored or rejected the Range request: appending its
+        // full body would corrupt the preserved bytes, so the stale output
+        // is discarded and the transfer restarts clean (D8).
+        await closeResponse();
+        await _discardSink(sink);
+        sink = null;
+        resumeOffset = 0;
+        job.resumeAnchor = null;
+        _persist(job);
+        sink = await _beginSink(job);
+        if (job.cancelToken.isCancelled) {
+          throw const DownloadCancelledException();
+        }
+        if (sink is DownloadSinkOutputMetadata) {
+          job.pendingOutputId =
+              (sink as DownloadSinkOutputMetadata).pendingOutputId;
+          _persist(job);
+        }
+        openedResponse = await _open(job, 0);
+        response = openedResponse;
+        if (job.cancelToken.isCancelled) {
+          throw const DownloadCancelledException();
+        }
       }
       if (openedResponse.statusCode < 200 || openedResponse.statusCode >= 300) {
         throw DownloadHttpStatusException(
@@ -578,7 +685,13 @@ class DownloadManager {
           retryAfter: _retryAfter(openedResponse),
         );
       }
-      await _streamAndFinalize(job, sink, openedResponse, closeResponse);
+      await _streamAndFinalize(
+        job,
+        sink,
+        openedResponse,
+        closeResponse,
+        resumeOffset: resumeOffset,
+      );
     } on DownloadCancelledException {
       await _handleCancellation(job, sink, closeResponse);
     } on _DownloadOwnershipException catch (error) {
@@ -595,18 +708,22 @@ class DownloadManager {
     _Job job,
     DownloadSink sink,
     DownloadResponse response,
-    Future<void> Function() closeResponse,
-  ) async {
+    Future<void> Function() closeResponse, {
+    int resumeOffset = 0,
+  }) async {
     _checkOwner(job);
+    final contentLength = response.contentLength;
     _update(
       job,
       job.snapshot.copyWith(
-        totalBytes: response.contentLength,
-        receivedBytes: 0,
+        // A 206 body carries only the remaining bytes; the task's total and
+        // received counts stay measured against the whole file (D8).
+        totalBytes: contentLength == null ? null : resumeOffset + contentLength,
+        receivedBytes: resumeOffset,
       ),
     );
 
-    var received = 0;
+    var received = resumeOffset;
     var lastEmit = _now();
     await for (final chunk in response.stream) {
       if (job.cancelToken.isCancelled) {
@@ -633,6 +750,7 @@ class DownloadManager {
     // MediaStore row. Report the one durable result rather than lying about
     // cleanup.
     job.pendingOutputId = null;
+    job.resumeAnchor = null;
     _transition(job, DownloadStatus.succeeded);
     _update(
       job,
@@ -651,13 +769,24 @@ class DownloadManager {
     DownloadSink? sink,
     Future<void> Function() closeResponse,
   ) async {
-    await _abortOnce(job, sink);
+    await _finishOutput(job, sink, preserve: job.pauseRequested);
     await closeResponse();
-    if (job.ownerInvalidated) {
-      _completeCancellation(job, orphaned: true);
+    if (job.pauseRequested && !job.ownerInvalidated) {
+      _finishPause(job);
     } else {
-      _completeCancellation(job);
+      _completeCancellation(job, orphaned: job.ownerInvalidated);
     }
+  }
+
+  void _finishPause(_Job job) {
+    _transition(job, DownloadStatus.retryable);
+    _update(
+      job,
+      job.snapshot.copyWith(
+        error: 'download paused',
+        failureKind: DownloadFailureKind.paused,
+      ),
+    );
   }
 
   void _completeCancellation(_Job job, {bool orphaned = false}) {
@@ -690,7 +819,7 @@ class DownloadManager {
     Future<void> Function() closeResponse,
     _DownloadOwnershipException error,
   ) async {
-    await _abortOnce(job, sink);
+    await _finishOutput(job, sink, preserve: false);
     await closeResponse();
     _transition(job, DownloadStatus.orphaned);
     _update(
@@ -709,17 +838,31 @@ class DownloadManager {
     Future<void> Function() closeResponse,
     Object error,
   ) async {
-    await _abortOnce(job, sink);
-    await closeResponse();
+    final failureKind = _classifyDownloadFailure(error);
     // Some transports surface socket teardown as a generic transport
     // error instead of DownloadCancelledException. Once cancellation has
     // been requested before finalization, the user/owner boundary still
     // wins over that secondary teardown error.
-    if (job.cancelToken.isCancelled &&
-        job.snapshot.status != DownloadStatus.finalizing) {
-      _completeCancellation(job, orphaned: job.ownerInvalidated);
+    final cancelled =
+        job.cancelToken.isCancelled &&
+        job.snapshot.status != DownloadStatus.finalizing;
+    // Network failures preserve bytes for a byte-level resume (D8); every
+    // other failure class keeps the abort-and-delete semantics.
+    await _finishOutput(
+      job,
+      sink,
+      preserve: cancelled
+          ? job.pauseRequested
+          : failureKind == DownloadFailureKind.network,
+    );
+    await closeResponse();
+    if (cancelled) {
+      if (job.pauseRequested && !job.ownerInvalidated) {
+        _finishPause(job);
+      } else {
+        _completeCancellation(job, orphaned: job.ownerInvalidated);
+      }
     } else {
-      final failureKind = _classifyDownloadFailure(error);
       _transition(job, DownloadStatus.failed);
       _update(
         job,
@@ -747,6 +890,52 @@ class DownloadManager {
       job.request,
       job.displayName,
       destination: job.submission.destination,
+    );
+  }
+
+  /// Reopens a preserved partial output for appending (D8). Returns null —
+  /// meaning the caller must begin fresh — when the factory cannot resume,
+  /// the platform output vanished, or the platform byte count disagrees
+  /// with the durable record (the anchor is stale and gets discarded).
+  Future<DownloadSink?> _resumeSink(_Job job, ResumeAnchor anchor) async {
+    final factory = _sinkFactory;
+    if (factory is! ResumableDownloadSinkFactory) {
+      job.resumeAnchor = null;
+      return null;
+    }
+    DownloadSink? sink;
+    try {
+      sink = await (factory as ResumableDownloadSinkFactory).resumeOwned(
+        anchor,
+        job.owner,
+      );
+    } on Object catch (error) {
+      _lastRecoveryError = error;
+      job.resumeAnchor = null;
+      return null;
+    }
+    if (sink is! ResumableDownloadSink ||
+        sink.storedBytes != anchor.storedBytes) {
+      // The preserved byte count cannot be proven against the durable
+      // record — appending would corrupt the output. Discard the anchor
+      // and fall through to a fresh begin; this is a graceful downgrade,
+      // not an error path.
+      await _discardSink(sink);
+      job.resumeAnchor = null;
+      return null;
+    }
+    return sink;
+  }
+
+  Future<DownloadResponse> _open(_Job job, int resumeOffset) {
+    final headers = PixivHeaders.image(userAgent: true);
+    if (resumeOffset > 0) {
+      headers['Range'] = 'bytes=$resumeOffset-';
+    }
+    return _transport.open(
+      job.request.url,
+      headers: headers,
+      cancelToken: job.cancelToken,
     );
   }
 
@@ -786,6 +975,7 @@ class DownloadManager {
       error: job.snapshot.error,
       failureKind: job.snapshot.failureKind,
       retryAfter: job.snapshot.retryAfter,
+      resumeAnchor: job.resumeAnchor,
     );
   }
 
@@ -811,6 +1001,7 @@ class DownloadManager {
       finalUri: record.finalUri == null ? null : Uri.tryParse(record.finalUri!),
       submission: record.snapshot,
       outputOwner: record.owner,
+      resumeAnchor: record.resumeAnchor,
     );
     final job = _Job(
       id: record.jobId,
@@ -822,6 +1013,7 @@ class DownloadManager {
       snapshot: snapshot,
     );
     job.pendingOutputId = record.pendingMediaStoreId;
+    job.resumeAnchor = record.resumeAnchor;
     return job;
   }
 
@@ -848,6 +1040,7 @@ class DownloadManager {
             to == DownloadStatus.finalizing ||
             to == DownloadStatus.failed ||
             to == DownloadStatus.canceled ||
+            to == DownloadStatus.retryable ||
             to == DownloadStatus.orphaned,
       DownloadStatus.canceling =>
         to == DownloadStatus.canceled ||
@@ -870,7 +1063,9 @@ class DownloadManager {
   }
 
   void _update(_Job job, DownloadTaskSnapshot snapshot) {
-    job.applySnapshot(snapshot);
+    // The mutable job field is the source of truth for the resume anchor;
+    // every snapshot mirrors it so the UI cannot observe a stale token.
+    job.applySnapshot(snapshot.copyWith(resumeAnchor: job.resumeAnchor));
     _notifyChange();
     _persist(job);
   }
@@ -888,9 +1083,33 @@ class DownloadManager {
     if (!_events.isClosed) _events.add(event);
   }
 
-  Future<void> _abortOnce(_Job job, DownloadSink? sink) async {
+  /// Ends the sink once: preserves written bytes as a [ResumeAnchor] when
+  /// [preserve] is set and the sink supports detach (D8), otherwise aborts
+  /// and deletes exactly like the legacy path.
+  Future<void> _finishOutput(
+    _Job job,
+    DownloadSink? sink, {
+    required bool preserve,
+  }) async {
     if (job.cleanupStarted) return;
     job.cleanupStarted = true;
+    if (preserve && sink is ResumableDownloadSink) {
+      try {
+        final anchor = await sink.detach();
+        if (anchor != null) {
+          job.resumeAnchor = anchor;
+          _persist(job);
+          return;
+        }
+      } catch (_) {
+        // Detach failure must not mask the original task result; fall
+        // through to abort so half-written output is not kept blindly.
+      }
+    }
+    await _discardSink(sink);
+  }
+
+  Future<void> _discardSink(DownloadSink? sink) async {
     if (sink == null) return;
     try {
       await sink.abort();
@@ -938,14 +1157,33 @@ class DownloadManager {
   }
 
   DownloadGroupSnapshot _groupSnapshot(_DownloadGroup group) {
-    final childStatuses = [
-      for (final id in group.jobIds) _findById(id)?.snapshot.status,
-    ].whereType<DownloadStatus>().toList(growable: false);
+    final children = [
+      for (final id in group.jobIds) _findById(id)?.snapshot,
+    ].whereType<DownloadTaskSnapshot>().toList(growable: false);
+    final childStatuses = [for (final child in children) child.status];
+    var receivedBytes = 0;
+    var totalBytes = 0;
+    var totalsKnown = children.isNotEmpty;
+    var succeededCount = 0;
+    for (final child in children) {
+      receivedBytes += child.receivedBytes;
+      final total = child.totalBytes;
+      if (total == null) {
+        totalsKnown = false;
+      } else {
+        totalBytes += total;
+      }
+      if (child.status == DownloadStatus.succeeded) succeededCount++;
+    }
     return DownloadGroupSnapshot(
       id: group.id,
       jobIds: List.unmodifiable(group.jobIds),
       submission: group.submission,
       status: _aggregateGroupStatus(childStatuses),
+      childCount: children.length,
+      succeededCount: succeededCount,
+      receivedBytes: receivedBytes,
+      totalBytes: totalsKnown ? totalBytes : null,
     );
   }
 
@@ -1006,6 +1244,10 @@ class DownloadManager {
         _transition(job, DownloadStatus.canceled);
         _complete(job, DownloadEvent.canceled(job.snapshot));
       } else if (!isTerminal(job.snapshot.status)) {
+        // Disposal prefers preserving resumable bytes: if the transport
+        // unwinds cooperatively before teardown, the detach path persists a
+        // resume anchor for the next process (D8).
+        job.pauseRequested = true;
         job.cancelToken.cancel();
       }
     }
@@ -1060,6 +1302,14 @@ class _Job {
   var cleanupStarted = false;
   int? pendingOutputId;
   var ownerInvalidated = false;
+
+  /// Durable token for preserved partial output (D8); mirrored into every
+  /// snapshot via [_update] so the UI sees the same value the record has.
+  ResumeAnchor? resumeAnchor;
+
+  /// A pause was requested; the next cancellation unwind preserves bytes
+  /// and lands in `retryable` instead of `canceled`.
+  var pauseRequested = false;
 
   void applySnapshot(DownloadTaskSnapshot value) {
     snapshot = value;

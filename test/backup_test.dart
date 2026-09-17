@@ -113,6 +113,7 @@ class _FakeSinkFactory implements SafDocumentSinkFactory {
     required String displayName,
     required String mimeType,
     Object? owner,
+    bool staged = false,
   }) async {
     lastTreeUri = treeUri;
     lastDisplayName = displayName;

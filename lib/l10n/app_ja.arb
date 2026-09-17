@@ -314,25 +314,10 @@
   },
   "namingTemplateInvalid": "未対応の変数または不正な文字を含みます",
   "namingPreview": "プレビュー",
-  "namingTemplateVariables": "変数：{artist} {title} {id} {page} {ext} {date}。不正な文字は _ に置換され、長い名前は切り詰められます。",
+  "namingTemplateVariables": "変数：{variables}。不正な文字は _ に置換され、長い名前は切り詰められます。",
   "@namingTemplateVariables": {
     "placeholders": {
-      "artist": {
-        "type": "String"
-      },
-      "title": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      },
-      "page": {
-        "type": "String"
-      },
-      "ext": {
-        "type": "String"
-      },
-      "date": {
+      "variables": {
         "type": "String"
       }
     }
@@ -370,6 +355,68 @@
   "downloadCanceled": "キャンセル済み",
   "retryDownload": "再試行",
   "cancelDownload": "キャンセル",
+  "downloadPaused": "一時停止",
+  "pauseDownload": "一時停止",
+  "resumeDownload": "再開",
+  "downloadGroupTitle": "一括ダウンロード · {count}件",
+  "@downloadGroupTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadGroupProgress": "{done}/{count} 完了",
+  "@downloadGroupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorWorks": "すべての作品をダウンロード",
+  "downloadAuthorWorksTitle": "作者の全作品をダウンロード",
+  "downloadAuthorEnumerating": "作品を列挙中…{count} 件",
+  "@downloadAuthorEnumerating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorConfirmBody": "この作者の {works} 件の作品（全 {pages} ページ）をダウンロードします。",
+  "@downloadAuthorConfirmBody": {
+    "placeholders": {
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorTruncated": "作品数が多いため、先頭 {max} 件のみダウンロードします。",
+  "@downloadAuthorTruncated": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorEmpty": "この作者にはダウンロード可能な作品がありません。",
+  "downloadAuthorFailed": "作品の列挙に失敗しました：{error}",
+  "@downloadAuthorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadCaption": "作品のキャプションを書き出す",
+  "downloadCaptionHint": "イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します",
   "aboutVersion": "バージョン",
   "aboutCheckUpdate": "更新を確認",
   "aboutCheckingUpdate": "更新を確認中…",

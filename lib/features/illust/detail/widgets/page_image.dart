@@ -229,9 +229,10 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                         hasActiveTask
                     ? IllustPageSaveState.downloading
                     : state,
-                onTap: () {
+                onTap: () async {
                   try {
-                    download.download(entity, widget.index);
+                    await download.download(entity, widget.index);
+                    if (!context.mounted) return;
                     // Immediate visual feedback: the spinner shows before
                     // the coordinator/task notification round trip.
                     setState(() => _optimisticDownloading = true);
@@ -243,6 +244,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                     // Any submission failure must be visible on device: the
                     // manager/ownership/channel errors that are not
                     // FormatException otherwise vanish with no UI feedback.
+                    if (!context.mounted) return;
                     showAppSnackBar(
                       context,
                       context.l10n.downloadSubmissionFailed(error.toString()),

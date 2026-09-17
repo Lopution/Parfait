@@ -125,6 +125,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.onShare,
     this.onEditProfile,
     this.onOpenBookmarkTags,
+    this.onDownloadAll,
     this.expandedExtent = 320,
     this.topInset = 0,
   });
@@ -140,6 +141,9 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   /// Own-profile bookmarks tab only: opens the bookmark-tag collection.
   final VoidCallback? onOpenBookmarkTags;
+
+  /// Works tab only: bulk-downloads every illust/manga work of the author.
+  final VoidCallback? onDownloadAll;
   final double expandedExtent;
   final double topInset;
 
@@ -248,6 +252,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                               onShare: onShare,
                               onEditProfile: onEditProfile,
                               onOpenBookmarkTags: onOpenBookmarkTags,
+                              onDownloadAll: onDownloadAll,
                             ),
                           ),
                         ),
@@ -271,6 +276,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.restrict != restrict ||
         oldDelegate.onEditProfile != onEditProfile ||
         oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
+        oldDelegate.onDownloadAll != onDownloadAll ||
         oldDelegate.onShare != onShare ||
         oldDelegate.onRestrictChanged != onRestrictChanged ||
         oldDelegate.expandedExtent != expandedExtent ||
@@ -535,6 +541,7 @@ class _CollapsedProfile extends StatelessWidget {
     required this.onShare,
     required this.onEditProfile,
     required this.onOpenBookmarkTags,
+    required this.onDownloadAll,
   });
 
   final UserEntity user;
@@ -546,6 +553,7 @@ class _CollapsedProfile extends StatelessWidget {
   final VoidCallback onShare;
   final VoidCallback? onEditProfile;
   final VoidCallback? onOpenBookmarkTags;
+  final VoidCallback? onDownloadAll;
 
   String _text(BuildContext context, String key) =>
       l10nLookup(context.l10n, key);
@@ -557,6 +565,13 @@ class _CollapsedProfile extends StatelessWidget {
       onPressed: () => openSettings(context),
       icon: const Icon(Icons.settings_outlined),
     );
+    final downloadAllButton = onDownloadAll == null
+        ? null
+        : IconButton(
+            tooltip: _text(context, 'downloadAuthorWorks'),
+            onPressed: onDownloadAll,
+            icon: const Icon(Icons.file_download_outlined),
+          );
     final actions = isMe && showRestrictSelector
         ? Row(
             mainAxisSize: MainAxisSize.min,
@@ -583,6 +598,7 @@ class _CollapsedProfile extends StatelessWidget {
                   onPressed: onOpenBookmarkTags,
                   icon: const Icon(Icons.label_outline),
                 ),
+              ?downloadAllButton,
               if (onEditProfile != null)
                 IconButton(
                   tooltip: _text(context, 'profileEditTitle'),
@@ -596,6 +612,7 @@ class _CollapsedProfile extends StatelessWidget {
         ? Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              ?downloadAllButton,
               if (onEditProfile != null)
                 IconButton(
                   tooltip: _text(context, 'profileEditTitle'),
@@ -605,10 +622,16 @@ class _CollapsedProfile extends StatelessWidget {
               settingsButton,
             ],
           )
-        : IconButton(
-            tooltip: _text(context, 'profileShare'),
-            onPressed: onShare,
-            icon: const Icon(Icons.share_outlined),
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ?downloadAllButton,
+              IconButton(
+                tooltip: _text(context, 'profileShare'),
+                onPressed: onShare,
+                icon: const Icon(Icons.share_outlined),
+              ),
+            ],
           );
 
     return Stack(

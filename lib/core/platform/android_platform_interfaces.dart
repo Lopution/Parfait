@@ -10,6 +10,7 @@ library;
 // consumers can remain independent of Android channel details.
 
 import '../download/download_recovery.dart';
+import '../download/resume_anchor.dart';
 
 /// A pending MediaStore insert. Writes go through [handle] and the item only
 /// becomes visible after [MediaStoreSession.finalize]; [abort] removes it.
@@ -71,4 +72,43 @@ abstract class MediaStoreHandle {
   /// Removes the pending item after a failure or cancellation. Safe to call
   /// twice; must never throw through cleanup paths.
   Future<void> abort();
+}
+
+/// Result of reopening a detached pending output for appending (D8):
+/// the write handle plus the platform-reported durable byte count, which
+/// the caller must compare against the durable [ResumeAnchor] record.
+class ResumedPendingItem {
+  const ResumedPendingItem({required this.handle, required this.storedBytes});
+
+  final MediaStoreHandle handle;
+  final int storedBytes;
+}
+
+/// Optional handle capability: the pending output can be detached — the
+/// write stream closes while the pending row keeps its committed bytes so
+/// a later attempt appends instead of restarting.
+abstract interface class ResumableMediaStoreHandle implements MediaStoreHandle {
+  /// Which [ResumeAnchor] kind this handle produces.
+  ResumeAnchorKind get anchorKind;
+
+  /// Closes the stream preserving pending bytes; returns the locator a
+  /// later resume call will need (MediaStore row id, or a `.part` file
+  /// path on desktop).
+  Future<String> detach();
+}
+
+/// Optional session capability: reopen a detached pending row in append
+/// mode ("wa") under an owner marker (D8).
+abstract interface class ResumableMediaStoreSession {
+  /// Returns null when the row is missing or carries a different owner
+  /// marker — a safe refusal, never a delete.
+  Future<ResumedPendingItem?> resumePending(int id, {required String ownerId});
+}
+
+/// Optional desktop capability: reopen a detached staged `.part` file by
+/// path (D8). Kept separate from [ResumableMediaStoreSession] because the
+/// desktop locator is a filesystem path, not a MediaStore row id.
+abstract interface class ResumableFileMediaStoreSession {
+  /// Returns null when the staged file is missing or not a `.part`.
+  Future<ResumedPendingItem?> resumePendingPath(String path);
 }

@@ -22,6 +22,13 @@ class DownloadRequest {
     this.artist,
     this.title,
     this.date,
+    this.authorId,
+    this.totalPages,
+    this.width,
+    this.height,
+    this.seriesTitle,
+    this.seriesOrder,
+    this.seriesTotal,
   }) : assert(illustId > 0),
        assert(pageIndex >= 0);
 
@@ -38,6 +45,16 @@ class DownloadRequest {
   final String? artist;
   final String? title;
   final DateTime? date;
+
+  /// Extended work metadata feeding `{author_id}`/`{pages}`/`{w}`/`{h}` and
+  /// the series variables. Absent values render as empty segments.
+  final int? authorId;
+  final int? totalPages;
+  final int? width;
+  final int? height;
+  final String? seriesTitle;
+  final int? seriesOrder;
+  final int? seriesTotal;
 
   /// Dedupe identity: illust + page + normalized URL + target (R4).
   String get dedupeKey =>
@@ -64,8 +81,38 @@ class DownloadRequest {
       artist: artist,
       title: title,
       date: date,
+      authorId: authorId,
+      totalPages: totalPages,
+      width: width,
+      height: height,
+      seriesTitle: seriesTitle,
+      seriesOrder: seriesOrder,
+      seriesTotal: seriesTotal,
     );
   }
+
+  /// The same submission re-pointed at page 0 — caption export derives its
+  /// sidecar stem (`<id>_p0.txt`) from this name regardless of which page
+  /// triggered it.
+  DownloadRequest get pageZero => pageIndex == 0
+      ? this
+      : DownloadRequest(
+          illustId: illustId,
+          pageIndex: 0,
+          url: url,
+          target: target,
+          namingRule: namingRule,
+          artist: artist,
+          title: title,
+          date: date,
+          authorId: authorId,
+          totalPages: totalPages,
+          width: width,
+          height: height,
+          seriesTitle: seriesTitle,
+          seriesOrder: seriesOrder,
+          seriesTotal: seriesTotal,
+        );
 
   String get mimeType => _mimeTypeForExtension(extension);
 }

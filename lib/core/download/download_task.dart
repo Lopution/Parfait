@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 
 import 'download_recovery.dart';
+import 'resume_anchor.dart';
 
 export 'download_recovery.dart'
     show
@@ -15,6 +16,8 @@ export 'download_recovery.dart'
         DownloadSubmissionSnapshot,
         MemoryDownloadRecoveryStore,
         PreferencesDownloadRecoveryStore;
+
+export 'resume_anchor.dart' show ResumeAnchor, ResumeAnchorKind;
 
 /// Terminal-state helper for the download lifecycle. `canceling` remains
 /// observable while a running task unwinds; `retryable` waits for user action
@@ -50,6 +53,7 @@ class DownloadTaskSnapshot {
     this.finalUri,
     this.submission,
     this.outputOwner,
+    this.resumeAnchor,
   });
 
   final String id;
@@ -74,6 +78,11 @@ class DownloadTaskSnapshot {
   /// Opaque owner for temporary output and pending MediaStore state.
   final DownloadOutputOwner? outputOwner;
 
+  /// Durable token for preserved partial output (D8). Non-null on a
+  /// retryable/failed task whose bytes survived a pause or network failure;
+  /// the next attempt may append via `Range` instead of restarting.
+  final ResumeAnchor? resumeAnchor;
+
   String? get groupId => submission?.groupId;
 
   /// 0..1 when the total length is known, otherwise null.
@@ -94,6 +103,7 @@ class DownloadTaskSnapshot {
     Object? finalUri = _sentinel,
     Object? submission = _sentinel,
     Object? outputOwner = _sentinel,
+    Object? resumeAnchor = _sentinel,
   }) {
     return DownloadTaskSnapshot(
       id: id,
@@ -123,6 +133,9 @@ class DownloadTaskSnapshot {
       outputOwner: identical(outputOwner, _sentinel)
           ? this.outputOwner
           : outputOwner as DownloadOutputOwner?,
+      resumeAnchor: identical(resumeAnchor, _sentinel)
+          ? this.resumeAnchor
+          : resumeAnchor as ResumeAnchor?,
     );
   }
 
@@ -173,10 +186,29 @@ class DownloadGroupSnapshot {
     required this.jobIds,
     required this.submission,
     required this.status,
+    required this.childCount,
+    required this.succeededCount,
+    required this.receivedBytes,
+    this.totalBytes,
   });
 
   final String id;
   final List<String> jobIds;
   final DownloadSubmissionSnapshot submission;
   final DownloadGroupStatus status;
+
+  /// Live children contributing to this aggregate (children whose job was
+  /// already replaced by a retry still count — the group tracks the new
+  /// attempt's id).
+  final int childCount;
+  final int succeededCount;
+  final int receivedBytes;
+
+  /// Summed child totals; null while any child's total is still unknown,
+  /// which renders as an indeterminate bar.
+  final int? totalBytes;
+
+  double? get progress => totalBytes == null || totalBytes == 0
+      ? null
+      : receivedBytes / totalBytes!;
 }

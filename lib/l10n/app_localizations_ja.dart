@@ -779,15 +779,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get namingPreview => 'プレビュー';
 
   @override
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  ) {
-    return '変数：$artist $title $id $page $ext $date。不正な文字は _ に置換され、長い名前は切り詰められます。';
+  String namingTemplateVariables(String variables) {
+    return '変数：$variables。不正な文字は _ に置換され、長い名前は切り詰められます。';
   }
 
   @override
@@ -892,6 +885,61 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cancelDownload => 'キャンセル';
+
+  @override
+  String get downloadPaused => '一時停止';
+
+  @override
+  String get pauseDownload => '一時停止';
+
+  @override
+  String get resumeDownload => '再開';
+
+  @override
+  String downloadGroupTitle(int count) {
+    return '一括ダウンロード · $count件';
+  }
+
+  @override
+  String downloadGroupProgress(int done, int count) {
+    return '$done/$count 完了';
+  }
+
+  @override
+  String get downloadAuthorWorks => 'すべての作品をダウンロード';
+
+  @override
+  String get downloadAuthorWorksTitle => '作者の全作品をダウンロード';
+
+  @override
+  String downloadAuthorEnumerating(int count) {
+    return '作品を列挙中…$count 件';
+  }
+
+  @override
+  String downloadAuthorConfirmBody(int works, int pages) {
+    return 'この作者の $works 件の作品（全 $pages ページ）をダウンロードします。';
+  }
+
+  @override
+  String downloadAuthorTruncated(int max) {
+    return '作品数が多いため、先頭 $max 件のみダウンロードします。';
+  }
+
+  @override
+  String get downloadAuthorEmpty => 'この作者にはダウンロード可能な作品がありません。';
+
+  @override
+  String downloadAuthorFailed(String error) {
+    return '作品の列挙に失敗しました：$error';
+  }
+
+  @override
+  String get downloadCaption => '作品のキャプションを書き出す';
+
+  @override
+  String get downloadCaptionHint =>
+      'イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します';
 
   @override
   String get aboutVersion => 'バージョン';

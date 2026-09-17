@@ -801,15 +801,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get namingPreview => 'Preview';
 
   @override
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  ) {
-    return 'Variables: $artist $title $id $page $ext $date; illegal characters become _, and long names are trimmed.';
+  String namingTemplateVariables(String variables) {
+    return 'Variables: $variables; illegal characters become _, and long names are trimmed.';
   }
 
   @override
@@ -917,6 +910,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancelDownload => 'Cancel';
+
+  @override
+  String get downloadPaused => 'Paused';
+
+  @override
+  String get pauseDownload => 'Pause';
+
+  @override
+  String get resumeDownload => 'Resume';
+
+  @override
+  String downloadGroupTitle(int count) {
+    return 'Batch download · $count items';
+  }
+
+  @override
+  String downloadGroupProgress(int done, int count) {
+    return '$done/$count completed';
+  }
+
+  @override
+  String get downloadAuthorWorks => 'Download all works';
+
+  @override
+  String get downloadAuthorWorksTitle => 'Download all author works';
+
+  @override
+  String downloadAuthorEnumerating(int count) {
+    return 'Enumerating works… $count found';
+  }
+
+  @override
+  String downloadAuthorConfirmBody(int works, int pages) {
+    return 'Download $works works ($pages pages) by this author.';
+  }
+
+  @override
+  String downloadAuthorTruncated(int max) {
+    return 'Too many works — only the first $max will be downloaded.';
+  }
+
+  @override
+  String get downloadAuthorEmpty => 'This author has no downloadable works.';
+
+  @override
+  String downloadAuthorFailed(String error) {
+    return 'Failed to enumerate works: $error';
+  }
+
+  @override
+  String get downloadCaption => 'Export work caption';
+
+  @override
+  String get downloadCaptionHint =>
+      'Save the title, author and caption as a matching .txt next to downloaded illusts and manga';
 
   @override
   String get aboutVersion => 'Version';

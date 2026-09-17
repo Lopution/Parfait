@@ -96,6 +96,84 @@ class SafTreeChannelTest {
     }
 
     @Test
+    fun `resume missing uri is invalid_argument`() {
+        val result = dispatch("resume", emptyMap())
+        assertEquals("saf_invalid_argument", result.errorCode)
+        assertTrue(result.errorMessage!!.contains("uri"))
+    }
+
+    @Test
+    fun `finalize missing uri is invalid_argument`() {
+        val result = dispatch("finalize", emptyMap())
+        assertEquals("saf_invalid_argument", result.errorCode)
+        assertTrue(result.errorMessage!!.contains("uri"))
+    }
+
+    @Test
+    fun `create staged flag reaches ops`() {
+        val ops = FakeSafOps()
+        dispatch(
+            "create",
+            mapOf(
+                "treeUri" to "content://tree",
+                "displayName" to "a.png",
+                "mimeType" to "image/png",
+                "staged" to true,
+            ),
+            ops,
+        )
+        assertTrue(ops.lastStaged)
+    }
+
+    @Test
+    fun `create without staged flag defaults to false`() {
+        val ops = FakeSafOps()
+        dispatch(
+            "create",
+            mapOf(
+                "treeUri" to "content://tree",
+                "displayName" to "a.png",
+                "mimeType" to "image/png",
+            ),
+            ops,
+        )
+        assertFalse(ops.lastStaged)
+    }
+
+    @Test
+    fun `resume returns document and platform byte count`() {
+        val result = dispatch("resume", mapOf("uri" to "content://doc/1"))
+        assertNull(result.errorCode)
+        val payload = result.successValue as Map<*, *>
+        assertEquals("content://doc/1", payload["uri"])
+        assertEquals(128, payload["storedBytes"])
+    }
+
+    @Test
+    fun `resume missing document is a null refusal`() {
+        val ops = FakeSafOps()
+        ops.resumeResult = null
+        val result = dispatch("resume", mapOf("uri" to "content://doc/gone"), ops)
+        assertNull(result.errorCode)
+        assertNull(result.successValue)
+    }
+
+    @Test
+    fun `finalize returns the renamed uri`() {
+        val result = dispatch("finalize", mapOf("uri" to "content://doc/1"))
+        assertNull(result.errorCode)
+        assertEquals("content://doc/renamed", result.successValue)
+    }
+
+    @Test
+    fun `finalize rename failure is saf_finalize_failed`() {
+        val ops = FakeSafOps()
+        ops.fail("finalize", IllegalStateException("SAF rename failed"))
+        val result = dispatch("finalize", mapOf("uri" to "content://doc/1"), ops)
+        assertEquals("saf_finalize_failed", result.errorCode)
+    }
+
+    @Test
     fun `unknown method is notImplemented`() {
         val result = dispatch("noSuchMethod", emptyMap())
         assertTrue(result.notImplemented)
@@ -297,8 +375,16 @@ class SafTreeChannelTest {
             failures[method]?.let { throw it }
         }
 
-        override fun create(treeUri: String, displayName: String, mimeType: String): String {
+        var lastStaged = false
+
+        override fun create(
+            treeUri: String,
+            displayName: String,
+            mimeType: String,
+            staged: Boolean,
+        ): String {
             maybeThrow("create")
+            lastStaged = staged
             return "content://doc/1"
         }
 
@@ -312,6 +398,23 @@ class SafTreeChannelTest {
 
         override fun delete(uri: String) {
             maybeThrow("delete")
+        }
+
+        var resumeResult: Map<String, Any>? = mapOf(
+            "uri" to "content://doc/1",
+            "storedBytes" to 128,
+        )
+
+        override fun resume(uri: String): Map<String, Any>? {
+            maybeThrow("resume")
+            return resumeResult
+        }
+
+        var finalizeResult: String = "content://doc/renamed"
+
+        override fun finalize(uri: String): String {
+            maybeThrow("finalize")
+            return finalizeResult
         }
     }
 }
