@@ -537,12 +537,21 @@
       }
     }
   },
-  "searchReverseDailyLimit": "今日匿名搜索额度已用完，明天再试",
-  "searchReverseChallenge": "SauceNAO requires human verification. This search did not finish. Try again later.",
+  "searchReverseDailyLimit": "Daily anonymous search quota reached. Try again tomorrow.",
+  "searchReverseChallenge": "{engine} requires human verification. This search did not finish. Try again later.",
   "searchReversePageLoadFailed": "The result page failed to load",
-  "searchReverseUploadPickHint": "Pick the same image again in the page’s file chooser.",
   "searchReverseUploadTapHint": "Tap the upload button on the page to search; the selected image is filled in automatically.",
-  "searchReverseIntro": "The selected image is uploaded anonymously to SauceNAO; the result page opens inside the app.",
+  "searchReverseUploadPickHint": "Pick the same image again in the page’s file chooser.",
+  "searchReverseRetrySameEngine": "Retry this engine",
+  "searchReverseEngineUnsupported": "The selected image doesn't meet this engine's input limits",
+  "@searchReverseChallenge": {
+      "placeholders": {
+        "engine": {
+          "type": "String"
+        }
+      }
+    },
+  "searchReverseIntro": "The selected image is uploaded to the chosen engine; the result page opens inside the app.",
   "searchNoRepresentative": "This tag has no representative work",
   "searchFilters": "Filters",
   "searchReset": "Reset",

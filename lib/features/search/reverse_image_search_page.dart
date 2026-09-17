@@ -121,6 +121,43 @@ class _ReverseImageSearchPageState
 
   Future<void> _search() => _controller.search();
 
+  /// Engine choice is durable: the flow switches immediately when an image
+  /// is held, and the selection is persisted either way.
+  void _selectEngine(ReverseImageEngine engine) {
+    unawaited(_controller.selectEngine(engine));
+    unawaited(
+      ref.read(settingsProvider.notifier).selectReverseImageEngine(engine),
+    );
+  }
+
+  /// Engine selector chips. A chip is disabled when the current input breaks
+  /// that engine's own constraints (IQDB: no WebP, 8 MiB / 7500 px caps);
+  /// engines that already failed this image carry an error avatar.
+  Widget _engineChips(BuildContext context, ReverseImageFlowState state) {
+    final input = state.input;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      alignment: WrapAlignment.center,
+      children: [
+        for (final spec in ReverseImageEngineSpecs.all.values)
+          ChoiceChip(
+            label: Text(spec.displayName),
+            selected: state.engine == spec.engine,
+            avatar: state.engineFailures.containsKey(spec.engine)
+                ? const Icon(Icons.error_outline, size: 18)
+                : null,
+            tooltip: input != null && !spec.supportsInput(input)
+                ? context.l10n.searchReverseEngineUnsupported
+                : null,
+            onSelected: input != null && !spec.supportsInput(input)
+                ? null
+                : (_) => _selectEngine(spec.engine),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(reverseImageSearchControllerProvider(_session));
@@ -140,7 +177,7 @@ class _ReverseImageSearchPageState
   Widget _body(BuildContext context, ReverseImageFlowState state) {
     return switch (state.status) {
       ReverseImageFlowStatus.idle ||
-      ReverseImageFlowStatus.canceled => _idle(context),
+      ReverseImageFlowStatus.canceled => _idle(context, state),
       ReverseImageFlowStatus.picking => _progress(
         context,
         context.l10n.searchReversePreparing,
@@ -192,7 +229,7 @@ class _ReverseImageSearchPageState
     );
   }
 
-  Widget _idle(BuildContext context) {
+  Widget _idle(BuildContext context, ReverseImageFlowState state) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -202,6 +239,8 @@ class _ReverseImageSearchPageState
           const Icon(Icons.image_search_outlined, size: 72),
           const SizedBox(height: 18),
           Text(context.l10n.searchReverseIntro, textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          _engineChips(context, state),
           const SizedBox(height: 24),
           _privacyCard(context),
           const SizedBox(height: 20),
@@ -266,6 +305,8 @@ class _ReverseImageSearchPageState
 
   Widget _ready(BuildContext context, ReverseImageFlowState state) {
     final input = state.input!;
+    final spec = ReverseImageEngineSpecs.all[state.engine]!;
+    final supported = spec.supportsInput(input);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -299,9 +340,19 @@ class _ReverseImageSearchPageState
             '${input.width} × ${input.height} · ${_formatBytes(input.sizeBytes)}',
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 14),
+          _engineChips(context, state),
+          if (!supported) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.searchReverseEngineUnsupported,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              textAlign: TextAlign.center,
+            ),
+          ],
           const SizedBox(height: 18),
           FilledButton.icon(
-            onPressed: _search,
+            onPressed: supported ? _search : null,
             icon: const Icon(Icons.search),
             label: Text(context.l10n.searchReverseUse),
           ),
@@ -313,8 +364,11 @@ class _ReverseImageSearchPageState
   Widget _failure(BuildContext context, ReverseImageFlowState state) {
     final failure = state.failure!;
     final seconds = failure.retryAfter?.inSeconds;
+    final engineName =
+        ReverseImageEngineSpecs.all[state.engine]?.displayName ??
+        state.engine.name;
     final message = failure.code == ReverseImageProviderFailureCode.challenge
-        ? context.l10n.searchReverseChallenge
+        ? context.l10n.searchReverseChallenge(engineName)
         : failure.code == ReverseImageProviderFailureCode.providerUnavailable
         ? context.l10n.searchReverseUnavailableDetail
         : failure.code == ReverseImageProviderFailureCode.dailyLimit
@@ -324,9 +378,12 @@ class _ReverseImageSearchPageState
         ? context.l10n.searchReverseRateLimitedWait(seconds)
         : failure.code == ReverseImageProviderFailureCode.rateLimited
         ? context.l10n.searchReverseRateLimited
+        : failure.code == ReverseImageProviderFailureCode.unsupportedInput
+        ? context.l10n.searchReverseEngineUnsupported
         : failure.message;
+    final canRetry = state.input != null;
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -339,8 +396,19 @@ class _ReverseImageSearchPageState
               maxLines: 5,
               overflow: TextOverflow.ellipsis,
             ),
+            if (canRetry) ...[
+              const SizedBox(height: 16),
+              _engineChips(context, state),
+            ],
             const SizedBox(height: 20),
-            FilledButton.icon(
+            if (canRetry)
+              FilledButton.icon(
+                onPressed: _search,
+                icon: const Icon(Icons.refresh),
+                label: Text(context.l10n.searchReverseRetrySameEngine),
+              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
               onPressed: _controller.pick,
               icon: const Icon(Icons.photo_library_outlined),
               label: Text(context.l10n.searchReverseRetry),
