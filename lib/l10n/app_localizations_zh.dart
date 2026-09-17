@@ -1623,4 +1623,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => '收藏标签加载失败';
+
+  @override
+  String get seriesTitle => '系列';
+
+  @override
+  String get seriesLoadFailed => '系列加载失败';
+
+  @override
+  String get seriesLoadMoreFailed => '加载更多失败';
+
+  @override
+  String get seriesEmpty => '该系列暂无作品';
+
+  @override
+  String seriesWorksCount(int count) {
+    return '共 $count 个作品';
+  }
 }

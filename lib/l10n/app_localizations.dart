@@ -3204,6 +3204,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'收藏标签加载失败'**
   String get bookmarkTagsLoadFailed;
+
+  /// No description provided for @seriesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列'**
+  String get seriesTitle;
+
+  /// No description provided for @seriesLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列加载失败'**
+  String get seriesLoadFailed;
+
+  /// No description provided for @seriesLoadMoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多失败'**
+  String get seriesLoadMoreFailed;
+
+  /// No description provided for @seriesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'该系列暂无作品'**
+  String get seriesEmpty;
+
+  /// No description provided for @seriesWorksCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 个作品'**
+  String seriesWorksCount(int count);
 }
 
 class _AppLocalizationsDelegate

@@ -1637,4 +1637,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => 'ブックマークタグを読み込めませんでした';
+
+  @override
+  String get seriesTitle => 'シリーズ';
+
+  @override
+  String get seriesLoadFailed => 'シリーズの読み込みに失敗しました';
+
+  @override
+  String get seriesLoadMoreFailed => '追加読み込みに失敗しました';
+
+  @override
+  String get seriesEmpty => 'このシリーズにはまだ作品がありません';
+
+  @override
+  String seriesWorksCount(int count) {
+    return '全 $count 作品';
+  }
 }

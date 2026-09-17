@@ -44,6 +44,7 @@ import '../../features/search/reverse_image_search_page.dart';
 import '../../features/search/search_page.dart';
 import '../../features/search/search_result_page.dart';
 import '../../features/search/tag_search_page.dart';
+import '../../features/series/illust_series_page.dart';
 import '../../features/settings/network_probe_page.dart';
 import '../../features/settings/network_settings_page.dart';
 import '../../features/settings/settings_page.dart';
@@ -427,6 +428,15 @@ List<RouteBase> _commonBranchRoutes(
         state,
         branchObserver,
         UserPage(userId: _pathId(state, 'userId')),
+      ),
+    ),
+    GoRoute(
+      path: 'series/:seriesId',
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        IllustSeriesPage(seriesId: _pathId(state, 'seriesId')),
       ),
     ),
     GoRoute(
@@ -1080,6 +1090,10 @@ Future<void> openIllust(
 
 Future<void> openUser(BuildContext context, int userId) async {
   await _push(context, '${_currentStackRoot(context)}/user/$userId');
+}
+
+Future<void> openIllustSeries(BuildContext context, int seriesId) async {
+  await _push(context, '${_currentStackRoot(context)}/series/$seriesId');
 }
 
 Future<void> openMe(BuildContext context) async {
