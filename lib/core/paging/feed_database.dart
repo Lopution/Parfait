@@ -42,7 +42,8 @@ class FeedDatabase {
 
   static const databaseName = 'feeds.db';
   static const snapshotTable = 'feed_snapshots';
-  static const schemaVersion = 1;
+  static const actionTable = 'action_queue';
+  static const schemaVersion = 2;
 
   final DatabaseFactory _factory;
   final String? _databasePath;
@@ -99,12 +100,36 @@ class FeedDatabase {
         PRIMARY KEY (account_id, feed_key)
       )
     ''');
+    await _createActionSchema(db);
+  }
+
+  Future<void> _createActionSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE $actionTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner TEXT NOT NULL,
+        type TEXT NOT NULL,
+        dedupe_key TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('pending','running','failed')),
+        attempt INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at INTEGER,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX aq_ready
+      ON $actionTable(owner, status, next_attempt_at)
+    ''');
   }
 
   Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 1) {
       await _createSchema(db);
       return;
+    }
+    if (oldVersion < 2) {
+      await _createActionSchema(db);
     }
     if (newVersion > schemaVersion) {
       throw ArgumentError('unsupported feed schema version $newVersion');
