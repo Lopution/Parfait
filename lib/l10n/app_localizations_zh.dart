@@ -1623,4 +1623,59 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => '收藏标签加载失败';
+
+  @override
+  String get seriesTitle => '系列';
+
+  @override
+  String get seriesLoadFailed => '系列加载失败';
+
+  @override
+  String get seriesLoadMoreFailed => '加载更多失败';
+
+  @override
+  String get seriesEmpty => '该系列暂无作品';
+
+  @override
+  String seriesWorksCount(int count) {
+    return '共 $count 个作品';
+  }
+
+  @override
+  String seriesEpisode(int order) {
+    return '第 $order 话';
+  }
+
+  @override
+  String get seriesPrevious => '上一话';
+
+  @override
+  String get seriesNext => '下一话';
+
+  @override
+  String get profileSeries => '系列';
+
+  @override
+  String get spotlightTitle => '特辑';
+
+  @override
+  String get spotlightArticleLoadFailed => '文章加载失败';
+
+  @override
+  String get spotlightCategoryAll => '全部';
+
+  @override
+  String get spotlightCategoryIllust => '插画';
+
+  @override
+  String get spotlightCategoryManga => '漫画';
+
+  @override
+  String get spotlightLoadFailed => '特辑加载失败';
+
+  @override
+  String get spotlightLoadMoreFailed => '特辑加载更多失败';
+
+  @override
+  String get spotlightEmpty => '暂无特辑';
 }

@@ -3204,6 +3204,108 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'收藏标签加载失败'**
   String get bookmarkTagsLoadFailed;
+
+  /// No description provided for @seriesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列'**
+  String get seriesTitle;
+
+  /// No description provided for @seriesLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列加载失败'**
+  String get seriesLoadFailed;
+
+  /// No description provided for @seriesLoadMoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多失败'**
+  String get seriesLoadMoreFailed;
+
+  /// No description provided for @seriesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'该系列暂无作品'**
+  String get seriesEmpty;
+
+  /// No description provided for @seriesWorksCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 个作品'**
+  String seriesWorksCount(int count);
+
+  /// No description provided for @seriesEpisode.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {order} 话'**
+  String seriesEpisode(int order);
+
+  /// No description provided for @seriesPrevious.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一话'**
+  String get seriesPrevious;
+
+  /// No description provided for @seriesNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一话'**
+  String get seriesNext;
+
+  /// No description provided for @profileSeries.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列'**
+  String get profileSeries;
+
+  /// No description provided for @spotlightTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'特辑'**
+  String get spotlightTitle;
+
+  /// No description provided for @spotlightArticleLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'文章加载失败'**
+  String get spotlightArticleLoadFailed;
+
+  /// No description provided for @spotlightCategoryAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get spotlightCategoryAll;
+
+  /// No description provided for @spotlightCategoryIllust.
+  ///
+  /// In zh, this message translates to:
+  /// **'插画'**
+  String get spotlightCategoryIllust;
+
+  /// No description provided for @spotlightCategoryManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'漫画'**
+  String get spotlightCategoryManga;
+
+  /// No description provided for @spotlightLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'特辑加载失败'**
+  String get spotlightLoadFailed;
+
+  /// No description provided for @spotlightLoadMoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'特辑加载更多失败'**
+  String get spotlightLoadMoreFailed;
+
+  /// No description provided for @spotlightEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无特辑'**
+  String get spotlightEmpty;
 }
 
 class _AppLocalizationsDelegate

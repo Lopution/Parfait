@@ -1637,4 +1637,59 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => 'ブックマークタグを読み込めませんでした';
+
+  @override
+  String get seriesTitle => 'シリーズ';
+
+  @override
+  String get seriesLoadFailed => 'シリーズの読み込みに失敗しました';
+
+  @override
+  String get seriesLoadMoreFailed => '追加読み込みに失敗しました';
+
+  @override
+  String get seriesEmpty => 'このシリーズにはまだ作品がありません';
+
+  @override
+  String seriesWorksCount(int count) {
+    return '全 $count 作品';
+  }
+
+  @override
+  String seriesEpisode(int order) {
+    return '第 $order 話';
+  }
+
+  @override
+  String get seriesPrevious => '前の作品';
+
+  @override
+  String get seriesNext => '次の作品';
+
+  @override
+  String get profileSeries => 'シリーズ';
+
+  @override
+  String get spotlightTitle => 'スポットライト';
+
+  @override
+  String get spotlightArticleLoadFailed => '記事の読み込みに失敗しました';
+
+  @override
+  String get spotlightCategoryAll => 'すべて';
+
+  @override
+  String get spotlightCategoryIllust => 'イラスト';
+
+  @override
+  String get spotlightCategoryManga => 'マンガ';
+
+  @override
+  String get spotlightLoadFailed => 'スポットライトの読み込みに失敗しました';
+
+  @override
+  String get spotlightLoadMoreFailed => '続きの読み込みに失敗しました';
+
+  @override
+  String get spotlightEmpty => 'スポットライト記事がありません';
 }

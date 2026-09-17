@@ -677,5 +677,36 @@
   "bookmarkTagNewHint": "Введите тег и нажмите Enter",
   "bookmarkTagSuggestions": "Частые теги",
   "bookmarkTagsEmpty": "Тегов закладок пока нет",
-  "bookmarkTagsLoadFailed": "Не удалось загрузить теги закладок"
+  "bookmarkTagsLoadFailed": "Не удалось загрузить теги закладок",
+  "seriesTitle": "Серия",
+  "seriesLoadFailed": "Не удалось загрузить серию",
+  "seriesLoadMoreFailed": "Не удалось загрузить ещё",
+  "seriesEmpty": "В этой серии пока нет работ",
+  "seriesWorksCount": "{count} работ",
+  "@seriesWorksCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesEpisode": "Часть {order}",
+  "@seriesEpisode": {
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesPrevious": "Предыдущая",
+  "seriesNext": "Следующая",
+  "profileSeries": "Серии",
+  "spotlightTitle": "Спотлайт",
+  "spotlightArticleLoadFailed": "Не удалось загрузить статью",
+  "spotlightCategoryAll": "Все",
+  "spotlightCategoryIllust": "Иллюстрации",
+  "spotlightCategoryManga": "Манга",
+  "spotlightLoadFailed": "Не удалось загрузить спотлайт",
+  "spotlightLoadMoreFailed": "Не удалось загрузить ещё статьи",
+  "spotlightEmpty": "Нет статей спотлайта"
 }

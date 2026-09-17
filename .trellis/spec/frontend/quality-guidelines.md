@@ -189,6 +189,20 @@ Symptoms to recognize: `TimeoutException after 0:00:30` from an unrelated-feelin
 
 **Required pattern**: a test that opens the history database must inject `HistoryDatabase(factory: databaseFactoryFfi, databasePath: <per-test temp dir>/history.db)` (or `inMemoryDatabasePath`) through `historyDatabaseProvider`, never rely on the FFI default path. Symptom `database is locked` in a full-suite run is a missing injection in whichever test file opened the shared path, not a flaky engine. Tracked for a sweep in 09-07-spec-test-lint-hardening.
 
+### Awaiting an autoDispose provider's `.future` in tests
+
+**Problem**: `await container.read(provider.future)` opens a transient subscription that closes immediately; an `autoDispose` provider is then disposed while still loading and the future completes with "was disposed during loading state, yet no value could be emitted" (seen 2026-09-16 in `spotlight_article_test.dart`).
+
+**Required pattern**: hold a listener for the duration —
+`final sub = container.listen(provider(key), (_, _) {}); addTearDown(sub.close);` — then `await container.read(provider(key).future)`. Non-autoDispose providers (e.g. `PagedFeedController` families) are unaffected; a bare `.future` read is fine for them.
+
+### `http.Response` string bodies are latin-1 by default
+
+**Problem**: `http.Response(body, status)` encodes the string as latin-1 unless the `content-type` header carries a charset; any fixture containing CJK or other non-latin-1 text throws `Invalid argument (string): Contains invalid characters` at response construction (seen 2026-09-16 in `spotlight_article_test.dart`).
+
+**Required pattern**: for non-ASCII mock bodies use
+`http.Response.bytes(utf8.encode(body), status, headers: {'content-type': 'text/html; charset=utf-8'})`.
+
 ---
 
 ## Code Review Checklist
