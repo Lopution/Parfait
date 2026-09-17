@@ -1708,4 +1708,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spotlightArticleLoadFailed => 'Failed to load article';
+
+  @override
+  String get spotlightCategoryAll => 'All';
+
+  @override
+  String get spotlightCategoryIllust => 'Illustrations';
+
+  @override
+  String get spotlightCategoryManga => 'Manga';
+
+  @override
+  String get spotlightLoadFailed => 'Failed to load spotlight';
+
+  @override
+  String get spotlightLoadMoreFailed =>
+      'Failed to load more spotlight articles';
+
+  @override
+  String get spotlightEmpty => 'No spotlight articles';
 }

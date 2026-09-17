@@ -702,5 +702,11 @@
   "seriesNext": "次の作品",
   "profileSeries": "シリーズ",
   "spotlightTitle": "スポットライト",
-  "spotlightArticleLoadFailed": "記事の読み込みに失敗しました"
+  "spotlightArticleLoadFailed": "記事の読み込みに失敗しました",
+  "spotlightCategoryAll": "すべて",
+  "spotlightCategoryIllust": "イラスト",
+  "spotlightCategoryManga": "マンガ",
+  "spotlightLoadFailed": "スポットライトの読み込みに失敗しました",
+  "spotlightLoadMoreFailed": "続きの読み込みに失敗しました",
+  "spotlightEmpty": "スポットライト記事がありません"
 }

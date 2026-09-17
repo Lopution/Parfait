@@ -1660,4 +1660,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get spotlightArticleLoadFailed => '文章加载失败';
+
+  @override
+  String get spotlightCategoryAll => '全部';
+
+  @override
+  String get spotlightCategoryIllust => '插画';
+
+  @override
+  String get spotlightCategoryManga => '漫画';
+
+  @override
+  String get spotlightLoadFailed => '特辑加载失败';
+
+  @override
+  String get spotlightLoadMoreFailed => '特辑加载更多失败';
+
+  @override
+  String get spotlightEmpty => '暂无特辑';
 }

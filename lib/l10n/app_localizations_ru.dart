@@ -1707,4 +1707,22 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get spotlightArticleLoadFailed => 'Не удалось загрузить статью';
+
+  @override
+  String get spotlightCategoryAll => 'Все';
+
+  @override
+  String get spotlightCategoryIllust => 'Иллюстрации';
+
+  @override
+  String get spotlightCategoryManga => 'Манга';
+
+  @override
+  String get spotlightLoadFailed => 'Не удалось загрузить спотлайт';
+
+  @override
+  String get spotlightLoadMoreFailed => 'Не удалось загрузить ещё статьи';
+
+  @override
+  String get spotlightEmpty => 'Нет статей спотлайта';
 }
