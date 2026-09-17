@@ -129,6 +129,11 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setNamingRule(NamingRule rule) =>
       _update((settings) => settings.copyWith(namingRule: rule));
 
+  /// Whole-object replace used by backup import. Per-field validation
+  /// already happened in [AppSettings.fromJson]; the write goes through
+  /// the same serialized persistence path as every other change.
+  Future<void> replaceAll(AppSettings settings) => _update((_) => settings);
+
   Future<void> _update(AppSettings Function(AppSettings) transform) {
     final operation = _writeTail.then((_) async {
       final candidate = transform(_current);
