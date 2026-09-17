@@ -187,8 +187,63 @@
   "removeAccountConfirm": "Remove this account?",
   "noAccounts": "No accounts",
   "profileReadOnly": "This screen shows saved account metadata. Full profile editing belongs to the profile module.",
+  "serverDisplaySettings": "Account display settings",
+  "serverDisplayHint": "Stored by Pixiv; these flags shape what the API returns for this account.",
+  "serverShowAi": "Show AI-generated works",
+  "serverRestrictedMode": "Restricted mode",
+  "serverDisplayLoadFailed": "Failed to load server settings",
+  "serverDisplayWriteFailed": "Failed to save server setting",
+  "backupSettings": "Backup & restore",
+  "backupHint": "Exports settings, the mute list and browsing history. Credentials are never written to the file.",
+  "backupExport": "Export backup",
+  "backupExportHint": "Writes pixiv-func-backup-*.json into a directory you choose",
+  "backupExported": "Exported {name}",
+  "@backupExported": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "backupExportFailed": "Export failed",
+  "backupImport": "Import backup",
+  "backupImportHint": "Import from a JSON file; merge or overwrite",
+  "backupImportInvalid": "Invalid backup file",
+  "backupImportFailed": "Import failed",
+  "backupImportStrategyTitle": "Choose how to import",
+  "backupImportPrompt": "The file contains {tags} muted tags, {users} muted users, {works} muted works and {history} history rows.\nExported by account: {account}",
+  "@backupImportPrompt": {
+    "placeholders": {
+      "tags": {"type": "int"}, "users": {"type": "int"},
+      "works": {"type": "int"}, "history": {"type": "int"},
+      "account": {"type": "String"}
+    }
+  },
+  "backupImportOverwriteNote": "Overwrite clears local history and replaces muted works first; server-side mutes are add-only and are never deleted by an import.",
+  "backupMerge": "Merge",
+  "backupOverwrite": "Overwrite",
+  "backupImportDone": "Imported: +{tags} tags, +{users} users, {works} work-mute changes, {history} history rows",
+  "@backupImportDone": {
+    "placeholders": {
+      "tags": {"type": "int"}, "users": {"type": "int"},
+      "works": {"type": "int"}, "history": {"type": "int"}
+    }
+  },
   "imageSource": "Image source",
   "imageSourceNormal": "Official CDN (system DNS / HTTPS)",
+  "imageSourcePixivCat": "pixiv.cat mirror",
+  "imageSourcePixivRe": "pixiv.re mirror",
+  "imageSourcePixivNl": "pixiv.nl mirror",
+  "imageSourceCustom": "Custom reverse proxy",
+  "imageSourceCustomHint": "https://host[/path], e.g. https://i.pixiv.cat",
+  "imageSourceCustomUnset": "Not configured",
+  "imageSourceCustomInvalid": "Invalid source: needs https, a DNS host name and port 443",
+  "imageSourceTest": "Test",
+  "imageSourceTestOk": "Mirror reachable (HTTP {code})",
+  "@imageSourceTestOk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceTestFailed": "Mirror connectivity test failed",
   "previewQuality": "Preview quality",
   "viewQuality": "Viewer quality",
   "detailQuality": "Detail quality",

@@ -187,8 +187,63 @@
   "removeAccountConfirm": "确定移除这个账号？",
   "noAccounts": "暂无账号",
   "profileReadOnly": "这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。",
+  "serverDisplaySettings": "账号显示设置",
+  "serverDisplayHint": "由 Pixiv 服务端保存，作用于接口为该账号返回的内容。",
+  "serverShowAi": "显示 AI 生成作品",
+  "serverRestrictedMode": "受限模式",
+  "serverDisplayLoadFailed": "服务端设置读取失败",
+  "serverDisplayWriteFailed": "服务端设置保存失败",
+  "backupSettings": "备份与导入",
+  "backupHint": "导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。",
+  "backupExport": "导出备份",
+  "backupExportHint": "选择目录后写入 pixiv-func-backup-*.json",
+  "backupExported": "已导出 {name}",
+  "@backupExported": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "backupExportFailed": "导出失败",
+  "backupImport": "导入备份",
+  "backupImportHint": "从 JSON 文件导入，可选合并或覆盖",
+  "backupImportInvalid": "备份文件无效",
+  "backupImportFailed": "导入失败",
+  "backupImportStrategyTitle": "选择导入方式",
+  "backupImportPrompt": "文件包含 {tags} 个屏蔽标签、{users} 个屏蔽用户、{works} 条作品屏蔽、{history} 条历史。\n导出账号：{account}",
+  "@backupImportPrompt": {
+    "placeholders": {
+      "tags": {"type": "int"}, "users": {"type": "int"},
+      "works": {"type": "int"}, "history": {"type": "int"},
+      "account": {"type": "String"}
+    }
+  },
+  "backupImportOverwriteNote": "覆盖会先清空本地历史并替换作品屏蔽；服务端屏蔽列表只增不删，覆盖不会删除服务器上的屏蔽项。",
+  "backupMerge": "合并",
+  "backupOverwrite": "覆盖",
+  "backupImportDone": "导入完成：新增 {tags} 个标签、{users} 个用户、{works} 项作品屏蔽变更、{history} 条历史",
+  "@backupImportDone": {
+    "placeholders": {
+      "tags": {"type": "int"}, "users": {"type": "int"},
+      "works": {"type": "int"}, "history": {"type": "int"}
+    }
+  },
   "imageSource": "图片源",
   "imageSourceNormal": "官方 CDN（系统 DNS / HTTPS）",
+  "imageSourcePixivCat": "pixiv.cat 镜像",
+  "imageSourcePixivRe": "pixiv.re 镜像",
+  "imageSourcePixivNl": "pixiv.nl 镜像",
+  "imageSourceCustom": "自定义反代",
+  "imageSourceCustomHint": "https://host[/path]，例如 https://i.pixiv.cat",
+  "imageSourceCustomUnset": "未配置",
+  "imageSourceCustomInvalid": "无效自定义源：需 https、域名且仅支持 443 端口",
+  "imageSourceTest": "测试",
+  "imageSourceTestOk": "镜像可达（HTTP {code}）",
+  "@imageSourceTestOk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceTestFailed": "镜像连通性测试失败",
   "previewQuality": "预览质量",
   "viewQuality": "查看质量",
   "detailQuality": "详情质量",

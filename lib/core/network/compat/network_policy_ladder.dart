@@ -181,7 +181,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
             !fastCompatibilityAvailable
         ? null
         : preferredKind;
-    final fallbackTiers = _fallbackTiersFor(destination.purpose);
+    final fallbackTiers = _fallbackTiersFor(destination);
     // Verified-fast-first ordering, driven by real-device probe data:
     // Cloudflare hosts (API/OAuth) reach the ECH tier inside the wall while
     // plain SNI is RST; image hosts reach the empty-SNI tier on their origin
@@ -403,7 +403,19 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// second choice. The PixEz bootstrap (insecureNoSni) is always last: it
   /// is unverified on a cold network and costs a connect timeout when its
   /// address cannot be reached.
-  List<NetworkRouteKind> _fallbackTiersFor(PixivDestinationPurpose purpose) {
+  List<NetworkRouteKind> _fallbackTiersFor(PixivDestination destination) {
+    final purpose = destination.purpose;
+    // Third-party image mirrors (preset/custom reverse proxies) are not
+    // pixiv infrastructure: the ECH config, empty-SNI handshake and the
+    // persisted-address tier only exist for pixiv's own hosts and would
+    // fail or mis-route a mirror. Mirrors get the ordinary DNS+TLS route
+    // — the same split Shaft expresses as requiresStandardClient().
+    if (purpose == PixivDestinationPurpose.image &&
+        !PixivClientIdentity.downloadHosts.contains(
+          destination.canonicalHost,
+        )) {
+      return [NetworkRouteKind.dohRealSni];
+    }
     final isCloudflareHost = switch (purpose) {
       PixivDestinationPurpose.appApi ||
       PixivDestinationPurpose.oauth ||

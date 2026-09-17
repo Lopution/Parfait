@@ -22,10 +22,14 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   final endpoints = ref.watch(dohEndpointsProvider);
   final echFrontHost = ref.watch(echFrontHostProvider);
   final mode = ref.watch(networkModeProvider);
+  final imageMirror = ref.watch(imageMirrorProvider);
   // PixEz's compatibility transport is an internal performance tier, not a
   // user-facing security switch. It uses persisted/bootstrap host addresses
   // and remains behind the explicit directOnly escape hatch.
   final policy = NetworkAccessPolicy(
+    registry: contracts.PixivDestinationRegistry(
+      extraImageHosts: imageMirror.extraHosts,
+    ),
     dohEndpoints: dohEnabled ? endpoints : const [],
     echFrontHost: echFrontHost,
     insecureNoSniEnabled: true,
@@ -42,7 +46,10 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
 });
 
 final pixivNetworkFactoryProvider = Provider<PixivNetworkFactory>((ref) {
-  final factory = PixivNetworkFactory(ref.watch(networkAccessPolicyProvider));
+  final factory = PixivNetworkFactory(
+    ref.watch(networkAccessPolicyProvider),
+    imageUrlRewriter: ref.watch(imageMirrorProvider).rewrite,
+  );
   ref.onDispose(() => unawaited(factory.dispose()));
   return factory;
 });

@@ -60,7 +60,10 @@ class NetworkProbePage extends ConsumerStatefulWidget {
 }
 
 class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
-  late final List<({String host, PixivDestinationPurpose purpose})> _targets = [
+  /// Recomputed each build/run so a freshly selected image mirror appears
+  /// immediately — the active mirror's hosts are allowlisted on the
+  /// policy registry, so the probe can measure them directly.
+  List<({String host, PixivDestinationPurpose purpose})> get _targets => [
     (
       host: PixivClientIdentity.appApiBase.host,
       purpose: PixivDestinationPurpose.appApi,
@@ -71,6 +74,8 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
     ),
     for (final imageHost in PixivClientIdentity.downloadHosts)
       (host: imageHost, purpose: PixivDestinationPurpose.image),
+    for (final mirrorHost in ref.read(imageMirrorProvider).extraHosts)
+      (host: mirrorHost, purpose: PixivDestinationPurpose.image),
   ];
 
   final Map<String, NetworkProbeReport?> _finished = {};

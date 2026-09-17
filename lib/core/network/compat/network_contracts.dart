@@ -26,6 +26,17 @@ enum PixivDestinationPurpose { appApi, oauth, accountsWeb, pixivWeb, image }
 /// policy. Host matching is exact after lowercase canonicalization; suffixes,
 /// IP literals, userinfo, fragments and non-443 ports are rejected.
 class PixivDestinationRegistry {
+  /// [extraImageHosts] extends the image-purpose allowlist with the hosts
+  /// of the currently selected image mirror (preset mirrors or a custom
+  /// reverse-proxy origin). They only ever gain image trust — API/OAuth
+  /// purposes keep their exact Pixiv hosts.
+  PixivDestinationRegistry({Set<String> extraImageHosts = const {}})
+    : _extraImageHosts = Set.unmodifiable(
+        extraImageHosts.map((host) => host.toLowerCase()),
+      );
+
+  final Set<String> _extraImageHosts;
+
   PixivDestination? resolve(Uri uri, PixivDestinationPurpose purpose) {
     final host = _canonicalHost(uri);
     if (host == null || !_allows(host, purpose)) return null;
@@ -52,7 +63,7 @@ class PixivDestinationRegistry {
     return host;
   }
 
-  static bool _allows(String host, PixivDestinationPurpose purpose) {
+  bool _allows(String host, PixivDestinationPurpose purpose) {
     return switch (purpose) {
       PixivDestinationPurpose.appApi =>
         host == PixivClientIdentity.appApiBase.host,
@@ -62,7 +73,8 @@ class PixivDestinationRegistry {
             host == PixivClientIdentity.accountsHost,
       PixivDestinationPurpose.pixivWeb => host == PixivClientIdentity.webHost,
       PixivDestinationPurpose.image =>
-        PixivClientIdentity.downloadHosts.contains(host),
+        PixivClientIdentity.downloadHosts.contains(host) ||
+            _extraImageHosts.contains(host),
     };
   }
 }

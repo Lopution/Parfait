@@ -497,10 +497,123 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileReadOnly => '保存されたアカウント情報を表示しています。プロフィール編集はプロフィール機能で提供します。';
 
   @override
+  String get serverDisplaySettings => 'アカウント表示設定';
+
+  @override
+  String get serverDisplayHint => 'Pixiv サーバーに保存され、このアカウントへの API 返却内容に作用します。';
+
+  @override
+  String get serverShowAi => 'AI 生成作品を表示';
+
+  @override
+  String get serverRestrictedMode => '制限モード';
+
+  @override
+  String get serverDisplayLoadFailed => 'サーバー設定の読み込みに失敗しました';
+
+  @override
+  String get serverDisplayWriteFailed => 'サーバー設定の保存に失敗しました';
+
+  @override
+  String get backupSettings => 'バックアップと復元';
+
+  @override
+  String get backupHint => '設定・ミュート一覧・閲覧履歴を書き出します。認証情報はファイルに含まれません。';
+
+  @override
+  String get backupExport => 'バックアップを書き出す';
+
+  @override
+  String get backupExportHint => '選択したフォルダに pixiv-func-backup-*.json を保存';
+
+  @override
+  String backupExported(String name) {
+    return '$name を書き出しました';
+  }
+
+  @override
+  String get backupExportFailed => '書き出しに失敗しました';
+
+  @override
+  String get backupImport => 'バックアップを読み込む';
+
+  @override
+  String get backupImportHint => 'JSON ファイルから読み込み（マージまたは上書き）';
+
+  @override
+  String get backupImportInvalid => 'バックアップファイルが無効です';
+
+  @override
+  String get backupImportFailed => '読み込みに失敗しました';
+
+  @override
+  String get backupImportStrategyTitle => '読み込み方法を選択';
+
+  @override
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  ) {
+    return 'ファイル内容：ミュートタグ $tags 件、ミュートユーザー $users 件、作品ミュート $works 件、履歴 $history 件。\n書き出し元アカウント：$account';
+  }
+
+  @override
+  String get backupImportOverwriteNote =>
+      '上書きはローカル履歴を消去して作品ミュートを置き換えます。サーバー側のミュートは追加のみで、読み込みで削除されることはありません。';
+
+  @override
+  String get backupMerge => 'マージ';
+
+  @override
+  String get backupOverwrite => '上書き';
+
+  @override
+  String backupImportDone(int tags, int users, int works, int history) {
+    return '読み込み完了：タグ +$tags、ユーザー +$users、作品ミュート変更 $works 件、履歴 $history 件';
+  }
+
+  @override
   String get imageSource => '画像ソース';
 
   @override
   String get imageSourceNormal => '公式 CDN（システム DNS / HTTPS）';
+
+  @override
+  String get imageSourcePixivCat => 'pixiv.cat ミラー';
+
+  @override
+  String get imageSourcePixivRe => 'pixiv.re ミラー';
+
+  @override
+  String get imageSourcePixivNl => 'pixiv.nl ミラー';
+
+  @override
+  String get imageSourceCustom => 'カスタムリバースプロキシ';
+
+  @override
+  String get imageSourceCustomHint =>
+      'https://host[/path]、例：https://i.pixiv.cat';
+
+  @override
+  String get imageSourceCustomUnset => '未設定';
+
+  @override
+  String get imageSourceCustomInvalid =>
+      '無効なソースです：https・DNS ホスト名・ポート 443 が必要です';
+
+  @override
+  String get imageSourceTest => 'テスト';
+
+  @override
+  String imageSourceTestOk(String code) {
+    return 'ミラーに接続できました（HTTP $code）';
+  }
+
+  @override
+  String get imageSourceTestFailed => 'ミラー接続テストに失敗しました';
 
   @override
   String get previewQuality => 'プレビュー画質';

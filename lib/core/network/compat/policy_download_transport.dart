@@ -1,5 +1,6 @@
 import '../../download/download_transport.dart';
 import '../../download/pixiv_download_transport.dart';
+import '../../settings/image_mirror.dart';
 import '../pixiv_client_identity.dart';
 import 'network_contracts.dart';
 import 'network_policy.dart';
@@ -12,9 +13,16 @@ import 'network_policy.dart';
 /// API/image exits.
 class PolicyDownloadTransport
     implements DownloadTransport, DisposableDownloadTransport {
-  PolicyDownloadTransport({required this.policy});
+  PolicyDownloadTransport({
+    required this.policy,
+    this.imageMirror = ImageMirror.direct,
+  });
 
   final NetworkAccessPolicy policy;
+
+  /// Downloads follow the same image-source mirror as on-screen loading
+  /// (Shaft: both the Glide choke point and the download request rewrite).
+  final ImageMirror imageMirror;
   final Map<String, HttpDownloadTransport> _transports = {};
 
   @override
@@ -24,7 +32,7 @@ class PolicyDownloadTransport
     required DownloadCancelToken cancelToken,
   }) async {
     final destination = policy.registry.require(
-      url,
+      imageMirror.rewrite(url),
       PixivDestinationPurpose.image,
     );
     return policy.runLadder<DownloadResponse>(
@@ -73,7 +81,12 @@ class PolicyDownloadTransport
       );
       return HttpDownloadTransport(
         httpClient: client,
-        allowedHosts: PixivClientIdentity.downloadHosts,
+        // The active mirror's hosts are legal redirect/download targets
+        // alongside the canonical pximg pair.
+        allowedHosts: {
+          ...PixivClientIdentity.downloadHosts,
+          ...imageMirror.extraHosts,
+        },
         requireHttps: true,
       );
     });
