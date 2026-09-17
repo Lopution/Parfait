@@ -18,6 +18,7 @@ import 'settings_helpers.dart';
 
 export 'pages/about_settings_page.dart';
 export 'pages/account_settings_page.dart';
+export 'pages/backup_settings_page.dart';
 export 'pages/muted_items_page.dart';
 export 'pages/browse_settings_page.dart';
 export 'pages/download_settings_page.dart';
@@ -136,6 +137,11 @@ class _SettingsList extends ConsumerWidget {
           icon: Icons.block_outlined,
           title: context.l10n.mutedItemsSettings,
           onTap: () => openSettingsPage(context, '/settings/muted'),
+        ),
+        SettingsTile(
+          icon: Icons.backup_outlined,
+          title: context.l10n.backupSettings,
+          onTap: () => openSettingsPage(context, '/settings/backup'),
         ),
         const Divider(),
         SettingsTile(

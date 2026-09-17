@@ -507,6 +507,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String get serverDisplayWriteFailed => '服务端设置保存失败';
 
   @override
+  String get backupSettings => '备份与导入';
+
+  @override
+  String get backupHint => '导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。';
+
+  @override
+  String get backupExport => '导出备份';
+
+  @override
+  String get backupExportHint => '选择目录后写入 pixiv-func-backup-*.json';
+
+  @override
+  String backupExported(String name) {
+    return '已导出 $name';
+  }
+
+  @override
+  String get backupExportFailed => '导出失败';
+
+  @override
+  String get backupImport => '导入备份';
+
+  @override
+  String get backupImportHint => '从 JSON 文件导入，可选合并或覆盖';
+
+  @override
+  String get backupImportInvalid => '备份文件无效';
+
+  @override
+  String get backupImportFailed => '导入失败';
+
+  @override
+  String get backupImportStrategyTitle => '选择导入方式';
+
+  @override
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  ) {
+    return '文件包含 $tags 个屏蔽标签、$users 个屏蔽用户、$works 条作品屏蔽、$history 条历史。\n导出账号：$account';
+  }
+
+  @override
+  String get backupImportOverwriteNote =>
+      '覆盖会先清空本地历史并替换作品屏蔽；服务端屏蔽列表只增不删，覆盖不会删除服务器上的屏蔽项。';
+
+  @override
+  String get backupMerge => '合并';
+
+  @override
+  String get backupOverwrite => '覆盖';
+
+  @override
+  String backupImportDone(int tags, int users, int works, int history) {
+    return '导入完成：新增 $tags 个标签、$users 个用户、$works 项作品屏蔽变更、$history 条历史';
+  }
+
+  @override
   String get imageSource => '图片源';
 
   @override

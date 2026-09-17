@@ -880,6 +880,15 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             ),
           ),
           GoRoute(
+            path: 'backup',
+            pageBuilder: (context, state) => _page(
+              context,
+              state,
+              appRootRouteObserver,
+              const BackupSettingsPage(),
+            ),
+          ),
+          GoRoute(
             path: 'tasks',
             pageBuilder: (context, state) => _page(
               context,

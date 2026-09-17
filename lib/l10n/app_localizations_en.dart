@@ -530,6 +530,69 @@ class AppLocalizationsEn extends AppLocalizations {
   String get serverDisplayWriteFailed => 'Failed to save server setting';
 
   @override
+  String get backupSettings => 'Backup & restore';
+
+  @override
+  String get backupHint =>
+      'Exports settings, the mute list and browsing history. Credentials are never written to the file.';
+
+  @override
+  String get backupExport => 'Export backup';
+
+  @override
+  String get backupExportHint =>
+      'Writes pixiv-func-backup-*.json into a directory you choose';
+
+  @override
+  String backupExported(String name) {
+    return 'Exported $name';
+  }
+
+  @override
+  String get backupExportFailed => 'Export failed';
+
+  @override
+  String get backupImport => 'Import backup';
+
+  @override
+  String get backupImportHint => 'Import from a JSON file; merge or overwrite';
+
+  @override
+  String get backupImportInvalid => 'Invalid backup file';
+
+  @override
+  String get backupImportFailed => 'Import failed';
+
+  @override
+  String get backupImportStrategyTitle => 'Choose how to import';
+
+  @override
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  ) {
+    return 'The file contains $tags muted tags, $users muted users, $works muted works and $history history rows.\nExported by account: $account';
+  }
+
+  @override
+  String get backupImportOverwriteNote =>
+      'Overwrite clears local history and replaces muted works first; server-side mutes are add-only and are never deleted by an import.';
+
+  @override
+  String get backupMerge => 'Merge';
+
+  @override
+  String get backupOverwrite => 'Overwrite';
+
+  @override
+  String backupImportDone(int tags, int users, int works, int history) {
+    return 'Imported: +$tags tags, +$users users, $works work-mute changes, $history history rows';
+  }
+
+  @override
   String get imageSource => 'Image source';
 
   @override

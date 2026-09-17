@@ -193,6 +193,38 @@
   "serverRestrictedMode": "Ограниченный режим",
   "serverDisplayLoadFailed": "Не удалось загрузить серверные настройки",
   "serverDisplayWriteFailed": "Не удалось сохранить настройку на сервере",
+  "backupSettings": "Резервная копия",
+  "backupHint": "Экспорт настроек, списка скрытого и истории просмотра; учётные данные в файл не записываются.",
+  "backupExport": "Экспортировать копию",
+  "backupExportHint": "Сохраняет pixiv-func-backup-*.json в выбранную папку",
+  "backupExported": "Сохранено: {name}",
+  "@backupExported": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "backupExportFailed": "Не удалось экспортировать",
+  "backupImport": "Импортировать копию",
+  "backupImportHint": "Импорт из JSON-файла; слияние или замена",
+  "backupImportInvalid": "Недействительный файл резервной копии",
+  "backupImportFailed": "Не удалось импортировать",
+  "backupImportStrategyTitle": "Способ импорта",
+  "backupImportPrompt": "В файле: скрытых тегов {tags}, пользователей {users}, скрытых работ {works}, записей истории {history}.\nЭкспортировано аккаунтом: {account}",
+  "@backupImportPrompt": {
+    "placeholders": {
+      "tags": {"type": "int"}, "users": {"type": "int"},
+      "works": {"type": "int"}, "history": {"type": "int"},
+      "account": {"type": "String"}
+    }
+  },
+  "backupImportOverwriteNote": "Замена сначала очищает локальную историю и заменяет скрытые работы; серверный список скрытого только пополняется и импортом не удаляется.",
+  "backupMerge": "Объединить",
+  "backupOverwrite": "Заменить",
+  "backupImportDone": "Импортировано: теги +{tags}, пользователи +{users}, изменений скрытых работ: {works}, история: {history}",
+  "@backupImportDone": {
+    "placeholders": {
+      "tags": {"type": "int"}, "users": {"type": "int"},
+      "works": {"type": "int"}, "history": {"type": "int"}
+    }
+  },
   "imageSource": "Источник изображений",
   "imageSourceNormal": "Официальный CDN (системный DNS / HTTPS)",
   "imageSourcePixivCat": "зеркало pixiv.cat",

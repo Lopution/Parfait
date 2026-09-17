@@ -530,6 +530,69 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось сохранить настройку на сервере';
 
   @override
+  String get backupSettings => 'Резервная копия';
+
+  @override
+  String get backupHint =>
+      'Экспорт настроек, списка скрытого и истории просмотра; учётные данные в файл не записываются.';
+
+  @override
+  String get backupExport => 'Экспортировать копию';
+
+  @override
+  String get backupExportHint =>
+      'Сохраняет pixiv-func-backup-*.json в выбранную папку';
+
+  @override
+  String backupExported(String name) {
+    return 'Сохранено: $name';
+  }
+
+  @override
+  String get backupExportFailed => 'Не удалось экспортировать';
+
+  @override
+  String get backupImport => 'Импортировать копию';
+
+  @override
+  String get backupImportHint => 'Импорт из JSON-файла; слияние или замена';
+
+  @override
+  String get backupImportInvalid => 'Недействительный файл резервной копии';
+
+  @override
+  String get backupImportFailed => 'Не удалось импортировать';
+
+  @override
+  String get backupImportStrategyTitle => 'Способ импорта';
+
+  @override
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  ) {
+    return 'В файле: скрытых тегов $tags, пользователей $users, скрытых работ $works, записей истории $history.\nЭкспортировано аккаунтом: $account';
+  }
+
+  @override
+  String get backupImportOverwriteNote =>
+      'Замена сначала очищает локальную историю и заменяет скрытые работы; серверный список скрытого только пополняется и импортом не удаляется.';
+
+  @override
+  String get backupMerge => 'Объединить';
+
+  @override
+  String get backupOverwrite => 'Заменить';
+
+  @override
+  String backupImportDone(int tags, int users, int works, int history) {
+    return 'Импортировано: теги +$tags, пользователи +$users, изменений скрытых работ: $works, история: $history';
+  }
+
+  @override
   String get imageSource => 'Источник изображений';
 
   @override
