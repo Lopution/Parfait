@@ -392,6 +392,44 @@
       }
     }
   },
+  "downloadAuthorWorks": "すべての作品をダウンロード",
+  "downloadAuthorWorksTitle": "作者の全作品をダウンロード",
+  "downloadAuthorEnumerating": "作品を列挙中…{count} 件",
+  "@downloadAuthorEnumerating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorConfirmBody": "この作者の {works} 件の作品（全 {pages} ページ）をダウンロードします。",
+  "@downloadAuthorConfirmBody": {
+    "placeholders": {
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorTruncated": "作品数が多いため、先頭 {max} 件のみダウンロードします。",
+  "@downloadAuthorTruncated": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorEmpty": "この作者にはダウンロード可能な作品がありません。",
+  "downloadAuthorFailed": "作品の列挙に失敗しました：{error}",
+  "@downloadAuthorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "aboutVersion": "バージョン",
   "aboutCheckUpdate": "更新を確認",
   "aboutCheckingUpdate": "更新を確認中…",

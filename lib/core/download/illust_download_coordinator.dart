@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../entity/illust_entity.dart';
 import 'download_manager.dart';
 import 'download_providers.dart';
 import 'download_request.dart';
@@ -58,6 +59,43 @@ class IllustDownloadCoordinator {
         ),
     ]);
     return [for (final id in group.jobIds) _manager.taskById(id)!];
+  }
+
+  /// Per-page requests a bulk author submission needs. Exposed so the
+  /// confirmation dialog can show the real page count before enqueueing;
+  /// works with no usable original URL contribute nothing.
+  List<DownloadRequest> authorWorksRequests(
+    List<IllustEntity> works, {
+    NamingRule? namingRule,
+  }) {
+    return [
+      for (final work in works)
+        for (var i = 0; i < work.pageCount; i++)
+          if (work.originalUrlAt(i) case final url?)
+            DownloadRequest(
+              illustId: work.id,
+              pageIndex: i,
+              url: Uri.parse(url),
+              target: DownloadTarget.illustPage,
+              namingRule: namingRule,
+              artist: work.user.name,
+              title: work.title,
+            ),
+    ];
+  }
+
+  /// Bulk author download (implement.md step 4): one group containing every
+  /// downloadable page of every enumerated work. An empty request set is a
+  /// caller-visible error, never a silent no-op.
+  DownloadGroupSnapshot downloadAuthorWorks({
+    required List<IllustEntity> works,
+    NamingRule? namingRule,
+  }) {
+    final requests = authorWorksRequests(works, namingRule: namingRule);
+    if (requests.isEmpty) {
+      throw const FormatException('author works have no downloadable pages');
+    }
+    return _manager.submitGroup(requests);
   }
 
   DownloadTaskSnapshot? taskFor({

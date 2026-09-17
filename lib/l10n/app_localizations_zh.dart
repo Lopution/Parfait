@@ -902,6 +902,35 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get downloadAuthorWorks => '下载全部作品';
+
+  @override
+  String get downloadAuthorWorksTitle => '下载作者全部作品';
+
+  @override
+  String downloadAuthorEnumerating(int count) {
+    return '正在枚举作品…已找到 $count 个';
+  }
+
+  @override
+  String downloadAuthorConfirmBody(int works, int pages) {
+    return '将下载该作者的 $works 个作品，共 $pages 页。';
+  }
+
+  @override
+  String downloadAuthorTruncated(int max) {
+    return '作品过多，仅下载前 $max 个。';
+  }
+
+  @override
+  String get downloadAuthorEmpty => '该作者没有可下载的作品。';
+
+  @override
+  String downloadAuthorFailed(String error) {
+    return '枚举作品失败：$error';
+  }
+
+  @override
   String get aboutVersion => '版本';
 
   @override

@@ -938,6 +938,35 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get downloadAuthorWorks => 'Download all works';
+
+  @override
+  String get downloadAuthorWorksTitle => 'Download all author works';
+
+  @override
+  String downloadAuthorEnumerating(int count) {
+    return 'Enumerating works… $count found';
+  }
+
+  @override
+  String downloadAuthorConfirmBody(int works, int pages) {
+    return 'Download $works works ($pages pages) by this author.';
+  }
+
+  @override
+  String downloadAuthorTruncated(int max) {
+    return 'Too many works — only the first $max will be downloaded.';
+  }
+
+  @override
+  String get downloadAuthorEmpty => 'This author has no downloadable works.';
+
+  @override
+  String downloadAuthorFailed(String error) {
+    return 'Failed to enumerate works: $error';
+  }
+
+  @override
   String get aboutVersion => 'Version';
 
   @override

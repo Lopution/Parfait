@@ -913,6 +913,35 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get downloadAuthorWorks => 'すべての作品をダウンロード';
+
+  @override
+  String get downloadAuthorWorksTitle => '作者の全作品をダウンロード';
+
+  @override
+  String downloadAuthorEnumerating(int count) {
+    return '作品を列挙中…$count 件';
+  }
+
+  @override
+  String downloadAuthorConfirmBody(int works, int pages) {
+    return 'この作者の $works 件の作品（全 $pages ページ）をダウンロードします。';
+  }
+
+  @override
+  String downloadAuthorTruncated(int max) {
+    return '作品数が多いため、先頭 $max 件のみダウンロードします。';
+  }
+
+  @override
+  String get downloadAuthorEmpty => 'この作者にはダウンロード可能な作品がありません。';
+
+  @override
+  String downloadAuthorFailed(String error) {
+    return '作品の列挙に失敗しました：$error';
+  }
+
+  @override
   String get aboutVersion => 'バージョン';
 
   @override

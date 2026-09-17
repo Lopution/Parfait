@@ -936,6 +936,35 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get downloadAuthorWorks => 'Скачать все работы';
+
+  @override
+  String get downloadAuthorWorksTitle => 'Скачать все работы автора';
+
+  @override
+  String downloadAuthorEnumerating(int count) {
+    return 'Перечисление работ… найдено $count';
+  }
+
+  @override
+  String downloadAuthorConfirmBody(int works, int pages) {
+    return 'Будет скачано $works работ ($pages стр.) этого автора.';
+  }
+
+  @override
+  String downloadAuthorTruncated(int max) {
+    return 'Слишком много работ — будут скачаны только первые $max.';
+  }
+
+  @override
+  String get downloadAuthorEmpty => 'У этого автора нет работ для скачивания.';
+
+  @override
+  String downloadAuthorFailed(String error) {
+    return 'Не удалось перечислить работы: $error';
+  }
+
+  @override
   String get aboutVersion => 'Версия';
 
   @override

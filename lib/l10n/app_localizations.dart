@@ -1777,6 +1777,48 @@ abstract class AppLocalizations {
   /// **'已完成 {done}/{count}'**
   String downloadGroupProgress(int done, int count);
 
+  /// No description provided for @downloadAuthorWorks.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载全部作品'**
+  String get downloadAuthorWorks;
+
+  /// No description provided for @downloadAuthorWorksTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载作者全部作品'**
+  String get downloadAuthorWorksTitle;
+
+  /// No description provided for @downloadAuthorEnumerating.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在枚举作品…已找到 {count} 个'**
+  String downloadAuthorEnumerating(int count);
+
+  /// No description provided for @downloadAuthorConfirmBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'将下载该作者的 {works} 个作品，共 {pages} 页。'**
+  String downloadAuthorConfirmBody(int works, int pages);
+
+  /// No description provided for @downloadAuthorTruncated.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品过多，仅下载前 {max} 个。'**
+  String downloadAuthorTruncated(int max);
+
+  /// No description provided for @downloadAuthorEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'该作者没有可下载的作品。'**
+  String get downloadAuthorEmpty;
+
+  /// No description provided for @downloadAuthorFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'枚举作品失败：{error}'**
+  String downloadAuthorFailed(String error);
+
   /// No description provided for @aboutVersion.
   ///
   /// In zh, this message translates to:
