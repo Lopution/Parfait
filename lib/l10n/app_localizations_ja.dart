@@ -779,15 +779,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get namingPreview => 'プレビュー';
 
   @override
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  ) {
-    return '変数：$artist $title $id $page $ext $date。不正な文字は _ に置換され、長い名前は切り詰められます。';
+  String namingTemplateVariables(String variables) {
+    return '変数：$variables。不正な文字は _ に置換され、長い名前は切り詰められます。';
   }
 
   @override
@@ -940,6 +933,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String downloadAuthorFailed(String error) {
     return '作品の列挙に失敗しました：$error';
   }
+
+  @override
+  String get downloadCaption => '作品のキャプションを書き出す';
+
+  @override
+  String get downloadCaptionHint =>
+      'イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します';
 
   @override
   String get aboutVersion => 'バージョン';

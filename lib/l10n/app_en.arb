@@ -314,25 +314,10 @@
   },
   "namingTemplateInvalid": "Template has unsupported variables or illegal characters",
   "namingPreview": "Preview",
-  "namingTemplateVariables": "Variables: {artist} {title} {id} {page} {ext} {date}; illegal characters become _, and long names are trimmed.",
+  "namingTemplateVariables": "Variables: {variables}; illegal characters become _, and long names are trimmed.",
   "@namingTemplateVariables": {
     "placeholders": {
-      "artist": {
-        "type": "String"
-      },
-      "title": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      },
-      "page": {
-        "type": "String"
-      },
-      "ext": {
-        "type": "String"
-      },
-      "date": {
+      "variables": {
         "type": "String"
       }
     }
@@ -430,6 +415,8 @@
       }
     }
   },
+  "downloadCaption": "Export work caption",
+  "downloadCaptionHint": "Save the title, author and caption as a matching .txt next to downloaded illusts and manga",
   "aboutVersion": "Version",
   "aboutCheckUpdate": "Check for updates",
   "aboutCheckingUpdate": "Checking for updates…",

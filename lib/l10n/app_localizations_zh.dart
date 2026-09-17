@@ -770,15 +770,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get namingPreview => '预览';
 
   @override
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  ) {
-    return '变量：$artist $title $id $page $ext $date；非法字符自动替换为 _，超长自动裁剪。';
+  String namingTemplateVariables(String variables) {
+    return '变量：$variables；非法字符自动替换为 _，超长自动裁剪。';
   }
 
   @override
@@ -929,6 +922,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String downloadAuthorFailed(String error) {
     return '枚举作品失败：$error';
   }
+
+  @override
+  String get downloadCaption => '同时导出作品简介';
+
+  @override
+  String get downloadCaptionHint => '下载插画/漫画时，把标题、作者与简介保存为同名 .txt';
 
   @override
   String get aboutVersion => '版本';

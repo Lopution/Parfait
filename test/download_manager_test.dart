@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
+import 'helpers/illust_fixtures.dart';
 import 'package:http/io_client.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
@@ -546,15 +547,15 @@ void main() {
       addTearDown(manager.dispose);
       final coordinator = IllustDownloadCoordinator(manager);
 
-      final single = coordinator.downloadPage(
-        illustId: 7,
+      final single = await coordinator.downloadPage(
+        work: parseIllust(illustJson(7)),
         pageIndex: 0,
         url: Uri.parse('https://i.pximg.net/img/7_p0.jpg'),
       );
       expect(single.displayName, '7_p0.jpg');
 
-      final all = coordinator.downloadAllPages(
-        illustId: 8,
+      final all = await coordinator.downloadAllPages(
+        work: parseIllust(illustJson(8, pageCount: 2, withMetaPages: true)),
         pageUrls: [
           Uri.parse('https://i.pximg.net/img/8_p0.jpg'),
           Uri.parse('https://i.pximg.net/img/8_p1.jpg'),
@@ -567,24 +568,25 @@ void main() {
       expect(coordinator.taskFor(illustId: 8, pageIndex: 5), isNull);
     });
 
-    test('rejects unsafe URLs before queueing (R4/R7)', () {
+    test('rejects unsafe URLs before queueing (R4/R7)', () async {
       final manager = DownloadManager(
         transport: FakeTransport(),
         sinkFactory: MemorySinkFactory(),
       );
       addTearDown(manager.dispose);
       final coordinator = IllustDownloadCoordinator(manager);
-      expect(
-        () => coordinator.downloadPage(
-          illustId: 1,
+      final work = parseIllust(illustJson(1));
+      await expectLater(
+        coordinator.downloadPage(
+          work: work,
           pageIndex: 0,
           url: Uri.parse('https://evil.example.com/p0.jpg'),
         ),
         throwsA(isA<FormatException>()),
       );
-      expect(
-        () => coordinator.downloadPage(
-          illustId: 1,
+      await expectLater(
+        coordinator.downloadPage(
+          work: work,
           pageIndex: 0,
           url: Uri.parse('https://i.pximg.net/p0.svg'),
         ),

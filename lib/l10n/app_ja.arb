@@ -314,25 +314,10 @@
   },
   "namingTemplateInvalid": "未対応の変数または不正な文字を含みます",
   "namingPreview": "プレビュー",
-  "namingTemplateVariables": "変数：{artist} {title} {id} {page} {ext} {date}。不正な文字は _ に置換され、長い名前は切り詰められます。",
+  "namingTemplateVariables": "変数：{variables}。不正な文字は _ に置換され、長い名前は切り詰められます。",
   "@namingTemplateVariables": {
     "placeholders": {
-      "artist": {
-        "type": "String"
-      },
-      "title": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      },
-      "page": {
-        "type": "String"
-      },
-      "ext": {
-        "type": "String"
-      },
-      "date": {
+      "variables": {
         "type": "String"
       }
     }
@@ -430,6 +415,8 @@
       }
     }
   },
+  "downloadCaption": "作品のキャプションを書き出す",
+  "downloadCaptionHint": "イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します",
   "aboutVersion": "バージョン",
   "aboutCheckUpdate": "更新を確認",
   "aboutCheckingUpdate": "更新を確認中…",
