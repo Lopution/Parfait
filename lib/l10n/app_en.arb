@@ -189,6 +189,23 @@
   "profileReadOnly": "This screen shows saved account metadata. Full profile editing belongs to the profile module.",
   "imageSource": "Image source",
   "imageSourceNormal": "Official CDN (system DNS / HTTPS)",
+  "imageSourcePixivCat": "pixiv.cat mirror",
+  "imageSourcePixivRe": "pixiv.re mirror",
+  "imageSourcePixivNl": "pixiv.nl mirror",
+  "imageSourceCustom": "Custom reverse proxy",
+  "imageSourceCustomHint": "https://host[/path], e.g. https://i.pixiv.cat",
+  "imageSourceCustomUnset": "Not configured",
+  "imageSourceCustomInvalid": "Invalid source: needs https, a DNS host name and port 443",
+  "imageSourceTest": "Test",
+  "imageSourceTestOk": "Mirror reachable (HTTP {code})",
+  "@imageSourceTestOk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceTestFailed": "Mirror connectivity test failed",
   "previewQuality": "Preview quality",
   "viewQuality": "Viewer quality",
   "detailQuality": "Detail quality",

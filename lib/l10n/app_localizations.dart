@@ -1026,6 +1026,66 @@ abstract class AppLocalizations {
   /// **'官方 CDN（系统 DNS / HTTPS）'**
   String get imageSourceNormal;
 
+  /// No description provided for @imageSourcePixivCat.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixiv.cat 镜像'**
+  String get imageSourcePixivCat;
+
+  /// No description provided for @imageSourcePixivRe.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixiv.re 镜像'**
+  String get imageSourcePixivRe;
+
+  /// No description provided for @imageSourcePixivNl.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixiv.nl 镜像'**
+  String get imageSourcePixivNl;
+
+  /// No description provided for @imageSourceCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义反代'**
+  String get imageSourceCustom;
+
+  /// No description provided for @imageSourceCustomHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'https://host[/path]，例如 https://i.pixiv.cat'**
+  String get imageSourceCustomHint;
+
+  /// No description provided for @imageSourceCustomUnset.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置'**
+  String get imageSourceCustomUnset;
+
+  /// No description provided for @imageSourceCustomInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'无效自定义源：需 https、域名且仅支持 443 端口'**
+  String get imageSourceCustomInvalid;
+
+  /// No description provided for @imageSourceTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试'**
+  String get imageSourceTest;
+
+  /// No description provided for @imageSourceTestOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像可达（HTTP {code}）'**
+  String imageSourceTestOk(String code);
+
+  /// No description provided for @imageSourceTestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像连通性测试失败'**
+  String get imageSourceTestFailed;
+
   /// No description provided for @previewQuality.
   ///
   /// In zh, this message translates to:

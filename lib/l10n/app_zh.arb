@@ -189,6 +189,23 @@
   "profileReadOnly": "这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。",
   "imageSource": "图片源",
   "imageSourceNormal": "官方 CDN（系统 DNS / HTTPS）",
+  "imageSourcePixivCat": "pixiv.cat 镜像",
+  "imageSourcePixivRe": "pixiv.re 镜像",
+  "imageSourcePixivNl": "pixiv.nl 镜像",
+  "imageSourceCustom": "自定义反代",
+  "imageSourceCustomHint": "https://host[/path]，例如 https://i.pixiv.cat",
+  "imageSourceCustomUnset": "未配置",
+  "imageSourceCustomInvalid": "无效自定义源：需 https、域名且仅支持 443 端口",
+  "imageSourceTest": "测试",
+  "imageSourceTestOk": "镜像可达（HTTP {code}）",
+  "@imageSourceTestOk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceTestFailed": "镜像连通性测试失败",
   "previewQuality": "预览质量",
   "viewQuality": "查看质量",
   "detailQuality": "详情质量",
