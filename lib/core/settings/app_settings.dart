@@ -9,23 +9,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
+import 'image_mirror.dart';
 
-/// Image source exposed by settings. Network compatibility belongs to the
-/// exact-host policy and cannot be selected by rewriting a CDN URL.
-enum ImageSourceMode {
-  normal('i.pximg.net');
-
-  const ImageSourceMode(this.host);
-
-  final String host;
-
-  static ImageSourceMode? fromHost(String? host) {
-    for (final mode in values) {
-      if (mode.host == host) return mode;
-    }
-    return null;
-  }
-}
+export 'image_mirror.dart' show ImageSourceMode, ImageMirror;
 
 /// Non-secret translation provider selection. Credentials, when a later
 /// translation feature needs them, are referenced from secure storage only.
@@ -168,6 +154,7 @@ class AppSettings {
     required this.languageTag,
     required this.themeCode,
     this.imageSource = normalImageSource,
+    this.customImageSource,
     this.enableDoh = true,
     this.dohEndpointOverride,
     this.echFrontHost = defaultEchFrontHost,
@@ -220,6 +207,11 @@ class AppSettings {
   final String languageTag;
   final int themeCode;
   final String imageSource;
+
+  /// Last used custom mirror prefix (`https://host[/path]`), remembered so
+  /// switching preset → custom → preset does not lose the user's proxy.
+  /// The active custom selection lives in [imageSource] itself.
+  final String? customImageSource;
 
   /// Whether the strict tier uses DoH; when disabled the system resolver
   /// remains the only strict source (直连 + 系统 DNS).
@@ -292,9 +284,16 @@ class AppSettings {
         base.languageTag,
       ),
       themeCode: _theme(json['themeCode'] ?? json['theme'], base.themeCode),
-      imageSource: source is String && ImageSourceMode.fromHost(source) != null
-          ? source
+      imageSource: source is String && ImageMirror.isValidSource(source)
+          ? (ImageSourceMode.fromHost(source) != null
+                ? source
+                : ImageMirror.normalizeCustomSource(source)!)
           : base.imageSource,
+      customImageSource:
+          _nullableString(json, 'customImageSource', base.customImageSource) ??
+          (source is String && ImageSourceMode.fromHost(source) == null
+              ? ImageMirror.normalizeCustomSource(source)
+              : null),
       enableDoh: _bool(json['enableDoh'], base.enableDoh),
       dohEndpointOverride: _nullableString(
         json,
@@ -351,6 +350,7 @@ class AppSettings {
       'languageTag': languageTag,
       'themeCode': themeCode,
       'imageSource': imageSource,
+      'customImageSource': customImageSource,
       'enableDoh': enableDoh,
       'dohEndpointOverride': dohEndpointOverride,
       'echFrontHost': echFrontHost,
@@ -436,8 +436,10 @@ class AppSettings {
     _ => ThemeMode.system,
   };
 
+  /// `fromHost` misses only for a persisted custom prefix — fromJson has
+  /// already normalized or rejected it, so the null branch is [custom].
   ImageSourceMode get imageSourceMode =>
-      ImageSourceMode.fromHost(imageSource) ?? ImageSourceMode.normal;
+      ImageSourceMode.fromHost(imageSource) ?? ImageSourceMode.custom;
 
   TranslationProvider get translationProvider =>
       TranslationProvider.fromCode(translateIndex) ??
@@ -462,6 +464,7 @@ class AppSettings {
     String? languageTag,
     int? themeCode,
     String? imageSource,
+    Object? customImageSource = _unset,
     bool? enableDoh,
     Object? dohEndpointOverride = _unset,
     String? echFrontHost,
@@ -487,10 +490,18 @@ class AppSettings {
           ? this.languageTag
           : canonicalLanguageTag(languageTag),
       themeCode: _theme(themeCode, this.themeCode),
-      imageSource:
-          imageSource != null && ImageSourceMode.fromHost(imageSource) != null
-          ? imageSource
+      imageSource: imageSource != null && ImageMirror.isValidSource(imageSource)
+          ? (ImageSourceMode.fromHost(imageSource) != null
+                ? imageSource
+                : ImageMirror.normalizeCustomSource(imageSource)!)
           : this.imageSource,
+      customImageSource: identical(customImageSource, _unset)
+          ? (imageSource != null &&
+                    ImageSourceMode.fromHost(imageSource) == null &&
+                    ImageMirror.normalizeCustomSource(imageSource) != null
+                ? ImageMirror.normalizeCustomSource(imageSource)
+                : this.customImageSource)
+          : customImageSource as String?,
       enableDoh: enableDoh ?? this.enableDoh,
       dohEndpointOverride: identical(dohEndpointOverride, _unset)
           ? this.dohEndpointOverride

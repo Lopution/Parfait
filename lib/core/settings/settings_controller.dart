@@ -56,7 +56,7 @@ class SettingsController extends AsyncNotifier<AppSettings> {
       _update((settings) => settings.copyWith(guideCompleted: true));
 
   Future<void> selectImageSource(String imageSource) {
-    if (ImageSourceMode.fromHost(imageSource) == null) {
+    if (!ImageMirror.isValidSource(imageSource)) {
       throw ArgumentError.value(imageSource, 'imageSource');
     }
     return _update((settings) => settings.copyWith(imageSource: imageSource));
