@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -23,6 +24,9 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/platform/saf_tree.dart';
 import 'package:pixiv_func/core/settings/preference_keys.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
+import 'package:pixiv_func/features/settings/pages/backup_settings_page.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -366,9 +370,10 @@ void main() {
       await store.toggleWork(7);
       await store.toggleTag('local-tag');
 
-      final uri = await world.service.export();
+      final result = await world.service.export();
 
-      expect(uri, 'content://backup/1');
+      expect(result?.uri, 'content://backup/1');
+      expect(result?.fileName, 'pixiv-func-backup-20260920-1030.json');
       expect(world.picker.picks, 1);
       expect(world.sinks.lastTreeUri, 'tree-1');
       expect(
@@ -550,4 +555,168 @@ void main() {
       expect((await world.history.page(accountId: '100')).total, 0);
     });
   });
+
+  group('BackupSettingsPage', () {
+    Future<_FakeBackupService> pumpPage(
+      WidgetTester tester, {
+      List<int>? fileBytes,
+    }) async {
+      final service = _FakeBackupService();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            backupServiceProvider.overrideWithValue(service),
+            backupFilePickerProvider.overrideWithValue(() async => fileBytes),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: BackupSettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return service;
+    }
+
+    testWidgets('renders both actions', (tester) async {
+      await pumpPage(tester);
+      expect(find.text('导出备份'), findsOneWidget);
+      expect(find.text('导入备份'), findsOneWidget);
+    });
+
+    testWidgets('export reports the written file name', (tester) async {
+      final service = await pumpPage(tester);
+      await tester.tap(find.text('导出备份'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('backup.json'), findsOneWidget);
+      expect(service.exportCalls, 1);
+    });
+
+    testWidgets('export cancel stays silent', (tester) async {
+      (await pumpPage(tester)).exportResult = null;
+      await tester.tap(find.text('导出备份'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('import parses, asks the strategy and applies merge', (
+      tester,
+    ) async {
+      final bytes = BackupEnvelope(
+        exportedAt: DateTime.utc(2026, 9, 20),
+        accountId: 'other',
+        settings: const {},
+        muteTags: {'t1', 't2'},
+        muteWorkIds: {1},
+        history: [_record(3)],
+      ).encode();
+      final service = await pumpPage(tester, fileBytes: bytes);
+
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+
+      // The dialog states scope, origin account and the add-only caveat.
+      expect(find.text('选择导入方式'), findsOneWidget);
+      expect(find.textContaining('导出账号：other'), findsOneWidget);
+      expect(find.textContaining('只增不删'), findsOneWidget);
+
+      await tester.tap(find.text('合并'));
+      await tester.pumpAndSettle();
+
+      expect(service.lastStrategy, BackupImportStrategy.merge);
+      expect(service.lastEnvelope, isNotNull);
+      expect(find.textContaining('导入完成'), findsOneWidget);
+    });
+
+    testWidgets('overwrite choice reaches the service', (tester) async {
+      final bytes = BackupEnvelope(
+        exportedAt: DateTime.utc(2026, 9, 20),
+        settings: const {},
+      ).encode();
+      final service = await pumpPage(tester, fileBytes: bytes);
+
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('覆盖'));
+      await tester.pumpAndSettle();
+
+      expect(service.lastStrategy, BackupImportStrategy.overwrite);
+    });
+
+    testWidgets('an unparsable file fails visibly without a dialog', (
+      tester,
+    ) async {
+      await pumpPage(tester, fileBytes: utf8.encode('{"schema":"nope"}'));
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('备份文件无效'), findsOneWidget);
+      expect(find.text('选择导入方式'), findsNothing);
+    });
+
+    testWidgets('picker cancel does nothing', (tester) async {
+      final service = await pumpPage(tester);
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('选择导入方式'), findsNothing);
+      expect(service.lastEnvelope, isNull);
+    });
+
+    testWidgets('apply failure surfaces a visible error', (tester) async {
+      final bytes = BackupEnvelope(
+        exportedAt: DateTime.utc(2026, 9, 20),
+        settings: const {},
+      ).encode();
+      (await pumpPage(tester, fileBytes: bytes)).applyError = StateError(
+        'boom',
+      );
+
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('合并'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('导入失败'), findsOneWidget);
+    });
+  });
+}
+
+/// Test double at the page/service boundary — the envelope, merge and
+/// overwrite semantics themselves are covered by the real-service tests
+/// above, so here only the call contract is faked.
+class _FakeBackupService implements BackupService {
+  var exportCalls = 0;
+  BackupExportResult? exportResult = (
+    uri: 'content://backup/1',
+    fileName: 'backup.json',
+  );
+  BackupImportResult applyResult = const BackupImportResult(
+    tagsAdded: 1,
+    usersAdded: 2,
+    workMutesChanged: 3,
+    historyRows: 4,
+  );
+  Object? applyError;
+  BackupImportStrategy? lastStrategy;
+  BackupEnvelope? lastEnvelope;
+
+  @override
+  Future<BackupExportResult?> export() async {
+    exportCalls++;
+    return exportResult;
+  }
+
+  @override
+  Future<BackupImportResult> apply(
+    BackupEnvelope envelope,
+    BackupImportStrategy strategy,
+  ) async {
+    lastEnvelope = envelope;
+    lastStrategy = strategy;
+    if (applyError != null) throw applyError!;
+    return applyResult;
+  }
 }

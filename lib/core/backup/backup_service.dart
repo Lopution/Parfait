@@ -10,6 +10,10 @@ import '../settings/app_settings.dart';
 import '../settings/settings_controller.dart';
 import 'backup_envelope.dart';
 
+/// What a completed export produced — the opaque SAF uri plus the display
+/// name the user can find in the chosen directory.
+typedef BackupExportResult = ({String uri, String fileName});
+
 /// Outcome counters shown to the user after an import.
 class BackupImportResult {
   const BackupImportResult({
@@ -65,15 +69,16 @@ class BackupService {
   final DateTime Function() _now;
 
   /// Builds the document for the current state, asks for a destination
-  /// tree, and streams the JSON into it. Returns the created document uri,
-  /// or null when the picker was cancelled.
-  Future<String?> export() async {
+  /// tree, and streams the JSON into it. Returns the created document's
+  /// uri and name, or null when the picker was cancelled.
+  Future<BackupExportResult?> export() async {
     final envelope = await _collect();
     final treeUri = await _treePicker.pickTree();
     if (treeUri == null) return null;
+    final fileName = BackupEnvelope.fileName(_now());
     final sink = await _sinkFactory.create(
       treeUri: treeUri,
-      displayName: BackupEnvelope.fileName(_now()),
+      displayName: fileName,
       mimeType: BackupEnvelope.mimeType,
     );
     try {
@@ -88,7 +93,7 @@ class BackupService {
       }
       rethrow;
     }
-    return sink.uri;
+    return (uri: sink.uri, fileName: fileName);
   }
 
   Future<BackupEnvelope> _collect() async {

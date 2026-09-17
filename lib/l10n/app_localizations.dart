@@ -1050,6 +1050,108 @@ abstract class AppLocalizations {
   /// **'服务端设置保存失败'**
   String get serverDisplayWriteFailed;
 
+  /// No description provided for @backupSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份与导入'**
+  String get backupSettings;
+
+  /// No description provided for @backupHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。'**
+  String get backupHint;
+
+  /// No description provided for @backupExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出备份'**
+  String get backupExport;
+
+  /// No description provided for @backupExportHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择目录后写入 pixiv-func-backup-*.json'**
+  String get backupExportHint;
+
+  /// No description provided for @backupExported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导出 {name}'**
+  String backupExported(String name);
+
+  /// No description provided for @backupExportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出失败'**
+  String get backupExportFailed;
+
+  /// No description provided for @backupImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入备份'**
+  String get backupImport;
+
+  /// No description provided for @backupImportHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'从 JSON 文件导入，可选合并或覆盖'**
+  String get backupImportHint;
+
+  /// No description provided for @backupImportInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份文件无效'**
+  String get backupImportInvalid;
+
+  /// No description provided for @backupImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入失败'**
+  String get backupImportFailed;
+
+  /// No description provided for @backupImportStrategyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择导入方式'**
+  String get backupImportStrategyTitle;
+
+  /// No description provided for @backupImportPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件包含 {tags} 个屏蔽标签、{users} 个屏蔽用户、{works} 条作品屏蔽、{history} 条历史。\n导出账号：{account}'**
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  );
+
+  /// No description provided for @backupImportOverwriteNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖会先清空本地历史并替换作品屏蔽；服务端屏蔽列表只增不删，覆盖不会删除服务器上的屏蔽项。'**
+  String get backupImportOverwriteNote;
+
+  /// No description provided for @backupMerge.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并'**
+  String get backupMerge;
+
+  /// No description provided for @backupOverwrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖'**
+  String get backupOverwrite;
+
+  /// No description provided for @backupImportDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入完成：新增 {tags} 个标签、{users} 个用户、{works} 项作品屏蔽变更、{history} 条历史'**
+  String backupImportDone(int tags, int users, int works, int history);
+
   /// No description provided for @imageSource.
   ///
   /// In zh, this message translates to:

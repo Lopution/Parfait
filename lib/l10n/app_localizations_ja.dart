@@ -515,6 +515,67 @@ class AppLocalizationsJa extends AppLocalizations {
   String get serverDisplayWriteFailed => 'サーバー設定の保存に失敗しました';
 
   @override
+  String get backupSettings => 'バックアップと復元';
+
+  @override
+  String get backupHint => '設定・ミュート一覧・閲覧履歴を書き出します。認証情報はファイルに含まれません。';
+
+  @override
+  String get backupExport => 'バックアップを書き出す';
+
+  @override
+  String get backupExportHint => '選択したフォルダに pixiv-func-backup-*.json を保存';
+
+  @override
+  String backupExported(String name) {
+    return '$name を書き出しました';
+  }
+
+  @override
+  String get backupExportFailed => '書き出しに失敗しました';
+
+  @override
+  String get backupImport => 'バックアップを読み込む';
+
+  @override
+  String get backupImportHint => 'JSON ファイルから読み込み（マージまたは上書き）';
+
+  @override
+  String get backupImportInvalid => 'バックアップファイルが無効です';
+
+  @override
+  String get backupImportFailed => '読み込みに失敗しました';
+
+  @override
+  String get backupImportStrategyTitle => '読み込み方法を選択';
+
+  @override
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  ) {
+    return 'ファイル内容：ミュートタグ $tags 件、ミュートユーザー $users 件、作品ミュート $works 件、履歴 $history 件。\n書き出し元アカウント：$account';
+  }
+
+  @override
+  String get backupImportOverwriteNote =>
+      '上書きはローカル履歴を消去して作品ミュートを置き換えます。サーバー側のミュートは追加のみで、読み込みで削除されることはありません。';
+
+  @override
+  String get backupMerge => 'マージ';
+
+  @override
+  String get backupOverwrite => '上書き';
+
+  @override
+  String backupImportDone(int tags, int users, int works, int history) {
+    return '読み込み完了：タグ +$tags、ユーザー +$users、作品ミュート変更 $works 件、履歴 $history 件';
+  }
+
+  @override
   String get imageSource => '画像ソース';
 
   @override
