@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/illust_store.dart';
+import 'illust_snapshot_codec.dart';
 import '../network/next_page_parser.dart';
 import '../novel/novel_repository.dart';
 import '../novel/novel_store.dart';
+import '../novel/novel_snapshot_codec.dart';
 import '../paging/paged_feed_controller.dart';
 import '../user/user_repository.dart';
 import '../user/user_store.dart';
@@ -22,6 +24,14 @@ class _RecommendedFeedController extends PagedFeedController {
 
   @override
   String get feedKey => 'recommended:${key.type.name}';
+
+  @override
+  FeedSnapshotCodec? get snapshotCodec => switch (key.type) {
+    RecommendedContentType.illust ||
+    RecommendedContentType.manga => const IllustSnapshotCodec(),
+    RecommendedContentType.novel => const NovelSnapshotCodec(),
+    RecommendedContentType.user => null,
+  };
 
   /// C9: discovery content only. Illusts and manga are filtered; novels and
   /// user recommendations have no local-block semantics and stay unfiltered.
