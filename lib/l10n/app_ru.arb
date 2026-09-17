@@ -700,5 +700,7 @@
   },
   "seriesPrevious": "Предыдущая",
   "seriesNext": "Следующая",
-  "profileSeries": "Серии"
+  "profileSeries": "Серии",
+  "spotlightTitle": "Спотлайт",
+  "spotlightArticleLoadFailed": "Не удалось загрузить статью"
 }

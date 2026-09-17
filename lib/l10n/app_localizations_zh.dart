@@ -1654,4 +1654,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get profileSeries => '系列';
+
+  @override
+  String get spotlightTitle => '特辑';
+
+  @override
+  String get spotlightArticleLoadFailed => '文章加载失败';
 }

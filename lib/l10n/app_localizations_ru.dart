@@ -1701,4 +1701,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileSeries => 'Серии';
+
+  @override
+  String get spotlightTitle => 'Спотлайт';
+
+  @override
+  String get spotlightArticleLoadFailed => 'Не удалось загрузить статью';
 }
