@@ -19,8 +19,11 @@ import '../settings/app_settings.dart';
 import '../settings/local_block_filter.dart';
 import '../settings/settings_controller.dart';
 import 'feed_request_context.dart';
+import 'feed_snapshot_codec.dart';
+import 'feed_snapshot_store.dart';
 
 export 'feed_request_context.dart';
+export 'feed_snapshot_codec.dart';
 
 /// Independent states for the three load phases of a paginated feed.
 enum FeedPhase { idle, loading, error }
@@ -170,6 +173,15 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     return muteState != null && muteHitFor(entity, muteState) != null;
   }
 
+  /// Feeds that support snapshot cold-start override this with their entity
+  /// codec. With a codec, [build] first renders the persisted page-one view
+  /// (ids + entities from `feed_snapshots`) and schedules a background
+  /// [refresh]; feeds without a codec keep the pure network path.
+  FeedSnapshotCodec? get snapshotCodec => null;
+
+  /// Ids persisted per snapshot write; the rest of the list is refetched.
+  static const _snapshotIdCap = 60;
+
   /// Minimum visible items after filtering. When a server page leaves fewer
   /// visible items, the controller keeps fetching subsequent pages (bounded
   /// by [filterMaxRefillPages]) until the threshold or the server's end.
@@ -283,6 +295,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   static const _maxCommittedCursors = 128;
   final List<String> _committedCursors = <String>[];
   bool _disposed = false;
+  bool _cancelRequested = false;
   bool _disposeCallbackRegistered = false;
   final FeedCommitGate _commitGate = FeedCommitGate();
 
@@ -327,6 +340,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     // invalidates this request if hydration changes the snapshot before its
     // page can commit.
     _disposed = false;
+    _cancelRequested = false;
     _nextCursor = null;
     _page = 0;
     _committedCursors.clear();
@@ -336,6 +350,25 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         _disposed = true;
         _commitGate.dispose();
       });
+    }
+    // The snapshot read must complete before a generation is opened: no
+    // request context exists during the read, so nothing can commit over a
+    // restored page, and an invalidated build never reaches _beginRequest
+    // with a stale generation. Feeds without a codec keep the fully
+    // synchronous pre-fetch path — no suspension point is added.
+    final codec = snapshotCodec;
+    final snapshotAccountId = _accountId;
+    if (codec != null && snapshotAccountId != null) {
+      final restored = await _restoreSnapshot(codec, snapshotAccountId);
+      if (restored != null) {
+        // Content is already visible; refresh revalidates it in the
+        // background without blocking the first frame on the network.
+        _scheduleSnapshotRefresh();
+        return restored;
+      }
+      if (_disposed || _cancelRequested) {
+        return const PagedFeedState(initialPhase: FeedPhase.idle);
+      }
     }
     final generation = _commitGate.beginGeneration();
     final context = _beginRequest(
@@ -352,8 +385,10 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       _recordCursor(nextCursor);
       _nextCursor = nextCursor;
       _page = 1;
+      final ids = _dedupe(page.ids, const []);
+      _persistSnapshot(ids);
       return PagedFeedState(
-        ids: _dedupe(page.ids, const []),
+        ids: ids,
         initialPhase: FeedPhase.idle,
         exhausted: _nextCursor == null,
       );
@@ -401,6 +436,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       _nextCursor = nextCursor;
       _page = 1;
       final ids = _dedupe(page.ids, const []);
+      _persistSnapshot(ids);
       state = AsyncData(
         PagedFeedState(
           ids: ids,
@@ -532,6 +568,10 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// discarding already loaded IDs or the last valid cursor.
   void cancel() {
     _commitGate.cancelActive();
+    // A cancel that lands while build() is still reading the snapshot has no
+    // context to cancel yet; the flag suppresses the fetch that would
+    // otherwise start right after the read.
+    _cancelRequested = true;
     final current = state.asData?.value;
     if (current == null) return;
     state = AsyncData(
@@ -636,4 +676,75 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
 
   String? _accountIdFor(FeedRequestContext context) =>
       _disposed ? context.accountId : _accountId;
+
+  /// Reads the persisted page-one view of this feed, if any. A hit merges
+  /// its entities back into the shared store and returns an idle state with
+  /// the stored cursor so load-more continues where the snapshot left off.
+  /// Only called when a codec and an account are both present.
+  Future<PagedFeedState?> _restoreSnapshot(
+    FeedSnapshotCodec codec,
+    String accountId,
+  ) async {
+    final FeedSnapshot? snapshot;
+    try {
+      snapshot = await ref
+          .read(feedSnapshotStoreProvider)
+          .read(accountId, feedKey);
+    } on Object {
+      // A broken snapshot store must never break the feed itself.
+      return null;
+    }
+    if (snapshot == null || _disposed || _cancelRequested) return null;
+    // A row written by a different payload format is a miss; the next
+    // successful fetch rewrites it under the current version.
+    if (snapshot.snapshotVersion != codec.snapshotVersion) return null;
+    final payload = snapshot.entities[codec.entityType];
+    if (payload is! Map<String, Object?>) return null;
+    final ids = codec.restoreEntities(ref, snapshot.ids, payload);
+    if (ids.isEmpty && snapshot.ids.isNotEmpty) return null;
+    _nextCursor = snapshot.cursor;
+    _recordCursor(snapshot.cursor);
+    _page = 1;
+    return PagedFeedState(
+      ids: ids,
+      initialPhase: FeedPhase.idle,
+      exhausted: snapshot.cursor == null,
+    );
+  }
+
+  void _scheduleSnapshotRefresh() {
+    // Runs on the next event-loop turn: by then Riverpod has published the
+    // restored state, so refresh() observes it instead of the loading phase.
+    Future(() {
+      if (_disposed || _cancelRequested || !state.hasValue) return;
+      unawaited(refresh());
+    });
+  }
+
+  /// Persists the committed page-one view after a successful initial load or
+  /// refresh. Failures are swallowed — a snapshot that fails to write only
+  /// means the next cold start takes the network path again.
+  void _persistSnapshot(List<int> ids) {
+    final codec = snapshotCodec;
+    final accountId = _accountId;
+    if (codec == null || accountId == null || ids.isEmpty || _disposed) return;
+    final capped = ids.length > _snapshotIdCap
+        ? ids.sublist(0, _snapshotIdCap)
+        : ids;
+    final entities = codec.encodeEntities(ref, capped);
+    if (entities.isEmpty) return;
+    unawaited(
+      ref
+          .read(feedSnapshotStoreProvider)
+          .write(
+            accountId,
+            feedKey,
+            ids: capped,
+            entities: {codec.entityType: entities},
+            cursor: _nextCursor,
+            snapshotVersion: codec.snapshotVersion,
+          )
+          .onError((_, _) {}),
+    );
+  }
 }

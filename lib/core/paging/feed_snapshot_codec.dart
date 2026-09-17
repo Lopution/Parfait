@@ -9,27 +9,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Encodes/decodes one entity type for `feed_snapshots.entities`.
 ///
 /// The payload column stores `{entityType: {id: encoded}}` so a reader can
-/// verify codec compatibility before decoding. [E] is the entity type
-/// (`IllustEntity`, `NovelEntity`, ...).
-abstract class FeedSnapshotCodec<E> {
+/// verify codec compatibility before decoding. Entity types are erased at
+/// this boundary (`Object?` payloads keyed by id-string) because one
+/// controller may serve different entity types per family key — concrete
+/// codecs keep the real types internally.
+abstract class FeedSnapshotCodec {
+  const FeedSnapshotCodec();
+
   /// Discriminator persisted as the entities-map key ('illust', 'novel').
   String get entityType;
 
-  /// Reads the currently live entities for [ids] out of the shared entity
-  /// store; ids whose entity is gone are skipped.
-  Map<int, E> readEntities(Ref ref, List<int> ids);
-
-  /// Merges decoded entities back into the shared entity store so cards
-  /// render from the same source as a fresh fetch.
-  void mergeEntities(Ref ref, Map<int, E> entities);
-
-  /// Encodes one entity to a JSON-encodable value.
-  Object? encodeEntity(E entity);
-
-  /// Decodes one persisted entity; returning null drops the entry.
-  E? decodeEntity(Object? json);
-
-  /// Snapshot format version persisted per row; bump when [encodeEntity]
-  /// output becomes unreadable by older decoders.
+  /// Snapshot format version persisted per row; bump when the encoded
+  /// payload becomes unreadable by older decoders.
   int get snapshotVersion => 1;
+
+  /// `{idString: payload}` for ids that still resolve to a live entity in
+  /// the shared store. Missing entities are skipped.
+  Map<String, Object?> encodeEntities(Ref ref, List<int> ids);
+
+  /// Decodes the persisted `{idString: payload}` map, merges the entities
+  /// into the shared store and returns the subset of [ids] that decoded
+  /// (order preserved). Corrupt entries drop their id.
+  List<int> restoreEntities(
+    Ref ref,
+    List<int> ids,
+    Map<String, Object?> entitiesJson,
+  );
 }

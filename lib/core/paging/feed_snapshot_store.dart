@@ -4,8 +4,10 @@
 /// render content before the network answers. See `database-guidelines.md`.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'feed_database.dart';
@@ -166,3 +168,13 @@ class FeedSnapshotStore {
     );
   }
 }
+
+final _feedDatabaseProvider = Provider<FeedDatabase>((ref) {
+  final database = FeedDatabase();
+  ref.onDispose(() => unawaited(database.close()));
+  return database;
+});
+
+final feedSnapshotStoreProvider = Provider<FeedSnapshotStore>((ref) {
+  return FeedSnapshotStore(database: ref.watch(_feedDatabaseProvider));
+});

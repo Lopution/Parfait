@@ -20,6 +20,13 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 DatabaseFactory feedDatabaseFactory({required bool useMobileSqflite}) {
   if (useMobileSqflite) return sqflite.databaseFactory;
   sqfliteFfiInit();
+  // The isolate-backed factory's port replies never reach the fake-async
+  // zone of `testWidgets`, which would suspend every snapshot read forever.
+  // The no-isolate variant answers through microtasks that `tester.pump`
+  // flushes, so feeds keep their async cadence inside widget tests.
+  if (Platform.environment['FLUTTER_TEST'] == 'true') {
+    return databaseFactoryFfiNoIsolate;
+  }
   return databaseFactoryFfi;
 }
 
@@ -57,9 +64,7 @@ class FeedDatabase {
   }
 
   Future<Database> _open() async {
-    final databasePath =
-        _databasePath ??
-        path.join(await _factory.getDatabasesPath(), databaseName);
+    final databasePath = _databasePath ?? await _defaultPath();
     return _factory.openDatabase(
       databasePath,
       options: OpenDatabaseOptions(
@@ -68,6 +73,17 @@ class FeedDatabase {
         onUpgrade: _upgrade,
       ),
     );
+  }
+
+  /// `flutter test` sets FLUTTER_TEST for every test isolate. Snapshot
+  /// contents are a cache: keeping them in-memory per test run prevents a
+  /// stale on-disk feeds.db from being restored by an unrelated test that
+  /// did not inject a [FeedDatabase]. Production resolves the real path.
+  Future<String> _defaultPath() async {
+    if (Platform.environment['FLUTTER_TEST'] == 'true') {
+      return sqflite.inMemoryDatabasePath;
+    }
+    return path.join(await _factory.getDatabasesPath(), databaseName);
   }
 
   Future<void> _createSchema(DatabaseExecutor db) async {

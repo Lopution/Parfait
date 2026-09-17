@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../paging/paged_feed_controller.dart';
+import 'novel_snapshot_codec.dart';
 import 'novel_repository.dart';
 import 'novel_store.dart';
 
@@ -11,6 +12,9 @@ class _UserNovelFeedController extends PagedFeedController {
   _UserNovelFeedController(this.userId);
 
   final int userId;
+
+  @override
+  FeedSnapshotCodec? get snapshotCodec => const NovelSnapshotCodec();
 
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
