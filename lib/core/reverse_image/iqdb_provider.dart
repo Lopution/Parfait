@@ -7,61 +7,50 @@ import 'package:http_parser/http_parser.dart';
 
 import '../network/pixiv_http_client.dart';
 import 'image_input.dart';
+import 'reverse_image_engine.dart';
 import 'reverse_image_provider.dart';
 
-/// SauceNAO zero-config WebView/HTML provider (D1).
+/// IQDB zero-config headless provider.
 ///
-/// The provider only uploads the owned temporary file to the public
-/// `search.php` form (anonymous, no api_key) and hands the service-rendered
-/// result page back to the UI as a webview outcome. It never parses HTML,
-/// never extracts image bytes into long-lived memory and never sends Pixiv
-/// credentials, account ids or device identifiers.
+/// IQDB is the only major reverse-image engine without Cloudflare in front
+/// (verified 2026-09-16), so a plain multipart POST to `https://iqdb.org/`
+/// returns the service-rendered result page directly. Documented input
+/// limits are stricter than the global ones — JPEG/PNG/GIF, 8192 KiB,
+/// 7500×7500 — and are enforced by [ReverseImageEngineSpecs.iqdb] before any
+/// request is sent.
 ///
-/// External facts (re-verified 2026-09-07, see the task's
-/// `research/anonymous-policy.md`): the public `search.php` form still
-/// accepts anonymous multipart uploads and renders a result page; the JSON
-/// API (`output_type=2`) refuses anonymous callers ("The anonymous account
-/// type does not permit API usage"), which is why this provider is the HTML
-/// route. Unregistered limits are tracked per IP (4 searches / 30 s and 150
-/// / day as documented by SauceNAO's own limit pages); they surface as 429
-/// with `retry-after` or as a rendered "Daily Search Limit Exceeded" /
-/// "Search Rate Too High" page.
-///
-/// The endpoint stays exactly `https://saucenao.com/search.php`; quota
-/// numbers are never hardcoded into the UI, only the observed response is
-/// surfaced.
-class SauceNaoWebViewProvider implements ReverseImageProvider {
-  SauceNaoWebViewProvider({
+/// The provider never parses HTML, never keeps image bytes in long-lived
+/// memory and never sends Pixiv credentials or identifiers.
+class IqdbWebViewProvider implements ReverseImageProvider {
+  IqdbWebViewProvider({
     http.Client? client,
-    this.endpoint = defaultEndpoint,
     DateTime Function() now = DateTime.now,
-    this.observedAt = '2026-09-03',
+    this.observedAt = '2026-09-16',
   }) : _client = client ?? http.Client(),
        _now = now;
 
-  static const String defaultEndpoint = 'https://saucenao.com/search.php';
+  static const _spec = ReverseImageEngineSpecs.iqdb;
 
   /// Hard bound on a server-rendered result page; a challenge/error page
   /// beyond this is still a visible failure, never an empty success.
   static const int maxResultPageBytes = 4 * 1024 * 1024;
 
-  /// Bound on a redirect target (anonymous results stay on saucenao.com).
+  /// Bound on a redirect target (results stay on iqdb.org).
   static const int maxRedirectUrlLength = 2048;
 
   final http.Client _client;
-  final String endpoint;
   final DateTime Function() _now;
   final String observedAt;
 
   @override
   ReverseImageProviderCapability get capability =>
       ReverseImageProviderCapability(
-        name: 'SauceNAO (anonymous WebView search)',
+        name: 'IQDB (anonymous WebView search)',
         kind: ReverseImageProviderKind.interactiveWebView,
         enabled: true,
         observedAt: observedAt,
         reason:
-            'SauceNAO allows anonymous searches; the result page is '
+            'IQDB accepts anonymous uploads; the result page is '
             'service-rendered and shown in a controlled WebView',
       );
 
@@ -74,6 +63,12 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
       return const ReverseImageSearchFailure(
         code: ReverseImageProviderFailureCode.cancelled,
         message: 'reverse image search was cancelled',
+      );
+    }
+    if (!_spec.supportsInput(input.info)) {
+      return const ReverseImageSearchFailure(
+        code: ReverseImageProviderFailureCode.unsupportedInput,
+        message: 'image does not satisfy IQDB constraints',
       );
     }
     final file = File(input.info.path);
@@ -93,25 +88,18 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
         message: 'temporary image is no longer readable',
       );
     }
-    if (size > ReverseImageInputLimits.maxEncodedBytes) {
-      return const ReverseImageSearchFailure(
-        code: ReverseImageProviderFailureCode.malformedResponse,
-        message: 'temporary image exceeds the size limit',
-      );
-    }
 
-    final request = http.MultipartRequest('POST', Uri.parse(endpoint))
-      ..files.add(
-        http.MultipartFile(
-          'file',
-          file.openRead(),
-          size,
-          filename: 'reverse.png',
-          // MediaType is validated against the input MIME; format and MIME
-          // were already shown to be consistent by the input validator.
-          contentType: MediaType.parse(_mediaTypeFor(input.info.mimeType)),
-        ),
-      );
+    final request =
+        http.MultipartRequest('POST', Uri.parse(_spec.uploadEndpoint!))
+          ..files.add(
+            http.MultipartFile(
+              'file',
+              file.openRead(),
+              size,
+              filename: 'reverse.png',
+              contentType: MediaType.parse(_mediaTypeFor(input.info.mimeType)),
+            ),
+          );
     final response = await _send(request, cancelToken);
     if (response == null) {
       return const ReverseImageSearchFailure(
@@ -128,7 +116,7 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
             if (body.length > maxResultPageBytes - chunk.length) {
               return const ReverseImageSearchFailure(
                 code: ReverseImageProviderFailureCode.malformedResponse,
-                message: 'SauceNAO returned an unusable result page',
+                message: 'IQDB returned an unusable result page',
               );
             }
             body.addAll(chunk);
@@ -136,21 +124,20 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
         } on Object {
           return const ReverseImageSearchFailure(
             code: ReverseImageProviderFailureCode.malformedResponse,
-            message: 'SauceNAO returned an unusable result page',
+            message: 'IQDB returned an unusable result page',
           );
         }
         if (body.isEmpty || body.length > maxResultPageBytes) {
           return const ReverseImageSearchFailure(
             code: ReverseImageProviderFailureCode.malformedResponse,
-            message: 'SauceNAO returned an unusable result page',
+            message: 'IQDB returned an unusable result page',
           );
         }
         final contentType = response.headers['content-type'] ?? '';
         if (!contentType.toLowerCase().contains('text/html')) {
-          // A JSON error or challenge body must not render as an empty list.
           return const ReverseImageSearchFailure(
             code: ReverseImageProviderFailureCode.malformedResponse,
-            message: 'SauceNAO did not return a result page',
+            message: 'IQDB did not return a result page',
           );
         }
         final html = utf8.decode(body, allowMalformed: true);
@@ -172,13 +159,13 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
         if (uri == null ||
             uri.scheme != 'https' ||
             uri.host.isEmpty ||
-            !_allowedResultHost(uri.host) ||
+            !_spec.webViewHosts.contains(uri.host.toLowerCase()) ||
             uri.userInfo.isNotEmpty ||
             uri.hasFragment ||
             uri.toString().length > maxRedirectUrlLength) {
           return const ReverseImageSearchFailure(
             code: ReverseImageProviderFailureCode.malformedResponse,
-            message: 'SauceNAO redirect is not accessible',
+            message: 'IQDB redirect is not accessible',
           );
         }
         return ReverseImageSearchWebView(
@@ -188,7 +175,7 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
       case 429:
         return ReverseImageSearchFailure(
           code: ReverseImageProviderFailureCode.rateLimited,
-          message: 'SauceNAO anonymous rate limit reached',
+          message: 'IQDB rate limit reached',
           retryable: true,
           retryAfter: ReverseImageChallengeDetector.retryAfter(
             response.headers['retry-after'],
@@ -197,12 +184,12 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
       case 403:
         return const ReverseImageSearchFailure(
           code: ReverseImageProviderFailureCode.challenge,
-          message: 'SauceNAO rejected anonymous search',
+          message: 'IQDB rejected anonymous search',
         );
       default:
         return ReverseImageSearchFailure(
           code: ReverseImageProviderFailureCode.providerUnavailable,
-          message: 'SauceNAO unavailable (HTTP ${response.statusCode})',
+          message: 'IQDB unavailable (HTTP ${response.statusCode})',
           retryable: true,
         );
     }
@@ -213,10 +200,9 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
     CancelToken? cancelToken,
   ) async {
     try {
-      final future = _client.send(request).timeout(const Duration(seconds: 25));
-      // Cooperative cancellation: the platform request is not interrupted,
-      // but the result is dropped when the token fired meanwhile.
-      final response = await future;
+      final response = await _client
+          .send(request)
+          .timeout(const Duration(seconds: 25));
       if (cancelToken?.isCancelled ?? false) return null;
       return response;
     } on TimeoutException {
@@ -232,56 +218,19 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
     }
   }
 
-  static bool _allowedResultHost(String host) {
-    final normalized = host.toLowerCase();
-    return normalized == 'saucenao.com' || normalized == 'www.saucenao.com';
-  }
-
-  /// A 200 HTML response can still be a CAPTCHA, rate-limit, or no-match
-  /// page. Challenge and limit pages stay classified failures; a no-match
-  /// page is an explicit empty success so the UI can show "no results"
-  /// instead of a red failure.
+  /// A 200 HTML response can still be a challenge or a no-match page. IQDB's
+  /// no-match page renders "No relevant matches" — an explicit empty success
+  /// so the UI shows "no results" instead of a red failure.
   static ReverseImageSearchOutcome? _classifyHtml(String html) {
-    final normalized = html.toLowerCase();
-    // "Daily Search Limit Exceeded." is SauceNAO's per-day anonymous
-    // quota page: retryable, no countdown (try again tomorrow).
-    if (normalized.contains('daily search limit') ||
-        normalized.contains('search limit')) {
-      return const ReverseImageSearchFailure(
-        code: ReverseImageProviderFailureCode.dailyLimit,
-        message: 'SauceNAO daily search limit reached',
-        retryable: true,
-      );
-    }
-    // "Search Rate Too High." is SauceNAO's documented 30-second
-    // anonymous window (4 searches / 30 s). See
-    // research/anonymous-policy.md.
-    if (normalized.contains('too many requests') ||
-        normalized.contains('rate limit') ||
-        normalized.contains('search rate too high')) {
-      return const ReverseImageSearchFailure(
-        code: ReverseImageProviderFailureCode.rateLimited,
-        message: 'SauceNAO anonymous rate limit reached',
-        retryable: true,
-        retryAfter: Duration(seconds: 30),
-      );
-    }
-    // Only challenge-page markers. A genuine result page embeds the
-    // Cloudflare Web Analytics beacon (`static.cloudflareinsights.com`), so
-    // the bare word "cloudflare" must not be treated as a challenge
-    // (fixture: test/fixtures/saucenao/anonymous_result_page.html).
     if (ReverseImageChallengeDetector.isChallengeHtml(html)) {
       return const ReverseImageSearchFailure(
         code: ReverseImageProviderFailureCode.challenge,
-        message: 'SauceNAO returned a challenge page',
+        message: 'IQDB returned a challenge page',
       );
     }
-    if (normalized.contains('no results') ||
-        normalized.contains('no matches') ||
-        normalized.contains('nothing found') ||
-        normalized.contains('no image match') ||
-        normalized.contains('没有匹配') ||
-        normalized.contains('没有结果')) {
+    final normalized = html.toLowerCase();
+    if (normalized.contains('no relevant matches') ||
+        normalized.contains('no matches')) {
       return const ReverseImageSearchSuccess([]);
     }
     return null;
@@ -289,14 +238,11 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
 
   static String _mediaTypeFor(String mimeType) {
     final normalized = mimeType.trim().toLowerCase();
-    switch (normalized) {
-      case 'image/jpeg':
-      case 'image/png':
-      case 'image/gif':
-      case 'image/webp':
-        return normalized;
-      default:
-        return 'image/png';
-    }
+    // IQDB only documents JPEG/PNG/GIF; anything else was already rejected by
+    // supportsInput, so this fallback is unreachable in practice.
+    return switch (normalized) {
+      'image/jpeg' || 'image/png' || 'image/gif' => normalized,
+      _ => 'image/png',
+    };
   }
 }

@@ -24,6 +24,7 @@ import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
+import 'package:pixiv_func/core/reverse_image/reverse_image_engine.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
@@ -386,6 +387,24 @@ void main() {
       'themeCode': AppSettings.lightTheme,
     }, fallback: _baseSettings());
     expect(missing.networkMode, NetworkMode.automatic);
+  });
+
+  test('reverseImageEngine round-trips and unknown values fall back', () {
+    final stored = _baseSettings().copyWith(
+      reverseImageEngine: ReverseImageEngine.ascii2d,
+    );
+    final encoded = stored.toJson();
+    expect(encoded['reverseImageEngine'], 'ascii2d');
+    final restored = AppSettings.fromJson(encoded, fallback: _baseSettings());
+    expect(restored.reverseImageEngine, ReverseImageEngine.ascii2d);
+
+    final unknown = AppSettings.fromJson({
+      'reverseImageEngine': 'goggles',
+    }, fallback: _baseSettings());
+    expect(unknown.reverseImageEngine, ReverseImageEngine.sauceNao);
+    // A missing key keeps the explicit default for existing users.
+    final missing = AppSettings.fromJson(const {}, fallback: _baseSettings());
+    expect(missing.reverseImageEngine, ReverseImageEngine.sauceNao);
   });
 
   test('legacy previewQuality true migrates to PreviewQuality.large', () {

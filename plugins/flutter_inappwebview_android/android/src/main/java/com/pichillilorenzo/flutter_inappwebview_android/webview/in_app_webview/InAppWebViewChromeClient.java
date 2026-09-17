@@ -71,6 +71,16 @@ import static android.app.Activity.RESULT_OK;
 public class InAppWebViewChromeClient extends WebChromeClient implements PluginRegistry.ActivityResultListener, ActivityResultListener {
 
   protected static final String LOG_TAG = "IABWebChromeClient";
+
+  /**
+   * Optional one-shot file chooser result (vendored patch, Pixiv-func reverse
+   * image search). When non-null the next {@link #onShowFileChooser} consumes
+   * and clears it instead of launching the system picker. The Chromium file
+   * chooser can only be opened by a real user gesture, so a site the user
+   * taps still performs its own upload — this slot only pre-fills the file.
+   */
+  public static volatile Uri[] armedFileChooserUris;
+
   private InAppBrowserDelegate inAppBrowserDelegate;
 
   private static final int PICKER = 1;
@@ -834,6 +844,15 @@ public class InAppWebViewChromeClient extends WebChromeClient implements PluginR
   @TargetApi(Build.VERSION_CODES.LOLLIPOP)
   @Override
   public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+    // Vendored patch (Pixiv-func): a pre-armed file is consumed exactly once —
+    // the site's own upload button performs the submission so Cloudflare
+    // challenges run in a real browser context.
+    final Uri[] armed = armedFileChooserUris;
+    if (armed != null) {
+      armedFileChooserUris = null;
+      filePathCallback.onReceiveValue(armed);
+      return true;
+    }
     String[] acceptTypes = fileChooserParams.getAcceptTypes();
     boolean allowMultiple = fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE;
     boolean captureEnabled = fileChooserParams.isCaptureEnabled();

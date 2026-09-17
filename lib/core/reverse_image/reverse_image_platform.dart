@@ -39,6 +39,90 @@ abstract final class _ReverseImageInputMethods {
   static const pickImage = 'pickImage';
   static const copyToTemp = 'copyToTemp';
   static const deleteTemp = 'deleteTemp';
+  static const armReverseUpload = 'armReverseUpload';
+  static const disarmReverseUpload = 'disarmReverseUpload';
+}
+
+/// Arms an owned temporary input file to the next WebView file chooser so a
+/// Cloudflare-fronted engine page uploads it without a second picker
+/// (Ascii2D, TinEye — see `reverse_image_provider.dart`'s WebUpload outcome).
+abstract interface class ReverseImageUploadArmer {
+  /// Returns the content URI handed to the browser, or `null` when the
+  /// platform has no chooser interception (desktop: the native picker runs
+  /// and the user re-picks the file — the upload page still works).
+  Future<String?> armUpload(String path);
+
+  /// Clears a previously armed file (one-shot semantics on the platform
+  /// side already consume it; disarm covers pages left before a chooser).
+  Future<void> disarmUpload();
+}
+
+class MethodChannelReverseImageUploadArmer implements ReverseImageUploadArmer {
+  MethodChannelReverseImageUploadArmer([
+    this._channel = const MethodChannel(_ReverseImageInputMethods.channel),
+  ]);
+
+  final MethodChannel _channel;
+
+  @override
+  Future<String?> armUpload(String path) async {
+    try {
+      final message = await _channel.invokeMethod<Object?>(
+        _ReverseImageInputMethods.armReverseUpload,
+        {'path': path},
+      );
+      if (message is! String || message.isEmpty) {
+        throw const ReverseImagePlatformException(
+          ReverseImagePlatformFailureCode.malformedResponse,
+          'armed image response is malformed',
+        );
+      }
+      return message;
+    } on ReverseImagePlatformException {
+      rethrow;
+    } on PlatformException catch (error) {
+      throw ReverseImagePlatformException(
+        ReverseImagePlatformFailureCode.pickerFailed,
+        _safePlatformMessage(error.message, fallback: 'image arm failed'),
+      );
+    } on MissingPluginException {
+      throw const ReverseImagePlatformException(
+        ReverseImagePlatformFailureCode.unavailable,
+        'image upload arming is unavailable on this platform',
+      );
+    }
+  }
+
+  @override
+  Future<void> disarmUpload() async {
+    try {
+      await _channel.invokeMethod<Object?>(
+        _ReverseImageInputMethods.disarmReverseUpload,
+      );
+    } on PlatformException catch (error) {
+      throw ReverseImagePlatformException(
+        ReverseImagePlatformFailureCode.pickerFailed,
+        _safePlatformMessage(error.message, fallback: 'image disarm failed'),
+      );
+    } on MissingPluginException {
+      throw const ReverseImagePlatformException(
+        ReverseImagePlatformFailureCode.unavailable,
+        'image upload disarm is unavailable on this platform',
+      );
+    }
+  }
+}
+
+/// Desktop degrade: WebView2 exposes no file-chooser interception, so the
+/// engine page's native picker simply opens and the user re-picks the file.
+class NoopReverseImageUploadArmer implements ReverseImageUploadArmer {
+  const NoopReverseImageUploadArmer();
+
+  @override
+  Future<String?> armUpload(String path) async => null;
+
+  @override
+  Future<void> disarmUpload() async {}
 }
 
 class MethodChannelReverseImageInputPlatform
@@ -159,33 +243,30 @@ class MethodChannelReverseImageInputPlatform
       source: source,
     );
   }
+}
 
-  static Map<String, Object?> _map(Object? value) {
-    if (value is! Map) {
+Map<String, Object?> _map(Object? value) {
+  if (value is! Map) {
+    throw const ReverseImagePlatformException(
+      ReverseImagePlatformFailureCode.malformedResponse,
+      'image platform response is not a map',
+    );
+  }
+  final result = <String, Object?>{};
+  for (final entry in value.entries) {
+    if (entry.key is! String) {
       throw const ReverseImagePlatformException(
         ReverseImagePlatformFailureCode.malformedResponse,
-        'image platform response is not a map',
+        'image platform response keys are malformed',
       );
     }
-    final result = <String, Object?>{};
-    for (final entry in value.entries) {
-      if (entry.key is! String) {
-        throw const ReverseImagePlatformException(
-          ReverseImagePlatformFailureCode.malformedResponse,
-          'image platform response keys are malformed',
-        );
-      }
-      result[entry.key as String] = entry.value;
-    }
-    return result;
+    result[entry.key as String] = entry.value;
   }
+  return result;
+}
 
-  static String _safePlatformMessage(
-    String? message, {
-    required String fallback,
-  }) {
-    final value = message?.trim();
-    if (value == null || value.isEmpty) return fallback;
-    return value.length <= 160 ? value : '${value.substring(0, 160)}…';
-  }
+String _safePlatformMessage(String? message, {required String fallback}) {
+  final value = message?.trim();
+  if (value == null || value.isEmpty) return fallback;
+  return value.length <= 160 ? value : '${value.substring(0, 160)}…';
 }

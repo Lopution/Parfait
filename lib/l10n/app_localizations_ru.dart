@@ -1280,16 +1280,32 @@ class AppLocalizationsRu extends AppLocalizations {
       'Дневной лимит анонимного поиска исчерпан. Попробуйте завтра.';
 
   @override
-  String get searchReverseChallenge =>
-      'SauceNAO требует проверку человека. Этот поиск не завершён. Попробуйте позже.';
+  String searchReverseChallenge(String engine) {
+    return '$engine требует проверку человека. Этот поиск не завершён. Попробуйте позже.';
+  }
 
   @override
   String get searchReversePageLoadFailed =>
       'Не удалось загрузить страницу результатов';
 
   @override
+  String get searchReverseUploadTapHint =>
+      'Нажмите кнопку загрузки на странице, чтобы начать поиск — выбранное изображение подставится автоматически.';
+
+  @override
+  String get searchReverseUploadPickHint =>
+      'Выберите то же изображение ещё раз в диалоге выбора файла на странице.';
+
+  @override
+  String get searchReverseRetrySameEngine => 'Повторить в этом движке';
+
+  @override
+  String get searchReverseEngineUnsupported =>
+      'Выбранное изображение не соответствует ограничениям этого движка';
+
+  @override
   String get searchReverseIntro =>
-      'Выбранное изображение анонимно отправляется в SauceNAO; страница результатов открывается в приложении.';
+      'Выбранное изображение отправляется в выбранный движок; страница результатов открывается в приложении.';
 
   @override
   String get searchNoRepresentative =>

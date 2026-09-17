@@ -4,6 +4,7 @@ import 'shared_preferences.dart';
 
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
+import '../reverse_image/reverse_image_engine.dart';
 import 'app_settings.dart';
 import 'settings_repository.dart';
 
@@ -104,6 +105,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
 
   Future<void> setLocalBlockAI(bool enabled) =>
       _update((settings) => settings.copyWith(enableLocalBlockAI: enabled));
+
+  Future<void> selectReverseImageEngine(ReverseImageEngine engine) =>
+      _update((settings) => settings.copyWith(reverseImageEngine: engine));
 
   Future<void> setHideMuted(bool enabled) =>
       _update((settings) => settings.copyWith(hideMuted: enabled));
@@ -274,6 +278,15 @@ final dohEndpointsProvider = Provider<List<String>>((ref) {
       .map((entry) => entry.trim())
       .where((entry) => entry.isNotEmpty)
       .toList(growable: false);
+});
+
+/// Persisted reverse-image engine choice (page seeds its session from it).
+final reverseImageEngineProvider = Provider<ReverseImageEngine>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.reverseImageEngine ?? ReverseImageEngine.sauceNao,
+    ),
+  );
 });
 
 /// Effective image-source mirror resolved from the persisted

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/reverse_image/image_input.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_controller.dart';
+import 'package:pixiv_func/core/reverse_image/reverse_image_engine.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_provider.dart';
 
@@ -224,7 +225,7 @@ void main() {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(1, 1));
     final platform = _FakeReverseImageInputPlatform(file);
-    final sessionController = ReverseImageSearchSession(
+    final sessionController = ReverseImageSearchSession.single(
       platform: platform,
       provider: UnavailableReverseImageProvider(reason: 'not approved'),
     );
@@ -259,7 +260,7 @@ void main() {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
-    final sessionController = ReverseImageSearchSession(
+    final sessionController = ReverseImageSearchSession.single(
       platform: platform,
       provider: _OutcomeProvider(
         const ReverseImageSearchFailure(
@@ -290,7 +291,7 @@ void main() {
     expect(platform.deletedPaths, [file.path]);
 
     final retryPlatform = _FakeReverseImageInputPlatform(file);
-    final sessionRetryController = ReverseImageSearchSession(
+    final sessionRetryController = ReverseImageSearchSession.single(
       platform: retryPlatform,
       provider: _OutcomeProvider(
         const ReverseImageSearchFailure(
@@ -322,6 +323,10 @@ void main() {
       ).failure?.retryable,
       isTrue,
     );
+    // The image is kept across an engine failure so the user can retry or
+    // switch engines; cancel still cleans it up.
+    expect(retryPlatform.deletedPaths, isEmpty);
+    await retryController.cancel();
     expect(retryPlatform.deletedPaths, [file.path]);
   });
 
@@ -329,7 +334,7 @@ void main() {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
-    final sessionController = ReverseImageSearchSession(
+    final sessionController = ReverseImageSearchSession.single(
       platform: platform,
       provider: _OutcomeProvider(
         const ReverseImageSearchFailure(
@@ -367,14 +372,15 @@ void main() {
       _stateOf(containerController, sessionController).failure?.retryAfter,
       const Duration(seconds: 27),
     );
-    expect(platform.deletedPaths, [file.path]);
+    // Failure keeps the owned input so the same image can retry elsewhere.
+    expect(platform.deletedPaths, isEmpty);
   });
 
   test('webview success releases the owned input exactly once', () async {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
-    final sessionController = ReverseImageSearchSession(
+    final sessionController = ReverseImageSearchSession.single(
       platform: platform,
       provider: _OutcomeProvider(
         const ReverseImageSearchWebView(
@@ -412,7 +418,7 @@ void main() {
       final file = File('${tempDirectory.path}/image.png')
         ..writeAsBytesSync(_pngHeader(12, 8));
       final platform = _FakeReverseImageInputPlatform(file);
-      final sessionController = ReverseImageSearchSession(
+      final sessionController = ReverseImageSearchSession.single(
         platform: platform,
         provider: UnavailableReverseImageProvider(reason: 'not approved'),
       );
@@ -442,9 +448,243 @@ void main() {
         _stateOf(containerController, sessionController).failure?.code,
         ReverseImageProviderFailureCode.providerUnavailable,
       );
-      expect(platform.deletedPaths, [file.path]);
+      // Failure keeps the image; the owned file is released on dispose.
+      expect(platform.deletedPaths, isEmpty);
     },
   );
+
+  test('a failed engine keeps the input and switches to another', () async {
+    final file = File('${tempDirectory.path}/image.png')
+      ..writeAsBytesSync(_pngHeader(12, 8));
+    final platform = _FakeReverseImageInputPlatform(file);
+    final failing = _OutcomeProvider(
+      const ReverseImageSearchFailure(
+        code: ReverseImageProviderFailureCode.challenge,
+        message: 'challenged',
+      ),
+    );
+    final succeeding = _OutcomeProvider(
+      const ReverseImageSearchSuccess([
+        ReverseImageHit(similarity: 90, pixivId: 42),
+      ]),
+    );
+    final session = ReverseImageSearchSession(
+      platform: platform,
+      providers: {
+        ReverseImageEngine.sauceNao: failing,
+        ReverseImageEngine.iqdb: succeeding,
+      },
+    );
+    final container = _flowContainer(session);
+    final controller = container.read(
+      reverseImageSearchControllerProvider(session).notifier,
+    );
+    const reference = ReverseImageInputReference(
+      contentUri: 'content://share/1',
+      mimeType: 'image/png',
+      sizeBytes: 128,
+      hasReadUriPermission: true,
+      source: ReverseImageInputSource.picker,
+    );
+
+    await controller.prepare(reference);
+    await controller.search();
+    var state = _stateOf(container, session);
+    expect(state.status, ReverseImageFlowStatus.failure);
+    expect(state.engine, ReverseImageEngine.sauceNao);
+    expect(state.input, isNotNull);
+    expect(
+      state.engineFailures[ReverseImageEngine.sauceNao]?.code,
+      ReverseImageProviderFailureCode.challenge,
+    );
+    expect(platform.deletedPaths, isEmpty);
+
+    await controller.selectEngine(ReverseImageEngine.iqdb);
+    state = _stateOf(container, session);
+    expect(state.status, ReverseImageFlowStatus.ready);
+    expect(state.engine, ReverseImageEngine.iqdb);
+
+    await controller.search();
+    state = _stateOf(container, session);
+    expect(state.status, ReverseImageFlowStatus.success);
+    expect(state.results.single.pixivId, 42);
+    expect(state.engineFailures, contains(ReverseImageEngine.sauceNao));
+  });
+
+  test('selectEngine without a held image only moves the selection', () async {
+    final file = File('${tempDirectory.path}/image.png')
+      ..writeAsBytesSync(_pngHeader(12, 8));
+    final platform = _FakeReverseImageInputPlatform(file);
+    final session = ReverseImageSearchSession(
+      platform: platform,
+      providers: const {},
+    );
+    final container = _flowContainer(session);
+    final controller = container.read(
+      reverseImageSearchControllerProvider(session).notifier,
+    );
+
+    await controller.selectEngine(ReverseImageEngine.iqdb);
+    final state = _stateOf(container, session);
+    expect(state.engine, ReverseImageEngine.iqdb);
+    expect(state.status, ReverseImageFlowStatus.idle);
+  });
+
+  test(
+    'a missing engine in the map is an explicit unavailable failure',
+    () async {
+      final file = File('${tempDirectory.path}/image.png')
+        ..writeAsBytesSync(_pngHeader(12, 8));
+      final platform = _FakeReverseImageInputPlatform(file);
+      final session = ReverseImageSearchSession(
+        platform: platform,
+        providers: {
+          ReverseImageEngine.sauceNao: _OutcomeProvider(
+            const ReverseImageSearchSuccess([]),
+          ),
+        },
+      );
+      final container = _flowContainer(session);
+      final controller = container.read(
+        reverseImageSearchControllerProvider(session).notifier,
+      );
+      await controller.prepare(
+        const ReverseImageInputReference(
+          contentUri: 'content://share/1',
+          mimeType: 'image/png',
+          sizeBytes: 128,
+          hasReadUriPermission: true,
+          source: ReverseImageInputSource.picker,
+        ),
+      );
+
+      await controller.selectEngine(ReverseImageEngine.ascii2d);
+      await controller.search();
+
+      final state = _stateOf(container, session);
+      expect(state.status, ReverseImageFlowStatus.failure);
+      expect(
+        state.failure?.code,
+        ReverseImageProviderFailureCode.providerUnavailable,
+      );
+      expect(state.engineFailures, contains(ReverseImageEngine.ascii2d));
+    },
+  );
+
+  test('a web-upload outcome arms the file and keeps it owned', () async {
+    final file = File('${tempDirectory.path}/image.png')
+      ..writeAsBytesSync(_pngHeader(12, 8));
+    final platform = _FakeReverseImageInputPlatform(file);
+    final armer = _RecordingUploadArmer();
+    final session = ReverseImageSearchSession.single(
+      platform: platform,
+      provider: _OutcomeProvider(
+        ReverseImageSearchWebUpload(
+          engine: ReverseImageEngine.ascii2d,
+          uploadPageUrl: Uri.parse('https://ascii2d.net/'),
+          imagePath: 'placeholder',
+          imageMimeType: 'image/png',
+          observedAt: 'test',
+        ),
+      ),
+      initialEngine: ReverseImageEngine.ascii2d,
+      uploadArmer: armer,
+    );
+    final container = _flowContainer(session);
+    final controller = container.read(
+      reverseImageSearchControllerProvider(session).notifier,
+    );
+    await controller.prepare(
+      const ReverseImageInputReference(
+        contentUri: 'content://share/1',
+        mimeType: 'image/png',
+        sizeBytes: 128,
+        hasReadUriPermission: true,
+        source: ReverseImageInputSource.picker,
+      ),
+    );
+    await controller.search();
+
+    final state = _stateOf(container, session);
+    expect(state.status, ReverseImageFlowStatus.success);
+    expect(armer.armedPaths, [file.path]);
+    expect(state.webUpload?.armedUri, 'content://armed/1');
+    // The browser submits the file later — it stays owned for now.
+    expect(platform.deletedPaths, isEmpty);
+
+    // Leaving the upload result releases the input and disarms the slot.
+    await controller.selectEngine(ReverseImageEngine.sauceNao);
+    expect(armer.disarmCount, greaterThanOrEqualTo(1));
+  });
+
+  test(
+    'an arming failure is a visible engine failure keeping the input',
+    () async {
+      final file = File('${tempDirectory.path}/image.png')
+        ..writeAsBytesSync(_pngHeader(12, 8));
+      final platform = _FakeReverseImageInputPlatform(file);
+      final armer = _RecordingUploadArmer(failArm: true);
+      final session = ReverseImageSearchSession.single(
+        platform: platform,
+        provider: _OutcomeProvider(
+          ReverseImageSearchWebUpload(
+            engine: ReverseImageEngine.tinEye,
+            uploadPageUrl: Uri.parse('https://tineye.com/'),
+            imagePath: 'placeholder',
+            imageMimeType: 'image/png',
+            observedAt: 'test',
+          ),
+        ),
+        initialEngine: ReverseImageEngine.tinEye,
+        uploadArmer: armer,
+      );
+      final container = _flowContainer(session);
+      final controller = container.read(
+        reverseImageSearchControllerProvider(session).notifier,
+      );
+      await controller.prepare(
+        const ReverseImageInputReference(
+          contentUri: 'content://share/1',
+          mimeType: 'image/png',
+          sizeBytes: 128,
+          hasReadUriPermission: true,
+          source: ReverseImageInputSource.picker,
+        ),
+      );
+      await controller.search();
+
+      final state = _stateOf(container, session);
+      expect(state.status, ReverseImageFlowStatus.failure);
+      expect(state.engine, ReverseImageEngine.tinEye);
+      expect(state.engineFailures, contains(ReverseImageEngine.tinEye));
+      expect(platform.deletedPaths, isEmpty);
+    },
+  );
+}
+
+class _RecordingUploadArmer implements ReverseImageUploadArmer {
+  _RecordingUploadArmer({this.failArm = false});
+
+  final bool failArm;
+  final armedPaths = <String>[];
+  var disarmCount = 0;
+
+  @override
+  Future<String?> armUpload(String path) async {
+    if (failArm) {
+      throw const ReverseImagePlatformException(
+        ReverseImagePlatformFailureCode.unavailable,
+        'arm unavailable',
+      );
+    }
+    armedPaths.add(path);
+    return 'content://armed/${armedPaths.length}';
+  }
+
+  @override
+  Future<void> disarmUpload() async {
+    disarmCount += 1;
+  }
 }
 
 class _FakeReverseImageInputPlatform implements ReverseImageInputPlatform {

@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 
 import '../network/pixiv_http_client.dart';
 import 'image_input.dart';
+import 'reverse_image_engine.dart';
 import 'reverse_image_platform.dart';
 import 'reverse_image_provider.dart';
 
@@ -44,36 +45,83 @@ class ReverseImageFlowFailure {
 class ReverseImageFlowState {
   const ReverseImageFlowState({
     required this.status,
+    required this.engine,
     this.input,
     this.results = const [],
     this.webView,
+    this.webUpload,
     this.failure,
+    this.engineFailures = const {},
   });
 
-  const ReverseImageFlowState.idle()
+  const ReverseImageFlowState.idle([this.engine = ReverseImageEngine.sauceNao])
     : status = ReverseImageFlowStatus.idle,
       input = null,
       results = const [],
       webView = null,
-      failure = null;
+      webUpload = null,
+      failure = null,
+      engineFailures = const {};
 
   final ReverseImageFlowStatus status;
+
+  /// Currently selected engine. The failure/webUpload below always belongs
+  /// to this engine.
+  final ReverseImageEngine engine;
   final ReverseImageInputInfo? input;
   final List<ReverseImageHit> results;
 
   /// SauceNAO-style service-rendered result page (D1). Only set on success.
   final ReverseImageSearchWebView? webView;
+
+  /// Cloudflare-fronted engine upload page (Ascii2D, TinEye). Only set on
+  /// success; the input file stays owned until the flow ends.
+  final ReverseImageSearchWebUpload? webUpload;
   final ReverseImageFlowFailure? failure;
+
+  /// Per-engine failure memory for the current image: chips render the
+  /// failed engines so switching away (and back) stays explicit. Cleared on
+  /// every new input.
+  final Map<ReverseImageEngine, ReverseImageFlowFailure> engineFailures;
 }
 
 /// Coordinates picker/SEND preparation and provider execution. The controller
 /// owns one temporary file and releases it on every terminal path.
 /// Per-session dependencies of the reverse-image flow (C7a).
 class ReverseImageSearchSession {
-  ReverseImageSearchSession({required this.platform, required this.provider});
+  ReverseImageSearchSession({
+    required this.platform,
+    required Map<ReverseImageEngine, ReverseImageProvider> providers,
+    this.initialEngine = ReverseImageEngine.sauceNao,
+    this.uploadArmer = const NoopReverseImageUploadArmer(),
+  }) : providers = Map.unmodifiable(providers);
+
+  /// Single-engine convenience for tests and embeds that only carry one
+  /// provider.
+  ReverseImageSearchSession.single({
+    required this.platform,
+    required ReverseImageProvider provider,
+    this.initialEngine = ReverseImageEngine.sauceNao,
+    this.uploadArmer = const NoopReverseImageUploadArmer(),
+  }) : providers = Map.unmodifiable({initialEngine: provider});
 
   final ReverseImageInputPlatform platform;
-  final ReverseImageProvider provider;
+  final Map<ReverseImageEngine, ReverseImageProvider> providers;
+  final ReverseImageEngine initialEngine;
+
+  /// Arms an owned input file to the next WebView file chooser. The noop
+  /// fallback is the desktop degrade where the page's native picker opens
+  /// and the user re-picks the file.
+  final ReverseImageUploadArmer uploadArmer;
+
+  /// Missing engines are an explicit unavailable provider — never a silent
+  /// fallback to another engine.
+  ReverseImageProvider providerFor(ReverseImageEngine engine) =>
+      providers[engine] ??
+      UnavailableReverseImageProvider(
+        name: '${engine.name}-provider',
+        reason: 'reverse image engine is not configured',
+      );
 }
 
 /// Riverpod handle for the reverse-image flow.
@@ -90,7 +138,7 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
   final ReverseImageSearchSession session;
 
   ReverseImageInputPlatform get platform => session.platform;
-  ReverseImageProvider get provider => session.provider;
+  ReverseImageProvider get provider => session.providerFor(state.engine);
 
   OwnedReverseImageInput? _input;
   CancelToken? _cancelToken;
@@ -104,13 +152,16 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     ref.onDispose(() {
       unawaited(close());
     });
-    return const ReverseImageFlowState.idle();
+    return ReverseImageFlowState.idle(session.initialEngine);
   }
 
   Future<void> pick() async {
     if (_closed) return;
     _setState(
-      const ReverseImageFlowState(status: ReverseImageFlowStatus.picking),
+      ReverseImageFlowState(
+        status: ReverseImageFlowStatus.picking,
+        engine: state.engine,
+      ),
     );
     try {
       final reference = await platform.pickImage();
@@ -139,7 +190,10 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     }
 
     _setState(
-      const ReverseImageFlowState(status: ReverseImageFlowStatus.preparing),
+      ReverseImageFlowState(
+        status: ReverseImageFlowStatus.preparing,
+        engine: state.engine,
+      ),
     );
     String? path;
     try {
@@ -162,6 +216,7 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
       _setState(
         ReverseImageFlowState(
           status: ReverseImageFlowStatus.ready,
+          engine: state.engine,
           input: input.info,
         ),
       );
@@ -193,20 +248,63 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     }
   }
 
+  /// Switches the selected engine. With no held image only the selection
+  /// moves (the UI persists it); with a held image a ready/failure/webUpload
+  /// state returns to ready so the new engine can be searched. A headless
+  /// success already released the file and is not switchable.
+  Future<void> selectEngine(ReverseImageEngine engine) async {
+    if (_closed || engine == state.engine) return;
+    final input = _input;
+    if (input == null) {
+      _setState(ReverseImageFlowState(status: state.status, engine: engine));
+      return;
+    }
+    switch (state.status) {
+      case ReverseImageFlowStatus.ready:
+      case ReverseImageFlowStatus.failure:
+      case ReverseImageFlowStatus.success:
+        break;
+      case ReverseImageFlowStatus.idle:
+      case ReverseImageFlowStatus.picking:
+      case ReverseImageFlowStatus.preparing:
+      case ReverseImageFlowStatus.searching:
+      case ReverseImageFlowStatus.canceled:
+        return;
+    }
+    // Leaving a webUpload result drops the armed slot. A missed disarm is
+    // self-healing (the next arm overwrites the one-shot slot), so the
+    // platform error does not block the switch.
+    await _disarm();
+    _setState(
+      ReverseImageFlowState(
+        status: ReverseImageFlowStatus.ready,
+        engine: engine,
+        input: input.info,
+        engineFailures: state.engineFailures,
+      ),
+    );
+  }
+
   Future<void> search() async {
-    if (_closed ||
-        _input == null ||
-        state.status != ReverseImageFlowStatus.ready) {
+    if (_closed || _input == null) return;
+    // Failure keeps the owned input, so searching again from the failure
+    // state is an explicit same-engine retry.
+    if (state.status != ReverseImageFlowStatus.ready &&
+        state.status != ReverseImageFlowStatus.failure) {
       return;
     }
     final generation = _generation;
     final input = _input!;
+    final engine = state.engine;
+    final engineFailures = Map.of(state.engineFailures);
     final cancelToken = CancelToken();
     _cancelToken = cancelToken;
     _setState(
       ReverseImageFlowState(
         status: ReverseImageFlowStatus.searching,
+        engine: engine,
         input: input.info,
+        engineFailures: engineFailures,
       ),
     );
 
@@ -218,11 +316,33 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
       error = caught;
     }
 
+    // A web-upload outcome needs the owned file in the browser's file
+    // chooser; arming happens here so a platform failure becomes a visible
+    // engine failure instead of a webview that uploads nothing.
+    String? armedUri;
+    if (outcome is ReverseImageSearchWebUpload && error == null) {
+      try {
+        armedUri = await session.uploadArmer.armUpload(input.info.path);
+      } on Object catch (caught) {
+        error = caught;
+        outcome = null;
+      }
+    }
+
     Object? cleanupError;
-    try {
-      await _releaseInput();
-    } on Object catch (caught) {
-      cleanupError = caught;
+    // The file stays owned on web-upload (the browser submits it later) and
+    // on failure (another engine may still accept it — constraints differ).
+    // Headless/webview successes are terminal and release it now.
+    final keepInput =
+        outcome is ReverseImageSearchWebUpload ||
+        outcome is ReverseImageSearchFailure ||
+        error != null;
+    if (!keepInput) {
+      try {
+        await _releaseInput();
+      } on Object catch (caught) {
+        cleanupError = caught;
+      }
     }
     if (_cancelToken == cancelToken) _cancelToken = null;
     if (_closed || generation != _generation) return;
@@ -233,7 +353,7 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     }
     final caught = error;
     if (caught != null) {
-      _setFailure(_flowFailure(caught));
+      _failSearch(engine, _flowFailure(caught), engineFailures);
       return;
     }
     switch (outcome) {
@@ -241,17 +361,38 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
         _setState(
           ReverseImageFlowState(
             status: ReverseImageFlowStatus.success,
+            engine: engine,
             results: hits,
+            engineFailures: engineFailures,
           ),
         );
       case ReverseImageSearchWebView(:final html, :final resultUrl):
         _setState(
           ReverseImageFlowState(
             status: ReverseImageFlowStatus.success,
+            engine: engine,
             webView: ReverseImageSearchWebView(
               html: html,
               resultUrl: resultUrl,
               observedAt: _nowIso(),
+            ),
+            engineFailures: engineFailures,
+          ),
+        );
+      case ReverseImageSearchWebUpload(:final uploadPageUrl):
+        _setState(
+          ReverseImageFlowState(
+            status: ReverseImageFlowStatus.success,
+            engine: engine,
+            input: input.info,
+            engineFailures: engineFailures,
+            webUpload: ReverseImageSearchWebUpload(
+              engine: engine,
+              uploadPageUrl: uploadPageUrl,
+              imagePath: input.info.path,
+              imageMimeType: input.info.mimeType,
+              observedAt: _nowIso(),
+              armedUri: armedUri,
             ),
           ),
         );
@@ -261,23 +402,24 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
         :final retryable,
         :final retryAfter,
       ):
-        _setState(
-          ReverseImageFlowState(
-            status: ReverseImageFlowStatus.failure,
-            failure: ReverseImageFlowFailure(
-              code: code,
-              message: message,
-              retryable: retryable,
-              retryAfter: retryAfter,
-            ),
+        _failSearch(
+          engine,
+          ReverseImageFlowFailure(
+            code: code,
+            message: message,
+            retryable: retryable,
+            retryAfter: retryAfter,
           ),
+          engineFailures,
         );
       case null:
-        _setFailure(
+        _failSearch(
+          engine,
           const ReverseImageFlowFailure(
             code: ReverseImageProviderFailureCode.malformedResponse,
             message: 'reverse image provider returned no result',
           ),
+          engineFailures,
         );
     }
   }
@@ -298,7 +440,10 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
       _setFailure(_flowFailure(cleanup));
     } else {
       _setState(
-        const ReverseImageFlowState(status: ReverseImageFlowStatus.canceled),
+        ReverseImageFlowState(
+          status: ReverseImageFlowStatus.canceled,
+          engine: state.engine,
+        ),
       );
     }
   }
@@ -354,7 +499,20 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
   Future<void> _releaseInput() async {
     final input = _input;
     _input = null;
+    // Drop a possibly-armed chooser URI before the file behind it goes away.
+    await _disarm();
     if (input != null) await input.dispose();
+  }
+
+  /// Best-effort chooser-slot hygiene: the platform slot is one-shot and the
+  /// next arm overwrites it, so a disarm failure never blocks cleanup.
+  Future<void> _disarm() async {
+    try {
+      await session.uploadArmer.disarmUpload();
+    } on Object {
+      // Self-healing: the armed slot is consumed on first use and replaced
+      // by the next arm; leaving it stale is bounded to the page lifetime.
+    }
   }
 
   ReverseImageFlowFailure _flowFailure(Object error) {
@@ -375,11 +533,33 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     );
   }
 
+  /// Search-time failure: keeps the owned input, records the failure against
+  /// [engine] so the chips can mark it, and stays retryable/switchable.
+  void _failSearch(
+    ReverseImageEngine engine,
+    ReverseImageFlowFailure failure,
+    Map<ReverseImageEngine, ReverseImageFlowFailure> engineFailures,
+  ) {
+    engineFailures[engine] = failure;
+    _setState(
+      ReverseImageFlowState(
+        status: ReverseImageFlowStatus.failure,
+        engine: engine,
+        input: _input?.info,
+        failure: failure,
+        engineFailures: Map.unmodifiable(engineFailures),
+      ),
+    );
+  }
+
   void _setFailure(ReverseImageFlowFailure failure) {
     _setState(
       ReverseImageFlowState(
         status: ReverseImageFlowStatus.failure,
+        engine: state.engine,
+        input: _input?.info,
         failure: failure,
+        engineFailures: state.engineFailures,
       ),
     );
   }
