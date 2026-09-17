@@ -702,5 +702,11 @@
   "seriesNext": "下一话",
   "profileSeries": "系列",
   "spotlightTitle": "特辑",
-  "spotlightArticleLoadFailed": "文章加载失败"
+  "spotlightArticleLoadFailed": "文章加载失败",
+  "spotlightCategoryAll": "全部",
+  "spotlightCategoryIllust": "插画",
+  "spotlightCategoryManga": "漫画",
+  "spotlightLoadFailed": "特辑加载失败",
+  "spotlightLoadMoreFailed": "特辑加载更多失败",
+  "spotlightEmpty": "暂无特辑"
 }

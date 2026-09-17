@@ -702,5 +702,11 @@
   "seriesNext": "Next",
   "profileSeries": "Series",
   "spotlightTitle": "Spotlight",
-  "spotlightArticleLoadFailed": "Failed to load article"
+  "spotlightArticleLoadFailed": "Failed to load article",
+  "spotlightCategoryAll": "All",
+  "spotlightCategoryIllust": "Illustrations",
+  "spotlightCategoryManga": "Manga",
+  "spotlightLoadFailed": "Failed to load spotlight",
+  "spotlightLoadMoreFailed": "Failed to load more spotlight articles",
+  "spotlightEmpty": "No spotlight articles"
 }

@@ -3270,6 +3270,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'文章加载失败'**
   String get spotlightArticleLoadFailed;
+
+  /// No description provided for @spotlightCategoryAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get spotlightCategoryAll;
+
+  /// No description provided for @spotlightCategoryIllust.
+  ///
+  /// In zh, this message translates to:
+  /// **'插画'**
+  String get spotlightCategoryIllust;
+
+  /// No description provided for @spotlightCategoryManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'漫画'**
+  String get spotlightCategoryManga;
+
+  /// No description provided for @spotlightLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'特辑加载失败'**
+  String get spotlightLoadFailed;
+
+  /// No description provided for @spotlightLoadMoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'特辑加载更多失败'**
+  String get spotlightLoadMoreFailed;
+
+  /// No description provided for @spotlightEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无特辑'**
+  String get spotlightEmpty;
 }
 
 class _AppLocalizationsDelegate

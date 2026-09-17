@@ -702,5 +702,11 @@
   "seriesNext": "Следующая",
   "profileSeries": "Серии",
   "spotlightTitle": "Спотлайт",
-  "spotlightArticleLoadFailed": "Не удалось загрузить статью"
+  "spotlightArticleLoadFailed": "Не удалось загрузить статью",
+  "spotlightCategoryAll": "Все",
+  "spotlightCategoryIllust": "Иллюстрации",
+  "spotlightCategoryManga": "Манга",
+  "spotlightLoadFailed": "Не удалось загрузить спотлайт",
+  "spotlightLoadMoreFailed": "Не удалось загрузить ещё статьи",
+  "spotlightEmpty": "Нет статей спотлайта"
 }

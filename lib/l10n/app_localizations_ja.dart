@@ -1674,4 +1674,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get spotlightArticleLoadFailed => '記事の読み込みに失敗しました';
+
+  @override
+  String get spotlightCategoryAll => 'すべて';
+
+  @override
+  String get spotlightCategoryIllust => 'イラスト';
+
+  @override
+  String get spotlightCategoryManga => 'マンガ';
+
+  @override
+  String get spotlightLoadFailed => 'スポットライトの読み込みに失敗しました';
+
+  @override
+  String get spotlightLoadMoreFailed => '続きの読み込みに失敗しました';
+
+  @override
+  String get spotlightEmpty => 'スポットライト記事がありません';
 }

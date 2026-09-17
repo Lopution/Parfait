@@ -8,6 +8,16 @@ import '../entity/json_read.dart';
 /// name; `all` is Pixiv's mixed feed, not a client-side union.
 enum SpotlightCategory { all, illust, manga }
 
+/// l10n keys for the category selector, resolved via `l10nLookup` in the
+/// page (same pattern as `SearchResultTypeWire.labelKey`).
+extension SpotlightCategoryLabel on SpotlightCategory {
+  String get labelKey => switch (this) {
+    SpotlightCategory.all => 'spotlightCategoryAll',
+    SpotlightCategory.illust => 'spotlightCategoryIllust',
+    SpotlightCategory.manga => 'spotlightCategoryManga',
+  };
+}
+
 /// One spotlight article entry from `/v1/spotlight/articles`.
 class SpotlightArticle {
   const SpotlightArticle({
