@@ -1671,4 +1671,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => 'Failed to load bookmark tags';
+
+  @override
+  String get seriesTitle => 'Series';
+
+  @override
+  String get seriesLoadFailed => 'Failed to load series';
+
+  @override
+  String get seriesLoadMoreFailed => 'Failed to load more';
+
+  @override
+  String get seriesEmpty => 'No works in this series yet';
+
+  @override
+  String seriesWorksCount(int count) {
+    return '$count works';
+  }
 }

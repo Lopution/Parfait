@@ -1670,4 +1670,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => 'Не удалось загрузить теги закладок';
+
+  @override
+  String get seriesTitle => 'Серия';
+
+  @override
+  String get seriesLoadFailed => 'Не удалось загрузить серию';
+
+  @override
+  String get seriesLoadMoreFailed => 'Не удалось загрузить ещё';
+
+  @override
+  String get seriesEmpty => 'В этой серии пока нет работ';
+
+  @override
+  String seriesWorksCount(int count) {
+    return '$count работ';
+  }
 }

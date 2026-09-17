@@ -677,5 +677,17 @@
   "bookmarkTagNewHint": "Type a tag and press enter",
   "bookmarkTagSuggestions": "Frequent tags",
   "bookmarkTagsEmpty": "No bookmark tags yet",
-  "bookmarkTagsLoadFailed": "Failed to load bookmark tags"
+  "bookmarkTagsLoadFailed": "Failed to load bookmark tags",
+  "seriesTitle": "Series",
+  "seriesLoadFailed": "Failed to load series",
+  "seriesLoadMoreFailed": "Failed to load more",
+  "seriesEmpty": "No works in this series yet",
+  "seriesWorksCount": "{count} works",
+  "@seriesWorksCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
