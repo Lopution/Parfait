@@ -32,6 +32,11 @@ class MuteStore extends Notifier<MuteState> {
   /// overwrites an optimistic update.
   Future<void> _hydrated = Future<void>.value();
 
+  /// Awaits the in-flight hydration pass. Backup export/import read the
+  /// effective set through this so a cold store cannot present its
+  /// pre-hydrate empty state as the user's actual mutes.
+  Future<void> ensureHydrated() => _hydrated;
+
   @override
   MuteState build() {
     final accountId = ref.watch(

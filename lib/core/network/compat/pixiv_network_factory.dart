@@ -14,16 +14,30 @@ import 'image_cache.dart';
 /// freshly cloned for each attempt because package:http requests are
 /// single-use after finalize().
 class PixivPolicyHttpClient extends http.BaseClient {
-  PixivPolicyHttpClient({required this.policy, required this.purpose});
+  PixivPolicyHttpClient({
+    required this.policy,
+    required this.purpose,
+    this.urlRewriter,
+  });
 
   final NetworkAccessPolicy policy;
   final PixivDestinationPurpose purpose;
 
+  /// Optional request-URL mapping applied before destination resolution
+  /// (image-source mirroring). When it returns the same [Uri] instance the
+  /// request is sent as-is; a different URL retargets the request so the
+  /// route ladder, client pool and socket all key on the mirror host.
+  final Uri Function(Uri url)? urlRewriter;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final destination = policy.registry.require(request.url, purpose);
-    request.followRedirects = false;
-    final replayFactory = _safeReplayFactory(request);
+    final targetUrl = urlRewriter?.call(request.url) ?? request.url;
+    final destination = policy.registry.require(targetUrl, purpose);
+    final retargeted = identical(targetUrl, request.url)
+        ? request
+        : _cloneWithUrl(request, targetUrl);
+    retargeted.followRedirects = false;
+    final replayFactory = _safeReplayFactory(retargeted);
     final cancelSignal = _RequestCancelSignal.from(request);
     return policy.runLadder<http.StreamedResponse>(
       destination: destination,
@@ -36,7 +50,7 @@ class PixivPolicyHttpClient extends http.BaseClient {
         // A clone is created for each attempt. package:http requests are
         // single-use after finalize(), so reusing one object would turn the
         // allowed retry into a local "already finalized" failure.
-        final outbound = replayFactory?.call() ?? request;
+        final outbound = replayFactory?.call() ?? retargeted;
         final response = await policy
             .clientFor(purpose, route, destination.canonicalHost)
             .send(outbound);
@@ -49,6 +63,34 @@ class PixivPolicyHttpClient extends http.BaseClient {
     );
   }
 
+  /// Re-targets [request] to [url]. Only [http.Request] is clonable; any
+  /// other request type reaching this path with a *changed* URL is a
+  /// wiring error (the image cache only ever sends plain Requests), so it
+  /// fails loudly instead of silently fetching the un-mirrored host.
+  static http.BaseRequest _cloneWithUrl(http.BaseRequest request, Uri url) {
+    if (request is! http.Request) {
+      if (request.url == url) return request;
+      throw StateError(
+        'cannot re-target ${request.runtimeType} to a rewritten URL',
+      );
+    }
+    final headers = Map<String, String>.from(request.headers);
+    final body = List<int>.from(request.bodyBytes);
+    final abortTrigger = request is http.AbortableRequest
+        ? request.abortTrigger
+        : null;
+    return http.AbortableRequest(
+        request.method,
+        url,
+        abortTrigger: abortTrigger,
+      )
+      ..headers.addAll(headers)
+      ..followRedirects = false
+      ..maxRedirects = request.maxRedirects
+      ..persistentConnection = request.persistentConnection
+      ..bodyBytes = body;
+  }
+
   /// Builds a fresh clone for every attempt, so any request shape —
   /// including POST bodies such as the OAuth token exchange — can be
   /// re-sent on each unused kind the ladder still walks.
@@ -56,25 +98,7 @@ class PixivPolicyHttpClient extends http.BaseClient {
     http.BaseRequest request,
   ) {
     if (request is! http.Request) return null;
-    final headers = Map<String, String>.from(request.headers);
-    final body = List<int>.from(request.bodyBytes);
-    return () {
-      final abortTrigger = request is http.AbortableRequest
-          ? request.abortTrigger
-          : null;
-      final clone =
-          http.AbortableRequest(
-              request.method,
-              request.url,
-              abortTrigger: abortTrigger,
-            )
-            ..headers.addAll(headers)
-            ..followRedirects = false
-            ..maxRedirects = request.maxRedirects
-            ..persistentConnection = request.persistentConnection
-            ..bodyBytes = body;
-      return clone;
-    };
+    return () => _cloneWithUrl(request, request.url);
   }
 }
 
@@ -113,9 +137,13 @@ class _RequestCancelSignal implements NetworkCancelSignal {
 /// Pixiv HTTP consumers. The factory is the single place that can create a
 /// policy client, making independent direct clients auditable.
 class PixivNetworkFactory {
-  PixivNetworkFactory(this.policy);
+  /// [imageUrlRewriter] mirrors `i./s.pximg.net` URLs onto the selected
+  /// image source before destination resolution; null/identity keeps the
+  /// stock pximg path.
+  PixivNetworkFactory(this.policy, {this.imageUrlRewriter});
 
   final NetworkAccessPolicy policy;
+  final Uri Function(Uri url)? imageUrlRewriter;
   final Map<PixivDestinationPurpose, PixivPolicyHttpClient> _clients = {};
   // CacheManager keeps its HttpFileService for the lifetime of the cache.
   // NetworkAccessPolicy intentionally closes pooled clients when the account
@@ -132,7 +160,13 @@ class PixivNetworkFactory {
   PixivPolicyHttpClient client(PixivDestinationPurpose purpose) {
     return _clients.putIfAbsent(
       purpose,
-      () => PixivPolicyHttpClient(policy: policy, purpose: purpose),
+      () => PixivPolicyHttpClient(
+        policy: policy,
+        purpose: purpose,
+        urlRewriter: purpose == PixivDestinationPurpose.image
+            ? imageUrlRewriter
+            : null,
+      ),
     );
   }
 

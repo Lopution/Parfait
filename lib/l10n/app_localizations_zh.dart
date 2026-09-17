@@ -489,10 +489,122 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileReadOnly => '这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。';
 
   @override
+  String get serverDisplaySettings => '账号显示设置';
+
+  @override
+  String get serverDisplayHint => '由 Pixiv 服务端保存，作用于接口为该账号返回的内容。';
+
+  @override
+  String get serverShowAi => '显示 AI 生成作品';
+
+  @override
+  String get serverRestrictedMode => '受限模式';
+
+  @override
+  String get serverDisplayLoadFailed => '服务端设置读取失败';
+
+  @override
+  String get serverDisplayWriteFailed => '服务端设置保存失败';
+
+  @override
+  String get backupSettings => '备份与导入';
+
+  @override
+  String get backupHint => '导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。';
+
+  @override
+  String get backupExport => '导出备份';
+
+  @override
+  String get backupExportHint => '选择目录后写入 pixiv-func-backup-*.json';
+
+  @override
+  String backupExported(String name) {
+    return '已导出 $name';
+  }
+
+  @override
+  String get backupExportFailed => '导出失败';
+
+  @override
+  String get backupImport => '导入备份';
+
+  @override
+  String get backupImportHint => '从 JSON 文件导入，可选合并或覆盖';
+
+  @override
+  String get backupImportInvalid => '备份文件无效';
+
+  @override
+  String get backupImportFailed => '导入失败';
+
+  @override
+  String get backupImportStrategyTitle => '选择导入方式';
+
+  @override
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  ) {
+    return '文件包含 $tags 个屏蔽标签、$users 个屏蔽用户、$works 条作品屏蔽、$history 条历史。\n导出账号：$account';
+  }
+
+  @override
+  String get backupImportOverwriteNote =>
+      '覆盖会先清空本地历史并替换作品屏蔽；服务端屏蔽列表只增不删，覆盖不会删除服务器上的屏蔽项。';
+
+  @override
+  String get backupMerge => '合并';
+
+  @override
+  String get backupOverwrite => '覆盖';
+
+  @override
+  String backupImportDone(int tags, int users, int works, int history) {
+    return '导入完成：新增 $tags 个标签、$users 个用户、$works 项作品屏蔽变更、$history 条历史';
+  }
+
+  @override
   String get imageSource => '图片源';
 
   @override
   String get imageSourceNormal => '官方 CDN（系统 DNS / HTTPS）';
+
+  @override
+  String get imageSourcePixivCat => 'pixiv.cat 镜像';
+
+  @override
+  String get imageSourcePixivRe => 'pixiv.re 镜像';
+
+  @override
+  String get imageSourcePixivNl => 'pixiv.nl 镜像';
+
+  @override
+  String get imageSourceCustom => '自定义反代';
+
+  @override
+  String get imageSourceCustomHint =>
+      'https://host[/path]，例如 https://i.pixiv.cat';
+
+  @override
+  String get imageSourceCustomUnset => '未配置';
+
+  @override
+  String get imageSourceCustomInvalid => '无效自定义源：需 https、域名且仅支持 443 端口';
+
+  @override
+  String get imageSourceTest => '测试';
+
+  @override
+  String imageSourceTestOk(String code) {
+    return '镜像可达（HTTP $code）';
+  }
+
+  @override
+  String get imageSourceTestFailed => '镜像连通性测试失败';
 
   @override
   String get previewQuality => '预览质量';

@@ -56,7 +56,7 @@ class SettingsController extends AsyncNotifier<AppSettings> {
       _update((settings) => settings.copyWith(guideCompleted: true));
 
   Future<void> selectImageSource(String imageSource) {
-    if (ImageSourceMode.fromHost(imageSource) == null) {
+    if (!ImageMirror.isValidSource(imageSource)) {
       throw ArgumentError.value(imageSource, 'imageSource');
     }
     return _update((settings) => settings.copyWith(imageSource: imageSource));
@@ -128,6 +128,11 @@ class SettingsController extends AsyncNotifier<AppSettings> {
 
   Future<void> setNamingRule(NamingRule rule) =>
       _update((settings) => settings.copyWith(namingRule: rule));
+
+  /// Whole-object replace used by backup import. Per-field validation
+  /// already happened in [AppSettings.fromJson]; the write goes through
+  /// the same serialized persistence path as every other change.
+  Future<void> replaceAll(AppSettings settings) => _update((_) => settings);
 
   Future<void> _update(AppSettings Function(AppSettings) transform) {
     final operation = _writeTail.then((_) async {
@@ -269,6 +274,18 @@ final dohEndpointsProvider = Provider<List<String>>((ref) {
       .map((entry) => entry.trim())
       .where((entry) => entry.isNotEmpty)
       .toList(growable: false);
+});
+
+/// Effective image-source mirror resolved from the persisted
+/// `imageSource` (preset or canonical custom prefix). Consumers rebuild
+/// on selection change because the select yields a String.
+final imageMirrorProvider = Provider<ImageMirror>((ref) {
+  final source = ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.imageSource ?? AppSettings.normalImageSource,
+    ),
+  );
+  return ImageMirror.of(source);
 });
 
 /// ECH front host (HTTPS RR query target for ECH config).

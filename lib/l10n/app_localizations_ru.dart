@@ -509,10 +509,128 @@ class AppLocalizationsRu extends AppLocalizations {
       'Здесь показаны сохранённые данные аккаунта. Полное редактирование профиля предоставляет модуль профиля.';
 
   @override
+  String get serverDisplaySettings => 'Настройки показа аккаунта';
+
+  @override
+  String get serverDisplayHint =>
+      'Хранится на сервере Pixiv и влияет на то, что API возвращает этому аккаунту.';
+
+  @override
+  String get serverShowAi => 'Показывать AI-работы';
+
+  @override
+  String get serverRestrictedMode => 'Ограниченный режим';
+
+  @override
+  String get serverDisplayLoadFailed =>
+      'Не удалось загрузить серверные настройки';
+
+  @override
+  String get serverDisplayWriteFailed =>
+      'Не удалось сохранить настройку на сервере';
+
+  @override
+  String get backupSettings => 'Резервная копия';
+
+  @override
+  String get backupHint =>
+      'Экспорт настроек, списка скрытого и истории просмотра; учётные данные в файл не записываются.';
+
+  @override
+  String get backupExport => 'Экспортировать копию';
+
+  @override
+  String get backupExportHint =>
+      'Сохраняет pixiv-func-backup-*.json в выбранную папку';
+
+  @override
+  String backupExported(String name) {
+    return 'Сохранено: $name';
+  }
+
+  @override
+  String get backupExportFailed => 'Не удалось экспортировать';
+
+  @override
+  String get backupImport => 'Импортировать копию';
+
+  @override
+  String get backupImportHint => 'Импорт из JSON-файла; слияние или замена';
+
+  @override
+  String get backupImportInvalid => 'Недействительный файл резервной копии';
+
+  @override
+  String get backupImportFailed => 'Не удалось импортировать';
+
+  @override
+  String get backupImportStrategyTitle => 'Способ импорта';
+
+  @override
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  ) {
+    return 'В файле: скрытых тегов $tags, пользователей $users, скрытых работ $works, записей истории $history.\nЭкспортировано аккаунтом: $account';
+  }
+
+  @override
+  String get backupImportOverwriteNote =>
+      'Замена сначала очищает локальную историю и заменяет скрытые работы; серверный список скрытого только пополняется и импортом не удаляется.';
+
+  @override
+  String get backupMerge => 'Объединить';
+
+  @override
+  String get backupOverwrite => 'Заменить';
+
+  @override
+  String backupImportDone(int tags, int users, int works, int history) {
+    return 'Импортировано: теги +$tags, пользователи +$users, изменений скрытых работ: $works, история: $history';
+  }
+
+  @override
   String get imageSource => 'Источник изображений';
 
   @override
   String get imageSourceNormal => 'Официальный CDN (системный DNS / HTTPS)';
+
+  @override
+  String get imageSourcePixivCat => 'зеркало pixiv.cat';
+
+  @override
+  String get imageSourcePixivRe => 'зеркало pixiv.re';
+
+  @override
+  String get imageSourcePixivNl => 'зеркало pixiv.nl';
+
+  @override
+  String get imageSourceCustom => 'Свой обратный прокси';
+
+  @override
+  String get imageSourceCustomHint =>
+      'https://host[/path], например https://i.pixiv.cat';
+
+  @override
+  String get imageSourceCustomUnset => 'Не настроено';
+
+  @override
+  String get imageSourceCustomInvalid =>
+      'Недопустимый источник: нужны https, DNS-имя и порт 443';
+
+  @override
+  String get imageSourceTest => 'Проверить';
+
+  @override
+  String imageSourceTestOk(String code) {
+    return 'Зеркало доступно (HTTP $code)';
+  }
+
+  @override
+  String get imageSourceTestFailed => 'Проверка зеркала не удалась';
 
   @override
   String get previewQuality => 'Качество предпросмотра';

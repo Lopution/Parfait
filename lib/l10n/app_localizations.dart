@@ -1014,6 +1014,144 @@ abstract class AppLocalizations {
   /// **'这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。'**
   String get profileReadOnly;
 
+  /// No description provided for @serverDisplaySettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号显示设置'**
+  String get serverDisplaySettings;
+
+  /// No description provided for @serverDisplayHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'由 Pixiv 服务端保存，作用于接口为该账号返回的内容。'**
+  String get serverDisplayHint;
+
+  /// No description provided for @serverShowAi.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示 AI 生成作品'**
+  String get serverShowAi;
+
+  /// No description provided for @serverRestrictedMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'受限模式'**
+  String get serverRestrictedMode;
+
+  /// No description provided for @serverDisplayLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端设置读取失败'**
+  String get serverDisplayLoadFailed;
+
+  /// No description provided for @serverDisplayWriteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端设置保存失败'**
+  String get serverDisplayWriteFailed;
+
+  /// No description provided for @backupSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份与导入'**
+  String get backupSettings;
+
+  /// No description provided for @backupHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。'**
+  String get backupHint;
+
+  /// No description provided for @backupExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出备份'**
+  String get backupExport;
+
+  /// No description provided for @backupExportHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择目录后写入 pixiv-func-backup-*.json'**
+  String get backupExportHint;
+
+  /// No description provided for @backupExported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导出 {name}'**
+  String backupExported(String name);
+
+  /// No description provided for @backupExportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出失败'**
+  String get backupExportFailed;
+
+  /// No description provided for @backupImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入备份'**
+  String get backupImport;
+
+  /// No description provided for @backupImportHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'从 JSON 文件导入，可选合并或覆盖'**
+  String get backupImportHint;
+
+  /// No description provided for @backupImportInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份文件无效'**
+  String get backupImportInvalid;
+
+  /// No description provided for @backupImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入失败'**
+  String get backupImportFailed;
+
+  /// No description provided for @backupImportStrategyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择导入方式'**
+  String get backupImportStrategyTitle;
+
+  /// No description provided for @backupImportPrompt.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件包含 {tags} 个屏蔽标签、{users} 个屏蔽用户、{works} 条作品屏蔽、{history} 条历史。\n导出账号：{account}'**
+  String backupImportPrompt(
+    int tags,
+    int users,
+    int works,
+    int history,
+    String account,
+  );
+
+  /// No description provided for @backupImportOverwriteNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖会先清空本地历史并替换作品屏蔽；服务端屏蔽列表只增不删，覆盖不会删除服务器上的屏蔽项。'**
+  String get backupImportOverwriteNote;
+
+  /// No description provided for @backupMerge.
+  ///
+  /// In zh, this message translates to:
+  /// **'合并'**
+  String get backupMerge;
+
+  /// No description provided for @backupOverwrite.
+  ///
+  /// In zh, this message translates to:
+  /// **'覆盖'**
+  String get backupOverwrite;
+
+  /// No description provided for @backupImportDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入完成：新增 {tags} 个标签、{users} 个用户、{works} 项作品屏蔽变更、{history} 条历史'**
+  String backupImportDone(int tags, int users, int works, int history);
+
   /// No description provided for @imageSource.
   ///
   /// In zh, this message translates to:
@@ -1025,6 +1163,66 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'官方 CDN（系统 DNS / HTTPS）'**
   String get imageSourceNormal;
+
+  /// No description provided for @imageSourcePixivCat.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixiv.cat 镜像'**
+  String get imageSourcePixivCat;
+
+  /// No description provided for @imageSourcePixivRe.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixiv.re 镜像'**
+  String get imageSourcePixivRe;
+
+  /// No description provided for @imageSourcePixivNl.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixiv.nl 镜像'**
+  String get imageSourcePixivNl;
+
+  /// No description provided for @imageSourceCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义反代'**
+  String get imageSourceCustom;
+
+  /// No description provided for @imageSourceCustomHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'https://host[/path]，例如 https://i.pixiv.cat'**
+  String get imageSourceCustomHint;
+
+  /// No description provided for @imageSourceCustomUnset.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置'**
+  String get imageSourceCustomUnset;
+
+  /// No description provided for @imageSourceCustomInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'无效自定义源：需 https、域名且仅支持 443 端口'**
+  String get imageSourceCustomInvalid;
+
+  /// No description provided for @imageSourceTest.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试'**
+  String get imageSourceTest;
+
+  /// No description provided for @imageSourceTestOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像可达（HTTP {code}）'**
+  String imageSourceTestOk(String code);
+
+  /// No description provided for @imageSourceTestFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'镜像连通性测试失败'**
+  String get imageSourceTestFailed;
 
   /// No description provided for @previewQuality.
   ///

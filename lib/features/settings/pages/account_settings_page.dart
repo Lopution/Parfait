@@ -5,10 +5,14 @@ import '../../../app/motion/app_overlays.dart';
 import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/feed/feed_states.dart';
+import '../../../app/widgets/settings/settings_control.dart';
+import '../../../app/widgets/settings/settings_section.dart';
 import '../../../app/widgets/settings_load_error.dart';
 import '../../../core/auth/account.dart';
 import '../../../core/auth/account_store.dart';
+import '../../../core/settings/server_display_settings.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 
@@ -93,44 +97,49 @@ class AccountSettingsPage extends ConsumerWidget {
               )
             : state.accounts.isEmpty
             ? Center(child: Text(context.l10n.noAccounts))
-            : ListView.builder(
-                itemCount: state.accounts.length,
-                itemBuilder: (context, index) {
-                  final account = state.accounts[index];
-                  final selected = state.currentId == account.id;
-                  return ListTile(
-                    leading: _AccountAvatar(account: account),
-                    title: Text(account.name),
-                    subtitle: Text(
-                      account.mailAddress ??
-                          '${context.l10n.accountId}: ${account.id}',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (selected)
-                          Icon(
-                            Icons.check,
-                            color: Theme.of(context).colorScheme.primary,
+            : ListView(
+                children: [
+                  for (final account in state.accounts)
+                    ListTile(
+                      leading: _AccountAvatar(account: account),
+                      title: Text(account.name),
+                      subtitle: Text(
+                        account.mailAddress ??
+                            '${context.l10n.accountId}: ${account.id}',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (state.currentId == account.id)
+                            Icon(
+                              Icons.check,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          IconButton(
+                            tooltip: context.l10n.removeAccount,
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () =>
+                                _confirmRemove(context, ref, account),
                           ),
-                        IconButton(
-                          tooltip: context.l10n.removeAccount,
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () =>
-                              _confirmRemove(context, ref, account),
-                        ),
-                      ],
+                        ],
+                      ),
+                      onTap: state.currentId == account.id
+                          ? null
+                          : () => persistSettings(
+                              context,
+                              () => ref
+                                  .read(accountStoreProvider.notifier)
+                                  .switchAccount(account.id),
+                            ),
                     ),
-                    onTap: selected
-                        ? null
-                        : () => persistSettings(
-                            context,
-                            () => ref
-                                .read(accountStoreProvider.notifier)
-                                .switchAccount(account.id),
-                          ),
-                  );
-                },
+                  // Server-side display preferences only exist for a
+                  // usable account; a signed-out/re-auth state shows the
+                  // account rows alone.
+                  if (state.usableCurrent != null) ...[
+                    const Divider(),
+                    const _ServerDisplaySection(),
+                  ],
+                ],
               ),
       ),
     );
@@ -162,6 +171,85 @@ class AccountSettingsPage extends ConsumerWidget {
     await persistSettings(
       context,
       () => ref.read(accountStoreProvider.notifier).removeAccount(account.id),
+    );
+  }
+}
+
+/// Server-authoritative display preferences of the current account. The
+/// toggles update optimistically through [ServerDisplaySettingsController]
+/// and roll back with a visible error when the server edit fails.
+class _ServerDisplaySection extends ConsumerWidget {
+  const _ServerDisplaySection();
+
+  Future<void> _write(
+    BuildContext context,
+    WidgetRef ref,
+    Future<void> Function(ServerDisplaySettingsController) action,
+  ) async {
+    try {
+      await action(ref.read(serverDisplaySettingsProvider.notifier));
+    } on Object catch (error) {
+      if (context.mounted) {
+        showAppSnackBar(
+          context,
+          '${context.l10n.serverDisplayWriteFailed}: $error',
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(serverDisplaySettingsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SettingsSection(title: Text(context.l10n.serverDisplaySettings)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            context.l10n.serverDisplayHint,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        settings.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, _) => ListTile(
+            leading: const Icon(Icons.error_outline),
+            title: Text(context.l10n.serverDisplayLoadFailed),
+            subtitle: Text('$error'),
+            trailing: TextButton(
+              onPressed: () => ref.invalidate(serverDisplaySettingsProvider),
+              child: Text(context.l10n.retry),
+            ),
+          ),
+          data: (value) => Column(
+            children: [
+              SettingsControl(
+                title: Text(context.l10n.serverShowAi),
+                value: value.showAi,
+                onChanged: (v) => _write(
+                  context,
+                  ref,
+                  (controller) => controller.setShowAi(v),
+                ),
+              ),
+              SettingsControl(
+                title: Text(context.l10n.serverRestrictedMode),
+                value: value.restrictedMode,
+                onChanged: (v) => _write(
+                  context,
+                  ref,
+                  (controller) => controller.setRestrictedMode(v),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
