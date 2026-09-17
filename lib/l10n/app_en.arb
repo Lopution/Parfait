@@ -540,6 +540,8 @@
   "searchReverseDailyLimit": "今日匿名搜索额度已用完，明天再试",
   "searchReverseChallenge": "SauceNAO requires human verification. This search did not finish. Try again later.",
   "searchReversePageLoadFailed": "The result page failed to load",
+  "searchReverseUploadPickHint": "Pick the same image again in the page’s file chooser.",
+  "searchReverseUploadTapHint": "Tap the upload button on the page to search; the selected image is filled in automatically.",
   "searchReverseIntro": "The selected image is uploaded anonymously to SauceNAO; the result page opens inside the app.",
   "searchNoRepresentative": "This tag has no representative work",
   "searchFilters": "Filters",

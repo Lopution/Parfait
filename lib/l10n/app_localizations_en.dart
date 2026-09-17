@@ -1287,6 +1287,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReversePageLoadFailed => 'The result page failed to load';
 
   @override
+  String get searchReverseUploadPickHint =>
+      'Pick the same image again in the page’s file chooser.';
+
+  @override
+  String get searchReverseUploadTapHint =>
+      'Tap the upload button on the page to search; the selected image is filled in automatically.';
+
+  @override
   String get searchReverseIntro =>
       'The selected image is uploaded anonymously to SauceNAO; the result page opens inside the app.';
 

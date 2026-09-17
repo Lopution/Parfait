@@ -1288,6 +1288,14 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось загрузить страницу результатов';
 
   @override
+  String get searchReverseUploadPickHint =>
+      'Выберите то же изображение ещё раз в диалоге выбора файла на странице.';
+
+  @override
+  String get searchReverseUploadTapHint =>
+      'Нажмите кнопку загрузки на странице, чтобы начать поиск — выбранное изображение подставится автоматически.';
+
+  @override
   String get searchReverseIntro =>
       'Выбранное изображение анонимно отправляется в SauceNAO; страница результатов открывается в приложении.';
 

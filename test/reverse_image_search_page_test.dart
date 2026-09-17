@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/reverse_image/image_input.dart';
+import 'package:pixiv_func/core/reverse_image/reverse_image_engine.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_provider.dart';
 import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
@@ -38,9 +39,11 @@ void main() {
       await _pumpPage(
         tester,
         platform: platform,
-        provider: UnavailableReverseImageProvider(
-          reason: 'structured service is unavailable',
-        ),
+        providers: {
+          ReverseImageEngine.sauceNao: UnavailableReverseImageProvider(
+            reason: 'structured service is unavailable',
+          ),
+        },
       );
       await tester.pumpAndSettle();
 
@@ -62,7 +65,8 @@ void main() {
         find.text('当前没有通过凭据、服务条款和隐私审查的结构化服务；不会上传图片或执行网页抓取。'),
         findsOneWidget,
       );
-      expect(platform.deletedPaths, [image.path]);
+      // The failure keeps the prepared image so another engine can retry it.
+      expect(platform.deletedPaths, isEmpty);
     },
   );
 
@@ -79,9 +83,11 @@ void main() {
     await _pumpPage(
       tester,
       platform: platform,
-      provider: UnavailableReverseImageProvider(
-        reason: 'structured service is unavailable',
-      ),
+      providers: {
+        ReverseImageEngine.sauceNao: UnavailableReverseImageProvider(
+          reason: 'structured service is unavailable',
+        ),
+      },
       initialReference: reference,
     );
     await _pumpUntilVisible(tester, find.text('图片已准备好'));
@@ -94,14 +100,16 @@ void main() {
     await _pumpPage(
       tester,
       platform: platform,
-      provider: const _OutcomeProvider(
-        ReverseImageSearchFailure(
-          code: ReverseImageProviderFailureCode.rateLimited,
-          message: 'provider is rate limited',
-          retryable: true,
-          retryAfter: Duration(seconds: 27),
+      providers: {
+        ReverseImageEngine.sauceNao: const _OutcomeProvider(
+          ReverseImageSearchFailure(
+            code: ReverseImageProviderFailureCode.rateLimited,
+            message: 'provider is rate limited',
+            retryable: true,
+            retryAfter: Duration(seconds: 27),
+          ),
         ),
-      ),
+      },
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('选择图片'));
@@ -118,7 +126,11 @@ void main() {
     await _pumpPage(
       tester,
       platform: platform,
-      provider: const _OutcomeProvider(ReverseImageSearchSuccess([])),
+      providers: {
+        ReverseImageEngine.sauceNao: const _OutcomeProvider(
+          ReverseImageSearchSuccess([]),
+        ),
+      },
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('选择图片'));
@@ -137,13 +149,15 @@ void main() {
     await _pumpPage(
       tester,
       platform: platform,
-      provider: const _OutcomeProvider(
-        ReverseImageSearchFailure(
-          code: ReverseImageProviderFailureCode.dailyLimit,
-          message: 'SauceNAO daily search limit reached',
-          retryable: true,
+      providers: {
+        ReverseImageEngine.sauceNao: const _OutcomeProvider(
+          ReverseImageSearchFailure(
+            code: ReverseImageProviderFailureCode.dailyLimit,
+            message: 'SauceNAO daily search limit reached',
+            retryable: true,
+          ),
         ),
-      ),
+      },
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('选择图片'));
@@ -162,12 +176,14 @@ void main() {
     await _pumpPage(
       tester,
       platform: platform,
-      provider: const _OutcomeProvider(
-        ReverseImageSearchFailure(
-          code: ReverseImageProviderFailureCode.challenge,
-          message: 'SauceNAO returned a challenge page',
+      providers: {
+        ReverseImageEngine.sauceNao: const _OutcomeProvider(
+          ReverseImageSearchFailure(
+            code: ReverseImageProviderFailureCode.challenge,
+            message: 'SauceNAO returned a challenge page',
+          ),
         ),
-      ),
+      },
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('选择图片'));
@@ -184,7 +200,7 @@ void main() {
 Future<void> _pumpPage(
   WidgetTester tester, {
   required ReverseImageInputPlatform platform,
-  required ReverseImageProvider provider,
+  required Map<ReverseImageEngine, ReverseImageProvider> providers,
   ReverseImageInputReference? initialReference,
 }) {
   return tester.pumpWidget(
@@ -197,7 +213,7 @@ Future<void> _pumpPage(
         home: ReverseImageSearchPage(
           initialReference: initialReference,
           platform: platform,
-          provider: provider,
+          providers: providers,
         ),
       ),
     ),

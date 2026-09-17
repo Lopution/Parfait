@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
+import '../reverse_image/reverse_image_engine.dart';
 import 'image_mirror.dart';
 
 export 'image_mirror.dart' show ImageSourceMode, ImageMirror;
@@ -172,6 +173,7 @@ class AppSettings {
     this.maxDownloadCount = defaultMaxDownloadCount,
     this.downloadDestination = DownloadDestination.builtin,
     this.namingRule = NamingRule.defaultRule,
+    this.reverseImageEngine = ReverseImageEngine.sauceNao,
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -248,6 +250,11 @@ class AppSettings {
 
   /// File naming (D6): preset or bounded custom template.
   final NamingRule namingRule;
+
+  /// Last selected reverse-image engine; persisted so the page reopens on
+  /// the engine the user chose. Unknown persisted values fall back to
+  /// [ReverseImageEngine.sauceNao].
+  final ReverseImageEngine reverseImageEngine;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -339,6 +346,9 @@ class AppSettings {
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
       downloadDestination: _readDestination(json, base.downloadDestination),
       namingRule: _readNamingRule(json, legacyNaming, base.namingRule),
+      reverseImageEngine:
+          ReverseImageEngine.tryFromName(json['reverseImageEngine']) ??
+          base.reverseImageEngine,
     );
   }
 
@@ -370,6 +380,7 @@ class AppSettings {
       'namingPreset': namingRule.preset.code,
       if (namingRule.preset == NamingPreset.custom)
         'namingTemplate': namingRule.template,
+      'reverseImageEngine': reverseImageEngine.name,
     };
   }
 
@@ -482,6 +493,7 @@ class AppSettings {
     int? maxDownloadCount,
     Object? downloadDestination = _unset,
     Object? namingRule = _unset,
+    ReverseImageEngine? reverseImageEngine,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -527,6 +539,7 @@ class AppSettings {
       namingRule: identical(namingRule, _unset)
           ? this.namingRule
           : namingRule as NamingRule,
+      reverseImageEngine: reverseImageEngine ?? this.reverseImageEngine,
     );
   }
 
