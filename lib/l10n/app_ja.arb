@@ -538,9 +538,20 @@
     }
   },
   "searchReverseDailyLimit": "本日の匿名検索回数の上限に達しました。明日もう一度お試しください",
-  "searchReverseChallenge": "SauceNAO が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください",
+  "searchReverseChallenge": "{engine} が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください",
   "searchReversePageLoadFailed": "結果ページの読み込みに失敗しました",
-  "searchReverseIntro": "選択した画像は匿名で SauceNAO に送信され、結果ページがアプリ内で開きます。",
+  "searchReverseUploadTapHint": "ページ内のアップロードボタンをタップすると検索します。選択した画像は自動で入力されます。",
+  "searchReverseUploadPickHint": "ページのファイル選択で同じ画像をもう一度選んでください。",
+  "searchReverseRetrySameEngine": "このエンジンで再試行",
+  "searchReverseEngineUnsupported": "選択した画像はこのエンジンの入力制限を満たしていません",
+  "@searchReverseChallenge": {
+      "placeholders": {
+        "engine": {
+          "type": "String"
+        }
+      }
+    },
+  "searchReverseIntro": "選択した画像は選択中のエンジンにアップロードされ、結果ページがアプリ内で開きます。",
   "searchNoRepresentative": "このタグには代表作品がありません",
   "searchFilters": "フィルター",
   "searchReset": "リセット",

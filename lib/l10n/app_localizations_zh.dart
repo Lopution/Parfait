@@ -1237,13 +1237,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseDailyLimit => '今日匿名搜索额度已用完，明天再试';
 
   @override
-  String get searchReverseChallenge => 'SauceNAO 要求人机验证，本次搜索未完成，请稍后再试';
+  String searchReverseChallenge(String engine) {
+    return '$engine 要求人机验证，本次搜索未完成，请稍后再试';
+  }
 
   @override
   String get searchReversePageLoadFailed => '结果页加载失败';
 
   @override
-  String get searchReverseIntro => '选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。';
+  String get searchReverseUploadTapHint => '点按页面中的上传按钮开始搜索，已选图片会自动填入。';
+
+  @override
+  String get searchReverseUploadPickHint => '请在页面的文件选择框中重新选择同一张图片。';
+
+  @override
+  String get searchReverseRetrySameEngine => '重试当前引擎';
+
+  @override
+  String get searchReverseEngineUnsupported => '当前图片不满足该引擎的输入限制';
+
+  @override
+  String get searchReverseIntro => '选择图片后将上传到所选引擎进行反向检索；结果页在应用内打开。';
 
   @override
   String get searchNoRepresentative => '该标签暂无代表作品';

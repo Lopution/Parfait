@@ -538,9 +538,20 @@
     }
   },
   "searchReverseDailyLimit": "Дневной лимит анонимного поиска исчерпан. Попробуйте завтра.",
-  "searchReverseChallenge": "SauceNAO требует проверку человека. Этот поиск не завершён. Попробуйте позже.",
+  "searchReverseChallenge": "{engine} требует проверку человека. Этот поиск не завершён. Попробуйте позже.",
   "searchReversePageLoadFailed": "Не удалось загрузить страницу результатов",
-  "searchReverseIntro": "Выбранное изображение анонимно отправляется в SauceNAO; страница результатов открывается в приложении.",
+  "searchReverseUploadTapHint": "Нажмите кнопку загрузки на странице, чтобы начать поиск — выбранное изображение подставится автоматически.",
+  "searchReverseUploadPickHint": "Выберите то же изображение ещё раз в диалоге выбора файла на странице.",
+  "searchReverseRetrySameEngine": "Повторить в этом движке",
+  "searchReverseEngineUnsupported": "Выбранное изображение не соответствует ограничениям этого движка",
+  "@searchReverseChallenge": {
+      "placeholders": {
+        "engine": {
+          "type": "String"
+        }
+      }
+    },
+  "searchReverseIntro": "Выбранное изображение отправляется в выбранный движок; страница результатов открывается в приложении.",
   "searchNoRepresentative": "У этого тега нет представительной работы",
   "searchFilters": "Фильтры",
   "searchReset": "Сбросить",

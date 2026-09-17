@@ -216,6 +216,23 @@ Symptoms to recognize: `TimeoutException after 0:00:30` from an unrelated-feelin
 **Required pattern**: assert the error *state* instead of awaiting `.future` —
 `container.listen(provider, (prev, next) { if (next case AsyncError(:final error)) … })` — or poll `container.read(provider)` until it leaves `AsyncLoading`. This is also why an intentionally erroring provider must not be created inside `tester.pumpAndSettle()` windows without a listener: the retry timers keep scheduling work.
 
+### `InAppWebView` needs a platform fake in widget tests
+
+**Problem**: `flutter_inappwebview`'s `InAppWebView` asserts
+`InAppWebViewPlatform.instance != null` at construction; on the Linux test host
+no platform registers, so any page that builds one throws before rendering
+(seen 2026-09-16 in `reverse_image_search_page_test.dart`). The same applies to
+`webview_flutter` (`WebViewPlatform.instance`), which `login_navigation_test.dart`
+already stubs.
+
+**Required pattern**: in `setUp`, assign `InAppWebViewPlatform.instance` to a
+test subclass whose `createPlatformInAppWebViewWidget` returns a
+`PlatformInAppWebViewWidget` fake (`super.implementation(params)`, `build` →
+`SizedBox.expand()`, `noSuchMethod` → completed future). Import the platform
+types through `package:flutter_inappwebview/flutter_inappwebview.dart`, which
+re-exports the interface — a direct `flutter_inappwebview_platform_interface`
+import trips `depend_on_referenced_packages`.
+
 ---
 
 ## Code Review Checklist
