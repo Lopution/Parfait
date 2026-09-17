@@ -169,12 +169,12 @@ class FeedSnapshotStore {
   }
 }
 
-final _feedDatabaseProvider = Provider<FeedDatabase>((ref) {
+final feedDatabaseProvider = Provider<FeedDatabase>((ref) {
   final database = FeedDatabase();
   ref.onDispose(() => unawaited(database.close()));
   return database;
 });
 
 final feedSnapshotStoreProvider = Provider<FeedSnapshotStore>((ref) {
-  return FeedSnapshotStore(database: ref.watch(_feedDatabaseProvider));
+  return FeedSnapshotStore(database: ref.watch(feedDatabaseProvider));
 });
