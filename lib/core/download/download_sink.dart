@@ -6,6 +6,7 @@ import '../platform/saf_tree.dart';
 import 'download_destination.dart';
 import 'download_recovery.dart';
 import 'download_request.dart';
+import 'resume_anchor.dart';
 
 /// One pending output item. Mirrors the MediaStore pending lifecycle:
 /// write chunks → finalize (visible) or abort (invisible, cleaned up).
@@ -45,6 +46,39 @@ abstract interface class OwnedDownloadSinkFactory {
 /// Optional sink metadata used to persist/recover a pending platform row.
 abstract interface class DownloadSinkOutputMetadata {
   int? get pendingOutputId;
+}
+
+/// Optional sink capability: the platform output can preserve written bytes
+/// across aborts so a later attempt appends instead of restarting (D8).
+///
+/// Detached bytes stay owned by the same [DownloadOutputOwner]; a manager
+/// that cannot resume them still reaches the ordinary abort path.
+abstract interface class ResumableDownloadSink implements DownloadSink {
+  /// Bytes durably committed at the platform layer. Bytes still buffered in
+  /// the coalescing writer do not count — this is the value a `Range` header
+  /// may safely skip.
+  int get storedBytes;
+
+  /// Flushes, seals without finalizing, and returns the durable resume
+  /// token. Afterwards the sink is dead: `write`/`finalize` throw and
+  /// `abort()` is a no-op so manager cleanup can never delete preserved
+  /// bytes. Returns null when this output cannot be preserved — the caller
+  /// falls back to abort semantics.
+  Future<ResumeAnchor?> detach();
+}
+
+/// Optional factory capability: reopen a previously detached output for
+/// appending (D8). Legacy/unit factories remain valid without it.
+abstract interface class ResumableDownloadSinkFactory {
+  /// Reopens [anchor] under [owner] for appending. Returns null when the
+  /// anchor is missing, foreign or unreadable — the caller discards the
+  /// anchor and begins a fresh output. The returned sink must implement
+  /// [ResumableDownloadSink] so the manager can verify the platform-side
+  /// byte count against the durable record before trusting it.
+  Future<DownloadSink?> resumeOwned(
+    ResumeAnchor anchor,
+    DownloadOutputOwner owner,
+  );
 }
 
 /// Minimum payload sent for a platform-channel download write.
