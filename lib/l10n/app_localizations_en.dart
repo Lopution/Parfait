@@ -517,6 +517,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageSourceNormal => 'Official CDN (system DNS / HTTPS)';
 
   @override
+  String get imageSourcePixivCat => 'pixiv.cat mirror';
+
+  @override
+  String get imageSourcePixivRe => 'pixiv.re mirror';
+
+  @override
+  String get imageSourcePixivNl => 'pixiv.nl mirror';
+
+  @override
+  String get imageSourceCustom => 'Custom reverse proxy';
+
+  @override
+  String get imageSourceCustomHint =>
+      'https://host[/path], e.g. https://i.pixiv.cat';
+
+  @override
+  String get imageSourceCustomUnset => 'Not configured';
+
+  @override
+  String get imageSourceCustomInvalid =>
+      'Invalid source: needs https, a DNS host name and port 443';
+
+  @override
+  String get imageSourceTest => 'Test';
+
+  @override
+  String imageSourceTestOk(String code) {
+    return 'Mirror reachable (HTTP $code)';
+  }
+
+  @override
+  String get imageSourceTestFailed => 'Mirror connectivity test failed';
+
+  @override
   String get previewQuality => 'Preview quality';
 
   @override

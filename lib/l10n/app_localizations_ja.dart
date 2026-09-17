@@ -503,6 +503,40 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageSourceNormal => '公式 CDN（システム DNS / HTTPS）';
 
   @override
+  String get imageSourcePixivCat => 'pixiv.cat ミラー';
+
+  @override
+  String get imageSourcePixivRe => 'pixiv.re ミラー';
+
+  @override
+  String get imageSourcePixivNl => 'pixiv.nl ミラー';
+
+  @override
+  String get imageSourceCustom => 'カスタムリバースプロキシ';
+
+  @override
+  String get imageSourceCustomHint =>
+      'https://host[/path]、例：https://i.pixiv.cat';
+
+  @override
+  String get imageSourceCustomUnset => '未設定';
+
+  @override
+  String get imageSourceCustomInvalid =>
+      '無効なソースです：https・DNS ホスト名・ポート 443 が必要です';
+
+  @override
+  String get imageSourceTest => 'テスト';
+
+  @override
+  String imageSourceTestOk(String code) {
+    return 'ミラーに接続できました（HTTP $code）';
+  }
+
+  @override
+  String get imageSourceTestFailed => 'ミラー接続テストに失敗しました';
+
+  @override
   String get previewQuality => 'プレビュー画質';
 
   @override

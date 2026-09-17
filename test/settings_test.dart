@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -12,6 +14,15 @@ import 'package:pixiv_func/core/auth/account_transfer.dart';
 import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/network/compat/network_contracts.dart'
+    show
+        DnsSource,
+        NetworkCancelSignal,
+        NetworkRevision,
+        PixivDestinationRegistry;
+import 'package:pixiv_func/core/network/compat/network_policy.dart';
+import 'package:pixiv_func/core/network/compat/network_providers.dart';
+import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
@@ -173,6 +184,45 @@ class _UnusedTransferVerifier implements TransferCredentialVerifier {
   @override
   Future<VerifiedTransferAccount> verify(TransferAccountPayload payload) {
     throw StateError('not used by export test');
+  }
+}
+
+class _StubResolver implements SecureResolver {
+  _StubResolver(this.addresses);
+
+  final List<InternetAddress> addresses;
+
+  @override
+  Future<ResolvedHost> resolve(
+    String host, {
+    required NetworkRevision revision,
+    NetworkCancelSignal? cancelSignal,
+  }) async => ResolvedHost(
+    host: host,
+    addresses: addresses,
+    dnsSource: DnsSource.system,
+    revision: revision,
+    ttl: const Duration(seconds: 30),
+  );
+
+  @override
+  Future<void> dispose() async {}
+}
+
+class _RecordingClient extends http.BaseClient {
+  final requests = <http.BaseRequest>[];
+  Object? failure;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    final failure = this.failure;
+    if (failure != null) throw failure;
+    return http.StreamedResponse(
+      Stream<List<int>>.value(utf8.encode('{}')),
+      200,
+      request: request,
+    );
   }
 }
 
@@ -498,12 +548,16 @@ void main() {
       ViewQuality.original,
     ]);
 
+    // The mirror section above pushes the quality selectors below the fold;
+    // scroll each into view before tapping.
+    await _scrollCentered(tester, selectorFinder.at(0));
     await tester.tap(
       find.descendant(of: selectorFinder.at(0), matching: find.text('大图')),
     );
     await tester.pumpAndSettle();
     expect(repository.value.previewQuality, PreviewQuality.large);
 
+    await _scrollCentered(tester, selectorFinder.at(1));
     await tester.tap(
       find.descendant(of: selectorFinder.at(1), matching: find.text('原图')),
     );
@@ -842,6 +896,141 @@ void main() {
     expect(find.textContaining('Invalid'), findsNothing);
     expect(find.textContaining('格式'), findsNothing);
   });
+
+  testWidgets('browse image source selects a preset and a custom proxy', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: BrowseSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('pixiv.cat 镜像'), findsOneWidget);
+    expect(find.text('pixiv.re 镜像'), findsOneWidget);
+    expect(find.text('pixiv.nl 镜像'), findsOneWidget);
+
+    await tester.tap(find.text('pixiv.cat 镜像'));
+    await tester.pumpAndSettle();
+    expect(repository.value.imageSource, 'i.pixiv.cat');
+
+    await _scrollCentered(tester, find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'proxy.example.com/pixiv/');
+    await _scrollCentered(tester, find.text('保存', skipOffstage: false));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(
+      repository.value.imageSource,
+      'https://proxy.example.com/pixiv',
+      reason: 'the bare host input is normalized to a canonical prefix',
+    );
+    expect(
+      repository.value.customImageSource,
+      'https://proxy.example.com/pixiv',
+    );
+
+    await _scrollCentered(
+      tester,
+      find.text('pixiv.re 镜像', skipOffstage: false),
+    );
+    await tester.tap(find.text('pixiv.re 镜像'));
+    await tester.pumpAndSettle();
+    expect(repository.value.imageSource, 'i.pixiv.re');
+
+    // Reselecting the remembered custom value keeps the stored prefix.
+    // widgetWithText avoids the TextField's label, which shares the string.
+    await _scrollCentered(
+      tester,
+      find.widgetWithText(ListTile, '自定义反代', skipOffstage: false),
+    );
+    await tester.tap(find.widgetWithText(ListTile, '自定义反代'));
+    await tester.pumpAndSettle();
+    expect(repository.value.imageSource, 'https://proxy.example.com/pixiv');
+  });
+
+  testWidgets('browse image source rejects an invalid custom input', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: BrowseSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await _scrollCentered(tester, find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'http://insecure.example');
+    await _scrollCentered(tester, find.text('保存', skipOffstage: false));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+
+    expect(repository.value.imageSource, AppSettings.normalImageSource);
+    expect(find.textContaining('无效自定义源'), findsOneWidget);
+  });
+
+  testWidgets('browse image source test probes the live image pipeline', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    final backend = _RecordingClient();
+    final policy = NetworkAccessPolicy(
+      registry: PixivDestinationRegistry(
+        extraImageHosts: {'proxy.example.com'},
+      ),
+      resolver: _StubResolver([InternetAddress('93.184.216.34')]),
+      clientFactory: (route, canonicalHost, _) => backend,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(repository),
+          networkAccessPolicyProvider.overrideWithValue(policy),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: BrowseSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    await _scrollCentered(tester, find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'https://proxy.example.com');
+    await _scrollCentered(tester, find.text('测试', skipOffstage: false));
+    await tester.tap(find.text('测试'));
+    await tester.pumpAndSettle();
+
+    expect(backend.requests, hasLength(1));
+    expect(backend.requests.single.url.host, 'proxy.example.com');
+    expect(repository.value.imageSource, 'https://proxy.example.com');
+    expect(find.textContaining('镜像可达'), findsOneWidget);
+  });
+}
+
+Future<void> _scrollCentered(WidgetTester tester, Finder finder) async {
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
+  await tester.pumpAndSettle();
 }
 
 void _ignoreBool(bool value) {}

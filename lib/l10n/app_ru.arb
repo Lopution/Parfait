@@ -189,6 +189,23 @@
   "profileReadOnly": "Здесь показаны сохранённые данные аккаунта. Полное редактирование профиля предоставляет модуль профиля.",
   "imageSource": "Источник изображений",
   "imageSourceNormal": "Официальный CDN (системный DNS / HTTPS)",
+  "imageSourcePixivCat": "зеркало pixiv.cat",
+  "imageSourcePixivRe": "зеркало pixiv.re",
+  "imageSourcePixivNl": "зеркало pixiv.nl",
+  "imageSourceCustom": "Свой обратный прокси",
+  "imageSourceCustomHint": "https://host[/path], например https://i.pixiv.cat",
+  "imageSourceCustomUnset": "Не настроено",
+  "imageSourceCustomInvalid": "Недопустимый источник: нужны https, DNS-имя и порт 443",
+  "imageSourceTest": "Проверить",
+  "imageSourceTestOk": "Зеркало доступно (HTTP {code})",
+  "@imageSourceTestOk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceTestFailed": "Проверка зеркала не удалась",
   "previewQuality": "Качество предпросмотра",
   "viewQuality": "Качество просмотра",
   "detailQuality": "Качество картинки в детальной странице",

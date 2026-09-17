@@ -515,6 +515,40 @@ class AppLocalizationsRu extends AppLocalizations {
   String get imageSourceNormal => 'Официальный CDN (системный DNS / HTTPS)';
 
   @override
+  String get imageSourcePixivCat => 'зеркало pixiv.cat';
+
+  @override
+  String get imageSourcePixivRe => 'зеркало pixiv.re';
+
+  @override
+  String get imageSourcePixivNl => 'зеркало pixiv.nl';
+
+  @override
+  String get imageSourceCustom => 'Свой обратный прокси';
+
+  @override
+  String get imageSourceCustomHint =>
+      'https://host[/path], например https://i.pixiv.cat';
+
+  @override
+  String get imageSourceCustomUnset => 'Не настроено';
+
+  @override
+  String get imageSourceCustomInvalid =>
+      'Недопустимый источник: нужны https, DNS-имя и порт 443';
+
+  @override
+  String get imageSourceTest => 'Проверить';
+
+  @override
+  String imageSourceTestOk(String code) {
+    return 'Зеркало доступно (HTTP $code)';
+  }
+
+  @override
+  String get imageSourceTestFailed => 'Проверка зеркала не удалась';
+
+  @override
   String get previewQuality => 'Качество предпросмотра';
 
   @override

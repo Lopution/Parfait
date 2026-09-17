@@ -495,6 +495,39 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageSourceNormal => '官方 CDN（系统 DNS / HTTPS）';
 
   @override
+  String get imageSourcePixivCat => 'pixiv.cat 镜像';
+
+  @override
+  String get imageSourcePixivRe => 'pixiv.re 镜像';
+
+  @override
+  String get imageSourcePixivNl => 'pixiv.nl 镜像';
+
+  @override
+  String get imageSourceCustom => '自定义反代';
+
+  @override
+  String get imageSourceCustomHint =>
+      'https://host[/path]，例如 https://i.pixiv.cat';
+
+  @override
+  String get imageSourceCustomUnset => '未配置';
+
+  @override
+  String get imageSourceCustomInvalid => '无效自定义源：需 https、域名且仅支持 443 端口';
+
+  @override
+  String get imageSourceTest => '测试';
+
+  @override
+  String imageSourceTestOk(String code) {
+    return '镜像可达（HTTP $code）';
+  }
+
+  @override
+  String get imageSourceTestFailed => '镜像连通性测试失败';
+
+  @override
   String get previewQuality => '预览质量';
 
   @override

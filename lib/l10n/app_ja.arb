@@ -189,6 +189,23 @@
   "profileReadOnly": "保存されたアカウント情報を表示しています。プロフィール編集はプロフィール機能で提供します。",
   "imageSource": "画像ソース",
   "imageSourceNormal": "公式 CDN（システム DNS / HTTPS）",
+  "imageSourcePixivCat": "pixiv.cat ミラー",
+  "imageSourcePixivRe": "pixiv.re ミラー",
+  "imageSourcePixivNl": "pixiv.nl ミラー",
+  "imageSourceCustom": "カスタムリバースプロキシ",
+  "imageSourceCustomHint": "https://host[/path]、例：https://i.pixiv.cat",
+  "imageSourceCustomUnset": "未設定",
+  "imageSourceCustomInvalid": "無効なソースです：https・DNS ホスト名・ポート 443 が必要です",
+  "imageSourceTest": "テスト",
+  "imageSourceTestOk": "ミラーに接続できました（HTTP {code}）",
+  "@imageSourceTestOk": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceTestFailed": "ミラー接続テストに失敗しました",
   "previewQuality": "プレビュー画質",
   "viewQuality": "ビューア画質",
   "detailQuality": "詳細画質",
