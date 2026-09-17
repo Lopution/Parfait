@@ -82,6 +82,18 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push<void>('/settings/download/destination'),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.l10n.downloadCaption),
+            subtitle: Text(context.l10n.downloadCaptionHint),
+            value: settings.downloadCaption,
+            onChanged: (enabled) => persistSettings(
+              context,
+              () => ref
+                  .read(settingsProvider.notifier)
+                  .setDownloadCaption(enabled),
+            ),
+          ),
           const Divider(),
           Padding(
             padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
@@ -128,12 +140,9 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
             const SizedBox(height: 8),
             Text(
               context.l10n.namingTemplateVariables(
-                '{artist}',
-                '{title}',
-                '{id}',
-                '{page}',
-                '{ext}',
-                '{date}',
+                NamingRule.supportedVariables
+                    .map((name) => '{$name}')
+                    .join(' '),
               ),
               style: Theme.of(context).textTheme.bodySmall,
             ),

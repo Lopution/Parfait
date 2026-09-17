@@ -5,6 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:pixiv_func/core/auth/account_transfer_service.dart';
+import 'package:pixiv_func/core/download/download_destination.dart';
+import 'package:pixiv_func/core/download/download_recovery.dart';
+import 'package:pixiv_func/core/download/download_request.dart';
+import 'package:pixiv_func/core/download/download_sink.dart';
+import 'package:pixiv_func/core/download/resume_anchor.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/platform/desktop_clipboard.dart';
@@ -192,6 +197,107 @@ void main() {
       await sink.write([1]);
       await sink.close();
       expect(File('${dir.path}/a_b_c.png').existsSync(), isTrue);
+    });
+
+    test(
+      'saf download detaches preserving .part and resumes appending (D8)',
+      () async {
+        final factory = DestinationAwareSinkFactory(
+          mediaStore: MediaStoreSinkFactory(mediaStore),
+          saf: saf,
+        );
+        final request = DownloadRequest(
+          illustId: 1,
+          pageIndex: 0,
+          url: Uri.parse('https://i.pximg.net/a.png'),
+          target: DownloadTarget.illustPage,
+        );
+        const owner = DownloadOutputOwner(
+          ownerId: 'o1',
+          jobId: 'j1',
+          accountId: 'a1',
+        );
+        final destination = DownloadDestination.safFolder(dir.path);
+        final sink = await factory.beginOwned(
+          request,
+          'resume.png',
+          owner,
+          destination: destination,
+        );
+        await sink.write([1, 2, 3]);
+
+        final anchor = await (sink as ResumableDownloadSink).detach();
+        expect(anchor!.kind, ResumeAnchorKind.saf);
+        expect(anchor.storedBytes, 3);
+        expect(File('${dir.path}/resume.png.part').existsSync(), isTrue);
+        expect(File('${dir.path}/resume.png').existsSync(), isFalse);
+        // Dead sink: cleanup must not delete the preserved bytes.
+        await sink.abort();
+        expect(File('${dir.path}/resume.png.part').existsSync(), isTrue);
+
+        final resumed = await factory.resumeOwned(anchor, owner);
+        expect(resumed, isA<ResumableDownloadSink>());
+        expect((resumed! as ResumableDownloadSink).storedBytes, 3);
+        await resumed.write([4, 5]);
+        final uri = await resumed.finalize();
+
+        expect(File('${dir.path}/resume.png.part').existsSync(), isFalse);
+        expect(await File('${dir.path}/resume.png').readAsBytes(), [
+          1,
+          2,
+          3,
+          4,
+          5,
+        ]);
+        expect(uri, contains('resume.png'));
+      },
+    );
+
+    test(
+      'mediastore-path download detaches and resumes by .part path (D8)',
+      () async {
+        final factory = MediaStoreSinkFactory(mediaStore);
+        final request = DownloadRequest(
+          illustId: 2,
+          pageIndex: 0,
+          url: Uri.parse('https://i.pximg.net/b.png'),
+          target: DownloadTarget.illustPage,
+        );
+        const owner = DownloadOutputOwner(
+          ownerId: 'o1',
+          jobId: 'j2',
+          accountId: 'a1',
+        );
+        final sink = await factory.beginOwned(request, 'album.png', owner);
+        await sink.write([7, 8]);
+
+        final anchor = await (sink as ResumableDownloadSink).detach();
+        expect(anchor!.kind, ResumeAnchorKind.file);
+        expect(anchor.locator, endsWith('.part'));
+        expect(anchor.storedBytes, 2);
+
+        final resumed = await factory.resumeOwned(anchor, owner);
+        expect((resumed! as ResumableDownloadSink).storedBytes, 2);
+        await resumed.write([9]);
+        await resumed.finalize();
+        expect(await File('${dir.path}/PixivFunc/album.png').readAsBytes(), [
+          7,
+          8,
+          9,
+        ]);
+      },
+    );
+
+    test('resuming a missing .part is a null refusal', () async {
+      final resumed = await saf.resumeSaf(
+        uri: '${dir.path}/gone.png.part',
+        owner: null,
+      );
+      expect(resumed, isNull);
+      final item = await mediaStore.resumePendingPath(
+        '${dir.path}/gone.png.part',
+      );
+      expect(item, isNull);
     });
   });
 

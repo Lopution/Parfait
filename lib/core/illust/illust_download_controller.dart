@@ -40,7 +40,10 @@ class _IllustDownloadController {
 
   /// Submits (or retries) one page; beta56 download(index). Throws
   /// [FormatException] when the work has no usable original URL.
-  DownloadTaskSnapshot download(IllustEntity entity, int pageIndex) {
+  Future<DownloadTaskSnapshot> download(
+    IllustEntity entity,
+    int pageIndex,
+  ) async {
     final url = entity.originalUrlAt(pageIndex);
     if (url == null) {
       throw const FormatException('work has no original image URL');
@@ -58,17 +61,15 @@ class _IllustDownloadController {
     return _ref
         .watch(illustDownloadCoordinatorProvider)
         .downloadPage(
-          illustId: entity.id,
+          work: entity,
           pageIndex: pageIndex,
           url: Uri.parse(url),
           namingRule: _ref.read(namingRuleProvider),
-          artist: entity.user.name,
-          title: entity.title,
         );
   }
 
   /// Download All (beta56 downloadAll): every page, deduped by the manager.
-  List<DownloadTaskSnapshot> downloadAll(IllustEntity entity) {
+  Future<List<DownloadTaskSnapshot>> downloadAll(IllustEntity entity) async {
     final urls = <String>[
       for (var i = 0; i < entity.pageCount; i++) ?entity.originalUrlAt(i),
     ];
@@ -87,11 +88,9 @@ class _IllustDownloadController {
       }
     }
     return coordinator.downloadAllPages(
-      illustId: entity.id,
+      work: entity,
       pageUrls: [for (final url in urls) Uri.parse(url)],
       namingRule: _ref.read(namingRuleProvider),
-      artist: entity.user.name,
-      title: entity.title,
     );
   }
 }

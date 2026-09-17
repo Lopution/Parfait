@@ -314,25 +314,10 @@
   },
   "namingTemplateInvalid": "模板包含不支持的变量或非法字符",
   "namingPreview": "预览",
-  "namingTemplateVariables": "变量：{artist} {title} {id} {page} {ext} {date}；非法字符自动替换为 _，超长自动裁剪。",
+  "namingTemplateVariables": "变量：{variables}；非法字符自动替换为 _，超长自动裁剪。",
   "@namingTemplateVariables": {
     "placeholders": {
-      "artist": {
-        "type": "String"
-      },
-      "title": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      },
-      "page": {
-        "type": "String"
-      },
-      "ext": {
-        "type": "String"
-      },
-      "date": {
+      "variables": {
         "type": "String"
       }
     }
@@ -370,6 +355,68 @@
   "downloadCanceled": "已取消",
   "retryDownload": "重试",
   "cancelDownload": "取消",
+  "downloadPaused": "已暂停",
+  "pauseDownload": "暂停",
+  "resumeDownload": "继续",
+  "downloadGroupTitle": "批量下载 · {count} 项",
+  "@downloadGroupTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadGroupProgress": "已完成 {done}/{count}",
+  "@downloadGroupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorWorks": "下载全部作品",
+  "downloadAuthorWorksTitle": "下载作者全部作品",
+  "downloadAuthorEnumerating": "正在枚举作品…已找到 {count} 个",
+  "@downloadAuthorEnumerating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorConfirmBody": "将下载该作者的 {works} 个作品，共 {pages} 页。",
+  "@downloadAuthorConfirmBody": {
+    "placeholders": {
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorTruncated": "作品过多，仅下载前 {max} 个。",
+  "@downloadAuthorTruncated": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorEmpty": "该作者没有可下载的作品。",
+  "downloadAuthorFailed": "枚举作品失败：{error}",
+  "@downloadAuthorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadCaption": "同时导出作品简介",
+  "downloadCaptionHint": "下载插画/漫画时，把标题、作者与简介保存为同名 .txt",
   "aboutVersion": "版本",
   "aboutCheckUpdate": "检查更新",
   "aboutCheckingUpdate": "正在检查更新…",

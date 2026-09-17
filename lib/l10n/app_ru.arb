@@ -314,25 +314,10 @@
   },
   "namingTemplateInvalid": "Шаблон содержит недопустимые переменные или символы",
   "namingPreview": "Предпросмотр",
-  "namingTemplateVariables": "Переменные: {artist} {title} {id} {page} {ext} {date}; недопустимые символы заменяются на _, длинные имена обрезаются.",
+  "namingTemplateVariables": "Переменные: {variables}; недопустимые символы заменяются на _, длинные имена обрезаются.",
   "@namingTemplateVariables": {
     "placeholders": {
-      "artist": {
-        "type": "String"
-      },
-      "title": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      },
-      "page": {
-        "type": "String"
-      },
-      "ext": {
-        "type": "String"
-      },
-      "date": {
+      "variables": {
         "type": "String"
       }
     }
@@ -370,6 +355,68 @@
   "downloadCanceled": "Отменено",
   "retryDownload": "Повторить",
   "cancelDownload": "Отмена",
+  "downloadPaused": "Приостановлено",
+  "pauseDownload": "Пауза",
+  "resumeDownload": "Возобновить",
+  "downloadGroupTitle": "Пакетная загрузка · {count} шт.",
+  "@downloadGroupTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadGroupProgress": "Готово {done}/{count}",
+  "@downloadGroupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorWorks": "Скачать все работы",
+  "downloadAuthorWorksTitle": "Скачать все работы автора",
+  "downloadAuthorEnumerating": "Перечисление работ… найдено {count}",
+  "@downloadAuthorEnumerating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorConfirmBody": "Будет скачано {works} работ ({pages} стр.) этого автора.",
+  "@downloadAuthorConfirmBody": {
+    "placeholders": {
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorTruncated": "Слишком много работ — будут скачаны только первые {max}.",
+  "@downloadAuthorTruncated": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorEmpty": "У этого автора нет работ для скачивания.",
+  "downloadAuthorFailed": "Не удалось перечислить работы: {error}",
+  "@downloadAuthorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadCaption": "Экспортировать описание работы",
+  "downloadCaptionHint": "При скачивании иллюстраций и манги сохранять название, автора и описание в одноимённый .txt",
   "aboutVersion": "Версия",
   "aboutCheckUpdate": "Проверить обновления",
   "aboutCheckingUpdate": "Проверка обновлений…",

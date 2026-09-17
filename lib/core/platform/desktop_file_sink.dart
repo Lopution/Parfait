@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../download/download_recovery.dart';
+import '../download/resume_anchor.dart';
 import 'android_platform_interfaces.dart';
 import 'saf_tree.dart';
 
@@ -23,10 +24,17 @@ class DesktopDirectoryPicker implements SafTreePicker {
 /// the final file on commit — the desktop equivalent of MediaStore's
 /// pending-row semantics (a crashed or aborted transfer never leaves a
 /// half-written file under the final name).
-class _StagedFileSink implements SafDocumentSink, MediaStoreHandle {
+class _StagedFileSink
+    implements
+        SafDocumentSink,
+        MediaStoreHandle,
+        ResumableMediaStoreHandle,
+        StagedSafDocument,
+        ResumableSafDocument {
   _StagedFileSink._(this._file, this._id);
 
   static int _nextId = 0;
+  static const _stagedSuffix = '.part';
 
   static Future<_StagedFileSink> create({
     required String directory,
@@ -45,13 +53,32 @@ class _StagedFileSink implements SafDocumentSink, MediaStoreHandle {
     return file;
   }
 
+  /// Reopens a detached `.part` for appending (D8). Returns null when the
+  /// staged file is missing or the locator is not a `.part` path — the
+  /// caller discards the anchor and begins fresh.
+  static Future<({_StagedFileSink sink, int storedBytes})?> resume(
+    String stagedPath,
+  ) async {
+    if (!stagedPath.endsWith(_stagedSuffix)) return null;
+    final staged = File(stagedPath);
+    if (!await staged.exists()) return null;
+    final finalPath = stagedPath.substring(
+      0,
+      stagedPath.length - _stagedSuffix.length,
+    );
+    final storedBytes = await staged.length();
+    final sink = _StagedFileSink._(File(finalPath), ++_nextId);
+    sink._sink = staged.openWrite(mode: FileMode.append);
+    return (sink: sink, storedBytes: storedBytes);
+  }
+
   final File _file;
   final int _id;
   late final IOSink _sink;
   bool _closed = false;
 
   /// Staged path carrying the pending bytes until [finalize].
-  String get stagedPath => '${_file.path}.part';
+  String get stagedPath => '${_file.path}$_stagedSuffix';
 
   // SafDocumentSink / MediaStoreHandle ------------------------------------------------
 
@@ -78,6 +105,13 @@ class _StagedFileSink implements SafDocumentSink, MediaStoreHandle {
     return Uri.file(_file.path);
   }
 
+  /// Staged SAF variant: commit by closing and renaming `.part` → final.
+  @override
+  Future<String> commitStaged() async {
+    await _commit();
+    return uri;
+  }
+
   /// SAF variant of [abort].
   @override
   Future<void> delete() => _abort();
@@ -85,6 +119,31 @@ class _StagedFileSink implements SafDocumentSink, MediaStoreHandle {
   /// MediaStore variant of [delete].
   @override
   Future<void> abort() => _abort();
+
+  // D8 resume plumbing ------------------------------------------------------
+
+  @override
+  ResumeAnchorKind get anchorKind => ResumeAnchorKind.file;
+
+  /// The locator a later [resume] call needs: the staged `.part` path.
+  @override
+  String get resumeLocator => stagedPath;
+
+  /// Closes the stream preserving the staged `.part` file — the desktop
+  /// equivalent of MediaStore's detached pending row. Afterwards the sink
+  /// is dead: `_commit`/`_abort` early-return on `_closed`, so cleanup can
+  /// never delete the preserved bytes.
+  @override
+  Future<String> detach() async {
+    if (_closed) throw StateError('sink is closed');
+    _closed = true;
+    await _sink.close();
+    return stagedPath;
+  }
+
+  /// SAF variant of [detach]: same stream close, locator stays stagedPath.
+  @override
+  Future<void> detachSaf() => detach();
 
   Future<void> _commit() async {
     if (_closed) return;
@@ -112,17 +171,33 @@ class _StagedFileSink implements SafDocumentSink, MediaStoreHandle {
 
 /// `SafDocumentSinkFactory` for desktop: `treeUri` is a filesystem directory
 /// path chosen through [DesktopDirectoryPicker].
-class DesktopSafDocumentSinkFactory implements SafDocumentSinkFactory {
+class DesktopSafDocumentSinkFactory
+    implements SafDocumentSinkFactory, ResumableSafDocumentFactory {
   const DesktopSafDocumentSinkFactory();
 
+  /// `staged` is accepted for interface parity; every desktop document is
+  /// staged into `<name>.part` internally regardless.
   @override
   Future<SafDocumentSink> create({
     required String treeUri,
     required String displayName,
     required String mimeType,
     DownloadOutputOwner? owner,
+    bool staged = false,
   }) {
     return _StagedFileSink.create(directory: treeUri, displayName: displayName);
+  }
+
+  /// [uri] is the opaque locator emitted by [ResumableSafDocument.resumeLocator]
+  /// — a raw `.part` filesystem path on desktop.
+  @override
+  Future<({SafDocumentSink sink, int storedBytes})?> resumeSaf({
+    required String uri,
+    DownloadOutputOwner? owner,
+  }) async {
+    final resumed = await _StagedFileSink.resume(uri);
+    if (resumed == null) return null;
+    return (sink: resumed.sink, storedBytes: resumed.storedBytes);
   }
 }
 
@@ -130,7 +205,10 @@ class DesktopSafDocumentSinkFactory implements SafDocumentSinkFactory {
 /// (fallback: application support). `relativePath` keeps its Android meaning
 /// of "album subdirectory" — `Pictures/<album>` maps to `<base>/<album>`.
 class DesktopFileMediaStoreSession
-    implements MediaStoreSession, OwnedMediaStoreSession {
+    implements
+        MediaStoreSession,
+        OwnedMediaStoreSession,
+        ResumableFileMediaStoreSession {
   const DesktopFileMediaStoreSession({this.baseDirectory});
 
   /// Injectable for tests; defaults to the OS Downloads directory.
@@ -194,4 +272,14 @@ class DesktopFileMediaStoreSession
     mimeType: mimeType,
     relativePath: relativePath,
   );
+
+  @override
+  Future<ResumedPendingItem?> resumePendingPath(String path) async {
+    final resumed = await _StagedFileSink.resume(path);
+    if (resumed == null) return null;
+    return ResumedPendingItem(
+      handle: resumed.sink,
+      storedBytes: resumed.storedBytes,
+    );
+  }
 }

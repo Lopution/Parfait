@@ -137,6 +137,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'detailQuality' => l10n.detailQuality,
   'dismiss' => l10n.dismiss,
   'downloadAll' => l10n.downloadAll,
+  'downloadAuthorWorks' => l10n.downloadAuthorWorks,
   'downloadCanceled' => l10n.downloadCanceled,
   'downloadCanceling' => l10n.downloadCanceling,
   'downloadFailed' => l10n.downloadFailed,

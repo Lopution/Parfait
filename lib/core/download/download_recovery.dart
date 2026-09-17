@@ -8,6 +8,7 @@ import '../settings/preference_keys.dart';
 import 'download_destination.dart';
 import 'naming_rule.dart';
 import 'download_request.dart';
+import 'resume_anchor.dart';
 
 /// Lifecycle states persisted for one download attempt.
 ///
@@ -40,6 +41,9 @@ enum DownloadFailureKind {
   canceled,
   ownership,
   unknown,
+
+  /// User paused the transfer; preserved bytes remain resumable.
+  paused,
 }
 
 /// The account boundary captured when a request is accepted.
@@ -164,6 +168,7 @@ class DownloadRecoveryRecord {
     this.error,
     this.failureKind,
     this.retryAfter,
+    this.resumeAnchor,
     this.unknownStatus = false,
   });
 
@@ -179,6 +184,11 @@ class DownloadRecoveryRecord {
   final String? error;
   final DownloadFailureKind? failureKind;
   final Duration? retryAfter;
+
+  /// Preserved partial output for a resumable attempt (D8). When present the
+  /// platform row/file must NOT be cleaned during recovery — it is the
+  /// resume payload, not orphaned output.
+  final ResumeAnchor? resumeAnchor;
   final bool unknownStatus;
 
   Map<String, Object?> toJson() => {
@@ -216,6 +226,7 @@ class DownloadRecoveryRecord {
     if (error != null) 'error': error,
     if (failureKind != null) 'failureKind': failureKind!.name,
     if (retryAfter != null) 'retryAfterMs': retryAfter!.inMilliseconds,
+    if (resumeAnchor != null) 'resumeAnchor': resumeAnchor!.toJson(),
     if (unknownStatus) 'unknownStatus': true,
   };
 
@@ -305,6 +316,7 @@ class DownloadRecoveryRecord {
       retryAfter: json['retryAfterMs'] is int
           ? Duration(milliseconds: json['retryAfterMs'] as int)
           : null,
+      resumeAnchor: _anchorFromJson(json['resumeAnchor']),
       unknownStatus: unknownStatus,
     );
   }
@@ -486,6 +498,17 @@ class DownloadRecoveryDataException implements Exception {
 
   @override
   String toString() => 'DownloadRecoveryDataException: $message';
+}
+
+/// Lenient anchor parse: a corrupt anchor degrades to null so the record
+/// still loads and the attempt simply restarts without resume (D8).
+ResumeAnchor? _anchorFromJson(Object? raw) {
+  if (raw is! Map) return null;
+  try {
+    return ResumeAnchor.fromJson(raw.cast<String, dynamic>());
+  } on Object {
+    return null;
+  }
 }
 
 /// Parses the durable destination identity (D5). Legacy records stored the

@@ -314,25 +314,10 @@
   },
   "namingTemplateInvalid": "Template has unsupported variables or illegal characters",
   "namingPreview": "Preview",
-  "namingTemplateVariables": "Variables: {artist} {title} {id} {page} {ext} {date}; illegal characters become _, and long names are trimmed.",
+  "namingTemplateVariables": "Variables: {variables}; illegal characters become _, and long names are trimmed.",
   "@namingTemplateVariables": {
     "placeholders": {
-      "artist": {
-        "type": "String"
-      },
-      "title": {
-        "type": "String"
-      },
-      "id": {
-        "type": "String"
-      },
-      "page": {
-        "type": "String"
-      },
-      "ext": {
-        "type": "String"
-      },
-      "date": {
+      "variables": {
         "type": "String"
       }
     }
@@ -370,6 +355,68 @@
   "downloadCanceled": "Canceled",
   "retryDownload": "Retry",
   "cancelDownload": "Cancel",
+  "downloadPaused": "Paused",
+  "pauseDownload": "Pause",
+  "resumeDownload": "Resume",
+  "downloadGroupTitle": "Batch download · {count} items",
+  "@downloadGroupTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadGroupProgress": "{done}/{count} completed",
+  "@downloadGroupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorWorks": "Download all works",
+  "downloadAuthorWorksTitle": "Download all author works",
+  "downloadAuthorEnumerating": "Enumerating works… {count} found",
+  "@downloadAuthorEnumerating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorConfirmBody": "Download {works} works ({pages} pages) by this author.",
+  "@downloadAuthorConfirmBody": {
+    "placeholders": {
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorTruncated": "Too many works — only the first {max} will be downloaded.",
+  "@downloadAuthorTruncated": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorEmpty": "This author has no downloadable works.",
+  "downloadAuthorFailed": "Failed to enumerate works: {error}",
+  "@downloadAuthorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadCaption": "Export work caption",
+  "downloadCaptionHint": "Save the title, author and caption as a matching .txt next to downloaded illusts and manga",
   "aboutVersion": "Version",
   "aboutCheckUpdate": "Check for updates",
   "aboutCheckingUpdate": "Checking for updates…",

@@ -4,12 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
+import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/download/author_works_enumerator.dart';
 import '../../core/network/api_error.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
+import 'author_works_download_dialog.dart';
 import 'profile_illust_feed.dart';
 import 'profile_novel_feed.dart';
 import 'profile_user_feed.dart';
@@ -251,9 +254,27 @@ class _UserPageState extends ConsumerState<UserPage>
     };
   }
 
+  Future<void> _downloadAuthorWorks() async {
+    final submitted = await showAppDialog<int>(
+      context: context,
+      builder: (dialogContext) => AuthorWorksDownloadDialog(
+        userId: widget.userId,
+        enumerator: AuthorWorksEnumerator(ref.read(userRepositoryProvider)),
+      ),
+    );
+    if (submitted != null && mounted) {
+      showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+    }
+  }
+
   Widget _buildProfile(UserEntity user, {ApiError? staleError}) {
     final showRestrictSelector =
         widget.isMe && (_selectedIndex == 0 || _selectedIndex == 1);
+    final workTabIndex = widget.isMe ? _tabKeys.length - 1 : 0;
+    final canBulkDownload =
+        _selectedIndex == workTabIndex &&
+        (_workSection == ProfileWorkSection.illust ||
+            _workSection == ProfileWorkSection.manga);
     return Column(
       children: [
         if (staleError != null)
@@ -291,6 +312,7 @@ class _UserPageState extends ConsumerState<UserPage>
                   onOpenBookmarkTags: widget.isMe && _selectedIndex == 0
                       ? () => openBookmarkTags(context)
                       : null,
+                  onDownloadAll: canBulkDownload ? _downloadAuthorWorks : null,
                   topInset: MediaQuery.viewPaddingOf(context).top,
                 ),
               ),

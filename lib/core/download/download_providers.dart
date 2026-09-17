@@ -16,6 +16,7 @@ import 'download_recovery.dart';
 import 'download_sink.dart';
 import 'download_transport.dart';
 import '../ugoira/ugoira_recovery.dart';
+import 'caption_exporter.dart';
 
 /// One app-scoped strict Pixiv media transport shared by downloads, Ugoira
 /// metadata consumers and future compatibility routing.
@@ -43,6 +44,19 @@ final downloadSinkFactoryProvider = Provider<DownloadSinkFactory>((ref) {
           : const DesktopFileMediaStoreSession(),
     ),
     saf: ref.watch(safDocumentSinkFactoryProvider),
+  );
+});
+
+/// Caption sidecar exporter (implement.md step 5) — null while the
+/// `downloadCaption` toggle is off or the sink factory cannot take raw
+/// outputs. Rebuilt on toggle; the manager is unaffected.
+final captionExporterProvider = Provider<CaptionExporter?>((ref) {
+  if (!ref.watch(downloadCaptionProvider)) return null;
+  final factory = ref.watch(downloadSinkFactoryProvider);
+  if (factory is! RawDownloadSinkFactory) return null;
+  return CaptionExporter(
+    sinkFactory: factory as RawDownloadSinkFactory,
+    preferences: ref.watch(sharedPreferencesProvider),
   );
 });
 

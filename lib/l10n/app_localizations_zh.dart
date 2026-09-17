@@ -770,15 +770,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get namingPreview => '预览';
 
   @override
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  ) {
-    return '变量：$artist $title $id $page $ext $date；非法字符自动替换为 _，超长自动裁剪。';
+  String namingTemplateVariables(String variables) {
+    return '变量：$variables；非法字符自动替换为 _，超长自动裁剪。';
   }
 
   @override
@@ -881,6 +874,60 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get cancelDownload => '取消';
+
+  @override
+  String get downloadPaused => '已暂停';
+
+  @override
+  String get pauseDownload => '暂停';
+
+  @override
+  String get resumeDownload => '继续';
+
+  @override
+  String downloadGroupTitle(int count) {
+    return '批量下载 · $count 项';
+  }
+
+  @override
+  String downloadGroupProgress(int done, int count) {
+    return '已完成 $done/$count';
+  }
+
+  @override
+  String get downloadAuthorWorks => '下载全部作品';
+
+  @override
+  String get downloadAuthorWorksTitle => '下载作者全部作品';
+
+  @override
+  String downloadAuthorEnumerating(int count) {
+    return '正在枚举作品…已找到 $count 个';
+  }
+
+  @override
+  String downloadAuthorConfirmBody(int works, int pages) {
+    return '将下载该作者的 $works 个作品，共 $pages 页。';
+  }
+
+  @override
+  String downloadAuthorTruncated(int max) {
+    return '作品过多，仅下载前 $max 个。';
+  }
+
+  @override
+  String get downloadAuthorEmpty => '该作者没有可下载的作品。';
+
+  @override
+  String downloadAuthorFailed(String error) {
+    return '枚举作品失败：$error';
+  }
+
+  @override
+  String get downloadCaption => '同时导出作品简介';
+
+  @override
+  String get downloadCaptionHint => '下载插画/漫画时，把标题、作者与简介保存为同名 .txt';
 
   @override
   String get aboutVersion => '版本';

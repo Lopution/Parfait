@@ -172,6 +172,7 @@ class AppSettings {
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
     this.downloadDestination = DownloadDestination.builtin,
+    this.downloadCaption = false,
     this.namingRule = NamingRule.defaultRule,
     this.reverseImageEngine = ReverseImageEngine.sauceNao,
     this.schemaVersion = currentSchemaVersion,
@@ -247,6 +248,10 @@ class AppSettings {
   final int translateIndex;
   final int maxDownloadCount;
   final DownloadDestination downloadDestination;
+
+  /// Caption sidecar export (`<stem>.txt` next to the image) — off by
+  /// default; opt-in in download settings.
+  final bool downloadCaption;
 
   /// File naming (D6): preset or bounded custom template.
   final NamingRule namingRule;
@@ -345,6 +350,7 @@ class AppSettings {
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
       downloadDestination: _readDestination(json, base.downloadDestination),
+      downloadCaption: _bool(json['downloadCaption'], base.downloadCaption),
       namingRule: _readNamingRule(json, legacyNaming, base.namingRule),
       reverseImageEngine:
           ReverseImageEngine.tryFromName(json['reverseImageEngine']) ??
@@ -377,6 +383,7 @@ class AppSettings {
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
       ...downloadDestination.toJson(),
+      'downloadCaption': downloadCaption,
       'namingPreset': namingRule.preset.code,
       if (namingRule.preset == NamingPreset.custom)
         'namingTemplate': namingRule.template,
@@ -492,6 +499,7 @@ class AppSettings {
     int? translateIndex,
     int? maxDownloadCount,
     Object? downloadDestination = _unset,
+    bool? downloadCaption,
     Object? namingRule = _unset,
     ReverseImageEngine? reverseImageEngine,
   }) {
@@ -536,6 +544,7 @@ class AppSettings {
       downloadDestination: identical(downloadDestination, _unset)
           ? this.downloadDestination
           : downloadDestination as DownloadDestination,
+      downloadCaption: downloadCaption ?? this.downloadCaption,
       namingRule: identical(namingRule, _unset)
           ? this.namingRule
           : namingRule as NamingRule,

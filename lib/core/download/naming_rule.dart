@@ -36,6 +36,15 @@ class NamingRule {
     'page',
     'ext',
     'date',
+    'author_id',
+    'pages',
+    'page1',
+    'series',
+    'series_order',
+    'chapters',
+    'w',
+    'h',
+    'created',
   };
 
   static const int maxFileNameLength = 180;
@@ -79,6 +88,13 @@ class NamingRule {
     String? artist,
     String? title,
     DateTime? date,
+    int? authorId,
+    int? totalPages,
+    int? width,
+    int? height,
+    String? seriesTitle,
+    int? seriesOrder,
+    int? seriesTotal,
   }) {
     final ext = _safeExtension(extension);
     final effectiveTemplate = switch (preset) {
@@ -98,6 +114,13 @@ class NamingRule {
       artist: artist,
       title: title,
       date: date,
+      authorId: authorId,
+      totalPages: totalPages,
+      width: width,
+      height: height,
+      seriesTitle: seriesTitle,
+      seriesOrder: seriesOrder,
+      seriesTotal: seriesTotal,
     );
     rendered = _clean(rendered);
     rendered = _trim(rendered, ext);
@@ -114,6 +137,13 @@ class NamingRule {
     String? artist,
     String? title,
     DateTime? date,
+    int? authorId,
+    int? totalPages,
+    int? width,
+    int? height,
+    String? seriesTitle,
+    int? seriesOrder,
+    int? seriesTotal,
   }) => resolve(
     illustId: illustId,
     pageIndex: pageIndex,
@@ -121,6 +151,13 @@ class NamingRule {
     artist: artist,
     title: title,
     date: date,
+    authorId: authorId,
+    totalPages: totalPages,
+    width: width,
+    height: height,
+    seriesTitle: seriesTitle,
+    seriesOrder: seriesOrder,
+    seriesTotal: seriesTotal,
   );
 
   static String _expand(
@@ -131,6 +168,13 @@ class NamingRule {
     String? artist,
     String? title,
     DateTime? date,
+    int? authorId,
+    int? totalPages,
+    int? width,
+    int? height,
+    String? seriesTitle,
+    int? seriesOrder,
+    int? seriesTotal,
   }) {
     String resolveName(String key) => switch (key) {
       'artist' => artist ?? '',
@@ -139,6 +183,15 @@ class NamingRule {
       'page' => '$pageIndex',
       'ext' => extension,
       'date' => _formatDate(date),
+      'author_id' => authorId?.toString() ?? '',
+      'pages' => totalPages?.toString() ?? '',
+      'page1' => '${pageIndex + 1}',
+      'series' => seriesTitle ?? '',
+      'series_order' => seriesOrder?.toString() ?? '',
+      'chapters' => seriesTotal?.toString() ?? '',
+      'w' => width?.toString() ?? '',
+      'h' => height?.toString() ?? '',
+      'created' => _formatCreated(date),
       _ => '',
     };
     return template.replaceAllMapped(_tokenPattern, (match) {
@@ -153,6 +206,19 @@ class NamingRule {
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');
     return '$y$m$d';
+  }
+
+  /// `{created}` carries the same source date as `{date}` but keeps the
+  /// time component (Shaft parity: `yyyyMMdd_HHmmss`).
+  static String _formatCreated(DateTime? date) {
+    if (date == null) return '';
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    final hh = date.hour.toString().padLeft(2, '0');
+    final mm = date.minute.toString().padLeft(2, '0');
+    final ss = date.second.toString().padLeft(2, '0');
+    return '$y$m${d}_$hh$mm$ss';
   }
 
   static String _clean(String input) {
@@ -183,8 +249,9 @@ class NamingRule {
     return '${name.substring(0, maxFileNameLength - keep)}$suffix';
   }
 
-  /// Matches exactly `{name}` tokens with an alphabetic name.
-  static final RegExp _tokenPattern = RegExp(r'\{([a-zA-Z]+)\}');
+  /// Matches exactly `{name}` tokens; names may carry digits and
+  /// underscores (`{page1}`, `{author_id}`, `{series_order}`).
+  static final RegExp _tokenPattern = RegExp(r'\{([a-zA-Z0-9_]+)\}');
 
   static bool _isSafeLiteral(String value) {
     // Any stray brace inside literal text would be a malformed token.

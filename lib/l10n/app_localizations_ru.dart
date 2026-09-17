@@ -801,15 +801,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get namingPreview => 'Предпросмотр';
 
   @override
-  String namingTemplateVariables(
-    String artist,
-    String title,
-    String id,
-    String page,
-    String ext,
-    String date,
-  ) {
-    return 'Переменные: $artist $title $id $page $ext $date; недопустимые символы заменяются на _, длинные имена обрезаются.';
+  String namingTemplateVariables(String variables) {
+    return 'Переменные: $variables; недопустимые символы заменяются на _, длинные имена обрезаются.';
   }
 
   @override
@@ -915,6 +908,61 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get cancelDownload => 'Отмена';
+
+  @override
+  String get downloadPaused => 'Приостановлено';
+
+  @override
+  String get pauseDownload => 'Пауза';
+
+  @override
+  String get resumeDownload => 'Возобновить';
+
+  @override
+  String downloadGroupTitle(int count) {
+    return 'Пакетная загрузка · $count шт.';
+  }
+
+  @override
+  String downloadGroupProgress(int done, int count) {
+    return 'Готово $done/$count';
+  }
+
+  @override
+  String get downloadAuthorWorks => 'Скачать все работы';
+
+  @override
+  String get downloadAuthorWorksTitle => 'Скачать все работы автора';
+
+  @override
+  String downloadAuthorEnumerating(int count) {
+    return 'Перечисление работ… найдено $count';
+  }
+
+  @override
+  String downloadAuthorConfirmBody(int works, int pages) {
+    return 'Будет скачано $works работ ($pages стр.) этого автора.';
+  }
+
+  @override
+  String downloadAuthorTruncated(int max) {
+    return 'Слишком много работ — будут скачаны только первые $max.';
+  }
+
+  @override
+  String get downloadAuthorEmpty => 'У этого автора нет работ для скачивания.';
+
+  @override
+  String downloadAuthorFailed(String error) {
+    return 'Не удалось перечислить работы: $error';
+  }
+
+  @override
+  String get downloadCaption => 'Экспортировать описание работы';
+
+  @override
+  String get downloadCaptionHint =>
+      'При скачивании иллюстраций и манги сохранять название, автора и описание в одноимённый .txt';
 
   @override
   String get aboutVersion => 'Версия';
