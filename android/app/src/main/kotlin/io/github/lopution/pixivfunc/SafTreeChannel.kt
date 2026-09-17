@@ -17,13 +17,17 @@ import java.io.FileNotFoundException
  * is not persisted on SAF documents today.
  */
 internal interface SafTreeOperations {
-    fun create(treeUri: String, displayName: String, mimeType: String): String
+    fun create(treeUri: String, displayName: String, mimeType: String, staged: Boolean): String
 
     fun write(uri: String, bytes: ByteArray)
 
     fun close(uri: String)
 
     fun delete(uri: String)
+
+    fun resume(uri: String): Map<String, Any>?
+
+    fun finalize(uri: String): String
 }
 
 internal fun interface SafTreeLauncher {
@@ -108,7 +112,8 @@ object SafTreeChannel {
                     val mimeType = ChannelArgs.requiredString(
                         call, result, "mimeType", PREFIX,
                     ) ?: return
-                    result.success(ops.create(treeUri, displayName, mimeType))
+                    val staged = call.argument<Boolean>("staged") ?: false
+                    result.success(ops.create(treeUri, displayName, mimeType, staged))
                 }
                 "write" -> {
                     val uri = ChannelArgs.requiredString(call, result, "uri", PREFIX) ?: return
@@ -128,6 +133,14 @@ object SafTreeChannel {
                     ops.delete(uri)
                     result.success(null)
                 }
+                "resume" -> {
+                    val uri = ChannelArgs.requiredString(call, result, "uri", PREFIX) ?: return
+                    result.success(ops.resume(uri))
+                }
+                "finalize" -> {
+                    val uri = ChannelArgs.requiredString(call, result, "uri", PREFIX) ?: return
+                    result.success(ops.finalize(uri))
+                }
                 else -> result.notImplemented()
             }
         } catch (error: Exception) {
@@ -146,6 +159,8 @@ object SafTreeChannel {
         if (method == "create") return "saf_create_failed"
         if (method == "write") return "saf_write_failed"
         if (method == "delete") return "saf_delete_failed"
+        if (method == "finalize") return "saf_finalize_failed"
+        if (method == "resume") return "saf_resume_failed"
         return "saf_io_failed"
     }
 
@@ -179,13 +194,18 @@ object SafTreeChannel {
             treeUri: String,
             displayName: String,
             mimeType: String,
-        ): String = createDocument(context, treeUri, displayName, mimeType)
+            staged: Boolean,
+        ): String = createDocument(context, treeUri, displayName, mimeType, staged)
 
         override fun write(uri: String, bytes: ByteArray) = writeDocument(uri, bytes)
 
         override fun close(uri: String) = closeDocument(uri)
 
         override fun delete(uri: String) = deleteDocument(context, uri)
+
+        override fun resume(uri: String): Map<String, Any>? = resumeDocument(context, uri)
+
+        override fun finalize(uri: String): String = finalizeDocument(context, uri)
     }
 
     // Handler-only: serial background TaskQueue. pickTree / onActivityResult
@@ -197,16 +217,20 @@ object SafTreeChannel {
         treeUri: String,
         displayName: String,
         mimeType: String,
+        staged: Boolean,
     ): String {
         require(displayName.isNotEmpty() && displayName.length <= 255)
         require(!displayName.contains('/') && !displayName.contains('\\'))
         require(mimeType.isNotEmpty())
         val tree = Uri.parse(treeUri)
+        // D8: staged downloads land under `<name>.part` and only get the
+        // final display name when finalizeDocument renames on commit.
+        val effectiveName = if (staged) "$displayName.part" else displayName
         val docUri = android.provider.DocumentsContract.createDocument(
             context.contentResolver,
             tree,
             mimeType,
-            displayName,
+            effectiveName,
         ) ?: throw IllegalStateException("SAF createDocument failed")
         val output = context.contentResolver.openOutputStream(docUri, "w")
             ?: run {
@@ -230,6 +254,56 @@ object SafTreeChannel {
     private fun deleteDocument(context: android.content.Context, uri: String) {
         closeDocument(uri)
         context.contentResolver.delete(Uri.parse(uri), null, null)
+    }
+
+    /**
+     * D8 resume: reopen a detached document in append mode ("wa") and
+     * report its durable byte count. A missing document or a provider
+     * refusing append mode is a safe refusal (null), never a delete.
+     */
+    private fun resumeDocument(
+        context: android.content.Context,
+        uri: String,
+    ): Map<String, Any>? {
+        val parsed = Uri.parse(uri)
+        val size = try {
+            context.contentResolver.openFileDescriptor(parsed, "r")?.use { it.statSize }
+        } catch (error: FileNotFoundException) {
+            null
+        } ?: return null
+        val output = try {
+            context.contentResolver.openOutputStream(parsed, "wa")
+        } catch (error: FileNotFoundException) {
+            null
+        } ?: return null
+        streams[uri] = output
+        return mapOf("uri" to uri, "storedBytes" to size)
+    }
+
+    /**
+     * D8 staged commit: close the stream and rename `<name>.part` to the
+     * final display name. Documents without the `.part` suffix are
+     * already final — close and report their URI unchanged.
+     */
+    private fun finalizeDocument(context: android.content.Context, uri: String): String {
+        streams.remove(uri)?.close()
+        val parsed = Uri.parse(uri)
+        val name = context.contentResolver.query(
+            parsed,
+            arrayOf(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } ?: return uri
+        if (!name.endsWith(".part")) return uri
+        val renamed = android.provider.DocumentsContract.renameDocument(
+            context.contentResolver,
+            parsed,
+            name.removeSuffix(".part"),
+        ) ?: throw IllegalStateException("SAF rename failed")
+        return renamed.toString()
     }
 
     private fun clearPendingIfSame(expected: MethodChannel.Result) {

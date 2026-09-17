@@ -35,6 +35,10 @@ internal interface MediaStoreOperations {
     fun listPending(): List<Map<String, Any?>>
 
     fun abortPending(id: Int, ownerId: String): Boolean
+
+    fun detach(id: Int)
+
+    fun resumePending(id: Int, ownerId: String): Map<String, Any>?
 }
 
 object MediaStoreChannel {
@@ -113,6 +117,18 @@ object MediaStoreChannel {
                     ) ?: return
                     result.success(ops.abortPending(id, ownerId))
                 }
+                "detach" -> {
+                    val id = ChannelArgs.requiredInt(call, result, "id", PREFIX) ?: return
+                    ops.detach(id)
+                    result.success(null)
+                }
+                "resumePending" -> {
+                    val id = ChannelArgs.requiredInt(call, result, "id", PREFIX) ?: return
+                    val ownerId = ChannelArgs.requiredString(
+                        call, result, "ownerId", PREFIX,
+                    ) ?: return
+                    result.success(ops.resumePending(id, ownerId))
+                }
                 else -> result.notImplemented()
             }
         } catch (error: Exception) {
@@ -158,6 +174,11 @@ object MediaStoreChannel {
 
         override fun abortPending(id: Int, ownerId: String): Boolean =
             abortOwnedPending(context, id, ownerId)
+
+        override fun detach(id: Int) = detachPendingRow(id)
+
+        override fun resumePending(id: Int, ownerId: String): Map<String, Any>? =
+            resumePendingRow(context, id, ownerId)
     }
 
     private fun beginPending(
@@ -255,6 +276,39 @@ object MediaStoreChannel {
         val deleted = context.contentResolver.delete(uri, null, null) == 1
         uris.remove(id)
         return deleted
+    }
+
+    /**
+     * D8 detach: close the write stream while keeping the pending row and
+     * its committed bytes. The row stays invisible (IS_PENDING=1) so a
+     * later [resumePendingRow] can append to it.
+     */
+    private fun detachPendingRow(id: Int) {
+        streams.remove(id)?.close()
+    }
+
+    /**
+     * D8 resume: verify the pending row exists under this owner marker,
+     * report its durable byte count, and reopen it in append mode ("wa").
+     * A missing/foreign row or an unreadable file is a safe refusal
+     * (null), never a delete.
+     */
+    private fun resumePendingRow(context: Context, id: Int, ownerId: String): Map<String, Any>? {
+        require(ownerId.matches(Regex("[A-Za-z0-9_.-]{1,128}")))
+        val uri = pendingUri(context, id, ownerId) ?: return null
+        val size = try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize }
+        } catch (error: FileNotFoundException) {
+            null
+        } ?: return null
+        val output = try {
+            context.contentResolver.openOutputStream(uri, "wa")
+        } catch (error: FileNotFoundException) {
+            null
+        } ?: return null
+        streams.put(id, output)
+        uris.put(id, uri)
+        return mapOf("id" to id, "storedBytes" to size)
     }
 
     private fun listPendingRows(context: Context): List<Map<String, Any?>> {

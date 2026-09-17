@@ -1134,6 +1134,7 @@ class _UnusedSafDocumentSinkFactory implements SafDocumentSinkFactory {
     required String displayName,
     required String mimeType,
     DownloadOutputOwner? owner,
+    bool staged = false,
   }) => throw StateError('SAF factory should not be called in this test');
 }
 

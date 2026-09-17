@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 
 import 'android_platform_interfaces.dart';
 import '../download/download_recovery.dart';
+import '../download/resume_anchor.dart';
 
 /// MethodChannel contract for MediaStore pending writes
 /// (Pictures/PixivFunc). See
@@ -15,6 +16,8 @@ abstract final class _MediaStoreMethods {
   static const abort = 'abort';
   static const listPending = 'listPending';
   static const abortPending = 'abortPending';
+  static const detach = 'detach';
+  static const resumePending = 'resumePending';
 }
 
 /// Production [MediaStoreSession] backed by the Android host
@@ -28,7 +31,8 @@ class MethodChannelMediaStoreSession
     implements
         MediaStoreSession,
         OwnedMediaStoreSession,
-        RecoverableMediaStoreSession {
+        RecoverableMediaStoreSession,
+        ResumableMediaStoreSession {
   const MethodChannelMediaStoreSession([
     this._channel = const MethodChannel(_MediaStoreMethods.channel),
   ]);
@@ -114,15 +118,49 @@ class MethodChannelMediaStoreSession
         }) ??
         false;
   }
+
+  @override
+  Future<ResumedPendingItem?> resumePending(
+    int id, {
+    required String ownerId,
+  }) async {
+    final raw = await _channel.invokeMethod<Map<Object?, Object?>>(
+      _MediaStoreMethods.resumePending,
+      {'id': id, 'ownerId': ownerId},
+    );
+    if (raw == null) return null;
+    final storedBytes = raw['storedBytes'];
+    if (storedBytes is! int) {
+      throw const _MediaStoreChannelException(
+        'resumePending payload malformed',
+      );
+    }
+    return ResumedPendingItem(
+      handle: _MethodChannelMediaStoreHandle(id, _channel),
+      storedBytes: storedBytes,
+    );
+  }
 }
 
-class _MethodChannelMediaStoreHandle implements MediaStoreHandle {
+class _MethodChannelMediaStoreHandle
+    implements MediaStoreHandle, ResumableMediaStoreHandle {
   _MethodChannelMediaStoreHandle(this.id, this._channel);
 
   @override
   final int id;
 
   final MethodChannel _channel;
+
+  @override
+  ResumeAnchorKind get anchorKind => ResumeAnchorKind.mediaStore;
+
+  /// D8: closes the write stream while keeping the pending row and its
+  /// committed bytes; the returned locator is the row id.
+  @override
+  Future<String> detach() async {
+    await _channel.invokeMethod<void>(_MediaStoreMethods.detach, {'id': id});
+    return id.toString();
+  }
 
   @override
   Future<void> write(List<int> bytes) => _channel.invokeMethod<void>(

@@ -90,6 +90,11 @@ class _CoalescingChannelWriter {
   final Future<void> Function(List<int> bytes) _write;
   final BytesBuilder _pending = BytesBuilder(copy: false);
   var _pendingLength = 0;
+  var _flushedLength = 0;
+
+  /// Bytes the platform layer acknowledged. This is the only count a
+  /// `Range` header may skip — buffered bytes are not yet durable.
+  int get flushedBytes => _flushedLength;
 
   Future<void> write(List<int> bytes) async {
     var offset = 0;
@@ -105,6 +110,7 @@ class _CoalescingChannelWriter {
         final chunk = _pending.takeBytes();
         _pendingLength = 0;
         await _write(chunk);
+        _flushedLength += chunk.length;
       }
     }
   }
@@ -114,6 +120,7 @@ class _CoalescingChannelWriter {
     final chunk = _pending.takeBytes();
     _pendingLength = 0;
     await _write(chunk);
+    _flushedLength += chunk.length;
   }
 
   void discard() {
@@ -137,7 +144,8 @@ class MediaStoreSinkFactory
     implements
         DownloadSinkFactory,
         OwnedDownloadSinkFactory,
-        RecoverableDownloadSinkFactory {
+        RecoverableDownloadSinkFactory,
+        ResumableDownloadSinkFactory {
   MediaStoreSinkFactory(this._session);
 
   final MediaStoreSession _session;
@@ -214,14 +222,44 @@ class MediaStoreSinkFactory
       ownerId: owner.ownerId,
     );
   }
+
+  @override
+  Future<DownloadSink?> resumeOwned(
+    ResumeAnchor anchor,
+    DownloadOutputOwner owner,
+  ) async {
+    final session = _session;
+    ResumedPendingItem? resumed;
+    if (anchor.kind == ResumeAnchorKind.mediaStore &&
+        session is ResumableMediaStoreSession) {
+      final id = int.tryParse(anchor.locator);
+      resumed = id == null
+          ? null
+          : await (session as ResumableMediaStoreSession).resumePending(
+              id,
+              ownerId: owner.ownerId,
+            );
+    } else if (anchor.kind == ResumeAnchorKind.file &&
+        session is ResumableFileMediaStoreSession) {
+      resumed = await (session as ResumableFileMediaStoreSession)
+          .resumePendingPath(anchor.locator);
+    }
+    if (resumed == null) return null;
+    return _MediaStoreSink(resumed.handle, seededBytes: resumed.storedBytes);
+  }
 }
 
-class _MediaStoreSink implements DownloadSink, DownloadSinkOutputMetadata {
-  _MediaStoreSink(MediaStoreHandle handle)
+class _MediaStoreSink
+    implements DownloadSink, DownloadSinkOutputMetadata, ResumableDownloadSink {
+  _MediaStoreSink(MediaStoreHandle handle, {int seededBytes = 0})
     : _handle = handle,
+      _seededBytes = seededBytes,
       _writer = _CoalescingChannelWriter(handle.write);
 
   final MediaStoreHandle _handle;
+
+  /// Platform-reported durable bytes carried over from a resumed output.
+  final int _seededBytes;
   final _CoalescingChannelWriter _writer;
   bool _finished = false;
   bool _finalizing = false;
@@ -230,7 +268,30 @@ class _MediaStoreSink implements DownloadSink, DownloadSinkOutputMetadata {
   int? get pendingOutputId => _finished ? null : _handle.id;
 
   @override
-  Future<void> write(List<int> bytes) => _writer.write(bytes);
+  int get storedBytes => _seededBytes + _writer.flushedBytes;
+
+  @override
+  Future<void> write(List<int> bytes) {
+    if (_finished) {
+      throw StateError('sink already finalized or detached');
+    }
+    return _writer.write(bytes);
+  }
+
+  @override
+  Future<ResumeAnchor?> detach() async {
+    if (_finished) return null;
+    final handle = _handle;
+    if (handle is! ResumableMediaStoreHandle) return null;
+    await _writer.flush();
+    final locator = await handle.detach();
+    _finished = true;
+    return ResumeAnchor(
+      kind: handle.anchorKind,
+      locator: locator,
+      storedBytes: storedBytes,
+    );
+  }
 
   @override
   Future<String> finalize() async {
@@ -319,16 +380,30 @@ class MemorySinkFactory
   }) => begin(request, displayName, destination: destination);
 }
 
-/// SAF-backed sink writing into a persisted tree URI (D5).
-class SafDownloadSink implements DownloadSink {
-  SafDownloadSink(SafDocumentSink doc, {required this.owner})
-    : _doc = doc,
-      _writer = _CoalescingChannelWriter(doc.write);
+/// SAF-backed sink writing into a persisted tree URI (D5). When [staged]
+/// is set the document was created as `<name>.part` and commit renames it
+/// to the final display name — the SAF equivalent of a MediaStore
+/// pending row.
+class SafDownloadSink implements DownloadSink, ResumableDownloadSink {
+  SafDownloadSink(
+    SafDocumentSink doc, {
+    required this.owner,
+    bool staged = false,
+    int seededBytes = 0,
+  }) : _doc = doc,
+       _staged = staged,
+       _seededBytes = seededBytes,
+       _writer = _CoalescingChannelWriter(doc.write);
 
   final SafDocumentSink _doc;
   final _CoalescingChannelWriter _writer;
   final DownloadOutputOwner? owner;
+  final bool _staged;
+  final int _seededBytes;
   bool _closed = false;
+
+  @override
+  int get storedBytes => _seededBytes + _writer.flushedBytes;
 
   @override
   Future<void> write(List<int> bytes) {
@@ -337,9 +412,33 @@ class SafDownloadSink implements DownloadSink {
   }
 
   @override
+  Future<ResumeAnchor?> detach() async {
+    if (_closed) return null;
+    final doc = _doc;
+    if (doc is! ResumableSafDocument) return null;
+    await _writer.flush();
+    await doc.detachSaf();
+    _closed = true;
+    return ResumeAnchor(
+      kind: ResumeAnchorKind.saf,
+      locator: doc.resumeLocator,
+      storedBytes: storedBytes,
+    );
+  }
+
+  @override
   Future<String> finalize() async {
     if (_closed) throw StateError('saf sink is closed');
     await _writer.flush();
+    if (_staged) {
+      final doc = _doc;
+      if (doc is! StagedSafDocument) {
+        throw StateError('staged saf output cannot be renamed');
+      }
+      final uri = await doc.commitStaged();
+      _closed = true;
+      return uri;
+    }
     await _doc.close();
     _closed = true;
     // A SAF document has no MediaStore pending row; the document URI itself
@@ -371,7 +470,10 @@ class SafDownloadSink implements DownloadSink {
 /// based on the persisted destination (D5). The requested target is
 /// normalized once here; neither path accepts raw filesystem paths.
 class DestinationAwareSinkFactory
-    implements DownloadSinkFactory, OwnedDownloadSinkFactory {
+    implements
+        DownloadSinkFactory,
+        OwnedDownloadSinkFactory,
+        ResumableDownloadSinkFactory {
   DestinationAwareSinkFactory({
     required MediaStoreSinkFactory mediaStore,
     required SafDocumentSinkFactory saf,
@@ -411,6 +513,36 @@ class DestinationAwareSinkFactory
     );
   }
 
+  @override
+  Future<DownloadSink?> resumeOwned(
+    ResumeAnchor anchor,
+    DownloadOutputOwner owner,
+  ) {
+    return switch (anchor.kind) {
+      ResumeAnchorKind.saf => _resumeSaf(anchor, owner),
+      _ => _mediaStore.resumeOwned(anchor, owner),
+    };
+  }
+
+  Future<DownloadSink?> _resumeSaf(
+    ResumeAnchor anchor,
+    DownloadOutputOwner owner,
+  ) async {
+    final saf = _saf;
+    if (saf is! ResumableSafDocumentFactory) return null;
+    final resumed = await (saf as ResumableSafDocumentFactory).resumeSaf(
+      uri: anchor.locator,
+      owner: owner,
+    );
+    if (resumed == null) return null;
+    return SafDownloadSink(
+      resumed.sink,
+      owner: owner,
+      staged: true,
+      seededBytes: resumed.storedBytes,
+    );
+  }
+
   Future<DownloadSink> _beginSaf(
     DownloadRequest request,
     String displayName,
@@ -422,7 +554,8 @@ class DestinationAwareSinkFactory
       displayName: displayName,
       mimeType: request.mimeType,
       owner: owner,
+      staged: true,
     );
-    return SafDownloadSink(doc, owner: owner);
+    return SafDownloadSink(doc, owner: owner, staged: true);
   }
 }
