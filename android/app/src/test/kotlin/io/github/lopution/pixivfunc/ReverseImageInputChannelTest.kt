@@ -27,6 +27,7 @@ class ReverseImageInputChannelTest {
             FakeIo(),
             ReverseImagePickerLauncher { started += 1 },
             ReverseImageExternalOpener { true },
+            FakeArmer(),
             poster,
         )
         assertEquals(0, started)
@@ -48,6 +49,7 @@ class ReverseImageInputChannelTest {
             FakeIo(),
             ReverseImagePickerLauncher { },
             ReverseImageExternalOpener { true },
+            FakeArmer(),
             poster,
         )
         val second = dispatch("pickImage")
@@ -66,6 +68,7 @@ class ReverseImageInputChannelTest {
             FakeIo(),
             ReverseImagePickerLauncher { error("no activity") },
             ReverseImageExternalOpener { true },
+            FakeArmer(),
             poster,
         )
         poster.runAll()
@@ -78,6 +81,7 @@ class ReverseImageInputChannelTest {
             FakeIo(),
             ReverseImagePickerLauncher { started += 1 },
             ReverseImageExternalOpener { true },
+            FakeArmer(),
             ImmediateMainThreadPoster,
         )
         assertEquals(1, started)
@@ -98,6 +102,7 @@ class ReverseImageInputChannelTest {
                 opened = url
                 true
             },
+            FakeArmer(),
             poster,
         )
         assertNull(opened)
@@ -122,6 +127,95 @@ class ReverseImageInputChannelTest {
         assertEquals("invalid_uri", result.errorCode)
     }
 
+    @Test
+    fun `armReverseUpload returns the armed uri`() {
+        val result = dispatch("armReverseUpload", mapOf("path" to "/tmp/in"))
+        assertEquals("content://armed/in", result.successValue)
+        assertNull(result.errorCode)
+    }
+
+    @Test
+    fun `armReverseUpload blank path is invalid_path`() {
+        val result = dispatch("armReverseUpload", mapOf("path" to " "))
+        assertEquals("invalid_path", result.errorCode)
+    }
+
+    @Test
+    fun `armReverseUpload armer failure surfaces arm_failed`() {
+        val result = RecordingMethodResult()
+        ReverseImageInputChannel.handle(
+            MethodCall("armReverseUpload", mapOf("path" to "/tmp/x")),
+            result,
+            FakeIo(),
+            ReverseImagePickerLauncher { },
+            ReverseImageExternalOpener { true },
+            object : ReverseImageUploadArmer {
+                override fun arm(path: String): String = error("outside owner")
+                override fun disarm() {}
+            },
+            ImmediateMainThreadPoster,
+        )
+        assertEquals("arm_failed", result.errorCode)
+    }
+
+    @Test
+    fun `disarmReverseUpload clears the armed slot`() {
+        var disarmed = 0
+        val result = RecordingMethodResult()
+        ReverseImageInputChannel.handle(
+            MethodCall("disarmReverseUpload", null),
+            result,
+            FakeIo(),
+            ReverseImagePickerLauncher { },
+            ReverseImageExternalOpener { true },
+            object : ReverseImageUploadArmer {
+                override fun arm(path: String): String = "content://x"
+                override fun disarm() {
+                    disarmed += 1
+                }
+            },
+            ImmediateMainThreadPoster,
+        )
+        assertEquals(1, disarmed)
+        assertTrue(result.hasSuccess())
+        assertNull(result.errorCode)
+    }
+
+    @Test
+    fun `requireOwnedInputPath rejects paths outside the owner directory`() {
+        val root = java.nio.file.Files.createTempDirectory("ri-owned").toFile()
+        var outside: java.io.File? = null
+        try {
+            val inside = java.io.File(root, "input-1.bin").apply { writeBytes(byteArrayOf(1)) }
+            assertEquals(
+                inside.canonicalFile,
+                ReverseImageInputChannel.requireOwnedInputFile(root, inside.absolutePath),
+            )
+            outside = java.io.File(root.parentFile, "escape-${root.name}.bin")
+                .apply { writeBytes(byteArrayOf(1)) }
+            try {
+                ReverseImageInputChannel.requireOwnedInputPath(root, outside.absolutePath)
+                org.junit.Assert.fail("outside path must be rejected")
+            } catch (_: IllegalArgumentException) {
+            }
+            // A missing file is fine for path-level checks (idempotent delete)
+            // but must be rejected before arming.
+            val missing = java.io.File(root, "missing.bin").absolutePath
+            assertEquals(
+                java.io.File(missing).canonicalFile,
+                ReverseImageInputChannel.requireOwnedInputPath(root, missing),
+            )
+            try {
+                ReverseImageInputChannel.requireOwnedInputFile(root, missing)
+                org.junit.Assert.fail("missing file must be rejected before arming")
+            } catch (_: IllegalArgumentException) {
+            }
+        } finally {
+            outside?.delete()
+            root.deleteRecursively()
+        }
+    }
+
     private fun dispatch(
         method: String,
         args: Map<String, Any?>? = null,
@@ -134,6 +228,7 @@ class ReverseImageInputChannelTest {
             FakeIo(),
             ReverseImagePickerLauncher { },
             ReverseImageExternalOpener { true },
+            FakeArmer(),
             poster,
         )
         return result
@@ -144,5 +239,11 @@ class ReverseImageInputChannelTest {
             mapOf("path" to "/tmp/x", "mimeType" to "image/png", "sizeBytes" to 1L)
 
         override fun deleteTemp(path: String): Boolean = true
+    }
+
+    private class FakeArmer : ReverseImageUploadArmer {
+        override fun arm(path: String): String = "content://armed/in"
+
+        override fun disarm() {}
     }
 }

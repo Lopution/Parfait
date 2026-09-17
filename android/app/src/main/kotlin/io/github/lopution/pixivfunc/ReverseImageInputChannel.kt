@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.content.FileProvider
+import com.pichillilorenzo.flutter_inappwebview_android.webview.in_app_webview.InAppWebViewChromeClient
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -15,6 +17,13 @@ internal interface ReverseImageOperations {
     fun copyToTemp(uri: String): Map<String, Any>
 
     fun deleteTemp(path: String): Boolean
+}
+
+internal interface ReverseImageUploadArmer {
+    /** Arms [path] for the next webview file chooser; returns the content Uri. */
+    fun arm(path: String): String
+
+    fun disarm()
 }
 
 internal fun interface ReverseImagePickerLauncher {
@@ -62,9 +71,28 @@ object ReverseImageInputChannel {
         val external = ReverseImageExternalOpener { url ->
             openExternal(activity, url)
         }
+        val armer = object : ReverseImageUploadArmer {
+            override fun arm(path: String): String {
+                val target = requireOwnedInputFile(
+                    File(appContext.cacheDir, "reverse_image_inputs"),
+                    path,
+                )
+                val uri = FileProvider.getUriForFile(
+                    appContext,
+                    "${appContext.packageName}.fileProvider",
+                    target,
+                )
+                InAppWebViewChromeClient.armedFileChooserUris = arrayOf(uri)
+                return uri.toString()
+            }
+
+            override fun disarm() {
+                InAppWebViewChromeClient.armedFileChooserUris = null
+            }
+        }
         backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                handle(call, result, ops, picker, external, AndroidMainThreadPoster)
+                handle(call, result, ops, picker, external, armer, AndroidMainThreadPoster)
             }
     }
 
@@ -74,6 +102,7 @@ object ReverseImageInputChannel {
         ops: ReverseImageOperations,
         picker: ReverseImagePickerLauncher,
         external: ReverseImageExternalOpener,
+        armer: ReverseImageUploadArmer,
         mainThread: MainThreadPoster = ImmediateMainThreadPoster,
     ) {
         when (call.method) {
@@ -115,6 +144,25 @@ object ReverseImageInputChannel {
                             }
                     }
                 }
+            }
+            "armReverseUpload" -> {
+                val path = call.argument<String>("path")
+                if (path.isNullOrBlank()) {
+                    result.error("invalid_path", "armed image path is invalid", null)
+                } else {
+                    runCatching { armer.arm(path) }
+                        .onSuccess(result::success)
+                        .onFailure {
+                            result.error("arm_failed", messageFor(it), null)
+                        }
+                }
+            }
+            "disarmReverseUpload" -> {
+                runCatching { armer.disarm() }
+                    .onSuccess { result.success(null) }
+                    .onFailure {
+                        result.error("disarm_failed", messageFor(it), null)
+                    }
             }
             else -> result.notImplemented()
         }
@@ -245,12 +293,35 @@ object ReverseImageInputChannel {
     }
 
     private fun deleteTemp(context: Context, rawPath: String): Boolean {
-        val root = File(context.cacheDir, "reverse_image_inputs").canonicalFile
+        val target = requireOwnedInputPath(
+            File(context.cacheDir, "reverse_image_inputs"),
+            rawPath,
+        )
+        return !target.exists() || target.delete()
+    }
+
+    /**
+     * Canonical-path check that [rawPath] stays inside [rootDir] — the only
+     * directory a temporary reverse-image input may live in. Shared by
+     * `deleteTemp` and `armReverseUpload` so neither can point outside the
+     * owner directory.
+     */
+    internal fun requireOwnedInputPath(rootDir: File, rawPath: String): File {
+        val root = rootDir.canonicalFile
         val target = File(rawPath).canonicalFile
         val rootPrefix = root.path + File.separator
         require(target.path.startsWith(rootPrefix)) { "temporary image path is outside the owner" }
-        return !target.exists() || target.delete()
+        return target
     }
+
+    /**
+     * [requireOwnedInputPath] plus the requirement that the file exists —
+     * checked before a path is armed for the webview file chooser.
+     */
+    internal fun requireOwnedInputFile(rootDir: File, rawPath: String): File =
+        requireOwnedInputPath(rootDir, rawPath).also {
+            require(it.isFile) { "armed image is missing" }
+        }
 
     private fun openExternal(activity: Activity, rawUrl: String): Boolean {
         val uri = Uri.parse(rawUrl)

@@ -5,6 +5,11 @@
     <cache-path
         name="shared_images"
         path="shared_images/" />
+    <!-- Reverse-image WebView upload: the armed input file is handed to the
+         engine page's file chooser through this provider. -->
+    <cache-path
+        name="reverse_image_inputs"
+        path="reverse_image_inputs/" />
     <files-path
         name="updates"
         path="updates/" />
