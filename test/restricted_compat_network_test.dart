@@ -20,6 +20,7 @@ import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/compat/policy_download_transport.dart';
 import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
+import 'package:pixiv_func/core/settings/image_mirror.dart';
 
 class _FakeClient extends http.BaseClient {
   _FakeClient({this.failure, this.statusCode = 200, this.body = '{}'});
@@ -1130,6 +1131,176 @@ void main() {
       ], reason: 'the POST succeeds on the tier that can actually handle it');
     },
   );
+
+  group('image mirror integration', () {
+    test('extra image hosts gain image trust and nothing else', () {
+      final registry = PixivDestinationRegistry(
+        extraImageHosts: {'i.pixiv.cat', 's.pixiv.cat'},
+      );
+
+      expect(
+        registry
+            .require(
+              Uri.parse('https://i.pixiv.cat/img-original/img/1_p0.jpg'),
+              PixivDestinationPurpose.image,
+            )
+            .canonicalHost,
+        'i.pixiv.cat',
+      );
+      for (final purpose in [
+        PixivDestinationPurpose.appApi,
+        PixivDestinationPurpose.oauth,
+        PixivDestinationPurpose.accountsWeb,
+        PixivDestinationPurpose.pixivWeb,
+      ]) {
+        expect(
+          () =>
+              registry.require(Uri.parse('https://i.pixiv.cat/v1/x'), purpose),
+          throwsA(isA<PixivDestinationException>()),
+          reason: 'a mirror host must never become a $purpose target',
+        );
+      }
+      expect(
+        () => registry.require(
+          Uri.parse('https://unregistered.example.com/a.jpg'),
+          PixivDestinationPurpose.image,
+        ),
+        throwsA(isA<PixivDestinationException>()),
+      );
+    });
+
+    test(
+      'the image client rewrites to the mirror before destination resolution',
+      () async {
+        final mirror = ImageMirror.of('i.pixiv.cat');
+        final direct = _FakeClient(
+          failure: SocketException('Connection refused'),
+        );
+        final ech = _FakeClient(body: 'must-not-send');
+        final secure = _FakeClient(body: '{"ok":true}');
+        final resolver = _FakeEchResolver(
+          [InternetAddress('1.2.3.60')],
+          frontAddresses: [InternetAddress('1.2.3.61')],
+        );
+        final policy = NetworkAccessPolicy(
+          registry: PixivDestinationRegistry(
+            extraImageHosts: mirror.extraHosts,
+          ),
+          resolver: resolver,
+          clientFactory: (route, canonicalHost, _) => switch (route.kind) {
+            NetworkRouteKind.direct => direct,
+            NetworkRouteKind.ech => ech,
+            _ => secure,
+          },
+        );
+        addTearDown(policy.dispose);
+        final client = PixivPolicyHttpClient(
+          policy: policy,
+          purpose: PixivDestinationPurpose.image,
+          urlRewriter: mirror.rewrite,
+        );
+
+        final response = await client.get(
+          Uri.parse('https://i.pximg.net/img-original/img/1_p0.jpg?x=1'),
+          headers: const {'Referer': 'https://www.pixiv.net/'},
+        );
+
+        expect(response.statusCode, 200);
+        expect(resolver.calls, 1);
+        expect(
+          resolver.echCalls,
+          0,
+          reason: 'a third-party mirror never enters the Pixiv ECH tier',
+        );
+        expect(ech.requests, isEmpty);
+        expect(direct.requests, isEmpty);
+        final sent = secure.requests.single;
+        expect(sent.url.host, 'i.pixiv.cat');
+        expect(sent.url.path, '/img-original/img/1_p0.jpg');
+        expect(sent.url.query, 'x=1');
+        expect(sent.headers['Referer'], 'https://www.pixiv.net/');
+        expect(policy.hasStrictRouteMemory('i.pixiv.cat'), isTrue);
+      },
+    );
+
+    test('the factory only rewrites image-purpose requests', () async {
+      final mirror = ImageMirror.of('i.pixiv.cat');
+      final backend = _FakeClient(body: '{}');
+      final policy = NetworkAccessPolicy(
+        registry: PixivDestinationRegistry(extraImageHosts: mirror.extraHosts),
+        resolver: _FakeResolver([InternetAddress('1.2.3.62')]),
+        clientFactory: (route, canonicalHost, _) => backend,
+      );
+      addTearDown(policy.dispose);
+      final factory = PixivNetworkFactory(
+        policy,
+        imageUrlRewriter: mirror.rewrite,
+      );
+      addTearDown(factory.dispose);
+
+      await factory.apiClient.get(
+        Uri.parse('https://app-api.pixiv.net/v1/illust/recommended'),
+      );
+      expect(backend.requests.single.url.host, 'app-api.pixiv.net');
+
+      await factory
+          .client(PixivDestinationPurpose.image)
+          .get(Uri.parse('https://s.pximg.net/avatar/u/1.jpg'));
+      expect(backend.requests.last.url.host, 's.pixiv.cat');
+    });
+
+    test('a rewritten host missing from the registry fails loudly', () async {
+      final policy = NetworkAccessPolicy(
+        clientFactory: (_, _, _) => _FakeClient(),
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+        urlRewriter: ImageMirror.of('i.pixiv.cat').rewrite,
+      );
+
+      await expectLater(
+        client.get(Uri.parse('https://i.pximg.net/a.jpg')),
+        throwsA(isA<PixivDestinationException>()),
+      );
+    });
+
+    test(
+      'downloads follow the mirror and keep the rewritten prefix path',
+      () async {
+        final mirror = ImageMirror.of('https://proxy.example.com/pixiv');
+        final backend = _FakeClient(body: 'bytes');
+        final policy = NetworkAccessPolicy(
+          registry: PixivDestinationRegistry(
+            extraImageHosts: mirror.extraHosts,
+          ),
+          resolver: _FakeResolver([InternetAddress('1.2.3.63')]),
+          clientFactory: (route, canonicalHost, _) => backend,
+        );
+        final transport = PolicyDownloadTransport(
+          policy: policy,
+          imageMirror: mirror,
+        );
+        addTearDown(() async {
+          await transport.dispose();
+          await policy.dispose();
+        });
+
+        final response = await transport.open(
+          Uri.parse('https://i.pximg.net/img-original/img/2_p0.jpg'),
+          headers: const {},
+          cancelToken: DownloadCancelToken(),
+        );
+        await response.stream.drain<void>();
+        await response.close();
+
+        final sent = backend.requests.single;
+        expect(sent.url.host, 'proxy.example.com');
+        expect(sent.url.path, '/pixiv/img-original/img/2_p0.jpg');
+      },
+    );
+  });
 }
 
 final _apiUri = Uri.parse(

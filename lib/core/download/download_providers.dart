@@ -22,6 +22,7 @@ import '../ugoira/ugoira_recovery.dart';
 final pixivMediaTransportProvider = Provider<DownloadTransport>((ref) {
   final transport = PolicyDownloadTransport(
     policy: ref.watch(networkAccessPolicyProvider),
+    imageMirror: ref.watch(imageMirrorProvider),
   );
   ref.onDispose(() async => transport.dispose());
   return transport;
