@@ -9,6 +9,7 @@ import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
+import 'package:pixiv_func/core/network/http_client_providers.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -72,8 +73,11 @@ class SpotlightFixture {
   );
 }
 
+/// [webClient] overrides the shared third-party client (pixivision article
+/// HTML fetches); pass a MockClient to assert request headers.
 Future<(ProviderContainer, SpotlightFixture)> makeSpotlightWorld({
   SpotlightFixture? fixture,
+  http.Client? webClient,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? SpotlightFixture();
@@ -104,6 +108,8 @@ Future<(ProviderContainer, SpotlightFixture)> makeSpotlightWorld({
         if (client == null) throw StateError('client not wired yet');
         return client;
       }),
+      if (webClient != null)
+        thirdPartyHttpClientProvider.overrideWithValue(webClient),
     ],
   );
   final client = PixivHttpClient(

@@ -700,5 +700,7 @@
   },
   "seriesPrevious": "前の作品",
   "seriesNext": "次の作品",
-  "profileSeries": "シリーズ"
+  "profileSeries": "シリーズ",
+  "spotlightTitle": "スポットライト",
+  "spotlightArticleLoadFailed": "記事の読み込みに失敗しました"
 }

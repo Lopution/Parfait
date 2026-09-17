@@ -3258,6 +3258,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'系列'**
   String get profileSeries;
+
+  /// No description provided for @spotlightTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'特辑'**
+  String get spotlightTitle;
+
+  /// No description provided for @spotlightArticleLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'文章加载失败'**
+  String get spotlightArticleLoadFailed;
 }
 
 class _AppLocalizationsDelegate

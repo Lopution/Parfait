@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/spotlight/spotlight_models.dart';
 import 'package:pixiv_func/core/spotlight/spotlight_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -16,7 +15,7 @@ import 'helpers/test_preferences.dart';
 Future<PixivSpotlightRepository> _repo(SpotlightFixture fixture) async {
   final (container, _) = await makeSpotlightWorld(fixture: fixture);
   addTearDown(container.dispose);
-  return PixivSpotlightRepository(container.read(pixivHttpClientProvider));
+  return container.read(spotlightRepositoryProvider);
 }
 
 void main() {

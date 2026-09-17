@@ -1668,4 +1668,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get profileSeries => 'シリーズ';
+
+  @override
+  String get spotlightTitle => 'スポットライト';
+
+  @override
+  String get spotlightArticleLoadFailed => '記事の読み込みに失敗しました';
 }

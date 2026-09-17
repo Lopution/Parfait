@@ -57,3 +57,63 @@ class SpotlightArticle {
     );
   }
 }
+
+/// Structured body of one pixivision article, produced by
+/// `parseSpotlightArticle` — the app renders these blocks instead of a
+/// full-page webview.
+class SpotlightArticleBody {
+  const SpotlightArticleBody({
+    required this.title,
+    this.description,
+    required this.blocks,
+  });
+
+  final String title;
+
+  /// Lead text from the article header, when present.
+  final String? description;
+  final List<SpotlightBlock> blocks;
+}
+
+sealed class SpotlightBlock {
+  const SpotlightBlock();
+}
+
+/// A paragraph as ordered text runs; linked runs carry their href so the
+/// renderer can route `/artworks/` and `/users/` natively.
+class SpotlightParagraph extends SpotlightBlock {
+  const SpotlightParagraph(this.segments);
+
+  final List<({String text, String? href})> segments;
+}
+
+class SpotlightHeading extends SpotlightBlock {
+  const SpotlightHeading(this.text, {required this.level});
+
+  final String text;
+  final int level;
+}
+
+class SpotlightImage extends SpotlightBlock {
+  const SpotlightImage(this.url);
+
+  final String url;
+}
+
+/// The `.illust` artwork card embedded in an article: `/artworks/<id>`
+/// link, h3 title, thumbnail and the author line.
+class SpotlightIllustCard extends SpotlightBlock {
+  const SpotlightIllustCard({
+    required this.illustId,
+    required this.title,
+    this.imageUrl,
+    this.userName,
+    this.userId,
+  });
+
+  final int illustId;
+  final String title;
+  final String? imageUrl;
+  final String? userName;
+  final int? userId;
+}

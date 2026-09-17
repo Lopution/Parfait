@@ -700,5 +700,7 @@
   },
   "seriesPrevious": "上一话",
   "seriesNext": "下一话",
-  "profileSeries": "系列"
+  "profileSeries": "系列",
+  "spotlightTitle": "特辑",
+  "spotlightArticleLoadFailed": "文章加载失败"
 }

@@ -700,5 +700,7 @@
   },
   "seriesPrevious": "Previous",
   "seriesNext": "Next",
-  "profileSeries": "Series"
+  "profileSeries": "Series",
+  "spotlightTitle": "Spotlight",
+  "spotlightArticleLoadFailed": "Failed to load article"
 }

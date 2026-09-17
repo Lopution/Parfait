@@ -1702,4 +1702,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileSeries => 'Series';
+
+  @override
+  String get spotlightTitle => 'Spotlight';
+
+  @override
+  String get spotlightArticleLoadFailed => 'Failed to load article';
 }
