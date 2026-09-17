@@ -511,6 +511,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'This screen shows saved account metadata. Full profile editing belongs to the profile module.';
 
   @override
+  String get serverDisplaySettings => 'Account display settings';
+
+  @override
+  String get serverDisplayHint =>
+      'Stored by Pixiv; these flags shape what the API returns for this account.';
+
+  @override
+  String get serverShowAi => 'Show AI-generated works';
+
+  @override
+  String get serverRestrictedMode => 'Restricted mode';
+
+  @override
+  String get serverDisplayLoadFailed => 'Failed to load server settings';
+
+  @override
+  String get serverDisplayWriteFailed => 'Failed to save server setting';
+
+  @override
   String get imageSource => 'Image source';
 
   @override

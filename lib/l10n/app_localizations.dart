@@ -1014,6 +1014,42 @@ abstract class AppLocalizations {
   /// **'这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。'**
   String get profileReadOnly;
 
+  /// No description provided for @serverDisplaySettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号显示设置'**
+  String get serverDisplaySettings;
+
+  /// No description provided for @serverDisplayHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'由 Pixiv 服务端保存，作用于接口为该账号返回的内容。'**
+  String get serverDisplayHint;
+
+  /// No description provided for @serverShowAi.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示 AI 生成作品'**
+  String get serverShowAi;
+
+  /// No description provided for @serverRestrictedMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'受限模式'**
+  String get serverRestrictedMode;
+
+  /// No description provided for @serverDisplayLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端设置读取失败'**
+  String get serverDisplayLoadFailed;
+
+  /// No description provided for @serverDisplayWriteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端设置保存失败'**
+  String get serverDisplayWriteFailed;
+
   /// No description provided for @imageSource.
   ///
   /// In zh, this message translates to:

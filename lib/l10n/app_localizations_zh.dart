@@ -489,6 +489,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileReadOnly => '这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。';
 
   @override
+  String get serverDisplaySettings => '账号显示设置';
+
+  @override
+  String get serverDisplayHint => '由 Pixiv 服务端保存，作用于接口为该账号返回的内容。';
+
+  @override
+  String get serverShowAi => '显示 AI 生成作品';
+
+  @override
+  String get serverRestrictedMode => '受限模式';
+
+  @override
+  String get serverDisplayLoadFailed => '服务端设置读取失败';
+
+  @override
+  String get serverDisplayWriteFailed => '服务端设置保存失败';
+
+  @override
   String get imageSource => '图片源';
 
   @override
