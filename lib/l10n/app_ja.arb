@@ -370,6 +370,28 @@
   "downloadCanceled": "キャンセル済み",
   "retryDownload": "再試行",
   "cancelDownload": "キャンセル",
+  "downloadPaused": "一時停止",
+  "pauseDownload": "一時停止",
+  "resumeDownload": "再開",
+  "downloadGroupTitle": "一括ダウンロード · {count}件",
+  "@downloadGroupTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadGroupProgress": "{done}/{count} 完了",
+  "@downloadGroupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "aboutVersion": "バージョン",
   "aboutCheckUpdate": "更新を確認",
   "aboutCheckingUpdate": "更新を確認中…",

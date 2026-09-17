@@ -370,6 +370,28 @@
   "downloadCanceled": "Отменено",
   "retryDownload": "Повторить",
   "cancelDownload": "Отмена",
+  "downloadPaused": "Приостановлено",
+  "pauseDownload": "Пауза",
+  "resumeDownload": "Возобновить",
+  "downloadGroupTitle": "Пакетная загрузка · {count} шт.",
+  "@downloadGroupTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadGroupProgress": "Готово {done}/{count}",
+  "@downloadGroupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "aboutVersion": "Версия",
   "aboutCheckUpdate": "Проверить обновления",
   "aboutCheckingUpdate": "Проверка обновлений…",

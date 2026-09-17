@@ -370,6 +370,28 @@
   "downloadCanceled": "已取消",
   "retryDownload": "重试",
   "cancelDownload": "取消",
+  "downloadPaused": "已暂停",
+  "pauseDownload": "暂停",
+  "resumeDownload": "继续",
+  "downloadGroupTitle": "批量下载 · {count} 项",
+  "@downloadGroupTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadGroupProgress": "已完成 {done}/{count}",
+  "@downloadGroupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "aboutVersion": "版本",
   "aboutCheckUpdate": "检查更新",
   "aboutCheckingUpdate": "正在检查更新…",

@@ -186,10 +186,29 @@ class DownloadGroupSnapshot {
     required this.jobIds,
     required this.submission,
     required this.status,
+    required this.childCount,
+    required this.succeededCount,
+    required this.receivedBytes,
+    this.totalBytes,
   });
 
   final String id;
   final List<String> jobIds;
   final DownloadSubmissionSnapshot submission;
   final DownloadGroupStatus status;
+
+  /// Live children contributing to this aggregate (children whose job was
+  /// already replaced by a retry still count — the group tracks the new
+  /// attempt's id).
+  final int childCount;
+  final int succeededCount;
+  final int receivedBytes;
+
+  /// Summed child totals; null while any child's total is still unknown,
+  /// which renders as an indeterminate bar.
+  final int? totalBytes;
+
+  double? get progress => totalBytes == null || totalBytes == 0
+      ? null
+      : receivedBytes / totalBytes!;
 }

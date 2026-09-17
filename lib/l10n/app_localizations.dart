@@ -1747,6 +1747,36 @@ abstract class AppLocalizations {
   /// **'取消'**
   String get cancelDownload;
 
+  /// No description provided for @downloadPaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暂停'**
+  String get downloadPaused;
+
+  /// No description provided for @pauseDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get pauseDownload;
+
+  /// No description provided for @resumeDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get resumeDownload;
+
+  /// No description provided for @downloadGroupTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量下载 · {count} 项'**
+  String downloadGroupTitle(int count);
+
+  /// No description provided for @downloadGroupProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成 {done}/{count}'**
+  String downloadGroupProgress(int done, int count);
+
   /// No description provided for @aboutVersion.
   ///
   /// In zh, this message translates to:

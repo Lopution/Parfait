@@ -299,6 +299,38 @@ class DownloadManager {
     return retried;
   }
 
+  /// Pauses every non-terminal child of a group (D8). Each child follows
+  /// the same [pause] semantics: resumable outputs keep their anchor and
+  /// land in `retryable`, never `canceled`.
+  Future<void> pauseGroup(String groupId) async {
+    final group = _groups[groupId];
+    if (group == null) return;
+    for (final id in List.of(group.jobIds)) {
+      await pause(id);
+    }
+  }
+
+  /// Retries every failed/canceled/retryable child of a group. Running and
+  /// succeeded children are left alone — [retry] rejects them already.
+  void resumeGroup(String groupId) {
+    final group = _groups[groupId];
+    if (group == null) return;
+    // retry() replaces the child id inside group.jobIds — iterate a copy.
+    for (final id in List.of(group.jobIds)) {
+      retry(id);
+    }
+  }
+
+  /// Cancels every non-terminal child of a group. Cancellation still
+  /// deletes preserved partial output — it is not a pause.
+  Future<void> cancelGroup(String groupId) async {
+    final group = _groups[groupId];
+    if (group == null) return;
+    for (final id in List.of(group.jobIds)) {
+      await cancel(id);
+    }
+  }
+
   /// Scans durable metadata after process start. Only a complete record whose
   /// account and destination still match the current context becomes
   /// [DownloadStatus.retryable]. Recovery
@@ -1125,14 +1157,33 @@ class DownloadManager {
   }
 
   DownloadGroupSnapshot _groupSnapshot(_DownloadGroup group) {
-    final childStatuses = [
-      for (final id in group.jobIds) _findById(id)?.snapshot.status,
-    ].whereType<DownloadStatus>().toList(growable: false);
+    final children = [
+      for (final id in group.jobIds) _findById(id)?.snapshot,
+    ].whereType<DownloadTaskSnapshot>().toList(growable: false);
+    final childStatuses = [for (final child in children) child.status];
+    var receivedBytes = 0;
+    var totalBytes = 0;
+    var totalsKnown = children.isNotEmpty;
+    var succeededCount = 0;
+    for (final child in children) {
+      receivedBytes += child.receivedBytes;
+      final total = child.totalBytes;
+      if (total == null) {
+        totalsKnown = false;
+      } else {
+        totalBytes += total;
+      }
+      if (child.status == DownloadStatus.succeeded) succeededCount++;
+    }
     return DownloadGroupSnapshot(
       id: group.id,
       jobIds: List.unmodifiable(group.jobIds),
       submission: group.submission,
       status: _aggregateGroupStatus(childStatuses),
+      childCount: children.length,
+      succeededCount: succeededCount,
+      receivedBytes: receivedBytes,
+      totalBytes: totalsKnown ? totalBytes : null,
     );
   }
 

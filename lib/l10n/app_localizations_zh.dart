@@ -883,6 +883,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancelDownload => '取消';
 
   @override
+  String get downloadPaused => '已暂停';
+
+  @override
+  String get pauseDownload => '暂停';
+
+  @override
+  String get resumeDownload => '继续';
+
+  @override
+  String downloadGroupTitle(int count) {
+    return '批量下载 · $count 项';
+  }
+
+  @override
+  String downloadGroupProgress(int done, int count) {
+    return '已完成 $done/$count';
+  }
+
+  @override
   String get aboutVersion => '版本';
 
   @override
