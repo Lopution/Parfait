@@ -392,6 +392,44 @@
       }
     }
   },
+  "downloadAuthorWorks": "Скачать все работы",
+  "downloadAuthorWorksTitle": "Скачать все работы автора",
+  "downloadAuthorEnumerating": "Перечисление работ… найдено {count}",
+  "@downloadAuthorEnumerating": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorConfirmBody": "Будет скачано {works} работ ({pages} стр.) этого автора.",
+  "@downloadAuthorConfirmBody": {
+    "placeholders": {
+      "works": {
+        "type": "int"
+      },
+      "pages": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorTruncated": "Слишком много работ — будут скачаны только первые {max}.",
+  "@downloadAuthorTruncated": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadAuthorEmpty": "У этого автора нет работ для скачивания.",
+  "downloadAuthorFailed": "Не удалось перечислить работы: {error}",
+  "@downloadAuthorFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "aboutVersion": "Версия",
   "aboutCheckUpdate": "Проверить обновления",
   "aboutCheckingUpdate": "Проверка обновлений…",
