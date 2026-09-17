@@ -47,6 +47,7 @@ class ReverseImageFlowState {
     this.input,
     this.results = const [],
     this.webView,
+    this.webUpload,
     this.failure,
   });
 
@@ -55,6 +56,7 @@ class ReverseImageFlowState {
       input = null,
       results = const [],
       webView = null,
+      webUpload = null,
       failure = null;
 
   final ReverseImageFlowStatus status;
@@ -63,6 +65,10 @@ class ReverseImageFlowState {
 
   /// SauceNAO-style service-rendered result page (D1). Only set on success.
   final ReverseImageSearchWebView? webView;
+
+  /// Cloudflare-fronted engine upload page (Ascii2D, TinEye). Only set on
+  /// success; the input file stays owned until the flow ends.
+  final ReverseImageSearchWebUpload? webUpload;
   final ReverseImageFlowFailure? failure;
 }
 
@@ -219,10 +225,14 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     }
 
     Object? cleanupError;
-    try {
-      await _releaseInput();
-    } on Object catch (caught) {
-      cleanupError = caught;
+    // The WebView-upload outcome keeps the owned file alive: the browser
+    // submits it later. Everything else releases the temporary input now.
+    if (outcome is! ReverseImageSearchWebUpload) {
+      try {
+        await _releaseInput();
+      } on Object catch (caught) {
+        cleanupError = caught;
+      }
     }
     if (_cancelToken == cancelToken) _cancelToken = null;
     if (_closed || generation != _generation) return;
@@ -251,6 +261,19 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
             webView: ReverseImageSearchWebView(
               html: html,
               resultUrl: resultUrl,
+              observedAt: _nowIso(),
+            ),
+          ),
+        );
+      case ReverseImageSearchWebUpload(:final engine, :final uploadPageUrl):
+        _setState(
+          ReverseImageFlowState(
+            status: ReverseImageFlowStatus.success,
+            webUpload: ReverseImageSearchWebUpload(
+              engine: engine,
+              uploadPageUrl: uploadPageUrl,
+              imagePath: input.info.path,
+              imageMimeType: input.info.mimeType,
               observedAt: _nowIso(),
             ),
           ),
