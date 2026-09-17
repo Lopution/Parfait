@@ -75,6 +75,49 @@ class MediaStoreChannelTest {
     }
 
     @Test
+    fun `detach missing id is invalid_argument`() {
+        val result = dispatch("detach", emptyMap())
+        assertEquals("mediastore_invalid_argument", result.errorCode)
+        assertTrue(result.errorMessage!!.contains("id"))
+    }
+
+    @Test
+    fun `detach success returns null`() {
+        val result = dispatch("detach", mapOf("id" to 7))
+        assertNull(result.errorCode)
+        assertTrue(result.hasSuccess())
+    }
+
+    @Test
+    fun `resumePending missing ownerId is invalid_argument`() {
+        val result = dispatch("resumePending", mapOf("id" to 3))
+        assertEquals("mediastore_invalid_argument", result.errorCode)
+        assertTrue(result.errorMessage!!.contains("ownerId"))
+    }
+
+    @Test
+    fun `resumePending returns handle and platform byte count`() {
+        val result = dispatch("resumePending", mapOf("id" to 7, "ownerId" to "acct-1"))
+        assertNull(result.errorCode)
+        val payload = result.successValue as Map<*, *>
+        assertEquals(7, payload["id"])
+        assertEquals(512, payload["storedBytes"])
+    }
+
+    @Test
+    fun `resumePending missing row is a null refusal`() {
+        val ops = FakeMediaStoreOps()
+        ops.resumePendingResult = null
+        val result = dispatch(
+            "resumePending",
+            mapOf("id" to 7, "ownerId" to "acct-1"),
+            ops,
+        )
+        assertNull(result.errorCode)
+        assertNull(result.successValue)
+    }
+
+    @Test
     fun `unknown method is notImplemented`() {
         val result = dispatch("noSuchMethod", emptyMap())
         assertTrue(result.notImplemented)
@@ -204,6 +247,20 @@ class MediaStoreChannelTest {
         override fun abortPending(id: Int, ownerId: String): Boolean {
             maybeThrow("abortPending")
             return true
+        }
+
+        override fun detach(id: Int) {
+            maybeThrow("detach")
+        }
+
+        var resumePendingResult: Map<String, Any>? = mapOf(
+            "id" to 7,
+            "storedBytes" to 512,
+        )
+
+        override fun resumePending(id: Int, ownerId: String): Map<String, Any>? {
+            maybeThrow("resumePending")
+            return resumePendingResult
         }
     }
 }
