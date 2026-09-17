@@ -689,5 +689,16 @@
         "type": "int"
       }
     }
-  }
+  },
+  "seriesEpisode": "Part {order}",
+  "@seriesEpisode": {
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesPrevious": "Previous",
+  "seriesNext": "Next",
+  "profileSeries": "Series"
 }

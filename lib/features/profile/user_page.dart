@@ -14,6 +14,7 @@ import 'profile_illust_feed.dart';
 import 'profile_novel_feed.dart';
 import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
+import 'user_series_feed.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/user/user_detail_controller.dart';
 import '../../l10n/context.dart';
@@ -90,7 +91,7 @@ class _UserPageState extends ConsumerState<UserPage>
   late final TabController _tabController;
   late final List<String> _tabKeys;
   bool _selectorExpanded = false;
-  UserWorkType _workType = UserWorkType.illust;
+  ProfileWorkSection _workSection = ProfileWorkSection.illust;
   UserRestrict _restrict = UserRestrict.public;
   int _selectedIndex = 0;
 
@@ -164,7 +165,7 @@ class _UserPageState extends ConsumerState<UserPage>
         4 => ProfileFeedKey(
           userId: widget.userId,
           kind: ProfileFeedKind.work,
-          workType: _workType,
+          workType: _workSection.wireWorkType,
         ),
         _ => null,
       };
@@ -173,7 +174,7 @@ class _UserPageState extends ConsumerState<UserPage>
       0 => ProfileFeedKey(
         userId: widget.userId,
         kind: ProfileFeedKind.work,
-        workType: _workType,
+        workType: _workSection.wireWorkType,
       ),
       1 => ProfileFeedKey(
         userId: widget.userId,
@@ -189,9 +190,9 @@ class _UserPageState extends ConsumerState<UserPage>
     };
   }
 
-  void _onWorkTypeChanged(UserWorkType type) {
+  void _onSectionChanged(ProfileWorkSection section) {
     setState(() {
-      _workType = type;
+      _workSection = section;
       _selectorExpanded = false;
     });
   }
@@ -299,9 +300,9 @@ class _UserPageState extends ConsumerState<UserPage>
                   controller: _tabController,
                   isMe: widget.isMe,
                   expanded: _selectorExpanded,
-                  workType: _workType,
+                  section: _workSection,
                   onTabTap: _onTabTap,
-                  onWorkTypeChanged: _onWorkTypeChanged,
+                  onSectionChanged: _onSectionChanged,
                 ),
               ),
             ],
@@ -318,6 +319,7 @@ class _UserPageState extends ConsumerState<UserPage>
                     isMe: widget.isMe,
                     tabIndex: index,
                     feedKey: _feedKeyFor(index),
+                    workSection: _workSection,
                   ),
               ],
             ),
@@ -336,6 +338,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.isMe,
     required this.tabIndex,
     required this.feedKey,
+    required this.workSection,
   });
 
   final UserEntity user;
@@ -343,6 +346,10 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   final bool isMe;
   final int tabIndex;
   final ProfileFeedKey? feedKey;
+
+  /// The work-tab selector value; only meaningful when [feedKey] is a
+  /// `ProfileFeedKind.work` key (other tabs ignore it).
+  final ProfileWorkSection workSection;
 
   @override
   ConsumerState<_ProfileTabBody> createState() => _ProfileTabBodyState();
@@ -358,6 +365,12 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
     super.build(context);
     final feedKey = widget.feedKey;
     if (feedKey == null) return _ProfileAbout(user: widget.user);
+    if (feedKey.kind == ProfileFeedKind.work &&
+        widget.workSection == ProfileWorkSection.series) {
+      // The series section is a display selector over its own endpoint; the
+      // wire workType fallback on feedKey is unused here.
+      return UserSeriesFeed(userId: widget.userId);
+    }
     if (feedKey.workType == UserWorkType.novel) {
       // TabController.indexIsChanging is false during a drag gesture. Keep
       // the page mounted for both tap and swipe transitions so the destination

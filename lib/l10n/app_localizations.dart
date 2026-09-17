@@ -3234,6 +3234,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'共 {count} 个作品'**
   String seriesWorksCount(int count);
+
+  /// No description provided for @seriesEpisode.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {order} 话'**
+  String seriesEpisode(int order);
+
+  /// No description provided for @seriesPrevious.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一话'**
+  String get seriesPrevious;
+
+  /// No description provided for @seriesNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一话'**
+  String get seriesNext;
+
+  /// No description provided for @profileSeries.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列'**
+  String get profileSeries;
 }
 
 class _AppLocalizationsDelegate

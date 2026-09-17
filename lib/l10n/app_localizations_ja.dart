@@ -1654,4 +1654,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String seriesWorksCount(int count) {
     return '全 $count 作品';
   }
+
+  @override
+  String seriesEpisode(int order) {
+    return '第 $order 話';
+  }
+
+  @override
+  String get seriesPrevious => '前の作品';
+
+  @override
+  String get seriesNext => '次の作品';
+
+  @override
+  String get profileSeries => 'シリーズ';
 }

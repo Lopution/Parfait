@@ -1640,4 +1640,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String seriesWorksCount(int count) {
     return '共 $count 个作品';
   }
+
+  @override
+  String seriesEpisode(int order) {
+    return '第 $order 话';
+  }
+
+  @override
+  String get seriesPrevious => '上一话';
+
+  @override
+  String get seriesNext => '下一话';
+
+  @override
+  String get profileSeries => '系列';
 }

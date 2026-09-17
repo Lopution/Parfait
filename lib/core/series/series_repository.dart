@@ -82,19 +82,28 @@ class PixivSeriesRepository {
 
   /// Detail-page context: the series this illust belongs to plus its
   /// previous/next work. Non-series works return a result with null
-  /// [IllustSeriesContextResult.context].
+  /// [IllustSeriesContextResult.context] — the API answers 404 for them,
+  /// which is a normal absence signal, not a fetch failure.
   Future<IllustSeriesContextResult> fetchIllustSeriesContext(
     int illustId, {
     CancelToken? cancelToken,
   }) async {
     _validateId(illustId, 'illustId');
-    final json = await _client.getJson(
-      PixivClientIdentity.appApiBase.replace(
-        path: _illustContextPath,
-        queryParameters: {'illust_id': '$illustId'},
-      ),
-      cancelToken: cancelToken,
-    );
+    final Map<String, dynamic> json;
+    try {
+      json = await _client.getJson(
+        PixivClientIdentity.appApiBase.replace(
+          path: _illustContextPath,
+          queryParameters: {'illust_id': '$illustId'},
+        ),
+        cancelToken: cancelToken,
+      );
+    } on ApiHttpError catch (error) {
+      if (error.statusCode == 404) {
+        return const IllustSeriesContextResult();
+      }
+      rethrow;
+    }
     return _parseContextResult(json);
   }
 

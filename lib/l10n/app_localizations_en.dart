@@ -1688,4 +1688,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String seriesWorksCount(int count) {
     return '$count works';
   }
+
+  @override
+  String seriesEpisode(int order) {
+    return 'Part $order';
+  }
+
+  @override
+  String get seriesPrevious => 'Previous';
+
+  @override
+  String get seriesNext => 'Next';
+
+  @override
+  String get profileSeries => 'Series';
 }

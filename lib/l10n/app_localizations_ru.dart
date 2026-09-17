@@ -1687,4 +1687,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String seriesWorksCount(int count) {
     return '$count работ';
   }
+
+  @override
+  String seriesEpisode(int order) {
+    return 'Часть $order';
+  }
+
+  @override
+  String get seriesPrevious => 'Предыдущая';
+
+  @override
+  String get seriesNext => 'Следующая';
+
+  @override
+  String get profileSeries => 'Серии';
 }
