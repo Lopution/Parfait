@@ -86,6 +86,7 @@ class ReverseImageSearchWebUpload extends ReverseImageSearchOutcome {
     required this.imagePath,
     required this.imageMimeType,
     required this.observedAt,
+    this.armedUri,
   });
 
   final ReverseImageEngine engine;
@@ -93,6 +94,11 @@ class ReverseImageSearchWebUpload extends ReverseImageSearchOutcome {
   final String imagePath;
   final String imageMimeType;
   final String observedAt;
+
+  /// Content URI armed to the WebView file chooser (set by the controller,
+  /// not the provider). Null when the platform cannot intercept the chooser
+  /// — the desktop degrade where the page's native picker re-picks the file.
+  final String? armedUri;
 }
 
 class ReverseImageSearchFailure extends ReverseImageSearchOutcome {

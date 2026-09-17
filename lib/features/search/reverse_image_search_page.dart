@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -11,12 +12,16 @@ import '../../core/platform/intent_router.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/desktop_image_input.dart';
 import '../../core/reverse_image/image_input.dart';
+import '../../core/reverse_image/iqdb_provider.dart';
 import '../../core/reverse_image/reverse_image_controller.dart';
+import '../../core/reverse_image/reverse_image_engine.dart';
 import '../../core/reverse_image/reverse_image_external.dart';
+import '../../core/reverse_image/reverse_image_navigation_policy.dart';
 import '../../core/reverse_image/reverse_image_platform.dart';
 import '../../core/reverse_image/reverse_image_provider.dart';
-import '../../core/reverse_image/sauce_nao_navigation_policy.dart';
 import '../../core/reverse_image/sauce_nao_provider.dart';
+import '../../core/reverse_image/webview_upload_provider.dart';
+import '../../core/settings/settings_controller.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import 'package:pixiv_func/core/network/http_client_providers.dart';
@@ -27,13 +32,20 @@ class ReverseImageSearchPage extends ConsumerStatefulWidget {
     super.key,
     this.initialReference,
     this.platform,
-    this.provider,
+    this.providers,
+    this.initialEngine,
+    this.uploadArmer,
     this.externalLauncher,
   });
 
   final ReverseImageInputReference? initialReference;
   final ReverseImageInputPlatform? platform;
-  final ReverseImageProvider? provider;
+
+  /// Test/embed override: engine → provider map. Defaults to the four real
+  /// engines over the shared third-party HTTP client.
+  final Map<ReverseImageEngine, ReverseImageProvider>? providers;
+  final ReverseImageEngine? initialEngine;
+  final ReverseImageUploadArmer? uploadArmer;
   final ReverseImageExternalLauncher? externalLauncher;
 
   @override
@@ -50,17 +62,23 @@ class _ReverseImageSearchPageState
   @override
   void initState() {
     super.initState();
+    final isAndroid = PlatformCaps.system().isAndroid;
     _session = ReverseImageSearchSession(
       platform:
           widget.platform ??
-          (PlatformCaps.system().isAndroid
+          (isAndroid
               ? MethodChannelReverseImageInputPlatform()
               : const DesktopReverseImageInputPlatform()),
-      provider:
-          widget.provider ??
-          SauceNaoWebViewProvider(
-            client: ref.read(thirdPartyHttpClientProvider),
-          ),
+      providers:
+          widget.providers ??
+          _defaultProviders(ref.read(thirdPartyHttpClientProvider)),
+      initialEngine:
+          widget.initialEngine ?? ref.read(reverseImageEngineProvider),
+      uploadArmer:
+          widget.uploadArmer ??
+          (isAndroid
+              ? MethodChannelReverseImageUploadArmer()
+              : const NoopReverseImageUploadArmer()),
     );
     _externalLauncher =
         widget.externalLauncher ??
@@ -138,25 +156,40 @@ class _ReverseImageSearchPageState
       ReverseImageFlowStatus.ready => _ready(context, state),
       ReverseImageFlowStatus.failure => _failure(context, state),
       ReverseImageFlowStatus.success =>
-        state.webView != null
-            ? _sauceNaoWebView(context, state.webView!)
+        state.webUpload != null
+            ? _uploadWebView(context, state)
+            : state.webView != null
+            ? _resultWebView(context, state)
             : _results(context, state),
     };
   }
 
-  Widget _sauceNaoWebView(
-    BuildContext context,
-    ReverseImageSearchWebView webView,
-  ) {
+  Widget _resultWebView(BuildContext context, ReverseImageFlowState state) {
+    final webView = state.webView!;
+    final spec = ReverseImageEngineSpecs.all[state.engine]!;
     return ref.read(platformCapsProvider).isDesktop
         ? _ControlledSauceNaoInAppWebView(
             webView: webView,
+            spec: spec,
             onOpenExternal: _openExternal,
           )
         : _ControlledSauceNaoWebView(
             webView: webView,
+            spec: spec,
             onOpenExternal: _openExternal,
           );
+  }
+
+  /// Cloudflare-fronted engine: the upload page loads in InAppWebView on
+  /// every platform — only its ChromeClient consumes the armed file chooser
+  /// slot (webview_flutter's own client cannot see it).
+  Widget _uploadWebView(BuildContext context, ReverseImageFlowState state) {
+    final upload = state.webUpload!;
+    return _UploadInAppWebView(
+      upload: upload,
+      policy: ReverseImageEngineSpecs.all[upload.engine]!.navigationPolicy,
+      onOpenExternal: _openExternal,
+    );
   }
 
   Widget _idle(BuildContext context) {
@@ -379,10 +412,12 @@ String _formatBytes(int bytes) {
 class _ControlledSauceNaoWebView extends StatefulWidget {
   const _ControlledSauceNaoWebView({
     required this.webView,
+    required this.spec,
     required this.onOpenExternal,
   });
 
   final ReverseImageSearchWebView webView;
+  final ReverseImageEngineSpec spec;
   final Future<void> Function(Uri uri) onOpenExternal;
 
   @override
@@ -422,7 +457,9 @@ class _ControlledSauceNaoWebViewState
     if (result.html != null) {
       _controller.loadHtmlString(
         result.html!,
-        baseUrl: SauceNaoWebViewProvider.defaultEndpoint,
+        baseUrl:
+            widget.spec.resultBaseUrl ??
+            SauceNaoWebViewProvider.defaultEndpoint,
       );
     } else {
       _controller.loadRequest(result.resultUrl!);
@@ -430,11 +467,11 @@ class _ControlledSauceNaoWebViewState
   }
 
   NavigationDecision _onNavigationRequest(NavigationRequest request) {
-    // Shared adapter around SauceNaoNavigationPolicy — see
-    // [_applySauceNaoAction]. Returns prevent when the link was consumed.
-    return _applySauceNaoAction(
+    // Shared adapter around ReverseImageNavigationPolicy — see
+    // [_applyNavigationAction]. Returns prevent when the link was consumed.
+    return _applyNavigationAction(
           context,
-          SauceNaoNavigationPolicy.decide(Uri.tryParse(request.url)),
+          widget.spec.navigationPolicy.decide(Uri.tryParse(request.url)),
           request.url,
           widget.onOpenExternal,
         )
@@ -469,19 +506,19 @@ class _ControlledSauceNaoWebViewState
   }
 }
 
-/// Shared adapter around [SauceNaoNavigationPolicy]: returns true when the
-/// link was consumed (routed in-app, handed to the external launcher, or
+/// Shared adapter around [ReverseImageNavigationPolicy]: returns true when
+/// the link was consumed (routed in-app, handed to the external launcher, or
 /// rejected) and the webview must not navigate.
-bool _applySauceNaoAction(
+bool _applyNavigationAction(
   BuildContext context,
-  SauceNaoNavigationAction action,
+  ReverseImageNavigationAction action,
   String rawUrl,
   Future<void> Function(Uri uri) onOpenExternal,
 ) {
   switch (action) {
-    case SauceNaoNavigationAction.navigate:
+    case ReverseImageNavigationAction.navigate:
       return false;
-    case SauceNaoNavigationAction.openIllust:
+    case ReverseImageNavigationAction.openIllust:
       final id = switch (IntentRouter.route(Uri.parse(rawUrl))) {
         IllustRoute(:final illustId) => illustId,
         _ => null,
@@ -492,7 +529,7 @@ bool _applySauceNaoAction(
         unawaited(onOpenExternal(Uri.parse(rawUrl)));
       }
       return true;
-    case SauceNaoNavigationAction.openUser:
+    case ReverseImageNavigationAction.openUser:
       final id = switch (IntentRouter.route(Uri.parse(rawUrl))) {
         UserRoute(:final userId) => userId,
         _ => null,
@@ -503,25 +540,27 @@ bool _applySauceNaoAction(
         unawaited(onOpenExternal(Uri.parse(rawUrl)));
       }
       return true;
-    case SauceNaoNavigationAction.openExternal:
+    case ReverseImageNavigationAction.openExternal:
       final uri = Uri.tryParse(rawUrl);
       if (uri != null) unawaited(onOpenExternal(uri));
       return true;
-    case SauceNaoNavigationAction.reject:
+    case ReverseImageNavigationAction.reject:
       return true;
   }
 }
 
-/// InAppWebView (WebView2) variant of the SauceNAO result surface for
-/// desktop — same navigation policy, progress and error contract as
+/// InAppWebView (WebView2) variant of the result surface for desktop — same
+/// navigation policy, progress and error contract as
 /// [_ControlledSauceNaoWebView].
 class _ControlledSauceNaoInAppWebView extends StatefulWidget {
   const _ControlledSauceNaoInAppWebView({
     required this.webView,
+    required this.spec,
     required this.onOpenExternal,
   });
 
   final ReverseImageSearchWebView webView;
+  final ReverseImageEngineSpec spec;
   final Future<void> Function(Uri uri) onOpenExternal;
 
   @override
@@ -561,7 +600,10 @@ class _ControlledSauceNaoInAppWebViewState
           initialData: result.html != null
               ? InAppWebViewInitialData(
                   data: result.html!,
-                  baseUrl: WebUri(SauceNaoWebViewProvider.defaultEndpoint),
+                  baseUrl: WebUri(
+                    widget.spec.resultBaseUrl ??
+                        SauceNaoWebViewProvider.defaultEndpoint,
+                  ),
                 )
               : null,
           // See LoginWebViewDesktopPage: the Windows plugin implements
@@ -573,9 +615,9 @@ class _ControlledSauceNaoInAppWebViewState
           onLoadStart: (controller, url) {
             if (url == null) return;
             final raw = url.toString();
-            if (_applySauceNaoAction(
+            if (_applyNavigationAction(
               context,
-              SauceNaoNavigationPolicy.decide(Uri.tryParse(raw)),
+              widget.spec.navigationPolicy.decide(Uri.tryParse(raw)),
               raw,
               widget.onOpenExternal,
             )) {
@@ -599,4 +641,114 @@ class _ControlledSauceNaoInAppWebViewState
       ],
     );
   }
+}
+
+/// Engine upload page for Cloudflare-fronted engines (Ascii2D, TinEye). The
+/// image was already armed to the next file chooser by the controller — the
+/// site still needs the user's own tap on its upload control to open it.
+/// On desktop ([ReverseImageSearchWebUpload.armedUri] == null) the chooser
+/// cannot be intercepted, so the banner tells the user to pick the file in
+/// the page's own picker.
+class _UploadInAppWebView extends StatefulWidget {
+  const _UploadInAppWebView({
+    required this.upload,
+    required this.policy,
+    required this.onOpenExternal,
+  });
+
+  final ReverseImageSearchWebUpload upload;
+  final ReverseImageNavigationPolicy policy;
+  final Future<void> Function(Uri uri) onOpenExternal;
+
+  @override
+  State<_UploadInAppWebView> createState() => _UploadInAppWebViewState();
+}
+
+class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
+  String? _error;
+  double? _progress;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 56),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(_error!, textAlign: TextAlign.center),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      children: [
+        MaterialBanner(
+          leading: const Icon(Icons.upload_file_outlined),
+          content: Text(
+            widget.upload.armedUri == null
+                ? context.l10n.searchReverseUploadPickHint
+                : context.l10n.searchReverseUploadTapHint,
+          ),
+          actions: const [SizedBox.shrink()],
+        ),
+        Expanded(
+          child: Stack(
+            children: [
+              InAppWebView(
+                initialUrlRequest: URLRequest(
+                  url: WebUri.uri(widget.upload.uploadPageUrl),
+                ),
+                initialSettings: InAppWebViewSettings(javaScriptEnabled: true),
+                onLoadStart: (controller, url) {
+                  if (url == null) return;
+                  final raw = url.toString();
+                  if (_applyNavigationAction(
+                    context,
+                    widget.policy.decide(Uri.tryParse(raw)),
+                    raw,
+                    widget.onOpenExternal,
+                  )) {
+                    controller.stopLoading();
+                  }
+                },
+                onProgressChanged: (controller, progress) {
+                  if (mounted) setState(() => _progress = progress / 100.0);
+                },
+                onReceivedError: (controller, request, error) {
+                  if (request.isForMainFrame == false || !mounted) return;
+                  setState(() {
+                    _error =
+                        '${context.l10n.searchReversePageLoadFailed} '
+                        '(${error.type})';
+                  });
+                },
+              ),
+              if (_progress != null && _progress! < 1.0)
+                LinearProgressIndicator(value: _progress, minHeight: 2),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Map<ReverseImageEngine, ReverseImageProvider> _defaultProviders(
+  http.Client client,
+) {
+  return {
+    ReverseImageEngine.sauceNao: SauceNaoWebViewProvider(client: client),
+    ReverseImageEngine.iqdb: IqdbWebViewProvider(client: client),
+    ReverseImageEngine.ascii2d: WebViewUploadProvider(
+      spec: ReverseImageEngineSpecs.ascii2d,
+    ),
+    ReverseImageEngine.tinEye: WebViewUploadProvider(
+      spec: ReverseImageEngineSpecs.tinEye,
+    ),
+  };
 }

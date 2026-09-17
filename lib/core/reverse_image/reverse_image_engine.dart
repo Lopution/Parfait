@@ -1,13 +1,29 @@
 import 'package:flutter/foundation.dart';
 
 import 'image_input.dart';
+import 'reverse_image_navigation_policy.dart';
 
 /// How an engine receives the image. A property of the engine, not a user
 /// choice: Cloudflare-fronted engines only work when a real browser submits
 /// the form (see `design.md`).
 enum ReverseImageTransport { headlessUpload, webViewUpload }
 
-enum ReverseImageEngine { sauceNao, iqdb, ascii2d, tinEye }
+enum ReverseImageEngine {
+  sauceNao,
+  iqdb,
+  ascii2d,
+  tinEye;
+
+  /// Parses a persisted engine name; unknown values return null so callers
+  /// fall back to the default explicitly.
+  static ReverseImageEngine? tryFromName(Object? value) {
+    if (value is! String) return null;
+    for (final engine in values) {
+      if (engine.name == value) return engine;
+    }
+    return null;
+  }
+}
 
 /// Declarative contract of one reverse-image engine: endpoints, the host set
 /// the controlled WebView may navigate, and the input constraints the engine
@@ -56,6 +72,12 @@ class ReverseImageEngineSpec {
 
   /// Per-engine pixel-dimension ceiling for both width and height.
   final int maxDimension;
+
+  /// Navigation policy scoping this engine's controlled WebView to
+  /// [webViewHosts] (Pixiv links still route in-app, other HTTPS goes to the
+  /// external launcher).
+  ReverseImageNavigationPolicy get navigationPolicy =>
+      ReverseImageNavigationPolicy(webViewHosts);
 
   /// Whether [info] satisfies this engine's stricter-than-global
   /// constraints. Checked before any request is sent; an unsupported engine

@@ -2431,6 +2431,18 @@ abstract class AppLocalizations {
   /// **'结果页加载失败'**
   String get searchReversePageLoadFailed;
 
+  /// No description provided for @searchReverseUploadPickHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请在页面的文件选择框中重新选择同一张图片。'**
+  String get searchReverseUploadPickHint;
+
+  /// No description provided for @searchReverseUploadTapHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'点按页面中的上传按钮开始搜索，已选图片会自动填入。'**
+  String get searchReverseUploadTapHint;
+
   /// No description provided for @searchReverseIntro.
   ///
   /// In zh, this message translates to:

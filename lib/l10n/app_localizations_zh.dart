@@ -1243,6 +1243,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReversePageLoadFailed => '结果页加载失败';
 
   @override
+  String get searchReverseUploadPickHint => '请在页面的文件选择框中重新选择同一张图片。';
+
+  @override
+  String get searchReverseUploadTapHint => '点按页面中的上传按钮开始搜索，已选图片会自动填入。';
+
+  @override
   String get searchReverseIntro => '选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。';
 
   @override
