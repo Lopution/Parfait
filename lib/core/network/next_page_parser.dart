@@ -51,6 +51,8 @@ const Map<String, Set<String>> _kNextPageEndpoints = {
     'viewed[]',
   },
   '/v1/illust/ranking': {'filter', 'mode', 'date', 'offset'},
+  '/v1/illust/series': {'filter', 'illust_series_id', 'last_order'},
+  '/v1/user/illust-series': {'filter', 'user_id', 'offset'},
   '/v1/search/illust': {
     'word',
     'search_target',
