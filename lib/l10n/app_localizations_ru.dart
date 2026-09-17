@@ -509,6 +509,27 @@ class AppLocalizationsRu extends AppLocalizations {
       'Здесь показаны сохранённые данные аккаунта. Полное редактирование профиля предоставляет модуль профиля.';
 
   @override
+  String get serverDisplaySettings => 'Настройки показа аккаунта';
+
+  @override
+  String get serverDisplayHint =>
+      'Хранится на сервере Pixiv и влияет на то, что API возвращает этому аккаунту.';
+
+  @override
+  String get serverShowAi => 'Показывать AI-работы';
+
+  @override
+  String get serverRestrictedMode => 'Ограниченный режим';
+
+  @override
+  String get serverDisplayLoadFailed =>
+      'Не удалось загрузить серверные настройки';
+
+  @override
+  String get serverDisplayWriteFailed =>
+      'Не удалось сохранить настройку на сервере';
+
+  @override
   String get imageSource => 'Источник изображений';
 
   @override

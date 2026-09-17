@@ -497,6 +497,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileReadOnly => '保存されたアカウント情報を表示しています。プロフィール編集はプロフィール機能で提供します。';
 
   @override
+  String get serverDisplaySettings => 'アカウント表示設定';
+
+  @override
+  String get serverDisplayHint => 'Pixiv サーバーに保存され、このアカウントへの API 返却内容に作用します。';
+
+  @override
+  String get serverShowAi => 'AI 生成作品を表示';
+
+  @override
+  String get serverRestrictedMode => '制限モード';
+
+  @override
+  String get serverDisplayLoadFailed => 'サーバー設定の読み込みに失敗しました';
+
+  @override
+  String get serverDisplayWriteFailed => 'サーバー設定の保存に失敗しました';
+
+  @override
   String get imageSource => '画像ソース';
 
   @override
