@@ -2422,8 +2422,8 @@ abstract class AppLocalizations {
   /// No description provided for @searchReverseChallenge.
   ///
   /// In zh, this message translates to:
-  /// **'SauceNAO 要求人机验证，本次搜索未完成，请稍后再试'**
-  String get searchReverseChallenge;
+  /// **'{engine} 要求人机验证，本次搜索未完成，请稍后再试'**
+  String searchReverseChallenge(String engine);
 
   /// No description provided for @searchReversePageLoadFailed.
   ///
@@ -2431,22 +2431,34 @@ abstract class AppLocalizations {
   /// **'结果页加载失败'**
   String get searchReversePageLoadFailed;
 
-  /// No description provided for @searchReverseUploadPickHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'请在页面的文件选择框中重新选择同一张图片。'**
-  String get searchReverseUploadPickHint;
-
   /// No description provided for @searchReverseUploadTapHint.
   ///
   /// In zh, this message translates to:
   /// **'点按页面中的上传按钮开始搜索，已选图片会自动填入。'**
   String get searchReverseUploadTapHint;
 
+  /// No description provided for @searchReverseUploadPickHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请在页面的文件选择框中重新选择同一张图片。'**
+  String get searchReverseUploadPickHint;
+
+  /// No description provided for @searchReverseRetrySameEngine.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试当前引擎'**
+  String get searchReverseRetrySameEngine;
+
+  /// No description provided for @searchReverseEngineUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前图片不满足该引擎的输入限制'**
+  String get searchReverseEngineUnsupported;
+
   /// No description provided for @searchReverseIntro.
   ///
   /// In zh, this message translates to:
-  /// **'选择图片后，将匿名上传到 SauceNAO 进行反向检索；结果页在应用内打开。'**
+  /// **'选择图片后将上传到所选引擎进行反向检索；结果页在应用内打开。'**
   String get searchReverseIntro;
 
   /// No description provided for @searchNoRepresentative.

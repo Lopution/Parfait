@@ -1277,26 +1277,35 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get searchReverseDailyLimit => '今日匿名搜索额度已用完，明天再试';
+  String get searchReverseDailyLimit =>
+      'Daily anonymous search quota reached. Try again tomorrow.';
 
   @override
-  String get searchReverseChallenge =>
-      'SauceNAO requires human verification. This search did not finish. Try again later.';
+  String searchReverseChallenge(String engine) {
+    return '$engine requires human verification. This search did not finish. Try again later.';
+  }
 
   @override
   String get searchReversePageLoadFailed => 'The result page failed to load';
-
-  @override
-  String get searchReverseUploadPickHint =>
-      'Pick the same image again in the page’s file chooser.';
 
   @override
   String get searchReverseUploadTapHint =>
       'Tap the upload button on the page to search; the selected image is filled in automatically.';
 
   @override
+  String get searchReverseUploadPickHint =>
+      'Pick the same image again in the page’s file chooser.';
+
+  @override
+  String get searchReverseRetrySameEngine => 'Retry this engine';
+
+  @override
+  String get searchReverseEngineUnsupported =>
+      'The selected image doesn\'t meet this engine\'s input limits';
+
+  @override
   String get searchReverseIntro =>
-      'The selected image is uploaded anonymously to SauceNAO; the result page opens inside the app.';
+      'The selected image is uploaded to the chosen engine; the result page opens inside the app.';
 
   @override
   String get searchNoRepresentative => 'This tag has no representative work';

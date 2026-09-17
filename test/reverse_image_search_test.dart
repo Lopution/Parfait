@@ -511,7 +511,7 @@ void main() {
     expect(state.engineFailures, contains(ReverseImageEngine.sauceNao));
   });
 
-  test('selectEngine is a no-op without a held image', () async {
+  test('selectEngine without a held image only moves the selection', () async {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
@@ -525,7 +525,9 @@ void main() {
     );
 
     await controller.selectEngine(ReverseImageEngine.iqdb);
-    expect(_stateOf(container, session).engine, ReverseImageEngine.sauceNao);
+    final state = _stateOf(container, session);
+    expect(state.engine, ReverseImageEngine.iqdb);
+    expect(state.status, ReverseImageFlowStatus.idle);
   });
 
   test(

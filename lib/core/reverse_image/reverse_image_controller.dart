@@ -248,12 +248,17 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     }
   }
 
-  /// Switches the selected engine while an image is still held: ready,
-  /// failure (retry elsewhere) and a webUpload result the user navigates
-  /// away from. A headless success already released the file and is not
-  /// switchable.
+  /// Switches the selected engine. With no held image only the selection
+  /// moves (the UI persists it); with a held image a ready/failure/webUpload
+  /// state returns to ready so the new engine can be searched. A headless
+  /// success already released the file and is not switchable.
   Future<void> selectEngine(ReverseImageEngine engine) async {
-    if (_closed || engine == state.engine || _input == null) return;
+    if (_closed || engine == state.engine) return;
+    final input = _input;
+    if (input == null) {
+      _setState(ReverseImageFlowState(status: state.status, engine: engine));
+      return;
+    }
     switch (state.status) {
       case ReverseImageFlowStatus.ready:
       case ReverseImageFlowStatus.failure:
@@ -274,7 +279,7 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
       ReverseImageFlowState(
         status: ReverseImageFlowStatus.ready,
         engine: engine,
-        input: _input!.info,
+        input: input.info,
         engineFailures: state.engineFailures,
       ),
     );

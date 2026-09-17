@@ -1250,21 +1250,28 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseDailyLimit => '本日の匿名検索回数の上限に達しました。明日もう一度お試しください';
 
   @override
-  String get searchReverseChallenge =>
-      'SauceNAO が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください';
+  String searchReverseChallenge(String engine) {
+    return '$engine が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください';
+  }
 
   @override
   String get searchReversePageLoadFailed => '結果ページの読み込みに失敗しました';
-
-  @override
-  String get searchReverseUploadPickHint => 'ページのファイル選択で同じ画像をもう一度選んでください。';
 
   @override
   String get searchReverseUploadTapHint =>
       'ページ内のアップロードボタンをタップすると検索します。選択した画像は自動で入力されます。';
 
   @override
-  String get searchReverseIntro => '選択した画像は匿名で SauceNAO に送信され、結果ページがアプリ内で開きます。';
+  String get searchReverseUploadPickHint => 'ページのファイル選択で同じ画像をもう一度選んでください。';
+
+  @override
+  String get searchReverseRetrySameEngine => 'このエンジンで再試行';
+
+  @override
+  String get searchReverseEngineUnsupported => '選択した画像はこのエンジンの入力制限を満たしていません';
+
+  @override
+  String get searchReverseIntro => '選択した画像は選択中のエンジンにアップロードされ、結果ページがアプリ内で開きます。';
 
   @override
   String get searchNoRepresentative => 'このタグには代表作品がありません';
