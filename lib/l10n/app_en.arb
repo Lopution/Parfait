@@ -370,6 +370,28 @@
   "downloadCanceled": "Canceled",
   "retryDownload": "Retry",
   "cancelDownload": "Cancel",
+  "downloadPaused": "Paused",
+  "pauseDownload": "Pause",
+  "resumeDownload": "Resume",
+  "downloadGroupTitle": "Batch download · {count} items",
+  "@downloadGroupTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadGroupProgress": "{done}/{count} completed",
+  "@downloadGroupProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "aboutVersion": "Version",
   "aboutCheckUpdate": "Check for updates",
   "aboutCheckingUpdate": "Checking for updates…",

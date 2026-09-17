@@ -43,6 +43,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   @override
   Widget build(BuildContext context) {
     final tasks = _manager.tasks;
+    final groups = _manager.groups;
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.downloaderSettings)),
       body: tasks.isEmpty
@@ -54,11 +55,119 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                   padding: const EdgeInsets.all(8),
                   child: Text(context.l10n.downloaderSettingsHint),
                 ),
+                for (final group in groups)
+                  _DownloadGroupSection(group: group, manager: _manager),
                 for (final task in tasks)
                   _DownloadTaskTile(task: task, manager: _manager),
               ],
             ),
     );
+  }
+}
+
+/// Aggregate section for one submission group (D8 batch): combined progress
+/// plus group-level pause/resume/cancel instead of per-tile hunting.
+class _DownloadGroupSection extends StatelessWidget {
+  const _DownloadGroupSection({required this.group, required this.manager});
+
+  final DownloadGroupSnapshot group;
+  final DownloadManager manager;
+
+  bool get _everyRetryablePaused {
+    final retryable = [
+      for (final id in group.jobIds)
+        if (manager.taskById(id) case final task?
+            when task.status == DownloadStatus.retryable)
+          task,
+    ];
+    return retryable.isNotEmpty &&
+        retryable.every(
+          (task) => task.failureKind == DownloadFailureKind.paused,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final canAct =
+        group.status == DownloadGroupStatus.queued ||
+        group.status == DownloadGroupStatus.running;
+    final canResume =
+        group.status == DownloadGroupStatus.retryable ||
+        group.status == DownloadGroupStatus.failed ||
+        group.status == DownloadGroupStatus.canceled;
+    return Card(
+      child: ListTile(
+        title: Text(l10n.downloadGroupTitle(group.childCount)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_statusText(context)),
+            LinearProgressIndicator(value: group.progress),
+            Text(
+              l10n.downloadGroupProgress(
+                group.succeededCount,
+                group.childCount,
+              ),
+            ),
+          ],
+        ),
+        trailing: canAct
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: l10n.pauseDownload,
+                    icon: const Icon(Icons.pause),
+                    onPressed: () => unawaited(manager.pauseGroup(group.id)),
+                  ),
+                  IconButton(
+                    tooltip: l10n.cancelDownload,
+                    icon: const Icon(Icons.close),
+                    onPressed: () => unawaited(manager.cancelGroup(group.id)),
+                  ),
+                ],
+              )
+            : canResume
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: l10n.resumeDownload,
+                    icon: const Icon(Icons.play_arrow),
+                    onPressed: () => manager.resumeGroup(group.id),
+                  ),
+                  IconButton(
+                    tooltip: l10n.cancelDownload,
+                    icon: const Icon(Icons.close),
+                    onPressed: () => unawaited(manager.cancelGroup(group.id)),
+                  ),
+                ],
+              )
+            : Icon(
+                group.status == DownloadGroupStatus.succeeded
+                    ? Icons.check_circle_outline
+                    : Icons.info_outline,
+              ),
+      ),
+    );
+  }
+
+  String _statusText(BuildContext context) {
+    final l10n = context.l10n;
+    return switch (group.status) {
+      DownloadGroupStatus.queued => l10n.downloadQueued,
+      DownloadGroupStatus.running => l10n.downloadRunning,
+      DownloadGroupStatus.finalizing => l10n.downloadRunning,
+      DownloadGroupStatus.succeeded => l10n.downloadSucceeded,
+      DownloadGroupStatus.failed => l10n.downloadFailed,
+      DownloadGroupStatus.canceled => l10n.downloadCanceled,
+      // A paused group is dominated by `retryable` children whose
+      // failureKind is `paused`; mixed pause/failure still reads failed.
+      DownloadGroupStatus.retryable =>
+        _everyRetryablePaused ? l10n.downloadPaused : l10n.downloadFailed,
+      DownloadGroupStatus.orphaned => l10n.downloadFailed,
+    };
   }
 }
 
@@ -71,48 +180,66 @@ class _DownloadTaskTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = task.progress;
-    final canCancel =
-        task.status == DownloadStatus.queued ||
-        task.status == DownloadStatus.running ||
-        task.status == DownloadStatus.canceling;
-    final canRetry =
-        task.status == DownloadStatus.failed ||
-        task.status == DownloadStatus.canceled ||
-        task.status == DownloadStatus.retryable;
     return Card(
       child: ListTile(
         title: Text(task.displayName, overflow: TextOverflow.ellipsis),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_downloadStatusText(context, task.status)),
+            Text(_downloadStatusText(context)),
             LinearProgressIndicator(value: progress),
-            if (task.error != null) Text(task.error!),
+            if (task.error != null &&
+                task.failureKind != DownloadFailureKind.paused)
+              Text(task.error!),
           ],
         ),
-        trailing: canCancel
-            ? IconButton(
+        trailing: switch (task.status) {
+          // A paused (retryable) task may still be canceled — cancel is
+          // what discards the preserved partial output.
+          DownloadStatus.queued ||
+          DownloadStatus.running ||
+          DownloadStatus.canceling ||
+          DownloadStatus.retryable => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (task.status != DownloadStatus.canceling)
+                IconButton(
+                  tooltip: task.status == DownloadStatus.retryable
+                      ? context.l10n.retryDownload
+                      : context.l10n.pauseDownload,
+                  icon: Icon(
+                    task.status == DownloadStatus.retryable
+                        ? Icons.refresh
+                        : Icons.pause,
+                  ),
+                  onPressed: () => task.status == DownloadStatus.retryable
+                      ? manager.retry(task.id)
+                      : unawaited(manager.pause(task.id)),
+                ),
+              IconButton(
                 tooltip: context.l10n.cancelDownload,
                 icon: const Icon(Icons.close),
                 onPressed: () => manager.cancel(task.id),
-              )
-            : canRetry
-            ? IconButton(
-                tooltip: context.l10n.retryDownload,
-                icon: const Icon(Icons.refresh),
-                onPressed: () => manager.retry(task.id),
-              )
-            : Icon(
-                task.status == DownloadStatus.succeeded
-                    ? Icons.check_circle_outline
-                    : Icons.info_outline,
               ),
+            ],
+          ),
+          DownloadStatus.failed || DownloadStatus.canceled => IconButton(
+            tooltip: context.l10n.retryDownload,
+            icon: const Icon(Icons.refresh),
+            onPressed: () => manager.retry(task.id),
+          ),
+          _ => Icon(
+            task.status == DownloadStatus.succeeded
+                ? Icons.check_circle_outline
+                : Icons.info_outline,
+          ),
+        },
       ),
     );
   }
 
-  String _downloadStatusText(BuildContext context, DownloadStatus status) {
-    return switch (status) {
+  String _downloadStatusText(BuildContext context) {
+    return switch (task.status) {
       DownloadStatus.queued => context.l10n.downloadQueued,
       DownloadStatus.running => context.l10n.downloadRunning,
       DownloadStatus.finalizing => context.l10n.downloadRunning,
@@ -120,7 +247,10 @@ class _DownloadTaskTile extends StatelessWidget {
       DownloadStatus.succeeded => context.l10n.downloadSucceeded,
       DownloadStatus.failed => context.l10n.downloadFailed,
       DownloadStatus.canceled => context.l10n.downloadCanceled,
-      DownloadStatus.retryable => context.l10n.downloadFailed,
+      DownloadStatus.retryable =>
+        task.failureKind == DownloadFailureKind.paused
+            ? context.l10n.downloadPaused
+            : context.l10n.downloadFailed,
       DownloadStatus.orphaned => context.l10n.downloadFailed,
     };
   }

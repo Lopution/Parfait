@@ -919,6 +919,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelDownload => 'Cancel';
 
   @override
+  String get downloadPaused => 'Paused';
+
+  @override
+  String get pauseDownload => 'Pause';
+
+  @override
+  String get resumeDownload => 'Resume';
+
+  @override
+  String downloadGroupTitle(int count) {
+    return 'Batch download · $count items';
+  }
+
+  @override
+  String downloadGroupProgress(int done, int count) {
+    return '$done/$count completed';
+  }
+
+  @override
   String get aboutVersion => 'Version';
 
   @override

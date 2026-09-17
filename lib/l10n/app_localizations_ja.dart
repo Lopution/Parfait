@@ -894,6 +894,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cancelDownload => 'キャンセル';
 
   @override
+  String get downloadPaused => '一時停止';
+
+  @override
+  String get pauseDownload => '一時停止';
+
+  @override
+  String get resumeDownload => '再開';
+
+  @override
+  String downloadGroupTitle(int count) {
+    return '一括ダウンロード · $count件';
+  }
+
+  @override
+  String downloadGroupProgress(int done, int count) {
+    return '$done/$count 完了';
+  }
+
+  @override
   String get aboutVersion => 'バージョン';
 
   @override

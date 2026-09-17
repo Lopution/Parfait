@@ -917,6 +917,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cancelDownload => 'Отмена';
 
   @override
+  String get downloadPaused => 'Приостановлено';
+
+  @override
+  String get pauseDownload => 'Пауза';
+
+  @override
+  String get resumeDownload => 'Возобновить';
+
+  @override
+  String downloadGroupTitle(int count) {
+    return 'Пакетная загрузка · $count шт.';
+  }
+
+  @override
+  String downloadGroupProgress(int done, int count) {
+    return 'Готово $done/$count';
+  }
+
+  @override
   String get aboutVersion => 'Версия';
 
   @override
