@@ -689,5 +689,16 @@
         "type": "int"
       }
     }
-  }
+  },
+  "seriesEpisode": "第 {order} 話",
+  "@seriesEpisode": {
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesPrevious": "前の作品",
+  "seriesNext": "次の作品",
+  "profileSeries": "シリーズ"
 }

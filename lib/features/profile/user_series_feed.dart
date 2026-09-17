@@ -93,7 +93,7 @@ class UserSeriesFeed extends ConsumerWidget {
                     crossAxisSpacing: 10,
                     itemCount: entities.length,
                     itemBuilder: (context, index) =>
-                        _UserSeriesCard(series: entities[index]),
+                        _UserSeriesCardView(series: entities[index]),
                   ),
                 SliverToBoxAdapter(
                   child: FeedTail(
@@ -114,8 +114,8 @@ class UserSeriesFeed extends ConsumerWidget {
   }
 }
 
-class _UserSeriesCard extends StatelessWidget {
-  const _UserSeriesCard({required this.series});
+class _UserSeriesCardView extends StatelessWidget {
+  const _UserSeriesCardView({required this.series});
 
   final IllustSeriesEntity series;
 

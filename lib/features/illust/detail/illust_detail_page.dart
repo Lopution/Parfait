@@ -18,6 +18,7 @@ import '../../../core/illust/illust_download_controller.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
+import 'widgets/illust_series_section.dart';
 import 'widgets/info_block.dart';
 import 'widgets/page_image.dart';
 import 'ugoira_viewer.dart';
@@ -345,6 +346,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                     childCount: entity.pageCount,
                   ),
                 ),
+              // Official client behaviour: when the work belongs to an
+              // illust series, the series card sits between the image pages
+              // and the info block (name, 第 N 话, prev/next navigation).
+              IllustSeriesSection(illustId: widget.illustId),
               SliverToBoxAdapter(
                 child: InfoBlock(
                   entity: entity,

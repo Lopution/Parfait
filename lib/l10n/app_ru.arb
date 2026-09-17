@@ -689,5 +689,16 @@
         "type": "int"
       }
     }
-  }
+  },
+  "seriesEpisode": "Часть {order}",
+  "@seriesEpisode": {
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesPrevious": "Предыдущая",
+  "seriesNext": "Следующая",
+  "profileSeries": "Серии"
 }

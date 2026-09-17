@@ -689,5 +689,16 @@
         "type": "int"
       }
     }
-  }
+  },
+  "seriesEpisode": "第 {order} 话",
+  "@seriesEpisode": {
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesPrevious": "上一话",
+  "seriesNext": "下一话",
+  "profileSeries": "系列"
 }

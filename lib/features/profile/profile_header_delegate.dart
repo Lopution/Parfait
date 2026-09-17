@@ -6,6 +6,7 @@ import '../../app/icons/app_icons.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
+import '../../core/profile/profile_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../app/widgets/follow_switch_button.dart';
@@ -697,17 +698,17 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
     required this.controller,
     required this.isMe,
     required this.expanded,
-    required this.workType,
+    required this.section,
     required this.onTabTap,
-    required this.onWorkTypeChanged,
+    required this.onSectionChanged,
   });
 
   final TabController controller;
   final bool isMe;
   final bool expanded;
-  final UserWorkType workType;
+  final ProfileWorkSection section;
   final ValueChanged<int> onTabTap;
-  final ValueChanged<UserWorkType> onWorkTypeChanged;
+  final ValueChanged<ProfileWorkSection> onSectionChanged;
 
   @override
   double get minExtent => kToolbarHeight;
@@ -820,22 +821,20 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    for (final type in [
-                      UserWorkType.illust,
-                      UserWorkType.manga,
-                      UserWorkType.novel,
-                    ]) ...[
-                      if (type != UserWorkType.illust) const SizedBox(width: 8),
+                    for (final type in ProfileWorkSection.values) ...[
+                      if (type != ProfileWorkSection.illust)
+                        const SizedBox(width: 8),
                       ChoiceChip(
                         label: Text(
                           _text(context, switch (type) {
-                            UserWorkType.illust => 'profileIllust',
-                            UserWorkType.manga => 'profileManga',
-                            UserWorkType.novel => 'profileNovel',
+                            ProfileWorkSection.illust => 'profileIllust',
+                            ProfileWorkSection.manga => 'profileManga',
+                            ProfileWorkSection.novel => 'profileNovel',
+                            ProfileWorkSection.series => 'profileSeries',
                           }),
                         ),
-                        selected: workType == type,
-                        onSelected: (_) => onWorkTypeChanged(type),
+                        selected: section == type,
+                        onSelected: (_) => onSectionChanged(type),
                       ),
                     ],
                   ],
@@ -852,5 +851,5 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
       oldDelegate.controller != controller ||
       oldDelegate.isMe != isMe ||
       oldDelegate.expanded != expanded ||
-      oldDelegate.workType != workType;
+      oldDelegate.section != section;
 }
