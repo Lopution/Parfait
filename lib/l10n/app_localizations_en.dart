@@ -1821,6 +1821,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelReadingProgress => 'Reading progress';
 
   @override
+  String get novelReaderSettings => 'Reading settings';
+
+  @override
+  String get novelFontSize => 'Font size';
+
+  @override
+  String get novelLineHeight => 'Line height';
+
+  @override
+  String get novelThemeSystem => 'System';
+
+  @override
+  String get novelThemePaper => 'Paper';
+
+  @override
+  String get novelThemeSepia => 'Eye care';
+
+  @override
+  String get novelThemeNight => 'Night';
+
+  @override
   String get aboutDisplayRefreshRate => 'Display refresh rate';
 
   @override

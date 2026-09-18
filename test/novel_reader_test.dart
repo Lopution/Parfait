@@ -135,7 +135,7 @@ void main() {
     tester,
   ) async {
     var centerTaps = 0;
-    var handle = NovelReaderHandle();
+    final handle = NovelReaderHandle();
     var pages = 0;
     await tester.pumpWidget(
       MaterialApp(

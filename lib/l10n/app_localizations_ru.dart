@@ -1821,6 +1821,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelReadingProgress => 'Прогресс чтения';
 
   @override
+  String get novelReaderSettings => 'Настройки чтения';
+
+  @override
+  String get novelFontSize => 'Размер шрифта';
+
+  @override
+  String get novelLineHeight => 'Межстрочный интервал';
+
+  @override
+  String get novelThemeSystem => 'Системная';
+
+  @override
+  String get novelThemePaper => 'Бумага';
+
+  @override
+  String get novelThemeSepia => 'Защита глаз';
+
+  @override
+  String get novelThemeNight => 'Ночная';
+
+  @override
   String get aboutDisplayRefreshRate => 'Частота обновления';
 
   @override

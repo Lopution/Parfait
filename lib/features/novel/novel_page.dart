@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,6 +19,7 @@ import '../../core/network/pixiv_http_client.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart';
+import '../../core/novel/reader_settings.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/share/share_service.dart';
@@ -156,55 +159,136 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
   int _page = 0;
   int _pageCount = 1;
 
+  NovelReaderSettings _settings = const NovelReaderSettings();
+  NovelAnchor? _initialAnchor;
+  bool _prefsReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final settings = await ref.read(novelReaderSettingsStoreProvider).load();
+    final accountId = ref.read(
+      accountStoreProvider.select((a) => a.value?.usableCurrent?.id),
+    );
+    final saved = accountId == null
+        ? null
+        : await ref
+              .read(novelProgressStoreProvider)
+              .read(accountId, widget.novel.id);
+    if (!mounted) return;
+    setState(() {
+      _settings = settings;
+      _initialAnchor = saved == null
+          ? null
+          : NovelAnchor(paragraphId: saved.paragraphId, offset: saved.offset);
+      _prefsReady = true;
+    });
+  }
+
   void _toggleChrome() => setState(() => _chromeVisible = !_chromeVisible);
 
   void _hideChrome() {
     if (_chromeVisible) setState(() => _chromeVisible = false);
   }
 
+  void _applySettings(NovelReaderSettings next) {
+    setState(() => _settings = next);
+    unawaited(ref.read(novelReaderSettingsStoreProvider).save(next));
+  }
+
+  void _persistAnchor(NovelAnchor anchor) {
+    final accountId = ref.read(
+      accountStoreProvider.select((a) => a.value?.usableCurrent?.id),
+    );
+    if (accountId == null) return;
+    unawaited(
+      ref
+          .read(novelProgressStoreProvider)
+          .write(
+            accountId,
+            widget.novel.id,
+            paragraphId: anchor.paragraphId,
+            offset: anchor.offset,
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final novel = widget.novel;
     final l10n = context.l10n;
+    final palette = novelReaderPalette(_settings.theme);
+    final percent = _pageCount <= 1
+        ? 100
+        : ((_page + 1) / _pageCount * 100).round();
     return PopScope(
       canPop: !_chromeVisible,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _hideChrome();
       },
-      child: Stack(
-        children: [
-          Positioned.fill(child: _buildStage(context, novel)),
-          // The thin progress line rides the page edge independent of the
-          // chrome, like legado's footer tip row.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: LinearProgressIndicator(
-              value: _pageCount <= 1 ? 1 : (_page + 1) / _pageCount,
-              minHeight: 2,
+      child: ColoredBox(
+        color: palette.background ?? Theme.of(context).scaffoldBackgroundColor,
+        child: Stack(
+          children: [
+            Positioned.fill(child: _buildStage(context, novel, palette)),
+            // legado-style footer tip: title · page · percent, always on the
+            // page edge independent of the chrome bars.
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 4,
+              child: IgnorePointer(
+                child: Text(
+                  '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 11,
+                    color:
+                        (palette.foreground ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
             ),
-          ),
-          _ChromeBar(
-            visible: _chromeVisible,
-            edge: _ChromeEdge.top,
-            child: _buildTopBar(context, novel),
-          ),
-          _ChromeBar(
-            visible: _chromeVisible,
-            edge: _ChromeEdge.bottom,
-            child: _buildBottomBar(context, novel, l10n),
-          ),
-        ],
+            _ChromeBar(
+              visible: _chromeVisible,
+              edge: _ChromeEdge.top,
+              child: _buildTopBar(context, novel, palette),
+            ),
+            _ChromeBar(
+              visible: _chromeVisible,
+              edge: _ChromeEdge.bottom,
+              child: _buildBottomBar(context, novel, l10n, palette),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStage(BuildContext context, NovelEntity novel) {
+  Widget _buildStage(
+    BuildContext context,
+    NovelEntity novel,
+    NovelReaderPalette palette,
+  ) {
+    // Hold the reader until prefs resolve — mounting early would lay the
+    // document out twice (defaults, then the saved settings/anchor).
+    if (!_prefsReady) {
+      return const FeedLoading();
+    }
     final content = SafeArea(
       bottom: false,
       child: NovelReader(
         novel: novel,
+        settings: _settings,
+        initialAnchor: _initialAnchor,
+        textColor: palette.foreground,
         handle: _readerHandle,
         onCenterTap: _toggleChrome,
         onProgressChanged: (page, pageCount) {
@@ -217,6 +301,7 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
         onAnchorChanged: (anchor) {
           if (_anchor == anchor) return;
           setState(() => _anchor = anchor);
+          _persistAnchor(anchor);
         },
       ),
     );
@@ -241,40 +326,52 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
     );
   }
 
-  Widget _buildTopBar(BuildContext context, NovelEntity novel) {
+  Widget _buildTopBar(
+    BuildContext context,
+    NovelEntity novel,
+    NovelReaderPalette palette,
+  ) {
+    final foreground =
+        palette.foreground ?? Theme.of(context).colorScheme.onSurface;
     return Material(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          Expanded(
-            child: Text(
-              novel.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium,
+      color: (palette.background ?? Theme.of(context).colorScheme.surface)
+          .withValues(alpha: 0.96),
+      child: IconTheme.merge(
+        data: IconThemeData(color: foreground),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back),
             ),
-          ),
-          IconButton(
-            tooltip: context.l10n.cardActionShare,
-            onPressed: () => _shareNovel(context, novel),
-            icon: const Icon(Icons.share_outlined),
-          ),
-          BookmarkSwitchButton(
-            illustId: novel.id,
-            title: novel.title,
-            isNovel: true,
-          ),
-          IconButton(
-            tooltip: context.l10n.novelInfoTitle,
-            onPressed: () => _showNovelInfo(context, novel),
-            icon: const Icon(Icons.info_outline),
-          ),
-        ],
+            Expanded(
+              child: Text(
+                novel.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: foreground),
+              ),
+            ),
+            IconButton(
+              tooltip: context.l10n.cardActionShare,
+              onPressed: () => _shareNovel(context, novel),
+              icon: const Icon(Icons.share_outlined),
+            ),
+            BookmarkSwitchButton(
+              illustId: novel.id,
+              title: novel.title,
+              isNovel: true,
+            ),
+            IconButton(
+              tooltip: context.l10n.novelInfoTitle,
+              onPressed: () => _showNovelInfo(context, novel),
+              icon: const Icon(Icons.info_outline),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -283,44 +380,125 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
     BuildContext context,
     NovelEntity novel,
     AppLocalizations l10n,
+    NovelReaderPalette palette,
   ) {
     final percent = _pageCount <= 1 ? 100 : ((_page + 1) / _pageCount * 100);
+    final foreground =
+        palette.foreground ?? Theme.of(context).colorScheme.onSurface;
     return Material(
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.96),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (novel.seriesId != null)
-            _NovelSeriesBar(seriesId: novel.seriesId!, novelId: novel.id)
-          else if (novel.seriesPrevId != null || novel.seriesNextId != null)
-            _NovelAdjacentBar(
-              prevId: novel.seriesPrevId,
-              nextId: novel.seriesNextId,
-            ),
-          Row(
-            children: [
-              IconButton(
-                tooltip: l10n.novelDecreaseFont,
-                onPressed: () => _readerHandle.adjustFontSize?.call(-1),
-                icon: const Icon(Icons.text_decrease_outlined),
+      color: (palette.background ?? Theme.of(context).colorScheme.surface)
+          .withValues(alpha: 0.96),
+      child: IconTheme.merge(
+        data: IconThemeData(color: foreground),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (novel.seriesId != null)
+              _NovelSeriesBar(seriesId: novel.seriesId!, novelId: novel.id)
+            else if (novel.seriesPrevId != null || novel.seriesNextId != null)
+              _NovelAdjacentBar(
+                prevId: novel.seriesPrevId,
+                nextId: novel.seriesNextId,
               ),
-              Expanded(
-                child: Text(
-                  '${_page + 1}/$_pageCount · ${percent.round()}%',
-                  textAlign: TextAlign.center,
-                  semanticsLabel: l10n.novelReadingProgress,
-                  maxLines: 1,
+            Row(
+              children: [
+                IconButton(
+                  tooltip: l10n.novelDecreaseFont,
+                  onPressed: () => _applySettings(
+                    _settings.copyWith(fontSize: _settings.fontSize - 1),
+                  ),
+                  icon: const Icon(Icons.text_decrease_outlined),
+                ),
+                Expanded(
+                  child: Text(
+                    '${_page + 1}/$_pageCount · ${percent.round()}%',
+                    textAlign: TextAlign.center,
+                    semanticsLabel: l10n.novelReadingProgress,
+                    maxLines: 1,
+                    style: TextStyle(color: foreground),
+                  ),
+                ),
+                IconButton(
+                  tooltip: l10n.novelIncreaseFont,
+                  onPressed: () => _applySettings(
+                    _settings.copyWith(fontSize: _settings.fontSize + 1),
+                  ),
+                  icon: const Icon(Icons.text_increase_outlined),
+                ),
+                IconButton(
+                  tooltip: l10n.novelReaderSettings,
+                  onPressed: () => _showReaderSettings(context),
+                  icon: const Icon(Icons.tune_outlined),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReaderSettings(BuildContext context) {
+    final l10n = context.l10n;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            void apply(NovelReaderSettings next) {
+              setSheetState(() {});
+              _applySettings(next);
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SettingsSliderRow(
+                      label: l10n.novelFontSize,
+                      value: _settings.fontSize,
+                      min: 12,
+                      max: 30,
+                      onChanged: (v) => apply(_settings.copyWith(fontSize: v)),
+                    ),
+                    _SettingsSliderRow(
+                      label: l10n.novelLineHeight,
+                      value: _settings.lineHeight,
+                      min: 1.1,
+                      max: 2.2,
+                      divisions: 11,
+                      onChanged: (v) =>
+                          apply(_settings.copyWith(lineHeight: v)),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final (theme, label) in [
+                          (NovelReaderTheme.system, l10n.novelThemeSystem),
+                          (NovelReaderTheme.paper, l10n.novelThemePaper),
+                          (NovelReaderTheme.sepia, l10n.novelThemeSepia),
+                          (NovelReaderTheme.night, l10n.novelThemeNight),
+                        ])
+                          ChoiceChip(
+                            label: Text(label),
+                            selected: _settings.theme == theme,
+                            onSelected: (_) =>
+                                apply(_settings.copyWith(theme: theme)),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              IconButton(
-                tooltip: l10n.novelIncreaseFont,
-                onPressed: () => _readerHandle.adjustFontSize?.call(1),
-                icon: const Icon(Icons.text_increase_outlined),
-              ),
-            ],
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -399,6 +577,55 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One labelled slider row inside the reader settings sheet — legado's
+/// settings panel maps each typography knob to a continuous slider.
+class _SettingsSliderRow extends StatelessWidget {
+  const _SettingsSliderRow({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    this.divisions,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int? divisions;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 48,
+          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        ),
+        Expanded(
+          child: Slider(
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: divisions,
+            onChanged: onChanged,
+          ),
+        ),
+        SizedBox(
+          width: 36,
+          child: Text(
+            value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1),
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ],
     );
   }
 }
