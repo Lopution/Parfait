@@ -42,6 +42,9 @@ android {
         // versionCode % 1000.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // The app only ships zh/en/ja/ru strings; drop androidx/plugin
+        // resources for every other locale.
+        resourceConfigurations += setOf("en", "ja", "ru", "zh-rCN", "zh-rTW")
     }
 
     // Resolve release signing material once, but defer the missing-material
@@ -132,6 +135,15 @@ android {
 
     buildTypes {
         release {
+            // R8 + resource shrinking: classes.dex was ~2.2MB of unshrunk
+            // plugin/androidx code. Flutter embedding and channel-called
+            // plugin classes are covered by proguard-rules.pro keeps.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Signing is selected by the flavor above. GitHub requires the
             // project key; F-Droid deliberately remains store-managed.
         }
@@ -144,6 +156,11 @@ android {
     packaging {
         jniLibs {
             excludes += "**/libsqlite3.so"
+        }
+        dex {
+            // AGP stores .dex uncompressed in universal APKs; deflate saves
+            // ~2MB after R8 shrinking (split-ABI CI APKs already deflate).
+            useLegacyPackaging = true
         }
     }
 
