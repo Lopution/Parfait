@@ -591,6 +591,62 @@ void main() {
     },
   );
 
+  testWidgets('header back button stays mounted through the pop animation', (
+    tester,
+  ) async {
+    Widget header() => Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: ReplicaProfileHeaderDelegate(
+              user: _user(42),
+              isMe: true,
+              selectedTabIndex: 0,
+              showRestrictSelector: false,
+              restrict: UserRestrict.public,
+              onRestrictChanged: (_) {},
+              onShare: () {},
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+        ],
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => header())),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+
+    // pop() removes the route from history immediately — canPop flips false
+    // while the pop animation still runs. The header button must not
+    // unmount mid-slide.
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
+  });
+
   testWidgets(
     'UserPage renders tabs and re-tapping the current tab opens type selector',
     (tester) async {
