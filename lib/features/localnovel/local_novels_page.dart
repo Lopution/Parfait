@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -98,6 +99,7 @@ class _LocalNovelTile extends ConsumerWidget {
               '${novel.importedAt.day.toString().padLeft(2, '0')}',
         ].join(' · '),
       ),
+      onTap: () => openLocalNovelReader(context, novel.id),
       trailing: IconButton(
         tooltip: context.l10n.localNovelsDelete,
         icon: const Icon(Icons.delete_outline),
