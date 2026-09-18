@@ -29,6 +29,7 @@ class WatchLaterPage extends ConsumerWidget {
           error: (error, _) => FeedError(
             title: error.toString(),
             error: error,
+            retryLabel: l10n.retry,
             onRetry: () => ref.invalidate(watchLaterStoreProvider),
           ),
           data: (list) => list.isEmpty
