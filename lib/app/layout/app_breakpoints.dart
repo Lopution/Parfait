@@ -16,4 +16,13 @@ abstract final class AppBreakpoints {
 
   /// Shell navigation form factor for [width]: rail on medium+ surfaces.
   static bool useNavigationRail(double width) => width >= medium;
+
+  /// Rail presentation for [width]: on expanded surfaces the rail widens
+  /// into a labelled side column (`extended`); below that it stays the
+  /// compact icon rail.
+  static bool useExtendedRail(double width) => width >= expanded;
+
+  /// Detail pages split into a two-pane layout at [expanded] and above:
+  /// the image pager gets its own scroll region next to the info column.
+  static bool useTwoPaneDetail(double width) => width >= expanded;
 }

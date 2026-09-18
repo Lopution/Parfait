@@ -146,9 +146,13 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    final wide = AppBreakpoints.useNavigationRail(
-      MediaQuery.sizeOf(context).width,
-    );
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = AppBreakpoints.useNavigationRail(width);
+    // Three chrome tiers on the same width ladder: bottom bar (<600),
+    // compact rail (600-1199), labelled extended rail (>=1200). The rail
+    // animates the extended transition itself, so a window resize across
+    // the boundary swaps forms without a flash.
+    final extendedRail = AppBreakpoints.useExtendedRail(width);
     final index = widget.navigationShell.currentIndex;
     final labels = [
       context.l10n.homeRecommended,
@@ -172,7 +176,12 @@ class _HomePageState extends State<HomePage>
                   NavigationRail(
                     selectedIndex: index,
                     onDestinationSelected: widget.navigationShell.goBranch,
-                    labelType: NavigationRailLabelType.all,
+                    extended: extendedRail,
+                    // `extended` requires labelType null/none; the compact
+                    // rail keeps labels under every icon.
+                    labelType: extendedRail
+                        ? null
+                        : NavigationRailLabelType.all,
                     destinations: [
                       for (var i = 0; i < icons.length; i++)
                         NavigationRailDestination(
