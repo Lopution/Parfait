@@ -16,6 +16,9 @@ import '../paging/feed_snapshot_store.dart';
 import '../user/follow_models.dart';
 import '../user/follow_repository.dart';
 import '../user/follow_store.dart';
+import '../watchlist/watchlist_models.dart';
+import '../watchlist/watchlist_repository.dart';
+import '../watchlist/watchlist_store.dart';
 import 'action_models.dart';
 import 'action_queue.dart';
 import 'action_store.dart';
@@ -105,6 +108,16 @@ void _registerMutationHandlers(Ref ref, ActionQueue queue) {
         .read(followStoreProvider.notifier)
         .settleQueued(userId, followed: false);
   });
+  queue.registerHandler(ActionTypes.watchlistAdd, (action) async {
+    final key = _watchlistKey(action.decodePayload());
+    await ref.read(watchlistRepositoryProvider).add(key);
+    ref.read(watchlistStoreProvider.notifier).settleQueued(key, added: true);
+  });
+  queue.registerHandler(ActionTypes.watchlistDelete, (action) async {
+    final key = _watchlistKey(action.decodePayload());
+    await ref.read(watchlistRepositoryProvider).delete(key);
+    ref.read(watchlistStoreProvider.notifier).settleQueued(key, added: false);
+  });
 }
 
 BookmarkKey _bookmarkKey(Map<String, Object?> payload) {
@@ -117,4 +130,12 @@ BookmarkKey _bookmarkKey(Map<String, Object?> payload) {
     entity == 'novel' ? BookmarkEntityType.novel : BookmarkEntityType.illust,
     id,
   );
+}
+
+WatchlistKey _watchlistKey(Map<String, Object?> payload) {
+  final id = payload['seriesId'];
+  if (id is! int) {
+    throw const FormatException('action payload is missing a series id');
+  }
+  return WatchlistKey(WatchlistType.fromApiValue(payload['seriesType']), id);
 }
