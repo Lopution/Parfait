@@ -813,6 +813,7 @@
   "cardActionRemoveWatchLater": "あとで見るから削除",
   "cardActionShare": "共有",
   "linkCopied": "リンクをコピーしました",
+  "copyLink": "リンクをコピー",
   "watchLaterAdded": "あとで見るに追加しました",
   "watchLaterTitle": "あとで見る",
   "watchLaterEmpty": "一時保存した作品がここに表示されます",

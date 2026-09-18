@@ -1842,6 +1842,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get linkCopied => 'Ссылка скопирована';
 
   @override
+  String get copyLink => 'Копировать ссылку';
+
+  @override
   String get watchLaterAdded => 'Добавлено в «Посмотреть позже»';
 
   @override

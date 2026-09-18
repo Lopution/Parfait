@@ -1842,6 +1842,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get linkCopied => 'Link copied';
 
   @override
+  String get copyLink => 'Copy link';
+
+  @override
   String get watchLaterAdded => 'Added to Watch later';
 
   @override

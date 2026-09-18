@@ -12,6 +12,7 @@ import '../../../core/history/history_repository.dart';
 import '../../../core/history/history_snapshot.dart';
 import '../../../core/history/history_visibility.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../core/share/share_service.dart';
 import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
@@ -156,6 +157,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       actions: [
+        if (entity != null)
+          IconButton(
+            tooltip: context.l10n.cardActionShare,
+            onPressed: () => _share(context, ref, entity),
+            icon: const Icon(Icons.share_outlined),
+          ),
         if (_downloadMode && entity != null)
           IconButton(
             tooltip: context.l10n.downloadAll,
@@ -191,6 +198,26 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
           ),
       ],
     );
+  }
+
+  Future<void> _share(
+    BuildContext context,
+    WidgetRef ref,
+    IllustEntity entity,
+  ) async {
+    final outcome = await ref
+        .read(shareServiceProvider)
+        .share(
+          SharePayload.illust(
+            id: entity.id,
+            title: entity.title,
+            author: entity.user.name,
+          ),
+          sharePositionOrigin: shareOriginOf(context),
+        );
+    if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
+      showAppSnackBar(context, context.l10n.linkCopied);
+    }
   }
 
   IllustEntity? _entityOf(AsyncValue<IllustDetailState> async) {

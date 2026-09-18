@@ -233,100 +233,103 @@ void main() {
   // flips to for_ios (and drops include_* hints). The cursor validator pins
   // feed identity only, so paging must continue instead of dying with a
   // NextPageParseError.
-  test('novel recommended follows a next_url with a rewritten filter', () async {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    final credentials = FakeCredentialStore()
-      ..seed(
-        '100',
-        const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-      );
-    var pageRequests = 0;
-    final transport = MockClient((request) async {
-      pageRequests += 1;
-      final first = request.url.queryParameters['offset'] == null;
-      return http.Response(
-        jsonEncode({
-          'novels': [
-            for (var id = first ? 1 : 3; id < (first ? 3 : 5); id++)
-              {
-                'id': id,
-                'title': 'recommended novel $id',
-                'caption': '',
-                'restrict': 0,
-                'x_restrict': 0,
-                'image_urls': {'medium': 'https://i.pximg.net/$id/m.png'},
-                'tags': <Object>[],
-                'text_length': 1200,
-                'user': {
-                  'id': 99,
-                  'name': 'author',
-                  'account': 'author',
-                  'profile_image_urls': {
-                    'medium': 'https://i.pximg.net/u.png',
+  test(
+    'novel recommended follows a next_url with a rewritten filter',
+    () async {
+      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+      final credentials = FakeCredentialStore()
+        ..seed(
+          '100',
+          const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
+        );
+      var pageRequests = 0;
+      final transport = MockClient((request) async {
+        pageRequests += 1;
+        final first = request.url.queryParameters['offset'] == null;
+        return http.Response(
+          jsonEncode({
+            'novels': [
+              for (var id = first ? 1 : 3; id < (first ? 3 : 5); id++)
+                {
+                  'id': id,
+                  'title': 'recommended novel $id',
+                  'caption': '',
+                  'restrict': 0,
+                  'x_restrict': 0,
+                  'image_urls': {'medium': 'https://i.pximg.net/$id/m.png'},
+                  'tags': <Object>[],
+                  'text_length': 1200,
+                  'user': {
+                    'id': 99,
+                    'name': 'author',
+                    'account': 'author',
+                    'profile_image_urls': {
+                      'medium': 'https://i.pximg.net/u.png',
+                    },
                   },
+                  'is_bookmarked': false,
+                  'visible': true,
                 },
-                'is_bookmarked': false,
-                'visible': true,
-              },
-          ],
-          'next_url': first
-              ? 'https://app-api.pixiv.net/v1/novel/recommended'
-                    '?filter=for_ios&offset=30'
-              : null,
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
+            ],
+            'next_url': first
+                ? 'https://app-api.pixiv.net/v1/novel/recommended'
+                      '?filter=for_ios&offset=30'
+                : null,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final clientRef = <PixivHttpClient?>[null];
+      final container = ProviderContainer(
+        overrides: [
+          credentialStoreProvider.overrideWithValue(credentials),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(
+              accounts: const [Account(id: '100', userId: 100, name: 'tester')],
+              currentId: '100',
+            ),
+          ),
+          oauthServiceProvider.overrideWithValue(
+            OAuthService(
+              client: MockClient((request) async {
+                fail('refresh should not happen in this test');
+              }),
+            ),
+          ),
+          pixivHttpClientProvider.overrideWith((ref) {
+            final client = clientRef[0];
+            if (client == null) throw StateError('client not wired yet');
+            return client;
+          }),
+        ],
       );
-    });
-    final clientRef = <PixivHttpClient?>[null];
-    final container = ProviderContainer(
-      overrides: [
-        credentialStoreProvider.overrideWithValue(credentials),
-        accountMetadataRepositoryProvider.overrideWithValue(
-          FakeAccountMetadataRepository(
-            accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-            currentId: '100',
-          ),
-        ),
-        oauthServiceProvider.overrideWithValue(
-          OAuthService(
-            client: MockClient((request) async {
-              fail('refresh should not happen in this test');
-            }),
-          ),
-        ),
-        pixivHttpClientProvider.overrideWith((ref) {
-          final client = clientRef[0];
-          if (client == null) throw StateError('client not wired yet');
-          return client;
-        }),
-      ],
-    );
-    addTearDown(container.dispose);
-    clientRef[0] = PixivHttpClient(
-      client: transport,
-      accountStore: container.read(accountStoreProvider.notifier),
-      credentialStore: credentials,
-      oauthService: container.read(oauthServiceProvider),
-    );
-    await container.read(accountStoreProvider.future);
+      addTearDown(container.dispose);
+      clientRef[0] = PixivHttpClient(
+        client: transport,
+        accountStore: container.read(accountStoreProvider.notifier),
+        credentialStore: credentials,
+        oauthService: container.read(oauthServiceProvider),
+      );
+      await container.read(accountStoreProvider.future);
 
-    const key = (type: RecommendedContentType.novel);
-    final first = await container.read(recommendedFeedProvider(key).future);
-    expect(first.ids, [1, 2]);
-    expect(first.showInitialError, isFalse);
+      const key = (type: RecommendedContentType.novel);
+      final first = await container.read(recommendedFeedProvider(key).future);
+      expect(first.ids, [1, 2]);
+      expect(first.showInitialError, isFalse);
 
-    await container.read(recommendedFeedProvider(key).notifier).loadMore();
-    final after = container.read(recommendedFeedProvider(key)).requireValue;
-    expect(
-      after.ids,
-      [1, 2, 3, 4],
-      reason:
-          'a next_url whose client params Pixiv rewrote must still page; '
-          'only feed-identity params are validated',
-    );
-    expect(pageRequests, 2);
-  });
+      await container.read(recommendedFeedProvider(key).notifier).loadMore();
+      final after = container.read(recommendedFeedProvider(key)).requireValue;
+      expect(
+        after.ids,
+        [1, 2, 3, 4],
+        reason:
+            'a next_url whose client params Pixiv rewrote must still page; '
+            'only feed-identity params are validated',
+      );
+      expect(pageRequests, 2);
+    },
+  );
 
   test('initial network failure surfaces a retryable error state', () async {
     final (container, _) = await makeWorld(failApi: true);

@@ -813,6 +813,7 @@
   "cardActionRemoveWatchLater": "Remove from Watch later",
   "cardActionShare": "Share",
   "linkCopied": "Link copied",
+  "copyLink": "Copy link",
   "watchLaterAdded": "Added to Watch later",
   "watchLaterTitle": "Watch later",
   "watchLaterEmpty": "Stashed works appear here",
