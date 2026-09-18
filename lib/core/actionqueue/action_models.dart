@@ -6,6 +6,7 @@ library;
 import 'dart:convert';
 
 import '../network/api_error.dart';
+import '../network/compat/network_contracts.dart';
 
 /// Lifecycle of one queued action row.
 enum ActionStatus {
@@ -115,9 +116,35 @@ abstract final class ActionTypes {
 /// (4xx, unauthorized, parse errors) never qualify: they failed for a
 /// reason the network cannot fix.
 bool isConnectivityError(Object error) {
-  return switch (error) {
-    ApiNetworkError() || ApiTimeout() || ApiRateLimited() => true,
-    ApiHttpError(:final statusCode) => statusCode >= 500,
+  // The transport taxonomy owns classification so callers see the same
+  // verdict no matter which layer raised the failure: a raw ladder/
+  // resolver exception (NetworkFailureException, SecureResolutionException,
+  // an unwrapped rhttp error) classifies identically to its ApiNetworkError
+  // wrapper. certificateMismatch stays terminal — a swapped certificate is
+  // a visible security failure, never a queueable retry. cancelled, auth,
+  // parse and redirect outcomes are business verdicts the network cannot
+  // fix.
+  final failure = TransportFailureClassifier.classify(error);
+  return switch (failure.kind) {
+    NetworkFailureKind.dns ||
+    NetworkFailureKind.connect ||
+    NetworkFailureKind.timeout ||
+    NetworkFailureKind.reset ||
+    NetworkFailureKind.tlsHandshake ||
+    NetworkFailureKind.rateLimit => true,
+    // A delivered 5xx is a server-side transient — safe to replay later.
+    // 4xx/3xx stay visible business failures.
+    NetworkFailureKind.http => switch (failure.cause) {
+      ApiHttpError(:final statusCode) => statusCode >= 500,
+      NetworkRouteProbeException(:final statusCode) => statusCode >= 500,
+      _ => false,
+    },
+    // ApiNetworkError is the transport layer's own declaration of a
+    // network failure — an unclassifiable cause stays queueable (the
+    // historical blanket rule). Causes that classify to a terminal kind
+    // (certificateMismatch, auth, redirect) matched an arm above and
+    // never reach here.
+    NetworkFailureKind.unknown => error is ApiNetworkError,
     _ => false,
   };
 }
