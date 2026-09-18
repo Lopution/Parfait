@@ -70,15 +70,6 @@ class ResolvedHost {
   final Duration ttl;
 }
 
-class SecureResolutionException implements Exception {
-  const SecureResolutionException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => 'SecureResolutionException: $message';
-}
-
 /// Resolver backed by the platform's configured DNS resolver. It is the
 /// default because it preserves the user's ordinary direct network path; the
 /// resolved addresses are only used for a strict connection attempt whose
