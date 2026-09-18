@@ -1842,6 +1842,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String get seriesNext => '次の作品';
 
   @override
+  String get watchlistTitle => 'ウォッチリスト';
+
+  @override
+  String get watchlistManga => '漫画';
+
+  @override
+  String get watchlistNovel => '小説';
+
+  @override
+  String get watchlistEmpty => 'フォロー中のシリーズはまだありません';
+
+  @override
+  String get watchlistLoadFailed => 'ウォッチリストの読み込みに失敗しました';
+
+  @override
+  String get watchlistLoadMoreFailed => '追加の読み込みに失敗しました';
+
+  @override
+  String get watchlistAdd => 'シリーズをフォロー';
+
+  @override
+  String get watchlistRemove => 'フォロー解除';
+
+  @override
+  String get watchlistNewContent => '新着';
+
+  @override
   String get profileSeries => 'シリーズ';
 
   @override

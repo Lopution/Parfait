@@ -23,6 +23,7 @@ import '../../features/profile/bookmark_tag_feed_page.dart';
 import '../../features/comments/comments_page.dart';
 import '../../features/history/history_page.dart';
 import '../../features/watchlater/watchlater_page.dart';
+import '../../features/watchlist/watchlist_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
@@ -520,6 +521,11 @@ List<RouteBase> _commonBranchRoutes(
       path: 'watchlater',
       pageBuilder: (context, state) =>
           _page(context, state, branchObserver, const WatchLaterPage()),
+    ),
+    GoRoute(
+      path: 'watchlist',
+      pageBuilder: (context, state) =>
+          _page(context, state, branchObserver, const WatchlistPage()),
     ),
     GoRoute(
       path: 'bookmarks/tags',
@@ -1162,6 +1168,10 @@ Future<void> openNovelRanking(BuildContext context) async {
 
 Future<void> openWatchLater(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/watchlater');
+}
+
+Future<void> openWatchlist(BuildContext context) async {
+  await _push(context, '${_currentStackRoot(context)}/watchlist');
 }
 
 Future<void> openBookmarkTags(BuildContext context) async {

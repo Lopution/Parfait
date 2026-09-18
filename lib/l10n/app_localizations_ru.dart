@@ -1882,6 +1882,33 @@ class AppLocalizationsRu extends AppLocalizations {
   String get seriesNext => 'Следующая';
 
   @override
+  String get watchlistTitle => 'Отслеживаемое';
+
+  @override
+  String get watchlistManga => 'Манга';
+
+  @override
+  String get watchlistNovel => 'Новелла';
+
+  @override
+  String get watchlistEmpty => 'В отслеживаемом пока нет серий';
+
+  @override
+  String get watchlistLoadFailed => 'Не удалось загрузить список';
+
+  @override
+  String get watchlistLoadMoreFailed => 'Не удалось загрузить ещё';
+
+  @override
+  String get watchlistAdd => 'Следить за серией';
+
+  @override
+  String get watchlistRemove => 'Не следить';
+
+  @override
+  String get watchlistNewContent => 'Новое';
+
+  @override
   String get profileSeries => 'Серии';
 
   @override

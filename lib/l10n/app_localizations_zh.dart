@@ -1826,6 +1826,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get seriesNext => '下一话';
 
   @override
+  String get watchlistTitle => '追更';
+
+  @override
+  String get watchlistManga => '漫画';
+
+  @override
+  String get watchlistNovel => '小说';
+
+  @override
+  String get watchlistEmpty => '还没有追更的系列';
+
+  @override
+  String get watchlistLoadFailed => '追更列表加载失败';
+
+  @override
+  String get watchlistLoadMoreFailed => '加载更多失败';
+
+  @override
+  String get watchlistAdd => '追更';
+
+  @override
+  String get watchlistRemove => '取消追更';
+
+  @override
+  String get watchlistNewContent => '更新';
+
+  @override
   String get profileSeries => '系列';
 
   @override

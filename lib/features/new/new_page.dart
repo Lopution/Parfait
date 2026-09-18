@@ -4,6 +4,7 @@ import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
+import '../../app/navigation/routes.dart';
 import '../../app/widgets/novel_card.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/new/new_feed_controller.dart';
@@ -108,6 +109,13 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
               ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: context.l10n.watchlistTitle,
+            onPressed: () => openWatchlist(context),
+            icon: const Icon(Icons.collections_bookmark_outlined),
+          ),
+        ],
       ),
       body: Column(
         children: [
