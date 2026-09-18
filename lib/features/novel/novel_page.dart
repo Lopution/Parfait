@@ -12,10 +12,14 @@ import '../../core/history/history_snapshot.dart';
 import '../../core/history/history_visibility.dart';
 import '../../core/network/api_error.dart';
 import '../../core/network/pixiv_http_client.dart';
+import '../../core/auth/account_store.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../core/watchlist/watchlist_models.dart';
+import '../../core/watchlist/watchlist_store.dart';
+import '../../app/widgets/watchlist_toggle.dart';
 import 'novel_reader.dart';
 import 'novel_layout.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -290,7 +294,24 @@ class _NovelSeriesBar extends ConsumerWidget {
         final next = index + 1 < series.entries.length
             ? series.entries[index + 1]
             : null;
-        if (previous == null && next == null) return const SizedBox.shrink();
+        // Opening a series novel marks the watchlist cursor at the opened
+        // work — an older entry leaves the badge on the newer one.
+        final accountId = ref.watch(
+          accountStoreProvider.select(
+            (async) => async.value?.usableCurrent?.id,
+          ),
+        );
+        if (accountId != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref
+                .read(watchlistReadCursorProvider)
+                .markSeen(
+                  accountId,
+                  WatchlistKey(WatchlistType.novel, seriesId),
+                  novelId,
+                );
+          });
+        }
         return Material(
           color: Theme.of(context).colorScheme.surfaceContainer,
           child: Row(
@@ -309,6 +330,11 @@ class _NovelSeriesBar extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              WatchlistToggle(
+                seriesKey: WatchlistKey(WatchlistType.novel, seriesId),
+                detailAdded: series.watchlistAdded,
+                iconOnly: true,
               ),
               IconButton(
                 tooltip: context.l10n.novelNext,

@@ -1882,6 +1882,70 @@ class AppLocalizationsEn extends AppLocalizations {
   String get seriesNext => 'Next';
 
   @override
+  String get watchlistTitle => 'Watchlist';
+
+  @override
+  String get watchlistManga => 'Manga';
+
+  @override
+  String get watchlistNovel => 'Novel';
+
+  @override
+  String get watchlistEmpty => 'No series in your watchlist yet';
+
+  @override
+  String get watchlistLoadFailed => 'Failed to load watchlist';
+
+  @override
+  String get watchlistLoadMoreFailed => 'Failed to load more';
+
+  @override
+  String get watchlistAdd => 'Follow series';
+
+  @override
+  String get watchlistRemove => 'Unfollow series';
+
+  @override
+  String get watchlistNewContent => 'New';
+
+  @override
+  String get localNovelsTitle => 'Local novels';
+
+  @override
+  String get localNovelsEmpty => 'No imported local novels yet';
+
+  @override
+  String get localNovelsLoadFailed => 'Failed to load local novels';
+
+  @override
+  String get localNovelsImport => 'Import TXT';
+
+  @override
+  String get localNovelsImportFailed => 'Import failed';
+
+  @override
+  String localNovelsImported(String title) {
+    return 'Imported \"$title\"';
+  }
+
+  @override
+  String get localNovelsImportedLossy =>
+      'Imported, but the encoding was not fully recognized — the text may contain mojibake';
+
+  @override
+  String get localNovelsDelete => 'Delete';
+
+  @override
+  String localNovelsDeleteConfirm(String title) {
+    return 'Delete \"$title\"? The local file will be removed too.';
+  }
+
+  @override
+  String localNovelsChars(int count) {
+    return '$count chars';
+  }
+
+  @override
   String get profileSeries => 'Series';
 
   @override

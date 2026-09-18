@@ -1826,6 +1826,69 @@ class AppLocalizationsZh extends AppLocalizations {
   String get seriesNext => '下一话';
 
   @override
+  String get watchlistTitle => '追更';
+
+  @override
+  String get watchlistManga => '漫画';
+
+  @override
+  String get watchlistNovel => '小说';
+
+  @override
+  String get watchlistEmpty => '还没有追更的系列';
+
+  @override
+  String get watchlistLoadFailed => '追更列表加载失败';
+
+  @override
+  String get watchlistLoadMoreFailed => '加载更多失败';
+
+  @override
+  String get watchlistAdd => '追更';
+
+  @override
+  String get watchlistRemove => '取消追更';
+
+  @override
+  String get watchlistNewContent => '更新';
+
+  @override
+  String get localNovelsTitle => '本地小说';
+
+  @override
+  String get localNovelsEmpty => '还没有导入的本地小说';
+
+  @override
+  String get localNovelsLoadFailed => '本地小说加载失败';
+
+  @override
+  String get localNovelsImport => '导入 TXT';
+
+  @override
+  String get localNovelsImportFailed => '导入失败';
+
+  @override
+  String localNovelsImported(String title) {
+    return '已导入「$title」';
+  }
+
+  @override
+  String get localNovelsImportedLossy => '已导入，但编码无法完全识别，可能包含乱码';
+
+  @override
+  String get localNovelsDelete => '删除';
+
+  @override
+  String localNovelsDeleteConfirm(String title) {
+    return '删除「$title」？本地文件会一并删除。';
+  }
+
+  @override
+  String localNovelsChars(int count) {
+    return '$count 字';
+  }
+
+  @override
   String get profileSeries => '系列';
 
   @override

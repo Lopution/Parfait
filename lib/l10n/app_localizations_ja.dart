@@ -1842,6 +1842,70 @@ class AppLocalizationsJa extends AppLocalizations {
   String get seriesNext => '次の作品';
 
   @override
+  String get watchlistTitle => 'ウォッチリスト';
+
+  @override
+  String get watchlistManga => '漫画';
+
+  @override
+  String get watchlistNovel => '小説';
+
+  @override
+  String get watchlistEmpty => 'フォロー中のシリーズはまだありません';
+
+  @override
+  String get watchlistLoadFailed => 'ウォッチリストの読み込みに失敗しました';
+
+  @override
+  String get watchlistLoadMoreFailed => '追加の読み込みに失敗しました';
+
+  @override
+  String get watchlistAdd => 'シリーズをフォロー';
+
+  @override
+  String get watchlistRemove => 'フォロー解除';
+
+  @override
+  String get watchlistNewContent => '新着';
+
+  @override
+  String get localNovelsTitle => 'ローカル小説';
+
+  @override
+  String get localNovelsEmpty => 'インポートした小説はまだありません';
+
+  @override
+  String get localNovelsLoadFailed => 'ローカル小説の読み込みに失敗しました';
+
+  @override
+  String get localNovelsImport => 'TXT をインポート';
+
+  @override
+  String get localNovelsImportFailed => 'インポートに失敗しました';
+
+  @override
+  String localNovelsImported(String title) {
+    return '「$title」をインポートしました';
+  }
+
+  @override
+  String get localNovelsImportedLossy =>
+      'インポートしましたが、エンコーディングを完全に認識できず文字化けしている可能性があります';
+
+  @override
+  String get localNovelsDelete => '削除';
+
+  @override
+  String localNovelsDeleteConfirm(String title) {
+    return '「$title」を削除しますか？ローカルファイルも削除されます。';
+  }
+
+  @override
+  String localNovelsChars(int count) {
+    return '$count 文字';
+  }
+
+  @override
   String get profileSeries => 'シリーズ';
 
   @override

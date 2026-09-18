@@ -3552,6 +3552,120 @@ abstract class AppLocalizations {
   /// **'下一话'**
   String get seriesNext;
 
+  /// No description provided for @watchlistTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'追更'**
+  String get watchlistTitle;
+
+  /// No description provided for @watchlistManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'漫画'**
+  String get watchlistManga;
+
+  /// No description provided for @watchlistNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说'**
+  String get watchlistNovel;
+
+  /// No description provided for @watchlistEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有追更的系列'**
+  String get watchlistEmpty;
+
+  /// No description provided for @watchlistLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'追更列表加载失败'**
+  String get watchlistLoadFailed;
+
+  /// No description provided for @watchlistLoadMoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多失败'**
+  String get watchlistLoadMoreFailed;
+
+  /// No description provided for @watchlistAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'追更'**
+  String get watchlistAdd;
+
+  /// No description provided for @watchlistRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消追更'**
+  String get watchlistRemove;
+
+  /// No description provided for @watchlistNewContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新'**
+  String get watchlistNewContent;
+
+  /// No description provided for @localNovelsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地小说'**
+  String get localNovelsTitle;
+
+  /// No description provided for @localNovelsEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有导入的本地小说'**
+  String get localNovelsEmpty;
+
+  /// No description provided for @localNovelsLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地小说加载失败'**
+  String get localNovelsLoadFailed;
+
+  /// No description provided for @localNovelsImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入 TXT'**
+  String get localNovelsImport;
+
+  /// No description provided for @localNovelsImportFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入失败'**
+  String get localNovelsImportFailed;
+
+  /// No description provided for @localNovelsImported.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入「{title}」'**
+  String localNovelsImported(String title);
+
+  /// No description provided for @localNovelsImportedLossy.
+  ///
+  /// In zh, this message translates to:
+  /// **'已导入，但编码无法完全识别，可能包含乱码'**
+  String get localNovelsImportedLossy;
+
+  /// No description provided for @localNovelsDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get localNovelsDelete;
+
+  /// No description provided for @localNovelsDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除「{title}」？本地文件会一并删除。'**
+  String localNovelsDeleteConfirm(String title);
+
+  /// No description provided for @localNovelsChars.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 字'**
+  String localNovelsChars(int count);
+
   /// No description provided for @profileSeries.
   ///
   /// In zh, this message translates to:

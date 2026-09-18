@@ -36,6 +36,28 @@ class IllustSeriesStore extends Notifier<Map<int, IllustSeriesEntity>> {
     state = next;
   }
 
+  /// Mirrors a confirmed watchlist change onto the stored entity. Entries
+  /// not yet observed stay absent — the series page fetches its own detail.
+  void markWatchlist(int id, bool added) {
+    final existing = state[id];
+    if (existing == null) return;
+    state = {
+      ...state,
+      id: IllustSeriesEntity(
+        id: existing.id,
+        title: existing.title,
+        userId: existing.userId,
+        userName: existing.userName,
+        caption: existing.caption,
+        coverUrl: existing.coverUrl,
+        workCount: existing.workCount,
+        watchlistAdded: added,
+        isConcluded: existing.isConcluded,
+        latestContentId: existing.latestContentId,
+      ),
+    };
+  }
+
   void clear() => state = {};
 }
 

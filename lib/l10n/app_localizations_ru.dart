@@ -1882,6 +1882,70 @@ class AppLocalizationsRu extends AppLocalizations {
   String get seriesNext => 'Следующая';
 
   @override
+  String get watchlistTitle => 'Отслеживаемое';
+
+  @override
+  String get watchlistManga => 'Манга';
+
+  @override
+  String get watchlistNovel => 'Новелла';
+
+  @override
+  String get watchlistEmpty => 'В отслеживаемом пока нет серий';
+
+  @override
+  String get watchlistLoadFailed => 'Не удалось загрузить список';
+
+  @override
+  String get watchlistLoadMoreFailed => 'Не удалось загрузить ещё';
+
+  @override
+  String get watchlistAdd => 'Следить за серией';
+
+  @override
+  String get watchlistRemove => 'Не следить';
+
+  @override
+  String get watchlistNewContent => 'Новое';
+
+  @override
+  String get localNovelsTitle => 'Локальные новеллы';
+
+  @override
+  String get localNovelsEmpty => 'Пока нет импортированных новелл';
+
+  @override
+  String get localNovelsLoadFailed => 'Не удалось загрузить локальные новеллы';
+
+  @override
+  String get localNovelsImport => 'Импорт TXT';
+
+  @override
+  String get localNovelsImportFailed => 'Не удалось импортировать';
+
+  @override
+  String localNovelsImported(String title) {
+    return 'Импортировано «$title»';
+  }
+
+  @override
+  String get localNovelsImportedLossy =>
+      'Импортировано, но кодировка распознана не полностью — текст может содержать искажённые символы';
+
+  @override
+  String get localNovelsDelete => 'Удалить';
+
+  @override
+  String localNovelsDeleteConfirm(String title) {
+    return 'Удалить «$title»? Локальный файл тоже будет удалён.';
+  }
+
+  @override
+  String localNovelsChars(int count) {
+    return '$count символов';
+  }
+
+  @override
   String get profileSeries => 'Серии';
 
   @override
