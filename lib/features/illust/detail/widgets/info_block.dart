@@ -11,7 +11,7 @@ import '../../../../app/widgets/tag_chips.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/mute/mute_store.dart';
 import '../../../../l10n/context.dart';
-import 'caption_rich_text.dart';
+import '../../../../app/widgets/caption_rich_text.dart';
 
 class InfoBlock extends ConsumerWidget {
   const InfoBlock({
