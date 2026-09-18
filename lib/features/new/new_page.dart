@@ -4,7 +4,7 @@ import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
-import '../../app/navigation/routes.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/novel_card.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/new/new_feed_controller.dart';
@@ -12,7 +12,6 @@ import '../../core/new/new_feed_models.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
-import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../l10n/context.dart';
@@ -109,18 +108,9 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
               ),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: context.l10n.watchlistTitle,
-            onPressed: () => openWatchlist(context),
-            icon: const Icon(Icons.collections_bookmark_outlined),
-          ),
-          IconButton(
-            tooltip: context.l10n.localNovelsTitle,
-            onPressed: () => openLocalNovels(context),
-            icon: const Icon(Icons.menu_book_outlined),
-          ),
-        ],
+        // Feature entries (watchlist, local novels) live in settings'
+        // content group — the three home feeds keep identical chrome:
+        // AppBar + embedded TabBar, no stray action icons.
       ),
       body: Column(
         children: [
