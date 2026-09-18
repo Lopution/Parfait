@@ -212,7 +212,7 @@ int illustColumnsFor(double crossAxisExtent) {
 /// cross-axis extent the sliver receives — under the wide NavigationRail the
 /// content width is smaller than the window, so reading `MediaQuery` here
 /// would over-count columns.
-class IllustFeedGrid extends StatelessWidget {
+class IllustFeedGrid extends StatefulWidget {
   const IllustFeedGrid({
     super.key,
     required this.itemCount,
@@ -235,8 +235,20 @@ class IllustFeedGrid extends StatelessWidget {
   final List<IllustEntity>? prefetchEntities;
 
   @override
+  State<IllustFeedGrid> createState() => _IllustFeedGridState();
+}
+
+class _IllustFeedGridState extends State<IllustFeedGrid> {
+  /// Staggered-entrance indices already shown by this grid instance; the
+  /// grid drops keep-alives, so without it a card scrolling back into view
+  /// replays its entrance and reads as a reload.
+  final _entrancePlayed = <int>{};
+
+  @override
   Widget build(BuildContext context) {
-    final horizontal = padding.resolve(Directionality.of(context)).horizontal;
+    final horizontal = widget.padding
+        .resolve(Directionality.of(context))
+        .horizontal;
     // SliverLayoutBuilder is called again when the scroll offset changes.
     // Keep the generated grid widget stable for the same width so its
     // SliverChildBuilderDelegate is not recreated on every scroll tick. A
@@ -252,23 +264,25 @@ class IllustFeedGrid extends StatelessWidget {
         }
         final columns = illustColumnsFor(crossAxisExtent - horizontal);
         final columnWidth =
-            (crossAxisExtent - horizontal - (columns - 1) * crossAxisSpacing) /
+            (crossAxisExtent -
+                horizontal -
+                (columns - 1) * widget.crossAxisSpacing) /
             columns;
         final decodeWidth = PixivImage.decodeWidthFor(columnWidth);
         final grid = SliverPadding(
-          padding: padding,
+          padding: widget.padding,
           sliver: SliverMasonryGrid(
             gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
             ),
-            mainAxisSpacing: mainAxisSpacing,
-            crossAxisSpacing: crossAxisSpacing,
+            mainAxisSpacing: widget.mainAxisSpacing,
+            crossAxisSpacing: widget.crossAxisSpacing,
             // Feed cards are provider-backed/stateless. They do not own
             // scroll-position state, so the default AutomaticKeepAlive
             // wrapper only adds elements and notifications to every card.
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final prefetch = prefetchEntities;
+                final prefetch = widget.prefetchEntities;
                 if (prefetch != null) {
                   final from = prefetchCursor.advance(
                     index,
@@ -287,11 +301,12 @@ class IllustFeedGrid extends StatelessWidget {
                   width: columnWidth,
                   child: StaggeredEntrance(
                     index: index,
-                    child: itemBuilder(context, index),
+                    played: _entrancePlayed,
+                    child: widget.itemBuilder(context, index),
                   ),
                 );
               },
-              childCount: itemCount,
+              childCount: widget.itemCount,
               addAutomaticKeepAlives: false,
             ),
           ),

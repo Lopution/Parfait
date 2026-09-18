@@ -576,7 +576,14 @@ class _PixivImageState extends ConsumerState<PixivImage> {
     // every refreshed slot. Glide behaves identically: a URL change on a
     // live target never plays the load transition.
     final slotHandoff = _lastShownUrl != null && _lastShownUrl != imageUrl;
-    final crossfade = widget.fade && previousTransition == null && !slotHandoff;
+    // Frozen tickers (a route transition owns the budget) must not arm a
+    // fade: the outgoing snapshot would bake a half-transparent frame and
+    // the fade resuming after landing reads as the image reloading.
+    final crossfade =
+        widget.fade &&
+        previousTransition == null &&
+        !slotHandoff &&
+        TickerMode.valuesOf(context).enabled;
     _lastShownUrl = imageUrl;
     final image = LayoutBuilder(
       builder: (context, constraints) => CachedNetworkImage(
