@@ -115,6 +115,11 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
             onPressed: () => openWatchlist(context),
             icon: const Icon(Icons.collections_bookmark_outlined),
           ),
+          IconButton(
+            tooltip: context.l10n.localNovelsTitle,
+            onPressed: () => openLocalNovels(context),
+            icon: const Icon(Icons.menu_book_outlined),
+          ),
         ],
       ),
       body: Column(

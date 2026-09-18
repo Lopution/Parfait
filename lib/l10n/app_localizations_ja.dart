@@ -1869,6 +1869,43 @@ class AppLocalizationsJa extends AppLocalizations {
   String get watchlistNewContent => '新着';
 
   @override
+  String get localNovelsTitle => 'ローカル小説';
+
+  @override
+  String get localNovelsEmpty => 'インポートした小説はまだありません';
+
+  @override
+  String get localNovelsLoadFailed => 'ローカル小説の読み込みに失敗しました';
+
+  @override
+  String get localNovelsImport => 'TXT をインポート';
+
+  @override
+  String get localNovelsImportFailed => 'インポートに失敗しました';
+
+  @override
+  String localNovelsImported(String title) {
+    return '「$title」をインポートしました';
+  }
+
+  @override
+  String get localNovelsImportedLossy =>
+      'インポートしましたが、エンコーディングを完全に認識できず文字化けしている可能性があります';
+
+  @override
+  String get localNovelsDelete => '削除';
+
+  @override
+  String localNovelsDeleteConfirm(String title) {
+    return '「$title」を削除しますか？ローカルファイルも削除されます。';
+  }
+
+  @override
+  String localNovelsChars(int count) {
+    return '$count 文字';
+  }
+
+  @override
   String get profileSeries => 'シリーズ';
 
   @override
