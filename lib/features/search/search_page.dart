@@ -9,6 +9,7 @@ import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_repository.dart';
 import '../../core/search/search_trending_controller.dart';
+import '../../core/settings/settings_controller.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -295,7 +296,6 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   late final TabController _tabController;
   late final TextEditingController _textController;
   late final FocusNode _focusNode;
-  SearchFilters _filters = SearchFilters.defaults;
   late int _selectedIndex;
   Animation<double>? _routeAnimation;
 
@@ -373,26 +373,29 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     openSearchResults(context, _query(keyword));
   }
 
-  SearchQuery _query(String keyword) => switch (_types[_selectedIndex]) {
-    SearchResultType.illust => IllustSearchQuery(
-      keyword: keyword,
-      filters: _filters,
-    ),
-    SearchResultType.novel => NovelSearchQuery(
-      keyword: keyword,
-      filters: _filters,
-    ),
-    SearchResultType.user => UserSearchQuery(keyword: keyword),
-  };
+  SearchQuery _query(String keyword) {
+    final filters = ref.read(searchFiltersProvider);
+    return switch (_types[_selectedIndex]) {
+      SearchResultType.illust => IllustSearchQuery(
+        keyword: keyword,
+        filters: filters,
+      ),
+      SearchResultType.novel => NovelSearchQuery(
+        keyword: keyword,
+        filters: filters,
+      ),
+      SearchResultType.user => UserSearchQuery(keyword: keyword),
+    };
+  }
 
   Future<void> _editFilters() async {
     final selected = await showSearchFilterSheet(
       context,
-      initial: _filters,
+      initial: ref.read(searchFiltersProvider),
       type: _types[_selectedIndex],
     );
     if (!mounted || selected == null) return;
-    setState(() => _filters = selected);
+    await ref.read(settingsProvider.notifier).setSearchFilters(selected);
   }
 
   void _onSearchChanged(String value) {
