@@ -816,6 +816,7 @@
   "watchLaterAdded": "Добавлено в «Посмотреть позже»",
   "watchLaterTitle": "Посмотреть позже",
   "watchLaterEmpty": "Отложенные работы появятся здесь",
+  "watchLaterLoadFailed": "Не удалось загрузить «Посмотреть позже»",
   "bookmarkEditTitle": "Изменить закладку",
   "bookmarkTags": "Теги закладок",
   "bookmarkTagNewHint": "Введите тег и нажмите Enter",
