@@ -60,7 +60,7 @@ void main() {
     }
   });
 
-  testWidgets('home bar renders four iconFont icons plus the me tab icon', (
+  testWidgets('home bar renders four iconFont icons plus the settings tab icon', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -94,9 +94,9 @@ void main() {
       expect(iconWidgets[i].icon!.fontFamily, 'iconFont');
       expect(iconWidgets[i].icon!.matchTextDirection, isTrue);
     }
-    // The fifth tab is the "我的" destination; settings is an app-level
-    // action (AppBar gear / rail trailing), not a personal-content tab.
-    expect(identical(iconWidgets[4].icon, Icons.person_outline), isTrue);
+    // The fifth tab is the settings destination; the profile moved to the
+    // settings page's account card, not a personal-content tab.
+    expect(identical(iconWidgets[4].icon, Icons.settings_outlined), isTrue);
   });
 
   testWidgets('home bar renders real glyphs from the bundled font', (
