@@ -12,6 +12,7 @@ import 'package:pixiv_func/core/platform/platform_caps.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
+import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/tag_search_page.dart';
@@ -195,16 +196,18 @@ void main() {
     addTearDown(tester.view.reset);
     final router = await pumpRouter(tester, '/recommended');
 
-    // Gear in a tab AppBar pushes the root-level settings flow.
+    // Settings is the fifth home destination: opening it switches the shell
+    // branch, so its own bottom bar stays mounted like on any other tab.
     unawaited(openSettings(tester.element(find.byType(RecommendedHomePage))));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(router.state.uri.path, '/settings');
     expect(find.byType(SettingsPage), findsOneWidget);
-    expect(find.byType(FuncBottomNav), findsNothing);
+    expect(find.byType(FuncBottomNav), findsOneWidget);
 
-    await tester.binding.handlePopRoute();
+    // Branch switch back restores the recommended tab.
+    router.go('/recommended');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/recommended');
@@ -215,10 +218,10 @@ void main() {
     tester,
   ) async {
     final router = await pumpRouter(tester, '/recommended');
-    unawaited(openSettings(tester.element(find.byType(RecommendedHomePage))));
+    unawaited(openMe(tester.element(find.byType(RecommendedHomePage))));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MePage), findsOneWidget);
 
     await tester.binding.handlePopRoute();
     await tester.pump();
@@ -231,7 +234,7 @@ void main() {
     expect(snapshots.where((s) => s.controller.allowSnapshotting), isNotEmpty);
     // The live subtree stays mounted so a cancelled pop or route state
     // survives the snapshot window.
-    expect(find.byType(SettingsPage, skipOffstage: false), findsOneWidget);
+    expect(find.byType(MePage, skipOffstage: false), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/recommended');
