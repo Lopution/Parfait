@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/icons/app_icons.dart';
-import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../core/profile/profile_models.dart';
@@ -440,36 +439,21 @@ class _ExpandedProfileDetails extends StatelessWidget {
       children: [
         SizedBox(
           height: 48,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 56),
-                child: Center(
-                  child: Text(
-                    key: const ValueKey('profile-expanded-name'),
-                    user.name,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: IconButton(
-                  tooltip: context.l10n.profileShare,
-                  onPressed: onShare,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 56),
+            child: Center(
+              child: Text(
+                key: const ValueKey('profile-expanded-name'),
+                user.name,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
                   color: textColor,
-                  icon: const Icon(Icons.share_outlined),
                 ),
               ),
-            ],
+            ),
           ),
         ),
         if (user.account.isNotEmpty)
@@ -500,10 +484,19 @@ class _ExpandedProfileDetails extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        if (isMe)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        // One actions row under the stats — the share icon used to sit alone
+        // at the name row's trailing edge while edit/settings lived here,
+        // which scattered the controls across two spots.
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: context.l10n.profileShare,
+              onPressed: onShare,
+              color: textColor,
+              icon: const Icon(Icons.share_outlined),
+            ),
+            if (isMe) ...[
               if (onEditProfile != null)
                 IconButton(
                   tooltip: context.l10n.profileEditTitle,
@@ -511,20 +504,14 @@ class _ExpandedProfileDetails extends StatelessWidget {
                   color: textColor,
                   icon: const Icon(Icons.edit_outlined),
                 ),
-              IconButton(
-                tooltip: context.l10n.settingsTitle,
-                onPressed: () => openSettings(context),
-                color: textColor,
-                icon: const Icon(Icons.settings_outlined),
+            ] else
+              FollowSwitchButton(
+                userId: user.id,
+                userName: user.name,
+                userAccount: user.account,
               ),
-            ],
-          )
-        else
-          FollowSwitchButton(
-            userId: user.id,
-            userName: user.name,
-            userAccount: user.account,
-          ),
+          ],
+        ),
       ],
     );
   }
@@ -560,84 +547,65 @@ class _CollapsedProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settingsButton = IconButton(
-      tooltip: context.l10n.settingsTitle,
-      onPressed: () => openSettings(context),
-      icon: const Icon(Icons.settings_outlined),
-    );
-    final downloadAllButton = onDownloadAll == null
-        ? null
-        : IconButton(
-            tooltip: _text(context, 'downloadAuthorWorks'),
-            onPressed: onDownloadAll,
-            icon: const Icon(Icons.file_download_outlined),
-          );
-    final actions = isMe && showRestrictSelector
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              PopupMenuButton<UserRestrict>(
-                tooltip: _text(context, 'restrictSelector'),
-                initialValue: restrict,
-                onSelected: onRestrictChanged,
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: UserRestrict.public,
-                    child: Text(_text(context, 'restrictPublic')),
-                  ),
-                  PopupMenuItem(
-                    value: UserRestrict.private,
-                    child: Text(_text(context, 'restrictPrivate')),
-                  ),
-                ],
-                icon: const Icon(Icons.filter_alt_outlined),
-              ),
-              if (onOpenBookmarkTags != null)
-                IconButton(
-                  tooltip: _text(context, 'bookmarkTags'),
-                  onPressed: onOpenBookmarkTags,
-                  icon: const Icon(Icons.label_outline),
-                ),
-              ?downloadAllButton,
-              if (onEditProfile != null)
-                IconButton(
-                  tooltip: _text(context, 'profileEditTitle'),
-                  onPressed: onEditProfile,
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-              settingsButton,
-            ],
-          )
-        : isMe
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ?downloadAllButton,
-              if (onEditProfile != null)
-                IconButton(
-                  tooltip: _text(context, 'profileEditTitle'),
-                  onPressed: onEditProfile,
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-              settingsButton,
-            ],
-          )
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ?downloadAllButton,
-              IconButton(
-                tooltip: _text(context, 'profileShare'),
-                onPressed: onShare,
-                icon: const Icon(Icons.share_outlined),
-              ),
-            ],
-          );
+    // One overflow entry per header action. Settings is the fifth home tab
+    // now, so it no longer needs a spot here.
+    final entries = <PopupMenuEntry<String>>[
+      if (isMe && showRestrictSelector) ...[
+        CheckedPopupMenuItem(
+          value: 'restrictPublic',
+          checked: restrict == UserRestrict.public,
+          child: Text(_text(context, 'restrictPublic')),
+        ),
+        CheckedPopupMenuItem(
+          value: 'restrictPrivate',
+          checked: restrict == UserRestrict.private,
+          child: Text(_text(context, 'restrictPrivate')),
+        ),
+        const PopupMenuDivider(),
+      ],
+      if (onOpenBookmarkTags != null)
+        PopupMenuItem(
+          value: 'bookmarkTags',
+          child: Text(_text(context, 'bookmarkTags')),
+        ),
+      if (onDownloadAll != null)
+        PopupMenuItem(
+          value: 'downloadAll',
+          child: Text(_text(context, 'downloadAuthorWorks')),
+        ),
+      if (onEditProfile != null)
+        PopupMenuItem(
+          value: 'editProfile',
+          child: Text(_text(context, 'profileEditTitle')),
+        ),
+      if (!isMe)
+        PopupMenuItem(
+          value: 'share',
+          child: Text(_text(context, 'profileShare')),
+        ),
+    ];
+    void onMenuSelected(String value) {
+      switch (value) {
+        case 'restrictPublic':
+          onRestrictChanged(UserRestrict.public);
+        case 'restrictPrivate':
+          onRestrictChanged(UserRestrict.private);
+        case 'bookmarkTags':
+          onOpenBookmarkTags?.call();
+        case 'downloadAll':
+          onDownloadAll?.call();
+        case 'editProfile':
+          onEditProfile?.call();
+        case 'share':
+          onShare();
+      }
+    }
 
-    // Three-section toolbar: leading / title / actions. The title centres
-    // inside whatever space the actions leave and ellipsizes there — the
-    // old full-width-centred Stack overlapped the action row once it grew
-    // past the hardcoded 64px side padding (5 icons ≈ 240px on /me).
+    // Three-section toolbar: leading back / centred title / a single
+    // overflow button. Both ends are 48px wide, so the title stays centred
+    // on screen no matter how many actions the menu holds — the old
+    // icon-per-action row pushed the title off-centre once it grew past a
+    // couple of entries.
     return Row(
       children: [
         const SizedBox(width: 4),
@@ -662,7 +630,18 @@ class _CollapsedProfile extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
-        actions,
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: entries.isEmpty
+              ? const SizedBox.shrink()
+              : PopupMenuButton<String>(
+                  tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+                  onSelected: onMenuSelected,
+                  itemBuilder: (context) => entries,
+                  icon: const Icon(Icons.more_vert),
+                ),
+        ),
         const SizedBox(width: 4),
       ],
     );
