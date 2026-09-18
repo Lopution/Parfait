@@ -38,11 +38,10 @@ features = [
     "rustls",
     "stream",
 
-    # Compression
-    "brotli",
-    "deflate",
+    # Compression: gzip only — pixiv negotiates br/zstd but always offers
+    # gzip, so dropping the extra codecs costs transfer bytes, not function,
+    # and cuts ~270KB from librhttp.so.
     "gzip",
-    "zstd",
 ]
 
 [lints.rust]
