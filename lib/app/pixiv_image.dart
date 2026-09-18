@@ -578,33 +578,44 @@ class _PixivImageState extends ConsumerState<PixivImage> {
     final slotHandoff = _lastShownUrl != null && _lastShownUrl != imageUrl;
     final crossfade = widget.fade && previousTransition == null && !slotHandoff;
     _lastShownUrl = imageUrl;
-    final image = CachedNetworkImage(
-      imageUrl: imageUrl,
-      httpHeaders: PixivImage.headers,
-      cacheManager: cacheManager,
-      // Keep the last decoded frame as the placeholder while a different
-      // quality tier is resolving.  This is the important distinction
-      // between a cold load (where the loading fade is useful) and a URL
-      // hand-off (where replacing the frame with a placeholder produces a
-      // white/grey flash).  CachedNetworkImage delegates this to OctoImage's
-      // gapless playback and applies it consistently to every caller:
-      // cards, detail pages, multi-page items, GIF covers and the viewer.
-      useOldImageOnUrlChange: true,
-      width: widget.width,
-      height: widget.height,
-      fit: widget.fit,
-      alignment: widget.alignment,
-      memCacheWidth: effectiveWidth,
-      color: widget.filterColor,
-      colorBlendMode: widget.filterBlendMode,
-      filterQuality: widget.filterQuality,
-      fadeInDuration: crossfade ? widget.fadeDuration : Duration.zero,
-      fadeOutDuration: crossfade ? MotionTokens.imageFadeOut : Duration.zero,
-      placeholder: (_, _) =>
-          transitionPlaceholder ?? ColoredBox(color: widget.placeholderColor),
-      errorWidget: (_, _, _) => ColoredBox(
-        color: widget.placeholderColor,
-        child: const Icon(Icons.broken_image),
+    final image = LayoutBuilder(
+      builder: (context, constraints) => CachedNetworkImage(
+        imageUrl: imageUrl,
+        httpHeaders: PixivImage.headers,
+        cacheManager: cacheManager,
+        // Keep the last decoded frame as the placeholder while a different
+        // quality tier is resolving.  This is the important distinction
+        // between a cold load (where the loading fade is useful) and a URL
+        // hand-off (where replacing the frame with a placeholder produces a
+        // white/grey flash).  CachedNetworkImage delegates this to OctoImage's
+        // gapless playback and applies it consistently to every caller:
+        // cards, detail pages, multi-page items, GIF covers and the viewer.
+        useOldImageOnUrlChange: true,
+        // Under loose constraints (the detail page's unbounded-height
+        // Stack) an image without an explicit width sizes itself to the
+        // decoded pixel count — a hero hand-off decoded at the card's
+        // width lands as a small box with blank space beside it until the
+        // detail-tier decode "suddenly" re-sizes it. Pinning the box to
+        // the bounded max width makes every decode tier fill the slot;
+        // aspect ratio still sets the height from whatever decoded first.
+        width:
+            widget.width ??
+            (constraints.hasBoundedWidth ? constraints.maxWidth : null),
+        height: widget.height,
+        fit: widget.fit,
+        alignment: widget.alignment,
+        memCacheWidth: effectiveWidth,
+        color: widget.filterColor,
+        colorBlendMode: widget.filterBlendMode,
+        filterQuality: widget.filterQuality,
+        fadeInDuration: crossfade ? widget.fadeDuration : Duration.zero,
+        fadeOutDuration: crossfade ? MotionTokens.imageFadeOut : Duration.zero,
+        placeholder: (_, _) =>
+            transitionPlaceholder ?? ColoredBox(color: widget.placeholderColor),
+        errorWidget: (_, _, _) => ColoredBox(
+          color: widget.placeholderColor,
+          child: const Icon(Icons.broken_image),
+        ),
       ),
     );
     // A running fade/loader repaint otherwise propagates to the nearest
