@@ -59,6 +59,7 @@ class _BookmarkTagsPageState extends ConsumerState<BookmarkTagsPage> {
                 error: (error, _) => FeedError(
                   title: l10n.bookmarkTagsLoadFailed,
                   error: error,
+                  retryLabel: l10n.retry,
                   onRetry: () => ref
                       .read(userBookmarkTagsProvider(_query).notifier)
                       .refresh(),
@@ -92,6 +93,7 @@ class _TagList extends ConsumerWidget {
       return FeedEmpty(
         icon: Icons.label_outline,
         title: l10n.bookmarkTagsEmpty,
+        retryLabel: l10n.retry,
         onRefresh: () =>
             ref.read(userBookmarkTagsProvider(query).notifier).refresh(),
       );

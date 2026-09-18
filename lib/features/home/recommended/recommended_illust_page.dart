@@ -117,6 +117,8 @@ class RecommendedIllustPage extends ConsumerWidget {
                         onRetry: () => ref
                             .read(recommendedIllustControllerProvider.notifier)
                             .retryLoadMore(),
+                        errorTitle: context.l10n.recommendedLoadMoreFailed,
+                        retryLabel: context.l10n.retry,
                       ),
                     ),
                   ],
