@@ -22,6 +22,7 @@ import '../../features/bookmark/bookmark_tags_page.dart';
 import '../../features/profile/bookmark_tag_feed_page.dart';
 import '../../features/comments/comments_page.dart';
 import '../../features/history/history_page.dart';
+import '../../features/novel/local_novel_reader_page.dart';
 import '../../features/localnovel/local_novels_page.dart';
 import '../../features/watchlater/watchlater_page.dart';
 import '../../features/watchlist/watchlist_page.dart';
@@ -532,6 +533,17 @@ List<RouteBase> _commonBranchRoutes(
       path: 'local-novels',
       pageBuilder: (context, state) =>
           _page(context, state, branchObserver, const LocalNovelsPage()),
+      routes: [
+        GoRoute(
+          path: ':localId',
+          pageBuilder: (context, state) => _page(
+            context,
+            state,
+            branchObserver,
+            LocalNovelReaderPage(localId: _pathId(state, 'localId')),
+          ),
+        ),
+      ],
     ),
     GoRoute(
       path: 'bookmarks/tags',
@@ -1182,6 +1194,10 @@ Future<void> openWatchlist(BuildContext context) async {
 
 Future<void> openLocalNovels(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/local-novels');
+}
+
+Future<void> openLocalNovelReader(BuildContext context, int localId) async {
+  await _push(context, '${_currentStackRoot(context)}/local-novels/$localId');
 }
 
 Future<void> openBookmarkTags(BuildContext context) async {
