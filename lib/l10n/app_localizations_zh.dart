@@ -1765,6 +1765,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelReadingProgress => '阅读进度';
 
   @override
+  String get novelReaderSettings => '阅读设置';
+
+  @override
+  String get novelFontSize => '字号';
+
+  @override
+  String get novelLineHeight => '行距';
+
+  @override
+  String get novelThemeSystem => '跟随系统';
+
+  @override
+  String get novelThemePaper => '纸张';
+
+  @override
+  String get novelThemeSepia => '护眼';
+
+  @override
+  String get novelThemeNight => '夜间';
+
+  @override
   String get aboutDisplayRefreshRate => '显示刷新率';
 
   @override

@@ -7,6 +7,7 @@ import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
+import '../../core/novel/reader_settings.dart';
 import 'novel_layout.dart';
 
 enum NovelTapZone { previous, center, next }
@@ -201,9 +202,6 @@ class NovelReaderController {
 /// fills the callbacks on mount and clears them on dispose, so the hosting
 /// page's chrome overlay can drive paging/typography without a GlobalKey.
 class NovelReaderHandle {
-  /// Adjust the body font size by [delta] pt (clamped 12..30).
-  void Function(double delta)? adjustFontSize;
-
   /// Current page index and total page count for the chrome's progress
   /// readout; null while the first layout is still running.
   int Function()? currentPage;
@@ -218,7 +216,9 @@ class NovelReader extends StatefulWidget {
   const NovelReader({
     super.key,
     required this.novel,
-    this.initialFontSize = 17,
+    this.settings = const NovelReaderSettings(),
+    this.initialAnchor,
+    this.textColor,
     this.onAnchorChanged,
     this.onCenterTap,
     this.onProgressChanged,
@@ -226,7 +226,18 @@ class NovelReader extends StatefulWidget {
   });
 
   final NovelEntity novel;
-  final double initialFontSize;
+
+  /// Typography/surface choices — applied through [NovelLayoutStyle], any
+  /// change triggers a relayout preserving the current page's anchor.
+  final NovelReaderSettings settings;
+
+  /// Persisted resume position applied to the first layout only.
+  final NovelAnchor? initialAnchor;
+
+  /// Body text color override (reader theme palette); defaults to the
+  /// ambient `colorScheme.onSurface`.
+  final Color? textColor;
+
   final ValueChanged<NovelAnchor>? onAnchorChanged;
 
   /// Middle tap-zone hit — the hosting page toggles its reader chrome.
@@ -252,19 +263,15 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   Size? _requestedViewport;
   Brightness? _requestedBrightness;
   TextDirection? _requestedDirection;
-  double _fontSize = 17;
-  final double _lineHeight = 1.7;
   bool _layoutScheduled = false;
 
   @override
   void initState() {
     super.initState();
-    _fontSize = widget.initialFontSize.clamp(12, 30);
     _reader = NovelReaderController(pageCount: 1);
     _pageController = PageController();
     final handle = widget.handle;
     if (handle != null) {
-      handle.adjustFontSize = _changeFontSize;
       handle.currentPage = () => _reader.currentPage;
       handle.pageCount = () => _reader.pageCount;
       handle.goToPage = (page) {
@@ -288,6 +295,8 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (oldWidget.novel.contentVersion != widget.novel.contentVersion) {
       _layoutEngine.cache.clear();
       _scheduleLayout(force: true);
+    } else if (oldWidget.settings != widget.settings) {
+      _scheduleLayout(force: true);
     }
   }
 
@@ -309,7 +318,6 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     final handle = widget.handle;
     if (handle != null) {
-      handle.adjustFontSize = null;
       handle.currentPage = null;
       handle.pageCount = null;
       handle.goToPage = null;
@@ -370,7 +378,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             itemBuilder: (context, index) => _NovelPage(
               page: layout.pages[index],
               style: _style,
-              color: theme.colorScheme.onSurface,
+              color: widget.textColor ?? theme.colorScheme.onSurface,
             ),
           ),
         );
@@ -378,8 +386,10 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     );
   }
 
-  NovelLayoutStyle get _style =>
-      NovelLayoutStyle(fontSize: _fontSize, lineHeight: _lineHeight);
+  NovelLayoutStyle get _style => NovelLayoutStyle(
+    fontSize: widget.settings.fontSize,
+    lineHeight: widget.settings.lineHeight,
+  );
 
   /// A build-driven call with identical inputs must not re-run the layout
   /// pipeline — otherwise every setState would schedule a relayout whose
@@ -418,8 +428,10 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     final direction = _requestedDirection ?? Directionality.of(context);
     final oldLayout = _layout;
     final oldPage = _reader.currentPage;
+    // First layout restores the persisted resume anchor; later relayouts
+    // keep the live page's start anchor.
     final oldAnchor = oldLayout == null || oldLayout.pages.isEmpty
-        ? null
+        ? widget.initialAnchor
         : oldLayout
               .pages[oldPage.clamp(0, oldLayout.pages.length - 1)]
               .startAnchor;
@@ -437,7 +449,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         contentVersion: widget.novel.contentVersion,
         viewport: viewport,
         style: _style,
-        textColor: Theme.of(context).colorScheme.onSurface,
+        textColor: widget.textColor ?? Theme.of(context).colorScheme.onSurface,
         brightness: brightness,
         textDirection: direction,
         cancelToken: layoutContext.cancelToken,
@@ -485,13 +497,6 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
 
   void _notifyProgress() {
     widget.onProgressChanged?.call(_reader.currentPage, _reader.pageCount);
-  }
-
-  void _changeFontSize(double delta) {
-    final next = (_fontSize + delta).clamp(12.0, 30.0);
-    if (next == _fontSize) return;
-    setState(() => _fontSize = next);
-    _scheduleLayout(force: true);
   }
 }
 

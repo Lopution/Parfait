@@ -1781,6 +1781,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelReadingProgress => '読書進捗';
 
   @override
+  String get novelReaderSettings => '読書設定';
+
+  @override
+  String get novelFontSize => '文字サイズ';
+
+  @override
+  String get novelLineHeight => '行間';
+
+  @override
+  String get novelThemeSystem => 'システム';
+
+  @override
+  String get novelThemePaper => '紙';
+
+  @override
+  String get novelThemeSepia => '目に優しい';
+
+  @override
+  String get novelThemeNight => 'ナイト';
+
+  @override
   String get aboutDisplayRefreshRate => '画面リフレッシュレート';
 
   @override
