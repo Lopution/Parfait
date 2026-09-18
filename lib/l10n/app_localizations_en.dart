@@ -1803,6 +1803,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelSeriesUnavailable => 'Series information unavailable';
 
   @override
+  String get novelInfoTitle => 'Work info';
+
+  @override
   String get novelPrevious => 'Previous novel';
 
   @override

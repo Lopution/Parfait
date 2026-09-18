@@ -3402,6 +3402,12 @@ abstract class AppLocalizations {
   /// **'系列信息暂不可用'**
   String get novelSeriesUnavailable;
 
+  /// No description provided for @novelInfoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品信息'**
+  String get novelInfoTitle;
+
   /// No description provided for @novelPrevious.
   ///
   /// In zh, this message translates to:

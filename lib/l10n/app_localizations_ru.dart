@@ -1803,6 +1803,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelSeriesUnavailable => 'Информация о серии недоступна';
 
   @override
+  String get novelInfoTitle => 'О произведении';
+
+  @override
   String get novelPrevious => 'Предыдущая новелла';
 
   @override
