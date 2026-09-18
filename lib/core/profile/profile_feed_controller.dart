@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/illust_store.dart';
+import '../illust/illust_snapshot_codec.dart';
 import '../network/api_error.dart';
 
 import '../paging/paged_feed_controller.dart';
@@ -17,6 +18,9 @@ class _ProfileIllustFeedController extends PagedFeedController {
 
   @override
   String get feedKey => 'profile:illust:$key';
+
+  @override
+  FeedSnapshotCodec? get snapshotCodec => const IllustSnapshotCodec();
 
   /// C9: the author's own work list is discovery content; bookmarks,
   /// follow lists and fan lists are the user's own collections and stay

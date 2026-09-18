@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../entity/illust_store.dart';
+import 'illust_snapshot_codec.dart';
 import '../network/next_page_parser.dart';
 import '../paging/paged_feed_controller.dart';
 import 'ranking_repository.dart';
@@ -14,6 +15,9 @@ class _RankingFeedController extends PagedFeedController {
 
   @override
   String get feedKey => 'ranking:${mode.apiValue}';
+
+  @override
+  FeedSnapshotCodec? get snapshotCodec => const IllustSnapshotCodec();
 
   /// C9: ranking is discovery content.
   @override

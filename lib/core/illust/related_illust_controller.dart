@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/illust_store.dart';
+import 'illust_snapshot_codec.dart';
 import '../network/next_page_parser.dart';
 import '../paging/paged_feed_controller.dart';
 import 'related_illust_repository.dart';
@@ -17,6 +18,9 @@ class _RelatedIllustController extends PagedFeedController {
 
   @override
   String get feedKey => 'related:$illustId';
+
+  @override
+  FeedSnapshotCodec? get snapshotCodec => const IllustSnapshotCodec();
 
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {

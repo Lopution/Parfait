@@ -1,0 +1,147 @@
+/// SQLite connection and schema owner for the local `feeds.db` database.
+/// [FeedDatabase] owns the lazy connection and factory choice; snapshot CRUD
+/// and eviction policy belongs to [FeedSnapshotStore]. Mirrors the
+/// [HistoryDatabase] pattern — see `database-guidelines.md`.
+library;
+
+import 'dart:io';
+
+import 'package:meta/meta.dart';
+import 'package:path/path.dart' as path;
+import 'package:sqflite/sqflite.dart' as sqflite;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+/// Chooses the feeds SQLite factory without reading [Platform].
+///
+/// Production calls this with `useMobileSqflite: Platform.isAndroid ||
+/// Platform.isIOS`. Tests pass the flag directly because `flutter test`
+/// always reports a desktop [Platform].
+@visibleForTesting
+DatabaseFactory feedDatabaseFactory({required bool useMobileSqflite}) {
+  if (useMobileSqflite) return sqflite.databaseFactory;
+  sqfliteFfiInit();
+  // The isolate-backed factory's port replies never reach the fake-async
+  // zone of `testWidgets`, which would suspend every snapshot read forever.
+  // The no-isolate variant answers through microtasks that `tester.pump`
+  // flushes, so feeds keep their async cadence inside widget tests.
+  if (Platform.environment['FLUTTER_TEST'] == 'true') {
+    return databaseFactoryFfiNoIsolate;
+  }
+  return databaseFactoryFfi;
+}
+
+/// Owns the one SQLite connection used by feed snapshot persistence.
+///
+/// The connection is opened lazily once and remains open until the Riverpod
+/// container is disposed. Tests can inject an FFI [DatabaseFactory] and a
+/// temporary path without changing the production lifecycle.
+class FeedDatabase {
+  FeedDatabase({DatabaseFactory? factory, String? databasePath})
+    : _factory = factory ?? _platformDatabaseFactory(),
+      _databasePath = databasePath;
+
+  static const databaseName = 'feeds.db';
+  static const snapshotTable = 'feed_snapshots';
+  static const actionTable = 'action_queue';
+  static const schemaVersion = 2;
+
+  final DatabaseFactory _factory;
+  final String? _databasePath;
+  Future<Database>? _databaseFuture;
+  bool _closed = false;
+
+  static DatabaseFactory _platformDatabaseFactory() {
+    return feedDatabaseFactory(
+      useMobileSqflite: Platform.isAndroid || Platform.isIOS,
+    );
+  }
+
+  /// The single connection future also serializes concurrent first access.
+  Future<Database> get database {
+    if (_closed) {
+      return Future<Database>.error(StateError('feed database is closed'));
+    }
+    return _databaseFuture ??= _open();
+  }
+
+  Future<Database> _open() async {
+    final databasePath = _databasePath ?? await _defaultPath();
+    return _factory.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: schemaVersion,
+        onCreate: (db, version) => _createSchema(db),
+        onUpgrade: _upgrade,
+      ),
+    );
+  }
+
+  /// `flutter test` sets FLUTTER_TEST for every test isolate. Snapshot
+  /// contents are a cache: keeping them in-memory per test run prevents a
+  /// stale on-disk feeds.db from being restored by an unrelated test that
+  /// did not inject a [FeedDatabase]. Production resolves the real path.
+  Future<String> _defaultPath() async {
+    if (Platform.environment['FLUTTER_TEST'] == 'true') {
+      return sqflite.inMemoryDatabasePath;
+    }
+    return path.join(await _factory.getDatabasesPath(), databaseName);
+  }
+
+  Future<void> _createSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE $snapshotTable (
+        account_id TEXT NOT NULL,
+        feed_key TEXT NOT NULL,
+        ids TEXT NOT NULL,
+        entities TEXT NOT NULL,
+        cursor TEXT,
+        saved_at INTEGER NOT NULL,
+        snapshot_version INTEGER NOT NULL DEFAULT 1,
+        PRIMARY KEY (account_id, feed_key)
+      )
+    ''');
+    await _createActionSchema(db);
+  }
+
+  Future<void> _createActionSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE $actionTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner TEXT NOT NULL,
+        type TEXT NOT NULL,
+        dedupe_key TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('pending','running','failed')),
+        attempt INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at INTEGER,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX aq_ready
+      ON $actionTable(owner, status, next_attempt_at)
+    ''');
+  }
+
+  Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 1) {
+      await _createSchema(db);
+      return;
+    }
+    if (oldVersion < 2) {
+      await _createActionSchema(db);
+    }
+    if (newVersion > schemaVersion) {
+      throw ArgumentError('unsupported feed schema version $newVersion');
+    }
+  }
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    final future = _databaseFuture;
+    if (future == null) return;
+    final db = await future;
+    if (db.isOpen) await db.close();
+  }
+}

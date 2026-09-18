@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/actionqueue/action_bootstrap.dart';
 import '../core/auth/account_store.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
@@ -48,12 +49,22 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     // resume path re-checks the gate so a widget added while the app is
     // running is picked up without a restart.
     unawaited(ref.read(widgetCoordinatorProvider).start());
+    // Constructing the pump provider registers the replay handlers and
+    // drains the current account's queued mutations once at startup; the
+    // resumed hook below repeats it whenever the app returns foreground.
+    ref.read(actionQueuePumpProvider);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(ref.read(widgetCoordinatorProvider).ensureStarted());
+      // Returning to the foreground is connectivity evidence: replay any
+      // mutations that were queued while offline.
+      final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
+      if (accountId != null) {
+        unawaited(ref.read(actionQueueProvider).drain(accountId));
+      }
     }
   }
 

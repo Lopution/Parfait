@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/account_store.dart';
 import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
+import '../illust/illust_snapshot_codec.dart';
 import '../novel/novel_store.dart';
+import '../novel/novel_snapshot_codec.dart';
 import '../paging/paged_feed_controller.dart';
 import '../user/user_store.dart';
 import 'search_models.dart';
@@ -17,6 +19,13 @@ class _SearchFeedController extends PagedFeedController {
 
   @override
   String get feedKey => 'search:${query.cacheKey}';
+
+  @override
+  FeedSnapshotCodec? get snapshotCodec => switch (query) {
+    IllustSearchQuery() => const IllustSnapshotCodec(),
+    NovelSearchQuery() => const NovelSnapshotCodec(),
+    _ => null,
+  };
 
   /// C9: search results are discovery content. Only illust/manga queries
   /// have local-block semantics; novel/user searches stay unfiltered.
