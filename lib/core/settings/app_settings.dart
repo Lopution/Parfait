@@ -10,6 +10,7 @@ import 'package:material_ui/material_ui.dart';
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
 import '../reverse_image/reverse_image_engine.dart';
+import '../search/search_models.dart';
 import 'image_mirror.dart';
 
 export 'image_mirror.dart' show ImageSourceMode, ImageMirror;
@@ -175,6 +176,7 @@ class AppSettings {
     this.downloadCaption = false,
     this.namingRule = NamingRule.defaultRule,
     this.reverseImageEngine = ReverseImageEngine.sauceNao,
+    this.searchFilters = const SearchFilters(),
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -260,6 +262,11 @@ class AppSettings {
   /// the engine the user chose. Unknown persisted values fall back to
   /// [ReverseImageEngine.sauceNao].
   final ReverseImageEngine reverseImageEngine;
+
+  /// Last confirmed search filter set; persisted so the sheet reopens on
+  /// the user's previous choices (same remember-last-selection contract
+  /// as [reverseImageEngine]). Damaged fields fall back independently.
+  final SearchFilters searchFilters;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -355,6 +362,9 @@ class AppSettings {
       reverseImageEngine:
           ReverseImageEngine.tryFromName(json['reverseImageEngine']) ??
           base.reverseImageEngine,
+      searchFilters: json.containsKey('searchFilters')
+          ? SearchFilters.fromJson(json['searchFilters'])
+          : base.searchFilters,
     );
   }
 
@@ -388,6 +398,7 @@ class AppSettings {
       if (namingRule.preset == NamingPreset.custom)
         'namingTemplate': namingRule.template,
       'reverseImageEngine': reverseImageEngine.name,
+      'searchFilters': searchFilters.toJson(),
     };
   }
 
@@ -502,6 +513,7 @@ class AppSettings {
     bool? downloadCaption,
     Object? namingRule = _unset,
     ReverseImageEngine? reverseImageEngine,
+    SearchFilters? searchFilters,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -549,6 +561,7 @@ class AppSettings {
           ? this.namingRule
           : namingRule as NamingRule,
       reverseImageEngine: reverseImageEngine ?? this.reverseImageEngine,
+      searchFilters: searchFilters ?? this.searchFilters,
     );
   }
 
