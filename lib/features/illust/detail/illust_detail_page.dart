@@ -18,12 +18,15 @@ import '../../../core/illust/illust_download_controller.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
+import 'widgets/detail_image_pager.dart';
 import 'widgets/illust_series_section.dart';
 import 'widgets/info_block.dart';
 import 'widgets/page_image.dart';
 import 'ugoira_viewer.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../l10n/context.dart';
+import '../../../app/layout/app_breakpoints.dart';
+import '../../../app/layout/two_pane.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
 
 class IllustDetailPage extends ConsumerStatefulWidget {
@@ -234,138 +237,167 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final detailQuality = ref.watch(detailQualityProvider);
     String? detailUrlFor(int index) =>
         detailReady ? entity.detailUrlAt(index, detailQuality) : null;
+
+    // The media column and the metadata column are the same slivers in both
+    // layouts; only their arrangement differs (single scroll vs two panes).
+    final imageSlivers = <Widget>[
+      if (entity.isUgoira)
+        SliverToBoxAdapter(
+          child: UgoiraViewer(
+            illustId: entity.id,
+            // Same contract as DetailPageImage: the viewer keeps the
+            // feed card's URL for the opening Hero flight and only
+            // upgrades to the detail quality once the route settles —
+            // without the guard a cached detail payload would swap
+            // the cover mid-flight onto an undecoded entry (the
+            // grey-shuttle regression).
+            previewUrl: entity.imageUrls.large,
+            detailUrl: detailUrlFor(0),
+            heroImageUrl: widget.heroImageUrl,
+            heroTier: widget.heroImageUrl == null
+                ? null
+                : entity.imageTierOf(widget.heroImageUrl!),
+            width: entity.width,
+            height: entity.height,
+            downloadMode: _downloadMode,
+            onLongPress: _toggleDownloadMode,
+            heroTag: illustHeroTag(widget.heroScope, entity.id),
+            flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+            heroDecodeWidth: widget.heroImageDecodeWidth,
+            heroPopUrl: widget.heroImageUrl,
+            heroPopDecodeWidth: widget.heroImageDecodeWidth,
+            tier: entity.imageTierOf(detailUrlFor(0) ?? entity.imageUrls.large),
+          ),
+        )
+      else if (entity.pageCount == 1)
+        SliverToBoxAdapter(
+          child: DetailPageImage(
+            key: ValueKey<Object?>('illust-page-${entity.id}-0'),
+            entity: entity,
+            index: 0,
+            heroTag: illustHeroTag(widget.heroScope, entity.id),
+            heroScope: widget.heroScope,
+            heroImageUrl: widget.heroImageUrl,
+            heroImageDecodeWidth: widget.heroImageDecodeWidth,
+            detailUrl: detailUrlFor(0),
+            downloadMode: _downloadMode,
+            onLongPress: _toggleDownloadMode,
+          ),
+        )
+      else
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => Padding(
+              padding: EdgeInsets.only(
+                bottom: index == entity.pageCount - 1 ? 0 : 10,
+              ),
+              child: DetailPageImage(
+                key: ValueKey<Object?>('illust-page-${entity.id}-$index'),
+                entity: entity,
+                index: index,
+                heroTag: index == 0
+                    ? illustHeroTag(widget.heroScope, entity.id)
+                    : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
+                heroScope: widget.heroScope,
+                heroImageUrl: index == 0 ? widget.heroImageUrl : null,
+                heroImageDecodeWidth: index == 0
+                    ? widget.heroImageDecodeWidth
+                    : null,
+                detailUrl: detailUrlFor(index),
+                downloadMode: _downloadMode,
+                onLongPress: _toggleDownloadMode,
+                placeholderOnly: !detailReady && index > 0,
+              ),
+            ),
+            // All pages appear immediately: before the detail payload the
+            // non-first pages render as neutral placeholders (uniform
+            // ratio), and the real images/proportions replace them when
+            // the detail API payload is merged.
+            childCount: entity.pageCount,
+          ),
+        ),
+    ];
+    final metaSlivers = <Widget>[
+      // Official client behaviour: when the work belongs to an
+      // illust series, the series card sits between the image pages
+      // and the info block (name, 第 N 话, prev/next navigation).
+      IllustSeriesSection(illustId: widget.illustId),
+      SliverToBoxAdapter(
+        child: InfoBlock(
+          entity: entity,
+          blockMode: _blockMode,
+          onToggleBlockMode: () => setState(() => _blockMode = !_blockMode),
+        ),
+      ),
+      // Official client behaviour: "関連作品" below the caption/tags,
+      // paginated as the user scrolls to the bottom of the page.
+      RelatedIllustsSlivers(illustId: widget.illustId),
+    ];
+
+    // Related works paginate as the user reaches the bottom of the page
+    // (official client behaviour). loadMore is internally guarded against
+    // re-entry / exhausted state.
+    bool onScrollNotification(ScrollNotification notification) {
+      final metrics = notification.metrics;
+      if (metrics.maxScrollExtent > 0 &&
+          metrics.pixels >= metrics.maxScrollExtent - 500) {
+        // loadMore asserts an AsyncData state (it calls requireValue),
+        // so only hand the scroll event over once the first page
+        // actually loaded.
+        final relatedState = ref.read(
+          relatedIllustControllerProvider(widget.illustId),
+        );
+        if (relatedState.hasValue) {
+          ref
+              .read(relatedIllustControllerProvider(widget.illustId).notifier)
+              .loadMore();
+        }
+      }
+      return false;
+    }
+
+    final metaScroll = NotificationListener<ScrollNotification>(
+      onNotification: onScrollNotification,
+      child: SmoothWheelScroll(
+        builder: (context, controller, physics) => CustomScrollView(
+          controller: controller,
+          physics: physics,
+          slivers: metaSlivers,
+        ),
+      ),
+    );
+
     final content = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
         if (_downloadMode) _toggleDownloadMode();
       },
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          // Related works paginate as the user reaches the bottom of the
-          // page (official client behaviour). loadMore is internally
-          // guarded against re-entry / exhausted state.
-          final metrics = notification.metrics;
-          if (metrics.maxScrollExtent > 0 &&
-              metrics.pixels >= metrics.maxScrollExtent - 500) {
-            // loadMore asserts an AsyncData state (it calls requireValue),
-            // so only hand the scroll event over once the first page
-            // actually loaded.
-            final relatedState = ref.read(
-              relatedIllustControllerProvider(widget.illustId),
-            );
-            if (relatedState.hasValue) {
-              ref
-                  .read(
-                    relatedIllustControllerProvider(widget.illustId).notifier,
-                  )
-                  .loadMore();
-            }
-          }
-          return false;
-        },
-        child: SmoothWheelScroll(
-          builder: (context, controller, physics) => CustomScrollView(
-            controller: controller,
-            physics: physics,
-            slivers: [
-              if (entity.isUgoira)
-                SliverToBoxAdapter(
-                  child: UgoiraViewer(
-                    illustId: entity.id,
-                    // Same contract as DetailPageImage: the viewer keeps the
-                    // feed card's URL for the opening Hero flight and only
-                    // upgrades to the detail quality once the route settles —
-                    // without the guard a cached detail payload would swap
-                    // the cover mid-flight onto an undecoded entry (the
-                    // grey-shuttle regression).
-                    previewUrl: entity.imageUrls.large,
-                    detailUrl: detailUrlFor(0),
-                    heroImageUrl: widget.heroImageUrl,
-                    heroTier: widget.heroImageUrl == null
-                        ? null
-                        : entity.imageTierOf(widget.heroImageUrl!),
-                    width: entity.width,
-                    height: entity.height,
-                    downloadMode: _downloadMode,
-                    onLongPress: _toggleDownloadMode,
-                    heroTag: illustHeroTag(widget.heroScope, entity.id),
-                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                    heroDecodeWidth: widget.heroImageDecodeWidth,
-                    heroPopUrl: widget.heroImageUrl,
-                    heroPopDecodeWidth: widget.heroImageDecodeWidth,
-                    tier: entity.imageTierOf(
-                      detailUrlFor(0) ?? entity.imageUrls.large,
-                    ),
-                  ),
-                )
-              else if (entity.pageCount == 1)
-                SliverToBoxAdapter(
-                  child: DetailPageImage(
-                    key: ValueKey<Object?>('illust-page-${entity.id}-0'),
-                    entity: entity,
-                    index: 0,
-                    heroTag: illustHeroTag(widget.heroScope, entity.id),
-                    heroScope: widget.heroScope,
-                    heroImageUrl: widget.heroImageUrl,
-                    heroImageDecodeWidth: widget.heroImageDecodeWidth,
-                    detailUrl: detailUrlFor(0),
-                    downloadMode: _downloadMode,
-                    onLongPress: _toggleDownloadMode,
-                  ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == entity.pageCount - 1 ? 0 : 10,
-                      ),
-                      child: DetailPageImage(
-                        key: ValueKey<Object?>(
-                          'illust-page-${entity.id}-$index',
-                        ),
-                        entity: entity,
-                        index: index,
-                        heroTag: index == 0
-                            ? illustHeroTag(widget.heroScope, entity.id)
-                            : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
-                        heroScope: widget.heroScope,
-                        heroImageUrl: index == 0 ? widget.heroImageUrl : null,
-                        heroImageDecodeWidth: index == 0
-                            ? widget.heroImageDecodeWidth
-                            : null,
-                        detailUrl: detailUrlFor(index),
-                        downloadMode: _downloadMode,
-                        onLongPress: _toggleDownloadMode,
-                        placeholderOnly: !detailReady && index > 0,
-                      ),
-                    ),
-                    // All pages appear immediately: before the detail payload the
-                    // non-first pages render as neutral placeholders (uniform
-                    // ratio), and the real images/proportions replace them when
-                    // the detail API payload is merged.
-                    childCount: entity.pageCount,
-                  ),
-                ),
-              // Official client behaviour: when the work belongs to an
-              // illust series, the series card sits between the image pages
-              // and the info block (name, 第 N 话, prev/next navigation).
-              IllustSeriesSection(illustId: widget.illustId),
-              SliverToBoxAdapter(
-                child: InfoBlock(
-                  entity: entity,
-                  blockMode: _blockMode,
-                  onToggleBlockMode: () =>
-                      setState(() => _blockMode = !_blockMode),
+      child: AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)
+          ? TwoPane(
+              primary: DetailImagePager(
+                entity: entity,
+                detailUrlFor: detailUrlFor,
+                downloadMode: _downloadMode,
+                onLongPress: _toggleDownloadMode,
+                heroTag: illustHeroTag(widget.heroScope, entity.id),
+                heroScope: widget.heroScope,
+                heroImageUrl: widget.heroImageUrl,
+                heroImageDecodeWidth: widget.heroImageDecodeWidth,
+              ),
+              // The meta column owns the window's right edge, so its
+              // scrollbar lands where the main scrollbar belongs.
+              secondary: Scrollbar(child: metaScroll),
+            )
+          : NotificationListener<ScrollNotification>(
+              onNotification: onScrollNotification,
+              child: SmoothWheelScroll(
+                builder: (context, controller, physics) => CustomScrollView(
+                  controller: controller,
+                  physics: physics,
+                  slivers: [...imageSlivers, ...metaSlivers],
                 ),
               ),
-              // Official client behaviour: "関連作品" below the caption/tags,
-              // paginated as the user scrolls to the bottom of the page.
-              RelatedIllustsSlivers(illustId: widget.illustId),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
     final accountId = ref.watch(historyAccountIdProvider);
     if (accountId == null) return content;
