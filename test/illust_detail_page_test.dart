@@ -7,6 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:flutter/services.dart';
+
+import 'package:pixiv_func/app/layout/two_pane.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/app/person_avatar.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
@@ -23,6 +26,7 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
+import 'package:pixiv_func/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -841,6 +845,49 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
       });
       expect(find.text('Related works'), findsNothing);
+    });
+  });
+
+  group('two-pane layout (width >= 1200)', () {
+    testWidgets('splits into image pager and meta column', (tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+      expect(find.byType(TwoPane), findsOneWidget);
+      expect(find.byType(DetailImagePager), findsOneWidget);
+      expect(find.byType(PageView), findsOneWidget);
+      // Page indicator and the meta column's info block both render.
+      expect(find.text('1 / 2'), findsOneWidget);
+      expect(find.text('作品说明文字'), findsOneWidget);
+    });
+
+    testWidgets('arrow keys page the image pane', (tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.text('2 / 2'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.text('1 / 2'), findsOneWidget);
+    });
+
+    testWidgets('narrow surface keeps the single scroll view', (tester) async {
+      tester.view.physicalSize = const Size(800, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+      expect(find.byType(TwoPane), findsNothing);
+      expect(find.byType(DetailImagePager), findsNothing);
+      expect(find.byType(CustomScrollView), findsOneWidget);
     });
   });
 }
