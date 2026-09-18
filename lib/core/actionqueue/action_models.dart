@@ -106,6 +106,8 @@ abstract final class ActionTypes {
   static const bookmarkDelete = 'bookmark.delete';
   static const followAdd = 'follow.add';
   static const followDelete = 'follow.delete';
+  static const watchlistAdd = 'watchlist.add';
+  static const watchlistDelete = 'watchlist.delete';
 }
 
 /// Connectivity-class failures — the reason an action was queued offline

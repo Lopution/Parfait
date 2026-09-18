@@ -136,6 +136,8 @@ const Map<String, Set<String>> _kNextPageEndpoints = {
   '/v2/illust/comment/replies': {'comment_id', 'offset'},
   '/v3/novel/comments': {'novel_id', 'offset'},
   '/v2/novel/comment/replies': {'comment_id', 'offset'},
+  '/v1/watchlist/manga': {'filter', 'offset'},
+  '/v1/watchlist/novel': {'filter', 'offset'},
 };
 
 abstract final class NextPageParser {

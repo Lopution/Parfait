@@ -35,12 +35,17 @@ class NovelSeriesPage {
     required this.title,
     required this.entries,
     required this.nextUrl,
+    this.watchlistAdded,
   });
 
   final int seriesId;
   final String? title;
   final List<NovelSeriesEntry> entries;
   final String? nextUrl;
+
+  /// `novel_series_detail.watchlist_added` — only the series payload
+  /// carries it; absent on sparse responses.
+  final bool? watchlistAdded;
 }
 
 /// Novel API adapter.
@@ -376,6 +381,9 @@ class _PixivNovelRepository implements _NovelRepository {
         title: title,
         entries: [for (final item in raw) _parseSeriesEntry(item)],
         nextUrl: readNextUrl(json['next_url']),
+        watchlistAdded: detail['watchlist_added'] is bool
+            ? detail['watchlist_added'] as bool
+            : null,
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
