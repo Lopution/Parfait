@@ -59,35 +59,44 @@ class ProfileNovelFeed extends ConsumerWidget {
               }
               return false;
             },
-            child: ListView.builder(
+            child: CustomScrollView(
               key: PageStorageKey('profile-novel-$userId'),
               restorationId: 'profile-novel-$userId',
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: (novels.isEmpty ? 1 : novels.length + 1) + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) return const HeaderLocator();
-                final itemIndex = index - 1;
-                if (novels.isEmpty) {
-                  return FeedEmpty(
-                    icon: Icons.inbox_outlined,
-                    title: context.l10n.profileItemsEmpty,
-                    onRefresh: () => ref
-                        .read(userNovelFeedProvider(userId).notifier)
-                        .refresh(),
-                  );
-                }
-                if (itemIndex == novels.length) {
-                  return FeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(userNovelFeedProvider(userId).notifier)
-                        .retryLoadMore(),
-                    errorTitle: context.l10n.profileLoadMoreFailed,
-                    retryLabel: context.l10n.profileRetry,
-                  );
-                }
-                return NovelCard(entity: novels[itemIndex]);
-              },
+              slivers: [
+                const HeaderLocator.sliver(),
+                if (novels.isEmpty)
+                  // Same centred empty state as the works tab — not a
+                  // top-aligned list item.
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: FeedEmpty(
+                      icon: Icons.inbox_outlined,
+                      title: context.l10n.profileItemsEmpty,
+                      retryLabel: context.l10n.profileRetry,
+                      onRefresh: () => ref
+                          .read(userNovelFeedProvider(userId).notifier)
+                          .refresh(),
+                    ),
+                  )
+                else
+                  SliverList.builder(
+                    itemCount: novels.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == novels.length) {
+                        return FeedTail(
+                          feed: feed,
+                          onRetry: () => ref
+                              .read(userNovelFeedProvider(userId).notifier)
+                              .retryLoadMore(),
+                          errorTitle: context.l10n.profileLoadMoreFailed,
+                          retryLabel: context.l10n.profileRetry,
+                        );
+                      }
+                      return NovelCard(entity: novels[index]);
+                    },
+                  ),
+              ],
             ),
           ),
         );

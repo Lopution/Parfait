@@ -64,35 +64,45 @@ class ProfileUserFeed extends ConsumerWidget {
               }
               return false;
             },
-            child: ListView.builder(
+            child: CustomScrollView(
               key: PageStorageKey(feedKey),
               restorationId: 'profile-${feedKey.toString()}',
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: (users.isEmpty ? 1 : users.length + 1) + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) return const HeaderLocator();
-                final itemIndex = index - 1;
-                if (users.isEmpty) {
-                  return FeedEmpty(
-                    icon: Icons.inbox_outlined,
-                    title: context.l10n.profileItemsEmpty,
-                    onRefresh: () => ref
-                        .read(profileUserFeedProvider(feedKey).notifier)
-                        .refresh(),
-                  );
-                }
-                if (itemIndex == users.length) {
-                  return FeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(profileUserFeedProvider(feedKey).notifier)
-                        .retryLoadMore(),
-                    errorTitle: context.l10n.profileLoadMoreFailed,
-                    retryLabel: context.l10n.profileRetry,
-                  );
-                }
-                return _UserPreviewTile(user: users[itemIndex]);
-              },
+              slivers: [
+                const HeaderLocator.sliver(),
+                if (users.isEmpty)
+                  // Match the works tab: the empty state centres in the
+                  // remaining viewport instead of sitting as a small block
+                  // at the top of the scroll area.
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: FeedEmpty(
+                      icon: Icons.inbox_outlined,
+                      title: context.l10n.profileItemsEmpty,
+                      retryLabel: context.l10n.profileRetry,
+                      onRefresh: () => ref
+                          .read(profileUserFeedProvider(feedKey).notifier)
+                          .refresh(),
+                    ),
+                  )
+                else
+                  SliverList.builder(
+                    itemCount: users.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == users.length) {
+                        return FeedTail(
+                          feed: feed,
+                          onRetry: () => ref
+                              .read(profileUserFeedProvider(feedKey).notifier)
+                              .retryLoadMore(),
+                          errorTitle: context.l10n.profileLoadMoreFailed,
+                          retryLabel: context.l10n.profileRetry,
+                        );
+                      }
+                      return _UserPreviewTile(user: users[index]);
+                    },
+                  ),
+              ],
             ),
           ),
         );
