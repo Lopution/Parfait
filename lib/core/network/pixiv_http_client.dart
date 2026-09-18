@@ -6,6 +6,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -157,10 +158,66 @@ class PixivHttpClient {
     allowAuthReplay: allowAuthReplay,
   );
 
+  /// Multipart form-data POST (App API endpoints that take file parts, e.g.
+  /// `v1/user/profile/edit`). Same auth/refresh/timeout/cancel contract as
+  /// [post]; the replay rule is identical because the mutation semantics
+  /// are identical.
+  Future<http.Response> postMultipart(
+    Uri uri, {
+    Map<String, String> fields = const {},
+    List<PixivMultipartFile> files = const [],
+    CancelToken? cancelToken,
+    bool allowAuthReplay = false,
+  }) {
+    final boundary = '----pixivfunc${DateTime.now().microsecondsSinceEpoch}';
+    final body = _buildMultipartBody(boundary, fields, files);
+    return _send(
+      uri,
+      method: 'POST',
+      bodyBytes: body,
+      contentType: 'multipart/form-data; boundary=$boundary',
+      cancelToken: cancelToken,
+      allowAuthReplay: allowAuthReplay,
+    );
+  }
+
+  static List<int> _buildMultipartBody(
+    String boundary,
+    Map<String, String> fields,
+    List<PixivMultipartFile> files,
+  ) {
+    final buffer = BytesBuilder();
+    for (final entry in fields.entries) {
+      buffer.add(
+        utf8.encode(
+          '--$boundary\r\n'
+          'Content-Disposition: form-data; name="${entry.key}"\r\n\r\n'
+          '${entry.value}\r\n',
+        ),
+      );
+    }
+    for (final file in files) {
+      buffer.add(
+        utf8.encode(
+          '--$boundary\r\n'
+          'Content-Disposition: form-data; name="${file.name}"; '
+          'filename="${file.filename}"\r\n'
+          'Content-Type: ${file.contentType}\r\n\r\n',
+        ),
+      );
+      buffer.add(file.bytes);
+      buffer.add(utf8.encode('\r\n'));
+    }
+    buffer.add(utf8.encode('--$boundary--\r\n'));
+    return buffer.takeBytes();
+  }
+
   Future<http.Response> _send(
     Uri uri, {
     required String method,
     Map<String, String> body = const {},
+    List<int>? bodyBytes,
+    String? contentType,
     CancelToken? cancelToken,
     bool allowAuthReplay = true,
   }) async {
@@ -171,6 +228,8 @@ class PixivHttpClient {
       method,
       body,
       usedToken,
+      bodyBytes: bodyBytes,
+      contentType: contentType,
       cancelToken: cancelToken,
     );
 
@@ -210,6 +269,8 @@ class PixivHttpClient {
         method,
         body,
         usedToken,
+        bodyBytes: bodyBytes,
+        contentType: contentType,
         cancelToken: cancelToken,
       );
     }
@@ -267,6 +328,8 @@ class PixivHttpClient {
     String method,
     Map<String, String> body,
     String accessToken, {
+    List<int>? bodyBytes,
+    String? contentType,
     CancelToken? cancelToken,
   }) {
     if (method != 'GET' || cancelToken != null) {
@@ -275,6 +338,8 @@ class PixivHttpClient {
         method,
         body,
         accessToken,
+        bodyBytes: bodyBytes,
+        contentType: contentType,
         cancelToken: cancelToken,
       );
     }
@@ -307,6 +372,8 @@ class PixivHttpClient {
     String method,
     Map<String, String> body,
     String accessToken, {
+    List<int>? bodyBytes,
+    String? contentType,
     CancelToken? cancelToken,
   }) async {
     final request =
@@ -322,7 +389,12 @@ class PixivHttpClient {
             ),
           );
     if (method == 'POST') {
-      request.bodyFields = body;
+      if (bodyBytes != null) {
+        request.bodyBytes = bodyBytes;
+        if (contentType != null) request.headers['content-type'] = contentType;
+      } else {
+        request.bodyFields = body;
+      }
     }
     final sendFuture = _client
         .send(request)
@@ -482,6 +554,23 @@ final pixivHttpClientProvider = Provider<PixivHttpClient>((ref) {
     languageTag: languageTag,
   );
 });
+
+/// A single file part of a multipart/form-data POST. Bytes arrive
+/// materialized — the caller owns IO so the client never touches the
+/// filesystem.
+class PixivMultipartFile {
+  const PixivMultipartFile({
+    required this.name,
+    required this.filename,
+    required this.bytes,
+    required this.contentType,
+  });
+
+  final String name;
+  final String filename;
+  final List<int> bytes;
+  final String contentType;
+}
 
 class _GetRequestFlightKey {
   const _GetRequestFlightKey(this.uri, this.accessToken);

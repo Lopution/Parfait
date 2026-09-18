@@ -530,20 +530,27 @@ class _StatusBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final failure = state.failure;
+    final busy =
+        state.status == ProfileEditStatus.loading ||
+        state.status == ProfileEditStatus.submitting;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (state.status == ProfileEditStatus.loading ||
-                state.status == ProfileEditStatus.submitting)
+            if (busy)
               const CircularProgressIndicator()
             else
               const Icon(Icons.info_outline, size: 52),
             const SizedBox(height: 16),
             Text(
-              failure?.message ?? context.l10n.profileEditLoadFailed,
+              // A spinner next to the failure headline read as "load failed"
+              // while the draft was still resolving.
+              failure?.message ??
+                  (busy
+                      ? context.l10n.profileLoading
+                      : context.l10n.profileEditLoadFailed),
               textAlign: TextAlign.center,
             ),
             if (failure?.retryable == true) ...[
