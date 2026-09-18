@@ -13,10 +13,6 @@ abstract final class MotionTokens {
   static const modalCurve = Curves.easeOutCubic;
   static const modalSlideBegin = Offset(0, 0.06);
 
-  /// Shell branch switch crossfade (bottom nav / NavigationRail).
-  static const branchFade = Duration(milliseconds: 250);
-  static const branchFadeCurve = Curves.easeInOut;
-
   /// Short UI transitions (type-selector snap, tab hint fade-in).
   static const fast = Duration(milliseconds: 180);
   static const fastCurve = Curves.easeOut;
