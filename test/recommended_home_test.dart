@@ -238,7 +238,9 @@ void main() {
     });
     expect(
       fixture.requests,
-      contains('/v1/novel/recommended?filter=for_android'),
+      contains(
+        '/v1/novel/recommended?filter=for_android&include_privacy_policy=true&include_ranking_novels=true',
+      ),
     );
     expect(find.textContaining('novel '), findsWidgets);
   });
