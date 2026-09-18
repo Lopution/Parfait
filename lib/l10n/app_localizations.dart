@@ -3498,6 +3498,12 @@ abstract class AppLocalizations {
   /// **'暂存的作品会显示在这里'**
   String get watchLaterEmpty;
 
+  /// No description provided for @watchLaterLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'稍后再看加载失败'**
+  String get watchLaterLoadFailed;
+
   /// No description provided for @bookmarkEditTitle.
   ///
   /// In zh, this message translates to:

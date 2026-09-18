@@ -27,7 +27,7 @@ class WatchLaterPage extends ConsumerWidget {
         child: entries.when(
           loading: () => const Center(child: FeedLoading()),
           error: (error, _) => FeedError(
-            title: error.toString(),
+            title: l10n.watchLaterLoadFailed,
             error: error,
             retryLabel: l10n.retry,
             onRetry: () => ref.invalidate(watchLaterStoreProvider),
