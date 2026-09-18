@@ -5,6 +5,8 @@ library;
 
 import 'dart:convert';
 
+import '../network/api_error.dart';
+
 /// Lifecycle of one queued action row.
 enum ActionStatus {
   pending('pending'),
@@ -95,6 +97,27 @@ class StoredAction {
       createdAt: createdAt,
     );
   }
+}
+
+/// Well-known action types. New mutation families add a constant here and
+/// register a handler in `action_bootstrap.dart`.
+abstract final class ActionTypes {
+  static const bookmarkAdd = 'bookmark.add';
+  static const bookmarkDelete = 'bookmark.delete';
+  static const followAdd = 'follow.add';
+  static const followDelete = 'follow.delete';
+}
+
+/// Connectivity-class failures — the reason an action was queued offline
+/// and the reason a replay pauses the whole queue. Business rejections
+/// (4xx, unauthorized, parse errors) never qualify: they failed for a
+/// reason the network cannot fix.
+bool isConnectivityError(Object error) {
+  return switch (error) {
+    ApiNetworkError() || ApiTimeout() || ApiRateLimited() => true,
+    ApiHttpError(:final statusCode) => statusCode >= 500,
+    _ => false,
+  };
 }
 
 /// Cumulative counters surfaced for diagnostics. Rows dropped after

@@ -13,10 +13,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../network/api_error.dart';
-import '../paging/feed_snapshot_store.dart';
 import 'action_models.dart';
 import 'action_store.dart';
 
@@ -150,22 +147,9 @@ final class ActionQueue {
   /// parse, unauthorized, unknown) retry the single row. [ApiCancelled]
   /// is treated as transient: the replay was interrupted, not rejected.
   static RetryScope _classify(Object error) {
-    return switch (error) {
-      ApiNetworkError() ||
-      ApiTimeout() ||
-      ApiCancelled() ||
-      ApiRateLimited() => RetryScope.queueCooldown,
-      ApiHttpError(:final statusCode) when statusCode >= 500 =>
-        RetryScope.queueCooldown,
-      _ => RetryScope.row,
-    };
+    if (error is ApiCancelled || isConnectivityError(error)) {
+      return RetryScope.queueCooldown;
+    }
+    return RetryScope.row;
   }
 }
-
-final actionStoreProvider = Provider<ActionStore>((ref) {
-  return SqliteActionStore(database: ref.watch(feedDatabaseProvider));
-});
-
-final actionQueueProvider = Provider<ActionQueue>((ref) {
-  return ActionQueue(store: ref.watch(actionStoreProvider));
-});

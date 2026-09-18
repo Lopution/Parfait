@@ -177,7 +177,10 @@ void main() {
   });
 
   test('failure restores the confirmed icon and surfaces error (R5)', () async {
-    final (container, _) = await _makeWorld(addStatus: 500);
+    // 403 is a business rejection: connectivity-class failures enqueue for
+    // replay instead (see action_replay_test), so the visible-failure path
+    // is exercised with a status the queue cannot fix.
+    final (container, _) = await _makeWorld(addStatus: 403);
     const key = BookmarkKey(BookmarkEntityType.illust, 8);
 
     await container.read(bookmarkActionsProvider).toggle(key);
