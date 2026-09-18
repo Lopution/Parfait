@@ -217,6 +217,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsTitle => 'Настройки';
 
   @override
+  String get settingsGroupAppearance => 'Внешний вид';
+
+  @override
+  String get settingsGroupNetwork => 'Сеть и просмотр';
+
+  @override
+  String get settingsGroupContent => 'Контент';
+
+  @override
+  String get settingsGroupDownload => 'Загрузки';
+
+  @override
+  String get settingsGroupData => 'Данные';
+
+  @override
   String get accountSettings => 'Аккаунт';
 
   @override

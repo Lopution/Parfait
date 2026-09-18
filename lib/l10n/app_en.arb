@@ -94,6 +94,11 @@
   "agreementDisclaimerBody": "This is an unofficial third-party client and is not affiliated with Pixiv Inc. To the extent permitted by law, the author is not responsible for loss or access failures caused by networks, accounts, third-party services, or events beyond control.",
   "agreementUpdates": "This agreement may change with product or legal requirements. Continued use means you accept the updated agreement.",
   "settingsTitle": "Settings",
+  "settingsGroupAppearance": "Appearance",
+  "settingsGroupNetwork": "Network & browsing",
+  "settingsGroupContent": "Content",
+  "settingsGroupDownload": "Downloads",
+  "settingsGroupData": "Data",
   "accountSettings": "Account",
   "networkSettings": "Network",
   "networkMode": "Pixiv official network compatibility",
@@ -199,7 +204,11 @@
   "backupExportHint": "Writes pixiv-func-backup-*.json into a directory you choose",
   "backupExported": "Exported {name}",
   "@backupExported": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "backupExportFailed": "Export failed",
   "backupImport": "Import backup",
@@ -210,9 +219,21 @@
   "backupImportPrompt": "The file contains {tags} muted tags, {users} muted users, {works} muted works and {history} history rows.\nExported by account: {account}",
   "@backupImportPrompt": {
     "placeholders": {
-      "tags": {"type": "int"}, "users": {"type": "int"},
-      "works": {"type": "int"}, "history": {"type": "int"},
-      "account": {"type": "String"}
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      },
+      "account": {
+        "type": "String"
+      }
     }
   },
   "backupImportOverwriteNote": "Overwrite clears local history and replaces muted works first; server-side mutes are add-only and are never deleted by an import.",
@@ -221,8 +242,18 @@
   "backupImportDone": "Imported: +{tags} tags, +{users} users, {works} work-mute changes, {history} history rows",
   "@backupImportDone": {
     "placeholders": {
-      "tags": {"type": "int"}, "users": {"type": "int"},
-      "works": {"type": "int"}, "history": {"type": "int"}
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      }
     }
   },
   "imageSource": "Image source",
@@ -592,12 +623,12 @@
   "searchReverseRetrySameEngine": "Retry this engine",
   "searchReverseEngineUnsupported": "The selected image doesn't meet this engine's input limits",
   "@searchReverseChallenge": {
-      "placeholders": {
-        "engine": {
-          "type": "String"
-        }
+    "placeholders": {
+      "engine": {
+        "type": "String"
       }
-    },
+    }
+  },
   "searchReverseIntro": "The selected image is uploaded to the chosen engine; the result page opens inside the app.",
   "searchNoRepresentative": "This tag has no representative work",
   "searchFilters": "Filters",
@@ -828,13 +859,31 @@
   "localNovelsImport": "Import TXT",
   "localNovelsImportFailed": "Import failed",
   "localNovelsImported": "Imported \"{title}\"",
-  "@localNovelsImported": {"placeholders": {"title": {"type": "String"}}},
+  "@localNovelsImported": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsImportedLossy": "Imported, but the encoding was not fully recognized — the text may contain mojibake",
   "localNovelsDelete": "Delete",
   "localNovelsDeleteConfirm": "Delete \"{title}\"? The local file will be removed too.",
-  "@localNovelsDeleteConfirm": {"placeholders": {"title": {"type": "String"}}},
+  "@localNovelsDeleteConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsChars": "{count} chars",
-  "@localNovelsChars": {"placeholders": {"count": {"type": "int"}}},
+  "@localNovelsChars": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "Series",
   "spotlightTitle": "Spotlight",
   "spotlightArticleLoadFailed": "Failed to load article",

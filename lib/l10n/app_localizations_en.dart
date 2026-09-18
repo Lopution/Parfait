@@ -218,6 +218,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTitle => 'Settings';
 
   @override
+  String get settingsGroupAppearance => 'Appearance';
+
+  @override
+  String get settingsGroupNetwork => 'Network & browsing';
+
+  @override
+  String get settingsGroupContent => 'Content';
+
+  @override
+  String get settingsGroupDownload => 'Downloads';
+
+  @override
+  String get settingsGroupData => 'Data';
+
+  @override
   String get accountSettings => 'Account';
 
   @override

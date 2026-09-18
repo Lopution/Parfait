@@ -94,6 +94,11 @@
   "agreementDisclaimerBody": "本アプリはPixiv Inc.とは無関係の非公式サードパーティークライアントです。法律で認められる範囲で、ネットワーク、アカウント、第三者サービス、不可抗力による損失やアクセス障害について作者は責任を負いません。",
   "agreementUpdates": "本規約は機能や法令の変更に応じて更新されることがあります。利用を続けることで更新後の規約に同意したものとします。",
   "settingsTitle": "設定",
+  "settingsGroupAppearance": "外観",
+  "settingsGroupNetwork": "ネットワークと閲覧",
+  "settingsGroupContent": "コンテンツ",
+  "settingsGroupDownload": "ダウンロード",
+  "settingsGroupData": "データ",
   "accountSettings": "アカウント",
   "networkSettings": "ネットワーク",
   "networkMode": "Pixiv公式ネットワーク互換",
@@ -199,7 +204,11 @@
   "backupExportHint": "選択したフォルダに pixiv-func-backup-*.json を保存",
   "backupExported": "{name} を書き出しました",
   "@backupExported": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "backupExportFailed": "書き出しに失敗しました",
   "backupImport": "バックアップを読み込む",
@@ -210,9 +219,21 @@
   "backupImportPrompt": "ファイル内容：ミュートタグ {tags} 件、ミュートユーザー {users} 件、作品ミュート {works} 件、履歴 {history} 件。\n書き出し元アカウント：{account}",
   "@backupImportPrompt": {
     "placeholders": {
-      "tags": {"type": "int"}, "users": {"type": "int"},
-      "works": {"type": "int"}, "history": {"type": "int"},
-      "account": {"type": "String"}
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      },
+      "account": {
+        "type": "String"
+      }
     }
   },
   "backupImportOverwriteNote": "上書きはローカル履歴を消去して作品ミュートを置き換えます。サーバー側のミュートは追加のみで、読み込みで削除されることはありません。",
@@ -221,8 +242,18 @@
   "backupImportDone": "読み込み完了：タグ +{tags}、ユーザー +{users}、作品ミュート変更 {works} 件、履歴 {history} 件",
   "@backupImportDone": {
     "placeholders": {
-      "tags": {"type": "int"}, "users": {"type": "int"},
-      "works": {"type": "int"}, "history": {"type": "int"}
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      }
     }
   },
   "imageSource": "画像ソース",
@@ -592,12 +623,12 @@
   "searchReverseRetrySameEngine": "このエンジンで再試行",
   "searchReverseEngineUnsupported": "選択した画像はこのエンジンの入力制限を満たしていません",
   "@searchReverseChallenge": {
-      "placeholders": {
-        "engine": {
-          "type": "String"
-        }
+    "placeholders": {
+      "engine": {
+        "type": "String"
       }
-    },
+    }
+  },
   "searchReverseIntro": "選択した画像は選択中のエンジンにアップロードされ、結果ページがアプリ内で開きます。",
   "searchNoRepresentative": "このタグには代表作品がありません",
   "searchFilters": "フィルター",
@@ -828,13 +859,31 @@
   "localNovelsImport": "TXT をインポート",
   "localNovelsImportFailed": "インポートに失敗しました",
   "localNovelsImported": "「{title}」をインポートしました",
-  "@localNovelsImported": {"placeholders": {"title": {"type": "String"}}},
+  "@localNovelsImported": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsImportedLossy": "インポートしましたが、エンコーディングを完全に認識できず文字化けしている可能性があります",
   "localNovelsDelete": "削除",
   "localNovelsDeleteConfirm": "「{title}」を削除しますか？ローカルファイルも削除されます。",
-  "@localNovelsDeleteConfirm": {"placeholders": {"title": {"type": "String"}}},
+  "@localNovelsDeleteConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsChars": "{count} 文字",
-  "@localNovelsChars": {"placeholders": {"count": {"type": "int"}}},
+  "@localNovelsChars": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "シリーズ",
   "spotlightTitle": "スポットライト",
   "spotlightArticleLoadFailed": "記事の読み込みに失敗しました",
