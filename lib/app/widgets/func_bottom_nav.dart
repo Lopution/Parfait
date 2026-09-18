@@ -606,7 +606,7 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
       context.l10n.homeRanking,
       context.l10n.newTitle,
       context.l10n.searchTitle,
-      context.l10n.homeMe,
+      context.l10n.settingsTitle,
     ];
     Widget bar(int index, {bool visible = true}) => FuncBottomNav(
       selectedIndex: index,
@@ -639,7 +639,7 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
     AppIcons.ranking,
     AppIcons.n,
     AppIcons.search,
-    Icons.person_outline,
+    Icons.settings_outlined,
   ];
 }
 

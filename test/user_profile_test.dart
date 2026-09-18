@@ -549,43 +549,47 @@ void main() {
     }
   });
 
-  testWidgets('current profile header hosts the settings entry', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+  testWidgets(
+    'current profile header keeps share inline and overflows into a menu',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
 
-        home: Scaffold(
-          body: CustomScrollView(
-            slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: ReplicaProfileHeaderDelegate(
-                  user: _user(42),
-                  isMe: true,
-                  selectedTabIndex: 0,
-                  showRestrictSelector: false,
-                  restrict: UserRestrict.public,
-                  onRestrictChanged: (_) {},
-                  onShare: () {},
+          home: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: ReplicaProfileHeaderDelegate(
+                    user: _user(42),
+                    isMe: true,
+                    selectedTabIndex: 0,
+                    showRestrictSelector: false,
+                    restrict: UserRestrict.public,
+                    onRestrictChanged: (_) {},
+                    onShare: () {},
+                    onEditProfile: () {},
+                  ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
-    expect(find.byIcon(Icons.settings_outlined), findsWidgets);
+      );
+      await tester.pump();
+      // Expanded header keeps share/edit inline; the collapsed toolbar carries
+      // the remaining actions in a single overflow menu.
+      expect(find.byIcon(Icons.share_outlined), findsWidgets);
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
-    await tester.pump();
-    expect(find.byIcon(Icons.settings_outlined), findsWidgets);
-  });
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      await tester.pump();
+      expect(find.byIcon(Icons.more_vert), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'UserPage renders tabs and re-tapping the current tab opens type selector',

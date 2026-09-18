@@ -9,7 +9,6 @@ import '../../core/navigation/route_observer.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/widgets/func_bottom_nav.dart';
-import '../../app/widgets/settings_action_button.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../l10n/context.dart';
@@ -140,7 +139,7 @@ class _HomePageState extends State<HomePage>
     AppIcons.ranking,
     AppIcons.n,
     AppIcons.search,
-    Icons.person_outline,
+    Icons.settings_outlined,
   ];
 
   @override
@@ -158,7 +157,7 @@ class _HomePageState extends State<HomePage>
       context.l10n.homeRanking,
       context.l10n.newTitle,
       context.l10n.searchTitle,
-      context.l10n.homeMe,
+      context.l10n.settingsTitle,
     ];
     // Narrow layout: each branch-root page owns its bottom bar, which a
     // pushed route simply covers — no shell-level hide machinery here.
@@ -188,15 +187,6 @@ class _HomePageState extends State<HomePage>
                           label: Text(labels[i]),
                         ),
                     ],
-                    trailing: const Expanded(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding: EdgeInsets.only(bottom: 8),
-                          child: SettingsActionButton(),
-                        ),
-                      ),
-                    ),
                   ),
                   const VerticalDivider(thickness: 1, width: 1),
                   Expanded(child: widget.navigationShell),

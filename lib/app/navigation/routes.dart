@@ -583,6 +583,133 @@ List<RouteBase> _commonBranchRoutes(
   return routes;
 }
 
+/// Settings subpages grafted under the `/settings` home branch. They take
+/// the branch observer so route-aware widgets behave the same as on any
+/// other branch stack.
+List<RouteBase> _settingsSubRoutes(
+  RouteObserver<ModalRoute<dynamic>> observer,
+) {
+  return [
+    GoRoute(
+      path: 'account',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const AccountSettingsPage()),
+    ),
+    GoRoute(
+      path: 'theme',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const ThemeSettingsPage()),
+    ),
+    GoRoute(
+      path: 'language',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const LanguageSettingsPage()),
+    ),
+    GoRoute(
+      path: 'translate',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const TranslateSettingsPage()),
+      routes: [
+        GoRoute(
+          path: 'credentials/:provider',
+          pageBuilder: (context, state) => _page(
+            context,
+            state,
+            observer,
+            TranslationCredentialsPage(
+              baidu: state.pathParameters['provider'] == 'baidu',
+            ),
+          ),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: 'network',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const NetworkSettingsPage()),
+      routes: [
+        GoRoute(
+          path: 'probe',
+          pageBuilder: (context, state) =>
+              _page(context, state, observer, const NetworkProbePage()),
+        ),
+        GoRoute(
+          path: 'advanced',
+          pageBuilder: (context, state) => _page(
+            context,
+            state,
+            observer,
+            const NetworkAdvancedSettingsPage(),
+          ),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: 'browse',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const BrowseSettingsPage()),
+    ),
+    GoRoute(
+      path: 'download',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const DownloadSettingsPage()),
+      routes: [
+        GoRoute(
+          path: 'destination',
+          pageBuilder: (context, state) =>
+              _page(context, state, observer, const DownloadDestinationPage()),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: 'history',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const HistorySettingsPage()),
+      routes: [
+        GoRoute(
+          path: 'view',
+          pageBuilder: (context, state) =>
+              _page(context, state, observer, const HistoryPage()),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: 'muted',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const MutedItemsPage()),
+    ),
+    GoRoute(
+      path: 'backup',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const BackupSettingsPage()),
+    ),
+    GoRoute(
+      path: 'tasks',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const DownloadTasksPage()),
+    ),
+    GoRoute(
+      path: 'about',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const AboutSettingsPage()),
+      routes: [
+        GoRoute(
+          path: 'licenses',
+          pageBuilder: (context, state) => _page(
+            context,
+            state,
+            observer,
+            const LicensePage(
+              applicationName: 'Pixiv Func',
+              applicationVersion: '0.1.0',
+            ),
+          ),
+        ),
+      ],
+    ),
+  ];
+}
+
 StatefulShellBranch _branch({
   required String path,
   required int branchIndex,
@@ -636,14 +763,16 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
   final rankingNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'ranking');
   final newNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'new');
   final searchNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'search');
-  final meNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'me');
+  final settingsNavigatorKey = GlobalKey<NavigatorState>(
+    debugLabel: 'settings',
+  );
 
   final appRootRouteObserver = RouteObserver<ModalRoute<dynamic>>();
   final recommendedRouteObserver = RouteObserver<ModalRoute<dynamic>>();
   final rankingRouteObserver = RouteObserver<ModalRoute<dynamic>>();
   final newRouteObserver = RouteObserver<ModalRoute<dynamic>>();
   final searchRouteObserver = RouteObserver<ModalRoute<dynamic>>();
-  final meRouteObserver = RouteObserver<ModalRoute<dynamic>>();
+  final settingsRouteObserver = RouteObserver<ModalRoute<dynamic>>();
 
   return GoRouter(
     navigatorKey: appRootNavigatorKey,
@@ -751,200 +880,20 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
           rootObserver: appRootRouteObserver,
         ),
       ),
-      // App settings are an app-level flow pushed on the root navigator, not
-      // a personal-content tab: /settings and /settings/... render over the
-      // home shell. Common routes stay mounted so the shared facade keeps
-      // working from inside settings pages (no history duplication — history
-      // already has /settings/history/view).
+      // The personal profile is an app-level flow pushed on the root
+      // navigator, not a home tab: /me renders over the home shell so the
+      // settings branch stays reachable even while the account/profile
+      // cannot load. Common routes stay mounted so the shared facade keeps
+      // working from inside profile pages.
       GoRoute(
-        path: '/settings',
+        path: '/me',
         pageBuilder: (context, state) =>
-            _page(context, state, appRootRouteObserver, const SettingsPage()),
-        routes: [
-          ..._commonBranchRoutes(
-            appRootRouteObserver,
-            rootNavigatorKey: appRootNavigatorKey,
-            rootObserver: appRootRouteObserver,
-            includeHistory: false,
-          ),
-          GoRoute(
-            path: 'account',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const AccountSettingsPage(),
-            ),
-          ),
-          GoRoute(
-            path: 'theme',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const ThemeSettingsPage(),
-            ),
-          ),
-          GoRoute(
-            path: 'language',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const LanguageSettingsPage(),
-            ),
-          ),
-          GoRoute(
-            path: 'translate',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const TranslateSettingsPage(),
-            ),
-            routes: [
-              GoRoute(
-                path: 'credentials/:provider',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  appRootRouteObserver,
-                  TranslationCredentialsPage(
-                    baidu: state.pathParameters['provider'] == 'baidu',
-                  ),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'network',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const NetworkSettingsPage(),
-            ),
-            routes: [
-              GoRoute(
-                path: 'probe',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  appRootRouteObserver,
-                  const NetworkProbePage(),
-                ),
-              ),
-              GoRoute(
-                path: 'advanced',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  appRootRouteObserver,
-                  const NetworkAdvancedSettingsPage(),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'browse',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const BrowseSettingsPage(),
-            ),
-          ),
-          GoRoute(
-            path: 'download',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const DownloadSettingsPage(),
-            ),
-            routes: [
-              GoRoute(
-                path: 'destination',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  appRootRouteObserver,
-                  const DownloadDestinationPage(),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'history',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const HistorySettingsPage(),
-            ),
-            routes: [
-              GoRoute(
-                path: 'view',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  appRootRouteObserver,
-                  const HistoryPage(),
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
-            path: 'muted',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const MutedItemsPage(),
-            ),
-          ),
-          GoRoute(
-            path: 'backup',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const BackupSettingsPage(),
-            ),
-          ),
-          GoRoute(
-            path: 'tasks',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const DownloadTasksPage(),
-            ),
-          ),
-          GoRoute(
-            path: 'about',
-            pageBuilder: (context, state) => _page(
-              context,
-              state,
-              appRootRouteObserver,
-              const AboutSettingsPage(),
-            ),
-            routes: [
-              GoRoute(
-                path: 'licenses',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  appRootRouteObserver,
-                  const LicensePage(
-                    applicationName: 'Pixiv Func',
-                    applicationVersion: '0.1.0',
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+            _page(context, state, appRootRouteObserver, const MePage()),
+        routes: _commonBranchRoutes(
+          appRootRouteObserver,
+          rootNavigatorKey: appRootNavigatorKey,
+          rootObserver: appRootRouteObserver,
+        ),
       ),
       StatefulShellRoute.indexedStack(
         restorationScopeId: 'home-shell',
@@ -1034,14 +983,19 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             ],
           ),
           _branch(
-            path: '/me',
+            path: '/settings',
             branchIndex: 4,
-            home: const MePage(),
-            navigatorKey: meNavigatorKey,
-            observer: meRouteObserver,
+            home: const SettingsPage(),
+            navigatorKey: settingsNavigatorKey,
+            observer: settingsRouteObserver,
             rootNavigatorKey: appRootNavigatorKey,
             rootObserver: appRootRouteObserver,
-            restorationScopeId: 'me',
+            restorationScopeId: 'settings',
+            // The settings subtree owns 'history' (its settings page plus
+            // /settings/history/view), so the common history route would
+            // collide — same exclusion the old root-level route used.
+            includeHistory: false,
+            routes: _settingsSubRoutes(settingsRouteObserver),
           ),
         ],
       ),
@@ -1165,15 +1119,15 @@ Future<void> openSpotlightArticle(
 }
 
 Future<void> openMe(BuildContext context) async {
-  // "我的" is a primary destination: opening it switches the shell branch
-  // rather than pushing a page inside the current stack.
-  context.go('/me');
+  // The profile is an app-level page now: it pushes over whatever stack is
+  // showing (the settings branch included) instead of switching branches.
+  await context.push<void>('/me');
 }
 
-/// App settings live on the root navigator, pushed over the shell so any
-/// tab can reach them without owning a personal-content slot.
+/// App settings are the fifth home destination: opening them switches the
+/// shell branch rather than pushing a page over it.
 Future<void> openSettings(BuildContext context) async {
-  await _push(context, '/settings');
+  context.go('/settings');
 }
 
 Future<void> openNovel(BuildContext context, int novelId) async {
