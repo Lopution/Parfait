@@ -206,6 +206,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsTitle => '设置';
 
   @override
+  String get settingsGroupAppearance => '外观';
+
+  @override
+  String get settingsGroupNetwork => '网络与浏览';
+
+  @override
+  String get settingsGroupContent => '内容';
+
+  @override
+  String get settingsGroupDownload => '下载';
+
+  @override
+  String get settingsGroupData => '数据';
+
+  @override
   String get accountSettings => '账号';
 
   @override
