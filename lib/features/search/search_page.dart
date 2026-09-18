@@ -457,6 +457,10 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   Widget build(BuildContext context) {
     final supportsFilters = _selectedIndex != 2;
     return Scaffold(
+      // The keyboard overlays the page instead of squeezing the body into
+      // the strip above it; the suggestion list below gets a viewInsets
+      // bottom pad so its tail can still scroll clear of the IME.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         leading: IconButton(
           tooltip: context.l10n.searchCancel,
@@ -529,7 +533,10 @@ class _SearchAutocompletePanel extends ConsumerWidget {
       return Center(child: Text(context.l10n.searchNoSuggestions));
     }
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.only(
+        top: 8,
+        bottom: 8 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
       itemCount: state.suggestions.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
