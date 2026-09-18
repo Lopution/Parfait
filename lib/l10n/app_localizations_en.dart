@@ -1882,6 +1882,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get seriesNext => 'Next';
 
   @override
+  String get watchlistTitle => 'Watchlist';
+
+  @override
+  String get watchlistManga => 'Manga';
+
+  @override
+  String get watchlistNovel => 'Novel';
+
+  @override
+  String get watchlistEmpty => 'No series in your watchlist yet';
+
+  @override
+  String get watchlistLoadFailed => 'Failed to load watchlist';
+
+  @override
+  String get watchlistLoadMoreFailed => 'Failed to load more';
+
+  @override
+  String get watchlistAdd => 'Follow series';
+
+  @override
+  String get watchlistRemove => 'Unfollow series';
+
+  @override
+  String get watchlistNewContent => 'New';
+
+  @override
   String get profileSeries => 'Series';
 
   @override

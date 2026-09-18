@@ -94,8 +94,8 @@ class WatchlistSeriesEntry {
 }
 
 /// One page of a watchlist.
-class WatchlistPage {
-  const WatchlistPage({required this.entries, required this.nextUrl});
+class WatchlistSeriesPage {
+  const WatchlistSeriesPage({required this.entries, required this.nextUrl});
 
   final List<WatchlistSeriesEntry> entries;
   final String? nextUrl;

@@ -8,11 +8,15 @@ import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
+import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/series/series_feed_controller.dart';
 import '../../core/series/series_models.dart';
 import '../../core/series/series_store.dart';
+import '../../core/watchlist/watchlist_models.dart';
+import '../../core/watchlist/watchlist_store.dart';
+import '../../app/widgets/watchlist_toggle.dart';
 import '../../l10n/context.dart';
 
 /// One illust series: a header (cover/title/author/work count/caption) plus
@@ -132,15 +136,34 @@ class IllustSeriesPage extends ConsumerWidget {
   }
 }
 
-class _SeriesHeader extends StatelessWidget {
+class _SeriesHeader extends ConsumerWidget {
   const _SeriesHeader({required this.detail});
 
   final IllustSeriesEntity detail;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cover = detail.coverUrl;
+    // Opening the series marks the watchlist "new content" cursor at the
+    // newest work the page knows about.
+    final latest = detail.latestContentId;
+    if (latest != null) {
+      final accountId = ref.watch(
+        accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
+      );
+      if (accountId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref
+              .read(watchlistReadCursorProvider)
+              .markSeen(
+                accountId,
+                WatchlistKey(WatchlistType.manga, detail.id),
+                latest,
+              );
+        });
+      }
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Column(
@@ -191,6 +214,11 @@ class _SeriesHeader extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          WatchlistToggle(
+            seriesKey: WatchlistKey(WatchlistType.manga, detail.id),
+            detailAdded: detail.watchlistAdded,
           ),
           if (detail.caption.isNotEmpty) ...[
             const SizedBox(height: 8),

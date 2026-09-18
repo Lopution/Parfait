@@ -22,7 +22,7 @@ class PixivWatchlistRepository {
 
   /// One page of the watchlist, newest changes first. `next_url` pagination
   /// is validated against the list path before reuse.
-  Future<WatchlistPage> fetchWatchlist(
+  Future<WatchlistSeriesPage> fetchWatchlist(
     WatchlistType type, {
     String? cursor,
     CancelToken? cancelToken,
@@ -97,13 +97,16 @@ class PixivWatchlistRepository {
     );
   }
 
-  WatchlistPage _parsePage(Map<String, dynamic> json, WatchlistType type) {
+  WatchlistSeriesPage _parsePage(
+    Map<String, dynamic> json,
+    WatchlistType type,
+  ) {
     final raw = json['series'];
     if (raw is! List) {
       throw const ApiParseError('watchlist series list is missing');
     }
     try {
-      return WatchlistPage(
+      return WatchlistSeriesPage(
         entries: [
           for (final item in raw)
             if (item is Map<String, dynamic>)

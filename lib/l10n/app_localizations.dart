@@ -3552,6 +3552,60 @@ abstract class AppLocalizations {
   /// **'下一话'**
   String get seriesNext;
 
+  /// No description provided for @watchlistTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'追更'**
+  String get watchlistTitle;
+
+  /// No description provided for @watchlistManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'漫画'**
+  String get watchlistManga;
+
+  /// No description provided for @watchlistNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说'**
+  String get watchlistNovel;
+
+  /// No description provided for @watchlistEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有追更的系列'**
+  String get watchlistEmpty;
+
+  /// No description provided for @watchlistLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'追更列表加载失败'**
+  String get watchlistLoadFailed;
+
+  /// No description provided for @watchlistLoadMoreFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'加载更多失败'**
+  String get watchlistLoadMoreFailed;
+
+  /// No description provided for @watchlistAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'追更'**
+  String get watchlistAdd;
+
+  /// No description provided for @watchlistRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消追更'**
+  String get watchlistRemove;
+
+  /// No description provided for @watchlistNewContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新'**
+  String get watchlistNewContent;
+
   /// No description provided for @profileSeries.
   ///
   /// In zh, this message translates to:
