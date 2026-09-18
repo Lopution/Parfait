@@ -329,6 +329,23 @@ class _ReverseImageSearchPageState
             '${input.width} × ${input.height} · ${_formatBytes(input.sizeBytes)}',
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 4),
+          // Reselect/cancel sit right under the preview — below the engine
+          // chips and search button they fell off the first screen.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: _controller.pick,
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: Text(context.l10n.searchReverseRetry),
+              ),
+              TextButton(
+                onPressed: _controller.cancel,
+                child: Text(context.l10n.searchReverseCancel),
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
           _engineChips(context, state),
           if (!supported) ...[
@@ -344,21 +361,6 @@ class _ReverseImageSearchPageState
             onPressed: supported ? _search : null,
             icon: const Icon(Icons.search),
             label: Text(context.l10n.searchReverseUse),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextButton.icon(
-                onPressed: _controller.pick,
-                icon: const Icon(Icons.photo_library_outlined, size: 18),
-                label: Text(context.l10n.searchReverseRetry),
-              ),
-              TextButton(
-                onPressed: _controller.cancel,
-                child: Text(context.l10n.searchReverseCancel),
-              ),
-            ],
           ),
         ],
       ),
@@ -477,63 +479,28 @@ class _ReverseImageSearchPageState
 /// portrait photo kept as rotated landscape pixels produced a landscape
 /// AspectRatio box with letterboxed bars. Listening to the image stream
 /// yields the post-EXIF dimensions the engine and the user actually see.
-class _AdaptiveImagePreview extends StatefulWidget {
+class _AdaptiveImagePreview extends StatelessWidget {
   const _AdaptiveImagePreview({required this.path});
 
   final String path;
 
   @override
-  State<_AdaptiveImagePreview> createState() => _AdaptiveImagePreviewState();
-}
-
-class _AdaptiveImagePreviewState extends State<_AdaptiveImagePreview> {
-  ImageStream? _stream;
-  ImageStreamListener? _listener;
-  double? _aspect;
-
-  @override
-  void initState() {
-    super.initState();
-    _stream = FileImage(File(widget.path)).resolve(const ImageConfiguration());
-    _listener = ImageStreamListener((info, _) {
-      if (!mounted || _aspect != null) return;
-      setState(() => _aspect = info.image.width / info.image.height);
-    });
-    _stream!.addListener(_listener!);
-  }
-
-  @override
-  void dispose() {
-    final stream = _stream;
-    final listener = _listener;
-    if (stream != null && listener != null) {
-      stream.removeListener(listener);
-    }
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final image = Image.file(
-      File(widget.path),
-      fit: BoxFit.contain,
-      cacheWidth: 1024,
-      cacheHeight: 1024,
-      errorBuilder: (context, error, stackTrace) =>
-          const Center(child: Icon(Icons.broken_image_outlined, size: 56)),
-    );
-    final aspect = _aspect;
-    if (aspect == null) {
-      // Not yet decoded: a neutral 4:3 box for a frame or two.
-      return AspectRatio(aspectRatio: 4 / 3, child: image);
-    }
-    // Bounded maxHeight keeps a very tall image sane; AspectRatio inside
-    // bounded constraints resolves to the largest box that still matches
-    // the decoded ratio, so the box itself follows the image — no bars.
+    // Loose constraints: Image sizes itself to the decoded (EXIF-aware)
+    // intrinsic dimensions, clamped only by the height bound — the frame
+    // hugs the image with no letterboxing. The earlier probe-listener
+    // approach raced the image cache (a synchronous hit left the fallback
+    // 4:3 box forever) and decoded the file twice.
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 480),
-        child: AspectRatio(aspectRatio: aspect, child: image),
+        constraints: const BoxConstraints(maxHeight: 320),
+        child: Image.file(
+          File(path),
+          fit: BoxFit.contain,
+          cacheWidth: 1024,
+          errorBuilder: (context, error, stackTrace) =>
+              const Center(child: Icon(Icons.broken_image_outlined, size: 56)),
+        ),
       ),
     );
   }
