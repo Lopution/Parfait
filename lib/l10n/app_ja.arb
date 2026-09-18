@@ -816,6 +816,7 @@
   "watchLaterAdded": "あとで見るに追加しました",
   "watchLaterTitle": "あとで見る",
   "watchLaterEmpty": "一時保存した作品がここに表示されます",
+  "watchLaterLoadFailed": "あとで見るの読み込みに失敗しました",
   "bookmarkEditTitle": "ブックマークを編集",
   "bookmarkTags": "ブックマークタグ",
   "bookmarkTagNewHint": "タグを入力して確定",

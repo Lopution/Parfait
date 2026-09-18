@@ -923,6 +923,36 @@ void main() {
     expect(find.text('用户'), findsOneWidget);
   });
 
+  testWidgets('search input keeps its geometry when the IME opens', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    final router = createPixivRouter(initialLocation: '/search/input');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(SearchInputPage), findsOneWidget);
+    final scaffold = tester.widget<Scaffold>(
+      find.descendant(
+        of: find.byType(SearchInputPage),
+        matching: find.byType(Scaffold),
+      ),
+    );
+    expect(scaffold.resizeToAvoidBottomInset, isFalse);
+  });
+
   testWidgets('inline suggestions submit the existing typed query', (
     tester,
   ) async {

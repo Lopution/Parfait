@@ -816,6 +816,7 @@
   "watchLaterAdded": "Added to Watch later",
   "watchLaterTitle": "Watch later",
   "watchLaterEmpty": "Stashed works appear here",
+  "watchLaterLoadFailed": "Watch later failed to load",
   "bookmarkEditTitle": "Edit bookmark",
   "bookmarkTags": "Bookmark tags",
   "bookmarkTagNewHint": "Type a tag and press enter",

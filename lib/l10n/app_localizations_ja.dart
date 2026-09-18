@@ -1811,6 +1811,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get watchLaterEmpty => '一時保存した作品がここに表示されます';
 
   @override
+  String get watchLaterLoadFailed => 'あとで見るの読み込みに失敗しました';
+
+  @override
   String get bookmarkEditTitle => 'ブックマークを編集';
 
   @override

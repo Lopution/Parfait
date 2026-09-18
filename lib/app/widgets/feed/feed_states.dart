@@ -11,7 +11,7 @@ class FeedTail extends StatelessWidget {
     required this.feed,
     this.onRetry,
     this.errorTitle,
-    this.retryLabel = 'Retry',
+    required this.retryLabel,
     this.endMessage,
     this.padding = const EdgeInsets.all(16),
   });
@@ -110,14 +110,21 @@ class FeedEmpty extends StatelessWidget {
     required this.title,
     this.detail,
     this.onRefresh,
-    this.retryLabel = 'Refresh',
-  });
+    this.retryLabel,
+  }) : assert(
+         onRefresh == null || retryLabel != null,
+         'retryLabel is required when onRefresh is provided',
+       );
 
   final IconData icon;
   final String title;
   final String? detail;
   final Future<void> Function()? onRefresh;
-  final String retryLabel;
+
+  /// Translated label for the refresh button. Required whenever [onRefresh]
+  /// is provided — a hardcoded default is how English 'Refresh' leaked into
+  /// every locale.
+  final String? retryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -142,7 +149,7 @@ class FeedEmpty extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRefresh,
               icon: const Icon(Icons.refresh),
-              label: Text(retryLabel),
+              label: Text(retryLabel!),
             ),
           ],
         ],
@@ -159,7 +166,7 @@ class FeedError extends StatelessWidget {
     super.key,
     required this.title,
     required this.onRetry,
-    this.retryLabel = 'Retry',
+    required this.retryLabel,
     this.error,
     this.scrollable = true,
   });
