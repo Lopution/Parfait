@@ -159,6 +159,48 @@ void main() {
     expect(RootBackCoordinator.exitWindow, const Duration(seconds: 1));
   });
 
+  group('three-tier navigation chrome', () {
+    Future<void> pumpAt(WidgetTester tester, double width) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_homeApp());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    bool railExtended(WidgetTester tester) {
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      return rail.extended;
+    }
+
+    testWidgets('compact surface keeps the bottom bar and no rail', (
+      tester,
+    ) async {
+      await pumpAt(tester, 390);
+      expect(find.byType(NavigationRail), findsNothing);
+    });
+
+    testWidgets('medium surface uses the compact rail', (tester) async {
+      await pumpAt(tester, 900);
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(railExtended(tester), isFalse);
+    });
+
+    testWidgets('1199 stays compact, 1200 switches to the extended rail', (
+      tester,
+    ) async {
+      await pumpAt(tester, 1199);
+      expect(railExtended(tester), isFalse);
+
+      tester.view.physicalSize = const Size(1200, 844);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(railExtended(tester), isTrue);
+    });
+  });
+
   testWidgets('C7: cold start builds only the current tab', (tester) async {
     await _pumpHome(tester);
 
