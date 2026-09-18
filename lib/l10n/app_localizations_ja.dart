@@ -1802,6 +1802,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get linkCopied => 'リンクをコピーしました';
 
   @override
+  String get copyLink => 'リンクをコピー';
+
+  @override
   String get watchLaterAdded => 'あとで見るに追加しました';
 
   @override

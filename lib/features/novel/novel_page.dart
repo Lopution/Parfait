@@ -17,6 +17,7 @@ import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../core/share/share_service.dart';
 import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
 import '../../app/widgets/watchlist_toggle.dart';
@@ -69,6 +70,12 @@ class NovelPage extends ConsumerWidget {
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           if (novel != null && !novel.isRestricted)
+            IconButton(
+              tooltip: context.l10n.cardActionShare,
+              onPressed: () => _shareNovel(context, ref, novel),
+              icon: const Icon(Icons.share_outlined),
+            ),
+          if (novel != null && !novel.isRestricted)
             BookmarkSwitchButton(
               illustId: novel.id,
               title: novel.title,
@@ -109,6 +116,26 @@ class NovelPage extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  Future<void> _shareNovel(
+    BuildContext context,
+    WidgetRef ref,
+    NovelEntity novel,
+  ) async {
+    final outcome = await ref
+        .read(shareServiceProvider)
+        .share(
+          SharePayload.novel(
+            id: novel.id,
+            title: novel.title,
+            author: novel.user.name,
+          ),
+          sharePositionOrigin: shareOriginOf(context),
+        );
+    if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
+      showAppSnackBar(context, context.l10n.linkCopied);
+    }
   }
 }
 

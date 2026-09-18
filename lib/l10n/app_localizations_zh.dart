@@ -1786,6 +1786,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get linkCopied => '链接已复制';
 
   @override
+  String get copyLink => '复制链接';
+
+  @override
   String get watchLaterAdded => '已加入稍后再看';
 
   @override

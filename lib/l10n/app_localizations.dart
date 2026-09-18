@@ -3480,6 +3480,12 @@ abstract class AppLocalizations {
   /// **'链接已复制'**
   String get linkCopied;
 
+  /// No description provided for @copyLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制链接'**
+  String get copyLink;
+
   /// No description provided for @watchLaterAdded.
   ///
   /// In zh, this message translates to:
