@@ -152,6 +152,25 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
     return true;
   }
 
+  /// Settles an offline-replayed intent. When the pending operation that
+  /// produced the queued action is still owned, it commits through the
+  /// normal ledger path; otherwise the confirmed value merges like a remote
+  /// snapshot (process restarted, or a newer pending op owns the entry).
+  void settleQueued(
+    int userId, {
+    required bool followed,
+    FollowRestrict? restrict,
+  }) {
+    final pending = state[userId]?.pending;
+    if (pending != null &&
+        (pending.kind == FollowOperationKind.add) == followed &&
+        _owns(pending)) {
+      commit(pending);
+      return;
+    }
+    observeRemote(userId, followed: followed, restrict: restrict);
+  }
+
   /// Merges relationship state from a remote user payload without allowing a
   /// pending or older local confirmation to regress it.
   void observeRemote(

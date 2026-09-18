@@ -173,6 +173,26 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
     return true;
   }
 
+  /// Settles an offline-replayed intent. When the pending operation that
+  /// produced the queued action is still owned, it commits through the
+  /// normal ledger path; otherwise the confirmed value merges like a remote
+  /// snapshot (process restarted, or a newer pending op owns the key).
+  void settleQueued(
+    BookmarkKey key, {
+    required bool bookmarked,
+    BookmarkRestrict? restrict,
+    List<String> tags = const [],
+  }) {
+    final pending = state[key]?.pending;
+    if (pending != null &&
+        (pending.kind == BookmarkOpKind.add) == bookmarked &&
+        _owns(pending)) {
+      commit(pending);
+      return;
+    }
+    observeRemote(key, bookmarked: bookmarked, restrict: restrict);
+  }
+
   /// Merges a remote bookmark snapshot. Pending/local-confirmed state is
   /// protected by the same revision boundary used by the request owner.
   void observeRemote(

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../actionqueue/action_bootstrap.dart';
+import '../actionqueue/action_models.dart';
 import '../network/api_error.dart';
 import 'bookmark_models.dart';
 import 'bookmark_repository.dart';
@@ -64,15 +66,52 @@ class _BookmarkActions {
           await repository.deleteNovel(op.key.id, cancelToken: op.cancelToken);
       }
       store.commit(op);
+      // A completed mutation is connectivity evidence — piggyback a queue
+      // drain so earlier offline intents replay immediately.
+      pumpActionQueue(_ref);
     } on ApiCancelled {
       // Cancellation restores the confirmed view without an error banner.
       store.fail(op, const ApiCancelled());
     } on ApiError catch (error) {
+      if (await _enqueueOffline(op, error)) return;
       store.fail(op, error);
     } on Object catch (error) {
       // Unexpected failures must never leave a pending entry stuck; the
       // error stays observable in the store entry and the UI.
       store.fail(op, error);
+    }
+  }
+
+  /// Connectivity-class failures persist the intent instead of failing the
+  /// entry: the store keeps its pending state and the queued action replays
+  /// through the same repository once the queue drains. Returns true when
+  /// the intent is durably queued; a store failure falls back to the
+  /// visible error path.
+  Future<bool> _enqueueOffline(BookmarkOp op, ApiError error) async {
+    if (!isConnectivityError(error)) return false;
+    try {
+      await _ref
+          .read(actionQueueProvider)
+          .enqueue(
+            owner: op.accountId,
+            type: op.kind == BookmarkOpKind.add
+                ? ActionTypes.bookmarkAdd
+                : ActionTypes.bookmarkDelete,
+            // Target-scoped key: a pending add and a later delete coalesce
+            // to the last intent.
+            dedupeKey: 'bookmark:${op.key.type.name}:${op.key.id}',
+            payload: {
+              'entity': op.key.type.name,
+              'id': op.key.id,
+              if (op.kind == BookmarkOpKind.add) ...{
+                'restrict': op.restrict.name,
+                'tags': op.tags,
+              },
+            },
+          );
+      return true;
+    } on Object {
+      return false;
     }
   }
 }
