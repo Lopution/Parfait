@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:rhttp/rhttp.dart' as rhttp;
 
 import '../auth/account_store.dart';
 import '../auth/credential.dart';
@@ -363,8 +364,49 @@ class PixivHttpClient {
     } on TlsException catch (error) {
       // Certificate and handshake failures stay failures; never downgraded.
       throw ApiNetworkError(error);
+    } on Object catch (error) {
+      // Errors are programming bugs, not request failures — keep their
+      // type observable instead of mislabelling them as network errors.
+      if (error is Error) rethrow;
+      // The route ladder and secure resolver raise their own exception
+      // types (NetworkFailureException, SecureResolutionException,
+      // redirect/probe signals, unwrapped rhttp errors). Normalize them
+      // through the shared taxonomy so callers only ever see ApiError.
+      throw _normalizeTransportError(error);
     }
   }
+
+  /// Maps a raw transport-layer exception onto the [ApiError] taxonomy.
+  /// Only connectivity/tls/certificate kinds collapse to ApiNetworkError;
+  /// delivered verdicts keep their precise type (timeout, auth, rate
+  /// limit, HTTP status, parse) so upstream retry/queue logic sees the
+  /// same classification as a directly-thrown ApiError.
+  static ApiError _normalizeTransportError(Object error) {
+    final failure = TransportFailureClassifier.classify(error);
+    return switch (failure.kind) {
+      NetworkFailureKind.cancelled => const ApiCancelled(),
+      NetworkFailureKind.timeout => const ApiTimeout(),
+      NetworkFailureKind.auth => const ApiUnauthorized(
+        'authentication rejected by transport',
+      ),
+      NetworkFailureKind.rateLimit => const ApiRateLimited(null),
+      NetworkFailureKind.http ||
+      NetworkFailureKind.redirect => switch (_statusCodeOf(error)) {
+        final int code => ApiHttpError(code),
+        null => ApiNetworkError(error),
+      },
+      NetworkFailureKind.parse => ApiParseError(error),
+      _ => ApiNetworkError(error),
+    };
+  }
+
+  static int? _statusCodeOf(Object error) => switch (error) {
+    ApiHttpError(:final statusCode) => statusCode,
+    NetworkRedirectException(:final statusCode) => statusCode,
+    NetworkRouteProbeException(:final statusCode) => statusCode,
+    rhttp.RhttpStatusCodeException(:final statusCode) => statusCode,
+    _ => null,
+  };
 
   Future<String> _requireAccessToken() async {
     final context = await _currentContext();

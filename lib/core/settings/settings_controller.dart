@@ -5,6 +5,7 @@ import 'shared_preferences.dart';
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
 import '../reverse_image/reverse_image_engine.dart';
+import '../search/search_models.dart';
 import 'app_settings.dart';
 import 'settings_repository.dart';
 
@@ -108,6 +109,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
 
   Future<void> selectReverseImageEngine(ReverseImageEngine engine) =>
       _update((settings) => settings.copyWith(reverseImageEngine: engine));
+
+  Future<void> setSearchFilters(SearchFilters filters) =>
+      _update((settings) => settings.copyWith(searchFilters: filters));
 
   Future<void> setHideMuted(bool enabled) =>
       _update((settings) => settings.copyWith(hideMuted: enabled));
@@ -295,6 +299,17 @@ final reverseImageEngineProvider = Provider<ReverseImageEngine>((ref) {
   return ref.watch(
     settingsProvider.select(
       (async) => async.value?.reverseImageEngine ?? ReverseImageEngine.sauceNao,
+    ),
+  );
+});
+
+/// Persisted search filter set — the search page's working copy is this
+/// provider, so a confirmed selection survives page recreation and
+/// restarts without extra plumbing.
+final searchFiltersProvider = Provider<SearchFilters>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.searchFilters ?? SearchFilters.defaults,
     ),
   );
 });

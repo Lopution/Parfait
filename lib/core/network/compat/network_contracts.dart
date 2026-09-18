@@ -344,12 +344,30 @@ class NetworkRouteProbeException implements Exception {
   String toString() => 'NetworkRouteProbeException(HTTP $statusCode)';
 }
 
+/// Secure (DoH/static/system-validated) name resolution produced no usable
+/// address. Raised by `secure_resolver.dart`; declared beside the other
+/// contract-level exceptions so [TransportFailureClassifier] can see it
+/// without a circular import.
+class SecureResolutionException implements Exception {
+  const SecureResolutionException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'SecureResolutionException: $message';
+}
+
 /// Converts low-level errors into a stable taxonomy. Only the four transport
 /// failures listed by [isFallbackEligible] may try a second strict route.
 abstract final class TransportFailureClassifier {
   static NetworkFailure classify(Object error) {
     if (error is NetworkFailureException) {
       return NetworkFailure(error.kind, cause: error);
+    }
+    // A secure-resolution failure is a DNS-class transport failure: no
+    // address was ever produced, so nothing reached the server.
+    if (error is SecureResolutionException) {
+      return NetworkFailure(NetworkFailureKind.dns, cause: error);
     }
     if (error is ApiNetworkError) return classify(error.cause);
     if (error is ApiTimeout || error is TimeoutException) {

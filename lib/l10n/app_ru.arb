@@ -94,6 +94,11 @@
   "agreementDisclaimerBody": "Это неофициальный сторонний клиент, не связанный с Pixiv Inc. В пределах, разрешённых законом, автор не отвечает за потерю данных или сбои доступа из-за сети, аккаунта, сторонних сервисов или неподконтрольных событий.",
   "agreementUpdates": "Соглашение может обновляться из-за изменений продукта или закона. Продолжение использования означает принятие обновлённого соглашения.",
   "settingsTitle": "Настройки",
+  "settingsGroupAppearance": "Внешний вид",
+  "settingsGroupNetwork": "Сеть и просмотр",
+  "settingsGroupContent": "Контент",
+  "settingsGroupDownload": "Загрузки",
+  "settingsGroupData": "Данные",
   "accountSettings": "Аккаунт",
   "networkSettings": "Сеть",
   "networkMode": "Совместимость с официальной сетью Pixiv",
@@ -199,7 +204,11 @@
   "backupExportHint": "Сохраняет pixiv-func-backup-*.json в выбранную папку",
   "backupExported": "Сохранено: {name}",
   "@backupExported": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "backupExportFailed": "Не удалось экспортировать",
   "backupImport": "Импортировать копию",
@@ -210,9 +219,21 @@
   "backupImportPrompt": "В файле: скрытых тегов {tags}, пользователей {users}, скрытых работ {works}, записей истории {history}.\nЭкспортировано аккаунтом: {account}",
   "@backupImportPrompt": {
     "placeholders": {
-      "tags": {"type": "int"}, "users": {"type": "int"},
-      "works": {"type": "int"}, "history": {"type": "int"},
-      "account": {"type": "String"}
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      },
+      "account": {
+        "type": "String"
+      }
     }
   },
   "backupImportOverwriteNote": "Замена сначала очищает локальную историю и заменяет скрытые работы; серверный список скрытого только пополняется и импортом не удаляется.",
@@ -221,8 +242,18 @@
   "backupImportDone": "Импортировано: теги +{tags}, пользователи +{users}, изменений скрытых работ: {works}, история: {history}",
   "@backupImportDone": {
     "placeholders": {
-      "tags": {"type": "int"}, "users": {"type": "int"},
-      "works": {"type": "int"}, "history": {"type": "int"}
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      }
     }
   },
   "imageSource": "Источник изображений",
@@ -592,12 +623,12 @@
   "searchReverseRetrySameEngine": "Повторить в этом движке",
   "searchReverseEngineUnsupported": "Выбранное изображение не соответствует ограничениям этого движка",
   "@searchReverseChallenge": {
-      "placeholders": {
-        "engine": {
-          "type": "String"
-        }
+    "placeholders": {
+      "engine": {
+        "type": "String"
       }
-    },
+    }
+  },
   "searchReverseIntro": "Выбранное изображение отправляется в выбранный движок; страница результатов открывается в приложении.",
   "searchNoRepresentative": "У этого тега нет представительной работы",
   "searchFilters": "Фильтры",
@@ -828,13 +859,31 @@
   "localNovelsImport": "Импорт TXT",
   "localNovelsImportFailed": "Не удалось импортировать",
   "localNovelsImported": "Импортировано «{title}»",
-  "@localNovelsImported": {"placeholders": {"title": {"type": "String"}}},
+  "@localNovelsImported": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsImportedLossy": "Импортировано, но кодировка распознана не полностью — текст может содержать искажённые символы",
   "localNovelsDelete": "Удалить",
   "localNovelsDeleteConfirm": "Удалить «{title}»? Локальный файл тоже будет удалён.",
-  "@localNovelsDeleteConfirm": {"placeholders": {"title": {"type": "String"}}},
+  "@localNovelsDeleteConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsChars": "{count} символов",
-  "@localNovelsChars": {"placeholders": {"count": {"type": "int"}}},
+  "@localNovelsChars": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "Серии",
   "spotlightTitle": "Спотлайт",
   "spotlightArticleLoadFailed": "Не удалось загрузить статью",
