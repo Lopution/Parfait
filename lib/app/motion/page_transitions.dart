@@ -91,65 +91,6 @@ class FuncModalTransition extends StatelessWidget {
   }
 }
 
-/// Shell branch switch (bottom nav / NavigationRail): the incoming branch
-/// fades in over [MotionTokens.branchFade]. The outgoing branch is an
-/// IndexedStack child and cannot crossfade — it swaps atomically underneath,
-/// so this is a fade-in, matching the "tab changes fade" vocabulary.
-class FuncBranchFade extends StatefulWidget {
-  const FuncBranchFade({super.key, required this.index, required this.child});
-
-  /// The currently visible branch index; a change replays the fade.
-  final int index;
-  final Widget child;
-
-  @override
-  State<FuncBranchFade> createState() => _FuncBranchFadeState();
-}
-
-class _FuncBranchFadeState extends State<FuncBranchFade>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: MotionTokens.branchFade,
-      value: 1,
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant FuncBranchFade oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.index != widget.index) {
-      _controller.duration = MotionTokens.resolve(
-        context,
-        MotionTokens.branchFade,
-      );
-      _controller.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: _controller,
-        curve: MotionTokens.branchFadeCurve,
-      ),
-      child: widget.child,
-    );
-  }
-}
-
 /// Freezes a page into a single texture while a route transition slides.
 ///
 /// Impeller re-executes a route's whole display list on every frame of the

@@ -86,6 +86,17 @@ state or action.
   waits for image preload before navigating.
 - A router is rebuilt from settings/account changes, discarding branch stacks
   and restoration state.
+- A shared state widget (`FeedEmpty`/`FeedError`/`FeedTail` family) carries an
+  English fallback label. User-visible strings are `required` parameters so a
+  call site that forgets `context.l10n.*` fails to compile instead of shipping
+  untranslated UI.
+- A branch-level transition wraps the whole `StatefulNavigationShell` (content
+  + bottom chrome). IndexedStack swaps branches atomically, so the fade-in
+  reveals the scaffold background as a white flash — keep chrome static and let
+  the destination indicator animate instead.
+- A `Scaffold` holding an autofocus field relies on the default
+  `resizeToAvoidBottomInset: true`; the keyboard then compresses page geometry.
+  Set it `false` and pad the scrollable by `viewInsets.bottom` instead.
 
 ## Material 3 Theme Contract
 

@@ -133,6 +133,16 @@ class _SettingsList extends ConsumerWidget {
           onTap: () => openWatchLater(context),
         ),
         SettingsTile(
+          icon: Icons.collections_bookmark_outlined,
+          title: context.l10n.watchlistTitle,
+          onTap: () => openWatchlist(context),
+        ),
+        SettingsTile(
+          icon: Icons.menu_book_outlined,
+          title: context.l10n.localNovelsTitle,
+          onTap: () => openLocalNovels(context),
+        ),
+        SettingsTile(
           icon: Icons.block_outlined,
           title: context.l10n.mutedItemsSettings,
           onTap: () => openSettingsPage(context, '/settings/muted'),

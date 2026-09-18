@@ -634,40 +634,36 @@ class _CollapsedProfile extends StatelessWidget {
             ],
           );
 
-    return Stack(
+    // Three-section toolbar: leading / title / actions. The title centres
+    // inside whatever space the actions leave and ellipsizes there — the
+    // old full-width-centred Stack overlapped the action row once it grew
+    // past the hardcoded 64px side padding (5 icons ≈ 240px on /me).
+    return Row(
       children: [
-        // The title is genuinely centred on the screen; leading/actions sit
-        // on top, so asymmetric action counts no longer shift the name.
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 64),
-            child: Text(
-              key: const ValueKey('profile-toolbar-title'),
-              user.name,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: canPop
+              ? IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back_ios_new),
+                )
+              : const SizedBox.shrink(),
+        ),
+        Expanded(
+          child: Text(
+            key: const ValueKey('profile-toolbar-title'),
+            user.name,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
-        Positioned(
-          left: 8,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: canPop
-                ? IconButton(
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).backButtonTooltip,
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_ios_new),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ),
-        Positioned(right: 8, top: 0, bottom: 0, child: Center(child: actions)),
+        actions,
+        const SizedBox(width: 4),
       ],
     );
   }

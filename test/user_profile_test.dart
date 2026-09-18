@@ -495,6 +495,60 @@ void main() {
     expect(find.byKey(const ValueKey('profile-expanded-avatar')), findsNothing);
   });
 
+  testWidgets('collapsed toolbar title never overlaps the action row', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: ReplicaProfileHeaderDelegate(
+                  user: UserEntity(
+                    id: 42,
+                    name: 'a very long display name that will not fit',
+                    account: 'sample',
+                  ),
+                  isMe: true,
+                  selectedTabIndex: 0,
+                  showRestrictSelector: true,
+                  restrict: UserRestrict.public,
+                  onRestrictChanged: (_) {},
+                  onShare: () {},
+                  onEditProfile: () {},
+                  onOpenBookmarkTags: () {},
+                  onDownloadAll: () {},
+                  topInset: 24,
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pump();
+
+    final title = tester.getRect(
+      find.byKey(const ValueKey('profile-toolbar-title')),
+    );
+    for (final button in tester.elementList(find.byType(IconButton))) {
+      expect(
+        title.overlaps(tester.getRect(find.byWidget(button.widget))),
+        isFalse,
+        reason: 'toolbar title overlaps ${button.widget}',
+      );
+    }
+  });
+
   testWidgets('current profile header hosts the settings entry', (
     tester,
   ) async {
