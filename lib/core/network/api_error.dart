@@ -71,6 +71,18 @@ class ApiParseError extends ApiError {
 
   final Object cause;
 
+  /// The cause rides along: release builds obfuscate [runtimeType], so the
+  /// extractor's own diagnostics ("missing bootstrap script", "no value
+  /// entry") are the only way to tell WHICH parse stage failed from a
+  /// user report. Causes are FormatExceptions or short literals — never
+  /// headers, tokens or cookies — and are capped so an HTML page fragment
+  /// cannot flood an error surface.
   @override
-  String get message => 'response parse error';
+  String get message {
+    final detail = '$cause';
+    final trimmed = detail.length <= 160
+        ? detail
+        : '${detail.substring(0, 157)}…';
+    return 'response parse error: $trimmed';
+  }
 }
