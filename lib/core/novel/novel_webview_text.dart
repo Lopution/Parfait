@@ -55,7 +55,9 @@ NovelWebPayload extractNovelWebPayload(String html) {
   final object = _balancedObject(html, braceStart);
   final Map<String, dynamic> pixiv;
   try {
-    pixiv = jsonDecode(_stripTrailingCommas(object)) as Map<String, dynamic>;
+    pixiv =
+        jsonDecode(_stripTrailingCommas(_jsLiteralToJson(object)))
+            as Map<String, dynamic>;
   } on FormatException catch (error) {
     throw ApiParseError(error);
   }
@@ -66,26 +68,29 @@ NovelWebPayload extractNovelWebPayload(String html) {
   return _payload(readMap(novel));
 }
 
-/// Returns the `{…}` balanced-brace substring starting at [start].
+/// Returns the `{…}` balanced-brace substring starting at [start]. Both
+/// quote kinds are tracked — a `}` inside a '…' literal would otherwise end
+/// the scan early.
 String _balancedObject(String html, int start) {
   var depth = 0;
-  var inString = false;
+  var inString = 0; // 0 none, '"' double, '\'' single
   var escaped = false;
   for (var i = start; i < html.length; i++) {
     final unit = html.codeUnitAt(i);
-    if (inString) {
+    if (inString != 0) {
       if (escaped) {
         escaped = false;
       } else if (unit == 0x5C) {
         escaped = true;
-      } else if (unit == 0x22) {
-        inString = false;
+      } else if (unit == inString) {
+        inString = 0;
       }
       continue;
     }
     switch (unit) {
       case 0x22:
-        inString = true;
+      case 0x27:
+        inString = unit;
       case 0x7B:
         depth++;
       case 0x7D:
@@ -100,6 +105,113 @@ final _trailingComma = RegExp(r',(?=\s*[}\]])');
 
 String _stripTrailingCommas(String object) =>
     object.replaceAll(_trailingComma, '');
+
+/// Normalizes the bootstrap `value:` payload from a JavaScript object
+/// literal into strict JSON: unquoted keys get quoted ("sessionUserId:" is
+/// what the real page ships), '…' strings become "…", and the JS-only
+/// literals `undefined`/`NaN`/`Infinity` fold to null. Gson's lenient mode
+/// — what Shaft's parser rides on — accepts all three; dart:convert does
+/// not, which is why the strict decode died on the first unquoted key.
+String _jsLiteralToJson(String source) {
+  final out = StringBuffer();
+  // Stack entry true = object, false = array.
+  final stack = <bool>[];
+  var expectKey = false;
+  var i = 0;
+  while (i < source.length) {
+    final u = source.codeUnitAt(i);
+    if (u == 0x22 || u == 0x27) {
+      i = _emitString(source, i, out);
+      continue;
+    }
+    switch (u) {
+      case 0x7B: // {
+        stack.add(true);
+        expectKey = true;
+        out.writeCharCode(u);
+      case 0x5B: // [
+        stack.add(false);
+        expectKey = false;
+        out.writeCharCode(u);
+      case 0x7D: // }
+      case 0x5D: // ]
+        if (stack.isNotEmpty) stack.removeLast();
+        expectKey = false;
+        out.writeCharCode(u);
+      case 0x2C: // ,
+        expectKey = stack.isNotEmpty && stack.last;
+        out.writeCharCode(u);
+      case 0x3A: // :
+        expectKey = false;
+        out.writeCharCode(u);
+      default:
+        if (_isIdentStart(u)) {
+          final start = i;
+          while (i < source.length && _isIdentPart(source.codeUnitAt(i))) {
+            i++;
+          }
+          final ident = source.substring(start, i);
+          if (expectKey) {
+            out.write('"$ident"');
+          } else if (ident == 'undefined' ||
+              ident == 'NaN' ||
+              ident == 'Infinity') {
+            out.write('null');
+          } else {
+            // true/false/null and number-adjacent identifiers pass through.
+            out.write(ident);
+          }
+          continue;
+        }
+        out.writeCharCode(u);
+    }
+    i++;
+  }
+  return out.toString();
+}
+
+/// Emits the string literal at [start] ('"' or '\''-quoted) into [out] as a
+/// double-quoted JSON string, returning the index just past it.
+int _emitString(String source, int start, StringBuffer out) {
+  final quote = source.codeUnitAt(start);
+  out.writeCharCode(0x22);
+  var i = start + 1;
+  while (i < source.length) {
+    final u = source.codeUnitAt(i);
+    if (u == 0x5C && i + 1 < source.length) {
+      final next = source.codeUnitAt(i + 1);
+      if (next == 0x27 && quote == 0x27) {
+        // \' inside a '…' literal is just an apostrophe in JSON.
+        out.writeCharCode(0x27);
+      } else {
+        out.writeCharCode(0x5C);
+        out.writeCharCode(next);
+      }
+      i += 2;
+      continue;
+    }
+    if (u == quote) {
+      out.writeCharCode(0x22);
+      return i + 1;
+    }
+    if (u == 0x22) {
+      // A bare " inside a '…' literal must be escaped for JSON.
+      out.write(r'\"');
+    } else {
+      out.writeCharCode(u);
+    }
+    i++;
+  }
+  throw const ApiParseError('pixiv bootstrap value has an unterminated string');
+}
+
+bool _isIdentStart(int u) =>
+    (u >= 0x41 && u <= 0x5A) ||
+    (u >= 0x61 && u <= 0x7A) ||
+    u == 0x5F ||
+    u == 0x24;
+
+bool _isIdentPart(int u) => _isIdentStart(u) || (u >= 0x30 && u <= 0x39);
 
 NovelWebPayload _payload(Map<String, Object?> novel) {
   final navigation = readMap(novel['seriesNavigation']);
