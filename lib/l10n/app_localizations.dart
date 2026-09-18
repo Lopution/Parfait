@@ -456,6 +456,36 @@ abstract class AppLocalizations {
   /// **'设置'**
   String get settingsTitle;
 
+  /// No description provided for @settingsGroupAppearance.
+  ///
+  /// In zh, this message translates to:
+  /// **'外观'**
+  String get settingsGroupAppearance;
+
+  /// No description provided for @settingsGroupNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络与浏览'**
+  String get settingsGroupNetwork;
+
+  /// No description provided for @settingsGroupContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容'**
+  String get settingsGroupContent;
+
+  /// No description provided for @settingsGroupDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载'**
+  String get settingsGroupDownload;
+
+  /// No description provided for @settingsGroupData.
+  ///
+  /// In zh, this message translates to:
+  /// **'数据'**
+  String get settingsGroupData;
+
   /// No description provided for @accountSettings.
   ///
   /// In zh, this message translates to:

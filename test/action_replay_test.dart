@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import 'package:pixiv_func/core/bookmark/bookmark_actions.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
 import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
 import 'package:pixiv_func/core/mutation/mutation_models.dart';
+import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/user/follow_actions.dart';
 import 'package:pixiv_func/core/user/follow_store.dart';
@@ -311,5 +313,83 @@ void main() {
     await world.container.read(actionQueueProvider).drain('other');
     expect(await world.store.listFor('100'), hasLength(1));
     expect(world.fixture.requests, hasLength(1));
+  });
+
+  group('production transport exception types', () {
+    // The route ladder and secure resolver throw their own exception types,
+    // not package:http's. These cases pin the airplane-mode path: every
+    // connectivity-class transport failure must queue the intent instead
+    // of surfacing a raw error.
+    for (final (name, failure) in [
+      (
+        'ladder exhaustion (NetworkFailureException)',
+        const NetworkFailureException(NetworkFailureKind.connect),
+      ),
+      (
+        'secure resolver failure (SecureResolutionException)',
+        const SecureResolutionException('all DoH endpoints failed'),
+      ),
+      (
+        'resolver timeout (TimeoutException)',
+        TimeoutException('lookup timed out'),
+      ),
+    ]) {
+      test('$name queues the intent', () async {
+        final world = await _makeWorld();
+        addTearDown(world.container.dispose);
+        world.fixture.failures['illust'] = failure;
+
+        await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
+
+        final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
+        expect(entry.isPending, isTrue);
+        expect(entry.error, isNull);
+        final rows = await world.store.listFor('100');
+        expect(rows, hasLength(1));
+        expect(rows.single.type, ActionTypes.bookmarkAdd);
+      });
+    }
+
+    test('certificate mismatch stays a visible failure', () async {
+      final world = await _makeWorld();
+      addTearDown(world.container.dispose);
+      world.fixture.failures['illust'] = const NetworkFailureException(
+        NetworkFailureKind.certificateMismatch,
+      );
+
+      await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
+
+      final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
+      expect(entry.isPending, isFalse);
+      expect(entry.error, isNotNull);
+      expect(await world.store.listFor('100'), isEmpty);
+    });
+
+    test('a 503 response queues the intent', () async {
+      final world = await _makeWorld();
+      addTearDown(world.container.dispose);
+      world.fixture.statuses['illust'] = 503;
+
+      await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
+
+      final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
+      expect(entry.isPending, isTrue);
+      expect(await world.store.listFor('100'), hasLength(1));
+    });
+
+    test('follow toggles queue on raw transport failures too', () async {
+      final world = await _makeWorld();
+      addTearDown(world.container.dispose);
+      world.fixture.failures['follow'] = const SecureResolutionException(
+        'all DoH endpoints failed',
+      );
+
+      await world.container.read(followActionsProvider).toggle(7);
+
+      final entry = world.container.read(followStoreProvider)[7]!;
+      expect(entry.isPending, isTrue);
+      final rows = await world.store.listFor('100');
+      expect(rows.single.type, ActionTypes.followAdd);
+    });
   });
 }

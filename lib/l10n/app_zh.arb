@@ -94,6 +94,11 @@
   "agreementDisclaimerBody": "本应用是非官方第三方客户端，与 Pixiv Inc. 没有隶属关系。因网络、账号、第三方服务或不可抗力造成的内容丢失、访问失败或其他损失，应用作者在法律允许范围内不承担责任。",
   "agreementUpdates": "协议可能因功能或法律变化更新；继续使用即表示接受更新后的协议。",
   "settingsTitle": "设置",
+  "settingsGroupAppearance": "外观",
+  "settingsGroupNetwork": "网络与浏览",
+  "settingsGroupContent": "内容",
+  "settingsGroupDownload": "下载",
+  "settingsGroupData": "数据",
   "accountSettings": "账号",
   "networkSettings": "网络",
   "networkMode": "Pixiv 官方网络兼容",
@@ -199,7 +204,11 @@
   "backupExportHint": "选择目录后写入 pixiv-func-backup-*.json",
   "backupExported": "已导出 {name}",
   "@backupExported": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "backupExportFailed": "导出失败",
   "backupImport": "导入备份",
@@ -210,9 +219,21 @@
   "backupImportPrompt": "文件包含 {tags} 个屏蔽标签、{users} 个屏蔽用户、{works} 条作品屏蔽、{history} 条历史。\n导出账号：{account}",
   "@backupImportPrompt": {
     "placeholders": {
-      "tags": {"type": "int"}, "users": {"type": "int"},
-      "works": {"type": "int"}, "history": {"type": "int"},
-      "account": {"type": "String"}
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      },
+      "account": {
+        "type": "String"
+      }
     }
   },
   "backupImportOverwriteNote": "覆盖会先清空本地历史并替换作品屏蔽；服务端屏蔽列表只增不删，覆盖不会删除服务器上的屏蔽项。",
@@ -221,8 +242,18 @@
   "backupImportDone": "导入完成：新增 {tags} 个标签、{users} 个用户、{works} 项作品屏蔽变更、{history} 条历史",
   "@backupImportDone": {
     "placeholders": {
-      "tags": {"type": "int"}, "users": {"type": "int"},
-      "works": {"type": "int"}, "history": {"type": "int"}
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      }
     }
   },
   "imageSource": "图片源",
@@ -592,12 +623,12 @@
   "searchReverseRetrySameEngine": "重试当前引擎",
   "searchReverseEngineUnsupported": "当前图片不满足该引擎的输入限制",
   "@searchReverseChallenge": {
-      "placeholders": {
-        "engine": {
-          "type": "String"
-        }
+    "placeholders": {
+      "engine": {
+        "type": "String"
       }
-    },
+    }
+  },
   "searchReverseIntro": "选择图片后将上传到所选引擎进行反向检索；结果页在应用内打开。",
   "searchNoRepresentative": "该标签暂无代表作品",
   "searchFilters": "筛选",
@@ -828,13 +859,31 @@
   "localNovelsImport": "导入 TXT",
   "localNovelsImportFailed": "导入失败",
   "localNovelsImported": "已导入「{title}」",
-  "@localNovelsImported": {"placeholders": {"title": {"type": "String"}}},
+  "@localNovelsImported": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsImportedLossy": "已导入，但编码无法完全识别，可能包含乱码",
   "localNovelsDelete": "删除",
   "localNovelsDeleteConfirm": "删除「{title}」？本地文件会一并删除。",
-  "@localNovelsDeleteConfirm": {"placeholders": {"title": {"type": "String"}}},
+  "@localNovelsDeleteConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsChars": "{count} 字",
-  "@localNovelsChars": {"placeholders": {"count": {"type": "int"}}},
+  "@localNovelsChars": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "系列",
   "spotlightTitle": "特辑",
   "spotlightArticleLoadFailed": "文章加载失败",

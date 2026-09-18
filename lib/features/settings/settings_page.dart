@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/settings/settings_section.dart';
 import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account_store.dart';
@@ -76,6 +77,9 @@ class _SettingsList extends ConsumerWidget {
       );
     }
     final account = state?.current;
+    // Shaft-style hub: tiles are grouped by intent under labeled section
+    // headers instead of a flat list with bare dividers. Destructive/
+    // transfer actions (backup) sit in their own "data" group.
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
@@ -85,13 +89,12 @@ class _SettingsList extends ConsumerWidget {
               ? null
               : () => _copyAccount(context, ref),
         ),
-        const Divider(),
         SettingsTile(
           icon: Icons.manage_accounts_outlined,
           title: context.l10n.accountSettings,
           onTap: () => openSettingsPage(context, '/settings/account'),
         ),
-        const Divider(),
+        SettingsSection(title: Text(context.l10n.settingsGroupAppearance)),
         SettingsTile(
           icon: Icons.palette_outlined,
           title: context.l10n.themeSettings,
@@ -107,7 +110,7 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.translateSettings,
           onTap: () => openSettingsPage(context, '/settings/translate'),
         ),
-        const Divider(),
+        SettingsSection(title: Text(context.l10n.settingsGroupNetwork)),
         SettingsTile(
           icon: Icons.network_check,
           title: context.l10n.networkSettings,
@@ -118,11 +121,7 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.browseSettings,
           onTap: () => openSettingsPage(context, '/settings/browse'),
         ),
-        SettingsTile(
-          icon: Icons.download_outlined,
-          title: context.l10n.downloadSettings,
-          onTap: () => openSettingsPage(context, '/settings/download'),
-        ),
+        SettingsSection(title: Text(context.l10n.settingsGroupContent)),
         SettingsTile(
           icon: Icons.history,
           title: context.l10n.historySettings,
@@ -138,16 +137,22 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.mutedItemsSettings,
           onTap: () => openSettingsPage(context, '/settings/muted'),
         ),
+        SettingsSection(title: Text(context.l10n.settingsGroupDownload)),
         SettingsTile(
-          icon: Icons.backup_outlined,
-          title: context.l10n.backupSettings,
-          onTap: () => openSettingsPage(context, '/settings/backup'),
+          icon: Icons.download_outlined,
+          title: context.l10n.downloadSettings,
+          onTap: () => openSettingsPage(context, '/settings/download'),
         ),
-        const Divider(),
         SettingsTile(
           icon: Icons.downloading_outlined,
           title: context.l10n.downloaderSettings,
           onTap: () => openSettingsPage(context, '/settings/tasks'),
+        ),
+        SettingsSection(title: Text(context.l10n.settingsGroupData)),
+        SettingsTile(
+          icon: Icons.backup_outlined,
+          title: context.l10n.backupSettings,
+          onTap: () => openSettingsPage(context, '/settings/backup'),
         ),
         const Divider(),
         SettingsTile(

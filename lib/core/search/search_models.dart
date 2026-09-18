@@ -184,6 +184,96 @@ class SearchFilters {
 
   static const defaults = SearchFilters();
 
+  /// Persisted form stored inside AppSettings. Enums serialize by their
+  /// stable wire values so an enum reorder or rename cannot silently
+  /// change a user's persisted selection; dates stay date-only local.
+  Map<String, Object?> toJson() => {
+    'target': target.wireValue,
+    'sort': sort.wireValue,
+    if (duration != null) 'duration': duration!.wireValue,
+    if (startDate != null) 'startDate': _formatDate(startDate!),
+    if (endDate != null) 'endDate': _formatDate(endDate!),
+    'aiFilter': aiFilter.name,
+    if (bookmarkMin != null) 'bookmarkMin': bookmarkMin,
+    if (bookmarkMax != null) 'bookmarkMax': bookmarkMax,
+    if (ratio != null) 'ratio': ratio!.wireValue,
+    'contentType': contentType.wireValue,
+    if (widthMin != null) 'widthMin': widthMin,
+    if (widthMax != null) 'widthMax': widthMax,
+    if (heightMin != null) 'heightMin': heightMin,
+    if (heightMax != null) 'heightMax': heightMax,
+  };
+
+  /// Per-field validation: one damaged field falls back to its default
+  /// without discarding the other selections. A non-map value yields the
+  /// full default set.
+  factory SearchFilters.fromJson(Object? json) {
+    if (json is! Map) return defaults;
+    DateTime? dateOf(String key) {
+      final raw = json[key];
+      return raw is String ? DateTime.tryParse(raw) : null;
+    }
+
+    int? intOf(String key) {
+      final raw = json[key];
+      return raw is int ? raw : null;
+    }
+
+    return SearchFilters(
+      target: switch (json['target']) {
+        final String wire =>
+          SearchTarget.values
+                  .where((value) => value.wireValue == wire)
+                  .firstOrNull ??
+              defaults.target,
+        _ => defaults.target,
+      },
+      sort: switch (json['sort']) {
+        final String wire =>
+          SearchSort.values
+                  .where((value) => value.wireValue == wire)
+                  .firstOrNull ??
+              defaults.sort,
+        _ => defaults.sort,
+      },
+      duration: switch (json['duration']) {
+        final String wire =>
+          SearchDuration.values
+              .where((value) => value.wireValue == wire)
+              .firstOrNull,
+        _ => null,
+      },
+      startDate: dateOf('startDate'),
+      endDate: dateOf('endDate'),
+      aiFilter:
+          SearchAiFilter.values
+              .where((value) => value.name == json['aiFilter'])
+              .firstOrNull ??
+          defaults.aiFilter,
+      bookmarkMin: intOf('bookmarkMin'),
+      bookmarkMax: intOf('bookmarkMax'),
+      ratio: switch (json['ratio']) {
+        final String wire =>
+          SearchRatioPattern.values
+              .where((value) => value.wireValue == wire)
+              .firstOrNull,
+        _ => null,
+      },
+      contentType: switch (json['contentType']) {
+        final String wire =>
+          SearchContentType.values
+                  .where((value) => value.wireValue == wire)
+                  .firstOrNull ??
+              defaults.contentType,
+        _ => defaults.contentType,
+      },
+      widthMin: intOf('widthMin'),
+      widthMax: intOf('widthMax'),
+      heightMin: intOf('heightMin'),
+      heightMax: intOf('heightMax'),
+    );
+  }
+
   /// Serializes the filter set into app-API query parameters.
   ///
   /// `duration` is never sent: Pixiv's honoring of `within_last_*` on the

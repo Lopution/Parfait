@@ -74,6 +74,50 @@ void main() {
     expect(_memCacheWidthOf(tester), isNull);
   });
 
+  testWidgets(
+    'loose-constrained detail fills the bounded width, not intrinsic size',
+    (tester) async {
+      // The detail Stack gives children loose constraints: without an
+      // explicit width the Image sized itself to decoded pixels, so a
+      // card-width hero decode landed small with blank space beside it.
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(
+            width: 320,
+            child: Stack(
+              children: [PixivImage(url: 'https://i.pximg.net/test.jpg')],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
+            .width,
+        320,
+      );
+    },
+  );
+
+  testWidgets('unbounded width keeps intrinsic sizing', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        const SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: PixivImage(url: 'https://i.pximg.net/test.jpg'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage)).width,
+      isNull,
+    );
+  });
+
   testWidgets('quality handoff keeps an old decoded frame placeholder', (
     tester,
   ) async {

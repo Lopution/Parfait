@@ -212,6 +212,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsTitle => '設定';
 
   @override
+  String get settingsGroupAppearance => '外観';
+
+  @override
+  String get settingsGroupNetwork => 'ネットワークと閲覧';
+
+  @override
+  String get settingsGroupContent => 'コンテンツ';
+
+  @override
+  String get settingsGroupDownload => 'ダウンロード';
+
+  @override
+  String get settingsGroupData => 'データ';
+
+  @override
   String get accountSettings => 'アカウント';
 
   @override

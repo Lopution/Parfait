@@ -25,6 +25,7 @@ import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_engine.dart';
+import 'package:pixiv_func/core/search/search_models.dart';
 import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/settings/settings_controller.dart';
 import 'package:pixiv_func/core/settings/settings_repository.dart';
@@ -372,6 +373,24 @@ void main() {
     },
   );
 
+  test('setSearchFilters persists and the provider re-exposes it', () async {
+    final repository = _FakeRepository(_baseSettings());
+    final container = ProviderContainer(
+      overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    await container.read(settingsProvider.future);
+
+    const filters = SearchFilters(
+      sort: SearchSort.popularDesc,
+      bookmarkMin: 500,
+    );
+    await container.read(settingsProvider.notifier).setSearchFilters(filters);
+
+    expect(container.read(searchFiltersProvider), filters);
+    expect(repository.saved.single.searchFilters, filters);
+  });
+
   test('networkModeCode round-trips and missing key defaults to automatic', () {
     final stored = _baseSettings().copyWith(
       networkMode: NetworkMode.directOnly,
@@ -405,6 +424,67 @@ void main() {
     // A missing key keeps the explicit default for existing users.
     final missing = AppSettings.fromJson(const {}, fallback: _baseSettings());
     expect(missing.reverseImageEngine, ReverseImageEngine.sauceNao);
+  });
+
+  test('searchFilters round-trips and damaged fields fall back', () {
+    const filters = SearchFilters(
+      target: SearchTarget.exactMatchForTags,
+      sort: SearchSort.popularDesc,
+      duration: SearchDuration.week,
+      aiFilter: SearchAiFilter.exclude,
+      bookmarkMin: 100,
+      bookmarkMax: 5000,
+      ratio: SearchRatioPattern.portrait,
+      contentType: SearchContentType.illust,
+      widthMin: 800,
+      heightMin: 600,
+    );
+    final stored = _baseSettings().copyWith(searchFilters: filters);
+    final restored = AppSettings.fromJson(
+      stored.toJson(),
+      fallback: _baseSettings(),
+    );
+    expect(restored.searchFilters, filters);
+
+    // Custom date bounds also survive.
+    final dated = _baseSettings().copyWith(
+      searchFilters: SearchFilters(
+        startDate: DateTime(2024, 1, 10),
+        endDate: DateTime(2024, 2, 10),
+      ),
+    );
+    final datedRestored = AppSettings.fromJson(
+      dated.toJson(),
+      fallback: _baseSettings(),
+    );
+    expect(datedRestored.searchFilters.startDate, DateTime(2024, 1, 10));
+    expect(datedRestored.searchFilters.endDate, DateTime(2024, 2, 10));
+
+    // One damaged field falls back without discarding valid siblings.
+    final damaged = AppSettings.fromJson({
+      'searchFilters': {
+        'target': 'bogus_target',
+        'sort': 'date_asc',
+        'bookmarkMin': 'not-a-number',
+        'aiFilter': 'exclude',
+      },
+    }, fallback: _baseSettings());
+    expect(damaged.searchFilters.target, SearchTarget.partialMatchForTags);
+    expect(damaged.searchFilters.sort, SearchSort.dateAsc);
+    expect(damaged.searchFilters.bookmarkMin, isNull);
+    expect(damaged.searchFilters.aiFilter, SearchAiFilter.exclude);
+
+    // A missing/non-map value keeps the defaults.
+    expect(
+      AppSettings.fromJson(const {}, fallback: _baseSettings()).searchFilters,
+      SearchFilters.defaults,
+    );
+    expect(
+      AppSettings.fromJson(const {
+        'searchFilters': 42,
+      }, fallback: _baseSettings()).searchFilters,
+      SearchFilters.defaults,
+    );
   });
 
   test('legacy previewQuality true migrates to PreviewQuality.large', () {
@@ -698,8 +778,14 @@ void main() {
     expect(find.text('账号'), findsOneWidget);
     expect(find.text('主题'), findsOneWidget);
     expect(find.text('浏览设置'), findsOneWidget);
+    // Shaft-style hub: intent groups carry labeled section headers.
+    expect(find.text('外观'), findsOneWidget);
+    expect(find.text('网络与浏览'), findsOneWidget);
+    expect(find.text('内容'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -900));
     await tester.pump();
+    expect(find.text('下载'), findsOneWidget);
+    expect(find.text('数据'), findsOneWidget);
     expect(find.text('下载任务'), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);
     expect(find.text('新作'), findsNothing);

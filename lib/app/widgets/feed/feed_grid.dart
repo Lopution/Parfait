@@ -177,6 +177,28 @@ class FeedItemExtent extends InheritedWidget {
   bool updateShouldNotify(FeedItemExtent oldWidget) => width != oldWidget.width;
 }
 
+/// Tracks the most recently built feed index and turns each new build
+/// into the window start a prefetch should warm.
+///
+/// An advancing build warms the window right after the built edge (the
+/// original watermark behaviour). A lower build is a scroll-back or a
+/// re-advance below the old mark: decoded entries for the rows above the
+/// revealed card were likely evicted during the fling, so the window
+/// *above* it is warmed instead — the re-decode then happens off the
+/// scroll path rather than flashing placeholders when the scroll settles.
+/// Repeating the same index schedules nothing.
+class FeedPrefetchCursor {
+  int _last = -1;
+
+  /// The window start for [index], or null when nothing should be warmed.
+  int? advance(int index, {required int ahead}) {
+    if (index == _last) return null;
+    final from = index > _last ? index + 1 : math.max(0, index - ahead);
+    _last = index;
+    return from;
+  }
+}
+
 /// Column count for a masonry grid with the given cross-axis extent.
 /// Phone widths stay at 2 columns (beta56 behaviour); wide and foldable
 /// layouts add columns naturally. Never below 2.
@@ -221,9 +243,7 @@ class IllustFeedGrid extends StatelessWidget {
     // width change still creates a new grid and recalculates the columns.
     double? cachedCrossAxisExtent;
     Widget? cachedGrid;
-    // Highest index the viewport has laid out ≈ the fold. Each advance
-    // warms the window right after it; the dedupe set makes rebuilds cheap.
-    var prefetchWatermark = 0;
+    final prefetchCursor = FeedPrefetchCursor();
     return SliverLayoutBuilder(
       builder: (context, constraints) {
         final crossAxisExtent = constraints.crossAxisExtent;
@@ -234,6 +254,7 @@ class IllustFeedGrid extends StatelessWidget {
         final columnWidth =
             (crossAxisExtent - horizontal - (columns - 1) * crossAxisSpacing) /
             columns;
+        final decodeWidth = PixivImage.decodeWidthFor(columnWidth);
         final grid = SliverPadding(
           padding: padding,
           sliver: SliverMasonryGrid(
@@ -248,14 +269,19 @@ class IllustFeedGrid extends StatelessWidget {
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final prefetch = prefetchEntities;
-                if (prefetch != null && index >= prefetchWatermark) {
-                  prefetchWatermark = index + 1;
-                  scheduleFeedPreviewPrefetch(
-                    context,
-                    prefetch,
-                    prefetchWatermark,
-                    PixivImage.decodeWidthFor(columnWidth),
+                if (prefetch != null) {
+                  final from = prefetchCursor.advance(
+                    index,
+                    ahead: _kFeedPrefetchAhead,
                   );
+                  if (from != null) {
+                    scheduleFeedPreviewPrefetch(
+                      context,
+                      prefetch,
+                      from,
+                      decodeWidth,
+                    );
+                  }
                 }
                 return FeedItemExtent(
                   width: columnWidth,
