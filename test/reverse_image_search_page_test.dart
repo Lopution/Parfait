@@ -78,6 +78,29 @@ void main() {
     },
   );
 
+  testWidgets('ready state can repick or clear the selected image', (
+    tester,
+  ) async {
+    await _pumpPage(tester, platform: platform, providers: const {});
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('选择图片'));
+    await _pumpUntilVisible(tester, find.text('图片已准备好'));
+
+    // Repick replaces the prepared input and stays on the ready screen.
+    await tester.ensureVisible(find.text('重新选择'));
+    await tester.tap(find.text('重新选择'));
+    await _pumpUntilVisible(tester, find.text('图片已准备好'));
+    expect(platform.pickCount, 2);
+
+    // Clear releases the input and returns to the idle picker.
+    await tester.ensureVisible(find.text('取消'));
+    await tester.tap(find.text('取消'));
+    await _pumpUntilVisible(tester, find.text('选择图片'));
+    expect(find.text('图片已准备好'), findsNothing);
+    expect(platform.deletedPaths, isNotEmpty);
+  });
+
   testWidgets('ACTION_SEND reference enters the same prepared flow', (
     tester,
   ) async {
@@ -426,6 +449,7 @@ class _FakePlatform implements ReverseImageInputPlatform {
   final File file;
   final String mimeType;
   final deletedPaths = <String>[];
+  var pickCount = 0;
 
   @override
   Future<String> copyToOwnedFile(ReverseImageInputReference reference) async =>
@@ -435,14 +459,16 @@ class _FakePlatform implements ReverseImageInputPlatform {
   Future<void> deleteOwnedFile(String path) async => deletedPaths.add(path);
 
   @override
-  Future<ReverseImageInputReference?> pickImage() async =>
-      ReverseImageInputReference(
-        contentUri: 'content://picker/1',
-        mimeType: mimeType,
-        sizeBytes: 128,
-        hasReadUriPermission: true,
-        source: ReverseImageInputSource.picker,
-      );
+  Future<ReverseImageInputReference?> pickImage() async {
+    pickCount++;
+    return ReverseImageInputReference(
+      contentUri: 'content://picker/1',
+      mimeType: mimeType,
+      sizeBytes: 128,
+      hasReadUriPermission: true,
+      source: ReverseImageInputSource.picker,
+    );
+  }
 }
 
 /// Minimal InAppWebView platform stub — the real implementations are
