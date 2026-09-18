@@ -60,44 +60,45 @@ void main() {
     }
   });
 
-  testWidgets('home bar renders four iconFont icons plus the me tab icon', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          routerConfig: createPixivRouter(initialLocation: '/recommended'),
-        ),
-      ),
-    );
-    // The recommended tab starts its async load; settle the shell first.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    final iconWidgets = tester
-        .widgetList<Icon>(
-          find.descendant(
-            of: find.byType(FuncBottomNav),
-            matching: find.byType(Icon),
+  testWidgets(
+    'home bar renders four iconFont icons plus the settings tab icon',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            routerConfig: createPixivRouter(initialLocation: '/recommended'),
           ),
-        )
-        .toList();
-    expect(iconWidgets, hasLength(5));
+        ),
+      );
+      // The recommended tab starts its async load; settle the shell first.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-    for (var i = 0; i < 4; i++) {
-      expect(iconWidgets[i].icon!.fontFamily, 'iconFont');
-      expect(iconWidgets[i].icon!.matchTextDirection, isTrue);
-    }
-    // The fifth tab is the "我的" destination; settings is an app-level
-    // action (AppBar gear / rail trailing), not a personal-content tab.
-    expect(identical(iconWidgets[4].icon, Icons.person_outline), isTrue);
-  });
+      final iconWidgets = tester
+          .widgetList<Icon>(
+            find.descendant(
+              of: find.byType(FuncBottomNav),
+              matching: find.byType(Icon),
+            ),
+          )
+          .toList();
+      expect(iconWidgets, hasLength(5));
+
+      for (var i = 0; i < 4; i++) {
+        expect(iconWidgets[i].icon!.fontFamily, 'iconFont');
+        expect(iconWidgets[i].icon!.matchTextDirection, isTrue);
+      }
+      // The fifth tab is the settings destination; the profile moved to the
+      // settings page's account card, not a personal-content tab.
+      expect(identical(iconWidgets[4].icon, Icons.settings_outlined), isTrue);
+    },
+  );
 
   testWidgets('home bar renders real glyphs from the bundled font', (
     tester,
