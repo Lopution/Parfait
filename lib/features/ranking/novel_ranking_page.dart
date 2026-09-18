@@ -31,6 +31,7 @@ class _NovelRankingPageState extends State<NovelRankingPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final _scrollControllers = <NovelRankingMode, ScrollController>{};
+  final _entrancePlayed = <int>{};
   int _selectedIndex = 0;
 
   @override
@@ -90,6 +91,7 @@ class _NovelRankingPageState extends State<NovelRankingPage>
         key: ValueKey(mode),
         mode: mode,
         scrollController: _scrollControllerFor(mode),
+        entrancePlayed: _entrancePlayed,
       ),
     );
   }
@@ -100,10 +102,12 @@ class _NovelRankingModeBody extends ConsumerWidget {
     super.key,
     required this.mode,
     required this.scrollController,
+    required this.entrancePlayed,
   });
 
   final NovelRankingMode mode;
   final ScrollController scrollController;
+  final Set<int> entrancePlayed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -173,6 +177,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
                       itemCount: entities.length,
                       itemBuilder: (context, index) => StaggeredEntrance(
                         index: index,
+                        played: entrancePlayed,
                         child: NovelRow(entity: entities[index]),
                       ),
                     ),
