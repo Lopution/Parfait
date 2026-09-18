@@ -322,18 +322,7 @@ class _ReverseImageSearchPageState
           const SizedBox(height: 12),
           Card(
             clipBehavior: Clip.antiAlias,
-            child: AspectRatio(
-              aspectRatio: input.width / input.height,
-              child: Image.file(
-                File(input.path),
-                fit: BoxFit.contain,
-                cacheWidth: 1024,
-                cacheHeight: 1024,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Icon(Icons.broken_image_outlined, size: 56),
-                ),
-              ),
-            ),
+            child: _AdaptiveImagePreview(path: input.path),
           ),
           const SizedBox(height: 12),
           Text(
@@ -355,6 +344,21 @@ class _ReverseImageSearchPageState
             onPressed: supported ? _search : null,
             icon: const Icon(Icons.search),
             label: Text(context.l10n.searchReverseUse),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: _controller.pick,
+                icon: const Icon(Icons.photo_library_outlined, size: 18),
+                label: Text(context.l10n.searchReverseRetry),
+              ),
+              TextButton(
+                onPressed: _controller.cancel,
+                child: Text(context.l10n.searchReverseCancel),
+              ),
+            ],
           ),
         ],
       ),
@@ -463,6 +467,75 @@ class _ReverseImageSearchPageState
       if (!mounted) return;
       showAppSnackBar(context, context.l10n.searchReverseOpenFailed);
     }
+  }
+}
+
+/// Preview that shapes its box to the image's DECODED aspect ratio.
+///
+/// `ReverseImageInputInfo.width/height` come from the raw file header —
+/// JPEG SOF records the stored pixels and ignores EXIF orientation, so a
+/// portrait photo kept as rotated landscape pixels produced a landscape
+/// AspectRatio box with letterboxed bars. Listening to the image stream
+/// yields the post-EXIF dimensions the engine and the user actually see.
+class _AdaptiveImagePreview extends StatefulWidget {
+  const _AdaptiveImagePreview({required this.path});
+
+  final String path;
+
+  @override
+  State<_AdaptiveImagePreview> createState() => _AdaptiveImagePreviewState();
+}
+
+class _AdaptiveImagePreviewState extends State<_AdaptiveImagePreview> {
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  double? _aspect;
+
+  @override
+  void initState() {
+    super.initState();
+    _stream = FileImage(File(widget.path)).resolve(const ImageConfiguration());
+    _listener = ImageStreamListener((info, _) {
+      if (!mounted || _aspect != null) return;
+      setState(() => _aspect = info.image.width / info.image.height);
+    });
+    _stream!.addListener(_listener!);
+  }
+
+  @override
+  void dispose() {
+    final stream = _stream;
+    final listener = _listener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = Image.file(
+      File(widget.path),
+      fit: BoxFit.contain,
+      cacheWidth: 1024,
+      cacheHeight: 1024,
+      errorBuilder: (context, error, stackTrace) =>
+          const Center(child: Icon(Icons.broken_image_outlined, size: 56)),
+    );
+    final aspect = _aspect;
+    if (aspect == null) {
+      // Not yet decoded: a neutral 4:3 box for a frame or two.
+      return AspectRatio(aspectRatio: 4 / 3, child: image);
+    }
+    // Bounded maxHeight keeps a very tall image sane; AspectRatio inside
+    // bounded constraints resolves to the largest box that still matches
+    // the decoded ratio, so the box itself follows the image — no bars.
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 480),
+        child: AspectRatio(aspectRatio: aspect, child: image),
+      ),
+    );
   }
 }
 
