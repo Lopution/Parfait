@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../paging/paged_feed_controller.dart';
+import 'novel_snapshot_codec.dart';
 import 'novel_repository.dart';
 import 'novel_store.dart';
 
@@ -13,6 +14,9 @@ class _NovelRankingFeedController extends PagedFeedController {
 
   @override
   String get feedKey => 'novel-ranking:${mode.apiValue}';
+
+  @override
+  FeedSnapshotCodec? get snapshotCodec => const NovelSnapshotCodec();
 
   /// C9: ranking is discovery content.
   @override

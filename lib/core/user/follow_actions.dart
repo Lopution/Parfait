@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../actionqueue/action_bootstrap.dart';
+import '../actionqueue/action_models.dart';
+import '../network/api_error.dart';
 import 'follow_models.dart';
 import 'follow_repository.dart';
 import 'follow_store.dart';
@@ -45,10 +48,46 @@ class _FollowActions {
           );
       }
       store.commit(operation);
+      // A completed mutation is connectivity evidence — piggyback a queue
+      // drain so earlier offline intents replay immediately.
+      pumpActionQueue(_ref);
+    } on ApiError catch (error) {
+      if (await _enqueueOffline(operation, error)) return;
+      store.fail(operation, error);
     } on Object catch (error) {
       // Any error, including cancellation, must release the pending spinner
       // and leave the last confirmed value visible.
       store.fail(operation, error);
+    }
+  }
+
+  /// Connectivity-class failures persist the intent instead of failing the
+  /// entry: the store keeps its pending state and the queued action replays
+  /// through the same repository once the queue drains. Returns true when
+  /// the intent is durably queued; a store failure falls back to the
+  /// visible error path.
+  Future<bool> _enqueueOffline(FollowOperation op, ApiError error) async {
+    if (!isConnectivityError(error)) return false;
+    try {
+      await _ref
+          .read(actionQueueProvider)
+          .enqueue(
+            owner: op.envelope.accountId,
+            type: op.kind == FollowOperationKind.add
+                ? ActionTypes.followAdd
+                : ActionTypes.followDelete,
+            // Target-scoped key: a pending follow and a later unfollow
+            // coalesce to the last intent.
+            dedupeKey: 'follow:${op.userId}',
+            payload: {
+              'user': op.userId,
+              if (op.kind == FollowOperationKind.add)
+                'restrict': op.restrict.name,
+            },
+          );
+      return true;
+    } on Object {
+      return false;
     }
   }
 }

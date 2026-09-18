@@ -6,7 +6,9 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/illust_store.dart';
+import '../illust/illust_snapshot_codec.dart';
 import '../novel/novel_store.dart';
+import '../novel/novel_snapshot_codec.dart';
 import '../paging/paged_feed_controller.dart';
 import 'new_feed_models.dart';
 import 'new_feed_repository.dart';
@@ -19,6 +21,12 @@ class _NewFeedController extends PagedFeedController {
 
   @override
   String get feedKey => 'new:${key.scope.name}:${key.type.name}';
+
+  @override
+  FeedSnapshotCodec? get snapshotCodec => switch (key.type) {
+    NewFeedType.illust => const IllustSnapshotCodec(),
+    NewFeedType.novel => const NovelSnapshotCodec(),
+  };
 
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
