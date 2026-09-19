@@ -82,7 +82,7 @@ Future<void> _prefetchFeedWindow(
   final cacheManager = container
       .read(pixivNetworkFactoryProvider)
       .imageCacheManager;
-  final previewQuality = container.read(previewQualityProvider);
+  final previewQuality = container.read(effectivePreviewQualityProvider);
   // Feed data just landed: warm the remembered winning route's connection
   // so the first visible image GET skips the TLS/HTTP-2 handshake. The
   // effective host is the *rewritten* one — the mirror is what the sockets

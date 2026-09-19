@@ -40,7 +40,7 @@ class IllustCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final previewQuality = ref.watch(previewQualityProvider);
+    final previewQuality = ref.watch(effectivePreviewQualityProvider);
     // Pixiv's medium endpoint is capped at a small source width. A very tall
     // work paints a large continuous surface in the waterfall, so stretching
     // that cap is especially obvious as blur. Use the same uncropped large
