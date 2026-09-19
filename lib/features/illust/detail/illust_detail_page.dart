@@ -154,7 +154,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     return AppBar(
       title: Text(
         entity?.title ?? context.l10n.illustDetailTitle,
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        // A bare TextStyle(fontWeight:) replaces the AppBar's titleLarge —
+        // the title fell back to the 14sp default style while every other
+        // page renders its title at titleLarge.
+        style: Theme.of(
+          context,
+        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
       actions: [
         if (entity != null)
