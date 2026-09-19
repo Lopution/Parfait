@@ -245,7 +245,7 @@ void main() {
       expect(find.text('小节标题'), findsOneWidget);
       expect(find.text('作品标题'), findsOneWidget);
 
-      await tester.tap(find.text('作品链接'));
+      await tester.tapOnText(find.textRange.ofSubstring('作品链接'));
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended/illust/12345');
     });
