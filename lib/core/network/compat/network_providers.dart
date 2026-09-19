@@ -9,6 +9,7 @@ import 'network_contracts.dart' as contracts;
 import 'pixiv_network_factory.dart';
 import 'network_policy.dart';
 import 'network_fast_route_store.dart';
+import 'route_kind_store.dart';
 
 /// App-scoped network policy. Every native Pixiv API/OAuth/image/download
 /// consumer receives this same revision and diagnostics owner.
@@ -34,6 +35,9 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     echFrontHost: echFrontHost,
     insecureNoSniEnabled: true,
     fastRouteStore: PixivFastRouteStore(
+      preferences: ref.watch(sharedPreferencesProvider),
+    ),
+    routeKindStore: RouteKindStore(
       preferences: ref.watch(sharedPreferencesProvider),
     ),
     mode: switch (mode) {

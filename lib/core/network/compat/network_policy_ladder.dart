@@ -546,6 +546,16 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         createdAt: keepEchGroupCreatedAt ? current!.createdAt : now,
         networkIdentity: _revision.networkIdentity,
       );
+      // Persist the hint so the next cold start on this network seeds the
+      // group preference instead of paying the discovery walk. Writes are
+      // serialized inside the store; a failure is swallowed there.
+      unawaited(
+        routeKindStore?.remember(
+          _revision.networkIdentity,
+          group.name,
+          route.kind.name,
+        ),
+      );
     }
     _trimRouteMemory();
   }

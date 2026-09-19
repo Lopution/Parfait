@@ -33,4 +33,7 @@ abstract final class PreferenceKeys {
 
   /// Fast-route persisted addresses (`PixivFastRouteStore`).
   static const String fastRoutes = 'pixiv.network.fast_routes.v1';
+
+  /// Persisted route-kind hints per network identity (`RouteKindStore`).
+  static const String routeKinds = 'pixiv.network.route_kinds.v1';
 }
