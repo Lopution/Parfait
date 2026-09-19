@@ -40,6 +40,7 @@ dependencies:
   path_provider: ^2.1.5
   rhttp:
     path: plugins/rhttp/rhttp
+  share_plus: ^13.3.0
   shared_preferences: ^2.5.0
   sqflite: ^2.4.3
   sqflite_common_ffi: ^2.3.5
@@ -75,3 +76,15 @@ flutter:
     - family: iconFont
       fonts:
         - asset: assets/icon.ttf
+    # Montserrat carries Latin letters and digits; CJK glyphs are absent and
+    # fall back to the system font per glyph (SIL OFL 1.1, see MONTSERRAT-OFL).
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/montserrat_regular.ttf
+          weight: 400
+        - asset: assets/fonts/montserrat_medium.ttf
+          weight: 500
+        - asset: assets/fonts/montserrat_semi_bold.ttf
+          weight: 600
+        - asset: assets/fonts/montserrat_bold.ttf
+          weight: 700

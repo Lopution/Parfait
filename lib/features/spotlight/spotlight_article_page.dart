@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -83,15 +84,32 @@ class SpotlightArticlePage extends ConsumerWidget {
   }
 }
 
-class _SpotlightBlockView extends StatelessWidget {
+class _SpotlightBlockView extends StatefulWidget {
   const _SpotlightBlockView({required this.block});
 
   final SpotlightBlock block;
 
   @override
+  State<_SpotlightBlockView> createState() => _SpotlightBlockViewState();
+}
+
+class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
+  /// Link recognizers owned by the current paragraph spans — kept here so
+  /// they can be disposed instead of leaking across rebuilds.
+  var _recognizers = <TapGestureRecognizer>[];
+
+  @override
+  void dispose() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return switch (block) {
+    return switch (widget.block) {
       SpotlightHeading(:final text, :final level) => Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 6),
         child: Text(
@@ -108,25 +126,7 @@ class _SpotlightBlockView extends StatelessWidget {
         child: Text.rich(
           TextSpan(
             style: theme.textTheme.bodyMedium,
-            children: [
-              for (final segment in segments)
-                segment.href == null
-                    ? TextSpan(text: segment.text)
-                    : WidgetSpan(
-                        alignment: PlaceholderAlignment.baseline,
-                        baseline: TextBaseline.alphabetic,
-                        child: GestureDetector(
-                          onTap: () =>
-                              _openSpotlightLink(context, segment.href!),
-                          child: Text(
-                            segment.text,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-            ],
+            children: _linkSpans(context, segments, theme),
           ),
         ),
       ),
@@ -136,6 +136,42 @@ class _SpotlightBlockView extends StatelessWidget {
       ),
       final SpotlightIllustCard card => _SpotlightIllustCardView(card: card),
     };
+  }
+
+  /// TextSpan-per-segment with tap recognizers: the old WidgetSpan +
+  /// GestureDetector links sat outside the text flow, so they broke text
+  /// selection and screen-reader announcement of the paragraph.
+  List<InlineSpan> _linkSpans(
+    BuildContext context,
+    List<({String text, String? href})> segments,
+    ThemeData theme,
+  ) {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    final next = <TapGestureRecognizer>[];
+    final spans = <InlineSpan>[];
+    for (final segment in segments) {
+      final href = segment.href;
+      if (href == null) {
+        spans.add(TextSpan(text: segment.text));
+        continue;
+      }
+      final recognizer = TapGestureRecognizer()
+        ..onTap = () => _openSpotlightLink(context, href);
+      next.add(recognizer);
+      spans.add(
+        TextSpan(
+          text: segment.text,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.primary,
+          ),
+          recognizer: recognizer,
+        ),
+      );
+    }
+    _recognizers = next;
+    return spans;
   }
 }
 

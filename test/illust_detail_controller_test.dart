@@ -20,10 +20,13 @@ import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 
-/// Drives PixivHttpClient with a scripted API transport.
+/// Drives PixivHttpClient with a scripted API transport. [webHandler]
+/// scripts the `/ajax/illust/{id}/pages` web transport separately — it is a
+/// different client (pixivWeb policy), not the app API one.
 Future<ProviderContainer> makeContainer(
-  Future<http.Response> Function(http.Request request) handler,
-) async {
+  Future<http.Response> Function(http.Request request) handler, {
+  Future<http.Response> Function(http.Request request)? webHandler,
+}) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = FakeCredentialStore()
     ..seed(
@@ -55,6 +58,8 @@ Future<ProviderContainer> makeContainer(
         }
         return client;
       }),
+      if (webHandler != null)
+        illustDetailWebClientProvider.overrideWithValue(MockClient(webHandler)),
     ],
   );
   final client = PixivHttpClient(
@@ -73,6 +78,15 @@ http.Response okJson(Map<String, dynamic> json) => http.Response(
   200,
   headers: {'content-type': 'application/json'},
 );
+
+/// Waits for the async page-dimensions seed to land in the store — it runs
+/// unawaited behind the Ready emission, so a bare `.future` read can race it.
+Future<void> untilStore(bool Function() done) async {
+  for (var i = 0; i < 200 && !done(); i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+  }
+  expect(done(), isTrue, reason: 'timed out waiting for the store update');
+}
 
 void main() {
   setUp(() {
@@ -96,6 +110,97 @@ void main() {
     final entity = container.read(illustStoreProvider).get(42)!;
     expect(entity.metaPages, hasLength(2));
     expect(entity.title, 'illust 42');
+  });
+
+  test(
+    'multi-page detail merges per-page dimensions from the web endpoint',
+    () async {
+      // Snapshot's page_count lets the pages call race the detail fetch.
+      final container = await makeContainer(
+        (request) async {
+          expect(request.url.path, '/v1/illust/detail');
+          return okJson({
+            'illust': illustJson(50, pageCount: 3, withMetaPages: true),
+          });
+        },
+        webHandler: (request) async {
+          expect(request.url.host, 'www.pixiv.net');
+          expect(request.url.path, '/ajax/illust/50/pages');
+          return okJson({
+            'error': false,
+            'body': [
+              {'width': 800, 'height': 600},
+              {'width': 1200, 'height': 800},
+              {'width': 700, 'height': 1400},
+            ],
+          });
+        },
+      );
+      addTearDown(container.dispose);
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(illustJson(50, pageCount: 3, withMetaPages: true)),
+      ]);
+
+      final state = await container.read(
+        illustDetailControllerProvider(50).future,
+      );
+      expect(state, isA<IllustDetailReady>());
+      // The dims seed lands asynchronously behind Ready (Shaft's
+      // seedPageDimensions pattern) — wait for the merge instead of racing.
+      await untilStore(
+        () =>
+            container.read(illustStoreProvider).get(50)!.metaPages[1].width ==
+            1200,
+      );
+      final entity = container.read(illustStoreProvider).get(50)!;
+      // Page 2/3 get their true ratios instead of the work-level 800/600.
+      expect(entity.metaPages[1].width, 1200);
+      expect(entity.metaPages[1].height, 800);
+      expect(entity.metaPages[2].width, 700);
+      expect(entity.metaPages[2].height, 1400);
+      expect(entity.pageAspectRatioAt(1), closeTo(1.5, 0.001));
+      expect(entity.pageAspectRatioAt(2), closeTo(0.5, 0.001));
+    },
+  );
+
+  test(
+    'web pages failure keeps the detail ready with fallback ratios',
+    () async {
+      final container = await makeContainer(
+        (request) async => okJson({
+          'illust': illustJson(51, pageCount: 2, withMetaPages: true),
+        }),
+        webHandler: (request) async => http.Response('forbidden', 403),
+      );
+      addTearDown(container.dispose);
+
+      final state = await container.read(
+        illustDetailControllerProvider(51).future,
+      );
+      expect(state, isA<IllustDetailReady>());
+      final entity = container.read(illustStoreProvider).get(51)!;
+      expect(entity.metaPages[1].width, isNull);
+      // Falls back to the work-level ratio exactly like before.
+      expect(entity.pageAspectRatioAt(1), closeTo(800 / 600, 0.001));
+    },
+  );
+
+  test('single-page detail never hits the pages endpoint', () async {
+    var webCalls = 0;
+    final container = await makeContainer(
+      (request) async => okJson({'illust': illustJson(52)}),
+      webHandler: (request) async {
+        webCalls++;
+        return okJson({'error': false, 'body': <dynamic>[]});
+      },
+    );
+    addTearDown(container.dispose);
+
+    final state = await container.read(
+      illustDetailControllerProvider(52).future,
+    );
+    expect(state, isA<IllustDetailReady>());
+    expect(webCalls, 0);
   });
 
   test(

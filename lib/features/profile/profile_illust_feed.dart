@@ -91,6 +91,7 @@ class ProfileIllustFeed extends ConsumerWidget {
                     mainAxisSpacing: 5,
                     crossAxisSpacing: 10,
                     prefetchEntities: entities,
+                    itemIds: [for (final e in entities) e.id],
                     itemCount: entities.length,
                     itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],

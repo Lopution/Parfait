@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +8,7 @@ import '../../../core/entity/illust_entity.dart';
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/mute/mute_models.dart';
 import '../../../core/mute/mute_store.dart';
+import '../../../core/share/share_service.dart';
 import '../../../core/watchlater/watch_later_store.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
@@ -238,19 +238,26 @@ class _ShareAction extends CardAction {
   String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
       l10n.cardActionShare;
 
-  /// v1 copies the artwork URL to the clipboard — identical on all three
-  /// target platforms with zero new dependencies. A native share sheet via
-  /// share_plus is the documented upgrade path if wanted later.
+  /// Opens the platform share sheet (Shaft-parity payload); on platforms
+  /// without one the service falls back to the clipboard and we confirm the
+  /// copy with a snackbar so the action is never silent.
   @override
   Future<void> run(
     BuildContext context,
     WidgetRef ref,
     IllustEntity entity,
   ) async {
-    await Clipboard.setData(
-      ClipboardData(text: 'https://www.pixiv.net/artworks/${entity.id}'),
-    );
-    if (context.mounted) {
+    final outcome = await ref
+        .read(shareServiceProvider)
+        .share(
+          SharePayload.illust(
+            id: entity.id,
+            title: entity.title,
+            author: entity.user.name,
+          ),
+          sharePositionOrigin: shareOriginOf(context),
+        );
+    if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
       showAppSnackBar(context, context.l10n.linkCopied);
     }
   }

@@ -212,7 +212,7 @@ int illustColumnsFor(double crossAxisExtent) {
 /// cross-axis extent the sliver receives — under the wide NavigationRail the
 /// content width is smaller than the window, so reading `MediaQuery` here
 /// would over-count columns.
-class IllustFeedGrid extends StatelessWidget {
+class IllustFeedGrid extends StatefulWidget {
   const IllustFeedGrid({
     super.key,
     required this.itemCount,
@@ -220,6 +220,7 @@ class IllustFeedGrid extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 10),
     this.mainAxisSpacing = 5,
     this.crossAxisSpacing = 10,
+    this.itemIds,
     this.prefetchEntities,
   });
 
@@ -229,14 +230,34 @@ class IllustFeedGrid extends StatelessWidget {
   final double mainAxisSpacing;
   final double crossAxisSpacing;
 
+  /// Stable entity ids aligned with [itemBuilder]'s index order. Supplying
+  /// them does two things positional identity cannot: the staggered
+  /// entrance marks entities (not slots) as played, and
+  /// [SliverChildBuilderDelegate.findChildIndexCallback] re-seats element
+  /// state when a refresh inserts at the head — without keys, every card's
+  /// subtree is re-bound to whatever entity landed on its old position.
+  final List<int>? itemIds;
+
   /// When set, the grid warms preview images for entities just past the
   /// built edge as it advances — the bounded off-screen preload that a bare
   /// cacheExtent cannot express. Leave unset for non-feed grids.
   final List<IllustEntity>? prefetchEntities;
 
   @override
+  State<IllustFeedGrid> createState() => _IllustFeedGridState();
+}
+
+class _IllustFeedGridState extends State<IllustFeedGrid> {
+  /// Staggered-entrance entity ids already shown by this grid instance; the
+  /// grid drops keep-alives, so without it a card scrolling back into view
+  /// replays its entrance and reads as a reload.
+  final _entrancePlayed = <int>{};
+
+  @override
   Widget build(BuildContext context) {
-    final horizontal = padding.resolve(Directionality.of(context)).horizontal;
+    final horizontal = widget.padding
+        .resolve(Directionality.of(context))
+        .horizontal;
     // SliverLayoutBuilder is called again when the scroll offset changes.
     // Keep the generated grid widget stable for the same width so its
     // SliverChildBuilderDelegate is not recreated on every scroll tick. A
@@ -252,23 +273,25 @@ class IllustFeedGrid extends StatelessWidget {
         }
         final columns = illustColumnsFor(crossAxisExtent - horizontal);
         final columnWidth =
-            (crossAxisExtent - horizontal - (columns - 1) * crossAxisSpacing) /
+            (crossAxisExtent -
+                horizontal -
+                (columns - 1) * widget.crossAxisSpacing) /
             columns;
         final decodeWidth = PixivImage.decodeWidthFor(columnWidth);
         final grid = SliverPadding(
-          padding: padding,
+          padding: widget.padding,
           sliver: SliverMasonryGrid(
             gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
             ),
-            mainAxisSpacing: mainAxisSpacing,
-            crossAxisSpacing: crossAxisSpacing,
+            mainAxisSpacing: widget.mainAxisSpacing,
+            crossAxisSpacing: widget.crossAxisSpacing,
             // Feed cards are provider-backed/stateless. They do not own
             // scroll-position state, so the default AutomaticKeepAlive
             // wrapper only adds elements and notifications to every card.
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final prefetch = prefetchEntities;
+                final prefetch = widget.prefetchEntities;
                 if (prefetch != null) {
                   final from = prefetchCursor.advance(
                     index,
@@ -283,16 +306,30 @@ class IllustFeedGrid extends StatelessWidget {
                     );
                   }
                 }
+                final ids = widget.itemIds;
+                final id = ids != null && index < ids.length
+                    ? ids[index]
+                    : index;
                 return FeedItemExtent(
                   width: columnWidth,
                   child: StaggeredEntrance(
+                    key: ValueKey(id),
                     index: index,
-                    child: itemBuilder(context, index),
+                    id: id,
+                    played: _entrancePlayed,
+                    child: widget.itemBuilder(context, index),
                   ),
                 );
               },
-              childCount: itemCount,
+              childCount: widget.itemCount,
               addAutomaticKeepAlives: false,
+              findChildIndexCallback: widget.itemIds == null
+                  ? null
+                  : (key) {
+                      if (key is! ValueKey<int>) return null;
+                      final i = widget.itemIds!.indexOf(key.value);
+                      return i < 0 ? null : i;
+                    },
             ),
           ),
         );

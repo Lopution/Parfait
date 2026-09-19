@@ -196,6 +196,20 @@ Symptoms to recognize: `TimeoutException after 0:00:30` from an unrelated-feelin
 **Required pattern**: hold a listener for the duration —
 `final sub = container.listen(provider(key), (_, _) {}); addTearDown(sub.close);` — then `await container.read(provider(key).future)`. Non-autoDispose providers (e.g. `PagedFeedController` families) are unaffected; a bare `.future` read is fine for them.
 
+### `ref.read` on an autoDispose notifier before any watch (widget lifecycle variant)
+
+**Problem**: the same zero-listener trap fires in production when a page calls
+`ref.read(provider.notifier).load()` before its `ref.watch` subscription
+exists (seen 2026-09-19 in `profile_edit_page.dart`): the read creates a
+0-listener notifier, `load()` awaits, autoDispose destroys it, and the next
+rebuild watches a *fresh* notifier stuck at its initial loading state —
+permanent spinner with no one left to call `load()`.
+
+**Required pattern**: establish the subscription first —
+`ref.listenManual(provider(key), (_, _) {})` (closed in `dispose`), or
+ensure `ref.watch` runs before the imperative read. `reverse_image_search_page.dart`
+holds the `listenManual` reference implementation.
+
 ### `http.Response` string bodies are latin-1 by default
 
 **Problem**: `http.Response(body, status)` encodes the string as latin-1 unless the `content-type` header carries a charset; any fixture containing CJK or other non-latin-1 text throws `Invalid argument (string): Contains invalid characters` at response construction (seen 2026-09-16 in `spotlight_article_test.dart`).

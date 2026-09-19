@@ -128,6 +128,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10),
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
+          itemIds: [for (final e in illusts) e.id],
           itemCount: illusts.length,
           itemBuilder: (context, index) => IllustCard(
             entity: illusts[index],

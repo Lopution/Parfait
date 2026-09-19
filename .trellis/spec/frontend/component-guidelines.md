@@ -97,6 +97,19 @@ state or action.
 - A `Scaffold` holding an autofocus field relies on the default
   `resizeToAvoidBottomInset: true`; the keyboard then compresses page geometry.
   Set it `false` and pad the scrollable by `viewInsets.bottom` instead.
+- Edge-to-edge chrome (reader bars, bottom nav) must paint its `Material`
+  through the system-bar inset: `SafeArea` goes *inside* the bar's surface
+  to lift the controls, never wrapped around it — an outer `SafeArea` moves
+  the whole background off the screen edge and leaves a bare strip (seen
+  2026-09-19 in `novel_page.dart`'s reader chrome; `FuncBottomNav` and
+  `card_action_sheet` are the correct precedent).
+- A shared chip/action surface that sits on a `surfaceContainer`-equal
+  background needs a `divider`-token hairline border to stay legible —
+  same-value fills blend in both themes (`TagChip`, `_ActionPill` in
+  `comment_item.dart`).
+- Entry animations keyed by list index replay whenever a refresh re-seats
+  positions; identity-based state (played sets, element keys via
+  `findChildIndexCallback`, `ValueKey(entity.id)`) must use the entity id.
 
 ## Material 3 Theme Contract
 

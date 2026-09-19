@@ -358,13 +358,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
         ),
         const SizedBox(width: 8),
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => setState(() => _help = !_help),
-          child: Icon(
+        IconButton(
+          onPressed: () => setState(() => _help = !_help),
+          icon: Icon(
             Icons.info_outline,
             color: Theme.of(context).colorScheme.primary,
           ),
+          iconSize: 20,
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
         ),
       ],
     );

@@ -674,10 +674,12 @@ class NovelEntity {
     final paragraphs = markup.paragraphs;
     final version = sha256.convert(utf8.encode(jsonEncode(text))).toString();
     return copyWith(
-      textLength: paragraphs.fold<int>(
-        0,
-        (total, item) => total + item.text.length,
-      ),
+      // Keep the API `text_length` when present — it is pixiv's official
+      // count (and what list rows already show). The parsed-paragraph sum
+      // excludes markup and would silently change the number on reopen.
+      textLength: textLength == 0
+          ? paragraphs.fold<int>(0, (total, item) => total + item.text.length)
+          : textLength,
       contentVersion: version,
       paragraphs: List<NovelParagraph>.unmodifiable(paragraphs),
       markup: markup,

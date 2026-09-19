@@ -49,6 +49,13 @@ abstract final class PixivClientIdentity {
   static String get userAgent =>
       'PixivAndroidApp/$appVersion (Android $appOsVersion; $deviceModel)';
 
+  /// Browser-compatible UA for `www.pixiv.net/ajax/*` requests issued with
+  /// the shared WebView session cookie (web profile, illust page dims).
+  static const String webUserAgent =
+      'Mozilla/5.0 (Linux; Android 13; Mobile) '
+      'AppleWebKit/537.36 (KHTML, like Gecko) '
+      'Chrome/131.0.0.0 Mobile Safari/537.36';
+
   /// Hosts allowed for API navigation (next_url parsing).
   static const Set<String> apiHosts = {'app-api.pixiv.net'};
 

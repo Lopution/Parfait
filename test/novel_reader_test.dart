@@ -131,27 +131,48 @@ void main() {
     },
   );
 
-  testWidgets('NovelReader exposes horizontal PageView and percentage', (
+  testWidgets('NovelReader exposes PageView, center tap and edge paging', (
     tester,
   ) async {
+    var centerTaps = 0;
+    final handle = NovelReaderHandle();
+    var pages = 0;
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
 
-        home: Scaffold(body: NovelReader(novel: _novel('reader ' * 120))),
+        home: Scaffold(
+          body: NovelReader(
+            novel: _novel('reader ' * 400),
+            handle: handle,
+            onCenterTap: () => centerTaps += 1,
+            onProgressChanged: (page, pageCount) => pages = pageCount,
+          ),
+        ),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.byType(PageView), findsOneWidget);
-    expect(find.text('0%'), findsOneWidget);
+    expect(pages, greaterThan(0));
 
-    await tester.tapAt(const Offset(370, 300));
+    // Center zone toggles chrome instead of turning a page.
+    await tester.tapAt(const Offset(400, 300));
     await tester.pump(const Duration(milliseconds: 250));
-    expect(find.byType(PageView), findsOneWidget);
+    expect(centerTaps, 1);
+    expect(handle.currentPage?.call(), 0);
+
+    // Right edge turns forward; left edge turns back. The logical page is
+    // written by PageView.onPageChanged once the turn animation settles.
+    await tester.tapAt(const Offset(780, 300));
+    await tester.pumpAndSettle();
+    expect(handle.currentPage?.call(), 1);
+    await tester.tapAt(const Offset(20, 300));
+    await tester.pumpAndSettle();
+    expect(handle.currentPage?.call(), 0);
   });
 }
 

@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +19,7 @@ import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/mute/mute_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/share/share_service.dart';
 import 'package:pixiv_func/features/settings/pages/muted_items_page.dart';
 import 'package:pixiv_func/core/watchlater/watch_later_database.dart';
 import 'package:pixiv_func/core/watchlater/watch_later_repository.dart';
@@ -127,7 +127,23 @@ typedef World = (
   _MemoryWatchLaterRepository,
 );
 
-Future<World> _makeWorld() async {
+/// Records the payloads the card sheet hands to the platform share
+/// boundary — the system sheet itself is plugin territory.
+class _RecordingShareService implements ShareService {
+  SharePayload? lastPayload;
+  ShareOutcome outcome = ShareOutcome.openedSheet;
+
+  @override
+  Future<ShareOutcome> share(
+    SharePayload payload, {
+    Rect? sharePositionOrigin,
+  }) async {
+    lastPayload = payload;
+    return outcome;
+  }
+}
+
+Future<World> _makeWorld({ShareService? shareService}) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _BookmarkApiFixture();
   final repository = _MemoryWatchLaterRepository();
@@ -160,6 +176,8 @@ Future<World> _makeWorld() async {
         return client;
       }),
       watchLaterRepositoryProvider.overrideWithValue(repository),
+      if (shareService != null)
+        shareServiceProvider.overrideWithValue(shareService),
     ],
   );
   clientRef[0] = PixivHttpClient(
@@ -304,23 +322,32 @@ void main() {
     },
   );
 
-  testWidgets('share action copies the artwork URL', (tester) async {
-    final calls = <MethodCall>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        calls.add(call);
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
+  testWidgets(
+    'share action hands the Shaft-format payload to the share service',
+    (tester) async {
+      final share = _RecordingShareService();
+      final (container, _, _) = await _makeWorld(shareService: share);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
+        );
+        await _openSheet(tester);
+        await _tapEntry(tester, '分享');
+      });
 
-    final (container, _, _) = await _makeWorld();
+      expect(
+        share.lastPayload?.text,
+        'illust 15 | author #Pixiv https://www.pixiv.net/artworks/15',
+      );
+    },
+  );
+
+  testWidgets('share fallback to clipboard shows the copy confirmation', (
+    tester,
+  ) async {
+    final share = _RecordingShareService()
+      ..outcome = ShareOutcome.copiedToClipboard;
+    final (container, _, _) = await _makeWorld(shareService: share);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
@@ -329,11 +356,6 @@ void main() {
       await _tapEntry(tester, '分享');
     });
 
-    final clip = calls.where((c) => c.method == 'Clipboard.setData').single;
-    expect(
-      (clip.arguments as Map)['text'],
-      'https://www.pixiv.net/artworks/15',
-    );
     expect(find.text('链接已复制'), findsOneWidget);
   });
 

@@ -5,53 +5,17 @@ import '../network/compat/network_providers.dart';
 import '../network/pixiv_http_client.dart';
 import '../user/user_entity.dart';
 import '../user/user_repository.dart';
+import 'app_api_profile_edit_repository.dart';
 import 'profile_edit_models.dart';
 import 'web_profile_repository.dart';
 import 'web_profile_session.dart';
 
-/// Explicit unavailable fallback used when the app cannot access the
-/// same-origin Pixiv session needed by the in-app update adapter. It never
-/// pretends that a local-only change was saved.
-class _PixivProfileEditRepository implements ProfileEditRepository {
-  _PixivProfileEditRepository(this._userRepository);
-
-  static const unavailableReason =
-      'No in-app Pixiv session is available; profile updates cannot be submitted.';
-
-  final UserRepository _userRepository;
-
-  @override
-  Future<ProfileCapabilities> loadCapabilities({
-    required String accountId,
-    required int userId,
-    CancelToken? cancelToken,
-  }) async {
-    return ProfileCapabilities.unavailable(unavailableReason);
-  }
-
-  @override
-  Future<UserEntity> loadDraft({
-    required String accountId,
-    required int userId,
-    CancelToken? cancelToken,
-  }) => _userRepository.fetchDetail(userId, cancelToken: cancelToken);
-
-  @override
-  Future<ProfileEditOutcome> submit(
-    ProfileSubmitRequest request, {
-    CancelToken? cancelToken,
-  }) async {
-    return const ProfileEditSubmitFailure(
-      ProfileEditFailureCode.unavailable,
-      unavailableReason,
-    );
-  }
-}
-
 /// Selects the in-app transport based on the session created by the ordinary
-/// Pixiv login flow. A logged-in pixiv.net session activates the official
-/// same-origin profile API adapter (nickname/comment/webpage/avatar/
-/// background); otherwise the form remains visible but cannot submit.
+/// Pixiv login flow. A logged-in pixiv.net web session activates the
+/// same-origin adapter (the only channel that also edits the background
+/// image); otherwise the official App API `v1/user/profile/edit` covers
+/// name/comment/webpage/avatar through the same OAuth transport every other
+/// request uses — the editor is never left without a working channel.
 final profileEditRepositoryProvider = Provider<ProfileEditRepository>((ref) {
   // Resolve the session once per editor load. The request itself stays inside
   // the shared compatibility policy (pixivWeb ECH tier), so the form does not
@@ -60,6 +24,7 @@ final profileEditRepositoryProvider = Provider<ProfileEditRepository>((ref) {
     userRepository: ref.watch(userRepositoryProvider),
     session: const MethodChannelWebProfileSession(),
     policy: ref.watch(networkAccessPolicyProvider),
+    client: ref.watch(pixivHttpClientProvider),
   );
 });
 
@@ -70,12 +35,15 @@ class _SelectingProfileEditRepository implements ProfileEditRepository {
     required this.userRepository,
     required this.session,
     required this.policy,
+    required this.client,
   });
 
   final UserRepository userRepository;
   final WebProfileSession session;
   final NetworkAccessPolicy policy;
+  final PixivHttpClient client;
   PixivWebProfileEditRepository? _web;
+  PixivAppApiProfileEditRepository? _appApi;
 
   @override
   Future<ProfileCapabilities> loadCapabilities({
@@ -125,6 +93,12 @@ class _SelectingProfileEditRepository implements ProfileEditRepository {
         policy: policy,
       );
     }
-    return _PixivProfileEditRepository(userRepository);
+    // No www.pixiv.net cookie — the OAuth WebView login does not plant one.
+    // The App API channel edits name/comment/webpage/avatar through the
+    // same authenticated transport as every other request.
+    return _appApi ??= PixivAppApiProfileEditRepository(
+      client: client,
+      userRepository: userRepository,
+    );
   }
 }

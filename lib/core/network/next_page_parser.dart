@@ -129,7 +129,12 @@ const Map<String, Set<String>> _kNextPageEndpoints = {
   '/v1/novel/follow': {'filter', 'restrict', 'offset'},
   '/v1/novel/mypixiv': {'filter', 'offset'},
   '/v1/novel/new': {'filter', 'offset'},
-  '/v1/novel/recommended': {'filter', 'offset'},
+  '/v1/novel/recommended': {
+    'filter',
+    'offset',
+    'include_privacy_policy',
+    'include_ranking_novels',
+  },
   '/v1/novel/ranking': {'filter', 'mode', 'date', 'offset'},
   '/v1/user/recommended': {'filter', 'offset'},
   '/v3/illust/comments': {'illust_id', 'offset'},
