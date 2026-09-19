@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_section.dart';
 import '../../app/widgets/settings/settings_tile.dart';
@@ -186,6 +187,7 @@ class _SettingsList extends ConsumerWidget {
             onTap: () => openSettingsPage(context, '/settings/frame-probe'),
           ),
         ],
+        const FuncNavBarSpacer(),
       ],
     );
   }

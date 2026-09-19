@@ -13,6 +13,7 @@ import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
@@ -316,6 +317,7 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
           retryLabel: context.l10n.newRetry,
         ),
       ),
+      const SliverToBoxAdapter(child: FuncNavBarSpacer()),
     ];
     if (widget.feedKey.type == NewFeedType.illust) {
       final store = ref.watch(illustStoreProvider);

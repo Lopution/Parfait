@@ -15,6 +15,7 @@ import '../../../core/user/user_store.dart';
 import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
+import '../../../app/widgets/func_bottom_nav.dart';
 import '../../../app/widgets/author_summary.dart';
 import '../../../app/widgets/novel_row.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -261,6 +262,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
           retryLabel: context.l10n.retry,
         ),
       ),
+      const SliverToBoxAdapter(child: FuncNavBarSpacer()),
     ];
 
     final slivers = switch (type) {

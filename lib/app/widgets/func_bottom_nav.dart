@@ -523,10 +523,10 @@ class FuncBranchBottomNav extends ConsumerStatefulWidget {
   /// measured geometry only while it is the visible branch's bar.
   final int branchIndex;
 
-  /// 1 = fully shown, 0 = collapsed to zero height. Owned by the enclosing
-  /// [BranchRootScaffold], which drives it from scroll deltas — the bar
-  /// shrinks the Scaffold's bottom slot as it animates, so the page below
-  /// genuinely gains the space instead of the bar sliding over it.
+  /// 1 = fully shown, 0 = slid entirely below the screen edge. Owned by the
+  /// enclosing [BranchRootScaffold], which drives it from scroll deltas —
+  /// the bar floats over the body (`extendBody`), so sliding never reflows
+  /// the page underneath.
   final AnimationController? visibility;
 
   @override
@@ -665,14 +665,16 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
   Widget _wrapVisibility(Widget bar) {
     final visibility = widget.visibility;
     if (visibility == null) return bar;
-    // Alignment.topCenter keeps the top edge pinned so the bar collapses
-    // toward the bottom edge — the direction it visually retreats to.
-    return ClipRect(
-      child: SizeTransition(
-        sizeFactor: visibility,
-        alignment: Alignment.topCenter,
-        child: bar,
+    // Shaft parity: the bar is an overlay that *slides* out of the screen —
+    // the Scaffold uses extendBody so the layout never changes mid-scroll,
+    // which is what makes the gesture feel stable. A SizeTransition would
+    // reflow the list under the finger and feed clamp-correction deltas
+    // back into the scroll accumulator near the bottom edge.
+    return SlideTransition(
+      position: visibility.drive(
+        Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
       ),
+      child: bar,
     );
   }
 
@@ -683,6 +685,22 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
     AppIcons.search,
     Icons.settings_outlined,
   ];
+}
+
+/// Trailing spacer for branch-root scrollables. The navigation bar floats
+/// over the body ([Scaffold.extendBody]), so lists pad their tail by the
+/// measured bar height — the same inset redistribution Shaft applies to its
+/// overlay bar. Reports zero on rail layouts, where no bar exists.
+class FuncNavBarSpacer extends ConsumerWidget {
+  const FuncNavBarSpacer({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final height = ref.watch(
+      homeShellMetricsProvider.select((m) => m.bottomNavHeight),
+    );
+    return SizedBox(height: height ?? 0);
+  }
 }
 
 /// Scaffold shell for a branch-root page: mounts [FuncBranchBottomNav] at
@@ -735,16 +753,29 @@ class _BranchRootScaffoldState extends State<BranchRootScaffold>
         notification.metrics.axis != Axis.vertical) {
       return false;
     }
+    // Out-of-range deltas are overscroll, not content movement: under the
+    // app-wide bouncing physics, dragging past an edge still moves pixels
+    // (and the spring-back replays them in reverse). Counting those would
+    // toggle the bar on release at an edge — Shaft's RecyclerView dy only
+    // ever reports real content scroll, so mirror that here.
+    if (notification.metrics.outOfRange) {
+      _scrollAccum = 0;
+      return false;
+    }
     final delta = notification.scrollDelta ?? 0;
     if (delta == 0) return false;
     // Same sign keeps accumulating; a reversal restarts from the fresh
     // delta so a short reverse flick does not have to pay off a long run.
     _scrollAccum = (_scrollAccum * delta < 0) ? delta : _scrollAccum + delta;
     const slop = 18.0; // kTouchSlop
-    if (_scrollAccum > slop && _navVisibility.value != 0) {
+    // Reset after firing like BottomBarAutoHide does — otherwise the
+    // accumulator grows unbounded during a long scroll in one direction.
+    if (_scrollAccum > slop) {
       _setNavHidden(true);
-    } else if (_scrollAccum < -slop && _navVisibility.value != 1) {
+      _scrollAccum = 0;
+    } else if (_scrollAccum < -slop) {
       _setNavHidden(false);
+      _scrollAccum = 0;
     }
     return false;
   }
@@ -767,6 +798,9 @@ class _BranchRootScaffoldState extends State<BranchRootScaffold>
       MediaQuery.sizeOf(context).width,
     );
     return Scaffold(
+      // The bar floats over the content — hiding it reveals the list
+      // already painted beneath instead of reclaiming a layout slot.
+      extendBody: true,
       body: rail
           ? widget.child
           : NotificationListener<ScrollNotification>(

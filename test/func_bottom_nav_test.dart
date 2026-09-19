@@ -184,20 +184,120 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final nav = find.byType(FuncBranchBottomNav);
-    final fullHeight = tester.getSize(nav).height;
-    expect(fullHeight, greaterThan(0));
+    final nav = find.byType(FuncBottomNav);
+    final shownTop = tester.getTopLeft(nav).dy;
+    expect(shownTop, lessThan(800));
 
-    // Scroll down past the touch-slop threshold: the bar must shrink to zero
-    // height, freeing the layout space rather than overlaying it.
+    // Scroll down past the touch-slop threshold: the bar slides fully below
+    // the screen edge — the layout never changes, the body was already
+    // painted underneath (extendBody).
     await tester.drag(find.byType(ListView), const Offset(0, -200));
     await tester.pumpAndSettle();
-    expect(tester.getSize(nav).height, 0);
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(800));
 
     // Scrolling back up restores it.
     await tester.drag(find.byType(ListView), const Offset(0, 120));
     await tester.pumpAndSettle();
-    expect(tester.getSize(nav).height, closeTo(fullHeight, 0.5));
+    expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
+  });
+
+  testWidgets('bar collapses mid-drag, not on release', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: BranchRootScaffold(
+            branchIndex: 0,
+            child: ListView.builder(
+              // App-wide feed physics — bouncing is where the edge bugs live.
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              itemCount: 80,
+              itemBuilder: (_, i) =>
+                  SizedBox(height: 60, child: Text('row $i')),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final nav = find.byType(FuncBottomNav);
+    final shownTop = tester.getTopLeft(nav).dy;
+
+    // Finger still down: crossing the slop mid-drag must already slide the
+    // bar out — waiting for release would mean only the ballistic phase
+    // counts. Time is advanced in frames: a single large pump step does
+    // not tick controllers while a pointer is held.
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+    );
+    await gesture.moveBy(const Offset(0, -120));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, -120));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(tester.getTopLeft(nav).dy, greaterThan(shownTop));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(800));
+  });
+
+  testWidgets('edge bounce never toggles the bar', (tester) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: BranchRootScaffold(
+            branchIndex: 0,
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              itemCount: 80,
+              itemBuilder: (_, i) =>
+                  SizedBox(height: 60, child: Text('row $i')),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final nav = find.byType(FuncBottomNav);
+    final shownTop = tester.getTopLeft(nav).dy;
+    final list = find.byType(ListView);
+
+    // Top edge: pull down into overscroll and release. The spring-back
+    // replays positive deltas which must not hide the bar.
+    var gesture = await tester.startGesture(tester.getCenter(list));
+    await gesture.moveBy(const Offset(0, 150));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
+
+    // Hide the bar with a real scroll, land at the bottom edge.
+    await tester.drag(list, const Offset(0, -4000));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(800));
+
+    // Bottom edge: pull past the end and release. The spring-back deltas
+    // must not resurrect the bar.
+    gesture = await tester.startGesture(tester.getCenter(list));
+    await gesture.moveBy(const Offset(0, -150));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(800));
   });
 
   testWidgets('short scrolls below the slop keep the bar expanded', (
@@ -223,8 +323,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final nav = find.byType(FuncBranchBottomNav);
-    final fullHeight = tester.getSize(nav).height;
+    final nav = find.byType(FuncBottomNav);
+    final shownTop = tester.getTopLeft(nav).dy;
 
     // Alternating small drags never cross the accumulated threshold.
     for (var i = 0; i < 3; i++) {
@@ -234,6 +334,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 60));
     }
     await tester.pumpAndSettle();
-    expect(tester.getSize(nav).height, closeTo(fullHeight, 0.5));
+    expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
   });
 }
