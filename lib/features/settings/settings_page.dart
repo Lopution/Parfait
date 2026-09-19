@@ -111,23 +111,26 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.translateSettings,
           onTap: () => openSettingsPage(context, '/settings/translate'),
         ),
-        SettingsSection(title: Text(context.l10n.settingsGroupNetwork)),
-        SettingsTile(
-          icon: Icons.network_check,
-          title: context.l10n.networkSettings,
-          onTap: () => openSettingsPage(context, '/settings/network'),
-        ),
+        SettingsSection(title: Text(context.l10n.settingsGroupBrowse)),
         SettingsTile(
           icon: Icons.image_outlined,
           title: context.l10n.browseSettings,
           onTap: () => openSettingsPage(context, '/settings/browse'),
         ),
-        SettingsSection(title: Text(context.l10n.settingsGroupContent)),
+        SettingsTile(
+          icon: Icons.block_outlined,
+          title: context.l10n.mutedItemsSettings,
+          onTap: () => openSettingsPage(context, '/settings/muted'),
+        ),
         SettingsTile(
           icon: Icons.history,
           title: context.l10n.historySettings,
           onTap: () => openSettingsPage(context, '/settings/history'),
         ),
+        // Content destinations (not preferences) sit in their own group so
+        // the preference sections stay unmixed — the split Shaft draws
+        // between its drawer entries and the settings catalog.
+        SettingsSection(title: Text(context.l10n.settingsGroupLibrary)),
         SettingsTile(
           icon: Icons.bookmark_border,
           title: context.l10n.watchLaterTitle,
@@ -143,12 +146,12 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.localNovelsTitle,
           onTap: () => openLocalNovels(context),
         ),
+        SettingsSection(title: Text(context.l10n.settingsGroupNetwork)),
         SettingsTile(
-          icon: Icons.block_outlined,
-          title: context.l10n.mutedItemsSettings,
-          onTap: () => openSettingsPage(context, '/settings/muted'),
+          icon: Icons.network_check,
+          title: context.l10n.networkSettings,
+          onTap: () => openSettingsPage(context, '/settings/network'),
         ),
-        SettingsSection(title: Text(context.l10n.settingsGroupDownload)),
         SettingsTile(
           icon: Icons.download_outlined,
           title: context.l10n.downloadSettings,
