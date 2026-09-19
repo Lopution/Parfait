@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -51,6 +52,7 @@ import '../../features/series/illust_series_page.dart';
 import '../../features/spotlight/spotlight_article_page.dart';
 import '../../features/spotlight/spotlight_feed_page.dart';
 import '../../features/settings/network_probe_page.dart';
+import '../../features/settings/pages/frame_probe_page.dart';
 import '../../features/settings/network_settings_page.dart';
 import '../../features/settings/settings_page.dart';
 import '../../features/settings/pages/translation_credentials_page.dart';
@@ -647,6 +649,12 @@ List<RouteBase> _settingsSubRoutes(
         ),
       ],
     ),
+    if (!kReleaseMode)
+      GoRoute(
+        path: 'frame-probe',
+        pageBuilder: (context, state) =>
+            _page(context, state, observer, const FrameProbePage()),
+      ),
     GoRoute(
       path: 'browse',
       pageBuilder: (context, state) =>

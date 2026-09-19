@@ -678,6 +678,30 @@ abstract class AppLocalizations {
   /// **'对 Pixiv 四个官方主机逐层测试：系统 DNS → DoH → TCP → TLS(真实 SNI) → 最小请求。TCP 通但 TLS 握手失败 = SNI 被封。'**
   String get networkProbeHint;
 
+  /// No description provided for @frameProbeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'帧探针'**
+  String get frameProbeTitle;
+
+  /// No description provided for @frameProbeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'滚动时记录帧耗时。快速滑动一段后停止，再复制报告。仅 debug/profile 构建可见。'**
+  String get frameProbeHint;
+
+  /// No description provided for @frameProbeStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始记录'**
+  String get frameProbeStart;
+
+  /// No description provided for @frameProbeStop.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止'**
+  String get frameProbeStop;
+
   /// No description provided for @networkProbeRun.
   ///
   /// In zh, this message translates to:

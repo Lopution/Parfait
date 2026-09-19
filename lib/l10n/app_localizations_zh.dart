@@ -322,6 +322,18 @@ class AppLocalizationsZh extends AppLocalizations {
       '对 Pixiv 四个官方主机逐层测试：系统 DNS → DoH → TCP → TLS(真实 SNI) → 最小请求。TCP 通但 TLS 握手失败 = SNI 被封。';
 
   @override
+  String get frameProbeTitle => '帧探针';
+
+  @override
+  String get frameProbeHint => '滚动时记录帧耗时。快速滑动一段后停止，再复制报告。仅 debug/profile 构建可见。';
+
+  @override
+  String get frameProbeStart => '开始记录';
+
+  @override
+  String get frameProbeStop => '停止';
+
+  @override
   String get networkProbeRun => '开始探测';
 
   @override

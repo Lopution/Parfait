@@ -554,6 +554,10 @@ void main() {
       'networkProbeRunning',
       'networkProbeNotRun',
       'networkProbeCopied',
+      'frameProbeTitle',
+      'frameProbeHint',
+      'frameProbeStart',
+      'frameProbeStop',
       'themeSettings',
       'languageSettings',
       'translateSettings',
@@ -1002,10 +1006,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // The mode tiles and status sections push this entry below the fold.
-    await _scrollCentered(
-      tester,
-      find.text('高级设置', skipOffstage: false),
-    );
+    await _scrollCentered(tester, find.text('高级设置', skipOffstage: false));
     await tester.tap(find.text('高级设置'));
     await tester.pumpAndSettle();
 
@@ -1154,10 +1155,9 @@ void main() {
     // A cold image request races the top two ladder tiers, so the probe
     // may hit the backend twice — every attempt must target the mirror.
     expect(backend.requests, isNotEmpty);
-    expect(
-      backend.requests.map((request) => request.url.host).toSet(),
-      {'proxy.example.com'},
-    );
+    expect(backend.requests.map((request) => request.url.host).toSet(), {
+      'proxy.example.com',
+    });
     expect(repository.value.imageSource, 'https://proxy.example.com');
     expect(find.textContaining('镜像可达'), findsOneWidget);
   });

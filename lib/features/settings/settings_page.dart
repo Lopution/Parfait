@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -170,6 +171,14 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.aboutSettings,
           onTap: () => openSettingsPage(context, '/settings/about'),
         ),
+        if (!kReleaseMode) ...[
+          const Divider(),
+          SettingsTile(
+            icon: Icons.monitor_heart_outlined,
+            title: context.l10n.frameProbeTitle,
+            onTap: () => openSettingsPage(context, '/settings/frame-probe'),
+          ),
+        ],
       ],
     );
   }
