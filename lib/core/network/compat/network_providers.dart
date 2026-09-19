@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/services.dart' show ServicesBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../settings/shared_preferences.dart';
 
@@ -45,6 +46,7 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     mode: switch (mode) {
       NetworkMode.automatic => contracts.NetworkMode.automatic,
       NetworkMode.directOnly => contracts.NetworkMode.directOnly,
+      NetworkMode.compatPrefer => contracts.NetworkMode.compatPrefer,
     },
   );
 
@@ -114,7 +116,19 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   }
 
   StreamSubscription<List<ConnectivityResult>>? connectivitySub;
-  try {
+  // The plugin's stream errors asynchronously when no ServicesBinding
+  // exists (headless test containers) — a try/catch around listen cannot
+  // reach the EventChannel's deferred onListen body, so probe the binding
+  // first instead.
+  final bindingReady = () {
+    try {
+      ServicesBinding.instance;
+      return true;
+    } on Object {
+      return false;
+    }
+  }();
+  if (bindingReady) {
     connectivitySub = Connectivity().onConnectivityChanged.listen(
       onConnectivity,
       onError: (_) {},
@@ -122,14 +136,20 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     unawaited(
       Connectivity().checkConnectivity().then(onConnectivity, onError: (_) {}),
     );
-  } on Object {
-    // The plugin is unavailable in some embedders/tests — the policy then
-    // simply never sees an identity change, same as before this wiring.
   }
   // Even with no connectivity events (plugin absent/failed) auto mode still
   // gets one race under the 'initial' identity.
   resolveAutoSource(connectivityIdentity);
-  ref.onDispose(() => unawaited(connectivitySub?.cancel()));
+  ref.onDispose(() {
+    unawaited(() async {
+      try {
+        await connectivitySub?.cancel();
+      } on Object {
+        // Cancelling an EventChannel subscription needs the binary
+        // messenger — absent in headless test containers.
+      }
+    }());
+  });
   ref.onDispose(() => unawaited(policy.dispose()));
   return policy;
 });
