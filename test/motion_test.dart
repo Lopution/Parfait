@@ -100,32 +100,97 @@ void main() {
       expect(opacityFinder, findsOneWidget);
       expect(tester.widget<Opacity>(opacityFinder).opacity, 0);
 
+      // The exposure check defers the start to a post-frame callback; the
+      // ticker's epoch is the following frame — one bare pump() arms it.
+      await tester.pump();
       await tester.pump(
         MotionTokens.listEntrance + MotionTokens.listStaggerStep * 3,
       );
       expect(tester.widget<Opacity>(opacityFinder).opacity, 1);
     });
 
-    testWidgets('items at the entrance cap render without animation', (
+    testWidgets('below-fold card waits for first viewport exposure', (
       tester,
     ) async {
+      final played = <int>{};
+      // SingleChildScrollView mounts every child eagerly — exactly the
+      // "mounted but not exposed" state cacheExtent creates in a lazy list.
       await tester.pumpWidget(
         _wrap(
-          const StaggeredEntrance(
-            index: MotionTokens.listEntranceMaxItems,
-            id: 1,
-            child: Text('late card'),
+          SizedBox(
+            height: 300,
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (var i = 0; i < 30; i++)
+                    StaggeredEntrance(
+                      index: i,
+                      id: i,
+                      played: played,
+                      child: SizedBox(height: 200, child: Text('card $i')),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       );
-      expect(
-        find.descendant(
-          of: find.byType(StaggeredEntrance),
-          matching: find.byType(Opacity),
-        ),
-        findsNothing,
+      await tester.pumpAndSettle();
+
+      // 300px viewport exposes only card 0 (+ the top sliver of card 1).
+      // Below-fold cards are mounted but must NOT have played — their
+      // entrance belongs to the moment the user scrolls to them.
+      expect(find.text('card 3'), findsOneWidget); // mounted, off-viewport
+      expect(played, isNot(contains(3)));
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -500),
       );
-      expect(find.text('late card'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(played, contains(3));
+    });
+
+    testWidgets('a card exposed mid-fling animates only after the settle', (
+      tester,
+    ) async {
+      final played = <int>{};
+      await tester.pumpWidget(
+        _wrap(
+          SingleChildScrollView(
+            child: Column(
+              children: [
+                for (var i = 0; i < 60; i++)
+                  StaggeredEntrance(
+                    index: i,
+                    id: i,
+                    played: played,
+                    child: SizedBox(height: 200, child: Text('card $i')),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final firstViewport = Set<int>.of(played);
+      expect(firstViewport, isNotEmpty);
+
+      // Hard fling: several viewport heights of cards stream past. None of
+      // the mid-flight exposures may start their entrance.
+      await tester.fling(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -400),
+        8000,
+      );
+      await tester.pump(const Duration(milliseconds: 80));
+      final midFling = Set<int>.of(played);
+      expect(midFling.difference(firstViewport), isEmpty);
+
+      // Once the fling settles, whatever card ended up visible plays its
+      // entrance — exposure semantics, not position bookkeeping.
+      await tester.pumpAndSettle();
+      expect(played.length, greaterThan(firstViewport.length));
     });
 
     testWidgets('reduced motion renders without animation', (tester) async {
