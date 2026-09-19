@@ -1803,6 +1803,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelSeriesUnavailable => 'Информация о серии недоступна';
 
   @override
+  String get novelInfoTitle => 'О произведении';
+
+  @override
   String get novelPrevious => 'Предыдущая новелла';
 
   @override
@@ -1816,6 +1819,27 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get novelReadingProgress => 'Прогресс чтения';
+
+  @override
+  String get novelReaderSettings => 'Настройки чтения';
+
+  @override
+  String get novelFontSize => 'Размер шрифта';
+
+  @override
+  String get novelLineHeight => 'Межстрочный интервал';
+
+  @override
+  String get novelThemeSystem => 'Системная';
+
+  @override
+  String get novelThemePaper => 'Бумага';
+
+  @override
+  String get novelThemeSepia => 'Защита глаз';
+
+  @override
+  String get novelThemeNight => 'Ночная';
 
   @override
   String get aboutDisplayRefreshRate => 'Частота обновления';
@@ -1840,6 +1864,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get linkCopied => 'Ссылка скопирована';
+
+  @override
+  String get copyLink => 'Копировать ссылку';
 
   @override
   String get watchLaterAdded => 'Добавлено в «Посмотреть позже»';

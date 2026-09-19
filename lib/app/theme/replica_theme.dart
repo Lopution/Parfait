@@ -49,6 +49,9 @@ ThemeData replicaTheme(Brightness brightness) {
 
   return ThemeData(
     brightness: brightness,
+    // Latin/digits render in Montserrat; missing glyphs (CJK, emoji) resolve
+    // through the engine's system fallback chain.
+    fontFamily: 'Montserrat',
     primaryColor: FuncTokens.primary,
     extensions: [FuncSemanticTokens.fromBrightness(brightness)],
     // Keep app hints floating so their entrance and exit use the same

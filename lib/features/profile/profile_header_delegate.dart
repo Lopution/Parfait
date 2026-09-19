@@ -167,7 +167,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     // The artwork band covers the whole expanded header; identity content
     // sits on a bottom gradient so the text stays readable over any image.
     final backgroundHeight = maxExtent;
-    final canPop = Navigator.of(context).canPop();
     return Material(
       color: colors.surface,
       child: LayoutBuilder(
@@ -189,25 +188,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                   child: _ProfileBackground(user: user, withScrim: true),
                 ),
               ),
-              // Pushed pages (other artists) need a visible back affordance
-              // while the header is still expanded — the collapsed toolbar's
-              // own back button only exists once fully collapsed. /me as a
-              // branch root never reports canPop, so it stays clean.
-              if (canPop && geometry.backgroundOpacity > 0)
-                Positioned(
-                  top: topInset + 4,
-                  left: 8,
-                  child: Opacity(
-                    opacity: geometry.backgroundOpacity,
-                    child: IconButton.filledTonal(
-                      tooltip: MaterialLocalizations.of(
-                        context,
-                      ).backButtonTooltip,
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_ios_new),
-                    ),
-                  ),
-                ),
               if (geometry.showExpandedIdentity)
                 Positioned(
                   top: geometry.expandedContentOffset,
@@ -244,7 +224,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                             child: _CollapsedProfile(
                               user: user,
                               isMe: isMe,
-                              canPop: canPop,
                               showRestrictSelector: showRestrictSelector,
                               restrict: restrict,
                               onRestrictChanged: onRestrictChanged,
@@ -259,6 +238,16 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                     ),
                   ),
                 ),
+              // One persistent back button for both header states: the
+              // collapsed row reserves the same 48px slot underneath, so
+              // the affordance never jumps when the header folds — and it
+              // stays mounted through the pop animation instead of being
+              // unmounted by a canPop flip (P3/P4).
+              Positioned(
+                top: topInset + 4,
+                left: 8,
+                child: const _HeaderBackButton(),
+              ),
             ],
           );
         },
@@ -521,7 +510,6 @@ class _CollapsedProfile extends StatelessWidget {
   const _CollapsedProfile({
     required this.user,
     required this.isMe,
-    required this.canPop,
     required this.showRestrictSelector,
     required this.restrict,
     required this.onRestrictChanged,
@@ -533,7 +521,6 @@ class _CollapsedProfile extends StatelessWidget {
 
   final UserEntity user;
   final bool isMe;
-  final bool canPop;
   final bool showRestrictSelector;
   final UserRestrict restrict;
   final ValueChanged<UserRestrict> onRestrictChanged;
@@ -601,25 +588,14 @@ class _CollapsedProfile extends StatelessWidget {
       }
     }
 
-    // Three-section toolbar: leading back / centred title / a single
-    // overflow button. Both ends are 48px wide, so the title stays centred
-    // on screen no matter how many actions the menu holds — the old
-    // icon-per-action row pushed the title off-centre once it grew past a
-    // couple of entries.
+    // Three-section toolbar: leading spacer / centred title / a single
+    // overflow button. The persistent _HeaderBackButton overlays the
+    // leading 48px slot, so both ends reserve identical 56px chrome and
+    // the title stays centred on screen.
     return Row(
       children: [
-        const SizedBox(width: 4),
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: canPop
-              ? IconButton(
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_ios_new),
-                )
-              : const SizedBox.shrink(),
-        ),
+        const SizedBox(width: 8),
+        const SizedBox(width: 48, height: 48),
         Expanded(
           child: Text(
             key: const ValueKey('profile-toolbar-title'),
@@ -642,8 +618,40 @@ class _CollapsedProfile extends StatelessWidget {
                   icon: const Icon(Icons.more_vert),
                 ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
       ],
+    );
+  }
+}
+
+/// The profile header's single back affordance. [Navigator.canPop] flips
+/// false the moment [Route.pop] removes the route from history — before
+/// the pop animation finishes — which would unmount the button mid-slide
+/// and leave it out of the pop snapshot. The first evaluation is latched:
+/// a pushed page keeps its button until the route is gone.
+class _HeaderBackButton extends StatefulWidget {
+  const _HeaderBackButton();
+
+  @override
+  State<_HeaderBackButton> createState() => _HeaderBackButtonState();
+}
+
+class _HeaderBackButtonState extends State<_HeaderBackButton> {
+  var _canPop = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_canPop) _canPop = Navigator.of(context).canPop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_canPop) return const SizedBox.shrink();
+    return IconButton.filledTonal(
+      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+      onPressed: () => Navigator.of(context).maybePop(),
+      icon: const Icon(Icons.arrow_back_ios_new),
     );
   }
 }

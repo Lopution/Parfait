@@ -1747,6 +1747,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelSeriesUnavailable => '系列信息暂不可用';
 
   @override
+  String get novelInfoTitle => '作品信息';
+
+  @override
   String get novelPrevious => '上一篇';
 
   @override
@@ -1760,6 +1763,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelReadingProgress => '阅读进度';
+
+  @override
+  String get novelReaderSettings => '阅读设置';
+
+  @override
+  String get novelFontSize => '字号';
+
+  @override
+  String get novelLineHeight => '行距';
+
+  @override
+  String get novelThemeSystem => '跟随系统';
+
+  @override
+  String get novelThemePaper => '纸张';
+
+  @override
+  String get novelThemeSepia => '护眼';
+
+  @override
+  String get novelThemeNight => '夜间';
 
   @override
   String get aboutDisplayRefreshRate => '显示刷新率';
@@ -1784,6 +1808,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get linkCopied => '链接已复制';
+
+  @override
+  String get copyLink => '复制链接';
 
   @override
   String get watchLaterAdded => '已加入稍后再看';

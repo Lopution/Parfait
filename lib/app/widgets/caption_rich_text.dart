@@ -4,11 +4,11 @@ import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../app/navigation/routes.dart';
-import '../../../../app/widgets/app_snack_bar.dart';
-import '../../../../core/entity/illust_caption.dart';
-import '../../../../core/platform/android_intent_channel.dart';
-import '../../../../l10n/context.dart';
+import '../navigation/routes.dart';
+import 'app_snack_bar.dart';
+import '../../core/entity/illust_caption.dart';
+import '../../core/platform/android_intent_channel.dart';
+import '../../l10n/context.dart';
 
 /// Renders a parsed HTML caption with clickable links (U6).
 ///

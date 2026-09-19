@@ -44,6 +44,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
   late final TabController _tabController;
   RecommendedContentType _type = RecommendedContentType.illust;
   final Set<RecommendedContentType> _loaded = {RecommendedContentType.illust};
+  final _entrancePlayed = <RecommendedContentType, Set<int>>{};
 
   @override
   void initState() {
@@ -97,7 +98,11 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           for (final type in _loaded)
             Offstage(
               offstage: type != _type,
-              child: _RecommendedFeedView(key: ValueKey(type), type: type),
+              child: _RecommendedFeedView(
+                key: ValueKey(type),
+                type: type,
+                entrancePlayed: _entrancePlayed.putIfAbsent(type, () => {}),
+              ),
             ),
         ],
       ),
@@ -157,9 +162,14 @@ class _RecommendedTypeSelector extends StatelessWidget {
 /// One keyed recommended feed body. Watches [recommendedFeedProvider] and
 /// renders the right card shape for the type.
 class _RecommendedFeedView extends ConsumerWidget {
-  const _RecommendedFeedView({super.key, required this.type});
+  const _RecommendedFeedView({
+    super.key,
+    required this.type,
+    required this.entrancePlayed,
+  });
 
   final RecommendedContentType type;
+  final Set<int> entrancePlayed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -198,6 +208,7 @@ class _RecommendedFeedView extends ConsumerWidget {
         return _RecommendedFeedBody(
           type: type,
           feed: feed,
+          entrancePlayed: entrancePlayed,
           onRefresh: () =>
               ref.read(recommendedFeedProvider(key).notifier).refresh(),
           onLoadMore: () =>
@@ -216,6 +227,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
   const _RecommendedFeedBody({
     required this.type,
     required this.feed,
+    required this.entrancePlayed,
     required this.onRefresh,
     required this.onLoadMore,
     required this.onRetryLoadMore,
@@ -224,6 +236,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
 
   final RecommendedContentType type;
   final PagedFeedState feed;
+  final Set<int> entrancePlayed;
   final Future<void> Function() onRefresh;
   final VoidCallback onLoadMore;
   final VoidCallback onRetryLoadMore;
@@ -296,6 +309,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         mainAxisSpacing: 5,
         crossAxisSpacing: 10,
         prefetchEntities: entities,
+        itemIds: [for (final e in entities) e.id],
         itemCount: entities.length,
         itemBuilder: (context, index) => IllustCard(
           entity: entities[index],
@@ -322,7 +336,10 @@ class _RecommendedFeedBody extends ConsumerWidget {
         sliver: SliverList.builder(
           itemCount: novels.length,
           itemBuilder: (context, index) => StaggeredEntrance(
+            key: ValueKey(novels[index].id),
             index: index,
+            id: novels[index].id,
+            played: entrancePlayed,
             child: NovelRow(entity: novels[index]),
           ),
         ),
@@ -347,7 +364,10 @@ class _RecommendedFeedBody extends ConsumerWidget {
         sliver: SliverList.builder(
           itemCount: users.length,
           itemBuilder: (context, index) => StaggeredEntrance(
+            key: ValueKey(users[index].id),
             index: index,
+            id: users[index].id,
+            played: entrancePlayed,
             child: _UserRow(entity: users[index]),
           ),
         ),

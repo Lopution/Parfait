@@ -182,7 +182,8 @@ class _PixivNovelRepository implements _NovelRepository {
     _validateId(userId, 'userId');
     final request = _pageRequest(
       path: _userNovelsPath,
-      expected: {'filter': 'for_android', 'user_id': '$userId'},
+      query: {'filter': 'for_android', 'user_id': '$userId'},
+      identity: {'user_id': '$userId'},
       cursor: cursor,
     );
     final json = await _client.getJson(
@@ -197,7 +198,7 @@ class _PixivNovelRepository implements _NovelRepository {
     _validateId(userId, 'userId');
     return _isValidCursor(
       path: _userNovelsPath,
-      expected: {'filter': 'for_android', 'user_id': '$userId'},
+      identity: {'user_id': '$userId'},
       cursor: cursor,
     );
   }
@@ -209,7 +210,14 @@ class _PixivNovelRepository implements _NovelRepository {
   }) async {
     final request = _pageRequest(
       path: _recommendedPath,
-      expected: {'filter': 'for_android'},
+      // Same first-page shape Shaft/PixEz send: the include_* flags are
+      // response-shaping hints, not feed identity.
+      query: const {
+        'filter': 'for_android',
+        'include_privacy_policy': 'true',
+        'include_ranking_novels': 'true',
+      },
+      identity: const {},
       cursor: cursor,
     );
     final json = await _client.getJson(
@@ -223,7 +231,7 @@ class _PixivNovelRepository implements _NovelRepository {
   bool validateRecommendedCursor({required String cursor}) {
     return _isValidCursor(
       path: _recommendedPath,
-      expected: {'filter': 'for_android'},
+      identity: const {},
       cursor: cursor,
     );
   }
@@ -236,7 +244,8 @@ class _PixivNovelRepository implements _NovelRepository {
   }) async {
     final request = _pageRequest(
       path: _rankingPath,
-      expected: {'filter': 'for_android', 'mode': mode.apiValue},
+      query: {'filter': 'for_android', 'mode': mode.apiValue},
+      identity: {'mode': mode.apiValue},
       cursor: cursor,
     );
     final json = await _client.getJson(
@@ -250,7 +259,7 @@ class _PixivNovelRepository implements _NovelRepository {
   bool validateRankingCursor(NovelRankingMode mode, {required String cursor}) {
     return _isValidCursor(
       path: _rankingPath,
-      expected: {'filter': 'for_android', 'mode': mode.apiValue},
+      identity: {'mode': mode.apiValue},
       cursor: cursor,
     );
   }
@@ -264,7 +273,8 @@ class _PixivNovelRepository implements _NovelRepository {
     _validateId(seriesId, 'seriesId');
     final request = _pageRequest(
       path: _seriesPath,
-      expected: {'filter': 'for_android', 'series_id': '$seriesId'},
+      query: {'filter': 'for_android', 'series_id': '$seriesId'},
+      identity: {'series_id': '$seriesId'},
       cursor: cursor,
     );
     final json = await _client.getJson(
@@ -279,24 +289,25 @@ class _PixivNovelRepository implements _NovelRepository {
     _validateId(seriesId, 'seriesId');
     return _isValidCursor(
       path: _seriesPath,
-      expected: {'filter': 'for_android', 'series_id': '$seriesId'},
+      identity: {'series_id': '$seriesId'},
       cursor: cursor,
     );
   }
 
   NextPageRequest _pageRequest({
     required String path,
-    required Map<String, String> expected,
+    required Map<String, String> query,
+    required Map<String, String> identity,
     required String? cursor,
   }) {
     try {
       final request = cursor == null
-          ? NextPageParser.firstPage(path, expected)
+          ? NextPageParser.firstPage(path, query)
           : NextPageParser.parse(cursor);
       if (request == null) {
         throw const NextPageParseError('missing next page request');
       }
-      _validateCursor(request, path, expected);
+      _validateCursor(request, path, identity);
       return request;
     } on NextPageParseError catch (error) {
       throw ApiParseError(error);
@@ -305,28 +316,39 @@ class _PixivNovelRepository implements _NovelRepository {
 
   bool _isValidCursor({
     required String path,
-    required Map<String, String> expected,
+    required Map<String, String> identity,
     required String cursor,
   }) {
     try {
-      _pageRequest(path: path, expected: expected, cursor: cursor);
+      _pageRequest(
+        path: path,
+        query: const {},
+        identity: identity,
+        cursor: cursor,
+      );
       return true;
     } on ApiParseError {
       return false;
     }
   }
 
+  /// Cursor validation pins the endpoint and the parameters that identify
+  /// the feed itself (user_id, series_id, mode...). Client-identity and
+  /// response-shaping parameters (`filter`, `include_*`) are deliberately
+  /// not compared: Pixiv rewrites them in `next_url` (observed live:
+  /// `/v1/novel/recommended` cursors flip `filter` to `for_ios`), and every
+  /// working client follows `next_url` verbatim.
   void _validateCursor(
     NextPageRequest request,
     String path,
-    Map<String, String> expected,
+    Map<String, String> identity,
   ) {
     if (request.uri.path != path) {
       throw NextPageParseError(
         'next_url endpoint does not match $path: ${request.uri.path}',
       );
     }
-    for (final entry in expected.entries) {
+    for (final entry in identity.entries) {
       if (request.query[entry.key] != entry.value) {
         throw NextPageParseError(
           'next_url ${entry.key} does not match the active novel feed',

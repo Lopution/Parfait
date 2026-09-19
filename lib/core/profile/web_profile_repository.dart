@@ -8,6 +8,7 @@ import '../network/api_error.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/pixiv_network_factory.dart';
 import '../network/compat/network_policy.dart';
+import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import '../user/user_entity.dart';
 import '../user/user_repository.dart';
@@ -610,10 +611,7 @@ String _extensionFor(String mimeType) {
 class _WebUserAgentClient extends http.BaseClient {
   _WebUserAgentClient(this._inner);
 
-  static const mobileUserAgent =
-      'Mozilla/5.0 (Linux; Android 13; Mobile) '
-      'AppleWebKit/537.36 (KHTML, like Gecko) '
-      'Chrome/131.0.0.0 Mobile Safari/537.36';
+  static const mobileUserAgent = PixivClientIdentity.webUserAgent;
 
   final http.Client _inner;
 

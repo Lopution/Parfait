@@ -3402,6 +3402,12 @@ abstract class AppLocalizations {
   /// **'系列信息暂不可用'**
   String get novelSeriesUnavailable;
 
+  /// No description provided for @novelInfoTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品信息'**
+  String get novelInfoTitle;
+
   /// No description provided for @novelPrevious.
   ///
   /// In zh, this message translates to:
@@ -3431,6 +3437,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'阅读进度'**
   String get novelReadingProgress;
+
+  /// No description provided for @novelReaderSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'阅读设置'**
+  String get novelReaderSettings;
+
+  /// No description provided for @novelFontSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'字号'**
+  String get novelFontSize;
+
+  /// No description provided for @novelLineHeight.
+  ///
+  /// In zh, this message translates to:
+  /// **'行距'**
+  String get novelLineHeight;
+
+  /// No description provided for @novelThemeSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统'**
+  String get novelThemeSystem;
+
+  /// No description provided for @novelThemePaper.
+  ///
+  /// In zh, this message translates to:
+  /// **'纸张'**
+  String get novelThemePaper;
+
+  /// No description provided for @novelThemeSepia.
+  ///
+  /// In zh, this message translates to:
+  /// **'护眼'**
+  String get novelThemeSepia;
+
+  /// No description provided for @novelThemeNight.
+  ///
+  /// In zh, this message translates to:
+  /// **'夜间'**
+  String get novelThemeNight;
 
   /// No description provided for @aboutDisplayRefreshRate.
   ///
@@ -3479,6 +3527,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'链接已复制'**
   String get linkCopied;
+
+  /// No description provided for @copyLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制链接'**
+  String get copyLink;
 
   /// No description provided for @watchLaterAdded.
   ///

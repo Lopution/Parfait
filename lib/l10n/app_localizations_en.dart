@@ -1803,6 +1803,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelSeriesUnavailable => 'Series information unavailable';
 
   @override
+  String get novelInfoTitle => 'Work info';
+
+  @override
   String get novelPrevious => 'Previous novel';
 
   @override
@@ -1816,6 +1819,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get novelReadingProgress => 'Reading progress';
+
+  @override
+  String get novelReaderSettings => 'Reading settings';
+
+  @override
+  String get novelFontSize => 'Font size';
+
+  @override
+  String get novelLineHeight => 'Line height';
+
+  @override
+  String get novelThemeSystem => 'System';
+
+  @override
+  String get novelThemePaper => 'Paper';
+
+  @override
+  String get novelThemeSepia => 'Eye care';
+
+  @override
+  String get novelThemeNight => 'Night';
 
   @override
   String get aboutDisplayRefreshRate => 'Display refresh rate';
@@ -1840,6 +1864,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get linkCopied => 'Link copied';
+
+  @override
+  String get copyLink => 'Copy link';
 
   @override
   String get watchLaterAdded => 'Added to Watch later';

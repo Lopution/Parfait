@@ -3,12 +3,17 @@
 /// entity. See `frontend/state-management.md`.
 library;
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
 import '../network/api_error.dart';
+import '../network/compat/network_providers.dart';
 import '../network/pixiv_http_client.dart';
+import '../profile/web_profile_session.dart';
 import 'illust_detail_repository.dart';
 
 /// Sealed detail state: snapshot-first (R1) with explicit terminal states.
@@ -65,7 +70,14 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       // Snapshot revision captured before the fetch gates stale bookmark
       // payloads against locally confirmed changes (R2).
       final bookmarkRevision = store.bookmarkRevisionNow();
-      final fresh = await ref.read(_illustDetailRepositoryProvider).fetch(id);
+      final repository = ref.read(_illustDetailRepositoryProvider);
+      // When the snapshot already proves the work is multi-page (the
+      // feed→detail path), the pages call races the app detail instead of
+      // queueing behind it — Shaft's fetchIllustPageDimensions pattern.
+      final dimsFuture = (snapshot?.pageCount ?? 0) > 1
+          ? repository.fetchPageDimensions(id)
+          : null;
+      final fresh = await repository.fetch(id);
       store.mergeAll(
         [fresh],
         source: EntityMergeSource.detail,
@@ -74,6 +86,16 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       final merged = store.get(id)!;
       if (!merged.visible) {
         return IllustDetailRestricted(merged);
+      }
+      if (merged.pageCount > 1 && merged.metaPages.isNotEmpty) {
+        // Never block Ready on the dims: the slots re-layout to true ratios
+        // whenever the web call lands, like Shaft's seedPageDimensions.
+        unawaited(
+          _seedPageDimensions(
+            id,
+            dimsFuture ?? repository.fetchPageDimensions(id),
+          ),
+        );
       }
       return IllustDetailReady(merged);
       // Note: while this future is in flight the page renders the store
@@ -94,10 +116,44 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
     state = const AsyncLoading<IllustDetailState>();
     state = await AsyncValue.guard(() => _load(illustId));
   }
+
+  /// Enriches the merged entity with true per-page dimensions once the web
+  /// call lands and re-emits Ready so placeholders re-layout — the detail
+  /// surface is never held for the extra round trip.
+  Future<void> _seedPageDimensions(
+    int id,
+    Future<List<({int width, int height})>?> dimsFuture,
+  ) async {
+    try {
+      final dims = await dimsFuture;
+      if (dims == null) return;
+      final store = ref.read(illustStoreProvider);
+      final current = store.get(id);
+      if (current == null) return;
+      final enriched = current.withPageDimensions(dims);
+      if (identical(enriched, current)) return;
+      store.mergeAll([enriched], source: EntityMergeSource.detail);
+      if (state.asData?.value is IllustDetailReady) {
+        state = AsyncData(IllustDetailReady(store.get(id)!));
+      }
+    } on StateError {
+      // The controller was disposed while the web call was in flight.
+    }
+  }
 }
 
+/// Optional web-transport override for `fetchPageDimensions` — tests inject
+/// a MockClient so the `/ajax/illust/{id}/pages` call never reaches the
+/// network. `null` (default) builds the shared pixivWeb policy client.
+final illustDetailWebClientProvider = Provider<http.Client?>((ref) => null);
+
 final _illustDetailRepositoryProvider = Provider<IllustDetailRepository>(
-  (ref) => IllustDetailRepository(ref.watch(pixivHttpClientProvider)),
+  (ref) => IllustDetailRepository(
+    ref.watch(pixivHttpClientProvider),
+    session: const MethodChannelWebProfileSession(),
+    policy: ref.watch(networkAccessPolicyProvider),
+    webClient: ref.watch(illustDetailWebClientProvider),
+  ),
 );
 
 final illustDetailControllerProvider =

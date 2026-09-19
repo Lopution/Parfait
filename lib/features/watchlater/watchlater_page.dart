@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/motion/feed_entrance.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -49,13 +48,14 @@ class WatchLaterPage extends ConsumerWidget {
                         padding: const EdgeInsets.all(10),
                         mainAxisSpacing: 10,
                         crossAxisSpacing: 10,
+                        itemIds: [for (final e in list) e.entity.id],
                         itemCount: list.length,
-                        itemBuilder: (context, index) => StaggeredEntrance(
-                          index: index,
-                          child: IllustCard(
-                            entity: list[index].entity,
-                            heroScope: 'watchlater',
-                          ),
+                        // IllustFeedGrid already wraps each item in a
+                        // StaggeredEntrance — nesting a second one doubled
+                        // the opacity/offset on every card.
+                        itemBuilder: (context, index) => IllustCard(
+                          entity: list[index].entity,
+                          heroScope: 'watchlater',
                         ),
                       ),
                     ],

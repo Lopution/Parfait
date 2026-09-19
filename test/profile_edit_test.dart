@@ -479,6 +479,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Discard unsaved changes?'), findsOneWidget);
   });
+
+  testWidgets('production init keeps the auto-dispose controller alive', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(
+      capabilities: ProfileCapabilities(
+        editableFields: ProfileField.values,
+        channel: ProfileEditChannel.appApi,
+      ),
+      outcome: ProfileEditConfirmed(_user()),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        ...accountProviderOverrides(
+          credentialStore: FakeCredentialStore(
+            values: const {
+              '42': Credential(accessToken: 'a', refreshToken: 'r'),
+            },
+          ),
+          metadataRepository: FakeAccountMetadataRepository(
+            accounts: const [Account(id: '42', userId: 42, name: 'tester')],
+            currentId: '42',
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en', 'US'),
+          // No session: the page resolves the account asynchronously and
+          // builds the editing session itself, exactly like production.
+          home: ProfileEditPage(
+            userId: 42,
+            initialUser: _user(),
+            repository: repository,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Regression for the stuck spinner: the imperative load() used to create
+    // the auto-dispose notifier with zero listeners, so it was collected
+    // mid-load and the rebuild's watch spawned a fresh notifier nobody
+    // load()ed — the page never left the loading state.
+    expect(find.text('Display name'), findsOneWidget);
+    expect(find.byType(TextFormField), findsWidgets);
+  });
 }
 
 UserEntity _user() => const UserEntity(
