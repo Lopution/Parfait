@@ -8,6 +8,8 @@ import '../core/actionqueue/action_bootstrap.dart';
 import '../core/auth/account_store.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
+import '../core/updater/update_auto_check.dart';
+import '../core/updater/update_service.dart';
 import '../core/widget/widget_coordinator.dart';
 import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
@@ -19,6 +21,7 @@ import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
 import 'widgets/settings_load_error.dart';
+import '../l10n/context.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 class PixivFuncApp extends ConsumerStatefulWidget {
@@ -33,6 +36,8 @@ class PixivFuncApp extends ConsumerStatefulWidget {
 class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     with WidgetsBindingObserver {
   late final GoRouter _router = createPixivRouter();
+
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
@@ -53,6 +58,31 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     // drains the current account's queued mutations once at startup; the
     // resumed hook below repeats it whenever the app returns foreground.
     ref.read(actionQueuePumpProvider);
+    // R2: one delayed background update check per throttle window (the
+    // pixes/skana launch convention). Failure and no-update stay silent.
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 3), _runAutoUpdateCheck),
+    );
+  }
+
+  Future<void> _runAutoUpdateCheck() async {
+    if (!mounted) return;
+    final result = await ref.read(updateAutoCheckProvider).checkOnce();
+    if (!mounted ||
+        result == null ||
+        result.status != UpdateCheckStatus.available) {
+      return;
+    }
+    final version = result.release?.manifest.version ?? '';
+    _messengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text('${context.l10n.aboutUpdateAvailable}: $version'),
+        action: SnackBarAction(
+          label: context.l10n.aboutUpdateOpen,
+          onPressed: () => _router.push<void>('/settings/about'),
+        ),
+      ),
+    );
   }
 
   @override
@@ -128,6 +158,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     return MaterialApp.router(
       title: 'Pixiv Func',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: _messengerKey,
       locale: settings.locale,
       supportedLocales: const [
         Locale('zh', 'CN'),

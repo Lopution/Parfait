@@ -452,6 +452,7 @@
   "aboutCheckUpdate": "Check for updates",
   "aboutCheckingUpdate": "Checking for updates…",
   "aboutUpdateAvailable": "Update available",
+  "aboutUpdateOpen": "View",
   "aboutUpdateNoUpdate": "You are up to date",
   "aboutUpdatePrerelease": "A prerelease is available; the stable channel will not install it",
   "aboutUpdateDownload": "Download and install",

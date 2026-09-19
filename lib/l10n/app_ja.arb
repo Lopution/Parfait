@@ -452,6 +452,7 @@
   "aboutCheckUpdate": "更新を確認",
   "aboutCheckingUpdate": "更新を確認中…",
   "aboutUpdateAvailable": "新しいバージョンがあります",
+  "aboutUpdateOpen": "確認",
   "aboutUpdateNoUpdate": "最新バージョンです",
   "aboutUpdatePrerelease": "プレリリースがあります。安定版チャンネルではインストールしません",
   "aboutUpdateDownload": "ダウンロードしてインストール",

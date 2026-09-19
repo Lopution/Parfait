@@ -994,6 +994,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutUpdateAvailable => 'Update available';
 
   @override
+  String get aboutUpdateOpen => 'View';
+
+  @override
   String get aboutUpdateNoUpdate => 'You are up to date';
 
   @override
