@@ -55,6 +55,15 @@ class IllustImageUrls {
   final int? width;
   final int? height;
 
+  IllustImageUrls copyWith({int? width, int? height}) => IllustImageUrls(
+    squareMedium: squareMedium,
+    medium: medium,
+    large: large,
+    original: original,
+    width: width ?? this.width,
+    height: height ?? this.height,
+  );
+
   Map<String, dynamic> toJson() => {
     'square_medium': squareMedium,
     'medium': medium,
@@ -167,6 +176,24 @@ class IllustEntity {
       if (pageHeight != null && pageHeight > 0) return pageHeight;
     }
     return height;
+  }
+
+  /// Seeds per-page dimensions from `/ajax/illust/{id}/pages` — the only
+  /// endpoint carrying true per-page sizes (the app API's `meta_pages`
+  /// ships `image_urls` alone). Slots missing from [dims] or carrying
+  /// non-positive values keep the work-level fallback.
+  IllustEntity withPageDimensions(List<({int width, int height})> dims) {
+    if (dims.isEmpty || metaPages.isEmpty) return this;
+    var changed = false;
+    final pages = List<IllustImageUrls>.of(metaPages);
+    for (var i = 0; i < pages.length && i < dims.length; i++) {
+      final w = dims[i].width;
+      final h = dims[i].height;
+      if (w <= 0 || h <= 0) continue;
+      pages[i] = pages[i].copyWith(width: w, height: h);
+      changed = true;
+    }
+    return changed ? copyWith(metaPages: pages) : this;
   }
 
   /// Aspect ratio of one page, defaulting to the work-level ratio.
