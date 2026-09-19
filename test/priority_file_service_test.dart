@@ -70,7 +70,7 @@ void main() {
       // A visible load is not stuck behind the prefetch backlog.
       final visible = await service.get('https://i.pximg.net/v.jpg');
       final visibleDrained = visible.content.drain<void>();
-      await client.bodies[3].close();
+      await client.bodies[PriorityFileService.backgroundSlots].close();
       await visibleDrained;
 
       // The permit is held for the whole transfer: consuming and closing one
