@@ -260,6 +260,19 @@ class NetworkAccessPolicy {
     return memory.kind;
   }
 
+  /// Currently-usable remembered route kinds per host — the network
+  /// settings page renders this as the effective-route display.
+  Map<String, NetworkRouteKind> effectiveRouteSnapshot({DateTime? now}) {
+    final at = now ?? clock();
+    final snapshot = <String, NetworkRouteKind>{};
+    for (final entry in _routeMemory.entries) {
+      if (entry.value.isUsable(at, _revision.networkIdentity)) {
+        snapshot[entry.key] = entry.value.kind;
+      }
+    }
+    return snapshot;
+  }
+
   @visibleForTesting
   NetworkRouteKind? rememberedGroupRouteKind(
     PixivDestinationPurpose purpose,
@@ -652,7 +665,11 @@ class _IdleGuardStream extends Stream<List<int>> {
 
     void rearm() {
       timer?.cancel();
-      timer = Timer(idle, () {
+      // The idle budget is wall-clock semantics, so the timer is rooted in
+      // the real zone: a fake-zone timer (widget tests) would stay pending
+      // for any stream still draining at teardown, and in production there
+      // is no fake zone anyway.
+      timer = Zone.root.createTimer(idle, () {
         emitError(
           TimeoutException('response stream idle', idle),
           StackTrace.current,
@@ -677,8 +694,46 @@ class _IdleGuardStream extends Stream<List<int>> {
       cancelOnError: cancelOnError,
     );
     rearm();
-    return sub;
+    // Cancelling the returned subscription must also stop the idle
+    // timer — an abandoned body (raced loser drained late, caller gone)
+    // would otherwise leak a pending timer until it fires.
+    return _GuardedSubscription(sub, () => timer?.cancel());
   }
+}
+
+class _GuardedSubscription implements StreamSubscription<List<int>> {
+  _GuardedSubscription(this._inner, this._onCancel);
+
+  final StreamSubscription<List<int>> _inner;
+  final void Function() _onCancel;
+
+  @override
+  Future<void> cancel() {
+    _onCancel();
+    return _inner.cancel();
+  }
+
+  @override
+  void onData(void Function(List<int> event)? handleData) =>
+      _inner.onData(handleData);
+
+  @override
+  void onError(Function? handleError) => _inner.onError(handleError);
+
+  @override
+  void onDone(void Function()? handleDone) => _inner.onDone(handleDone);
+
+  @override
+  void pause([Future<void>? resumeSignal]) => _inner.pause(resumeSignal);
+
+  @override
+  void resume() => _inner.resume();
+
+  @override
+  bool get isPaused => _inner.isPaused;
+
+  @override
+  Future<E> asFuture<E>([E? futureValue]) => _inner.asFuture(futureValue);
 }
 
 enum _RouteGroup { cloudflare, image, imageMirror }
