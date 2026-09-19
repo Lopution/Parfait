@@ -648,6 +648,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageSourceTestFailed => 'Mirror connectivity test failed';
 
   @override
+  String get imageSourceUnreachableMainland =>
+      'Usually unreachable from mainland networks';
+
+  @override
   String get previewQuality => 'Preview quality';
 
   @override

@@ -142,6 +142,9 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
           for (final mode in _presets)
             ListTile(
               title: Text(_presetLabel(context, mode)),
+              subtitle: mode == ImageSourceMode.pixivCat
+                  ? Text(context.l10n.imageSourceUnreachableMainland)
+                  : null,
               trailing: settings.imageSource == mode.host
                   ? Icon(
                       Icons.check,
