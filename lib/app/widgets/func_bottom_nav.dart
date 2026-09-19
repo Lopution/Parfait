@@ -647,6 +647,12 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
 /// this level so a route pushed inside the branch navigator covers the bar
 /// naturally — the same layering the page's own AppBar already uses — while
 /// the pushed page is full-height from its first frame.
+///
+/// The ScaffoldMessenger sits inside `body` on purpose: its region ends at
+/// the bottomNavigationBar edge, so `showAppSnackBar` callers anywhere in
+/// the branch land above the bar without hand-computed margins. A route
+/// pushed over this Scaffold covers the messenger too and falls back to the
+/// root messenger, which owns the full screen height.
 class BranchRootScaffold extends StatelessWidget {
   const BranchRootScaffold({
     super.key,
@@ -663,7 +669,7 @@ class BranchRootScaffold extends StatelessWidget {
       MediaQuery.sizeOf(context).width,
     );
     return Scaffold(
-      body: child,
+      body: ScaffoldMessenger(child: child),
       bottomNavigationBar: rail
           ? null
           : FuncBranchBottomNav(branchIndex: branchIndex),
