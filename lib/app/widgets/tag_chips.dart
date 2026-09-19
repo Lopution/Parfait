@@ -32,7 +32,13 @@ class TagChip extends StatelessWidget {
     final tokens = FuncSemanticTokens.of(context);
     final surface = Material(
       color: tokens.surface,
-      borderRadius: FuncShape.control,
+      // A hairline keeps the chip legible on same-tone surfaces (modal
+      // sheets use surfaceContainer, which shares tokens.surface): the fill
+      // may merge into the sheet, the border never does.
+      shape: RoundedRectangleBorder(
+        borderRadius: FuncShape.control,
+        side: BorderSide(color: tokens.divider),
+      ),
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
