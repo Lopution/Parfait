@@ -465,20 +465,20 @@ abstract class AppLocalizations {
   /// No description provided for @settingsGroupNetwork.
   ///
   /// In zh, this message translates to:
-  /// **'网络与浏览'**
+  /// **'网络与下载'**
   String get settingsGroupNetwork;
 
-  /// No description provided for @settingsGroupContent.
+  /// No description provided for @settingsGroupBrowse.
   ///
   /// In zh, this message translates to:
-  /// **'内容'**
-  String get settingsGroupContent;
+  /// **'浏览'**
+  String get settingsGroupBrowse;
 
-  /// No description provided for @settingsGroupDownload.
+  /// No description provided for @settingsGroupLibrary.
   ///
   /// In zh, this message translates to:
-  /// **'下载'**
-  String get settingsGroupDownload;
+  /// **'我的内容'**
+  String get settingsGroupLibrary;
 
   /// No description provided for @settingsGroupData.
   ///
@@ -507,7 +507,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkModeHint.
   ///
   /// In zh, this message translates to:
-  /// **'默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。'**
+  /// **'打不开时自动尝试兼容通道；只作用于 Pixiv 官方域名，不会代理其他流量。'**
   String get networkModeHint;
 
   /// No description provided for @networkModeListTitle.
@@ -525,7 +525,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkModeAutomaticHint.
   ///
   /// In zh, this message translates to:
-  /// **'标准网络栈：按各主机组选择可达且畅通的路线。'**
+  /// **'自动选择能用的连接方式。'**
   String get networkModeAutomaticHint;
 
   /// No description provided for @networkModeDirectOnly.
@@ -537,7 +537,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkModeDirectOnlyHint.
   ///
   /// In zh, this message translates to:
-  /// **'使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。'**
+  /// **'只走系统直连；适合直连可用的网络。'**
   String get networkModeDirectOnlyHint;
 
   /// No description provided for @networkModeCompatPrefer.
@@ -549,7 +549,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkModeCompatPreferHint.
   ///
   /// In zh, this message translates to:
-  /// **'先试 DoH/ECH/空 SNI 等兼容路线，全部失败再直连。适合直连已被阻断的网络。'**
+  /// **'优先尝试兼容通道，不行再直连；适合直连已被阻断的网络。'**
   String get networkModeCompatPreferHint;
 
   /// No description provided for @networkEffectiveRoutes.
@@ -573,7 +573,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkRouteKindCompat.
   ///
   /// In zh, this message translates to:
-  /// **'兼容通道（无 SNI）'**
+  /// **'兼容通道'**
   String get networkRouteKindCompat;
 
   /// No description provided for @networkThirdParty.
@@ -585,7 +585,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkThirdPartyHint.
   ///
   /// In zh, this message translates to:
-  /// **'走系统路由（你的 VPN/代理会生效），不经过 Pixiv 兼容梯子。'**
+  /// **'走系统网络，你的 VPN/代理会照常生效。'**
   String get networkThirdPartyHint;
 
   /// No description provided for @networkReachable.
@@ -615,7 +615,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkAdvancedHint.
   ///
   /// In zh, this message translates to:
-  /// **'DoH 端点、ECH 前置主机等实现细节。'**
+  /// **'面向高级用户的底层选项。'**
   String get networkAdvancedHint;
 
   /// No description provided for @networkAdvancedReset.
@@ -675,7 +675,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkProbeHint.
   ///
   /// In zh, this message translates to:
-  /// **'对 Pixiv 四个官方主机逐层测试：系统 DNS → DoH → TCP → TLS(真实 SNI) → 最小请求。TCP 通但 TLS 握手失败 = SNI 被封。'**
+  /// **'逐层检测 Pixiv 连通性，定位打不开的原因。'**
   String get networkProbeHint;
 
   /// No description provided for @frameProbeTitle.
@@ -1281,7 +1281,7 @@ abstract class AppLocalizations {
   /// No description provided for @imageSourceNormal.
   ///
   /// In zh, this message translates to:
-  /// **'官方 CDN（系统 DNS / HTTPS）'**
+  /// **'官方源（默认）'**
   String get imageSourceNormal;
 
   /// No description provided for @imageSourcePixivCat.

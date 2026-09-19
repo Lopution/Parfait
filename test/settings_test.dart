@@ -801,11 +801,15 @@ void main() {
     expect(find.text('浏览设置'), findsOneWidget);
     // Shaft-style hub: intent groups carry labeled section headers.
     expect(find.text('外观'), findsOneWidget);
-    expect(find.text('网络与浏览'), findsOneWidget);
-    expect(find.text('内容'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    expect(find.text('浏览'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('数据'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pump();
-    expect(find.text('下载'), findsOneWidget);
+    expect(find.text('我的内容', skipOffstage: false), findsOneWidget);
+    expect(find.text('网络与下载'), findsOneWidget);
     expect(find.text('数据'), findsOneWidget);
     expect(find.text('下载任务'), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);

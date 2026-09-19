@@ -220,13 +220,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsGroupAppearance => 'Внешний вид';
 
   @override
-  String get settingsGroupNetwork => 'Сеть и просмотр';
+  String get settingsGroupNetwork => 'Сеть и загрузки';
 
   @override
-  String get settingsGroupContent => 'Контент';
+  String get settingsGroupBrowse => 'Просмотр';
 
   @override
-  String get settingsGroupDownload => 'Загрузки';
+  String get settingsGroupLibrary => 'Моё';
 
   @override
   String get settingsGroupData => 'Данные';
@@ -242,7 +242,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkModeHint =>
-      'По умолчанию прямое соединение; только официальные домены Pixiv могут повторяться через строгий HTTPS-уровень после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификатов не отключается.';
+      'Если Pixiv не открывается — автоматически пробует совместимые каналы. Действует только на официальные домены Pixiv, другой трафик не проксируется.';
 
   @override
   String get networkModeListTitle => 'Режим сети';
@@ -252,21 +252,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkModeAutomaticHint =>
-      'Стандартный стек: выбор достижимого маршрута для каждой группы хостов.';
+      'Автоматически выбирает рабочее подключение.';
 
   @override
   String get networkModeDirectOnly => 'Только прямое';
 
   @override
   String get networkModeDirectOnlyHint =>
-      'Системный DNS + реальный SNI. Для сетей с прямым доступом.';
+      'Только прямое системное подключение; если прямой доступ работает.';
 
   @override
   String get networkModeCompatPrefer => 'Сначала совместимые маршруты';
 
   @override
   String get networkModeCompatPreferHint =>
-      'Сначала DoH/ECH/no-SNI, прямое подключение в конце — для сетей, где прямой доступ уже заблокирован.';
+      'Сначала совместимые каналы, прямое — как запасной вариант; если прямой доступ заблокирован.';
 
   @override
   String get networkEffectiveRoutes => 'Текущие маршруты';
@@ -279,14 +279,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkRouteKindDirect => 'Напрямую';
 
   @override
-  String get networkRouteKindCompat => 'Совместимый (без SNI)';
+  String get networkRouteKindCompat => 'Совместимый канал';
 
   @override
   String get networkThirdParty => 'Доступность сторонних сервисов';
 
   @override
   String get networkThirdPartyHint =>
-      'Обычная системная маршрутизация (учитывает ваш VPN/прокси), без лестницы совместимости Pixiv.';
+      'Обычное системное подключение — ваш VPN/прокси применяется.';
 
   @override
   String get networkReachable => 'Доступно';
@@ -302,7 +302,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkAdvancedHint =>
-      'DoH-эндпоинты, ECH front host и прочие детали.';
+      'Низкоуровневые параметры для опытных пользователей.';
 
   @override
   String get networkAdvancedReset => 'Сбросить настройки';
@@ -335,7 +335,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkProbeHint =>
-      'Проверяет 4 официальных хоста Pixiv послойно: системный DNS → DoH → TCP → TLS(реальный SNI) → минимальный запрос. TCP ок, но TLS-рукопожатие падает = SNI заблокирован.';
+      'Поэтапная проверка связи с Pixiv для поиска причины сбоя.';
 
   @override
   String get frameProbeTitle => 'Зонд кадров';
@@ -660,7 +660,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get imageSource => 'Источник изображений';
 
   @override
-  String get imageSourceNormal => 'Официальный CDN (системный DNS / HTTPS)';
+  String get imageSourceNormal => 'Официальный (по умолчанию)';
 
   @override
   String get imageSourcePixivCat => 'зеркало pixiv.cat';
