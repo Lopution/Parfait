@@ -42,6 +42,20 @@ class IllustTierCache {
     return (url, requested);
   }
 
+  /// The best cached URL strictly *below* [requested] for [key], or null —
+  /// the progressive underlay: a decoded medium paints under a loading
+  /// original instead of a flat colour box. Only recorded (i.e. decoded)
+  /// tiers qualify, so the file is guaranteed to be in the caches.
+  static String? bestBelow(String key, IllustImageTier requested) {
+    final tiers = _entries[key];
+    if (tiers == null) return null;
+    for (var i = requested.index - 1; i >= 0; i--) {
+      final cached = tiers[i];
+      if (cached != null) return cached;
+    }
+    return null;
+  }
+
   /// True when this exact (tier, url) pair was already recorded for [key] —
   /// used to skip re-attaching decode listeners on every build.
   static bool isRecorded(String key, IllustImageTier tier, String url) =>
