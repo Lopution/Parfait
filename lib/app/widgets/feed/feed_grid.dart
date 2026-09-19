@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/network/compat/network_contracts.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../image_tier_cache.dart';
@@ -82,6 +83,23 @@ Future<void> _prefetchFeedWindow(
       .read(pixivNetworkFactoryProvider)
       .imageCacheManager;
   final previewQuality = container.read(previewQualityProvider);
+  // Feed data just landed: warm the remembered winning route's connection
+  // so the first visible image GET skips the TLS/HTTP-2 handshake. The
+  // effective host is the *rewritten* one — the mirror is what the sockets
+  // actually connect to. Throttled inside the policy to once per revision.
+  final warmEntity = entities.cast<IllustEntity?>().firstWhere(
+    (e) => e != null && e.visible,
+    orElse: () => null,
+  );
+  if (warmEntity != null) {
+    final warmHost = container
+        .read(imageMirrorProvider)
+        .rewrite(Uri.parse(warmEntity.previewUrl(previewQuality)))
+        .host;
+    container
+        .read(networkAccessPolicyProvider)
+        .warmConnection(PixivDestinationPurpose.image, warmHost);
+  }
   final end = math.min(entities.length, fromIndex + _kFeedPrefetchAhead);
   for (var i = fromIndex; i < end; i += _kFeedPrefetchConcurrent) {
     if (!context.mounted) return;

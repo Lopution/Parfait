@@ -1671,6 +1671,54 @@ void main() {
       },
     );
   });
+
+  group('connection warm-up', () {
+    test('HEADs the remembered winning route once per revision', () async {
+      final shared = _FakeClient(body: '{}');
+      final resolver = _FakeResolver([InternetAddress('1.2.3.60')]);
+      final policy = NetworkAccessPolicy(
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, purpose) => shared,
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+      // One real GET seeds the host's route memory.
+      await client.get(Uri.parse('https://i.pximg.net/img/a.jpg'));
+      final before = shared.requests.length;
+      expect(before, greaterThan(0));
+
+      policy.warmConnection(PixivDestinationPurpose.image, 'i.pximg.net');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // Throttled: a second warm-up for the same host+revision is a no-op.
+      policy.warmConnection(PixivDestinationPurpose.image, 'i.pximg.net');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final warmRequests = shared.requests.sublist(before);
+      expect(warmRequests, hasLength(1));
+      expect(warmRequests.single.method, 'HEAD');
+      expect(warmRequests.single.url, Uri.https('i.pximg.net', '/'));
+    });
+
+    test('no route memory means no warm request', () async {
+      final shared = _FakeClient(body: '{}');
+      final policy = NetworkAccessPolicy(
+        resolver: _FakeResolver([InternetAddress('1.2.3.61')]),
+        clientFactory: (route, canonicalHost, purpose) => shared,
+      );
+      addTearDown(policy.dispose);
+
+      policy.warmConnection(PixivDestinationPurpose.image, 'i.pximg.net');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        shared.requests,
+        isEmpty,
+        reason: 'cold hosts belong to the race, not to warm-up',
+      );
+    });
+  });
 }
 
 /// Delays the inner send so race tests can pick the winner deterministically.
