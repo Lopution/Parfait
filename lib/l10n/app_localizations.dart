@@ -1884,6 +1884,18 @@ abstract class AppLocalizations {
   /// **'查看'**
   String get aboutUpdateOpen;
 
+  /// No description provided for @aboutExportLogs.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出日志'**
+  String get aboutExportLogs;
+
+  /// No description provided for @aboutNoLogs.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无日志'**
+  String get aboutNoLogs;
+
   /// No description provided for @aboutUpdateNoUpdate.
   ///
   /// In zh, this message translates to:

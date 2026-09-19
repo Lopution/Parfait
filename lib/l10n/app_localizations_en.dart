@@ -997,6 +997,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutUpdateOpen => 'View';
 
   @override
+  String get aboutExportLogs => 'Export logs';
+
+  @override
+  String get aboutNoLogs => 'No logs yet';
+
+  @override
   String get aboutUpdateNoUpdate => 'You are up to date';
 
   @override
