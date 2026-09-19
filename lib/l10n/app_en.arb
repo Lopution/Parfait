@@ -98,6 +98,16 @@
   "settingsGroupNetwork": "Network & downloads",
   "settingsGroupBrowse": "Browsing",
   "settingsGroupLibrary": "My content",
+  "settingsGroupDeveloper": "Developer",
+  "developerOptionsUnlocked": "Developer options unlocked",
+  "developerOptionsCountdown": "{count} more taps to unlock developer options",
+  "@developerOptionsCountdown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "settingsGroupData": "Data",
   "accountSettings": "Account",
   "networkSettings": "Network",

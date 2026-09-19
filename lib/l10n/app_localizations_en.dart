@@ -230,6 +230,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsGroupLibrary => 'My content';
 
   @override
+  String get settingsGroupDeveloper => 'Developer';
+
+  @override
+  String get developerOptionsUnlocked => 'Developer options unlocked';
+
+  @override
+  String developerOptionsCountdown(int count) {
+    return '$count more taps to unlock developer options';
+  }
+
+  @override
   String get settingsGroupData => 'Data';
 
   @override
