@@ -162,11 +162,15 @@ class PixivImage extends ConsumerStatefulWidget {
          memCacheWidth: decodeWidth ?? screenDecodeWidth,
        );
 
-  /// Decode width for a logical [layoutWidth] box: layout width x DPR,
-  /// capped at 1.5x the *physical* display size (R8). The cap must be in
-  /// physical pixels too — capping `layoutWidth * dpr` by `layoutWidth * 1.5`
-  /// decoded high-DPR devices at half resolution, which read as blurry,
-  /// aliased thumbnails.
+  /// Decode width for a logical [layoutWidth] box: the box's physical pixel
+  /// width (`layoutWidth x DPR`) so the decoded bitmap is 1:1 sharp on
+  /// screen. The codec never upscales, so sources narrower than the target
+  /// decode at their native width — the effective cost ceiling is the
+  /// *source tier* chosen for the slot, not this value.
+  ///
+  /// The former `layoutWidth x 1.5` cap was removed on purpose: on
+  /// DPR >= 2 devices it decoded feed cards at half their display
+  /// resolution, which read as blurry, aliased thumbnails.
   static int decodeWidthFor(double layoutWidth, {double? devicePixelRatio}) {
     final dpr =
         devicePixelRatio ??
