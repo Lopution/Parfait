@@ -97,7 +97,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         return result;
       } on Object catch (error, stackTrace) {
         policyRecord(destination, route, error, businessTimer.elapsed);
-        final eligible = _retryEligible(canReplay, error);
+        final eligible = _retryEligible(canReplay, error, route);
         if (eligible) {
           _invalidateRouteMemory(host, route, purpose: destination.purpose);
           _coolFastRoute(host, route);
@@ -114,8 +114,18 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   }
 
   /// Whether a failed [error] justifies moving on to the next route tier.
-  bool _retryEligible(bool canReplay, Object error) {
+  bool _retryEligible(bool canReplay, Object error, NetworkRoute route) {
     final kind = TransportFailureClassifier.classify(error).kind;
+    // An empty-SNI handshake that fails certificate verification does not
+    // necessarily mean MITM: without SNI the server answered from its
+    // default vhost, which simply may not carry this hostname (a mirror on
+    // shared hosting). Falling through to the real-SNI tier is the correct
+    // answer — verification stays ON everywhere. Real-SNI mismatches and
+    // the insecure tier keep their terminal semantics.
+    if (kind == NetworkFailureKind.certificateMismatch &&
+        route.kind == NetworkRouteKind.noSni) {
+      return true;
+    }
     if (canReplay) return _replayEligibleKinds.contains(kind);
     return _unsentEligibleKinds.contains(kind);
   }
@@ -415,15 +425,22 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   List<NetworkRouteKind> _fallbackTiersFor(PixivDestination destination) {
     final purpose = destination.purpose;
     // Third-party image mirrors (preset/custom reverse proxies) are not
-    // pixiv infrastructure: the ECH config, empty-SNI handshake and the
-    // persisted-address tier only exist for pixiv's own hosts and would
-    // fail or mis-route a mirror. Mirrors get the ordinary DNS+TLS route
-    // — the same split Shaft expresses as requiresStandardClient().
+    // pixiv infrastructure: the ECH config and the persisted-address tier
+    // only exist for pixiv's own hosts and would fail or mis-route a
+    // mirror. `noSni` leads the fallback because mirror domains are
+    // SNI-blocked inside the wall, and a single-tenant reverse proxy
+    // answers an empty-SNI handshake from a default vhost that still
+    // presents a valid certificate for the mirror name — verification
+    // stays ON (no insecureNoSni tier for mirrors: we must not switch off
+    // verification for a host the user configured themselves). A mirror
+    // whose default vhost does not cover the name fails the handshake
+    // with a certificate mismatch, which `_retryEligible` advances past
+    // on this tier; dohRealSni keeps the real-SNI escape hatch.
     if (purpose == PixivDestinationPurpose.image &&
         !PixivClientIdentity.downloadHosts.contains(
           destination.canonicalHost,
         )) {
-      return [NetworkRouteKind.dohRealSni];
+      return [NetworkRouteKind.noSni, NetworkRouteKind.dohRealSni];
     }
     final isCloudflareHost = switch (purpose) {
       PixivDestinationPurpose.appApi ||
