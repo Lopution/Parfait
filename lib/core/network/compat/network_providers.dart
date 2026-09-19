@@ -84,16 +84,14 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     lastAutoRaceAt = now;
     unawaited(() async {
       try {
-        final persisted = await autoSource.measurementFor(identity);
+        final persisted = await autoSource.winnerFor(identity);
         if (persisted != null) {
-          ref.read(autoImageSourceWinnerProvider.notifier).set(persisted.host);
-          ref.read(autoImageSourceBpsProvider.notifier).set(persisted.bps);
+          ref.read(autoImageSourceWinnerProvider.notifier).set(persisted);
         }
         final result = await AutoImageSource.race(policy);
         if (result == null) return; // all candidates failed: keep current
         ref.read(autoImageSourceWinnerProvider.notifier).set(result.host);
-        ref.read(autoImageSourceBpsProvider.notifier).set(result.bps);
-        unawaited(autoSource.remember(identity, result.host, bps: result.bps));
+        unawaited(autoSource.remember(identity, result.host));
       } finally {
         autoRaceInFlight = false;
       }
@@ -106,7 +104,6 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   policy.onImageHostExhausted = (host) {
     if (ref.read(autoImageSourceWinnerProvider) != host) return;
     ref.read(autoImageSourceWinnerProvider.notifier).set(null);
-    ref.read(autoImageSourceBpsProvider.notifier).set(null);
     resolveAutoSource(connectivityIdentity, throttled: true);
   };
 

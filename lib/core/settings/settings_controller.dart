@@ -191,26 +191,6 @@ final previewQualityProvider = Provider<PreviewQuality>((ref) {
   );
 });
 
-/// Preview quality the feed actually requests. The user's choice stands on
-/// fixed sources; under [ImageSourceMode.auto] a measured-slow winning
-/// route silently pays 3–4× the bytes for `large` previews, so the feed
-/// falls back to `medium` until a faster network is measured. The settings
-/// value itself is untouched — the downgrade is per-network and self-heals.
-final effectivePreviewQualityProvider = Provider<PreviewQuality>((ref) {
-  final quality = ref.watch(previewQualityProvider);
-  if (quality != PreviewQuality.large) return quality;
-  final source = ref.watch(
-    settingsProvider.select(
-      (async) => async.value?.imageSource ?? AppSettings.defaultImageSource,
-    ),
-  );
-  if (source != ImageSourceMode.auto.host) return quality;
-  final bps = ref.watch(autoImageSourceBpsProvider);
-  if (bps == null) return quality;
-  // ~300 KB/s: below this a 1-3MB large preview costs seconds per card.
-  return bps < 300 * 1024 ? PreviewQuality.medium : quality;
-});
-
 final viewQualityProvider = Provider<ViewQuality>((ref) {
   return ref.watch(
     settingsProvider.select(
@@ -347,19 +327,6 @@ class _AutoImageSourceWinner extends Notifier<String?> {
   String? build() => null;
 
   void set(String? host) => state = host;
-}
-
-/// Bytes/second measured by the winning auto-mode probe on the current
-/// network identity (persisted per identity like the host). Null until a
-/// race with a measurable body completes.
-final autoImageSourceBpsProvider =
-    NotifierProvider<_AutoImageSourceBps, double?>(_AutoImageSourceBps.new);
-
-class _AutoImageSourceBps extends Notifier<double?> {
-  @override
-  double? build() => null;
-
-  void set(double? bps) => state = bps;
 }
 
 /// Image-purpose allowlist for the destination registry. Split from
