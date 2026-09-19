@@ -338,6 +338,19 @@ class AppLocalizationsRu extends AppLocalizations {
       'Проверяет 4 официальных хоста Pixiv послойно: системный DNS → DoH → TCP → TLS(реальный SNI) → минимальный запрос. TCP ок, но TLS-рукопожатие падает = SNI заблокирован.';
 
   @override
+  String get frameProbeTitle => 'Зонд кадров';
+
+  @override
+  String get frameProbeHint =>
+      'Записывает тайминги кадров во время прокрутки. Прокрутите с резкими свайпами, остановите и скопируйте отчёт. Только debug/profile-сборки.';
+
+  @override
+  String get frameProbeStart => 'Начать запись';
+
+  @override
+  String get frameProbeStop => 'Стоп';
+
+  @override
   String get networkProbeRun => 'Запустить зонд';
 
   @override

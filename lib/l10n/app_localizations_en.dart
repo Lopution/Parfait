@@ -340,6 +340,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'Probes the four official Pixiv hosts layer by layer: system DNS → DoH → TCP → TLS(real SNI) → minimal request. TCP ok but TLS handshake fails = SNI blocked.';
 
   @override
+  String get frameProbeTitle => 'Frame probe';
+
+  @override
+  String get frameProbeHint =>
+      'Records frame timings while you scroll. Stop after a fling-heavy pass, then copy the report. Dev/profile builds only.';
+
+  @override
+  String get frameProbeStart => 'Start recording';
+
+  @override
+  String get frameProbeStop => 'Stop';
+
+  @override
   String get networkProbeRun => 'Run probe';
 
   @override

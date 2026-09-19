@@ -330,6 +330,19 @@ class AppLocalizationsJa extends AppLocalizations {
       'Pixiv の4公式ホストを層ごとにテスト：システム DNS → DoH → TCP → TLS(実SNI) → 最小リクエスト。TCP 成功でも TLS ハンドシェイク失敗 = SNI ブロック。';
 
   @override
+  String get frameProbeTitle => 'フレームプローブ';
+
+  @override
+  String get frameProbeHint =>
+      'スクロール中のフレーム時間を記録します。フリックで一通りスクロールして停止し、レポートをコピーしてください。debug/profile ビルド限定。';
+
+  @override
+  String get frameProbeStart => '記録開始';
+
+  @override
+  String get frameProbeStop => '停止';
+
+  @override
   String get networkProbeRun => 'プローブ開始';
 
   @override
