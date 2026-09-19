@@ -1165,52 +1165,6 @@ void main() {
     expect(repository.value.imageSource, 'https://proxy.example.com');
     expect(find.textContaining('镜像可达'), findsOneWidget);
   });
-
-  group('effective preview quality', () {
-    ProviderContainer containerFor(AppSettings settings) {
-      final container = ProviderContainer(
-        overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(settings),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-      return container;
-    }
-
-    test('large stays large on a fixed source', () async {
-      final container = containerFor(
-        _baseSettings().copyWith(previewQuality: PreviewQuality.large),
-      );
-      await container.read(settingsProvider.future);
-      container.read(autoImageSourceBpsProvider.notifier).set(50 * 1024);
-      expect(
-        container.read(effectivePreviewQualityProvider),
-        PreviewQuality.large,
-      );
-    });
-
-    test('large degrades to medium on a slow measured auto route', () async {
-      final container = containerFor(
-        _baseSettings().copyWith(
-          imageSource: 'auto',
-          previewQuality: PreviewQuality.large,
-        ),
-      );
-      await container.read(settingsProvider.future);
-      container.read(autoImageSourceBpsProvider.notifier).set(50 * 1024);
-      expect(
-        container.read(effectivePreviewQualityProvider),
-        PreviewQuality.medium,
-      );
-      container.read(autoImageSourceBpsProvider.notifier).set(5 * 1024 * 1024);
-      expect(
-        container.read(effectivePreviewQualityProvider),
-        PreviewQuality.large,
-      );
-    });
-  });
 }
 
 Future<void> _scrollCentered(WidgetTester tester, Finder finder) async {

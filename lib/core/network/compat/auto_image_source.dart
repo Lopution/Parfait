@@ -53,30 +53,23 @@ class AutoImageSource {
   /// (never raced on this network, or a corrupted blob). Winners are kept
   /// per identity — switching back to a known network reuses its measured
   /// source instead of re-racing.
-  Future<String?> winnerFor(String networkIdentity) async =>
-      (await measurementFor(networkIdentity))?.host;
-
-  /// The persisted winner plus its measured bytes/second for
-  /// [networkIdentity]. Accepts the legacy plain-string winner form written
-  /// before throughput was recorded (bps reports null then).
-  Future<({String host, double? bps})?> measurementFor(
-    String networkIdentity,
-  ) async {
+  Future<String?> winnerFor(String networkIdentity) async {
     try {
       final winners = await _readWinners();
-      final entry = winners[networkIdentity];
-      final host = switch (entry) {
-        String() => entry,
-        Map<String, dynamic>() => entry['host'] as String?,
+      // Accepts the plain-string form and the short-lived {host, bps} map
+      // written while throughput was persisted — the extra field is simply
+      // ignored now that nothing consumes it.
+      final host = switch (winners[networkIdentity]) {
+        String() => winners[networkIdentity] as String,
+        Map<String, dynamic>() =>
+          (winners[networkIdentity] as Map<String, dynamic>)['host']
+              as String?,
         _ => null,
       };
       if (host == null || !ImageMirror.autoCandidates.contains(host)) {
         return null;
       }
-      final bps = entry is Map<String, dynamic>
-          ? (entry['bps'] as num?)?.toDouble()
-          : null;
-      return (host: host, bps: bps);
+      return host;
     } on Object {
       return null;
     }
@@ -84,10 +77,10 @@ class AutoImageSource {
 
   /// Serialized writes — a race completes at the same moment other network
   /// state is being persisted.
-  Future<void> remember(String networkIdentity, String host, {double? bps}) {
+  Future<void> remember(String networkIdentity, String host) {
     final operation = _writeTail.then<void>((_) async {
       final winners = await _readWinners();
-      winners[networkIdentity] = <String, dynamic>{'host': host, 'bps': ?bps};
+      winners[networkIdentity] = host;
       await _preferences.setString(storageKey, jsonEncode(winners));
     });
     _writeTail = operation.then<void>((_) {}, onError: (_, _) {});
