@@ -174,6 +174,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
 
     final preferredKind = rememberedGroupRouteKind(
       destination.purpose,
+      destination.canonicalHost,
       now: now,
     );
     final usablePreferredKind =
@@ -218,13 +219,21 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           Error.throwWithStackTrace(error, stackTrace);
         }
         if (usablePreferredKind == kind) {
-          _invalidateGroupPreference(destination.purpose, kind);
+          _invalidateGroupPreference(
+            destination.purpose,
+            kind,
+            destination.canonicalHost,
+          );
         }
         continue;
       }
       if (route == null) {
         if (usablePreferredKind == kind) {
-          _invalidateGroupPreference(destination.purpose, kind);
+          _invalidateGroupPreference(
+            destination.purpose,
+            kind,
+            destination.canonicalHost,
+          );
         }
         continue;
       }
@@ -326,7 +335,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           ? null
           : List<int>.unmodifiable(route.echConfig!),
     );
-    final group = _routeGroupFor(purpose);
+    final group = _routeGroupFor(purpose, host);
     if (route.kind == NetworkRouteKind.direct) {
       _groupMemory.remove(group);
     } else if (_isGroupPreferenceKind(route.kind)) {
@@ -359,7 +368,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         _routeMemory.remove(host);
       }
     }
-    final group = _routeGroupFor(purpose);
+    final group = _routeGroupFor(purpose, host);
     final groupMemory = _groupMemory[group];
     if (groupMemory != null &&
         groupMemory.kind == route.kind &&
@@ -448,8 +457,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   void _invalidateGroupPreference(
     PixivDestinationPurpose purpose,
     NetworkRouteKind kind,
+    String host,
   ) {
-    final group = _routeGroupFor(purpose);
+    final group = _routeGroupFor(purpose, host);
     if (_groupMemory[group]?.kind == kind) _groupMemory.remove(group);
   }
 
