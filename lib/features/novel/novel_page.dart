@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/author_summary.dart';
 import '../../app/widgets/bookmark_switch_button.dart';
@@ -236,11 +237,13 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
           children: [
             Positioned.fill(child: _buildStage(context, novel, palette)),
             // legado-style footer tip: title · page · percent, always on the
-            // page edge independent of the chrome bars.
+            // page edge independent of the chrome bars. The baseline sits
+            // just above the gesture strip — a fixed bottom:4 placed the
+            // line inside it, where the system nav area clipped it.
             Positioned(
               left: 16,
               right: 16,
-              bottom: 4,
+              bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
               child: IgnorePointer(
                 child: Text(
                   '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
@@ -338,39 +341,44 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
           .withValues(alpha: 0.96),
       child: IconTheme.merge(
         data: IconThemeData(color: foreground),
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back),
-            ),
-            Expanded(
-              child: Text(
-                novel.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(color: foreground),
+        // The Material paints through the status-bar inset; only the
+        // controls are padded below it.
+        child: SafeArea(
+          bottom: false,
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back),
               ),
-            ),
-            IconButton(
-              tooltip: context.l10n.cardActionShare,
-              onPressed: () => _shareNovel(context, novel),
-              icon: const Icon(Icons.share_outlined),
-            ),
-            BookmarkSwitchButton(
-              illustId: novel.id,
-              title: novel.title,
-              isNovel: true,
-            ),
-            IconButton(
-              tooltip: context.l10n.novelInfoTitle,
-              onPressed: () => _showNovelInfo(context, novel),
-              icon: const Icon(Icons.info_outline),
-            ),
-          ],
+              Expanded(
+                child: Text(
+                  novel.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: foreground),
+                ),
+              ),
+              IconButton(
+                tooltip: context.l10n.cardActionShare,
+                onPressed: () => _shareNovel(context, novel),
+                icon: const Icon(Icons.share_outlined),
+              ),
+              BookmarkSwitchButton(
+                illustId: novel.id,
+                title: novel.title,
+                isNovel: true,
+              ),
+              IconButton(
+                tooltip: context.l10n.novelInfoTitle,
+                onPressed: () => _showNovelInfo(context, novel),
+                icon: const Icon(Icons.info_outline),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -390,49 +398,56 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
           .withValues(alpha: 0.96),
       child: IconTheme.merge(
         data: IconThemeData(color: foreground),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (novel.seriesId != null)
-              _NovelSeriesBar(seriesId: novel.seriesId!, novelId: novel.id)
-            else if (novel.seriesPrevId != null || novel.seriesNextId != null)
-              _NovelAdjacentBar(
-                prevId: novel.seriesPrevId,
-                nextId: novel.seriesNextId,
+        // The Material paints through the gesture-strip inset; only the
+        // controls are padded above it.
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (novel.seriesId != null)
+                _NovelSeriesBar(seriesId: novel.seriesId!, novelId: novel.id)
+              else if (novel.seriesPrevId != null || novel.seriesNextId != null)
+                _NovelAdjacentBar(
+                  prevId: novel.seriesPrevId,
+                  nextId: novel.seriesNextId,
+                ),
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: l10n.novelDecreaseFont,
+                    onPressed: () => _applySettings(
+                      _settings.copyWith(fontSize: _settings.fontSize - 1),
+                    ),
+                    icon: const Icon(Icons.text_decrease_outlined),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${_page + 1}/$_pageCount · ${percent.round()}%',
+                      textAlign: TextAlign.center,
+                      semanticsLabel: l10n.novelReadingProgress,
+                      maxLines: 1,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: foreground),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: l10n.novelIncreaseFont,
+                    onPressed: () => _applySettings(
+                      _settings.copyWith(fontSize: _settings.fontSize + 1),
+                    ),
+                    icon: const Icon(Icons.text_increase_outlined),
+                  ),
+                  IconButton(
+                    tooltip: l10n.novelReaderSettings,
+                    onPressed: () => _showReaderSettings(context),
+                    icon: const Icon(Icons.tune_outlined),
+                  ),
+                ],
               ),
-            Row(
-              children: [
-                IconButton(
-                  tooltip: l10n.novelDecreaseFont,
-                  onPressed: () => _applySettings(
-                    _settings.copyWith(fontSize: _settings.fontSize - 1),
-                  ),
-                  icon: const Icon(Icons.text_decrease_outlined),
-                ),
-                Expanded(
-                  child: Text(
-                    '${_page + 1}/$_pageCount · ${percent.round()}%',
-                    textAlign: TextAlign.center,
-                    semanticsLabel: l10n.novelReadingProgress,
-                    maxLines: 1,
-                    style: TextStyle(color: foreground),
-                  ),
-                ),
-                IconButton(
-                  tooltip: l10n.novelIncreaseFont,
-                  onPressed: () => _applySettings(
-                    _settings.copyWith(fontSize: _settings.fontSize + 1),
-                  ),
-                  icon: const Icon(Icons.text_increase_outlined),
-                ),
-                IconButton(
-                  tooltip: l10n.novelReaderSettings,
-                  onPressed: () => _showReaderSettings(context),
-                  icon: const Icon(Icons.tune_outlined),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -440,7 +455,7 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
 
   void _showReaderSettings(BuildContext context) {
     final l10n = context.l10n;
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {
@@ -519,7 +534,7 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
   }
 
   void _showNovelInfo(BuildContext context, NovelEntity novel) {
-    showModalBottomSheet<void>(
+    showAppBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -686,11 +701,11 @@ class _ChromeBarState extends State<_ChromeBar>
         ).animate(
           CurvedAnimation(parent: _controller, curve: MotionTokens.fastCurve),
         );
-    final bar = SafeArea(
-      top: isTop,
-      bottom: !isTop,
-      child: SlideTransition(position: slide, child: widget.child),
-    );
+    // No SafeArea here: the bar surface must paint edge-to-edge so its
+    // background covers the system inset. The inset padding lives inside
+    // each bar's Material instead — the bar slides from the screen edge
+    // while its controls stay clear of the gesture strip.
+    final bar = SlideTransition(position: slide, child: widget.child);
     return Positioned(
       top: isTop ? 0 : null,
       bottom: isTop ? null : 0,
