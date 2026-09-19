@@ -957,6 +957,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutUpdateAvailable => '发现新版本';
 
   @override
+  String get aboutUpdateOpen => '查看';
+
+  @override
+  String get aboutExportLogs => '导出日志';
+
+  @override
+  String get aboutNoLogs => '暂无日志';
+
+  @override
   String get aboutUpdateNoUpdate => '已是最新版本';
 
   @override

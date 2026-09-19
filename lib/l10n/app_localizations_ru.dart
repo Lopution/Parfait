@@ -992,6 +992,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutUpdateAvailable => 'Доступно обновление';
 
   @override
+  String get aboutUpdateOpen => 'Открыть';
+
+  @override
+  String get aboutExportLogs => 'Экспорт логов';
+
+  @override
+  String get aboutNoLogs => 'Логов пока нет';
+
+  @override
   String get aboutUpdateNoUpdate => 'Установлена последняя версия';
 
   @override

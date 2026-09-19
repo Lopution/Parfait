@@ -6,8 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rhttp/rhttp.dart' as rhttp;
 
 import 'app/app.dart';
+import 'core/logging/crash_log.dart';
 import 'core/network/rhttp_gate.dart';
 import 'core/widget/widget_background.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Entrypoint: initializes the Rust transport (rhttp) before the first
 /// widget builds, since every native Pixiv API, image, download and diagnostic
@@ -51,6 +53,15 @@ class _PixivFuncBinding extends WidgetsFlutterBinding {
 
 Future<void> main() async {
   _PixivFuncBinding.ensureInitialized();
+  // R3: local crash capture before anything else can throw — file logging
+  // only, no remote telemetry (the pixes/Shaft convention).
+  CrashLog.install(await getApplicationSupportDirectory());
+  runZonedGuarded(() {
+    unawaited(_run());
+  }, CrashLog.record);
+}
+
+Future<void> _run() async {
   // High refresh is requested per-surface in MainActivity
   // (onFlutterSurfaceViewCreated → Surface.setFrameRate to the panel's top
   // rate): OEM builds throttle vsync *delivery* to ~60Hz a few seconds after
