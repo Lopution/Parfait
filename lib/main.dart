@@ -56,7 +56,9 @@ Future<void> main() async {
   // R3: local crash capture before anything else can throw — file logging
   // only, no remote telemetry (the pixes/Shaft convention).
   CrashLog.install(await getApplicationSupportDirectory());
-  return runZonedGuarded(_run, CrashLog.record) ?? Future.value();
+  runZonedGuarded(() {
+    unawaited(_run());
+  }, CrashLog.record);
 }
 
 Future<void> _run() async {
