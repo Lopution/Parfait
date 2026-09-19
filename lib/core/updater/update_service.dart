@@ -246,6 +246,16 @@ class UpdateService {
           ),
         );
       }
+      // releases/latest answers 404 while no published release exists yet —
+      // that means "no update channel yet", not a broken check.
+      if (manifestResponse.statusCode == 404) {
+        return _remember(
+          const UpdateCheckResult(
+            status: UpdateCheckStatus.noUpdate,
+            errorCode: 'manifest_not_published',
+          ),
+        );
+      }
       if (manifestResponse.statusCode != 200 ||
           manifestResponse.body.length > updateManifestMaxBytes) {
         return _remember(
