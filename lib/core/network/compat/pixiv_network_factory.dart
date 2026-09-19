@@ -46,6 +46,13 @@ class PixivPolicyHttpClient extends http.BaseClient {
       // may retry on timeout too, while POST-family retries only when the
       // failure proves the request never reached the server.
       canReplay: request.method == 'GET' || request.method == 'HEAD',
+      // A cold image host pays each candidate tier's timeout in series;
+      // racing the top two turns that into one round trip for the waterfall's
+      // first paint. API/OAuth stays serial — duplicate reads are free for
+      // the CDN, not for the app backend.
+      raceWhenCold:
+          purpose == PixivDestinationPurpose.image &&
+          (request.method == 'GET' || request.method == 'HEAD'),
       attempt: (route, url) async {
         // A clone is created for each attempt. package:http requests are
         // single-use after finalize(), so reusing one object would turn the
