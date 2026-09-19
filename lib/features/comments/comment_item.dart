@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/comments/comment_assets.dart';
 import '../../core/comments/comment_translation.dart';
@@ -62,7 +63,9 @@ class _CommentItemState extends ConsumerState<CommentItem> {
                             widget.comment.user.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -254,48 +257,94 @@ class _Actions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).dividerColor.withAlpha(190);
     return Row(
+      spacing: 8,
       children: [
         if (onReply != null)
-          IconButton(
-            tooltip: context.l10n.commentReply,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-            onPressed: onReply,
-            icon: Icon(Icons.reply_outlined, size: 19, color: color),
+          _ActionPill(
+            icon: Icons.reply_outlined,
+            label: context.l10n.commentReply,
+            onTap: onReply,
           ),
         if (showTranslate && onTranslate != null)
-          IconButton(
-            tooltip: context.l10n.commentTranslate,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-            onPressed: translating ? null : onTranslate,
-            icon: Icon(Icons.translate_outlined, size: 18, color: color),
+          _ActionPill(
+            icon: Icons.translate_outlined,
+            label: context.l10n.commentTranslate,
+            onTap: translating ? null : onTranslate,
           ),
         if (canDelete && onDelete != null)
-          IconButton(
-            tooltip: context.l10n.commentDelete,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-            onPressed: onDelete,
-            icon: Icon(Icons.delete_outline, size: 18, color: color),
+          _ActionPill(
+            icon: Icons.delete_outline,
+            label: context.l10n.commentDelete,
+            foreground: FuncSemanticTokens.of(context).danger,
+            onTap: onDelete,
           ),
         const Spacer(),
         if (comment.hasReplies && onOpenReplies != null)
-          TextButton.icon(
-            onPressed: onOpenReplies,
-            icon: const Icon(Icons.forum_outlined, size: 17),
-            label: Text('${context.l10n.commentReplies} ${comment.replyCount}'),
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-            ),
+          _ActionPill(
+            icon: Icons.forum_outlined,
+            label: '${context.l10n.commentReplies} ${comment.replyCount}',
+            onTap: onOpenReplies,
           ),
       ],
+    );
+  }
+}
+
+/// One comment action: a pill with icon + label, identical geometry for
+/// every entry so the row's baselines and left edges always agree. Shaft's
+/// cell_comment uses the same contract (v3_action_pill_bg + 12sp bold
+/// label); mixing IconButton and TextButton primitives was what produced
+/// the misaligned reply/translate row.
+class _ActionPill extends StatelessWidget {
+  const _ActionPill({
+    required this.icon,
+    required this.label,
+    this.foreground,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color? foreground;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = FuncSemanticTokens.of(context);
+    final color = foreground ?? tokens.contentSecondary;
+    final radius = BorderRadius.circular(999);
+    return Opacity(
+      opacity: onTap == null ? 0.5 : 1,
+      child: Material(
+        color: tokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: tokens.divider),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(11, 7, 13, 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: color),
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
