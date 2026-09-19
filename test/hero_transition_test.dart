@@ -469,9 +469,108 @@ void main() {
     expect(_heroPaintClipRect(tester), mid);
     await tester.pumpAndSettle();
   });
+
+  testWidgets('Hero flight shuttle rounds from the card corner to the rect', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: Scaffold(
+          body: Hero(
+            tag: 'radius-hero',
+            flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: const ColoredBox(
+                color: Colors.red,
+                child: SizedBox(width: 160, height: 220),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    navigatorKey.currentState!.push(
+      _testPageRoute<void>(
+        builder: (_) => Scaffold(
+          body: Center(
+            child: Hero(
+              tag: 'radius-hero',
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+              child: const ColoredBox(
+                color: Colors.red,
+                child: SizedBox(width: 350, height: 500),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    final pushSamples = await _sampleShuttleRadius(tester);
+
+    // Push: the shuttle starts rounded like the card and straightens toward
+    // the rectangular detail endpoint instead of snapping at landing.
+    expect(pushSamples.length, greaterThan(2));
+    expect(pushSamples.first, greaterThan(pushSamples.last));
+    for (var i = 1; i < pushSamples.length; i++) {
+      expect(pushSamples[i], lessThanOrEqualTo(pushSamples[i - 1]));
+    }
+    await tester.pumpAndSettle();
+
+    navigatorKey.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    final popSamples = await _sampleShuttleRadius(tester);
+
+    // Pop: the same curve runs in reverse — nearly square first, rounding
+    // back toward the card's 12.
+    expect(popSamples.length, greaterThan(2));
+    expect(popSamples.last, greaterThan(popSamples.first));
+    for (var i = 1; i < popSamples.length; i++) {
+      expect(popSamples[i], greaterThanOrEqualTo(popSamples[i - 1]));
+    }
+    await tester.pumpAndSettle();
+  });
 }
 
 void _noop() {}
+
+/// Samples the shuttle's corner radius once per frame for the whole flight.
+/// The first frames can run before the placeholder reports a size (no radius
+/// clip mounted) and the shuttle unmounts at landing, so samples are taken
+/// only while the clip exists.
+Future<List<double>> _sampleShuttleRadius(WidgetTester tester) async {
+  final finder = find.descendant(
+    of: find.byType(HeroRectClip),
+    matching: find.byType(ClipRRect),
+  );
+  final samples = <double>[];
+  for (var i = 0; i < 60; i++) {
+    if (finder.evaluate().isNotEmpty) {
+      samples.add(_shuttleRadius(tester));
+    } else if (samples.isNotEmpty) {
+      break;
+    }
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  return samples;
+}
+
+double _shuttleRadius(WidgetTester tester) {
+  final clip = tester.widget<ClipRRect>(
+    find.descendant(
+      of: find.byType(HeroRectClip),
+      matching: find.byType(ClipRRect),
+    ),
+  );
+  return (clip.borderRadius as BorderRadius).topLeft.x;
+}
 
 PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
     PageRouteBuilder<T>(
