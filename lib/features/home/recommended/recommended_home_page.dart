@@ -309,6 +309,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         mainAxisSpacing: 5,
         crossAxisSpacing: 10,
         prefetchEntities: entities,
+        itemIds: [for (final e in entities) e.id],
         itemCount: entities.length,
         itemBuilder: (context, index) => IllustCard(
           entity: entities[index],
@@ -335,7 +336,9 @@ class _RecommendedFeedBody extends ConsumerWidget {
         sliver: SliverList.builder(
           itemCount: novels.length,
           itemBuilder: (context, index) => StaggeredEntrance(
+            key: ValueKey(novels[index].id),
             index: index,
+            id: novels[index].id,
             played: entrancePlayed,
             child: NovelRow(entity: novels[index]),
           ),
@@ -361,7 +364,9 @@ class _RecommendedFeedBody extends ConsumerWidget {
         sliver: SliverList.builder(
           itemCount: users.length,
           itemBuilder: (context, index) => StaggeredEntrance(
+            key: ValueKey(users[index].id),
             index: index,
+            id: users[index].id,
             played: entrancePlayed,
             child: _UserRow(entity: users[index]),
           ),

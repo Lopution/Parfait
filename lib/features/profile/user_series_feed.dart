@@ -91,6 +91,7 @@ class UserSeriesFeed extends ConsumerWidget {
                     padding: const EdgeInsets.all(10),
                     mainAxisSpacing: 8,
                     crossAxisSpacing: 10,
+                    itemIds: [for (final e in entities) e.id],
                     itemCount: entities.length,
                     itemBuilder: (context, index) =>
                         _UserSeriesCardView(series: entities[index]),

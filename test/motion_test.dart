@@ -91,7 +91,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _wrap(const StaggeredEntrance(index: 2, child: Text('card'))),
+        _wrap(const StaggeredEntrance(index: 2, id: 2, child: Text('card'))),
       );
       final opacityFinder = find.descendant(
         of: find.byType(StaggeredEntrance),
@@ -113,6 +113,7 @@ void main() {
         _wrap(
           const StaggeredEntrance(
             index: MotionTokens.listEntranceMaxItems,
+            id: 1,
             child: Text('late card'),
           ),
         ),
@@ -130,7 +131,7 @@ void main() {
     testWidgets('reduced motion renders without animation', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const StaggeredEntrance(index: 0, child: Text('card')),
+          const StaggeredEntrance(index: 0, id: 0, child: Text('card')),
           reduce: true,
         ),
       );
@@ -150,7 +151,12 @@ void main() {
       Widget frozen() => TickerMode(
         enabled: false,
         child: _wrap(
-          StaggeredEntrance(index: 0, played: played, child: Text('card')),
+          StaggeredEntrance(
+            index: 0,
+            id: 0,
+            played: played,
+            child: Text('card'),
+          ),
         ),
       );
       await tester.pumpWidget(frozen());
@@ -167,7 +173,14 @@ void main() {
       // Tickers re-enabled after the transition: the item stays at the end
       // state instead of replaying a frozen half-entrance.
       await tester.pumpWidget(
-        _wrap(StaggeredEntrance(index: 0, played: played, child: Text('card'))),
+        _wrap(
+          StaggeredEntrance(
+            index: 0,
+            id: 0,
+            played: played,
+            child: Text('card'),
+          ),
+        ),
       );
       expect(
         find.descendant(
@@ -178,12 +191,12 @@ void main() {
       );
     });
 
-    testWidgets('a rebuilt item does not replay once its index is played', (
+    testWidgets('a rebuilt item does not replay once its id is played', (
       tester,
     ) async {
       final played = <int>{};
       Widget item() => _wrap(
-        StaggeredEntrance(index: 0, played: played, child: Text('card')),
+        StaggeredEntrance(index: 0, id: 0, played: played, child: Text('card')),
       );
       await tester.pumpWidget(item());
       await tester.pumpAndSettle();
@@ -198,6 +211,64 @@ void main() {
           matching: find.byType(Opacity),
         ),
         findsNothing,
+      );
+    });
+
+    testWidgets('a refresh move keeps played: same id at a new index', (
+      tester,
+    ) async {
+      final played = <int>{};
+      await tester.pumpWidget(
+        _wrap(
+          StaggeredEntrance(
+            index: 0,
+            id: 7,
+            played: played,
+            child: const Text('card'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(played, contains(7));
+
+      // A head-inserted refresh shifts every position: the surviving entity
+      // arrives at index 3 but must not replay — its id is already played.
+      await tester.pumpWidget(
+        _wrap(
+          StaggeredEntrance(
+            index: 3,
+            id: 7,
+            played: played,
+            child: const Text('card'),
+          ),
+        ),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(StaggeredEntrance),
+          matching: find.byType(Opacity),
+        ),
+        findsNothing,
+      );
+
+      // A genuinely new entity at a replayable position still animates —
+      // refresh inserts float in while survivors stay put.
+      await tester.pumpWidget(
+        _wrap(
+          StaggeredEntrance(
+            index: 0,
+            id: 8,
+            played: played,
+            child: const Text('new'),
+          ),
+        ),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(StaggeredEntrance),
+          matching: find.byType(Opacity),
+        ),
+        findsOneWidget,
       );
     });
   });

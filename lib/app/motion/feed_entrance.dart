@@ -9,27 +9,38 @@ import 'motion_tokens.dart';
 /// the first batch — render immediately; a mid-feed card popping in during
 /// a fling reads as a layout bug, not motion.
 ///
-/// Once semantics: pass the owning feed's [played] index set and an index
-/// animates at most once per set lifetime. Feed grids drop keep-alives, so
-/// a card scrolling out and back rebuilds — without the set it replays the
-/// entrance, which reads as a reload flash. Items mounted or interrupted
-/// while [TickerMode] is disabled (a route transition owns the ticker
-/// budget then) render the end state and count as played: a frozen
-/// half-entrance baked into the pop snapshot and replayed after landing
-/// was the "cards suddenly load" bug.
+/// Once semantics: pass the owning feed's [played] id set and an entity
+/// animates at most once per set lifetime. Identity is keyed by [id], not
+/// position — a refresh that inserts at the head shifts every index, and a
+/// positional set would either replay surviving cards (each "new" index
+/// unread) or silently drop the entrance when ids stay put, the two-tone
+/// refresh users reported. With id keys, only genuinely new entities
+/// animate; moved survivors keep their played mark.
+///
+/// Feed grids drop keep-alives, so a card scrolling out and back rebuilds —
+/// without the set it replays the entrance, which reads as a reload flash.
+/// Items mounted or interrupted while [TickerMode] is disabled (a route
+/// transition owns the ticker budget then) render the end state and count
+/// as played: a frozen half-entrance baked into the pop snapshot and
+/// replayed after landing was the "cards suddenly load" bug.
 class StaggeredEntrance extends StatefulWidget {
   const StaggeredEntrance({
     super.key,
     required this.index,
+    required this.id,
     required this.child,
     this.played,
   });
 
+  /// Position in the list — drives the stagger delay only.
   final int index;
+
+  /// Stable entity identity — drives the once-per-list [played] mark.
+  final int id;
   final Widget child;
 
-  /// Mutable index set owned by the enclosing list's State. Indices are
-  /// per-list; each list keeps its own set.
+  /// Mutable id set owned by the enclosing list's State. Ids are per-list;
+  /// each list keeps its own set.
   final Set<int>? played;
 
   @override
@@ -59,8 +70,10 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   @override
   void didUpdateWidget(StaggeredEntrance oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.index == widget.index) return;
-    // Slot re-seated to a new index — re-evaluate against the played set.
+    // Only a different entity resets the entrance. A pure index change is a
+    // move (refresh re-seated the slot): the played id keeps its end state
+    // instead of replaying the animation in place.
+    if (oldWidget.id == widget.id) return;
     _controller.stop();
     _syncDuration();
     _done = false;
@@ -85,7 +98,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
         !TickerMode.valuesOf(context).enabled ||
         widget.index < 0 ||
         widget.index >= MotionTokens.listEntranceMaxItems ||
-        (widget.played?.contains(widget.index) ?? false);
+        (widget.played?.contains(widget.id) ?? false);
     if (skip) {
       _markDone();
     } else {
@@ -95,7 +108,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   void _markDone() {
     _done = true;
-    widget.played?.add(widget.index);
+    widget.played?.add(widget.id);
     if (_controller.value != 1) _controller.value = 1;
   }
 

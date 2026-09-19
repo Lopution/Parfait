@@ -48,6 +48,7 @@ class WatchLaterPage extends ConsumerWidget {
                         padding: const EdgeInsets.all(10),
                         mainAxisSpacing: 10,
                         crossAxisSpacing: 10,
+                        itemIds: [for (final e in list) e.entity.id],
                         itemCount: list.length,
                         // IllustFeedGrid already wraps each item in a
                         // StaggeredEntrance — nesting a second one doubled
