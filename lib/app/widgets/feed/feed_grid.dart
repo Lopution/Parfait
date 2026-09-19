@@ -30,7 +30,7 @@ const _kMinCardExtent = 180.0;
 const ScrollCacheExtent kFeedCacheExtent = ScrollCacheExtent.viewport(0.5);
 
 /// How many items past the built edge each prefetch step warms.
-const int _kFeedPrefetchAhead = 12;
+const int _kFeedPrefetchAhead = 24;
 
 /// Concurrent preview resolves admitted per prefetch batch.
 const int _kFeedPrefetchConcurrent = 4;
