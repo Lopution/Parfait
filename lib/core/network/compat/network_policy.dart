@@ -140,6 +140,12 @@ class NetworkAccessPolicy {
   /// production default remains wall-clock time.
   final DateTime Function() clock;
 
+  /// Invoked when an image-purpose request to a non-canonical (mirror)
+  /// host exhausted every ladder tier — the auto image-source selection
+  /// uses it to drop a dead winner and re-race. The original error still
+  /// propagates to the request caller.
+  void Function(String host)? onImageHostExhausted;
+
   /// The strict-tier resolver (DoH by default, system when DoH is off).
   /// Exposed for the probe page; production requests use [runLadder].
   SecureResolver get resolver => _resolver;

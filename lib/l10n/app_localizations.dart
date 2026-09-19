@@ -1260,6 +1260,24 @@ abstract class AppLocalizations {
   /// **'大陆网络通常不可达'**
   String get imageSourceUnreachableMainland;
 
+  /// No description provided for @imageSourceAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动（按当前网络竞速选源）'**
+  String get imageSourceAuto;
+
+  /// No description provided for @imageSourceAutoWinner.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：{host}'**
+  String imageSourceAutoWinner(String host);
+
+  /// No description provided for @imageSourceAutoPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'尚未测速，暂按直连'**
+  String get imageSourceAutoPending;
+
   /// No description provided for @previewQuality.
   ///
   /// In zh, this message translates to:

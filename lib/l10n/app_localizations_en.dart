@@ -652,6 +652,18 @@ class AppLocalizationsEn extends AppLocalizations {
       'Usually unreachable from mainland networks';
 
   @override
+  String get imageSourceAuto => 'Auto (race mirrors on this network)';
+
+  @override
+  String imageSourceAutoWinner(String host) {
+    return 'Current: $host';
+  }
+
+  @override
+  String get imageSourceAutoPending =>
+      'Not measured yet — falls back to direct';
+
+  @override
   String get previewQuality => 'Preview quality';
 
   @override

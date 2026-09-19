@@ -625,6 +625,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageSourceUnreachableMainland => '大陆网络通常不可达';
 
   @override
+  String get imageSourceAuto => '自动（按当前网络竞速选源）';
+
+  @override
+  String imageSourceAutoWinner(String host) {
+    return '当前：$host';
+  }
+
+  @override
+  String get imageSourceAutoPending => '尚未测速，暂按直连';
+
+  @override
   String get previewQuality => '预览质量';
 
   @override

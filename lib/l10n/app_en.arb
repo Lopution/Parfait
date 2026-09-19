@@ -276,6 +276,16 @@
   },
   "imageSourceTestFailed": "Mirror connectivity test failed",
   "imageSourceUnreachableMainland": "Usually unreachable from mainland networks",
+  "imageSourceAuto": "Auto (race mirrors on this network)",
+  "imageSourceAutoWinner": "Current: {host}",
+  "@imageSourceAutoWinner": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceAutoPending": "Not measured yet — falls back to direct",
   "previewQuality": "Preview quality",
   "viewQuality": "Viewer quality",
   "detailQuality": "Detail quality",
