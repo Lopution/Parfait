@@ -243,6 +243,9 @@ Object.defineProperty(window, 'pixiv', {value: {
       expect(novel.paragraphs, isNotEmpty);
       expect(novel.plainText, contains('para1'));
       expect(novel.seriesId, 77);
+      // API text_length is pixiv's official count and what list rows show;
+      // merging the body must not replace it with the parsed sum (11).
+      expect(novel.textLength, 1234);
     });
 
     test('propagates webview transport failure as an API error', () async {
