@@ -452,6 +452,7 @@
   "aboutCheckUpdate": "Проверить обновления",
   "aboutCheckingUpdate": "Проверка обновлений…",
   "aboutUpdateAvailable": "Доступно обновление",
+  "aboutUpdateOpen": "Открыть",
   "aboutUpdateNoUpdate": "Установлена последняя версия",
   "aboutUpdatePrerelease": "Доступен предварительный выпуск; стабильный канал его не установит",
   "aboutUpdateDownload": "Скачать и установить",

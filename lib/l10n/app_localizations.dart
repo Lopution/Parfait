@@ -1878,6 +1878,12 @@ abstract class AppLocalizations {
   /// **'发现新版本'**
   String get aboutUpdateAvailable;
 
+  /// No description provided for @aboutUpdateOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看'**
+  String get aboutUpdateOpen;
+
   /// No description provided for @aboutUpdateNoUpdate.
   ///
   /// In zh, this message translates to:

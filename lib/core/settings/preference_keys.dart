@@ -13,6 +13,9 @@ abstract final class PreferenceKeys {
   static const String updateManagerRecovery =
       'pixivfunc.update.manager.recovery.v1';
 
+  /// Epoch-ms of the last background update check (throttle window).
+  static const String updateAutoCheckAt = 'pixivfunc.update.auto_check.v1';
+
   /// Versioned JSON settings blob (`PreferencesSettingsRepository`).
   static const String settings = 'replica.settings.v2';
 
