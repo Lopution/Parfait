@@ -1763,22 +1763,43 @@ void main() {
       expect(await source.winnerFor('evil.example.com'), isNull);
     });
 
-    test('race resolves to the first reachable candidate', () async {
+    test('race picks the fastest transfer, not the first response', () async {
+      final big = List.filled(32 * 1024, 7);
       final policy = autoPolicy(
         (host) => switch (host) {
-          // Direct is reachable but slow — the race must not wait for it.
+          // Direct answers fast but its body arrives after a delay — a
+          // TTFB race would crown it; throughput ranking must not.
           'i.pximg.net' => _DelayedClient(
-            _FakeClient(),
+            _FakeClient(body: utf8.decode(big)),
             const Duration(milliseconds: 300),
           ),
-          'i.pixiv.re' => _FakeClient(),
+          'i.pixiv.re' => _FakeClient(body: utf8.decode(big)),
           _ => _FakeClient(failure: const SocketException('refused')),
         },
       );
       addTearDown(policy.dispose);
 
-      expect(await AutoImageSource.race(policy), 'i.pixiv.re');
+      final result = await AutoImageSource.race(policy);
+      expect(result?.host, 'i.pixiv.re');
+      expect(result?.bps, isNotNull);
     });
+
+    test(
+      'race falls back to the first reachable host without a body',
+      () async {
+        final policy = autoPolicy(
+          (host) => switch (host) {
+            'i.pixiv.re' => _FakeClient(body: '{}'), // reachable, unmeasurable
+            _ => _FakeClient(failure: const SocketException('refused')),
+          },
+        );
+        addTearDown(policy.dispose);
+
+        final result = await AutoImageSource.race(policy);
+        expect(result?.host, 'i.pixiv.re');
+        expect(result?.bps, isNull);
+      },
+    );
 
     test('race returns null when every candidate fails', () async {
       final policy = autoPolicy(

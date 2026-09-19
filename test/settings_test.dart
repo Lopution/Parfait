@@ -244,7 +244,7 @@ void main() {
     final settings = AppSettings.defaults();
     expect(settings.guideCompleted, isFalse);
     expect(settings.themeCode, AppSettings.systemTheme);
-    expect(settings.imageSource, AppSettings.normalImageSource);
+    expect(settings.imageSource, AppSettings.defaultImageSource);
     expect(settings.previewQuality, PreviewQuality.medium);
     expect(settings.viewQuality, ViewQuality.original);
     expect(settings.enableHistory, isTrue);

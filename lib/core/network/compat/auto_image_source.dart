@@ -10,14 +10,17 @@ import '../pixiv_headers.dart';
 import 'network_contracts.dart';
 import 'network_policy.dart';
 
-/// Auto image-source selection (`ImageSourceMode.auto`): races a cheap HEAD
-/// probe to every candidate host through the *real* image ladder — the same
-/// resolver, route memory and client pool the visible image pipeline uses —
-/// and persists the winner scoped to the current network identity.
+/// Auto image-source selection (`ImageSourceMode.auto`): races a bounded
+/// real-image GET to every candidate host through the *real* image ladder —
+/// the same resolver, route memory and client pool the visible image
+/// pipeline uses — and persists the winner scoped to the current network
+/// identity.
 ///
-/// The race is the measurement: an unreachable candidate (e.g. pixiv.cat
-/// inside the mainland) simply loses, and a stored winner from a different
-/// network is ignored because the identity no longer matches.
+/// The race measures sustained transfer, not just TTFB: every candidate
+/// fetches the same thumbnail and downloads up to [_probeBytes] of its body,
+/// and the host with the highest bytes/second wins. A candidate that only
+/// answers quickly but transfers poorly (fast TLS, starved pipe) no longer
+/// takes the win over a genuinely fast one.
 class AutoImageSource {
   AutoImageSource({required SharedPreferencesAsync preferences})
     : _preferences = preferences;
@@ -27,6 +30,22 @@ class AutoImageSource {
   /// A probe that gets no response inside this window loses the race.
   static const probeTimeout = Duration(seconds: 8);
 
+  /// Upper bound of body bytes a probe reads — enough to average out the
+  /// handshake tail, small enough that racing four candidates stays cheap
+  /// (~64KB each worst case).
+  static const probeBytes = 64 * 1024;
+
+  /// Minimum body bytes before a measurement counts toward the throughput
+  /// ranking; below it the elapsed is dominated by latency, not bandwidth.
+  static const minMeasuredBytes = 8 * 1024;
+
+  /// The thumbnail every candidate fetches. It is the same well-known pximg
+  /// image PixEz uses for its mirror check — stable for years and served by
+  /// every mirror host, so the measurement compares hosts, not objects.
+  static const probePath =
+      '/c/360x360_70/img-master/img/2016/04/29/03/33/27/'
+      '56585648_p0_square1200.jpg';
+
   final SharedPreferencesAsync _preferences;
   Future<void> _writeTail = Future<void>.value();
 
@@ -34,14 +53,30 @@ class AutoImageSource {
   /// (never raced on this network, or a corrupted blob). Winners are kept
   /// per identity — switching back to a known network reuses its measured
   /// source instead of re-racing.
-  Future<String?> winnerFor(String networkIdentity) async {
+  Future<String?> winnerFor(String networkIdentity) async =>
+      (await measurementFor(networkIdentity))?.host;
+
+  /// The persisted winner plus its measured bytes/second for
+  /// [networkIdentity]. Accepts the legacy plain-string winner form written
+  /// before throughput was recorded (bps reports null then).
+  Future<({String host, double? bps})?> measurementFor(
+    String networkIdentity,
+  ) async {
     try {
       final winners = await _readWinners();
-      final host = winners[networkIdentity];
-      if (host is! String || !ImageMirror.autoCandidates.contains(host)) {
+      final entry = winners[networkIdentity];
+      final host = switch (entry) {
+        String() => entry,
+        Map<String, dynamic>() => entry['host'] as String?,
+        _ => null,
+      };
+      if (host == null || !ImageMirror.autoCandidates.contains(host)) {
         return null;
       }
-      return host;
+      final bps = entry is Map<String, dynamic>
+          ? (entry['bps'] as num?)?.toDouble()
+          : null;
+      return (host: host, bps: bps);
     } on Object {
       return null;
     }
@@ -49,10 +84,10 @@ class AutoImageSource {
 
   /// Serialized writes — a race completes at the same moment other network
   /// state is being persisted.
-  Future<void> remember(String networkIdentity, String host) {
+  Future<void> remember(String networkIdentity, String host, {double? bps}) {
     final operation = _writeTail.then<void>((_) async {
       final winners = await _readWinners();
-      winners[networkIdentity] = host;
+      winners[networkIdentity] = <String, dynamic>{'host': host, 'bps': ?bps};
       await _preferences.setString(storageKey, jsonEncode(winners));
     });
     _writeTail = operation.then<void>((_) {}, onError: (_, _) {});
@@ -67,40 +102,49 @@ class AutoImageSource {
     return decoded;
   }
 
-  /// Races a HEAD probe to every candidate through the image ladder and
-  /// resolves to the first host that answers. Returns null when every
-  /// candidate fails — callers keep the previous winner/direct then rather
-  /// than degrading to an untested source.
-  static Future<String?> race(
+  /// Races a bounded image GET to every candidate through the image ladder
+  /// and resolves to the host with the highest measured throughput plus the
+  /// winning measurement itself. Returns null when every candidate fails —
+  /// callers keep the previous winner/direct then rather than degrading to
+  /// an untested source.
+  static Future<({String host, double? bps})?> race(
     NetworkAccessPolicy policy, {
     NetworkCancelSignal? cancelSignal,
   }) async {
-    final completer = Completer<String?>();
-    var pending = ImageMirror.autoCandidates.length;
-    for (final host in ImageMirror.autoCandidates) {
-      unawaited(
-        _probe(policy, host, cancelSignal).then((ok) {
-          if (ok) {
-            if (!completer.isCompleted) completer.complete(host);
-          } else if (--pending == 0 && !completer.isCompleted) {
-            completer.complete(null);
-          }
-        }),
-      );
+    final samples = await Future.wait(
+      ImageMirror.autoCandidates.map(
+        (host) => _probe(policy, host, cancelSignal),
+      ),
+    );
+    _ProbeSample? best;
+    for (final sample in samples) {
+      if (sample == null) continue;
+      if (sample.bytesPerSec != null &&
+          (best?.bytesPerSec == null ||
+              sample.bytesPerSec! > best!.bytesPerSec!)) {
+        best = sample;
+      }
     }
-    return completer.future.timeout(probeTimeout, onTimeout: () => null);
+    // No usable throughput measurement (tiny/empty bodies everywhere): fall
+    // back to the first reachable candidate — reachability still beats a
+    // dead host.
+    best ??= samples.whereType<_ProbeSample>().firstOrNull;
+    if (best == null) return null;
+    return (host: best.host, bps: best.bytesPerSec);
   }
 
-  static Future<bool> _probe(
+  static Future<_ProbeSample?> _probe(
     NetworkAccessPolicy policy,
     String host,
     NetworkCancelSignal? cancelSignal,
   ) async {
+    final stopwatch = Stopwatch()..start();
     try {
       final destination = policy.registry.require(
-        Uri.https(host, '/'),
+        Uri.https(host, probePath),
         PixivDestinationPurpose.image,
       );
+      var bytes = 0;
       final response = await policy
           .runLadder<http.StreamedResponse>(
             destination: destination,
@@ -112,18 +156,40 @@ class AutoImageSource {
                 route,
                 destination.canonicalHost,
               );
-              final request = http.Request('HEAD', routeUrl)
+              final request = http.Request('GET', routeUrl)
                 ..headers.addAll(PixivHeaders.image());
-              final response = await client.send(request).timeout(probeTimeout);
-              await response.stream.drain<void>();
-              return response;
+              return client.send(request).timeout(probeTimeout);
             },
           )
           .timeout(probeTimeout);
-      // Any HTTP status counts: the goal is reachability, not a 200.
-      return response.statusCode > 0;
+      try {
+        if (response.statusCode != 200) {
+          await response.stream.drain<void>();
+          return _ProbeSample(host, null);
+        }
+        await for (final chunk in response.stream.timeout(probeTimeout)) {
+          bytes += chunk.length;
+          if (bytes >= probeBytes) break;
+        }
+      } finally {
+        stopwatch.stop();
+      }
+      if (bytes == 0) return _ProbeSample(host, null);
+      final seconds = stopwatch.elapsedMicroseconds / 1e6;
+      final bps = bytes >= minMeasuredBytes ? bytes / seconds : null;
+      return _ProbeSample(host, bps);
     } on Object {
-      return false;
+      return null;
     }
   }
+}
+
+class _ProbeSample {
+  const _ProbeSample(this.host, this.bytesPerSec);
+
+  final String host;
+
+  /// Null when the host answered but the body was too small to rank by
+  /// throughput — it still counts as reachable.
+  final double? bytesPerSec;
 }
