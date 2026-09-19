@@ -174,7 +174,20 @@ jobs:
       - name: Scan for leaked secrets (fail on match)
         run: |
           set -e
-          if grep -rIl --exclude-dir=.git -E "PRIVATE KEY|BEGIN RSA|BEGIN EC PRIVATE" build/ assets/ . 2>/dev/null | grep -vE "tool/update_release.py|\.md$" | grep -q .; then
-            echo "::error::private key material found in build output"
+          # Scope: tracked sources + shipped artifacts only. The build/ tree
+          # contains vendored aws-lc-sys headers whose PEM label constants
+          # ("EC PRIVATE KEY") trip the pattern without being real keys, and
+          # scanning "." would match this workflow's own pattern literal.
+          hits=$(
+            {
+              git grep -IlE 'BEGIN [A-Z ]*PRIVATE KEY' -- \
+                . ':!tool/update_release.py' || true
+              grep -rIlE 'BEGIN [A-Z ]*PRIVATE KEY' assets/ \
+                build/app/outputs/flutter-apk/ 2>/dev/null || true
+            } | sort -u
+          )
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo "::error::private key material found in release inputs"
             exit 1
           fi
