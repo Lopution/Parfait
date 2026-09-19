@@ -128,6 +128,9 @@ class _ImageViewerRoute extends ConsumerWidget {
           ? null
           : (page) => entity.imageTierKeyAt(page),
       tier: quality.tier,
+      prefetchUrlForPage: entity == null
+          ? null
+          : (page) => entity.mediumUrlAt(page),
       onPageChanged: (page) => replaceImageViewerPage(
         context,
         illustId: illustId,
