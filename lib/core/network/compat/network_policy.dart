@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
 import 'network_fast_route_store.dart';
+import 'route_kind_store.dart';
 import 'rhttp_client_factory.dart';
 import '../rhttp_gate.dart';
 
@@ -39,6 +40,7 @@ class NetworkAccessPolicy {
     NetworkRevision revision = const NetworkRevision(0),
     NetworkClientFactory? clientFactory,
     this.fastRouteStore,
+    this.routeKindStore,
     this.echFrontHost = 'cloudflare-ech.com',
     this.insecureNoSniEnabled = false,
     @visibleForTesting Duration? imageHeadersTimeout,
@@ -100,6 +102,11 @@ class NetworkAccessPolicy {
   /// compatibility tier is attempted before the cold direct probe and does
   /// not need a DNS lookup or a HEAD request.
   final PixivFastRouteStore? fastRouteStore;
+
+  /// Persists the winning route *kind* per network identity so the next
+  /// cold start on the same network seeds the group preference instead of
+  /// paying the discovery walk again.
+  final RouteKindStore? routeKindStore;
 
   /// Cloudflare DoH endpoints' anycast IPs (same values PixEz pins; the
   /// DNS names themselves are only used for SNI/Host — the TCP peer is
@@ -177,6 +184,7 @@ class NetworkAccessPolicy {
     // like business requests do.
     final rhttpReady = RhttpGate.ready;
     if (rhttpReady != null) await rhttpReady;
+    unawaited(_seedPersistedGroupKinds());
     final store = fastRouteStore;
     if (!_fastCompatibilityEnabled ||
         store == null ||
@@ -384,7 +392,37 @@ class NetworkAccessPolicy {
     _routeMemory.clear();
     _groupMemory.clear();
     _fastRouteCooldownUntil.clear();
+    // Re-seed group preferences for the *new* identity — the same store
+    // that accelerates a cold restart accelerates a Wi-Fi↔cellular flip.
+    unawaited(_seedPersistedGroupKinds());
     return _revision;
+  }
+
+  /// Seeds group route-kind preferences persisted for the current network
+  /// identity. Groups that already learned a preference this session keep
+  /// it — a live success is fresher than any persisted hint.
+  Future<void> _seedPersistedGroupKinds() async {
+    final store = routeKindStore;
+    if (store == null || _disposed) return;
+    final kinds = await store.kindsFor(_revision.networkIdentity);
+    if (kinds == null || _disposed) return;
+    final now = clock();
+    for (final entry in kinds.entries) {
+      final group = _RouteGroup.values
+          .where((g) => g.name == entry.key)
+          .firstOrNull;
+      if (group == null || _groupMemory.containsKey(group)) continue;
+      final kind = NetworkRouteKind.values
+          .where((k) => k.name == entry.value)
+          .firstOrNull;
+      if (kind == null || !_isGroupPreferenceKind(kind)) continue;
+      _groupMemory[group] = _RouteGroupMemory(
+        kind: kind,
+        ttl: _kRouteMemoryTtl,
+        createdAt: now,
+        networkIdentity: _revision.networkIdentity,
+      );
+    }
   }
 
   void _trimRouteMemory() {

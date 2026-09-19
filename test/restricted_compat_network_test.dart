@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/test_preferences.dart';
 
@@ -19,6 +20,7 @@ import 'package:pixiv_func/core/network/compat/pixiv_network_factory.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/compat/policy_download_transport.dart';
+import 'package:pixiv_func/core/network/compat/route_kind_store.dart';
 import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
 import 'package:pixiv_func/core/settings/image_mirror.dart';
 
@@ -1628,6 +1630,46 @@ void main() {
         NetworkRouteKind.direct,
       );
     });
+
+    test(
+      'a persisted route kind seeds the group preference on warm-up',
+      () async {
+        SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+        final preferences = SharedPreferencesAsync();
+        final store = RouteKindStore(preferences: preferences);
+        // A previous session learned that dohRealSni works for image hosts.
+        await store.remember('initial', 'image', 'dohRealSni');
+
+        final noSni = _FakeClient(
+          failure: const SocketException('refused'),
+        );
+        final realSni = _FakeClient(body: 'realSni');
+        final policy = NetworkAccessPolicy(
+          resolver: _FakeResolver([InternetAddress('1.2.3.4')]),
+          routeKindStore: store,
+          clientFactory: (route, _, _) => switch (route.kind) {
+            NetworkRouteKind.noSni => noSni,
+            _ => realSni,
+          },
+        );
+        addTearDown(policy.dispose);
+        await policy.warmUp();
+        // warmUp's seeding is fire-and-forget; let it land before racing.
+        await Future<void>.delayed(Duration.zero);
+
+        final client = PixivPolicyHttpClient(
+          policy: policy,
+          purpose: PixivDestinationPurpose.image,
+        );
+        final response = await client.get(imageUri);
+
+        expect(response.statusCode, 200);
+        // The seeded preference made dohRealSni the first tier — noSni was
+        // never raced because a group preference exists (not cold).
+        expect(noSni.requests, isEmpty);
+        expect(realSni.requests, hasLength(1));
+      },
+    );
   });
 }
 
