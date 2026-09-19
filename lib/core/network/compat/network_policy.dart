@@ -238,10 +238,11 @@ class NetworkAccessPolicy {
 
   @visibleForTesting
   NetworkRouteKind? rememberedGroupRouteKind(
-    PixivDestinationPurpose purpose, {
+    PixivDestinationPurpose purpose,
+    String host, {
     DateTime? now,
   }) {
-    final group = _routeGroupFor(purpose);
+    final group = _routeGroupFor(purpose, host);
     final memory = _groupMemory[group];
     if (memory == null) return null;
     if (!memory.isUsable(now ?? clock(), _revision.networkIdentity)) {
@@ -441,11 +442,21 @@ class _HostRouteMemory {
   );
 }
 
-enum _RouteGroup { cloudflare, image }
+enum _RouteGroup { cloudflare, image, imageMirror }
 
-_RouteGroup _routeGroupFor(PixivDestinationPurpose purpose) =>
+/// Groups only ever share route-*kind* preferences, never addresses.
+/// Third-party image mirrors form their own group: a `noSni`/`ech`
+/// preference learned on pximg must not leak onto a mirror (its default
+/// vhost may not carry the mirror name, and certificate mismatches are
+/// terminal on strict tiers). Mirror preferences still propagate between
+/// mirrors — a wrong guess costs one failed handshake, then the ladder
+/// falls through (see `_retryEligible`'s empty-SNI exception).
+_RouteGroup _routeGroupFor(PixivDestinationPurpose purpose, String host) =>
     switch (purpose) {
-      PixivDestinationPurpose.image => _RouteGroup.image,
+      PixivDestinationPurpose.image =>
+        PixivClientIdentity.downloadHosts.contains(host)
+            ? _RouteGroup.image
+            : _RouteGroup.imageMirror,
       PixivDestinationPurpose.appApi ||
       PixivDestinationPurpose.oauth ||
       PixivDestinationPurpose.accountsWeb ||

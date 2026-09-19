@@ -555,7 +555,10 @@ void main() {
     now = base.add(const Duration(seconds: 45));
     expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isFalse);
     expect(
-      policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+      policy.rememberedGroupRouteKind(
+        PixivDestinationPurpose.oauth,
+        'oauth.secure.pixiv.net',
+      ),
       isNull,
     );
   });
@@ -589,7 +592,10 @@ void main() {
 
       await api.get(_apiUri);
       expect(
-        policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+        policy.rememberedGroupRouteKind(
+          PixivDestinationPurpose.oauth,
+          'oauth.secure.pixiv.net',
+        ),
         NetworkRouteKind.ech,
       );
       expect(direct.requests, isEmpty);
@@ -603,7 +609,10 @@ void main() {
 
       policy.advanceNetworkRevision(networkIdentity: 'cellular');
       expect(
-        policy.rememberedGroupRouteKind(PixivDestinationPurpose.appApi),
+        policy.rememberedGroupRouteKind(
+          PixivDestinationPurpose.appApi,
+          'app-api.pixiv.net',
+        ),
         isNull,
       );
     },
@@ -631,7 +640,10 @@ void main() {
       NetworkRouteKind.insecureNoSni,
     );
     expect(
-      policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+      policy.rememberedGroupRouteKind(
+        PixivDestinationPurpose.oauth,
+        'oauth.secure.pixiv.net',
+      ),
       isNull,
       reason: 'another host must still try its strict ladder first',
     );
