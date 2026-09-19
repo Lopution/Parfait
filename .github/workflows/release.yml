@@ -149,6 +149,23 @@ jobs:
             "assets/update-manifest.json" \
             "assets/update-manifest.sig"
 
+      - name: Release notes (existing draft body wins, else generate-notes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ env.VERSION }}"
+          if gh release view "v${VERSION}" --json body --jq '.body // ""' \
+              | grep -q '[^[:space:]]'; then
+            echo "Keeping existing draft notes for v${VERSION}"
+          else
+            gh api "repos/${{ github.repository }}/releases/generate-notes" \
+              -f tag_name="v${VERSION}" \
+              -f target_commitish="${{ github.sha }}" \
+              --jq '.body // ""' > release-notes.md
+            test -s release-notes.md || echo "**See commit history for changes.**" > release-notes.md
+            gh release edit "v${VERSION}" --notes-file release-notes.md
+          fi
+
       - uses: actions/upload-artifact@v7
         with:
           name: github-release-symbols
