@@ -66,6 +66,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     _networkMode = switch (ref.read(networkAccessPolicyProvider).mode) {
       network_contracts.NetworkMode.automatic => NetworkMode.automatic,
       network_contracts.NetworkMode.directOnly => NetworkMode.directOnly,
+      network_contracts.NetworkMode.compatPrefer => NetworkMode.compatPrefer,
     };
     if (widget.callback != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -382,6 +383,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     ref.read(networkAccessPolicyProvider).setMode(switch (_networkMode) {
       NetworkMode.automatic => network_contracts.NetworkMode.automatic,
       NetworkMode.directOnly => network_contracts.NetworkMode.directOnly,
+      NetworkMode.compatPrefer => network_contracts.NetworkMode.compatPrefer,
     });
     _persistNetworkMode(_networkMode);
   }

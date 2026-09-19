@@ -249,6 +249,40 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkModeDirectOnlyHint => '使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。';
 
   @override
+  String get networkModeCompatPrefer => '兼容优先';
+
+  @override
+  String get networkModeCompatPreferHint =>
+      '先试 DoH/ECH/空 SNI 等兼容路线，全部失败再直连。适合直连已被阻断的网络。';
+
+  @override
+  String get networkEffectiveRoutes => '当前生效路由';
+
+  @override
+  String get networkEffectiveRoutesEmpty => '还没有路由记录——逛一逛再刷新。';
+
+  @override
+  String get networkRouteKindDirect => '直连';
+
+  @override
+  String get networkRouteKindCompat => '兼容通道（无 SNI）';
+
+  @override
+  String get networkThirdParty => '第三方服务可达性';
+
+  @override
+  String get networkThirdPartyHint => '走系统路由（你的 VPN/代理会生效），不经过 Pixiv 兼容梯子。';
+
+  @override
+  String get networkReachable => '可达';
+
+  @override
+  String get networkUnreachable => '不可达';
+
+  @override
+  String get networkChecking => '检测中…';
+
+  @override
   String get networkAdvanced => '高级设置';
 
   @override
@@ -1116,6 +1150,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get retry => '重试';
+
+  @override
+  String get refresh => '刷新';
 
   @override
   String get relatedWorks => '相关作品';

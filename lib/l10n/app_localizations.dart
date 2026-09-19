@@ -540,6 +540,72 @@ abstract class AppLocalizations {
   /// **'使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。'**
   String get networkModeDirectOnlyHint;
 
+  /// No description provided for @networkModeCompatPrefer.
+  ///
+  /// In zh, this message translates to:
+  /// **'兼容优先'**
+  String get networkModeCompatPrefer;
+
+  /// No description provided for @networkModeCompatPreferHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'先试 DoH/ECH/空 SNI 等兼容路线，全部失败再直连。适合直连已被阻断的网络。'**
+  String get networkModeCompatPreferHint;
+
+  /// No description provided for @networkEffectiveRoutes.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前生效路由'**
+  String get networkEffectiveRoutes;
+
+  /// No description provided for @networkEffectiveRoutesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有路由记录——逛一逛再刷新。'**
+  String get networkEffectiveRoutesEmpty;
+
+  /// No description provided for @networkRouteKindDirect.
+  ///
+  /// In zh, this message translates to:
+  /// **'直连'**
+  String get networkRouteKindDirect;
+
+  /// No description provided for @networkRouteKindCompat.
+  ///
+  /// In zh, this message translates to:
+  /// **'兼容通道（无 SNI）'**
+  String get networkRouteKindCompat;
+
+  /// No description provided for @networkThirdParty.
+  ///
+  /// In zh, this message translates to:
+  /// **'第三方服务可达性'**
+  String get networkThirdParty;
+
+  /// No description provided for @networkThirdPartyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'走系统路由（你的 VPN/代理会生效），不经过 Pixiv 兼容梯子。'**
+  String get networkThirdPartyHint;
+
+  /// No description provided for @networkReachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'可达'**
+  String get networkReachable;
+
+  /// No description provided for @networkUnreachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'不可达'**
+  String get networkUnreachable;
+
+  /// No description provided for @networkChecking.
+  ///
+  /// In zh, this message translates to:
+  /// **'检测中…'**
+  String get networkChecking;
+
   /// No description provided for @networkAdvanced.
   ///
   /// In zh, this message translates to:
@@ -2171,6 +2237,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'重试'**
   String get retry;
+
+  /// No description provided for @refresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新'**
+  String get refresh;
 
   /// No description provided for @relatedWorks.
   ///

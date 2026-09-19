@@ -531,6 +531,17 @@ void main() {
       'networkModeAutomaticHint',
       'networkModeDirectOnly',
       'networkModeDirectOnlyHint',
+      'networkModeCompatPrefer',
+      'networkModeCompatPreferHint',
+      'networkEffectiveRoutes',
+      'networkEffectiveRoutesEmpty',
+      'networkRouteKindDirect',
+      'networkRouteKindCompat',
+      'networkThirdParty',
+      'networkThirdPartyHint',
+      'networkReachable',
+      'networkUnreachable',
+      'networkChecking',
       'networkAdvanced',
       'networkAdvancedHint',
       'networkAdvancedReset',
@@ -553,6 +564,8 @@ void main() {
       'downloaderSettings',
       'aboutSettings',
       'imageSourceNormal',
+      'imageSourceAuto',
+      'imageSourceAutoPending',
       'previewQuality',
       'viewQuality',
       'qualityMedium',
@@ -624,6 +637,10 @@ void main() {
         ),
       ),
     );
+    // Tall surface: the source list above grew a row, and unmounted
+    // off-viewport selectors must not shrink the segment assertions.
+    tester.view.physicalSize = const Size(800, 2400);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
     await tester.pump();
     final selectorFinder = find.byWidgetPredicate(
@@ -984,6 +1001,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // The mode tiles and status sections push this entry below the fold.
+    await _scrollCentered(
+      tester,
+      find.text('高级设置', skipOffstage: false),
+    );
     await tester.tap(find.text('高级设置'));
     await tester.pumpAndSettle();
 
@@ -1125,9 +1147,17 @@ void main() {
     await _scrollCentered(tester, find.text('测试', skipOffstage: false));
     await tester.tap(find.text('测试'));
     await tester.pumpAndSettle();
+    // The raced loser's drained body delivers its done event on the next
+    // FakeAsync elapse — one more pump lets the idle-guard timer unwind.
+    await tester.pump();
 
-    expect(backend.requests, hasLength(1));
-    expect(backend.requests.single.url.host, 'proxy.example.com');
+    // A cold image request races the top two ladder tiers, so the probe
+    // may hit the backend twice — every attempt must target the mirror.
+    expect(backend.requests, isNotEmpty);
+    expect(
+      backend.requests.map((request) => request.url.host).toSet(),
+      {'proxy.example.com'},
+    );
     expect(repository.value.imageSource, 'https://proxy.example.com');
     expect(find.textContaining('镜像可达'), findsOneWidget);
   });

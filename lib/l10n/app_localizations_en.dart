@@ -263,6 +263,42 @@ class AppLocalizationsEn extends AppLocalizations {
       'System DNS + real SNI direct connection. For networks known to be reachable directly.';
 
   @override
+  String get networkModeCompatPrefer => 'Compatibility-first';
+
+  @override
+  String get networkModeCompatPreferHint =>
+      'Try DoH/ECH/no-SNI compatibility routes before direct — for networks where direct is already blocked.';
+
+  @override
+  String get networkEffectiveRoutes => 'Effective routes';
+
+  @override
+  String get networkEffectiveRoutesEmpty =>
+      'No route learned yet — browse a bit and refresh.';
+
+  @override
+  String get networkRouteKindDirect => 'Direct';
+
+  @override
+  String get networkRouteKindCompat => 'Compat (no SNI)';
+
+  @override
+  String get networkThirdParty => 'Third-party reachability';
+
+  @override
+  String get networkThirdPartyHint =>
+      'Plain system routing (your VPN/proxy applies). Not through the Pixiv compatibility ladder.';
+
+  @override
+  String get networkReachable => 'Reachable';
+
+  @override
+  String get networkUnreachable => 'Unreachable';
+
+  @override
+  String get networkChecking => 'Checking…';
+
+  @override
   String get networkAdvanced => 'Advanced';
 
   @override
@@ -1162,6 +1198,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get retry => 'Retry';
+
+  @override
+  String get refresh => 'Refresh';
 
   @override
   String get relatedWorks => 'Related works';

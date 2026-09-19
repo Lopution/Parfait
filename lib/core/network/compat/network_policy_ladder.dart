@@ -230,12 +230,17 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     final hasInsecureFallback = fallbackTiers.contains(
       NetworkRouteKind.insecureNoSni,
     );
+    final compatPrefer = _mode == NetworkMode.compatPrefer;
+    final insecureEligible =
+        hasInsecureFallback && !_isFastRouteCooling(host, now);
     final kinds = <NetworkRouteKind>[
       ?usablePreferredKind,
       ...fallbackTiers.where((kind) => kind != NetworkRouteKind.insecureNoSni),
+      // compatPrefer walks every compatibility tier before touching direct —
+      // the user already knows plain direct is blocked on this network.
+      if (compatPrefer && insecureEligible) NetworkRouteKind.insecureNoSni,
       NetworkRouteKind.direct,
-      if (hasInsecureFallback && !_isFastRouteCooling(host, now))
-        NetworkRouteKind.insecureNoSni,
+      if (!compatPrefer && insecureEligible) NetworkRouteKind.insecureNoSni,
     ];
     for (final kind in kinds) {
       if (attemptedKinds.contains(kind)) continue;
