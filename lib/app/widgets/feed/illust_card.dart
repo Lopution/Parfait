@@ -7,6 +7,7 @@ import '../../../core/entity/illust_entity.dart';
 import '../../../core/mute/mute_predicate.dart';
 import '../../../core/mute/mute_store.dart';
 import '../../../core/network/compat/network_providers.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../../theme/func_semantic_tokens.dart';
@@ -380,6 +381,25 @@ class IllustCard extends ConsumerWidget {
       unawaited(
         PixivImage.preload(context, avatarUrl, cacheManager: cacheManager),
       );
+    }
+    // Warm the detail-tier page-0 image too: the detail page swaps off the
+    // preview URL as soon as its payload lands, and without this the bigger
+    // variant still starts from zero on open. Original stays lazy — a
+    // cancelled tap must not burn a multi-MB fetch on a background lane.
+    final detailQuality = ref.read(detailQualityProvider);
+    if (detailQuality != DetailQuality.original) {
+      final detailUrl = entity.detailUrlAt(0, detailQuality);
+      if (detailUrl != previewUrl) {
+        unawaited(
+          PixivImage.preload(
+            context,
+            detailUrl,
+            cacheManager: cacheManager,
+            tierKey: entity.imageTierKeyAt(0),
+            tier: detailQuality.tier,
+          ),
+        );
+      }
     }
   }
 }
