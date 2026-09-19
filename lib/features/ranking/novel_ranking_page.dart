@@ -176,7 +176,9 @@ class _NovelRankingModeBody extends ConsumerWidget {
                     sliver: SliverList.builder(
                       itemCount: entities.length,
                       itemBuilder: (context, index) => StaggeredEntrance(
+                        key: ValueKey(entities[index].id),
                         index: index,
+                        id: entities[index].id,
                         played: entrancePlayed,
                         child: NovelRow(entity: entities[index]),
                       ),

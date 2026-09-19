@@ -220,6 +220,7 @@ class IllustFeedGrid extends StatefulWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 10),
     this.mainAxisSpacing = 5,
     this.crossAxisSpacing = 10,
+    this.itemIds,
     this.prefetchEntities,
   });
 
@@ -228,6 +229,14 @@ class IllustFeedGrid extends StatefulWidget {
   final EdgeInsetsGeometry padding;
   final double mainAxisSpacing;
   final double crossAxisSpacing;
+
+  /// Stable entity ids aligned with [itemBuilder]'s index order. Supplying
+  /// them does two things positional identity cannot: the staggered
+  /// entrance marks entities (not slots) as played, and
+  /// [SliverChildBuilderDelegate.findChildIndexCallback] re-seats element
+  /// state when a refresh inserts at the head — without keys, every card's
+  /// subtree is re-bound to whatever entity landed on its old position.
+  final List<int>? itemIds;
 
   /// When set, the grid warms preview images for entities just past the
   /// built edge as it advances — the bounded off-screen preload that a bare
@@ -239,7 +248,7 @@ class IllustFeedGrid extends StatefulWidget {
 }
 
 class _IllustFeedGridState extends State<IllustFeedGrid> {
-  /// Staggered-entrance indices already shown by this grid instance; the
+  /// Staggered-entrance entity ids already shown by this grid instance; the
   /// grid drops keep-alives, so without it a card scrolling back into view
   /// replays its entrance and reads as a reload.
   final _entrancePlayed = <int>{};
@@ -297,10 +306,16 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
                     );
                   }
                 }
+                final ids = widget.itemIds;
+                final id = ids != null && index < ids.length
+                    ? ids[index]
+                    : index;
                 return FeedItemExtent(
                   width: columnWidth,
                   child: StaggeredEntrance(
+                    key: ValueKey(id),
                     index: index,
+                    id: id,
                     played: _entrancePlayed,
                     child: widget.itemBuilder(context, index),
                   ),
@@ -308,6 +323,13 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
               },
               childCount: widget.itemCount,
               addAutomaticKeepAlives: false,
+              findChildIndexCallback: widget.itemIds == null
+                  ? null
+                  : (key) {
+                      if (key is! ValueKey<int>) return null;
+                      final i = widget.itemIds!.indexOf(key.value);
+                      return i < 0 ? null : i;
+                    },
             ),
           ),
         );
