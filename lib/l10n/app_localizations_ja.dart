@@ -969,6 +969,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutUpdateAvailable => '新しいバージョンがあります';
 
   @override
+  String get aboutUpdateOpen => '確認';
+
+  @override
+  String get aboutExportLogs => 'ログをエクスポート';
+
+  @override
+  String get aboutNoLogs => 'ログはまだありません';
+
+  @override
   String get aboutUpdateNoUpdate => '最新バージョンです';
 
   @override

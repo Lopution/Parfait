@@ -3,8 +3,13 @@ import 'dart:io';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/widgets/app_snack_bar.dart';
+import '../../../core/logging/crash_log.dart';
 import '../../../core/updater/update_providers.dart';
 import '../../../core/updater/update_service.dart';
 import '../../../l10n/context.dart';
@@ -21,20 +26,35 @@ class AboutSettingsPage extends ConsumerWidget {
       body: ListView(
         children: [
           const ListTile(leading: Icon(Icons.apps), title: Text('Pixiv Func')),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: Text(context.l10n.aboutVersion),
-            trailing: const Text('0.1.0'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.menu_book_outlined),
-            title: Text(context.l10n.aboutLicense),
-            subtitle: Text(context.l10n.aboutLicenseText),
-            onTap: () => showLicensePage(
-              context: context,
-              applicationName: appName,
-              applicationVersion: '0.1.0',
-            ),
+          // Version comes from the platform package, not a literal — the
+          // pubspec `version:` line is the single source of truth (R1).
+          FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (context, snapshot) {
+              final info = snapshot.data;
+              final label = info == null
+                  ? '—'
+                  : '${info.version}+${info.buildNumber}';
+              return Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.info_outline),
+                    title: Text(context.l10n.aboutVersion),
+                    trailing: Text(label),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.menu_book_outlined),
+                    title: Text(context.l10n.aboutLicense),
+                    subtitle: Text(context.l10n.aboutLicenseText),
+                    onTap: () => showLicensePage(
+                      context: context,
+                      applicationName: appName,
+                      applicationVersion: info?.version,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           ListTile(
             leading: const Icon(Icons.people_outline),
@@ -45,6 +65,11 @@ class AboutSettingsPage extends ConsumerWidget {
             leading: const Icon(Icons.code),
             title: Text(context.l10n.aboutSource),
             subtitle: const Text('github.com/Lopution/Pixiv-func'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.bug_report_outlined),
+            title: Text(context.l10n.aboutExportLogs),
+            onTap: () => _exportCrashLog(context),
           ),
           // Read-back of the display mode the engine actually got —
           // OEM ROMs (MIUI/HyperOS, ColorOS) can keep a third-party app at
@@ -82,6 +107,20 @@ class AboutSettingsPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _exportCrashLog(BuildContext context) async {
+  final directory = await getApplicationSupportDirectory();
+  final file = CrashLog.fileFor(directory);
+  final hasLog = await file.exists() && await file.length() > 0;
+  if (!context.mounted) return;
+  if (!hasLog) {
+    showAppSnackBar(context, context.l10n.aboutNoLogs);
+    return;
+  }
+  await SharePlus.instance.share(
+    ShareParams(files: [XFile(file.path)], subject: 'pixiv-func-crash.log'),
+  );
 }
 
 class _AboutUpdateSection extends StatefulWidget {
