@@ -57,6 +57,7 @@ class ProfileEditPage extends ConsumerStatefulWidget {
 class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   ProfileEditSession? _session;
   ProviderSubscription<AsyncValue<AccountState>>? _accountSubscription;
+  ProviderSubscription<ProfileEditState>? _editSubscription;
   Object? _initializationError;
 
   @override
@@ -80,6 +81,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   @override
   void dispose() {
     _accountSubscription?.close();
+    _editSubscription?.close();
     super.dispose();
   }
 
@@ -109,6 +111,15 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
         ).commit(confirmed),
       );
       setState(() => _session = session);
+      // Keep the auto-dispose controller alive across the gap between this
+      // imperative read and the rebuild's ref.watch: created with zero
+      // listeners, the notifier would be collected while load() is suspended,
+      // and the fresh notifier the watch then creates never gets load()
+      // called — the page stays on the loading spinner forever.
+      _editSubscription = ref.listenManual(
+        profileEditControllerProvider(session),
+        (_, _) {},
+      );
       unawaited(
         ref.read(profileEditControllerProvider(session).notifier).load(),
       );
