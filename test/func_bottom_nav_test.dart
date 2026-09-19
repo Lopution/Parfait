@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
 
 void main() {
   const destinations = [
@@ -154,5 +157,83 @@ void main() {
     // One shared size below the 12pt base — scaled, never ellipsized.
     expect(sizes, hasLength(1));
     expect(sizes.single, lessThan(12));
+  });
+
+  testWidgets('branch bar collapses on scroll down and returns on scroll up', (
+    tester,
+  ) async {
+    // The default 800×600 surface is medium-width → rail layout, no bar.
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: BranchRootScaffold(
+            branchIndex: 0,
+            child: ListView.builder(
+              itemCount: 80,
+              itemBuilder: (_, i) =>
+                  SizedBox(height: 60, child: Text('row $i')),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nav = find.byType(FuncBranchBottomNav);
+    final fullHeight = tester.getSize(nav).height;
+    expect(fullHeight, greaterThan(0));
+
+    // Scroll down past the touch-slop threshold: the bar must shrink to zero
+    // height, freeing the layout space rather than overlaying it.
+    await tester.drag(find.byType(ListView), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(nav).height, 0);
+
+    // Scrolling back up restores it.
+    await tester.drag(find.byType(ListView), const Offset(0, 120));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(nav).height, closeTo(fullHeight, 0.5));
+  });
+
+  testWidgets('short scrolls below the slop keep the bar expanded', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: BranchRootScaffold(
+            branchIndex: 0,
+            child: ListView.builder(
+              itemCount: 80,
+              itemBuilder: (_, i) =>
+                  SizedBox(height: 60, child: Text('row $i')),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final nav = find.byType(FuncBranchBottomNav);
+    final fullHeight = tester.getSize(nav).height;
+
+    // Alternating small drags never cross the accumulated threshold.
+    for (var i = 0; i < 3; i++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -10));
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.drag(find.byType(ListView), const Offset(0, 10));
+      await tester.pump(const Duration(milliseconds: 60));
+    }
+    await tester.pumpAndSettle();
+    expect(tester.getSize(nav).height, closeTo(fullHeight, 0.5));
   });
 }
