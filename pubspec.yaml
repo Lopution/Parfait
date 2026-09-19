@@ -4,7 +4,9 @@ description: Pixiv Func 的现代化复刻项目
 
 publish_to: 'none'
 
-version: 0.1.0
+# Single source of truth for releases: versionName X.Y.Z, versionCode +N
+# (release.yml reads both; bump N on every release).
+version: 0.1.0+1
 
 environment:
   sdk: ^3.11.0

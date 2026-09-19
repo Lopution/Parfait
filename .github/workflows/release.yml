@@ -5,13 +5,6 @@ name: Release
 # signs, drafts and uploads assets for verification.
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Semver to publish (e.g. 1.0.0)"
-        required: true
-      versionCode:
-        description: "Android versionCode integer"
-        required: true
 
 permissions:
   contents: write
@@ -34,6 +27,17 @@ jobs:
         with:
           workspaces: plugins/rhttp/rhttp/rust
       - run: flutter pub get --enforce-lockfile
+
+      - name: Read version from pubspec.yaml (single source of truth)
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | head -n1 | awk '{print $2}')
+          VERSION_NAME="${VERSION_LINE%%+*}"
+          VERSION_CODE="${VERSION_LINE##*+}"
+          test -n "$VERSION_NAME" || { echo "::error::pubspec version line missing"; exit 1; }
+          case "$VERSION_CODE" in (*[!0-9]*|'') echo "::error::pubspec version must carry +N build number"; exit 1;; esac
+          echo "VERSION=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "release v$VERSION_NAME (code $VERSION_CODE)"
 
       - name: Decode release keystore (never logged)
         env:
@@ -113,7 +117,7 @@ jobs:
           test -n "$UPDATE_SIGNING_KEY_B64" || { echo "::error::missing UPDATE_SIGNING_KEY_B64 secret"; exit 1; }
           echo "$UPDATE_SIGNING_KEY_B64" | base64 -d > ~/.pixivfunc-release/update-signing-key.pem
           chmod 600 ~/.pixivfunc-release/update-signing-key.pem
-          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${{ env.VERSION }}"
           ARM64=build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk
           ARMV7=build/app/outputs/flutter-apk/app-armeabi-v7a-github-release.apk
           cp "$ARM64" "pixiv-func-v${VERSION}-github-arm64-v8a.apk"
@@ -122,7 +126,7 @@ jobs:
             --apk "arm64-v8a=$ARM64" \
             --apk "armeabi-v7a=$ARMV7" \
             --version "$VERSION" \
-            --version-code "${{ github.event.inputs.versionCode }}" \
+            --version-code "${{ env.VERSION_CODE }}" \
             --signing-cert-sha256 "$FINGERPRINT" \
             --key-file ~/.pixivfunc-release/update-signing-key.pem \
             --out-dir ./assets
@@ -131,7 +135,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${{ env.VERSION }}"
           # Draft only (L2): no public formal release is published here.
           gh release view "v${VERSION}" >/dev/null 2>&1 || \
             gh release create "v${VERSION}" \
