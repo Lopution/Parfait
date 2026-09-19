@@ -229,6 +229,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsGroupLibrary => 'Моё';
 
   @override
+  String get settingsGroupDeveloper => 'Разработчику';
+
+  @override
+  String get developerOptionsUnlocked => 'Режим разработчика включён';
+
+  @override
+  String developerOptionsCountdown(int count) {
+    return 'Ещё $count нажатий до режима разработчика';
+  }
+
+  @override
   String get settingsGroupData => 'Данные';
 
   @override

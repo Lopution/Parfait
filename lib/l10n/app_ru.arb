@@ -98,6 +98,16 @@
   "settingsGroupNetwork": "Сеть и загрузки",
   "settingsGroupBrowse": "Просмотр",
   "settingsGroupLibrary": "Моё",
+  "settingsGroupDeveloper": "Разработчику",
+  "developerOptionsUnlocked": "Режим разработчика включён",
+  "developerOptionsCountdown": "Ещё {count} нажатий до режима разработчика",
+  "@developerOptionsCountdown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "settingsGroupData": "Данные",
   "accountSettings": "Аккаунт",
   "networkSettings": "Сеть",

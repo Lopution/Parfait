@@ -480,6 +480,24 @@ abstract class AppLocalizations {
   /// **'我的内容'**
   String get settingsGroupLibrary;
 
+  /// No description provided for @settingsGroupDeveloper.
+  ///
+  /// In zh, this message translates to:
+  /// **'开发者'**
+  String get settingsGroupDeveloper;
+
+  /// No description provided for @developerOptionsUnlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'开发者选项已开启'**
+  String get developerOptionsUnlocked;
+
+  /// No description provided for @developerOptionsCountdown.
+  ///
+  /// In zh, this message translates to:
+  /// **'再点 {count} 次开启开发者选项'**
+  String developerOptionsCountdown(int count);
+
   /// No description provided for @settingsGroupData.
   ///
   /// In zh, this message translates to:

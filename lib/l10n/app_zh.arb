@@ -98,6 +98,16 @@
   "settingsGroupNetwork": "网络与下载",
   "settingsGroupBrowse": "浏览",
   "settingsGroupLibrary": "我的内容",
+  "settingsGroupDeveloper": "开发者",
+  "developerOptionsUnlocked": "开发者选项已开启",
+  "developerOptionsCountdown": "再点 {count} 次开启开发者选项",
+  "@developerOptionsCountdown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "settingsGroupData": "数据",
   "accountSettings": "账号",
   "networkSettings": "网络",

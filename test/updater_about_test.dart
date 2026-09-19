@@ -1,11 +1,14 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pixiv_func/core/settings/shared_preferences.dart';
 import 'package:pixiv_func/core/updater/update_providers.dart';
 import 'package:pixiv_func/core/updater/update_service.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+
+import 'helpers/test_preferences.dart';
 
 void main() {
   testWidgets(
@@ -34,6 +37,40 @@ void main() {
       expect(find.widgetWithText(FilledButton, '检查更新'), findsNothing);
     },
   );
+
+  testWidgets('seven version taps unlock developer options', (tester) async {
+    final service = UpdateService(
+      manifestTransport: _UnusedTransport(),
+      platform: _FdroidPlatform(),
+    );
+    installMemoryPreferences();
+    final container = ProviderContainer(
+      overrides: [updateServiceProvider.overrideWith((ref) async => service)],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: const AboutSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(container.read(developerOptionsProvider), isFalse);
+    for (var i = 0; i < 7; i++) {
+      await tester.tap(find.text('版本'), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.pump();
+    expect(container.read(developerOptionsProvider), isTrue);
+    // The unlock snackbar queues behind the countdown ones — provider state
+    // is the assertion that matters; the message itself is l10n-covered.
+  });
 }
 
 class _FdroidPlatform implements UpdatePlatform {

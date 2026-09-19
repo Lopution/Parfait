@@ -98,6 +98,16 @@
   "settingsGroupNetwork": "ネットワークとダウンロード",
   "settingsGroupBrowse": "閲覧",
   "settingsGroupLibrary": "マイコンテンツ",
+  "settingsGroupDeveloper": "開発者向け",
+  "developerOptionsUnlocked": "開発者向けオプションを有効にしました",
+  "developerOptionsCountdown": "あと {count} 回タップで開発者向けオプションを有効化",
+  "@developerOptionsCountdown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "settingsGroupData": "データ",
   "accountSettings": "アカウント",
   "networkSettings": "ネットワーク",

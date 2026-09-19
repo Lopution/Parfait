@@ -224,6 +224,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsGroupLibrary => 'マイコンテンツ';
 
   @override
+  String get settingsGroupDeveloper => '開発者向け';
+
+  @override
+  String get developerOptionsUnlocked => '開発者向けオプションを有効にしました';
+
+  @override
+  String developerOptionsCountdown(int count) {
+    return 'あと $count 回タップで開発者向けオプションを有効化';
+  }
+
+  @override
   String get settingsGroupData => 'データ';
 
   @override

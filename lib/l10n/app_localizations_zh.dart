@@ -218,6 +218,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsGroupLibrary => '我的内容';
 
   @override
+  String get settingsGroupDeveloper => '开发者';
+
+  @override
+  String get developerOptionsUnlocked => '开发者选项已开启';
+
+  @override
+  String developerOptionsCountdown(int count) {
+    return '再点 $count 次开启开发者选项';
+  }
+
+  @override
   String get settingsGroupData => '数据';
 
   @override

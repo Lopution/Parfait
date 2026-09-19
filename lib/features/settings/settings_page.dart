@@ -14,6 +14,7 @@ import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../core/settings/shared_preferences.dart';
 import '../../l10n/context.dart';
 import 'pages/account_settings_page.dart';
 import 'settings_helpers.dart';
@@ -174,8 +175,11 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.aboutSettings,
           onTap: () => openSettingsPage(context, '/settings/about'),
         ),
-        if (!kReleaseMode) ...[
-          const Divider(),
+        // Frame probe is a diagnostics tool, not a preference: it ships in
+        // every build but stays hidden until the about-page gesture (or a
+        // non-release build) unlocks the developer group.
+        if (ref.watch(developerOptionsProvider) || !kReleaseMode) ...[
+          SettingsSection(title: Text(context.l10n.settingsGroupDeveloper)),
           SettingsTile(
             icon: Icons.monitor_heart_outlined,
             title: context.l10n.frameProbeTitle,
