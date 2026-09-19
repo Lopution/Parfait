@@ -634,6 +634,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageSourceUnreachableMainland => '中国本土ネットワークからは通常到達不能';
 
   @override
+  String get imageSourceAuto => '自動（現在のネットワークで計測）';
+
+  @override
+  String imageSourceAutoWinner(String host) {
+    return '現在: $host';
+  }
+
+  @override
+  String get imageSourceAutoPending => '未計測 — 直连で読み込み';
+
+  @override
   String get previewQuality => 'プレビュー画質';
 
   @override

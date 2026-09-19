@@ -652,6 +652,17 @@ class AppLocalizationsRu extends AppLocalizations {
       'Обычно недоступно из сетей материкового Китая';
 
   @override
+  String get imageSourceAuto => 'Авто (выбор зеркала для этой сети)';
+
+  @override
+  String imageSourceAutoWinner(String host) {
+    return 'Текущее: $host';
+  }
+
+  @override
+  String get imageSourceAutoPending => 'Ещё не измерено — прямая загрузка';
+
+  @override
   String get previewQuality => 'Качество предпросмотра';
 
   @override

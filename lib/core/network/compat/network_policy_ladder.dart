@@ -47,13 +47,26 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // keeps `main` free to render the boot before rhttp finishes loading.
     final rhttpReady = RhttpGate.ready;
     if (rhttpReady != null) await rhttpReady;
-    return _runAttemptLadder<T>(
-      destination: destination,
-      cancelSignal: cancelSignal,
-      canReplay: canReplay,
-      attempt: attempt,
-      raceWhenCold: raceWhenCold,
-    );
+    try {
+      return await _runAttemptLadder<T>(
+        destination: destination,
+        cancelSignal: cancelSignal,
+        canReplay: canReplay,
+        attempt: attempt,
+        raceWhenCold: raceWhenCold,
+      );
+    } on Object {
+      // A mirror/auto-source host that exhausted every tier is reported so
+      // the auto source selection can drop the dead winner — the original
+      // error still propagates to the caller unchanged.
+      if (destination.purpose == PixivDestinationPurpose.image) {
+        final host = destination.canonicalHost;
+        if (host != 'i.pximg.net' && host != 's.pximg.net') {
+          onImageHostExhausted?.call(host);
+        }
+      }
+      rethrow;
+    }
   }
 
   /// Sends the business request on the selected route and, on a retryable
@@ -322,8 +335,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         remembered.isUsable(now, _revision.networkIdentity)) {
       return (false, null);
     }
-    if (rememberedGroupRouteKind(destination.purpose, host, now: now) !=
-        null) {
+    if (rememberedGroupRouteKind(destination.purpose, host, now: now) != null) {
       return (false, null);
     }
 
@@ -451,11 +463,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         if (value is http.StreamedResponse) {
           unawaited(value.stream.drain<void>());
         }
-      case _RaceFailure(
-        :final route,
-        :final error,
-        :final latency,
-      ):
+      case _RaceFailure(:final route, :final error, :final latency):
         policyRecord(destination, route, error, latency);
         _invalidateRouteMemory(
           destination.canonicalHost,
@@ -826,12 +834,7 @@ class _RaceSuccess<T> extends _RaceOutcome<T> {
 }
 
 class _RaceFailure<T> extends _RaceOutcome<T> {
-  const _RaceFailure(
-    super.route,
-    this.error,
-    this.stackTrace,
-    super.latency,
-  );
+  const _RaceFailure(super.route, this.error, this.stackTrace, super.latency);
 
   final Object error;
   final StackTrace stackTrace;

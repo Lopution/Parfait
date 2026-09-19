@@ -314,6 +314,34 @@ final searchFiltersProvider = Provider<SearchFilters>((ref) {
   );
 });
 
+/// The host that last won the auto-mode race on the current network
+/// identity. Null until the first race resolves — auto mode passes URLs
+/// through unchanged meanwhile (direct semantics).
+final autoImageSourceWinnerProvider =
+    NotifierProvider<_AutoImageSourceWinner, String?>(
+      _AutoImageSourceWinner.new,
+    );
+
+class _AutoImageSourceWinner extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? host) => state = host;
+}
+
+/// Image-purpose allowlist for the destination registry. Split from
+/// [imageMirrorProvider] so the network policy does not rebuild (and
+/// re-race) when the auto winner changes — auto mode's allowlist is the
+/// constant candidate set regardless of which host currently wins.
+final imageMirrorAllowlistProvider = Provider<Set<String>>((ref) {
+  final source = ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.imageSource ?? AppSettings.normalImageSource,
+    ),
+  );
+  return ImageMirror.of(source).extraHosts;
+});
+
 /// Effective image-source mirror resolved from the persisted
 /// `imageSource` (preset or canonical custom prefix). Consumers rebuild
 /// on selection change because the select yields a String.
@@ -323,6 +351,9 @@ final imageMirrorProvider = Provider<ImageMirror>((ref) {
       (async) => async.value?.imageSource ?? AppSettings.normalImageSource,
     ),
   );
+  if (source == ImageSourceMode.auto.host) {
+    return ImageMirror.auto(ref.watch(autoImageSourceWinnerProvider));
+  }
   return ImageMirror.of(source);
 });
 

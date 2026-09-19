@@ -7,6 +7,7 @@ import '../../settings/shared_preferences.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/settings_controller.dart';
 import 'network_contracts.dart' as contracts;
+import 'auto_image_source.dart';
 import 'pixiv_network_factory.dart';
 import 'network_policy.dart';
 import 'network_fast_route_store.dart';
@@ -24,13 +25,13 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   final endpoints = ref.watch(dohEndpointsProvider);
   final echFrontHost = ref.watch(echFrontHostProvider);
   final mode = ref.watch(networkModeProvider);
-  final imageMirror = ref.watch(imageMirrorProvider);
+  final imageMirrorHosts = ref.watch(imageMirrorAllowlistProvider);
   // PixEz's compatibility transport is an internal performance tier, not a
   // user-facing security switch. It uses persisted/bootstrap host addresses
   // and remains behind the explicit directOnly escape hatch.
   final policy = NetworkAccessPolicy(
     registry: contracts.PixivDestinationRegistry(
-      extraImageHosts: imageMirror.extraHosts,
+      extraImageHosts: imageMirrorHosts,
     ),
     dohEndpoints: dohEnabled ? endpoints : const [],
     echFrontHost: echFrontHost,
@@ -53,11 +54,63 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   // new one. The identity string also keys the persisted route kinds, so
   // returning to a known network re-seeds its last-good tiers.
   var connectivityIdentity = 'initial';
+  final autoSource = AutoImageSource(
+    preferences: ref.watch(sharedPreferencesProvider),
+  );
+
+  /// In auto mode a network-identity change invalidates the remembered
+  /// winner the same way it invalidates route memory — re-seed from the
+  /// identity-scoped store, then re-race. The winner update rebuilds
+  /// [imageMirrorProvider], so image URLs start rewriting through it.
+  /// Concurrent calls are deduped; a failed-winner re-race is throttled so
+  /// a dead candidate cannot make every scrolling image re-trigger probes.
+  var autoRaceInFlight = false;
+  DateTime? lastAutoRaceAt;
+  void resolveAutoSource(String identity, {bool throttled = false}) {
+    if (ref.read(settingsProvider).value?.imageSource !=
+        ImageSourceMode.auto.host) {
+      return;
+    }
+    if (autoRaceInFlight) return;
+    final now = DateTime.now();
+    if (throttled &&
+        lastAutoRaceAt != null &&
+        now.difference(lastAutoRaceAt!) < const Duration(seconds: 30)) {
+      return;
+    }
+    autoRaceInFlight = true;
+    lastAutoRaceAt = now;
+    unawaited(() async {
+      try {
+        final persisted = await autoSource.winnerFor(identity);
+        if (persisted != null) {
+          ref.read(autoImageSourceWinnerProvider.notifier).set(persisted);
+        }
+        final winner = await AutoImageSource.race(policy);
+        if (winner == null) return; // all candidates failed: keep current
+        ref.read(autoImageSourceWinnerProvider.notifier).set(winner);
+        unawaited(autoSource.remember(identity, winner));
+      } finally {
+        autoRaceInFlight = false;
+      }
+    }());
+  }
+
+  // A dead mirror winner (every ladder tier exhausted) is dropped back to
+  // direct and the candidates are re-raced — the next reachable source
+  // takes over without user intervention.
+  policy.onImageHostExhausted = (host) {
+    if (ref.read(autoImageSourceWinnerProvider) != host) return;
+    ref.read(autoImageSourceWinnerProvider.notifier).set(null);
+    resolveAutoSource(connectivityIdentity, throttled: true);
+  };
+
   void onConnectivity(List<ConnectivityResult> results) {
     final identity = _connectivityIdentity(results);
     if (identity == connectivityIdentity) return;
     connectivityIdentity = identity;
     policy.advanceNetworkRevision(networkIdentity: identity);
+    resolveAutoSource(identity);
   }
 
   StreamSubscription<List<ConnectivityResult>>? connectivitySub;
@@ -67,15 +120,15 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
       onError: (_) {},
     );
     unawaited(
-      Connectivity().checkConnectivity().then(
-        onConnectivity,
-        onError: (_) {},
-      ),
+      Connectivity().checkConnectivity().then(onConnectivity, onError: (_) {}),
     );
   } on Object {
     // The plugin is unavailable in some embedders/tests — the policy then
     // simply never sees an identity change, same as before this wiring.
   }
+  // Even with no connectivity events (plugin absent/failed) auto mode still
+  // gets one race under the 'initial' identity.
+  resolveAutoSource(connectivityIdentity);
   ref.onDispose(() => unawaited(connectivitySub?.cancel()));
   ref.onDispose(() => unawaited(policy.dispose()));
   return policy;

@@ -276,6 +276,16 @@
   },
   "imageSourceTestFailed": "ミラー接続テストに失敗しました",
   "imageSourceUnreachableMainland": "中国本土ネットワークからは通常到達不能",
+  "imageSourceAuto": "自動（現在のネットワークで計測）",
+  "imageSourceAutoWinner": "現在: {host}",
+  "@imageSourceAutoWinner": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceAutoPending": "未計測 — 直连で読み込み",
   "previewQuality": "プレビュー画質",
   "viewQuality": "ビューア画質",
   "detailQuality": "詳細画質",

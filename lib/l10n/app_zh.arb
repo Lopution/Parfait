@@ -276,6 +276,16 @@
   },
   "imageSourceTestFailed": "镜像连通性测试失败",
   "imageSourceUnreachableMainland": "大陆网络通常不可达",
+  "imageSourceAuto": "自动（按当前网络竞速选源）",
+  "imageSourceAutoWinner": "当前：{host}",
+  "@imageSourceAutoWinner": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "imageSourceAutoPending": "尚未测速，暂按直连",
   "previewQuality": "预览质量",
   "viewQuality": "查看质量",
   "detailQuality": "详情质量",
