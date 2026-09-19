@@ -11,6 +11,7 @@ import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
 
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/ranking_feed_controller.dart';
@@ -207,6 +208,7 @@ class _RankingModeBody extends ConsumerWidget {
                       retryLabel: context.l10n.retry,
                     ),
                   ),
+                  const SliverToBoxAdapter(child: FuncNavBarSpacer()),
                 ],
               ),
             ),

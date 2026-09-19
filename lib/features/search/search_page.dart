@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
@@ -149,6 +150,7 @@ class SearchHomePage extends ConsumerWidget {
                 );
               },
             ),
+            const SliverToBoxAdapter(child: FuncNavBarSpacer()),
           ],
         ),
       ),
