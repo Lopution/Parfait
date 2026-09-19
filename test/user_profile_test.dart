@@ -622,9 +622,9 @@ void main() {
           builder: (context) => Scaffold(
             body: Center(
               child: TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => header()),
-                ),
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute<void>(builder: (_) => header())),
                 child: const Text('open'),
               ),
             ),

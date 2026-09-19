@@ -61,28 +61,21 @@ Future<(PixivHttpClient, ProviderContainer)> _client({
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(
-        FakeCredentialStore()
-          ..seed(
-            '100',
-            const Credential(
-              accessToken: 'access-1',
-              refreshToken: 'refresh-1',
-            ),
-          ),
+        FakeCredentialStore()..seed(
+          '100',
+          const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
+        ),
       ),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
-          accounts: const [
-            Account(id: '100', userId: 100, name: 'tester'),
-          ],
+          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
           currentId: '100',
         ),
       ),
       oauthServiceProvider.overrideWithValue(
         OAuthService(
           client: MockClient(
-            (request) async =>
-                fail('refresh should not happen in this test'),
+            (request) async => fail('refresh should not happen in this test'),
           ),
         ),
       ),
@@ -161,10 +154,7 @@ void main() {
     );
     expect(request.headers['authorization'], 'Bearer access-1');
     final body = utf8.decode(sent.single.body);
-    expect(
-      body,
-      contains('Content-Disposition: form-data; name="user_name"'),
-    );
+    expect(body, contains('Content-Disposition: form-data; name="user_name"'));
     expect(body, contains('novo nome'));
     // The web wire name must not leak into the app-api contract.
     expect(body, isNot(contains('name="name"')));
@@ -225,26 +215,29 @@ void main() {
     },
   );
 
-  test('a soft JSON error envelope on HTTP 200 surfaces as a failure', () async {
-    final sent = <_RecordedMultipart>[];
-    final (client, container) = await _client(
-      sent: sent,
-      body: jsonEncode({
-        'error': {
-          'user_message': 'invalid parameter',
-          'message': '',
-          'reason': '',
-        },
-      }),
-    );
-    addTearDown(container.dispose);
-    final repo = PixivAppApiProfileEditRepository(
-      client: client,
-      userRepository: _FakeUserRepository(),
-    );
-    final outcome = await repo.submit(_request(_textPatch()));
-    expect(outcome, isA<ProfileEditSubmitFailure>());
-  });
+  test(
+    'a soft JSON error envelope on HTTP 200 surfaces as a failure',
+    () async {
+      final sent = <_RecordedMultipart>[];
+      final (client, container) = await _client(
+        sent: sent,
+        body: jsonEncode({
+          'error': {
+            'user_message': 'invalid parameter',
+            'message': '',
+            'reason': '',
+          },
+        }),
+      );
+      addTearDown(container.dispose);
+      final repo = PixivAppApiProfileEditRepository(
+        client: client,
+        userRepository: _FakeUserRepository(),
+      );
+      final outcome = await repo.submit(_request(_textPatch()));
+      expect(outcome, isA<ProfileEditSubmitFailure>());
+    },
+  );
 
   test('avatar patch sends a profile_image file part', () async {
     final sent = <_RecordedMultipart>[];
