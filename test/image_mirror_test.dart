@@ -170,6 +170,7 @@ void main() {
       guideCompleted: true,
       languageTag: 'en-US',
       themeCode: AppSettings.lightTheme,
+      imageSource: AppSettings.normalImageSource,
     );
 
     test('custom prefix survives fromJson and derives custom mode', () {
