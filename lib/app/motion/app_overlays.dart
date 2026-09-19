@@ -12,12 +12,14 @@ Future<T?> showAppBottomSheet<T>({
   Color? backgroundColor,
   bool isScrollControlled = false,
   bool useSafeArea = false,
+  bool showDragHandle = false,
 }) {
   return showModalBottomSheet<T>(
     context: context,
     backgroundColor: backgroundColor,
     isScrollControlled: isScrollControlled,
     useSafeArea: useSafeArea,
+    showDragHandle: showDragHandle,
     sheetAnimationStyle: MotionTokens.enabled(context)
         ? AnimationStyle(
             duration: MotionTokens.sheet,

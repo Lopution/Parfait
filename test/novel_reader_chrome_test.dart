@@ -204,4 +204,67 @@ void main() {
     expect(find.text('#tag1 t1'), findsOneWidget);
     expect(find.byIcon(Icons.comment_outlined), findsOneWidget);
   });
+
+  testWidgets('chrome surfaces paint through the system-bar insets', (
+    tester,
+  ) async {
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MediaQuery(
+            // SafeArea reads `padding`; viewPadding is the pre-removal
+            // inset. Real devices report both — mirror that here.
+            data: MediaQueryData(
+              padding: EdgeInsets.only(top: 24, bottom: 24),
+              viewPadding: EdgeInsets.only(top: 24, bottom: 24),
+            ),
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: Locale('zh', 'CN'),
+              home: NovelPage(novelId: 1),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+
+    // The bar surface reaches the screen edge (covering the gesture strip
+    // and status bar) while its controls stay inside the safe area. The
+    // old layout wrapped the whole bar in SafeArea, so the strip showed
+    // page content between the bar and the screen edge.
+    // The nearest MaterialType.canvas ancestor is the bar's own surface —
+    // IconButton paints its own MaterialType.button in between.
+    final bottomBar = find.ancestor(
+      of: find.byIcon(Icons.text_decrease_outlined),
+      matching: find.byWidgetPredicate(
+        (w) => w is Material && w.type == MaterialType.canvas,
+      ),
+    );
+    expect(tester.getRect(bottomBar.first).bottom, 600);
+    expect(
+      tester.getRect(find.byIcon(Icons.text_decrease_outlined)).bottom,
+      lessThanOrEqualTo(600 - 24),
+    );
+    final topBar = find.ancestor(
+      of: find.byIcon(Icons.arrow_back),
+      matching: find.byWidgetPredicate(
+        (w) => w is Material && w.type == MaterialType.canvas,
+      ),
+    );
+    expect(tester.getRect(topBar.first).top, 0);
+    expect(
+      tester.getRect(find.byIcon(Icons.arrow_back)).top,
+      greaterThanOrEqualTo(24),
+    );
+  });
 }
