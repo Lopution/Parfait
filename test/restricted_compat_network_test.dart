@@ -1830,6 +1830,71 @@ void main() {
       expect(exhausted, isEmpty);
     });
   });
+
+  group('network modes', () {
+    Future<List<NetworkRouteKind>> runExhaustingLadder(NetworkMode mode) async {
+      final order = <NetworkRouteKind>[];
+      final policy = NetworkAccessPolicy(
+        resolver: _FakeResolver([InternetAddress('1.2.3.70')]),
+        insecureNoSniEnabled: true,
+        mode: mode,
+        clientFactory: (route, canonicalHost, purpose) {
+          order.add(route.kind);
+          return _FakeClient(failure: const SocketException('refused'));
+        },
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.appApi,
+      );
+      await expectLater(
+        client.get(Uri.parse('https://app-api.pixiv.net/v1/ping')),
+        throwsA(anything),
+      );
+      return order;
+    }
+
+    test('automatic keeps direct ahead of the insecure bootstrap', () async {
+      final order = await runExhaustingLadder(NetworkMode.automatic);
+      // ECH yields no route without an ECH-capable resolver, so the
+      // observable ladder is DoH → direct → insecure bootstrap.
+      expect(order, [
+        NetworkRouteKind.dohRealSni,
+        NetworkRouteKind.direct,
+        NetworkRouteKind.insecureNoSni,
+      ]);
+    });
+
+    test('compatPrefer walks every compat tier before direct', () async {
+      final order = await runExhaustingLadder(NetworkMode.compatPrefer);
+      expect(order, [
+        NetworkRouteKind.dohRealSni,
+        NetworkRouteKind.insecureNoSni,
+        NetworkRouteKind.direct,
+      ]);
+    });
+
+    test('effectiveRouteSnapshot reports settled per-host kinds', () async {
+      final policy = NetworkAccessPolicy(
+        resolver: _FakeResolver([InternetAddress('1.2.3.71')]),
+        clientFactory: (route, canonicalHost, purpose) =>
+            _FakeClient(body: '{}'),
+      );
+      addTearDown(policy.dispose);
+      expect(policy.effectiveRouteSnapshot(), isEmpty);
+
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+      await client.get(Uri.parse('https://i.pximg.net/img/a.jpg'));
+
+      final snapshot = policy.effectiveRouteSnapshot();
+      expect(snapshot.keys, contains('i.pximg.net'));
+      expect(snapshot['i.pximg.net'], isNotNull);
+    });
+  });
 }
 
 /// Delays the inner send so race tests can pick the winner deterministically.

@@ -116,7 +116,8 @@ enum DetailQuality {
 /// persisted; route memory and probe results are never saved.
 enum NetworkMode {
   automatic(0),
-  directOnly(1);
+  directOnly(1),
+  compatPrefer(2);
 
   const NetworkMode(this.code);
 

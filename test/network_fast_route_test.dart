@@ -95,8 +95,9 @@ void main() {
       await response.close();
 
       // Strict tiers are verified before the unverified fast address: each
-      // host resolves once through DoH.
-      expect(resolver.calls, 4);
+      // host resolves once through DoH; the cold image GET races the top
+      // two tiers, whose parallel selects resolve the host one extra time.
+      expect(resolver.calls, 5);
       for (final client in clients.values) {
         expect(client.requests, isNotEmpty);
         expect(

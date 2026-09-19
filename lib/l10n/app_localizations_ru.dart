@@ -262,6 +262,42 @@ class AppLocalizationsRu extends AppLocalizations {
       'Системный DNS + реальный SNI. Для сетей с прямым доступом.';
 
   @override
+  String get networkModeCompatPrefer => 'Сначала совместимые маршруты';
+
+  @override
+  String get networkModeCompatPreferHint =>
+      'Сначала DoH/ECH/no-SNI, прямое подключение в конце — для сетей, где прямой доступ уже заблокирован.';
+
+  @override
+  String get networkEffectiveRoutes => 'Текущие маршруты';
+
+  @override
+  String get networkEffectiveRoutesEmpty =>
+      'Маршрутов пока нет — поработайте в приложении и обновите.';
+
+  @override
+  String get networkRouteKindDirect => 'Напрямую';
+
+  @override
+  String get networkRouteKindCompat => 'Совместимый (без SNI)';
+
+  @override
+  String get networkThirdParty => 'Доступность сторонних сервисов';
+
+  @override
+  String get networkThirdPartyHint =>
+      'Обычная системная маршрутизация (учитывает ваш VPN/прокси), без лестницы совместимости Pixiv.';
+
+  @override
+  String get networkReachable => 'Доступно';
+
+  @override
+  String get networkUnreachable => 'Недоступно';
+
+  @override
+  String get networkChecking => 'Проверка…';
+
+  @override
   String get networkAdvanced => 'Дополнительно';
 
   @override
@@ -1158,6 +1194,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get retry => 'Повторить';
+
+  @override
+  String get refresh => 'Обновить';
 
   @override
   String get relatedWorks => 'Похожие работы';
