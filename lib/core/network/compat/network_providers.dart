@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../settings/shared_preferences.dart';
 
@@ -45,9 +46,49 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
       NetworkMode.directOnly => contracts.NetworkMode.directOnly,
     },
   );
+
+  // A network change (Wi-Fi↔cellular, VPN toggle, captive portal escape)
+  // invalidates every learned route, pooled client and cooldown — the
+  // remembered winner on the old network is frequently unreachable on the
+  // new one. The identity string also keys the persisted route kinds, so
+  // returning to a known network re-seeds its last-good tiers.
+  var connectivityIdentity = 'initial';
+  void onConnectivity(List<ConnectivityResult> results) {
+    final identity = _connectivityIdentity(results);
+    if (identity == connectivityIdentity) return;
+    connectivityIdentity = identity;
+    policy.advanceNetworkRevision(networkIdentity: identity);
+  }
+
+  StreamSubscription<List<ConnectivityResult>>? connectivitySub;
+  try {
+    connectivitySub = Connectivity().onConnectivityChanged.listen(
+      onConnectivity,
+      onError: (_) {},
+    );
+    unawaited(
+      Connectivity().checkConnectivity().then(
+        onConnectivity,
+        onError: (_) {},
+      ),
+    );
+  } on Object {
+    // The plugin is unavailable in some embedders/tests — the policy then
+    // simply never sees an identity change, same as before this wiring.
+  }
+  ref.onDispose(() => unawaited(connectivitySub?.cancel()));
   ref.onDispose(() => unawaited(policy.dispose()));
   return policy;
 });
+
+/// Deterministic identity for a connectivity snapshot. Sorted so a VPN
+/// layered over Wi-Fi differs from plain Wi-Fi — tunnel interfaces change
+/// which routes actually work.
+String _connectivityIdentity(List<ConnectivityResult> results) {
+  if (results.isEmpty) return 'none';
+  final names = results.map((r) => r.name).toList()..sort();
+  return names.join('+');
+}
 
 final pixivNetworkFactoryProvider = Provider<PixivNetworkFactory>((ref) {
   final factory = PixivNetworkFactory(
