@@ -10,6 +10,7 @@ import 'motion/motion_tokens.dart';
 import 'image_tier_cache.dart';
 import '../core/entity/illust_entity.dart';
 import '../core/network/pixiv_headers.dart';
+import '../core/network/compat/image_cache.dart';
 import '../core/network/compat/network_providers.dart';
 
 /// Decode policy of a [PixivImage] variant (R8 performance boundary).
@@ -265,9 +266,15 @@ class PixivImage extends ConsumerStatefulWidget {
   static CachedNetworkImageProvider provider(
     String url, {
     BaseCacheManager? cacheManager,
+    bool prefetch = false,
   }) => CachedNetworkImageProvider(
     url,
-    headers: headers,
+    headers: {
+      ...headers,
+      // Scheduling hint for PriorityFileService — stripped before the
+      // request hits the wire, so it never reaches the CDN.
+      if (prefetch) PriorityFileService.prefetchMarker: '1',
+    },
     cacheManager: cacheManager,
   );
 
@@ -467,6 +474,7 @@ class PixivImage extends ConsumerStatefulWidget {
     ImageProvider imageProvider = provider(
       resolved.$1,
       cacheManager: cacheManager,
+      prefetch: true,
     );
     // Match OctoImage's ResizeImage.wrap so the warmed entry is the exact
     // cache key the visible widget resolves — a different decode width is a
