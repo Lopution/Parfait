@@ -399,6 +399,26 @@ void main() {
       },
     );
 
+    test(
+      'manifest 404 means no published release yet, not a failure',
+      () async {
+        final transport = _FakeManifestTransport(manifestStatus: 404);
+        final service = UpdateService(
+          platform: _FakePlatform(UpdateCapability.github()),
+          manifestTransport: transport,
+          signatureVerifier: _FakeSignatureVerifier(valid: true),
+        );
+
+        final result = await service.check();
+
+        expect(result.status, UpdateCheckStatus.noUpdate);
+        expect(result.errorCode, 'manifest_not_published');
+        // The signature asset is not fetched when the manifest itself is
+        // absent.
+        expect(transport.requested, hasLength(1));
+      },
+    );
+
     test('unknown channel is rejected after signature verification', () async {
       final value = _manifestValue()..['channel'] = 'canary';
       final transport = _FakeManifestTransport(
