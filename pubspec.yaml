@@ -76,3 +76,15 @@ flutter:
     - family: iconFont
       fonts:
         - asset: assets/icon.ttf
+    # Montserrat carries Latin letters and digits; CJK glyphs are absent and
+    # fall back to the system font per glyph (SIL OFL 1.1, see MONTSERRAT-OFL).
+    - family: Montserrat
+      fonts:
+        - asset: assets/fonts/montserrat_regular.ttf
+          weight: 400
+        - asset: assets/fonts/montserrat_medium.ttf
+          weight: 500
+        - asset: assets/fonts/montserrat_semi_bold.ttf
+          weight: 600
+        - asset: assets/fonts/montserrat_bold.ttf
+          weight: 700
