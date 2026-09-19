@@ -453,6 +453,8 @@
   "aboutCheckingUpdate": "正在检查更新…",
   "aboutUpdateAvailable": "发现新版本",
   "aboutUpdateOpen": "查看",
+  "aboutExportLogs": "导出日志",
+  "aboutNoLogs": "暂无日志",
   "aboutUpdateNoUpdate": "已是最新版本",
   "aboutUpdatePrerelease": "发现预发布版本，当前稳定通道不会安装",
   "aboutUpdateDownload": "下载并安装",

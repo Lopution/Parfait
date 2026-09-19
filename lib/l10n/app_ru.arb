@@ -453,6 +453,8 @@
   "aboutCheckingUpdate": "Проверка обновлений…",
   "aboutUpdateAvailable": "Доступно обновление",
   "aboutUpdateOpen": "Открыть",
+  "aboutExportLogs": "Экспорт логов",
+  "aboutNoLogs": "Логов пока нет",
   "aboutUpdateNoUpdate": "Установлена последняя версия",
   "aboutUpdatePrerelease": "Доступен предварительный выпуск; стабильный канал его не установит",
   "aboutUpdateDownload": "Скачать и установить",

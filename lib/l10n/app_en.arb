@@ -453,6 +453,8 @@
   "aboutCheckingUpdate": "Checking for updates…",
   "aboutUpdateAvailable": "Update available",
   "aboutUpdateOpen": "View",
+  "aboutExportLogs": "Export logs",
+  "aboutNoLogs": "No logs yet",
   "aboutUpdateNoUpdate": "You are up to date",
   "aboutUpdatePrerelease": "A prerelease is available; the stable channel will not install it",
   "aboutUpdateDownload": "Download and install",
