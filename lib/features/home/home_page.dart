@@ -6,8 +6,8 @@ import 'package:flutter/services.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
-import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
+import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/platform/root_back_coordinator.dart';
@@ -105,30 +105,16 @@ class _HomePageState extends State<HomePage>
         // screen edge and covers the bar; reserve the measured bar height
         // (plus a small gap) so the hint stays inside the content area.
         final bottomMargin = (shellMetrics.bottomNavHeight ?? 64) + 12;
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          // U4 (R7): the hint's lifetime must equal the exit window — with
-          // the default 4s SnackBar the text was still on screen long after
-          // the window closed, so it was describing a state that was
-          // already false. Floating + M3 fade keeps it near the thumb; the
-          // in/out animation is shortened so the whole cycle fits the
-          // 1-second window the hint describes.
-          ..showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.homeExitHint),
-              duration: RootBackCoordinator.exitWindow,
-              behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
-            ),
-            snackBarAnimationStyle: const AnimationStyle(
-              // M2 floating fades inside the 0.4-1.0 interval, so a 120ms
-              // animation only paints ~72ms of fade — read as "no
-              // animation" on device. 200ms keeps the whole hint within the
-              // 1s exit window while the fade is perceptible.
-              duration: MotionTokens.medium,
-              reverseDuration: MotionTokens.fast,
-            ),
-          );
+        // U4 (R7): the hint's lifetime must equal the exit window — with
+        // the default 4s SnackBar the text was still on screen long after
+        // the window closed, so it was describing a state that was
+        // already false.
+        showAppSnackBarOn(
+          ScaffoldMessenger.of(context)..hideCurrentSnackBar(),
+          context.l10n.homeExitHint,
+          duration: RootBackCoordinator.exitWindow,
+          margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
+        );
       case RootBackAction.exit:
         SystemNavigator.pop();
     }

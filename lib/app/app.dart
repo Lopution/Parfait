@@ -20,6 +20,7 @@ import 'scroll_behavior.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
+import 'widgets/app_snack_bar.dart';
 import 'widgets/settings_load_error.dart';
 import '../l10n/context.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
@@ -74,13 +75,12 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
       return;
     }
     final version = result.release?.manifest.version ?? '';
-    _messengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Text('${context.l10n.aboutUpdateAvailable}: $version'),
-        action: SnackBarAction(
-          label: context.l10n.aboutUpdateOpen,
-          onPressed: () => _router.push<void>('/settings/about'),
-        ),
+    showAppSnackBarOn(
+      _messengerKey.currentState,
+      '${context.l10n.aboutUpdateAvailable}: $version',
+      action: SnackBarAction(
+        label: context.l10n.aboutUpdateOpen,
+        onPressed: () => _router.push<void>('/settings/about'),
       ),
     );
   }
