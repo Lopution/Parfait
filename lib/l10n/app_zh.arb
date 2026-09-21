@@ -275,6 +275,7 @@
     }
   },
   "imageSourceTestFailed": "镜像连通性测试失败",
+  "imageSourceUnreachableMainland": "大陆网络通常不可达",
   "previewQuality": "预览质量",
   "viewQuality": "查看质量",
   "detailQuality": "详情质量",

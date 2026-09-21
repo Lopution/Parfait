@@ -622,6 +622,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageSourceTestFailed => '镜像连通性测试失败';
 
   @override
+  String get imageSourceUnreachableMainland => '大陆网络通常不可达';
+
+  @override
   String get previewQuality => '预览质量';
 
   @override

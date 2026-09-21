@@ -648,6 +648,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get imageSourceTestFailed => 'Проверка зеркала не удалась';
 
   @override
+  String get imageSourceUnreachableMainland =>
+      'Обычно недоступно из сетей материкового Китая';
+
+  @override
   String get previewQuality => 'Качество предпросмотра';
 
   @override
