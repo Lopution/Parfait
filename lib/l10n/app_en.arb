@@ -275,6 +275,7 @@
     }
   },
   "imageSourceTestFailed": "Mirror connectivity test failed",
+  "imageSourceUnreachableMainland": "Usually unreachable from mainland networks",
   "previewQuality": "Preview quality",
   "viewQuality": "Viewer quality",
   "detailQuality": "Detail quality",
