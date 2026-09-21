@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_section.dart';
 import '../../app/widgets/settings/settings_tile.dart';
@@ -41,14 +42,21 @@ class SettingsPage extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
+      // Root pages own no inline composer: leaving the default `true`
+      // would subscribe this whole subtree to per-frame viewInsets churn
+      // every time the IME animates (e.g. the push that hides the search
+      // keyboard) — a relayout storm across all five live branches.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(context.l10n.settingsTitle)),
-      body: settings.when(
-        loading: () => const FeedLoading(),
-        error: (error, _) => SettingsLoadError(
-          error: error,
-          onRetry: () => ref.read(settingsProvider.notifier).reload(),
+      body: RootSwipeSwitcher(
+        child: settings.when(
+          loading: () => const FeedLoading(),
+          error: (error, _) => SettingsLoadError(
+            error: error,
+            onRetry: () => ref.read(settingsProvider.notifier).reload(),
+          ),
+          data: (_) => _SettingsList(accounts: accounts),
         ),
-        data: (_) => _SettingsList(accounts: accounts),
       ),
     );
   }

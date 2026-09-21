@@ -5,6 +5,7 @@ import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
@@ -26,13 +27,19 @@ class SearchHomePage extends ConsumerWidget {
     final trendingType = ref.watch(trendingKindProvider);
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
+      // Root pages own no inline composer: leaving the default `true`
+      // would subscribe this whole subtree to per-frame viewInsets churn
+      // every time the IME animates (e.g. the push that hides the search
+      // keyboard) — a relayout storm across all five live branches.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(context.l10n.searchTitle)),
-      body: SmoothWheelScroll(
-        builder: (context, controller, physics) => CustomScrollView(
-          key: const PageStorageKey('search-home'),
-          restorationId: 'search-home',
-          controller: controller,
-          physics: physics,
+      body: RootSwipeSwitcher(
+        child: SmoothWheelScroll(
+          builder: (context, controller, physics) => CustomScrollView(
+            key: const PageStorageKey('search-home'),
+            restorationId: 'search-home',
+            controller: controller,
+            physics: physics,
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
@@ -152,6 +159,7 @@ class SearchHomePage extends ConsumerWidget {
             ),
             const SliverToBoxAdapter(child: FuncNavBarSpacer()),
           ],
+          ),
         ),
       ),
     );

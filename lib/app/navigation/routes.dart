@@ -63,6 +63,7 @@ import '../motion/page_transitions.dart';
 import '../pixiv_image.dart';
 import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
+import '../widgets/branch_slide_stack.dart';
 import '../widgets/func_bottom_nav.dart';
 
 class IllustRouteExtra {
@@ -752,9 +753,9 @@ StatefulShellBranch _branch({
           context,
           state,
           observer,
-          // The bottom bar lives at this layer (inside the branch
-          // navigator's root page), so a pushed secondary route covers it
-          // naturally — no hide animation, full-height from frame one.
+          // The bottom bar is a shell-level sibling of the branch strip;
+          // this scaffold only reports through the branch RouteObserver
+          // when the root route is covered so the bar can slide away.
           BranchRootScaffold(
             branchIndex: branchIndex,
             child: homeBuilder?.call(context, state) ?? home,
@@ -906,8 +907,17 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
           rootObserver: appRootRouteObserver,
         ),
       ),
-      StatefulShellRoute.indexedStack(
+      StatefulShellRoute(
         restorationScopeId: 'home-shell',
+        // Branch Navigators sit side by side and slide like a ViewPager —
+        // the outer half of the nested-pager pair the root pages'
+        // RootSwipeSwitcher completes. The strip slides in branch order,
+        // which is also the bottom bar's visual order.
+        navigatorContainerBuilder: (context, navigationShell, children) =>
+            BranchSlideStack(
+          shell: navigationShell,
+          children: children,
+        ),
         pageBuilder: (context, state, navigationShell) => NoTransitionPage(
           key: state.pageKey,
           restorationId: RestorationScope.maybeOf(context) == null
