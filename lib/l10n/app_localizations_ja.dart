@@ -631,6 +631,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageSourceTestFailed => 'ミラー接続テストに失敗しました';
 
   @override
+  String get imageSourceUnreachableMainland => '中国本土ネットワークからは通常到達不能';
+
+  @override
   String get previewQuality => 'プレビュー画質';
 
   @override

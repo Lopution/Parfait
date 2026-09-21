@@ -41,6 +41,8 @@ class NetworkAccessPolicy {
     this.fastRouteStore,
     this.echFrontHost = 'cloudflare-ech.com',
     this.insecureNoSniEnabled = false,
+    @visibleForTesting Duration? imageHeadersTimeout,
+    @visibleForTesting Duration? imageIdleTimeout,
     List<String> dohEndpoints = const [
       // Cloudflare DoH over its well-known anycast IPs (PixEz-proven
       // bootstrap: `1dot1dot1dot1.cloudflare-dns.com` + static IP map).
@@ -78,6 +80,10 @@ class NetworkAccessPolicy {
        diagnostics = diagnostics ?? NetworkDiagnostics(),
        _mode = mode,
        _revision = revision,
+       _imageHeadersTimeout =
+           imageHeadersTimeout ?? _StreamIdleGuardClient.defaultHeadersTimeout,
+       _imageIdleTimeout =
+           imageIdleTimeout ?? _StreamIdleGuardClient.defaultIdleTimeout,
        _clientFactory = clientFactory ?? RhttpClientFactory.create;
 
   /// ECH front host used to fetch the ECH config (Cloudflare serves the
@@ -147,6 +153,8 @@ class NetworkAccessPolicy {
 
   NetworkMode _mode;
   NetworkRevision _revision;
+  final Duration _imageHeadersTimeout;
+  final Duration _imageIdleTimeout;
   bool _disposed = false;
   Future<void>? _warmupFuture;
 
@@ -238,10 +246,11 @@ class NetworkAccessPolicy {
 
   @visibleForTesting
   NetworkRouteKind? rememberedGroupRouteKind(
-    PixivDestinationPurpose purpose, {
+    PixivDestinationPurpose purpose,
+    String host, {
     DateTime? now,
   }) {
-    final group = _routeGroupFor(purpose);
+    final group = _routeGroupFor(purpose, host);
     final memory = _groupMemory[group];
     if (memory == null) return null;
     if (!memory.isUsable(now ?? clock(), _revision.networkIdentity)) {
@@ -269,7 +278,13 @@ class NetworkAccessPolicy {
     final key = '${route.key}|$canonicalHost|${purpose.name}';
     return _clients.putIfAbsent(
       key,
-      () => _clientFactory(route, canonicalHost, purpose),
+      () => purpose == PixivDestinationPurpose.image
+          ? _StreamIdleGuardClient(
+              _clientFactory(route, canonicalHost, purpose),
+              headersTimeout: _imageHeadersTimeout,
+              idleTimeout: _imageIdleTimeout,
+            )
+          : _clientFactory(route, canonicalHost, purpose),
     );
   }
 
@@ -441,11 +456,137 @@ class _HostRouteMemory {
   );
 }
 
-enum _RouteGroup { cloudflare, image }
+/// Adds the two streaming budgets a route's connect timeout cannot express.
+/// Image-purpose routes deliberately carry no *total* request timeout (a
+/// large download must not abort mid-body — see
+/// [RhttpClientFactory.timeoutsFor]), which left two unbounded waits:
+/// `send()` (connect+TLS+request+first byte) and each gap between body
+/// chunks. A socket that stalls at either point previously hung the
+/// request forever; the route ladder never got a chance to advance.
+///
+/// A headers deadline miss surfaces from `send()` as a `timeout`, so the
+/// ladder can advance for idempotent GETs. A body stall surfaces on the
+/// stream as a `TimeoutException`: the image cache shows a visible error
+/// and the download manager retries through its resume anchor. The
+/// abandoned inner request is not aborted (`http.Client` exposes no
+/// abort); reqwest reclaims the socket when the future/stream dies.
+class _StreamIdleGuardClient extends http.BaseClient {
+  _StreamIdleGuardClient(
+    this._inner, {
+    this.headersTimeout = defaultHeadersTimeout,
+    this.idleTimeout = defaultIdleTimeout,
+  });
 
-_RouteGroup _routeGroupFor(PixivDestinationPurpose purpose) =>
+  final http.Client _inner;
+
+  /// Time budget for `send()` to resolve, i.e. until response headers.
+  final Duration headersTimeout;
+
+  /// Maximum gap between body chunks before the stream errors out.
+  final Duration idleTimeout;
+
+  static const defaultHeadersTimeout = Duration(seconds: 15);
+  static const defaultIdleTimeout = Duration(seconds: 15);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await _inner.send(request).timeout(headersTimeout);
+    return http.StreamedResponse(
+      http.ByteStream(_IdleGuardStream(response.stream, idleTimeout)),
+      response.statusCode,
+      contentLength: response.contentLength,
+      request: response.request,
+      headers: response.headers,
+      isRedirect: response.isRedirect,
+      persistentConnection: response.persistentConnection,
+      reasonPhrase: response.reasonPhrase,
+    );
+  }
+
+  @override
+  void close() => _inner.close();
+}
+
+/// Per-chunk idle deadline for a response body. Implemented as a `Stream`
+/// subclass that forwards the source subscription directly — deliberately
+/// NOT `Stream.timeout` or a `StreamController` pass-through, because
+/// controller-based wrappers never deliver under `testWidgets`' FakeAsync
+/// event loop (they would silently stall every image load in widget
+/// tests). Forwarding `listen` keeps the source's own delivery path, so
+/// data/done flow through one synchronous hop with no extra buffering.
+///
+/// On an idle gap the listener's error handler gets a `TimeoutException`
+/// and the source subscription is cancelled, releasing the socket.
+class _IdleGuardStream extends Stream<List<int>> {
+  _IdleGuardStream(this._source, this.idle);
+
+  final Stream<List<int>> _source;
+  final Duration idle;
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    Timer? timer;
+    late StreamSubscription<List<int>> sub;
+    void emitError(Object error, StackTrace stack) {
+      final handler = onError;
+      if (handler is void Function(Object, StackTrace)) {
+        handler(error, stack);
+      } else if (handler is void Function(Object)) {
+        handler(error);
+      }
+    }
+
+    void rearm() {
+      timer?.cancel();
+      timer = Timer(idle, () {
+        emitError(
+          TimeoutException('response stream idle', idle),
+          StackTrace.current,
+        );
+        unawaited(sub.cancel());
+      });
+    }
+
+    sub = _source.listen(
+      (event) {
+        rearm();
+        onData?.call(event);
+      },
+      onError: (Object error, StackTrace stack) {
+        timer?.cancel();
+        emitError(error, stack);
+      },
+      onDone: () {
+        timer?.cancel();
+        onDone?.call();
+      },
+      cancelOnError: cancelOnError,
+    );
+    rearm();
+    return sub;
+  }
+}
+
+enum _RouteGroup { cloudflare, image, imageMirror }
+
+/// Groups only ever share route-*kind* preferences, never addresses.
+/// Third-party image mirrors form their own group: a `noSni`/`ech`
+/// preference learned on pximg must not leak onto a mirror (its default
+/// vhost may not carry the mirror name, and certificate mismatches are
+/// terminal on strict tiers). Mirror preferences still propagate between
+/// mirrors — a wrong guess costs one failed handshake, then the ladder
+/// falls through (see `_retryEligible`'s empty-SNI exception).
+_RouteGroup _routeGroupFor(PixivDestinationPurpose purpose, String host) =>
     switch (purpose) {
-      PixivDestinationPurpose.image => _RouteGroup.image,
+      PixivDestinationPurpose.image =>
+        PixivClientIdentity.downloadHosts.contains(host)
+            ? _RouteGroup.image
+            : _RouteGroup.imageMirror,
       PixivDestinationPurpose.appApi ||
       PixivDestinationPurpose.oauth ||
       PixivDestinationPurpose.accountsWeb ||
