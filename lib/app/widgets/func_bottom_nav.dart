@@ -136,8 +136,7 @@ class _FuncBottomNavState extends State<FuncBottomNav>
     }
     if (oldWidget.selectedIndex != widget.selectedIndex) {
       _indicatorFrom = oldWidget.selectedIndex;
-      if (widget.indicatorAnimation == null &&
-          MotionTokens.enabled(context)) {
+      if (widget.indicatorAnimation == null && MotionTokens.enabled(context)) {
         _indicatorController.forward(from: 0);
         if (widget.replayLandingInk) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -283,8 +282,7 @@ class _FuncBottomNavState extends State<FuncBottomNav>
               // no per-locale truncation or mixed sizes.
               final labelFontSize = 12 * _labelScale(context, itemWidth);
               return AnimatedBuilder(
-                animation:
-                    widget.indicatorAnimation ?? _indicatorController,
+                animation: widget.indicatorAnimation ?? _indicatorController,
                 builder: (context, _) {
                   final tracking = widget.indicatorAnimation;
                   late final double left;
@@ -307,22 +305,12 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                     final from = _indicatorRect(
                       itemWidth,
                       lower,
-                      _labelWidth(
-                        context,
-                        lower,
-                        itemWidth,
-                        labelFontSize,
-                      ),
+                      _labelWidth(context, lower, itemWidth, labelFontSize),
                     );
                     final to = _indicatorRect(
                       itemWidth,
                       upper,
-                      _labelWidth(
-                        context,
-                        upper,
-                        itemWidth,
-                        labelFontSize,
-                      ),
+                      _labelWidth(context, upper, itemWidth, labelFontSize),
                     );
                     left = from.left + (to.left - from.left) * frac;
                     right = from.right + (to.right - from.right) * frac;
@@ -359,8 +347,7 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                         labelFontSize,
                       ),
                     );
-                    final movingRight =
-                        widget.selectedIndex > _indicatorFrom;
+                    final movingRight = widget.selectedIndex > _indicatorFrom;
                     final leftT = movingRight
                         ? _accelerate(progress)
                         : _decelerate(progress);
@@ -611,8 +598,7 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
   final Animation<double> indicatorAnimation;
 
   @override
-  ConsumerState<FuncShellBottomNav> createState() =>
-      _FuncShellBottomNavState();
+  ConsumerState<FuncShellBottomNav> createState() => _FuncShellBottomNavState();
 }
 
 class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
@@ -631,9 +617,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
       vsync: this,
       duration: MotionTokens.navBarShow,
       reverseDuration: MotionTokens.navBarHide,
-      value: ref
-              .read(branchStackCoveredProvider)
-              .contains(widget.selectedIndex)
+      value: ref.read(branchStackCoveredProvider).contains(widget.selectedIndex)
           ? 0
           : 1,
     );
@@ -824,8 +808,7 @@ class BranchRootScaffold extends ConsumerStatefulWidget {
   final Widget child;
 
   @override
-  ConsumerState<BranchRootScaffold> createState() =>
-      _BranchRootScaffoldState();
+  ConsumerState<BranchRootScaffold> createState() => _BranchRootScaffoldState();
 }
 
 class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>

@@ -36,11 +36,7 @@ class RouteKindStore {
 
   /// Serialized writes — several tiers can succeed concurrently during
   /// startup, and each success may flip a different group's preference.
-  Future<void> remember(
-    String networkIdentity,
-    String group,
-    String kind,
-  ) {
+  Future<void> remember(String networkIdentity, String group, String kind) {
     final operation = _writeTail.then<void>((_) async {
       final all = await _load();
       final perIdentity = all.putIfAbsent(

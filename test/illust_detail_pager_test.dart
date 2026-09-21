@@ -48,9 +48,7 @@ double _page(WidgetTester tester) =>
     tester.widget<PageView>(find.byType(PageView)).controller!.page!;
 
 void main() {
-  testWidgets('swiping sideways moves through the feed order', (
-    tester,
-  ) async {
+  testWidgets('swiping sideways moves through the feed order', (tester) async {
     final (container, _, _) = await makeWorld();
     container.read(illustStoreProvider).mergeAll([
       for (final id in [42, 43, 44]) parseIllust(illustJson(id)),
@@ -60,9 +58,12 @@ void main() {
 
     final pager = find.byType(PageView);
     expect(_page(tester), 0);
-    expect(tester.widget<IllustDetailPage>(
-      find.byType(IllustDetailPage).first,
-    ).illustId, 42);
+    expect(
+      tester
+          .widget<IllustDetailPage>(find.byType(IllustDetailPage).first)
+          .illustId,
+      42,
+    );
 
     await tester.fling(pager, const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
@@ -151,9 +152,7 @@ void main() {
     await tester.pump();
     expect(_page(tester), 2);
     expect(
-      find.byWidgetPredicate(
-        (w) => w is IllustDetailPage && w.illustId == 43,
-      ),
+      find.byWidgetPredicate((w) => w is IllustDetailPage && w.illustId == 43),
       findsOneWidget,
     );
   });
@@ -169,9 +168,7 @@ void main() {
     final source = IllustPagerSource()..update(const [42, 43, 44]);
     await _pumpPager(tester, container, source: source, initialId: 42);
 
-    final enabled = find.byWidgetPredicate(
-      (w) => w is HeroMode && w.enabled,
-    );
+    final enabled = find.byWidgetPredicate((w) => w is HeroMode && w.enabled);
     expect(enabled, findsOneWidget);
     expect(
       find.descendant(
@@ -244,9 +241,7 @@ void main() {
     tester,
   ) async {
     final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      parseIllust(illustJson(42)),
-    ]);
+    container.read(illustStoreProvider).mergeAll([parseIllust(illustJson(42))]);
     final router = createPixivRouter(initialLocation: '/recommended');
     addTearDown(router.dispose);
     await mockNetworkImagesFor(() async {
@@ -271,9 +266,7 @@ void main() {
     expect(find.byType(IllustDetailPage), findsOneWidget);
   });
 
-  testWidgets('grid exposes its pager source to card children', (
-    tester,
-  ) async {
+  testWidgets('grid exposes its pager source to card children', (tester) async {
     IllustPagerSource? seen;
     await tester.pumpWidget(
       MaterialApp(

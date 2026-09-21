@@ -60,8 +60,7 @@ Future<GoRouter> _pumpHome(
   return router;
 }
 
-String _path(GoRouter router) =>
-    router.routeInformationProvider.value.uri.path;
+String _path(GoRouter router) => router.routeInformationProvider.value.uri.path;
 
 /// A committed sideways flick inside the visible branch page.
 Future<void> _flingLeft(WidgetTester tester, Finder page) =>
@@ -156,8 +155,7 @@ void main() {
     tester,
   ) async {
     await _pumpHome(tester);
-    final controller =
-        _tabController(tester, find.byType(RecommendedHomePage));
+    final controller = _tabController(tester, find.byType(RecommendedHomePage));
 
     // Finger down and travelling: the strip position tracks the drag —
     // 120px of 390 ≈ a third of the way to tab 1, no commit yet.
@@ -341,8 +339,7 @@ void main() {
       return positioned.left! + positioned.width! / 2;
     }
 
-    final slotWidth =
-        tester.getSize(find.byType(FuncShellBottomNav)).width / 5;
+    final slotWidth = tester.getSize(find.byType(FuncShellBottomNav)).width / 5;
     final rest = indicatorCenter();
     final gesture = await tester.startGesture(const Offset(300, 400));
     await gesture.moveBy(const Offset(-100, 0));

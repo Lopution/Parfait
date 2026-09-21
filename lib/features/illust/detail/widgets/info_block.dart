@@ -47,9 +47,7 @@ class InfoBlock extends ConsumerWidget {
           // selectable — a one-line AppBar title could only ellipsise.
           SelectableText(
             entity.title,
-            style: textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: FuncSpacing.md),
           // The whole author block opens the user page; AuthorSummary owns
