@@ -148,6 +148,9 @@ class IllustCard extends ConsumerWidget {
         heroScope: heroScope,
         heroImageUrl: previewUrl,
         heroImageDecodeWidth: cardDecodeWidth,
+        // Inside a feed grid this carries the feed's work list — the
+        // detail route then opens as a work-to-work pager.
+        pagerSource: IllustPagerScope.maybeOf(context),
       );
     }
 

@@ -29,6 +29,58 @@ const _kMinCardExtent = 180.0;
 /// instead of layout time.
 const ScrollCacheExtent kFeedCacheExtent = ScrollCacheExtent.viewport(0.5);
 
+/// Ordered work ids a pushed detail route can page through — the same
+/// list the grid shows, handed over via `IllustRouteExtra.pagerSource`.
+/// This is Shaft's `PageData`: opening a work from a feed keeps the
+/// feed's ordering, so swiping sideways moves to the previous/next work
+/// without returning to the grid.
+///
+/// The grid's State owns the instance so it survives rebuilds; [update]
+/// is called whenever the feed publishes a new id list, and [onNearEnd]
+/// is the feed's `loadMore` — the pager calls it when the user swipes
+/// close to the end, which is how paged detail keeps growing.
+class IllustPagerSource extends ChangeNotifier {
+  List<int> _ids = const [];
+
+  /// Work ids in feed order.
+  List<int> get ids => _ids;
+
+  /// Feed-side "fetch the next page" hook. Feeds without a continuation
+  /// leave it null and the pager stops at the last work.
+  VoidCallback? onNearEnd;
+
+  void update(List<int> ids) {
+    if (identical(ids, _ids)) return;
+    _ids = List.unmodifiable(ids);
+    notifyListeners();
+  }
+}
+
+/// Exposes the enclosing grid's [IllustPagerSource] to the cards it
+/// builds. The lookup is deliberately non-subscribing: a card only reads
+/// the reference at tap time, so id-list churn must not rebuild cards.
+class IllustPagerScope extends InheritedWidget {
+  const IllustPagerScope({
+    super.key,
+    required this.source,
+    required super.child,
+  });
+
+  final IllustPagerSource source;
+
+  static IllustPagerSource? maybeOf(BuildContext context) {
+    final element =
+        context.getElementForInheritedWidgetOfExactType<IllustPagerScope>();
+    return element == null
+        ? null
+        : (element.widget as IllustPagerScope).source;
+  }
+
+  @override
+  bool updateShouldNotify(IllustPagerScope oldWidget) =>
+      source != oldWidget.source;
+}
+
 /// How many items past the built edge each prefetch step warms.
 const int _kFeedPrefetchAhead = 24;
 
@@ -240,6 +292,7 @@ class IllustFeedGrid extends StatefulWidget {
     this.crossAxisSpacing = 10,
     this.itemIds,
     this.prefetchEntities,
+    this.pagerLoadMore,
   });
 
   final int itemCount;
@@ -254,7 +307,15 @@ class IllustFeedGrid extends StatefulWidget {
   /// [SliverChildBuilderDelegate.findChildIndexCallback] re-seats element
   /// state when a refresh inserts at the head — without keys, every card's
   /// subtree is re-bound to whatever entity landed on its old position.
+  /// They also become the detail pager's work list — opening a card lets
+  /// the user swipe sideways through the feed.
   final List<int>? itemIds;
+
+  /// Feed's next-page hook for the work-to-work detail pager: swiping
+  /// near the list end calls it, so the paged detail grows like Shaft's
+  /// VActivity instead of stopping at the loaded edge. Finite lists
+  /// leave it null.
+  final VoidCallback? pagerLoadMore;
 
   /// When set, the grid warms preview images for entities just past the
   /// built edge as it advances — the bounded off-screen preload that a bare
@@ -270,6 +331,27 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
   /// grid drops keep-alives, so without it a card scrolling back into view
   /// replays its entrance and reads as a reload.
   final _entrancePlayed = <int>{};
+
+  /// Work ids + next-page hook for the detail pager. Never disposed by the
+  /// grid: a pushed detail route still holds it — its lifetime is the
+  /// route's, not the widget's.
+  final _pagerSource = IllustPagerSource();
+
+  @override
+  void initState() {
+    super.initState();
+    _pagerSource
+      ..onNearEnd = widget.pagerLoadMore
+      ..update(widget.itemIds ?? const []);
+  }
+
+  @override
+  void didUpdateWidget(covariant IllustFeedGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _pagerSource
+      ..onNearEnd = widget.pagerLoadMore
+      ..update(widget.itemIds ?? const []);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -296,7 +378,7 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
                 (columns - 1) * widget.crossAxisSpacing) /
             columns;
         final decodeWidth = PixivImage.decodeWidthFor(columnWidth);
-        final grid = SliverPadding(
+        Widget grid = SliverPadding(
           padding: widget.padding,
           sliver: SliverMasonryGrid(
             gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
@@ -351,6 +433,13 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
             ),
           ),
         );
+        // Cards inside a grid with stable ids get the feed's work list as
+        // their detail-pager source — tapping one opens the swipeable
+        // detail, grids without ids (spotlight rows etc.) leave cards on
+        // the single-work route.
+        if (widget.itemIds != null) {
+          grid = IllustPagerScope(source: _pagerSource, child: grid);
+        }
         cachedCrossAxisExtent = crossAxisExtent;
         cachedGrid = grid;
         return grid;

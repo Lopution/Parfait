@@ -107,6 +107,9 @@ class RecommendedIllustPage extends ConsumerWidget {
                       prefetchEntities: entities,
                       itemIds: [for (final e in entities) e.id],
                       itemCount: entities.length,
+                      pagerLoadMore: () => ref
+                          .read(recommendedIllustControllerProvider.notifier)
+                          .loadMore(),
                       itemBuilder: (context, index) => IllustCard(
                         entity: entities[index],
                         heroScope: 'recommended:illust',

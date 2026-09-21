@@ -30,6 +30,7 @@ import '../../features/watchlist/watchlist_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
+import '../../features/illust/detail/illust_detail_pager_page.dart';
 import '../../features/illust/viewer/image_viewer_page.dart';
 import '../../features/login/login_page.dart';
 import '../../features/login/login_webview_desktop_page.dart';
@@ -64,6 +65,7 @@ import '../pixiv_image.dart';
 import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
 import '../widgets/branch_slide_stack.dart';
+import '../widgets/feed/feed_grid.dart';
 import '../widgets/func_bottom_nav.dart';
 
 class IllustRouteExtra {
@@ -72,6 +74,7 @@ class IllustRouteExtra {
     this.heroScope = 'feed',
     this.heroImageUrl,
     this.heroImageDecodeWidth,
+    this.pagerSource,
   });
 
   final IllustEntity? entity;
@@ -82,6 +85,11 @@ class IllustRouteExtra {
   /// page decodes its hero-phase image at this width so the first frame is
   /// the same cache entry the feed already painted.
   final int? heroImageDecodeWidth;
+
+  /// The feed's ordered work list. Present ⇒ the route mounts the
+  /// work-to-work pager (Shaft's VActivity) instead of a single detail
+  /// page. The object is in-memory only — never serialized into the URL.
+  final IllustPagerSource? pagerSource;
 }
 
 class ImageViewerRouteExtra {
@@ -362,23 +370,47 @@ List<RouteBase> _commonBranchRoutes(
       path: 'illust/:illustId',
       pageBuilder: (context, state) {
         final extra = state.extra;
-        final initialEntity = extra is IllustRouteExtra
-            ? extra.entity
-            : extra is IllustEntity
-            ? extra
-            : null;
+        final illustId = _pathId(state, 'illustId');
+        if (extra is IllustRouteExtra) {
+          // A card inside a paged feed hands over the feed's work list:
+          // the detail becomes a horizontal pager across it (Shaft's
+          // VActivity). Ids missing from the list — deep links, restored
+          // routes — fall back to the single-work page.
+          final source = extra.pagerSource;
+          if (source != null && source.ids.contains(illustId)) {
+            return _page(
+              context,
+              state,
+              branchObserver,
+              IllustDetailPagerPage(
+                source: source,
+                initialIllustId: illustId,
+                heroScope: extra.heroScope,
+                heroImageUrl: extra.heroImageUrl,
+                heroImageDecodeWidth: extra.heroImageDecodeWidth,
+              ),
+            );
+          }
+          return _page(
+            context,
+            state,
+            branchObserver,
+            IllustDetailPage(
+              illustId: illustId,
+              initialEntity: extra.entity,
+              heroScope: extra.heroScope,
+              heroImageUrl: extra.heroImageUrl,
+              heroImageDecodeWidth: extra.heroImageDecodeWidth,
+            ),
+          );
+        }
         return _page(
           context,
           state,
           branchObserver,
           IllustDetailPage(
-            illustId: _pathId(state, 'illustId'),
-            initialEntity: initialEntity,
-            heroScope: extra is IllustRouteExtra ? extra.heroScope : 'feed',
-            heroImageUrl: extra is IllustRouteExtra ? extra.heroImageUrl : null,
-            heroImageDecodeWidth: extra is IllustRouteExtra
-                ? extra.heroImageDecodeWidth
-                : null,
+            illustId: illustId,
+            initialEntity: extra is IllustEntity ? extra : null,
           ),
         );
       },
@@ -1102,6 +1134,7 @@ Future<void> openIllust(
   String heroScope = 'feed',
   String? heroImageUrl,
   int? heroImageDecodeWidth,
+  IllustPagerSource? pagerSource,
 }) async {
   await _push(
     context,
@@ -1111,6 +1144,7 @@ Future<void> openIllust(
       heroScope: heroScope,
       heroImageUrl: heroImageUrl,
       heroImageDecodeWidth: heroImageDecodeWidth,
+      pagerSource: pagerSource,
     ),
   );
 }
