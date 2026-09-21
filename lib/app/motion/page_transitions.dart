@@ -25,19 +25,18 @@ class FuncRouteTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: MotionTokens.pageCurve,
-    );
+    // drive(CurveTween) instead of CurvedAnimation: build methods run every
+    // frame during the transition, and a CurvedAnimation is a stateful
+    // listener-holding object — the curve evaluation is all that is needed.
+    final curved = animation.drive(CurveTween(curve: MotionTokens.pageCurve));
     final inTransition =
         animation.isAnimating || secondaryAnimation.isAnimating;
     return TickerMode(
       enabled: !inTransition,
       child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(curved),
+        position: curved.drive(
+          Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero),
+        ),
         child: RoutePopSnapshot(
           animation: animation,
           secondaryAnimation: secondaryAnimation,
@@ -65,10 +64,7 @@ class FuncModalTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: MotionTokens.modalCurve,
-    );
+    final curved = animation.drive(CurveTween(curve: MotionTokens.modalCurve));
     final inTransition =
         animation.isAnimating || secondaryAnimation.isAnimating;
     return TickerMode(
@@ -76,10 +72,12 @@ class FuncModalTransition extends StatelessWidget {
       child: FadeTransition(
         opacity: curved,
         child: SlideTransition(
-          position: Tween<Offset>(
-            begin: MotionTokens.modalSlideBegin,
-            end: Offset.zero,
-          ).animate(curved),
+          position: curved.drive(
+            Tween<Offset>(
+              begin: MotionTokens.modalSlideBegin,
+              end: Offset.zero,
+            ),
+          ),
           child: RoutePopSnapshot(
             animation: animation,
             secondaryAnimation: secondaryAnimation,

@@ -173,19 +173,28 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byType(FuncBottomNav), findsOneWidget);
+    final bar = find.byType(FuncBottomNav);
+    expect(tester.getTopLeft(bar).dy, lessThan(844));
 
     unawaited(router.push('/recommended/history'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    // The covered report lands through the provider, which notifies on the
+    // next frame — settle so the recheck frame and the slide both run.
+    await tester.pumpAndSettle();
 
-    expect(find.byType(FuncBottomNav), findsNothing);
+    // The bar is the shell-level sibling of the branch strip — a pushed
+    // route slides it below the screen edge (covered provider), it does
+    // not leave the tree.
+    expect(bar, findsOneWidget);
+    expect(tester.getTopLeft(bar).dy, greaterThanOrEqualTo(844));
 
     await tester.binding.handlePopRoute();
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/recommended');
-    expect(find.byType(FuncBottomNav), findsOneWidget);
+    expect(bar, findsOneWidget);
+    expect(tester.getTopLeft(bar).dy, lessThan(844));
   });
 
   testWidgets('settings pushes over the shell and returns to the tab', (

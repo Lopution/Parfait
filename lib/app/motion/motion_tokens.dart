@@ -25,14 +25,13 @@ abstract final class MotionTokens {
   static const pressCurve = Curves.easeOut;
   static const pressScale = 0.97;
 
-  /// First-screen feed entrance: staggered fade + short rise. Items past
-  /// [listEntranceMaxItems] never animate — a scroll-built card mid-feed
-  /// popping in would read as a layout bug, not motion.
+  /// Feed entrance: staggered fade + short rise, played on a card's first
+  /// viewport exposure. Cards arriving mid-fling stay static — a pop-in
+  /// during ballistic scroll reads as a layout bug, not motion.
   static const listEntrance = Duration(milliseconds: 220);
   static const listEntranceCurve = Curves.easeOutCubic;
   static const listEntranceOffset = 12.0;
   static const listStaggerStep = Duration(milliseconds: 30);
-  static const listEntranceMaxItems = 24;
 
   /// Bottom-sheet presentation (sheetAnimationStyle).
   static const sheet = Duration(milliseconds: 250);
@@ -43,6 +42,15 @@ abstract final class MotionTokens {
 
   /// Bottom-nav indicator sweep, matching the app bar's kTabScrollDuration.
   static const navIndicator = Duration(milliseconds: 300);
+
+  /// Bottom-nav scroll hide/show — Material `HideViewOnScrollBehavior`
+  /// timings and interpolators: slide-in (show) decelerates over 225ms
+  /// (linear-out-slow-in = cubic-bezier(0, 0, 0.2, 1)), slide-out (hide)
+  /// accelerates away over 175ms (fast-out-linear-in = (0.4, 0, 1, 1)).
+  static const navBarShow = Duration(milliseconds: 225);
+  static const navBarShowCurve = Cubic(0, 0, 0.2, 1);
+  static const navBarHide = Duration(milliseconds: 175);
+  static const navBarHideCurve = Cubic(0.4, 0, 1, 1);
 
   /// Landing-ink replay timing on the branch-swap bottom bar: how long the
   /// synthetic press holds before confirming, and the pressed-highlight fade.

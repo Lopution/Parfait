@@ -38,6 +38,7 @@ class DownloadManager {
     DownloadRecoveryStore? recoveryStore,
     this.requireOwnedSubmissions = false,
     this.enforceDefaultDestination = true,
+    this.cacheLookup,
     DateTime Function()? now,
   }) : _transport = transport,
        _sinkFactory = sinkFactory,
@@ -48,6 +49,12 @@ class DownloadManager {
 
   final DownloadTransport _transport;
   final DownloadSinkFactory _sinkFactory;
+
+  /// Optional local lookup consulted before any transport request: an image
+  /// already in the disk cache materializes straight into the sink without
+  /// spending a network round-trip. Misses and lookup errors fall through
+  /// to the transport — the lookup must never make a download worse.
+  final Future<File?> Function(Uri url)? cacheLookup;
   final Duration progressThrottle;
   final DownloadSubmissionContextProvider? _submissionContext;
   final DownloadRecoveryStore _recoveryStore;
@@ -927,7 +934,22 @@ class DownloadManager {
     return sink;
   }
 
-  Future<DownloadResponse> _open(_Job job, int resumeOffset) {
+  Future<DownloadResponse> _open(_Job job, int resumeOffset) async {
+    final lookup = cacheLookup;
+    if (lookup != null) {
+      try {
+        final cached = await lookup(job.request.url);
+        if (cached != null && await cached.exists()) {
+          // A resume anchor means the sink already holds the head of this
+          // file; the cached copy supplies only the missing tail so the
+          // byte accounting stays identical to a 206 continuation.
+          return await _FileDownloadResponse.open(cached, resumeOffset);
+        }
+      } on Object {
+        // Cache lookup is best-effort — a corrupt store never blocks the
+        // network path.
+      }
+    }
     final headers = PixivHeaders.image(userAgent: true);
     if (resumeOffset > 0) {
       headers['Range'] = 'bytes=$resumeOffset-';
@@ -1433,4 +1455,39 @@ Duration? _parseRetryAfter(Map<String, String> headers) {
   if (date == null) return null;
   final delta = date.toUtc().difference(DateTime.now().toUtc());
   return delta.isNegative ? Duration.zero : delta;
+}
+
+/// A download response served from a file already in the image disk cache.
+/// `offset` mirrors an HTTP Range continuation: the stream yields only the
+/// bytes the resumed sink is missing, and [contentLength] reports the tail
+/// length so total/received accounting matches the transport path.
+class _FileDownloadResponse implements DownloadResponse {
+  _FileDownloadResponse(this._file, this._offset);
+
+  final File _file;
+  final int _offset;
+
+  @override
+  int get statusCode => 200;
+
+  int? _contentLength;
+
+  @override
+  int? get contentLength => _contentLength;
+
+  @override
+  Stream<List<int>> get stream => _file.openRead(_offset);
+
+  /// Resolves the tail length lazily is not possible here — the manager
+  /// reads [contentLength] before listening, so length is captured eagerly
+  /// by [open].
+  static Future<_FileDownloadResponse> open(File file, int offset) async {
+    final length = await file.length();
+    final clamped = offset.clamp(0, length);
+    return _FileDownloadResponse(file, clamped)
+      .._contentLength = length - clamped;
+  }
+
+  @override
+  Future<void> close() async {}
 }

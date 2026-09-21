@@ -325,6 +325,59 @@ void main() {
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
     });
 
+    test('cacheLookup hit materializes from disk without a request', () async {
+      final transport = FakeTransport();
+      final sinks = MemorySinkFactory();
+      final cachedBytes = List.filled(2048, 9);
+      final temp = await File(
+        '${Directory.systemTemp.path}/dl_cache_hit_${DateTime.now().microsecondsSinceEpoch}.bin',
+      ).writeAsBytes(cachedBytes);
+      addTearDown(() => temp.delete().catchError((_) => temp));
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: sinks,
+        cacheLookup: (url) async => temp,
+      );
+      addTearDown(manager.dispose);
+
+      manager.submit(request());
+      await _Watcher(manager).pumpUntilTerminal();
+
+      expect(
+        transport.openedUrls,
+        isEmpty,
+        reason: 'a disk hit must not spend a network request',
+      );
+      expect(manager.tasks.single.status, DownloadStatus.succeeded);
+      expect(sinks.sinks.single.bytes, cachedBytes);
+    });
+
+    test('cacheLookup miss falls through to the transport', () async {
+      final transport = FakeTransport();
+      transport.responses.add(
+        ScriptedResponse(
+          contentLength: 3,
+          chunks: [
+            [1, 2, 3],
+          ],
+        ),
+      );
+      final sinks = MemorySinkFactory();
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: sinks,
+        cacheLookup: (url) async => null,
+      );
+      addTearDown(manager.dispose);
+
+      manager.submit(request());
+      await _Watcher(manager).pumpUntilTerminal();
+
+      expect(transport.openedUrls, hasLength(1));
+      expect(manager.tasks.single.status, DownloadStatus.succeeded);
+      expect(sinks.sinks.single.bytes, [1, 2, 3]);
+    });
+
     test('unknown content-length keeps progress null (R5)', () async {
       final transport = FakeTransport();
       transport.responses.add(

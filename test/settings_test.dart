@@ -244,7 +244,7 @@ void main() {
     final settings = AppSettings.defaults();
     expect(settings.guideCompleted, isFalse);
     expect(settings.themeCode, AppSettings.systemTheme);
-    expect(settings.imageSource, AppSettings.normalImageSource);
+    expect(settings.imageSource, AppSettings.defaultImageSource);
     expect(settings.previewQuality, PreviewQuality.medium);
     expect(settings.viewQuality, ViewQuality.original);
     expect(settings.enableHistory, isTrue);
@@ -531,6 +531,17 @@ void main() {
       'networkModeAutomaticHint',
       'networkModeDirectOnly',
       'networkModeDirectOnlyHint',
+      'networkModeCompatPrefer',
+      'networkModeCompatPreferHint',
+      'networkEffectiveRoutes',
+      'networkEffectiveRoutesEmpty',
+      'networkRouteKindDirect',
+      'networkRouteKindCompat',
+      'networkThirdParty',
+      'networkThirdPartyHint',
+      'networkReachable',
+      'networkUnreachable',
+      'networkChecking',
       'networkAdvanced',
       'networkAdvancedHint',
       'networkAdvancedReset',
@@ -543,6 +554,10 @@ void main() {
       'networkProbeRunning',
       'networkProbeNotRun',
       'networkProbeCopied',
+      'frameProbeTitle',
+      'frameProbeHint',
+      'frameProbeStart',
+      'frameProbeStop',
       'themeSettings',
       'languageSettings',
       'translateSettings',
@@ -553,6 +568,8 @@ void main() {
       'downloaderSettings',
       'aboutSettings',
       'imageSourceNormal',
+      'imageSourceAuto',
+      'imageSourceAutoPending',
       'previewQuality',
       'viewQuality',
       'qualityMedium',
@@ -624,6 +641,10 @@ void main() {
         ),
       ),
     );
+    // Tall surface: the source list above grew a row, and unmounted
+    // off-viewport selectors must not shrink the segment assertions.
+    tester.view.physicalSize = const Size(800, 2400);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
     await tester.pump();
     final selectorFinder = find.byWidgetPredicate(
@@ -780,11 +801,15 @@ void main() {
     expect(find.text('浏览设置'), findsOneWidget);
     // Shaft-style hub: intent groups carry labeled section headers.
     expect(find.text('外观'), findsOneWidget);
-    expect(find.text('网络与浏览'), findsOneWidget);
-    expect(find.text('内容'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    expect(find.text('浏览'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('数据'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pump();
-    expect(find.text('下载'), findsOneWidget);
+    expect(find.text('我的内容', skipOffstage: false), findsOneWidget);
+    expect(find.text('网络与下载'), findsOneWidget);
     expect(find.text('数据'), findsOneWidget);
     expect(find.text('下载任务'), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);
@@ -835,7 +860,7 @@ void main() {
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
-  testWidgets('long-pressing an account card exports bounded transfer data', (
+  testWidgets('the export tile exports bounded transfer data after confirm', (
     tester,
   ) async {
     final repository = FakeAccountMetadataRepository(
@@ -880,7 +905,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.text('tester'));
+    await tester.tap(find.text('导出账号凭据'));
+    await tester.pumpAndSettle();
+    // The tile only opens the confirm dialog — nothing is exported yet.
+    expect(clipboard.writeCount, 0);
+    await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
     expect(clipboard.writeCount, 1);
@@ -937,7 +966,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.longPress(find.text('tester'));
+      await tester.tap(find.text('导出账号凭据'));
+      await tester.pumpAndSettle();
+      // Export is gated behind the warning dialog's confirm action.
+      await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
       // The copied-toast (4s) blocks the queued warning snackbar; advance
       // past it so the explicit security warning becomes visible.
@@ -984,6 +1016,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // The mode tiles and status sections push this entry below the fold.
+    await _scrollCentered(tester, find.text('高级设置', skipOffstage: false));
     await tester.tap(find.text('高级设置'));
     await tester.pumpAndSettle();
 
@@ -1125,9 +1159,16 @@ void main() {
     await _scrollCentered(tester, find.text('测试', skipOffstage: false));
     await tester.tap(find.text('测试'));
     await tester.pumpAndSettle();
+    // The raced loser's drained body delivers its done event on the next
+    // FakeAsync elapse — one more pump lets the idle-guard timer unwind.
+    await tester.pump();
 
-    expect(backend.requests, hasLength(1));
-    expect(backend.requests.single.url.host, 'proxy.example.com');
+    // A cold image request races the top two ladder tiers, so the probe
+    // may hit the backend twice — every attempt must target the mirror.
+    expect(backend.requests, isNotEmpty);
+    expect(backend.requests.map((request) => request.url.host).toSet(), {
+      'proxy.example.com',
+    });
     expect(repository.value.imageSource, 'https://proxy.example.com');
     expect(find.textContaining('镜像可达'), findsOneWidget);
   });
