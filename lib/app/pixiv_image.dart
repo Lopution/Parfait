@@ -10,6 +10,7 @@ import 'motion/motion_tokens.dart';
 import 'image_tier_cache.dart';
 import '../core/entity/illust_entity.dart';
 import '../core/network/pixiv_headers.dart';
+import '../core/network/compat/image_cache.dart';
 import '../core/network/compat/network_providers.dart';
 
 /// Decode policy of a [PixivImage] variant (R8 performance boundary).
@@ -265,9 +266,15 @@ class PixivImage extends ConsumerStatefulWidget {
   static CachedNetworkImageProvider provider(
     String url, {
     BaseCacheManager? cacheManager,
+    bool prefetch = false,
   }) => CachedNetworkImageProvider(
     url,
-    headers: headers,
+    headers: {
+      ...headers,
+      // Scheduling hint for PriorityFileService — stripped before the
+      // request hits the wire, so it never reaches the CDN.
+      if (prefetch) PriorityFileService.prefetchMarker: '1',
+    },
     cacheManager: cacheManager,
   );
 
@@ -467,6 +474,7 @@ class PixivImage extends ConsumerStatefulWidget {
     ImageProvider imageProvider = provider(
       resolved.$1,
       cacheManager: cacheManager,
+      prefetch: true,
     );
     // Match OctoImage's ResizeImage.wrap so the warmed entry is the exact
     // cache key the visible widget resolves — a different decode width is a
@@ -546,14 +554,30 @@ class _PixivImageState extends ConsumerState<PixivImage> {
       imageUrl,
       effectiveWidth,
     );
+    // Progressive underlay (3a): when no transition history exists — e.g.
+    // swiping to a viewer page that never had a Hero — a lower tier of the
+    // same page already decoded in the cache paints under the resolving
+    // higher tier. Zero traffic: the file is already local. The tier record
+    // implies a completed decode, so `_imageCompleted` needn't gate this.
+    final underlayUrl =
+        previousTransition == null &&
+            widget.tierKey != null &&
+            effectiveTier != null &&
+            !PixivImage._imageCompleted(imageUrl, effectiveWidth)
+        ? IllustTierCache.bestBelow(widget.tierKey!, effectiveTier)
+        : null;
     // A completed current frame resolves synchronously and never reaches the
     // placeholder at all — so whenever a decoded-once previous entry exists,
     // it is always the better stand-in while the next tier resolves. Only
     // the absence of history falls back to the flat colour box.
-    final transitionPlaceholder = previousTransition == null
+    final _HistoryEntry? underlayEntry = underlayUrl == null
+        ? null
+        : (underlayUrl, null);
+    final transitionPlaceholder =
+        previousTransition == null && underlayEntry == null
         ? widget.placeholderWidget
         : PixivImage._lastDecodedFrame(
-            previousTransition,
+            previousTransition ?? underlayEntry!,
             cacheManager: cacheManager,
             fit: widget.fit,
             width: widget.width,
@@ -586,6 +610,7 @@ class _PixivImageState extends ConsumerState<PixivImage> {
     final crossfade =
         widget.fade &&
         previousTransition == null &&
+        underlayEntry == null &&
         !slotHandoff &&
         TickerMode.valuesOf(context).enabled;
     _lastShownUrl = imageUrl;

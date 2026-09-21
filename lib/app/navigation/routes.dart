@@ -29,6 +29,7 @@ import '../../features/watchlist/watchlist_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
+import '../../features/illust/detail/illust_detail_pager_page.dart';
 import '../../features/illust/viewer/image_viewer_page.dart';
 import '../../features/login/login_page.dart';
 import '../../features/login/login_webview_desktop_page.dart';
@@ -51,6 +52,7 @@ import '../../features/series/illust_series_page.dart';
 import '../../features/spotlight/spotlight_article_page.dart';
 import '../../features/spotlight/spotlight_feed_page.dart';
 import '../../features/settings/network_probe_page.dart';
+import '../../features/settings/pages/frame_probe_page.dart';
 import '../../features/settings/network_settings_page.dart';
 import '../../features/settings/settings_page.dart';
 import '../../features/settings/pages/translation_credentials_page.dart';
@@ -61,6 +63,8 @@ import '../motion/page_transitions.dart';
 import '../pixiv_image.dart';
 import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
+import '../widgets/branch_slide_stack.dart';
+import '../widgets/feed/feed_grid.dart';
 import '../widgets/func_bottom_nav.dart';
 
 class IllustRouteExtra {
@@ -69,6 +73,7 @@ class IllustRouteExtra {
     this.heroScope = 'feed',
     this.heroImageUrl,
     this.heroImageDecodeWidth,
+    this.pagerSource,
   });
 
   final IllustEntity? entity;
@@ -79,6 +84,11 @@ class IllustRouteExtra {
   /// page decodes its hero-phase image at this width so the first frame is
   /// the same cache entry the feed already painted.
   final int? heroImageDecodeWidth;
+
+  /// The feed's ordered work list. Present ⇒ the route mounts the
+  /// work-to-work pager (Shaft's VActivity) instead of a single detail
+  /// page. The object is in-memory only — never serialized into the URL.
+  final IllustPagerSource? pagerSource;
 }
 
 class ImageViewerRouteExtra {
@@ -128,6 +138,9 @@ class _ImageViewerRoute extends ConsumerWidget {
           ? null
           : (page) => entity.imageTierKeyAt(page),
       tier: quality.tier,
+      prefetchUrlForPage: entity == null
+          ? null
+          : (page) => entity.mediumUrlAt(page),
       onPageChanged: (page) => replaceImageViewerPage(
         context,
         illustId: illustId,
@@ -356,23 +369,47 @@ List<RouteBase> _commonBranchRoutes(
       path: 'illust/:illustId',
       pageBuilder: (context, state) {
         final extra = state.extra;
-        final initialEntity = extra is IllustRouteExtra
-            ? extra.entity
-            : extra is IllustEntity
-            ? extra
-            : null;
+        final illustId = _pathId(state, 'illustId');
+        if (extra is IllustRouteExtra) {
+          // A card inside a paged feed hands over the feed's work list:
+          // the detail becomes a horizontal pager across it (Shaft's
+          // VActivity). Ids missing from the list — deep links, restored
+          // routes — fall back to the single-work page.
+          final source = extra.pagerSource;
+          if (source != null && source.ids.contains(illustId)) {
+            return _page(
+              context,
+              state,
+              branchObserver,
+              IllustDetailPagerPage(
+                source: source,
+                initialIllustId: illustId,
+                heroScope: extra.heroScope,
+                heroImageUrl: extra.heroImageUrl,
+                heroImageDecodeWidth: extra.heroImageDecodeWidth,
+              ),
+            );
+          }
+          return _page(
+            context,
+            state,
+            branchObserver,
+            IllustDetailPage(
+              illustId: illustId,
+              initialEntity: extra.entity,
+              heroScope: extra.heroScope,
+              heroImageUrl: extra.heroImageUrl,
+              heroImageDecodeWidth: extra.heroImageDecodeWidth,
+            ),
+          );
+        }
         return _page(
           context,
           state,
           branchObserver,
           IllustDetailPage(
-            illustId: _pathId(state, 'illustId'),
-            initialEntity: initialEntity,
-            heroScope: extra is IllustRouteExtra ? extra.heroScope : 'feed',
-            heroImageUrl: extra is IllustRouteExtra ? extra.heroImageUrl : null,
-            heroImageDecodeWidth: extra is IllustRouteExtra
-                ? extra.heroImageDecodeWidth
-                : null,
+            illustId: illustId,
+            initialEntity: extra is IllustEntity ? extra : null,
           ),
         );
       },
@@ -644,6 +681,13 @@ List<RouteBase> _settingsSubRoutes(
         ),
       ],
     ),
+    // The route ships in every build so the release unlock gesture
+    // (about page, 7 taps) can reach it — only the entry is hidden.
+    GoRoute(
+      path: 'frame-probe',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const FrameProbePage()),
+    ),
     GoRoute(
       path: 'browse',
       pageBuilder: (context, state) =>
@@ -741,9 +785,9 @@ StatefulShellBranch _branch({
           context,
           state,
           observer,
-          // The bottom bar lives at this layer (inside the branch
-          // navigator's root page), so a pushed secondary route covers it
-          // naturally — no hide animation, full-height from frame one.
+          // The bottom bar is a shell-level sibling of the branch strip;
+          // this scaffold only reports through the branch RouteObserver
+          // when the root route is covered so the bar can slide away.
           BranchRootScaffold(
             branchIndex: branchIndex,
             child: homeBuilder?.call(context, state) ?? home,
@@ -895,8 +939,14 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
           rootObserver: appRootRouteObserver,
         ),
       ),
-      StatefulShellRoute.indexedStack(
+      StatefulShellRoute(
         restorationScopeId: 'home-shell',
+        // Branch Navigators sit side by side and slide like a ViewPager —
+        // the outer half of the nested-pager pair the root pages'
+        // RootSwipeSwitcher completes. The strip slides in branch order,
+        // which is also the bottom bar's visual order.
+        navigatorContainerBuilder: (context, navigationShell, children) =>
+            BranchSlideStack(shell: navigationShell, children: children),
         pageBuilder: (context, state, navigationShell) => NoTransitionPage(
           key: state.pageKey,
           restorationId: RestorationScope.maybeOf(context) == null
@@ -1081,6 +1131,7 @@ Future<void> openIllust(
   String heroScope = 'feed',
   String? heroImageUrl,
   int? heroImageDecodeWidth,
+  IllustPagerSource? pagerSource,
 }) async {
   await _push(
     context,
@@ -1090,6 +1141,7 @@ Future<void> openIllust(
       heroScope: heroScope,
       heroImageUrl: heroImageUrl,
       heroImageDecodeWidth: heroImageDecodeWidth,
+      pagerSource: pagerSource,
     ),
   );
 }

@@ -25,6 +25,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
   bool _testingMirror = false;
 
   static const _presets = [
+    ImageSourceMode.auto,
     ImageSourceMode.normal,
     ImageSourceMode.pixivCat,
     ImageSourceMode.pixivRe,
@@ -134,6 +135,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
       _customController.text = customSource;
     }
     final isCustom = settings.imageSourceMode == ImageSourceMode.custom;
+    final autoWinner = ref.watch(autoImageSourceWinnerProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.browseSettings)),
       body: ListView(
@@ -142,9 +144,17 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
           for (final mode in _presets)
             ListTile(
               title: Text(_presetLabel(context, mode)),
-              subtitle: mode == ImageSourceMode.pixivCat
-                  ? Text(context.l10n.imageSourceUnreachableMainland)
-                  : null,
+              subtitle: switch (mode) {
+                ImageSourceMode.pixivCat => Text(
+                  context.l10n.imageSourceUnreachableMainland,
+                ),
+                ImageSourceMode.auto => Text(
+                  autoWinner == null
+                      ? context.l10n.imageSourceAutoPending
+                      : context.l10n.imageSourceAutoWinner(autoWinner),
+                ),
+                _ => null,
+              },
               trailing: settings.imageSource == mode.host
                   ? Icon(
                       Icons.check,
@@ -353,6 +363,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
 
 String _presetLabel(BuildContext context, ImageSourceMode mode) {
   return switch (mode) {
+    ImageSourceMode.auto => context.l10n.imageSourceAuto,
     ImageSourceMode.normal => context.l10n.imageSourceNormal,
     ImageSourceMode.pixivCat => context.l10n.imageSourcePixivCat,
     ImageSourceMode.pixivRe => context.l10n.imageSourcePixivRe,

@@ -116,6 +116,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get useLoginWithClipboard => 'Login with clipboard data';
 
   @override
+  String get accountTransferExportTitle => 'Export account credential';
+
+  @override
   String get accountTransferWarning =>
       'The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.';
 
@@ -221,13 +224,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsGroupAppearance => 'Appearance';
 
   @override
-  String get settingsGroupNetwork => 'Network & browsing';
+  String get settingsGroupNetwork => 'Network & downloads';
 
   @override
-  String get settingsGroupContent => 'Content';
+  String get settingsGroupBrowse => 'Browsing';
 
   @override
-  String get settingsGroupDownload => 'Downloads';
+  String get settingsGroupLibrary => 'My content';
+
+  @override
+  String get settingsGroupDeveloper => 'Developer';
+
+  @override
+  String get developerOptionsUnlocked => 'Developer options unlocked';
+
+  @override
+  String developerOptionsCountdown(int count) {
+    return '$count more taps to unlock developer options';
+  }
 
   @override
   String get settingsGroupData => 'Data';
@@ -243,7 +257,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkModeHint =>
-      'Direct by default; only Pixiv official hosts may retry via a strict HTTPS tier after a clear transport failure. No other traffic is proxied and certificate checks are never disabled.';
+      'Retries compatibility routes when Pixiv won\'t open. Only affects official Pixiv domains — other traffic is never proxied.';
 
   @override
   String get networkModeListTitle => 'Network mode';
@@ -253,21 +267,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkModeAutomaticHint =>
-      'Standard network stack: selects a reachable route per host group.';
+      'Picks a working connection automatically.';
 
   @override
   String get networkModeDirectOnly => 'Direct only';
 
   @override
   String get networkModeDirectOnlyHint =>
-      'System DNS + real SNI direct connection. For networks known to be reachable directly.';
+      'System connection only; for networks where direct access works.';
+
+  @override
+  String get networkModeCompatPrefer => 'Compatibility-first';
+
+  @override
+  String get networkModeCompatPreferHint =>
+      'Tries compatibility routes first, direct as fallback; for networks where direct access is blocked.';
+
+  @override
+  String get networkEffectiveRoutes => 'Effective routes';
+
+  @override
+  String get networkEffectiveRoutesEmpty =>
+      'No route learned yet — browse a bit and refresh.';
+
+  @override
+  String get networkRouteKindDirect => 'Direct';
+
+  @override
+  String get networkRouteKindCompat => 'Compat route';
+
+  @override
+  String get networkThirdParty => 'Third-party reachability';
+
+  @override
+  String get networkThirdPartyHint =>
+      'Uses your system network — your VPN/proxy applies.';
+
+  @override
+  String get networkReachable => 'Reachable';
+
+  @override
+  String get networkUnreachable => 'Unreachable';
+
+  @override
+  String get networkChecking => 'Checking…';
 
   @override
   String get networkAdvanced => 'Advanced';
 
   @override
-  String get networkAdvancedHint =>
-      'DoH endpoints, ECH front host and other details.';
+  String get networkAdvancedHint => 'Low-level options for advanced users.';
 
   @override
   String get networkAdvancedReset => 'Reset to defaults';
@@ -301,7 +350,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkProbeHint =>
-      'Probes the four official Pixiv hosts layer by layer: system DNS → DoH → TCP → TLS(real SNI) → minimal request. TCP ok but TLS handshake fails = SNI blocked.';
+      'Checks Pixiv connectivity layer by layer to locate the failure.';
+
+  @override
+  String get frameProbeTitle => 'Frame probe';
+
+  @override
+  String get frameProbeHint =>
+      'Records frame timings while you scroll. Stop after a fling-heavy pass, then copy the report. Dev/profile builds only.';
+
+  @override
+  String get frameProbeStart => 'Start recording';
+
+  @override
+  String get frameProbeStop => 'Stop';
 
   @override
   String get networkProbeRun => 'Run probe';
@@ -611,7 +673,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageSource => 'Image source';
 
   @override
-  String get imageSourceNormal => 'Official CDN (system DNS / HTTPS)';
+  String get imageSourceNormal => 'Official (default)';
 
   @override
   String get imageSourcePixivCat => 'pixiv.cat mirror';
@@ -650,6 +712,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get imageSourceUnreachableMainland =>
       'Usually unreachable from mainland networks';
+
+  @override
+  String get imageSourceAuto => 'Auto (race mirrors on this network)';
+
+  @override
+  String imageSourceAutoWinner(String host) {
+    return 'Current: $host';
+  }
+
+  @override
+  String get imageSourceAutoPending =>
+      'Not measured yet — falls back to direct';
 
   @override
   String get previewQuality => 'Preview quality';
@@ -1150,6 +1224,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get retry => 'Retry';
+
+  @override
+  String get refresh => 'Refresh';
 
   @override
   String get relatedWorks => 'Related works';

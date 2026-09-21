@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/motion/drag_to_dismiss.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/network/compat/network_providers.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
 import '../../../l10n/context.dart';
@@ -21,6 +25,7 @@ class ImageViewerPage extends StatefulWidget {
     this.onPageChanged,
     this.tierKeyForPage,
     this.tier,
+    this.prefetchUrlForPage,
   }) : assert(initialPage >= 0);
 
   final List<String> urls;
@@ -33,6 +38,11 @@ class ImageViewerPage extends StatefulWidget {
   /// detail reuses the same transition history.
   final String? Function(int page)? tierKeyForPage;
   final IllustImageTier? tier;
+
+  /// Medium-tier URL for a page, used to warm the neighbours of the active
+  /// page (3b): swiping forward/back lands on an already-decoded underlay
+  /// instead of a black placeholder.
+  final String? Function(int page)? prefetchUrlForPage;
 
   /// Zoom bounds (PRD R3: strictly 0.9–6.0).
   static const double minScale = 0.9;
@@ -60,6 +70,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     _pageController = PageController(initialPage: _activePage);
     _pageController.addListener(_onPageChanged);
     _transformationFor(_activePage).addListener(_onTransformed);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _prefetchNeighbours(_activePage),
+    );
   }
 
   @override
@@ -80,6 +93,39 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         _transformationFor(_activePage).addListener(_onTransformed);
       });
       widget.onPageChanged?.call(page);
+      _prefetchNeighbours(page);
+    }
+  }
+
+  /// Warm the medium tier of the pages next to [page]: a page turn then
+  /// lands on an already-decoded underlay instead of black while the
+  /// requested tier streams in. Best-effort — errors are swallowed by
+  /// [PixivImage.preload] itself resolving through the shared provider.
+  void _prefetchNeighbours(int page) {
+    final urlFor = widget.prefetchUrlForPage;
+    if (urlFor == null || !mounted) return;
+    final ProviderContainer container;
+    try {
+      container = ProviderScope.containerOf(context, listen: false);
+    } on StateError {
+      return;
+    }
+    final cacheManager = container
+        .read(pixivNetworkFactoryProvider)
+        .imageCacheManager;
+    for (final neighbour in [page - 1, page + 1]) {
+      if (neighbour < 0 || neighbour >= _pageCount) continue;
+      final url = urlFor(neighbour);
+      if (url == null) continue;
+      unawaited(
+        PixivImage.preload(
+          context,
+          url,
+          cacheManager: cacheManager,
+          tierKey: widget.tierKeyForPage?.call(neighbour),
+          tier: IllustImageTier.medium,
+        ).catchError((_) {}),
+      );
     }
   }
 

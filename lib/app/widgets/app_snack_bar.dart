@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../motion/motion_tokens.dart';
+import '../navigation/home_shell_metrics.dart';
+import 'func_bottom_nav.dart';
 
 /// Shared SnackBar in/out motion (U4): the M2 default only animates a
 /// floating SnackBar's opacity in the 0.4–1.0 interval, so the ~120ms
@@ -34,21 +37,37 @@ SnackBar buildAppSnackBar(
 ///
 /// Callers pass a localized message; duration escapes only when a call site
 /// genuinely needs longer dwell time (default 4s matches Material guidance).
-/// SnackBars resolve the nearest messenger: pages whose Scaffold owns a
-/// bottom bar host a messenger inside `body` (see `BranchRootScaffold`), so
-/// a floating SnackBar lands inside the content area instead of covering
-/// the bar.
+/// SnackBars resolve the nearest messenger: branch-root pages host one
+/// inside `BranchRootScaffold`, so the SnackBar renders inside the branch
+/// page's Scaffold and hides while a pushed route covers it.
+///
+/// The shell bottom bar floats over branch-root pages as an overlay, so
+/// Scaffold geometry cannot anchor the SnackBar above it — on a branch
+/// root (`BranchRootScope`) the margin is grown by the measured bar
+/// height. Pushed routes resolve the root messenger outside the scope and
+/// keep the plain margin, matching the bar having slid away.
 void showAppSnackBar(
   BuildContext context,
   String message, {
   Duration duration = const Duration(seconds: 4),
   SnackBarAction? action,
 }) {
+  var margin = const EdgeInsets.fromLTRB(16, 0, 16, 16);
+  if (BranchRootScope.maybeOf(context) != null) {
+    final barHeight = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(homeShellMetricsProvider).bottomNavHeight;
+    if (barHeight != null) {
+      margin = margin.copyWith(bottom: margin.bottom + barHeight);
+    }
+  }
   showAppSnackBarOn(
     ScaffoldMessenger.maybeOf(context),
     message,
     duration: duration,
     action: action,
+    margin: margin,
   );
 }
 
