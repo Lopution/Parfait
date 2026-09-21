@@ -42,6 +42,16 @@ class InfoBlock extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Shaft's hero_title / official client order: the work title
+          // leads the meta block, wraps without a line cap, and stays
+          // selectable — a one-line AppBar title could only ellipsise.
+          SelectableText(
+            entity.title,
+            style: textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: FuncSpacing.md),
           // The whole author block opens the user page; AuthorSummary owns
           // the row so the 48px avatar slot and key stay stable.
           AuthorSummary(
