@@ -107,6 +107,27 @@ class _GateFailureClient extends http.BaseClient {
   }
 }
 
+/// send() never resolves — simulates a socket that stalls before headers.
+class _NeverSendClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) =>
+      Completer<http.StreamedResponse>().future;
+}
+
+/// Emits one body chunk then stalls forever — a mid-body connection stall.
+class _StallClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(
+      Stream<List<int>>.multi((controller) {
+        controller.add(const [1]);
+      }),
+      200,
+      request: request,
+    );
+  }
+}
+
 class _ScriptedClient extends http.BaseClient {
   _ScriptedClient(this.outcomes);
 
@@ -555,7 +576,10 @@ void main() {
     now = base.add(const Duration(seconds: 45));
     expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isFalse);
     expect(
-      policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+      policy.rememberedGroupRouteKind(
+        PixivDestinationPurpose.oauth,
+        'oauth.secure.pixiv.net',
+      ),
       isNull,
     );
   });
@@ -589,7 +613,10 @@ void main() {
 
       await api.get(_apiUri);
       expect(
-        policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+        policy.rememberedGroupRouteKind(
+          PixivDestinationPurpose.oauth,
+          'oauth.secure.pixiv.net',
+        ),
         NetworkRouteKind.ech,
       );
       expect(direct.requests, isEmpty);
@@ -603,7 +630,10 @@ void main() {
 
       policy.advanceNetworkRevision(networkIdentity: 'cellular');
       expect(
-        policy.rememberedGroupRouteKind(PixivDestinationPurpose.appApi),
+        policy.rememberedGroupRouteKind(
+          PixivDestinationPurpose.appApi,
+          'app-api.pixiv.net',
+        ),
         isNull,
       );
     },
@@ -631,7 +661,10 @@ void main() {
       NetworkRouteKind.insecureNoSni,
     );
     expect(
-      policy.rememberedGroupRouteKind(PixivDestinationPurpose.oauth),
+      policy.rememberedGroupRouteKind(
+        PixivDestinationPurpose.oauth,
+        'oauth.secure.pixiv.net',
+      ),
       isNull,
       reason: 'another host must still try its strict ladder first',
     );
@@ -1300,6 +1333,189 @@ void main() {
         expect(sent.url.path, '/pixiv/img-original/img/2_p0.jpg');
       },
     );
+
+    test('pximg route memory never leaks onto a mirror host', () async {
+      final resolver = _FakeResolver([InternetAddress('1.2.3.64')]);
+      final policy = NetworkAccessPolicy(
+        registry: PixivDestinationRegistry(extraImageHosts: {'i.pixiv.re'}),
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, _) => switch (route.kind) {
+          NetworkRouteKind.noSni => _FakeClient(body: 'ok'),
+          _ => _FakeClient(failure: SocketException('Connection refused')),
+        },
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+
+      await client.get(Uri.parse('https://i.pximg.net/a.jpg'));
+      expect(
+        policy.rememberedGroupRouteKind(
+          PixivDestinationPurpose.image,
+          'i.pximg.net',
+        ),
+        NetworkRouteKind.noSni,
+        reason: 'pximg remembers its own empty-SNI success',
+      );
+      expect(
+        policy.rememberedGroupRouteKind(
+          PixivDestinationPurpose.image,
+          'i.pixiv.re',
+        ),
+        isNull,
+        reason:
+            'the pximg preference must not seed the mirror group — an '
+            'inherited noSni produced certificate mismatches on mirrors',
+      );
+
+      // The mirror still tries its own noSni tier first (its fallback
+      // ordering), and that success seeds the *mirror* group instead.
+      await client.get(Uri.parse('https://i.pixiv.re/a.jpg'));
+      expect(policy.rememberedRouteKind('i.pixiv.re'), NetworkRouteKind.noSni);
+      expect(
+        policy.rememberedGroupRouteKind(
+          PixivDestinationPurpose.image,
+          'i.pixiv.re',
+        ),
+        NetworkRouteKind.noSni,
+      );
+    });
+
+    test(
+      'a mirror empty-SNI certificate mismatch falls through to real SNI',
+      () async {
+        final certError = rhttp.RhttpInvalidCertificateException(
+          request: rhttp.HttpRequest(
+            method: rhttp.HttpMethod.get,
+            url: 'https://i.pixiv.re/a.jpg',
+          ),
+          message: 'default vhost certificate does not match i.pixiv.re',
+        );
+        final attempts = <NetworkRouteKind>[];
+        final policy = NetworkAccessPolicy(
+          registry: PixivDestinationRegistry(extraImageHosts: {'i.pixiv.re'}),
+          resolver: _FakeResolver([InternetAddress('1.2.3.65')]),
+          clientFactory: (route, canonicalHost, _) {
+            attempts.add(route.kind);
+            return route.kind == NetworkRouteKind.noSni
+                ? _FakeClient(failure: certError)
+                : _FakeClient(body: 'ok');
+          },
+        );
+        addTearDown(policy.dispose);
+        final client = PixivPolicyHttpClient(
+          policy: policy,
+          purpose: PixivDestinationPurpose.image,
+        );
+
+        final response = await client.get(
+          Uri.parse('https://i.pixiv.re/a.jpg'),
+        );
+        expect(response.statusCode, 200);
+        expect(attempts, [
+          NetworkRouteKind.noSni,
+          NetworkRouteKind.dohRealSni,
+        ], reason: 'empty-SNI cert failure advances instead of aborting');
+        expect(
+          policy.rememberedRouteKind('i.pixiv.re'),
+          NetworkRouteKind.dohRealSni,
+        );
+      },
+    );
+
+    test('a real-SNI certificate mismatch stays terminal', () async {
+      final certError = rhttp.RhttpInvalidCertificateException(
+        request: rhttp.HttpRequest(
+          method: rhttp.HttpMethod.get,
+          url: 'https://i.pixiv.re/a.jpg',
+        ),
+        message: 'hostname mismatch',
+      );
+      final attempts = <NetworkRouteKind>[];
+      final policy = NetworkAccessPolicy(
+        registry: PixivDestinationRegistry(extraImageHosts: {'i.pixiv.re'}),
+        resolver: _FakeResolver([InternetAddress('1.2.3.66')]),
+        clientFactory: (route, canonicalHost, _) {
+          attempts.add(route.kind);
+          return route.kind == NetworkRouteKind.noSni
+              ? _FakeClient(failure: SocketException('Connection refused'))
+              : _FakeClient(failure: certError);
+        },
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+
+      await expectLater(
+        client.get(Uri.parse('https://i.pixiv.re/a.jpg')),
+        throwsA(same(certError)),
+      );
+      expect(attempts, [
+        NetworkRouteKind.noSni,
+        NetworkRouteKind.dohRealSni,
+      ], reason: 'a real-SNI mismatch never falls through to direct');
+    });
+  });
+
+  group('stream idle guard', () {
+    test('send() surfaces a headers timeout for image clients', () async {
+      final policy = NetworkAccessPolicy(
+        imageHeadersTimeout: const Duration(milliseconds: 50),
+        clientFactory: (_, _, _) => _NeverSendClient(),
+      );
+      addTearDown(policy.dispose);
+      final client = policy.clientFor(
+        PixivDestinationPurpose.image,
+        NetworkRoute.direct(policy.revision),
+        'i.pximg.net',
+      );
+
+      await expectLater(
+        client.get(Uri.parse('https://i.pximg.net/a.jpg')),
+        throwsA(isA<TimeoutException>()),
+      );
+    });
+
+    test('the response body errors after an idle gap', () async {
+      final policy = NetworkAccessPolicy(
+        imageIdleTimeout: const Duration(milliseconds: 50),
+        clientFactory: (_, _, _) => _StallClient(),
+      );
+      addTearDown(policy.dispose);
+      final client = policy.clientFor(
+        PixivDestinationPurpose.image,
+        NetworkRoute.direct(policy.revision),
+        'i.pximg.net',
+      );
+
+      final response = await client.send(
+        http.Request('GET', Uri.parse('https://i.pximg.net/a.jpg')),
+      );
+      await expectLater(
+        response.stream.toList(),
+        throwsA(isA<TimeoutException>()),
+      );
+    });
+
+    test('non-image clients are not wrapped', () async {
+      final inner = _NeverSendClient();
+      final policy = NetworkAccessPolicy(
+        imageHeadersTimeout: const Duration(milliseconds: 50),
+        clientFactory: (_, _, _) => inner,
+      );
+      addTearDown(policy.dispose);
+      final client = policy.clientFor(
+        PixivDestinationPurpose.appApi,
+        NetworkRoute.direct(policy.revision),
+        'app-api.pixiv.net',
+      );
+
+      expect(identical(client, inner), isTrue);
+    });
   });
 }
 

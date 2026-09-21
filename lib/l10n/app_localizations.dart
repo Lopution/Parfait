@@ -1254,6 +1254,12 @@ abstract class AppLocalizations {
   /// **'镜像连通性测试失败'**
   String get imageSourceTestFailed;
 
+  /// No description provided for @imageSourceUnreachableMainland.
+  ///
+  /// In zh, this message translates to:
+  /// **'大陆网络通常不可达'**
+  String get imageSourceUnreachableMainland;
+
   /// No description provided for @previewQuality.
   ///
   /// In zh, this message translates to:

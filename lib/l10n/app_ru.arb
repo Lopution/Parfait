@@ -275,6 +275,7 @@
     }
   },
   "imageSourceTestFailed": "Проверка зеркала не удалась",
+  "imageSourceUnreachableMainland": "Обычно недоступно из сетей материкового Китая",
   "previewQuality": "Качество предпросмотра",
   "viewQuality": "Качество просмотра",
   "detailQuality": "Качество картинки в детальной странице",
