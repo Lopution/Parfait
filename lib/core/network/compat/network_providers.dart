@@ -67,13 +67,20 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   /// Concurrent calls are deduped; a failed-winner re-race is throttled so
   /// a dead candidate cannot make every scrolling image re-trigger probes.
   var autoRaceInFlight = false;
+  String? autoRacePendingIdentity;
   DateTime? lastAutoRaceAt;
   void resolveAutoSource(String identity, {bool throttled = false}) {
     if (ref.read(settingsProvider).value?.imageSource !=
         ImageSourceMode.auto.host) {
       return;
     }
-    if (autoRaceInFlight) return;
+    if (autoRaceInFlight) {
+      // A race for an older network is still running. Dropping the new
+      // identity here meant its winner was never measured — queue one
+      // re-race for the latest identity instead.
+      autoRacePendingIdentity = identity;
+      return;
+    }
     final now = DateTime.now();
     if (throttled &&
         lastAutoRaceAt != null &&
@@ -85,15 +92,21 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     unawaited(() async {
       try {
         final persisted = await autoSource.winnerFor(identity);
-        if (persisted != null) {
+        // Identity can flip while the lookup/race is in flight — a winner
+        // measured (or remembered) on the old network is meaningless on the
+        // new one, so results apply only when the identity still matches.
+        if (persisted != null && identity == connectivityIdentity) {
           ref.read(autoImageSourceWinnerProvider.notifier).set(persisted);
         }
         final result = await AutoImageSource.race(policy);
-        if (result == null) return; // all candidates failed: keep current
+        if (result == null || identity != connectivityIdentity) return;
         ref.read(autoImageSourceWinnerProvider.notifier).set(result.host);
         unawaited(autoSource.remember(identity, result.host));
       } finally {
         autoRaceInFlight = false;
+        final pending = autoRacePendingIdentity;
+        autoRacePendingIdentity = null;
+        if (pending != null) resolveAutoSource(pending);
       }
     }());
   }
@@ -166,7 +179,11 @@ String _connectivityIdentity(List<ConnectivityResult> results) {
 final pixivNetworkFactoryProvider = Provider<PixivNetworkFactory>((ref) {
   final factory = PixivNetworkFactory(
     ref.watch(networkAccessPolicyProvider),
-    imageUrlRewriter: ref.watch(imageMirrorProvider).rewrite,
+    // Read the mirror lazily per request instead of watching it: the auto
+    // winner flips mid-session, and a watched rebuild would tear down the
+    // image cache plus every pooled client for a pure URL-rewrite rule
+    // change. The closure always resolves the current mirror.
+    imageUrlRewriter: (url) => ref.read(imageMirrorProvider).rewrite(url),
   );
   ref.onDispose(() => unawaited(factory.dispose()));
   return factory;

@@ -197,8 +197,11 @@ class PixivNetworkFactory {
   }
 
   Future<void> dispose() async {
+    // The policy is borrowed, not owned: networkAccessPolicyProvider
+    // disposes it. Disposing it here too killed the shared policy whenever
+    // this factory rebuilt on an image-mirror change (the auto-source
+    // winner flip), leaving every later request on a dead policy.
     await _imageCache.dispose();
-    await policy.dispose();
   }
 }
 
