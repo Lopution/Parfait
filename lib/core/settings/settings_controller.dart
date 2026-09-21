@@ -336,7 +336,7 @@ class _AutoImageSourceWinner extends Notifier<String?> {
 final imageMirrorAllowlistProvider = Provider<Set<String>>((ref) {
   final source = ref.watch(
     settingsProvider.select(
-      (async) => async.value?.imageSource ?? AppSettings.normalImageSource,
+      (async) => async.value?.imageSource ?? AppSettings.defaultImageSource,
     ),
   );
   return ImageMirror.of(source).extraHosts;
@@ -348,7 +348,7 @@ final imageMirrorAllowlistProvider = Provider<Set<String>>((ref) {
 final imageMirrorProvider = Provider<ImageMirror>((ref) {
   final source = ref.watch(
     settingsProvider.select(
-      (async) => async.value?.imageSource ?? AppSettings.normalImageSource,
+      (async) => async.value?.imageSource ?? AppSettings.defaultImageSource,
     ),
   );
   if (source == ImageSourceMode.auto.host) {

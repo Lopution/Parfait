@@ -151,7 +151,7 @@ void main() {
       expect(played, contains(3));
     });
 
-    testWidgets('a card exposed mid-fling animates only after the settle', (
+    testWidgets('a card exposed mid-fling appears static immediately', (
       tester,
     ) async {
       final played = <int>{};
@@ -176,8 +176,10 @@ void main() {
       final firstViewport = Set<int>.of(played);
       expect(firstViewport, isNotEmpty);
 
-      // Hard fling: several viewport heights of cards stream past. None of
-      // the mid-flight exposures may start their entrance.
+      // Hard fling: cards entering the viewport mid-flight must render
+      // static *right away* — staying at Opacity(0) for the rest of the
+      // fling was the transparent-card bug. `played` grows during the
+      // fling itself rather than at the settle edge.
       await tester.fling(
         find.byType(SingleChildScrollView),
         const Offset(0, -400),
@@ -185,12 +187,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 80));
       final midFling = Set<int>.of(played);
-      expect(midFling.difference(firstViewport), isEmpty);
-
-      // Once the fling settles, whatever card ended up visible plays its
-      // entrance — exposure semantics, not position bookkeeping.
-      await tester.pumpAndSettle();
-      expect(played.length, greaterThan(firstViewport.length));
+      expect(midFling.length, greaterThan(firstViewport.length));
     });
 
     testWidgets('reduced motion renders without animation', (tester) async {
@@ -375,6 +372,40 @@ void main() {
       await gesture.up();
       await tester.pump();
       expect(_animatedScale(tester).scale, 1.0);
+    });
+
+    testWidgets('a scroll takeover releases the pressed scale', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ListView(
+            children: [
+              const PressScale(
+                // Opaque + tall: stays hit-testable and mounted after the
+                // drag scrolls it partway up the viewport.
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: SizedBox(height: 100, child: Text('card content')),
+                ),
+              ),
+              for (var i = 0; i < 40; i++)
+                SizedBox(height: 60, child: Text('row $i')),
+            ],
+          ),
+        ),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PressScale)),
+      );
+      await tester.pump();
+      expect(_animatedScale(tester).scale, MotionTokens.pressScale);
+
+      // The drag becomes a scroll: the ListView's recognizer wins the
+      // arena, the tap recognizer is rejected, and onTapCancel releases
+      // the scale — a raw Listener would stay pressed for the whole drag.
+      await gesture.moveBy(const Offset(0, -80));
+      await tester.pump();
+      expect(_animatedScale(tester).scale, 1.0);
+      await gesture.up();
     });
 
     testWidgets('frozen tickers force the neutral scale', (tester) async {

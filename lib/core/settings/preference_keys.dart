@@ -40,4 +40,9 @@ abstract final class PreferenceKeys {
   /// Last auto-mode image-source winner per network identity
   /// (`AutoImageSource`).
   static const String autoImageSource = 'pixiv.network.auto_image_source.v1';
+
+  /// Whether the user unlocked the developer entries (about-page tap
+  /// gesture). Device-local by design — a UI affordance, not a synced
+  /// preference.
+  static const String developerOptions = 'pixivfunc.developer_options.v1';
 }

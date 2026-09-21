@@ -244,7 +244,7 @@ void main() {
     final settings = AppSettings.defaults();
     expect(settings.guideCompleted, isFalse);
     expect(settings.themeCode, AppSettings.systemTheme);
-    expect(settings.imageSource, AppSettings.normalImageSource);
+    expect(settings.imageSource, AppSettings.defaultImageSource);
     expect(settings.previewQuality, PreviewQuality.medium);
     expect(settings.viewQuality, ViewQuality.original);
     expect(settings.enableHistory, isTrue);
@@ -801,11 +801,15 @@ void main() {
     expect(find.text('浏览设置'), findsOneWidget);
     // Shaft-style hub: intent groups carry labeled section headers.
     expect(find.text('外观'), findsOneWidget);
-    expect(find.text('网络与浏览'), findsOneWidget);
-    expect(find.text('内容'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    expect(find.text('浏览'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('数据'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pump();
-    expect(find.text('下载'), findsOneWidget);
+    expect(find.text('我的内容', skipOffstage: false), findsOneWidget);
+    expect(find.text('网络与下载'), findsOneWidget);
     expect(find.text('数据'), findsOneWidget);
     expect(find.text('下载任务'), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);
@@ -856,7 +860,7 @@ void main() {
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
-  testWidgets('long-pressing an account card exports bounded transfer data', (
+  testWidgets('the export tile exports bounded transfer data after confirm', (
     tester,
   ) async {
     final repository = FakeAccountMetadataRepository(
@@ -901,7 +905,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.text('tester'));
+    await tester.tap(find.text('导出账号凭据'));
+    await tester.pumpAndSettle();
+    // The tile only opens the confirm dialog — nothing is exported yet.
+    expect(clipboard.writeCount, 0);
+    await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
     expect(clipboard.writeCount, 1);
@@ -958,7 +966,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.longPress(find.text('tester'));
+      await tester.tap(find.text('导出账号凭据'));
+      await tester.pumpAndSettle();
+      // Export is gated behind the warning dialog's confirm action.
+      await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
       // The copied-toast (4s) blocks the queued warning snackbar; advance
       // past it so the explicit security warning becomes visible.

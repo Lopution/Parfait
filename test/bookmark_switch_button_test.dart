@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,6 +34,10 @@ class _RecordingRepository implements BookmarkRepository {
     restrict: BookmarkRestrict.public,
     tags: [],
   );
+
+  /// When set, `fetchDetail` waits on it — a still-in-flight detail load.
+  Completer<BookmarkDetail>? detailGate;
+  Object? detailError;
   UserBookmarkTagPage tagPage = const UserBookmarkTagPage(
     tags: [],
     nextUrl: null,
@@ -75,7 +81,13 @@ class _RecordingRepository implements BookmarkRepository {
   Future<BookmarkDetail> fetchDetail(
     BookmarkKey key, {
     CancelToken? cancelToken,
-  }) async => detail;
+  }) async {
+    final gate = detailGate;
+    if (gate != null) await gate.future;
+    final error = detailError;
+    if (error != null) throw error;
+    return detail;
+  }
 
   @override
   Future<UserBookmarkTagPage> fetchUserTags(
@@ -236,6 +248,41 @@ void main() {
       expect(repository.adds.single.$3, ['procreate', 'らくがき']);
     },
   );
+
+  testWidgets('edit sheet cannot confirm before the detail prefills', (
+    tester,
+  ) async {
+    final (container, repository) = await _pump(tester);
+    const key = BookmarkKey(BookmarkEntityType.illust, 1);
+    repository.detailGate = Completer<BookmarkDetail>();
+    container
+        .read(bookmarkStoreProvider.notifier)
+        .observeRemote(key, bookmarked: true, snapshotRevision: 0);
+    await tester.pump();
+
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    // pumpAndSettle would time out — the prefill spinner animates forever
+    // while the detail gate is closed. Bounded pumps instead.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Detail still in flight: the spinner stands in for the tag editor
+    // and confirm is disabled — confirming here would overwrite a private
+    // bookmark with the default public+empty-tags values.
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    MaterialButton confirm() => tester.widget<MaterialButton>(
+      find.widgetWithText(MaterialButton, '确定'),
+    );
+    expect(confirm().onPressed, isNull);
+    await tester.tap(find.text('确定'));
+    await tester.pump();
+    expect(repository.adds, isEmpty);
+
+    // Once the detail lands, the sheet prefills and confirm unlocks.
+    repository.detailGate!.complete(repository.detail);
+    await tester.pumpAndSettle();
+    expect(confirm().onPressed, isNotNull);
+  });
 
   testWidgets('tag input and suggestion chips reach the add call', (
     tester,

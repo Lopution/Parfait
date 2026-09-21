@@ -62,7 +62,7 @@ class PriorityFileService extends FileService {
   static const prefetchMarker = 'x-pixiv-func-prefetch';
 
   static const foregroundSlots = 8;
-  static const backgroundSlots = 3;
+  static const backgroundSlots = 4;
 
   /// Upper bound on how long one transfer may hold a lane permit. It only
   /// fires when the body stream was abandoned — normal bodies release the

@@ -90,13 +90,19 @@ void main() {
           .toList();
       expect(iconWidgets, hasLength(5));
 
-      for (var i = 0; i < 4; i++) {
-        expect(iconWidgets[i].icon!.fontFamily, 'iconFont');
-        expect(iconWidgets[i].icon!.matchTextDirection, isTrue);
+      // Four destinations use the bundled beta56 iconFont — the prominent
+      // center circle included — while settings stays a Material icon.
+      final bundled = iconWidgets
+          .where((w) => w.icon!.fontFamily == 'iconFont')
+          .toList();
+      expect(bundled, hasLength(4));
+      for (final icon in bundled) {
+        expect(icon.icon!.matchTextDirection, isTrue);
       }
-      // The fifth tab is the settings destination; the profile moved to the
-      // settings page's account card, not a personal-content tab.
-      expect(identical(iconWidgets[4].icon, Icons.settings_outlined), isTrue);
+      expect(
+        iconWidgets.any((w) => identical(w.icon, Icons.settings_outlined)),
+        isTrue,
+      );
     },
   );
 

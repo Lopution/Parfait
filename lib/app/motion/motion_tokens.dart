@@ -43,6 +43,15 @@ abstract final class MotionTokens {
   /// Bottom-nav indicator sweep, matching the app bar's kTabScrollDuration.
   static const navIndicator = Duration(milliseconds: 300);
 
+  /// Bottom-nav scroll hide/show — Material `HideViewOnScrollBehavior`
+  /// timings and interpolators: slide-in (show) decelerates over 225ms
+  /// (linear-out-slow-in = cubic-bezier(0, 0, 0.2, 1)), slide-out (hide)
+  /// accelerates away over 175ms (fast-out-linear-in = (0.4, 0, 1, 1)).
+  static const navBarShow = Duration(milliseconds: 225);
+  static const navBarShowCurve = Cubic(0, 0, 0.2, 1);
+  static const navBarHide = Duration(milliseconds: 175);
+  static const navBarHideCurve = Cubic(0.4, 0, 1, 1);
+
   /// Landing-ink replay timing on the branch-swap bottom bar: how long the
   /// synthetic press holds before confirming, and the pressed-highlight fade.
   static const inkHold = Duration(milliseconds: 130);
