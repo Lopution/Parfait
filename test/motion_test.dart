@@ -374,6 +374,40 @@ void main() {
       expect(_animatedScale(tester).scale, 1.0);
     });
 
+    testWidgets('a scroll takeover releases the pressed scale', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ListView(
+            children: [
+              const PressScale(
+                // Opaque + tall: stays hit-testable and mounted after the
+                // drag scrolls it partway up the viewport.
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: SizedBox(height: 100, child: Text('card content')),
+                ),
+              ),
+              for (var i = 0; i < 40; i++)
+                SizedBox(height: 60, child: Text('row $i')),
+            ],
+          ),
+        ),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PressScale)),
+      );
+      await tester.pump();
+      expect(_animatedScale(tester).scale, MotionTokens.pressScale);
+
+      // The drag becomes a scroll: the ListView's recognizer wins the
+      // arena, the tap recognizer is rejected, and onTapCancel releases
+      // the scale — a raw Listener would stay pressed for the whole drag.
+      await gesture.moveBy(const Offset(0, -80));
+      await tester.pump();
+      expect(_animatedScale(tester).scale, 1.0);
+      await gesture.up();
+    });
+
     testWidgets('frozen tickers force the neutral scale', (tester) async {
       var tickers = true;
       Widget app() => TickerMode(
