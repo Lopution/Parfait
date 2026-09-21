@@ -14,9 +14,10 @@ import 'motion_tokens.dart';
 ///
 /// Two guards keep motion honest:
 /// - **fling gate** — a card that enters the viewport while the scrollable
-///   is ballistic stays static: a pop-in mid-fling reads as a layout bug,
-///   not motion. When the fling settles with the card still visible, the
-///   entrance plays then.
+///   is ballistic appears *static* immediately (marked done, no animation):
+///   holding it at Opacity(0) for the rest of the fling left visible blank
+///   holes in a fast-scrolled feed, and a pop-in on settle would animate
+///   under the reader's eye. The slow-drag path still plays the entrance.
 /// - **once semantics** — pass the owning feed's [played] id set and an
 ///   entity animates at most once per set lifetime. Identity is keyed by
 ///   [id], not position — a refresh that inserts at the head shifts every
@@ -145,25 +146,19 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
       _play();
       return;
     }
-    if (_scrollable == scrollable) {
-      // Re-entry (didChangeDependencies/didUpdateWidget for a moved slot):
-      // listeners are already attached — just re-check the gate.
-      if (_shouldPlayNow()) _play();
-      return;
+    if (_scrollable != scrollable) {
+      _detachScrollable();
+      _scrollable = scrollable;
+      _lastPixels = scrollable.position.pixels;
+      _lastSampleMicros = DateTime.now().microsecondsSinceEpoch;
+      // Below the fold (cacheExtent) or mid-fling: wait for exposure. The
+      // position listener catches every scroll frame; the scrolling
+      // notifier catches the settle edge where pixels stop changing.
+      scrollable.position.addListener(_onScroll);
+      scrollable.position.isScrollingNotifier.addListener(_onScroll);
     }
-    _detachScrollable();
-    _scrollable = scrollable;
-    _lastPixels = scrollable.position.pixels;
-    _lastSampleMicros = DateTime.now().microsecondsSinceEpoch;
-    if (_shouldPlayNow()) {
-      _play();
-      return;
-    }
-    // Below the fold (cacheExtent) or mid-fling: wait for exposure. The
-    // position listener catches every scroll frame; the scrolling notifier
-    // catches the settle edge where pixels stop changing.
-    scrollable.position.addListener(_onScroll);
-    scrollable.position.isScrollingNotifier.addListener(_onScroll);
+    // Attach first, gate second: on a hit _play/_markDone detaches again.
+    _gate();
   }
 
   void _onScroll() {
@@ -180,18 +175,24 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     }
     _lastPixels = position.pixels;
     _lastSampleMicros = now;
-    if (_shouldPlayNow()) _play();
+    _gate();
   }
 
-  bool _shouldPlayNow() {
-    if (!_isInViewport()) return false;
+  /// Decides a mounted card's reveal once it overlaps the viewport:
+  /// calm/idle scroll plays the entrance; a fast scroll marks it done
+  /// instantly so fling-exposed cards are never transparent gaps.
+  void _gate() {
+    if (_done || !mounted || !_isInViewport()) return;
     final position = _scrollable?.position;
-    if (position == null) return true;
-    // Scroll idle: visible and settled always plays, no velocity sample
-    // needed. While scrolling, only a measured sub-gate velocity plays —
-    // mid-fling exposure stays static.
-    if (!position.isScrollingNotifier.value) return true;
-    return _velocityPxPerSec < _flingGateVelocity;
+    final midFling =
+        position != null &&
+        position.isScrollingNotifier.value &&
+        _velocityPxPerSec >= _flingGateVelocity;
+    if (midFling) {
+      _markDone();
+      return;
+    }
+    _play();
   }
 
   bool _isInViewport() {
