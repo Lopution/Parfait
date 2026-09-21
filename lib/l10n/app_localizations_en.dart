@@ -116,6 +116,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get useLoginWithClipboard => 'Login with clipboard data';
 
   @override
+  String get accountTransferExportTitle => 'Export account credential';
+
+  @override
   String get accountTransferWarning =>
       'The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.';
 

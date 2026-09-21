@@ -288,6 +288,12 @@ abstract class AppLocalizations {
   /// **'使用剪贴板数据登录'**
   String get useLoginWithClipboard;
 
+  /// No description provided for @accountTransferExportTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出账号凭据'**
+  String get accountTransferExportTitle;
+
   /// No description provided for @accountTransferWarning.
   ///
   /// In zh, this message translates to:

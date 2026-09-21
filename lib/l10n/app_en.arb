@@ -66,6 +66,7 @@
   "getMoreHelp": "Get more help >>",
   "useLoginWithClipboardHint": "Or use\\nlong press on the avatar to copy account data",
   "useLoginWithClipboard": "Login with clipboard data",
+  "accountTransferExportTitle": "Export account credential",
   "accountTransferWarning": "The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.",
   "accountTransferSensitiveWarning": "This device cannot mark clipboard entries as sensitive (Android 13+ only): the credential will sit in the system clipboard in plaintext. Paste as soon as possible; it is cleared automatically after 5 minutes.",
   "accountTransferCopied": "Account-transfer data copied. Paste it on the target device soon.",

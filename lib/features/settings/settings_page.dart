@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/func_bottom_nav.dart';
@@ -94,17 +95,21 @@ class _SettingsList extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        AccountCard(
-          account: account,
-          onLongPress: account == null
-              ? null
-              : () => _copyAccount(context, ref),
-        ),
+        AccountCard(account: account),
         SettingsTile(
           icon: Icons.manage_accounts_outlined,
           title: context.l10n.accountSettings,
           onTap: () => openSettingsPage(context, '/settings/account'),
         ),
+        // Credential export is a visible entry, not a hidden gesture: the
+        // tile exists only for a signed-in account and the warning dialog
+        // still gates the actual copy.
+        if (account != null)
+          SettingsTile(
+            icon: Icons.send_to_mobile,
+            title: context.l10n.accountTransferExportTitle,
+            onTap: () => _confirmCopyAccount(context, ref),
+          ),
         SettingsSection(title: Text(context.l10n.settingsGroupAppearance)),
         SettingsTile(
           icon: Icons.palette_outlined,
@@ -198,6 +203,33 @@ class _SettingsList extends ConsumerWidget {
         const FuncNavBarSpacer(),
       ],
     );
+  }
+
+  /// Credential export is destructive-adjacent (plaintext tokens on the
+  /// system clipboard): the entry is a visible tile, and this dialog carries
+  /// the warning before any byte is copied.
+  Future<void> _confirmCopyAccount(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.accountTransferExportTitle),
+        content: Text(l10n.accountTransferWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      _copyAccount(context, ref);
+    }
   }
 
   void _copyAccount(BuildContext context, WidgetRef ref) {

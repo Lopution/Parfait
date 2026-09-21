@@ -115,6 +115,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get useLoginWithClipboard => '使用剪贴板数据登录';
 
   @override
+  String get accountTransferExportTitle => '导出账号凭据';
+
+  @override
   String get accountTransferWarning => '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。';
 
   @override

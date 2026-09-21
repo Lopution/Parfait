@@ -116,6 +116,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get useLoginWithClipboard => 'Войти с данными из буфера обмена';
 
   @override
+  String get accountTransferExportTitle => 'Экспорт учётных данных аккаунта';
+
+  @override
   String get accountTransferWarning =>
       'Буфер обмена хранится недолго и может быть прочитан другими приложениями; этот формат не обеспечивает шифрование или аутентификацию отправителя.';
 

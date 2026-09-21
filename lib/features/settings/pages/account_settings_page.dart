@@ -17,10 +17,9 @@ import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 
 class AccountCard extends StatelessWidget {
-  const AccountCard({super.key, required this.account, this.onLongPress});
+  const AccountCard({super.key, required this.account});
 
   final Account? account;
-  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +40,6 @@ class AccountCard extends StatelessWidget {
         ),
         trailing: value == null ? null : const Icon(Icons.chevron_right),
         onTap: value == null ? null : () => openMe(context),
-        onLongPress: onLongPress,
       ),
     );
   }
