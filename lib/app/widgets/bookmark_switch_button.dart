@@ -218,12 +218,19 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
         }
       });
     }
+    // Watched separately from the prefill listener so the failure branch is
+    // visible: an errored detail leaves _prefilled false forever, which used
+    // to pin the sheet to an endless spinner with a live confirm button.
+    final detailState = widget.initiallyBookmarked
+        ? ref.watch(bookmarkDetailProvider(widget.bookmarkKey))
+        : null;
 
     final suggestions = ref.watch(
       userBookmarkTagSuggestionsProvider((widget.bookmarkKey.type, _restrict)),
     );
 
     final awaitingPrefill = widget.initiallyBookmarked && !_prefilled;
+    final prefillFailed = awaitingPrefill && (detailState?.hasError ?? false);
 
     return Container(
       decoration: BoxDecoration(
@@ -292,16 +299,39 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                     ),
                     const SizedBox(height: 8),
                     if (awaitingPrefill)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                      if (prefillFailed)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  l10n.bookmarkTagsLoadFailed,
+                                  style: FuncSemanticTokens.of(
+                                    context,
+                                  ).caption.copyWith(color: colorScheme.error),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => ref.invalidate(
+                                  bookmarkDetailProvider(widget.bookmarkKey),
+                                ),
+                                child: Text(l10n.retry),
+                              ),
+                            ],
                           ),
-                        ),
-                      )
+                        )
+                      else
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
                     else ...[
                       if (_tags.isNotEmpty)
                         Wrap(
@@ -394,6 +424,25 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                         borderRadius: BorderRadius.circular(40),
                       ),
                       minWidth: double.infinity,
+                      // Disabled until the existing bookmark's detail has
+                      // prefilled: confirming earlier would overwrite a
+                      // private/tagged bookmark with the default
+                      // public+empty-tags values.
+                      onPressed: awaitingPrefill
+                          ? null
+                          : () {
+                              final pending = _tagInput.text.trim();
+                              Navigator.of(context).pop();
+                              ref
+                                  .read(bookmarkActionsProvider)
+                                  .addWithRestrict(
+                                    widget.bookmarkKey,
+                                    _restrict,
+                                    tags: pending.isEmpty
+                                        ? _tags
+                                        : [..._tags, pending],
+                                  );
+                            },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         child: Text(
@@ -405,19 +454,6 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                               ),
                         ),
                       ),
-                      onPressed: () {
-                        final pending = _tagInput.text.trim();
-                        Navigator.of(context).pop();
-                        ref
-                            .read(bookmarkActionsProvider)
-                            .addWithRestrict(
-                              widget.bookmarkKey,
-                              _restrict,
-                              tags: pending.isEmpty
-                                  ? _tags
-                                  : [..._tags, pending],
-                            );
-                      },
                     ),
                   ),
                 ],
