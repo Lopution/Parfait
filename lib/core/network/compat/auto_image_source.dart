@@ -62,8 +62,7 @@ class AutoImageSource {
       final host = switch (winners[networkIdentity]) {
         String() => winners[networkIdentity] as String,
         Map<String, dynamic>() =>
-          (winners[networkIdentity] as Map<String, dynamic>)['host']
-              as String?,
+          (winners[networkIdentity] as Map<String, dynamic>)['host'] as String?,
         _ => null,
       };
       if (host == null || !ImageMirror.autoCandidates.contains(host)) {
@@ -156,13 +155,41 @@ class AutoImageSource {
           )
           .timeout(probeTimeout);
       try {
+        // A non-200 answer (mirror offline, auth wall, captive portal) is
+        // not a reachable source — drain-and-rank treated it as one and a
+        // dead host could win whenever no candidate produced a measurement.
         if (response.statusCode != 200) {
           await response.stream.drain<void>();
-          return _ProbeSample(host, null);
+          return null;
         }
-        await for (final chunk in response.stream.timeout(probeTimeout)) {
-          bytes += chunk.length;
-          if (bytes >= probeBytes) break;
+        // One total deadline for the body, not a per-chunk one: a host
+        // dribbling a byte at a time previously kept every timeout promise
+        // while Future.wait held the race open. Cancelling the subscription
+        // on expiry closes the connection instead of leaking the read.
+        final remaining = probeTimeout - stopwatch.elapsed;
+        if (remaining <= Duration.zero) return null;
+        final done = Completer<void>();
+        late final StreamSubscription<List<int>> sub;
+        sub = response.stream.listen(
+          (chunk) {
+            bytes += chunk.length;
+            if (bytes >= probeBytes) {
+              unawaited(sub.cancel());
+              if (!done.isCompleted) done.complete();
+            }
+          },
+          onError: (Object e, _) {
+            if (!done.isCompleted) done.completeError(e);
+          },
+          onDone: () {
+            if (!done.isCompleted) done.complete();
+          },
+          cancelOnError: true,
+        );
+        try {
+          await done.future.timeout(remaining);
+        } finally {
+          await sub.cancel();
         }
       } finally {
         stopwatch.stop();
