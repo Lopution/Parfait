@@ -66,6 +66,7 @@
   "getMoreHelp": "获取更多帮助 >>",
   "useLoginWithClipboardHint": "或使用\\n长按头像复制账号数据",
   "useLoginWithClipboard": "使用剪贴板数据登录",
+  "accountTransferExportTitle": "导出账号凭据",
   "accountTransferWarning": "剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。",
   "accountTransferSensitiveWarning": "此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。",
   "accountTransferCopied": "账号迁移数据已复制，请尽快在目标设备粘贴。",

@@ -115,6 +115,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get useLoginWithClipboard => 'クリップボードに保存されたデータでログイン';
 
   @override
+  String get accountTransferExportTitle => 'アカウント認証情報をエクスポート';
+
+  @override
   String get accountTransferWarning =>
       'クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。';
 

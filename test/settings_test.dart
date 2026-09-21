@@ -860,7 +860,7 @@ void main() {
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
-  testWidgets('long-pressing an account card exports bounded transfer data', (
+  testWidgets('the export tile exports bounded transfer data after confirm', (
     tester,
   ) async {
     final repository = FakeAccountMetadataRepository(
@@ -905,7 +905,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.longPress(find.text('tester'));
+    await tester.tap(find.text('导出账号凭据'));
+    await tester.pumpAndSettle();
+    // The tile only opens the confirm dialog — nothing is exported yet.
+    expect(clipboard.writeCount, 0);
+    await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
     expect(clipboard.writeCount, 1);
@@ -962,7 +966,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.longPress(find.text('tester'));
+      await tester.tap(find.text('导出账号凭据'));
+      await tester.pumpAndSettle();
+      // Export is gated behind the warning dialog's confirm action.
+      await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
       // The copied-toast (4s) blocks the queued warning snackbar; advance
       // past it so the explicit security warning becomes visible.
