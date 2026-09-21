@@ -329,6 +329,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
         prefetchEntities: entities,
         itemIds: [for (final e in entities) e.id],
         itemCount: entities.length,
+        pagerLoadMore: onLoadMore,
         itemBuilder: (context, index) => IllustCard(
           entity: entities[index],
           heroScope: 'recommended:${type.name}',

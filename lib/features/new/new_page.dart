@@ -360,6 +360,8 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
           prefetchEntities: entities,
           itemIds: [for (final e in entities) e.id],
           itemCount: entities.length,
+          pagerLoadMore: () =>
+              ref.read(newFeedProvider(widget.feedKey).notifier).loadMore(),
           itemBuilder: (context, index) => IllustCard(
             entity: entities[index],
             heroScope:
