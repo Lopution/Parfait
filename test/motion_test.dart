@@ -151,7 +151,7 @@ void main() {
       expect(played, contains(3));
     });
 
-    testWidgets('a card exposed mid-fling animates only after the settle', (
+    testWidgets('a card exposed mid-fling appears static immediately', (
       tester,
     ) async {
       final played = <int>{};
@@ -176,8 +176,10 @@ void main() {
       final firstViewport = Set<int>.of(played);
       expect(firstViewport, isNotEmpty);
 
-      // Hard fling: several viewport heights of cards stream past. None of
-      // the mid-flight exposures may start their entrance.
+      // Hard fling: cards entering the viewport mid-flight must render
+      // static *right away* — staying at Opacity(0) for the rest of the
+      // fling was the transparent-card bug. `played` grows during the
+      // fling itself rather than at the settle edge.
       await tester.fling(
         find.byType(SingleChildScrollView),
         const Offset(0, -400),
@@ -185,12 +187,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 80));
       final midFling = Set<int>.of(played);
-      expect(midFling.difference(firstViewport), isEmpty);
-
-      // Once the fling settles, whatever card ended up visible plays its
-      // entrance — exposure semantics, not position bookkeeping.
-      await tester.pumpAndSettle();
-      expect(played.length, greaterThan(firstViewport.length));
+      expect(midFling.length, greaterThan(firstViewport.length));
     });
 
     testWidgets('reduced motion renders without animation', (tester) async {
