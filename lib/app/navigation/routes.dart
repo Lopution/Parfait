@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -682,12 +681,13 @@ List<RouteBase> _settingsSubRoutes(
         ),
       ],
     ),
-    if (!kReleaseMode)
-      GoRoute(
-        path: 'frame-probe',
-        pageBuilder: (context, state) =>
-            _page(context, state, observer, const FrameProbePage()),
-      ),
+    // The route ships in every build so the release unlock gesture
+    // (about page, 7 taps) can reach it — only the entry is hidden.
+    GoRoute(
+      path: 'frame-probe',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const FrameProbePage()),
+    ),
     GoRoute(
       path: 'browse',
       pageBuilder: (context, state) =>
