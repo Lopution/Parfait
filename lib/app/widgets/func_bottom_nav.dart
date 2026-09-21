@@ -3,10 +3,9 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../core/navigation/route_observer.dart';
 import '../../l10n/context.dart';
-import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
 import '../icons/app_icons.dart';
 import '../navigation/home_shell_metrics.dart';
@@ -27,16 +26,32 @@ class FuncBottomNav extends StatefulWidget {
     required this.selectedIndex,
     required this.onSelected,
     this.visible = true,
+    this.replayLandingInk = true,
+    this.indicatorAnimation,
   });
 
   final List<FuncBottomNavDestination> destinations;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
+  /// Continuous strip position for the indicator to track — the branch
+  /// pager's `tab.animation`. The shell-level bar passes it so the
+  /// underline slides with the finger through a drag exactly like the
+  /// TabBar's indicator follows `controller.animation` (Shaft's
+  /// BottomNavigationView tracks `onPageScrolled` the same way). Null
+  /// keeps the discrete elastic replay used by per-branch bars.
+  final Animation<double>? indicatorAnimation;
+
   /// False while this bar belongs to an IndexedStack branch that is not the
   /// current one — the branch swap rebuilds every branch's bar, but only the
   /// visible one may spend ink on the landing splash.
   final bool visible;
+
+  /// Whether a selection change replays the tapped item's landing ink. The
+  /// replay exists for per-branch bars, whose InkWell is discarded by the
+  /// branch swap; a shell-level bar survives the switch, so its real ink
+  /// is still playing and a replay would double-draw.
+  final bool replayLandingInk;
 
   static const double _height = 64;
   static const double _indicatorHeight = 3;
@@ -87,15 +102,18 @@ class _FuncBottomNavState extends State<FuncBottomNav>
       duration: MotionTokens.navIndicator,
       value: 1.0,
     );
-    if (_indicatorFrom != widget.selectedIndex) {
+    if (_indicatorFrom != widget.selectedIndex &&
+        widget.indicatorAnimation == null) {
       // This bar mounted because the user switched branches: play the
-      // elastic indicator + the landing half of the tap's ink.
+      // elastic indicator + the landing half of the tap's ink. A tracked
+      // indicator needs neither — it paints straight from the strip
+      // position.
       _indicatorController.value = 0;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (MotionTokens.enabled(context)) {
           _indicatorController.forward();
-          _spawnLandingInk();
+          if (widget.replayLandingInk) _spawnLandingInk();
         } else {
           _indicatorController.value = 1;
         }
@@ -118,11 +136,13 @@ class _FuncBottomNavState extends State<FuncBottomNav>
     }
     if (oldWidget.selectedIndex != widget.selectedIndex) {
       _indicatorFrom = oldWidget.selectedIndex;
-      if (MotionTokens.enabled(context)) {
+      if (widget.indicatorAnimation == null && MotionTokens.enabled(context)) {
         _indicatorController.forward(from: 0);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _spawnLandingInk();
-        });
+        if (widget.replayLandingInk) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _spawnLandingInk();
+          });
+        }
       } else {
         _indicatorController.value = 1;
       }
@@ -262,46 +282,82 @@ class _FuncBottomNavState extends State<FuncBottomNav>
               // no per-locale truncation or mixed sizes.
               final labelFontSize = 12 * _labelScale(context, itemWidth);
               return AnimatedBuilder(
-                animation: _indicatorController,
+                animation: widget.indicatorAnimation ?? _indicatorController,
                 builder: (context, _) {
-                  // The SDK TabController animates the tab value with
-                  // Curves.ease (animateTo's default); _IndicatorPainter
-                  // then feeds that eased progress into the
-                  // accelerate/decelerate sine pair. Ease the raw
-                  // controller value the same way — feeding it linearly
-                  // shifts the stretch timing off the TabBar's rhythm.
-                  final progress = Curves.ease.transform(
-                    _indicatorController.value,
-                  );
-                  final from = _indicatorRect(
-                    itemWidth,
-                    _indicatorFrom,
-                    _labelWidth(
-                      context,
+                  final tracking = widget.indicatorAnimation;
+                  late final double left;
+                  late final double right;
+                  late final int selected;
+                  if (tracking != null) {
+                    // Continuous strip position — the indicator is a pure
+                    // lerp of the two slots it sits between, the same
+                    // geometry TabBar paints from controller.animation.
+                    final pos = tracking.value.clamp(
+                      0.0,
+                      widget.destinations.length - 1.0,
+                    );
+                    final lower = pos.floor();
+                    final upper = math.min(
+                      pos.ceil(),
+                      widget.destinations.length - 1,
+                    );
+                    final frac = pos - lower;
+                    final from = _indicatorRect(
+                      itemWidth,
+                      lower,
+                      _labelWidth(context, lower, itemWidth, labelFontSize),
+                    );
+                    final to = _indicatorRect(
+                      itemWidth,
+                      upper,
+                      _labelWidth(context, upper, itemWidth, labelFontSize),
+                    );
+                    left = from.left + (to.left - from.left) * frac;
+                    right = from.right + (to.right - from.right) * frac;
+                    // onPageSelected parity: the active item flips at the
+                    // midpoint, matching the pager's warped tab.index.
+                    selected = pos.round();
+                  } else {
+                    // The SDK TabController animates the tab value with
+                    // Curves.ease (animateTo's default); _IndicatorPainter
+                    // then feeds that eased progress into the
+                    // accelerate/decelerate sine pair. Ease the raw
+                    // controller value the same way — feeding it linearly
+                    // shifts the stretch timing off the TabBar's rhythm.
+                    final progress = Curves.ease.transform(
+                      _indicatorController.value,
+                    );
+                    final from = _indicatorRect(
+                      itemWidth,
                       _indicatorFrom,
+                      _labelWidth(
+                        context,
+                        _indicatorFrom,
+                        itemWidth,
+                        labelFontSize,
+                      ),
+                    );
+                    final to = _indicatorRect(
                       itemWidth,
-                      labelFontSize,
-                    ),
-                  );
-                  final to = _indicatorRect(
-                    itemWidth,
-                    widget.selectedIndex,
-                    _labelWidth(
-                      context,
                       widget.selectedIndex,
-                      itemWidth,
-                      labelFontSize,
-                    ),
-                  );
-                  final movingRight = widget.selectedIndex > _indicatorFrom;
-                  final leftT = movingRight
-                      ? _accelerate(progress)
-                      : _decelerate(progress);
-                  final rightT = movingRight
-                      ? _decelerate(progress)
-                      : _accelerate(progress);
-                  final left = from.left + (to.left - from.left) * leftT;
-                  final right = from.right + (to.right - from.right) * rightT;
+                      _labelWidth(
+                        context,
+                        widget.selectedIndex,
+                        itemWidth,
+                        labelFontSize,
+                      ),
+                    );
+                    final movingRight = widget.selectedIndex > _indicatorFrom;
+                    final leftT = movingRight
+                        ? _accelerate(progress)
+                        : _decelerate(progress);
+                    final rightT = movingRight
+                        ? _decelerate(progress)
+                        : _accelerate(progress);
+                    left = from.left + (to.left - from.left) * leftT;
+                    right = from.right + (to.right - from.right) * rightT;
+                    selected = widget.selectedIndex;
+                  }
                   return Stack(
                     children: [
                       Row(
@@ -312,7 +368,7 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                                 key: _itemKeys[i],
                                 destination: widget.destinations[i],
                                 fontSize: labelFontSize,
-                                selected: i == widget.selectedIndex,
+                                selected: i == selected,
                                 onTap: () {
                                   // Record the pre-switch index at press
                                   // time: the destination bar mounts in
@@ -502,45 +558,95 @@ class _FuncBottomNavItem extends StatelessWidget {
   }
 }
 
-/// The bottom bar mounted inside each branch-root page's own Scaffold.
+/// The single bottom bar at the home-shell layer — Shaft's
+/// BottomNavigationView: a **sibling** of the branch ViewPager, floating
+/// over the strip instead of riding inside a page. It never translates
+/// with a branch slide; while the current branch's root route is covered
+/// by a pushed route (reported by [BranchRootScaffold] into
+/// [branchStackCoveredProvider]) it slides away — the same layering Shaft
+/// gets by pushing a whole Activity over the home ViewPager.
 ///
-/// Because it lives in the page — same layer as the page's AppBar — a route
-/// pushed inside the branch navigator covers it naturally, exactly like the
-/// top bar: no hide animation, no height juggling, and the pushed page is
-/// full-height from its first frame.
-///
-/// The visible instance also publishes its measured geometry to
-/// [homeShellMetricsProvider] so a Hero flight can clip the returning
-/// artwork against the real bar edge.
-class FuncBranchBottomNav extends ConsumerStatefulWidget {
-  const FuncBranchBottomNav({super.key, required this.branchIndex});
+/// It also publishes its measured geometry to [homeShellMetricsProvider]
+/// so a Hero flight can clip the returning artwork against the real bar
+/// edge.
+class FuncShellBottomNav extends ConsumerStatefulWidget {
+  const FuncShellBottomNav({
+    super.key,
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.scrollVisibility,
+    required this.indicatorAnimation,
+  });
 
-  /// The index of the branch this page belongs to — the bar publishes its
-  /// measured geometry only while it is the visible branch's bar.
-  final int branchIndex;
+  /// Current branch index — the pager's warped `tab.index`, so the
+  /// selected item flips exactly when a drag crosses the midpoint
+  /// (ViewPager `onPageSelected` parity).
+  final int selectedIndex;
+
+  /// Slot-tap callback — the owning [BranchSlidePager] decides between a
+  /// same-branch root reset and an animated slide.
+  final ValueChanged<int> onSelected;
+
+  /// 1 = fully shown, 0 = slid entirely below the screen edge. Owned by
+  /// [BranchSlideStack], which drives it from scroll deltas bubbling out
+  /// of the branch Navigators — the bar floats over the strip, so sliding
+  /// never reflows the page underneath.
+  final AnimationController scrollVisibility;
+
+  /// The strip's continuous position (the pager's `tab.animation`) — the
+  /// indicator tracks it, sliding with the finger like the TabBar's does.
+  final Animation<double> indicatorAnimation;
 
   @override
-  ConsumerState<FuncBranchBottomNav> createState() =>
-      _FuncBranchBottomNavState();
+  ConsumerState<FuncShellBottomNav> createState() => _FuncShellBottomNavState();
 }
 
-class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
-    with WidgetsBindingObserver {
+class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _measureScheduled = false;
   bool _published = false;
-  // Captured in build — ancestor lookups are illegal once the element is
-  // deactivated, which a post-frame callback can race.
-  bool _activeAtBuild = false;
   void Function(double?, double?)? _publishMetrics;
+  late final AnimationController _coveredVisibility;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.scrollVisibility.addListener(_scheduleMeasure);
+    _coveredVisibility = AnimationController(
+      vsync: this,
+      duration: MotionTokens.navBarShow,
+      reverseDuration: MotionTokens.navBarHide,
+      value: ref.read(branchStackCoveredProvider).contains(widget.selectedIndex)
+          ? 0
+          : 1,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant FuncShellBottomNav oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollVisibility != widget.scrollVisibility) {
+      oldWidget.scrollVisibility.removeListener(_scheduleMeasure);
+      widget.scrollVisibility.addListener(_scheduleMeasure);
+    }
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      // A hidden bar must return on a branch switch — Shaft's
+      // BottomBarAutoHide.reveal() on ViewPager's onPageSelected.
+      if (MotionTokens.enabled(context)) {
+        widget.scrollVisibility.forward();
+      } else {
+        widget.scrollVisibility.value = 1;
+      }
+      _scheduleMeasure();
+      _syncCovered(_isCovered);
+    }
   }
 
   @override
   void dispose() {
+    widget.scrollVisibility.removeListener(_scheduleMeasure);
+    _coveredVisibility.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -548,12 +654,27 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
   @override
   void didChangeMetrics() => _scheduleMeasure();
 
+  bool get _isCovered =>
+      ref.read(branchStackCoveredProvider).contains(widget.selectedIndex);
+
+  void _syncCovered(bool covered) {
+    if (MotionTokens.enabled(context)) {
+      if (covered) {
+        _coveredVisibility.reverse();
+      } else {
+        _coveredVisibility.forward();
+      }
+    } else {
+      _coveredVisibility.value = covered ? 0 : 1;
+    }
+  }
+
   void _scheduleMeasure() {
     if (_measureScheduled) return;
     _measureScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _measureScheduled = false;
-      if (!mounted || !_activeAtBuild) return;
+      if (!mounted) return;
       final box = context.findRenderObject() as RenderBox?;
       if (box == null || !box.attached || !box.hasSize) return;
       _published = true;
@@ -590,17 +711,18 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
 
   @override
   Widget build(BuildContext context) {
-    // Widget tests that pump a branch page without a shell still render —
-    // the bar just shows the current branch as selected without callbacks.
     _publishMetrics = ref.read(homeShellMetricsProvider.notifier).publish;
-    final shell = StatefulNavigationShell.maybeOf(context);
-    // maybeOf is a findAncestorStateOfType lookup — it does NOT subscribe
-    // to index changes, and lazily-mounted branch bars keep a stale
-    // selectedIndex forever (the elastic indicator only ever played on a
-    // branch's first visit). The route-information provider notifies on
-    // every goBranch/restore, which is what makes didUpdateWidget — and
-    // therefore the indicator animation — fire per switch.
-    final router = GoRouter.maybeOf(context);
+    // Covered state is a provider — watch the slice this bar cares about
+    // (is *my* branch covered) so a pushed route inside the branch
+    // Navigator rebuilds us and the controller slides away in step.
+    // `ref.watch` drives the rebuild declaratively — unlike `ref.listen`,
+    // a change that lands between builds can never be dropped.
+    final covered = ref.watch(
+      branchStackCoveredProvider.select(
+        (set) => set.contains(widget.selectedIndex),
+      ),
+    );
+    _syncCovered(covered);
     final labels = [
       context.l10n.homeRecommended,
       context.l10n.homeRanking,
@@ -608,29 +730,36 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
       context.l10n.searchTitle,
       context.l10n.settingsTitle,
     ];
-    Widget bar(int index, {bool visible = true}) => FuncBottomNav(
-      selectedIndex: index,
-      visible: visible,
-      onSelected: shell?.goBranch ?? (_) {},
-      destinations: [
-        for (var i = 0; i < labels.length; i++)
-          FuncBottomNavDestination(icon: _icons[i], label: labels[i]),
-      ],
-    );
-    if (router == null) {
-      return bar(shell?.currentIndex ?? widget.branchIndex);
-    }
-    return ValueListenableBuilder<RouteInformation>(
-      valueListenable: router.routeInformationProvider,
-      builder: (context, info, _) {
-        final active =
-            shell == null || shell.currentIndex == widget.branchIndex;
-        if (active != _activeAtBuild) {
-          _activeAtBuild = active;
-          if (active) _scheduleMeasure();
-        }
-        return bar(shell?.currentIndex ?? widget.branchIndex, visible: active);
-      },
+    // Shaft parity: the bar is an overlay that *slides* out of the screen —
+    // the strip uses a full-height layout so nothing reflows under the
+    // finger. Two stacked transitions: covered (pushed route) over scroll
+    // (auto-hide), either one wins the hide.
+    return SlideTransition(
+      position: CurvedAnimation(
+        parent: _coveredVisibility,
+        curve: MotionTokens.navBarShowCurve,
+        reverseCurve: MotionTokens.navBarHideCurve,
+      ).drive(Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)),
+      child: SlideTransition(
+        position: CurvedAnimation(
+          parent: widget.scrollVisibility,
+          curve: MotionTokens.navBarShowCurve,
+          reverseCurve: MotionTokens.navBarHideCurve,
+        ).drive(Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)),
+        child: FuncBottomNav(
+          selectedIndex: widget.selectedIndex,
+          onSelected: widget.onSelected,
+          // One persistent instance — the real tap ink survives the branch
+          // switch, so the landing replay would double-draw; the indicator
+          // tracks the strip position directly instead of replaying.
+          replayLandingInk: false,
+          indicatorAnimation: widget.indicatorAnimation,
+          destinations: [
+            for (var i = 0; i < labels.length; i++)
+              FuncBottomNavDestination(icon: _icons[i], label: labels[i]),
+          ],
+        ),
+      ),
     );
   }
 
@@ -643,11 +772,32 @@ class _FuncBranchBottomNavState extends ConsumerState<FuncBranchBottomNav>
   ];
 }
 
-/// Scaffold shell for a branch-root page: mounts [FuncBranchBottomNav] at
-/// this level so a route pushed inside the branch navigator covers the bar
-/// naturally — the same layering the page's own AppBar already uses — while
-/// the pushed page is full-height from its first frame.
-class BranchRootScaffold extends StatelessWidget {
+/// Trailing spacer for branch-root scrollables. The navigation bar floats
+/// over the body ([Scaffold.extendBody]), so lists pad their tail by the
+/// measured bar height — the same inset redistribution Shaft applies to its
+/// overlay bar. Reports zero on rail layouts, where no bar exists.
+class FuncNavBarSpacer extends ConsumerWidget {
+  const FuncNavBarSpacer({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final height = ref.watch(
+      homeShellMetricsProvider.select((m) => m.bottomNavHeight),
+    );
+    return SizedBox(height: height ?? 0);
+  }
+}
+
+/// Shell for a branch-root page: reports through RouteAware whether the
+/// branch's root route is covered by a route pushed inside the branch
+/// Navigator, so the shell-level [FuncShellBottomNav] slides away while it
+/// is — replacing the physical cover a page-local bar used to get for
+/// free.
+///
+/// `didPushNext`/`didPopNext` fire at push/pop start (RouteObserver
+/// notifies synchronously), so the bar animates in step with the route
+/// transition rather than after it.
+class BranchRootScaffold extends ConsumerStatefulWidget {
   const BranchRootScaffold({
     super.key,
     required this.branchIndex,
@@ -658,15 +808,69 @@ class BranchRootScaffold extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    final rail = AppBreakpoints.useNavigationRail(
-      MediaQuery.sizeOf(context).width,
-    );
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: rail
-          ? null
-          : FuncBranchBottomNav(branchIndex: branchIndex),
-    );
+  ConsumerState<BranchRootScaffold> createState() => _BranchRootScaffoldState();
+}
+
+class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
+    with RouteAware {
+  RouteObserver<ModalRoute<dynamic>>? _observer;
+  ModalRoute<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final observer = RouteObserverScope.maybeOf(context);
+    final route = ModalRoute.of(context);
+    if (identical(observer, _observer) && identical(route, _route)) return;
+    _unsubscribe();
+    _observer = observer;
+    _route = route;
+    if (observer != null && route != null) {
+      observer.subscribe(this, route);
+    }
   }
+
+  void _unsubscribe() {
+    final observer = _observer;
+    final route = _route;
+    if (observer != null && route != null) observer.unsubscribe(this);
+  }
+
+  @override
+  void didPushNext() => _recheckCovered();
+
+  @override
+  void didPopNext() => _recheckCovered();
+
+  /// Navigator._updatePages replays synthetic push observations when a
+  /// branch rebuild hands the Navigator new pages — didPushNext/didPopNext
+  /// fire with no real stack change behind them. Verify a frame later,
+  /// once the stack has settled: covered simply means the root route is
+  /// no longer the branch Navigator's current route.
+  void _recheckCovered() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _setCovered(!(_route?.isCurrent ?? true));
+    });
+  }
+
+  void _setCovered(bool covered) {
+    try {
+      ref
+          .read(branchStackCoveredProvider.notifier)
+          .setCovered(widget.branchIndex, covered);
+    } on Object {
+      // The provider container can already be gone (test teardown).
+    }
+  }
+
+  @override
+  void dispose() {
+    _setCovered(false);
+    _unsubscribe();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

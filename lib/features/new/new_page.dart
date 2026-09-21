@@ -13,6 +13,8 @@ import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
@@ -81,8 +83,12 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final activeKey = _activeKey;
     return Scaffold(
+      // Root pages own no inline composer: leaving the default `true`
+      // would subscribe this whole subtree to per-frame viewInsets churn
+      // every time the IME animates (e.g. the push that hides the search
+      // keyboard) — a relayout storm across all five live branches.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         titleSpacing: 0,
         title: TabBar(
@@ -112,28 +118,53 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
         // content group — the three home feeds keep identical chrome:
         // AppBar + embedded TabBar, no stray action icons.
       ),
-      body: Column(
-        children: [
-          AnimatedSize(
-            duration: MotionTokens.fast,
-            alignment: Alignment.topCenter,
-            child: _selectorExpanded
-                ? _NewTypeSelector(type: _type, onChanged: _selectType)
-                : const SizedBox.shrink(),
-          ),
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                for (final key in _loadedKeys)
-                  Offstage(
-                    offstage: key != activeKey,
-                    child: _NewFeedBody(key: ValueKey(key), feedKey: key),
-                  ),
-              ],
+      body: RootSwipeSwitcher(
+        tabController: _tabController,
+        // A neighbor the finger is about to uncover has to exist before
+        // the slide starts — same offscreen-page warmup ViewPager does.
+        onPrepareAdjacent: (index) => setState(() {
+          for (final i in [index - 1, index + 1]) {
+            if (i >= 0 && i < _scopes.length) {
+              _loadedKeys.add(NewFeedKey(scope: _scopes[i], type: _type));
+            }
+          }
+        }),
+        child: Column(
+          children: [
+            AnimatedSize(
+              duration: MotionTokens.fast,
+              alignment: Alignment.topCenter,
+              child: _selectorExpanded
+                  ? _NewTypeSelector(type: _type, onChanged: _selectType)
+                  : const SizedBox.shrink(),
             ),
-          ),
-        ],
+            Expanded(
+              child: TabSlideStack(
+                controller: _tabController,
+                children: [
+                  for (final scope in _scopes)
+                    // Each scope slot keeps its own loaded type bodies —
+                    // same per-key state preservation as the old flat
+                    // Offstage stack, now arranged along the strip axis.
+                    Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        for (final key in _loadedKeys)
+                          if (key.scope == scope)
+                            Offstage(
+                              offstage: key.type != _type,
+                              child: _NewFeedBody(
+                                key: ValueKey(key),
+                                feedKey: key,
+                              ),
+                            ),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -316,6 +347,7 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
           retryLabel: context.l10n.newRetry,
         ),
       ),
+      const SliverToBoxAdapter(child: FuncNavBarSpacer()),
     ];
     if (widget.feedKey.type == NewFeedType.illust) {
       final store = ref.watch(illustStoreProvider);
@@ -328,6 +360,8 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
           prefetchEntities: entities,
           itemIds: [for (final e in entities) e.id],
           itemCount: entities.length,
+          pagerLoadMore: () =>
+              ref.read(newFeedProvider(widget.feedKey).notifier).loadMore(),
           itemBuilder: (context, index) => IllustCard(
             entity: entities[index],
             heroScope:

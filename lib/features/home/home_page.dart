@@ -8,7 +8,6 @@ import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/home_shell_metrics.dart';
-import '../../app/widgets/func_bottom_nav.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../l10n/context.dart';
@@ -70,8 +69,8 @@ class _HomePageState extends State<HomePage>
 
   /// Wide layouts use a NavigationRail and have no bottom bar — report an
   /// empty measurement so Hero flights clip against the viewport edge
-  /// instead of a phantom bar. In narrow layouts the per-branch
-  /// [FuncBranchBottomNav] publishes its own measured geometry.
+  /// instead of a phantom bar. In narrow layouts the shell-level
+  /// [FuncShellBottomNav] publishes its own measured geometry.
   void _scheduleChromeClear() {
     if (_chromeClearScheduled) return;
     _chromeClearScheduled = true;
@@ -159,8 +158,8 @@ class _HomePageState extends State<HomePage>
       context.l10n.searchTitle,
       context.l10n.settingsTitle,
     ];
-    // Narrow layout: each branch-root page owns its bottom bar, which a
-    // pushed route simply covers — no shell-level hide machinery here.
+    // Narrow layout: the shell-level bar floats over the branch strip —
+    // a pushed route slides it away via the covered provider.
     // Wide layout: no bar at all; clear the metric so Hero flights do not
     // clip against a phantom edge.
     if (wide) _scheduleChromeClear();
@@ -168,6 +167,11 @@ class _HomePageState extends State<HomePage>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
       child: Scaffold(
+        // Keyboard overlay, not resize: this Scaffold's body is the branch
+        // navigator — resizing it compresses every pushed route regardless
+        // of the leaf page's own resizeToAvoidBottomInset (the search
+        // input page's `false` was previously defeated here).
+        resizeToAvoidBottomInset: false,
         body: wide
             ? Row(
                 children: [
