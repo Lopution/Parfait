@@ -58,6 +58,11 @@ class SearchResultPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(searchFeedProvider(query));
     return Scaffold(
+      // No inline composer: a `true` here would subscribe this page (and
+      // every live branch page) to per-frame viewInsets churn while the
+      // IME hides during the push transition — the constant-low-FPS
+      // search-suggestion push came from that relayout storm.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Text(
           query.keyword.trim(),

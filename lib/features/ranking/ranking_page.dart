@@ -12,6 +12,7 @@ import '../../core/network/api_error.dart';
 
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/ranking_feed_controller.dart';
@@ -40,6 +41,7 @@ class _RankingPageState extends State<RankingPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final _scrollControllers = <RankingMode, ScrollController>{};
+  final _loadedModes = <int>{};
   int _selectedIndex = 0;
 
   @override
@@ -51,6 +53,7 @@ class _RankingPageState extends State<RankingPage>
       initialIndex: RankingMode.values.indexOf(widget.initialMode),
     )..addListener(_handleTabChanged);
     _selectedIndex = _tabController.index;
+    _loadedModes.add(_selectedIndex);
   }
 
   @override
@@ -67,7 +70,10 @@ class _RankingPageState extends State<RankingPage>
   void _handleTabChanged() {
     if (_selectedIndex == _tabController.index) return;
     final mode = RankingMode.values[_tabController.index];
-    setState(() => _selectedIndex = _tabController.index);
+    setState(() {
+      _selectedIndex = _tabController.index;
+      _loadedModes.add(_selectedIndex);
+    });
     widget.onModeChanged?.call(mode);
   }
 
@@ -80,8 +86,12 @@ class _RankingPageState extends State<RankingPage>
     final language = ReplicaLanguage.fromTag(
       Localizations.localeOf(context).toLanguageTag(),
     );
-    final mode = RankingMode.values[_selectedIndex];
     return Scaffold(
+      // Root pages own no inline composer: leaving the default `true`
+      // would subscribe this whole subtree to per-frame viewInsets churn
+      // every time the IME animates (e.g. the push that hides the search
+      // keyboard) — a relayout storm across all five live branches.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         titleSpacing: 0,
         actions: [
@@ -104,10 +114,30 @@ class _RankingPageState extends State<RankingPage>
           ],
         ),
       ),
-      body: _RankingModeBody(
-        key: ValueKey(mode),
-        mode: mode,
-        scrollController: _scrollControllerFor(mode),
+      body: RootSwipeSwitcher(
+        tabController: _tabController,
+        // Warm the neighbor slots before a drag uncovers them — the strip
+        // slide shows real feeds instead of blank placeholders.
+        onPrepareAdjacent: (index) => setState(() {
+          _loadedModes
+            ..add((index - 1).clamp(0, RankingMode.values.length - 1))
+            ..add((index + 1).clamp(0, RankingMode.values.length - 1));
+        }),
+        child: TabSlideStack(
+          controller: _tabController,
+          children: [
+            for (var i = 0; i < RankingMode.values.length; i++)
+              if (_loadedModes.contains(i))
+                _RankingModeBody(
+                  key: ValueKey(RankingMode.values[i]),
+                  mode: RankingMode.values[i],
+                  scrollController:
+                      _scrollControllerFor(RankingMode.values[i]),
+                )
+              else
+                const SizedBox.shrink(),
+          ],
+        ),
       ),
     );
   }

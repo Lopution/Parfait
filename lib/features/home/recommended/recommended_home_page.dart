@@ -16,6 +16,7 @@ import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
+import '../../../app/widgets/root_swipe_switcher.dart';
 import '../../../app/widgets/author_summary.dart';
 import '../../../app/widgets/novel_row.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -85,6 +86,11 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
     // bar, which visually diverged from every other tab (no AppBar height,
     // no surface elevation) — the three tabs looked like three apps.
     return Scaffold(
+      // Root pages own no inline composer: leaving the default `true`
+      // would subscribe this whole subtree to per-frame viewInsets churn
+      // every time the IME animates (e.g. the push that hides the search
+      // keyboard) — a relayout storm across all five live branches.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         titleSpacing: 0,
         title: _RecommendedTypeSelector(
@@ -93,19 +99,29 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           controller: _tabController,
         ),
       ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          for (final type in _loaded)
-            Offstage(
-              offstage: type != _type,
-              child: _RecommendedFeedView(
-                key: ValueKey(type),
-                type: type,
-                entrancePlayed: _entrancePlayed.putIfAbsent(type, () => {}),
-              ),
-            ),
-        ],
+      body: RootSwipeSwitcher(
+        tabController: _tabController,
+        // A neighbor the finger is about to uncover has to exist before
+        // the slide starts — same offscreen-page warmup ViewPager does.
+        onPrepareAdjacent: (index) => setState(() {
+          _loaded
+            ..add(_types[(index - 1).clamp(0, _types.length - 1)])
+            ..add(_types[(index + 1).clamp(0, _types.length - 1)]);
+        }),
+        child: TabSlideStack(
+          controller: _tabController,
+          children: [
+            for (final type in _types)
+              if (_loaded.contains(type))
+                _RecommendedFeedView(
+                  key: ValueKey(type),
+                  type: type,
+                  entrancePlayed: _entrancePlayed.putIfAbsent(type, () => {}),
+                )
+              else
+                const SizedBox.shrink(),
+          ],
+        ),
       ),
     );
   }
