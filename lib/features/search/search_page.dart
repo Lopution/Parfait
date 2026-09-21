@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
@@ -25,131 +27,143 @@ class SearchHomePage extends ConsumerWidget {
     final trendingType = ref.watch(trendingKindProvider);
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
+      // Root pages own no inline composer: leaving the default `true`
+      // would subscribe this whole subtree to per-frame viewInsets churn
+      // every time the IME animates (e.g. the push that hides the search
+      // keyboard) — a relayout storm across all five live branches.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(context.l10n.searchTitle)),
-      body: SmoothWheelScroll(
-        builder: (context, controller, physics) => CustomScrollView(
-          key: const PageStorageKey('search-home'),
-          restorationId: 'search-home',
-          controller: controller,
-          physics: physics,
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
-              sliver: SliverToBoxAdapter(
-                child: _SearchGuideBox(onTap: () => openSearchInput(context)),
+      body: RootSwipeSwitcher(
+        child: SmoothWheelScroll(
+          builder: (context, controller, physics) => CustomScrollView(
+            key: const PageStorageKey('search-home'),
+            restorationId: 'search-home',
+            controller: controller,
+            physics: physics,
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+                sliver: SliverToBoxAdapter(
+                  child: _SearchGuideBox(onTap: () => openSearchInput(context)),
+                ),
               ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverToBoxAdapter(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverToBoxAdapter(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                      ),
+                      onPressed: () => openReverseImageSearch(context),
+                      icon: const Icon(Icons.image_search_outlined),
+                      label: Text(context.l10n.searchReverseImage),
                     ),
-                    onPressed: () => openReverseImageSearch(context),
-                    icon: const Icon(Icons.image_search_outlined),
-                    label: Text(context.l10n.searchReverseImage),
                   ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              sliver: SliverToBoxAdapter(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => openSpotlight(context),
-                    icon: const Icon(Icons.newspaper_outlined),
-                    label: Text(context.l10n.spotlightTitle),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                sliver: SliverToBoxAdapter(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => openSpotlight(context),
+                      icon: const Icon(Icons.newspaper_outlined),
+                      label: Text(context.l10n.spotlightTitle),
+                    ),
                   ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
-              sliver: SliverToBoxAdapter(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        context.l10n.searchTrending,
-                        style: Theme.of(context).textTheme.titleLarge,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          context.l10n.searchTrending,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      SegmentedButton<SearchResultType>(
+                        segments: [
+                          for (final type in const [
+                            SearchResultType.illust,
+                            SearchResultType.novel,
+                          ])
+                            ButtonSegment(
+                              value: type,
+                              label: Text(searchText(context, type.labelKey)),
+                            ),
+                        ],
+                        selected: {trendingType},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (selected) => ref
+                            .read(trendingKindProvider.notifier)
+                            .select(selected.first),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              trending.when(
+                loading: () => const SliverToBoxAdapter(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(28),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                ),
+                error: (error, _) => SliverToBoxAdapter(
+                  child: FeedError(
+                    title: context.l10n.searchTrendingFailed,
+                    error: error,
+                    retryLabel: context.l10n.searchRetry,
+                    onRetry: () => ref.invalidate(trendingTagsProvider),
+                    scrollable: false,
+                  ),
+                ),
+                data: (tags) {
+                  if (tags.isEmpty) {
+                    return SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Center(
+                          child: Text(context.l10n.searchNoTrending),
+                        ),
+                      ),
+                    );
+                  }
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                    sliver: SliverGrid.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                          ),
+                      // Trim to full rows: a dangling partial row looks like a
+                      // layout bug, and the grid only ever shows a teaser of the
+                      // server's trending list anyway. Lists shorter than one
+                      // full row keep everything — an empty section is worse.
+                      itemCount: tags.length >= 3
+                          ? tags.length - (tags.length % 3)
+                          : tags.length,
+                      itemBuilder: (context, index) => _TrendingTagTile(
+                        tag: tags[index],
+                        type: trendingType,
                       ),
                     ),
-                    SegmentedButton<SearchResultType>(
-                      segments: [
-                        for (final type in const [
-                          SearchResultType.illust,
-                          SearchResultType.novel,
-                        ])
-                          ButtonSegment(
-                            value: type,
-                            label: Text(searchText(context, type.labelKey)),
-                          ),
-                      ],
-                      selected: {trendingType},
-                      showSelectedIcon: false,
-                      onSelectionChanged: (selected) => ref
-                          .read(trendingKindProvider.notifier)
-                          .select(selected.first),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            trending.when(
-              loading: () => const SliverToBoxAdapter(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(28),
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              ),
-              error: (error, _) => SliverToBoxAdapter(
-                child: FeedError(
-                  title: context.l10n.searchTrendingFailed,
-                  error: error,
-                  retryLabel: context.l10n.searchRetry,
-                  onRetry: () => ref.invalidate(trendingTagsProvider),
-                  scrollable: false,
-                ),
-              ),
-              data: (tags) {
-                if (tags.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(28),
-                      child: Center(child: Text(context.l10n.searchNoTrending)),
-                    ),
                   );
-                }
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
-                  sliver: SliverGrid.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                    // Trim to full rows: a dangling partial row looks like a
-                    // layout bug, and the grid only ever shows a teaser of the
-                    // server's trending list anyway. Lists shorter than one
-                    // full row keep everything — an empty section is worse.
-                    itemCount: tags.length >= 3
-                        ? tags.length - (tags.length % 3)
-                        : tags.length,
-                    itemBuilder: (context, index) =>
-                        _TrendingTagTile(tag: tags[index], type: trendingType),
-                  ),
-                );
-              },
-            ),
-          ],
+                },
+              ),
+              const SliverToBoxAdapter(child: FuncNavBarSpacer()),
+            ],
+          ),
         ),
       ),
     );

@@ -42,3 +42,30 @@ class _HomeShellMetricsNotifier extends Notifier<HomeShellMetrics> {
     );
   }
 }
+
+/// Branches whose root route is currently covered by a pushed route inside
+/// the branch Navigator. The shell-level bottom bar subscribes to this and
+/// slides away while the current branch is covered — the same layering
+/// Shaft gets by pushing a whole Activity over the home ViewPager.
+///
+/// Reported by [BranchRootScaffold], which subscribes to its branch's
+/// RouteObserver: `didPushNext`/`didPopNext` fire at push/pop start, so the
+/// bar animates in step with the route transition rather than after it.
+final branchStackCoveredProvider =
+    NotifierProvider<_BranchStackCoveredNotifier, Set<int>>(
+      _BranchStackCoveredNotifier.new,
+    );
+
+class _BranchStackCoveredNotifier extends Notifier<Set<int>> {
+  @override
+  Set<int> build() => const {};
+
+  void setCovered(int branchIndex, bool covered) {
+    if (state.contains(branchIndex) == covered) return;
+    state = {
+      for (final b in state)
+        if (b != branchIndex) b,
+      if (covered) branchIndex,
+    };
+  }
+}

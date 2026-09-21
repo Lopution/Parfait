@@ -116,6 +116,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get useLoginWithClipboard => 'Войти с данными из буфера обмена';
 
   @override
+  String get accountTransferExportTitle => 'Экспорт учётных данных аккаунта';
+
+  @override
   String get accountTransferWarning =>
       'Буфер обмена хранится недолго и может быть прочитан другими приложениями; этот формат не обеспечивает шифрование или аутентификацию отправителя.';
 
@@ -220,13 +223,24 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsGroupAppearance => 'Внешний вид';
 
   @override
-  String get settingsGroupNetwork => 'Сеть и просмотр';
+  String get settingsGroupNetwork => 'Сеть и загрузки';
 
   @override
-  String get settingsGroupContent => 'Контент';
+  String get settingsGroupBrowse => 'Просмотр';
 
   @override
-  String get settingsGroupDownload => 'Загрузки';
+  String get settingsGroupLibrary => 'Моё';
+
+  @override
+  String get settingsGroupDeveloper => 'Разработчику';
+
+  @override
+  String get developerOptionsUnlocked => 'Режим разработчика включён';
+
+  @override
+  String developerOptionsCountdown(int count) {
+    return 'Ещё $count нажатий до режима разработчика';
+  }
 
   @override
   String get settingsGroupData => 'Данные';
@@ -242,7 +256,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkModeHint =>
-      'По умолчанию прямое соединение; только официальные домены Pixiv могут повторяться через строгий HTTPS-уровень после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификатов не отключается.';
+      'Если Pixiv не открывается — автоматически пробует совместимые каналы. Действует только на официальные домены Pixiv, другой трафик не проксируется.';
 
   @override
   String get networkModeListTitle => 'Режим сети';
@@ -252,21 +266,57 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkModeAutomaticHint =>
-      'Стандартный стек: выбор достижимого маршрута для каждой группы хостов.';
+      'Автоматически выбирает рабочее подключение.';
 
   @override
   String get networkModeDirectOnly => 'Только прямое';
 
   @override
   String get networkModeDirectOnlyHint =>
-      'Системный DNS + реальный SNI. Для сетей с прямым доступом.';
+      'Только прямое системное подключение; если прямой доступ работает.';
+
+  @override
+  String get networkModeCompatPrefer => 'Сначала совместимые маршруты';
+
+  @override
+  String get networkModeCompatPreferHint =>
+      'Сначала совместимые каналы, прямое — как запасной вариант; если прямой доступ заблокирован.';
+
+  @override
+  String get networkEffectiveRoutes => 'Текущие маршруты';
+
+  @override
+  String get networkEffectiveRoutesEmpty =>
+      'Маршрутов пока нет — поработайте в приложении и обновите.';
+
+  @override
+  String get networkRouteKindDirect => 'Напрямую';
+
+  @override
+  String get networkRouteKindCompat => 'Совместимый канал';
+
+  @override
+  String get networkThirdParty => 'Доступность сторонних сервисов';
+
+  @override
+  String get networkThirdPartyHint =>
+      'Обычное системное подключение — ваш VPN/прокси применяется.';
+
+  @override
+  String get networkReachable => 'Доступно';
+
+  @override
+  String get networkUnreachable => 'Недоступно';
+
+  @override
+  String get networkChecking => 'Проверка…';
 
   @override
   String get networkAdvanced => 'Дополнительно';
 
   @override
   String get networkAdvancedHint =>
-      'DoH-эндпоинты, ECH front host и прочие детали.';
+      'Низкоуровневые параметры для опытных пользователей.';
 
   @override
   String get networkAdvancedReset => 'Сбросить настройки';
@@ -299,7 +349,20 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkProbeHint =>
-      'Проверяет 4 официальных хоста Pixiv послойно: системный DNS → DoH → TCP → TLS(реальный SNI) → минимальный запрос. TCP ок, но TLS-рукопожатие падает = SNI заблокирован.';
+      'Поэтапная проверка связи с Pixiv для поиска причины сбоя.';
+
+  @override
+  String get frameProbeTitle => 'Зонд кадров';
+
+  @override
+  String get frameProbeHint =>
+      'Записывает тайминги кадров во время прокрутки. Прокрутите с резкими свайпами, остановите и скопируйте отчёт. Только debug/profile-сборки.';
+
+  @override
+  String get frameProbeStart => 'Начать запись';
+
+  @override
+  String get frameProbeStop => 'Стоп';
 
   @override
   String get networkProbeRun => 'Запустить зонд';
@@ -611,7 +674,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get imageSource => 'Источник изображений';
 
   @override
-  String get imageSourceNormal => 'Официальный CDN (системный DNS / HTTPS)';
+  String get imageSourceNormal => 'Официальный (по умолчанию)';
 
   @override
   String get imageSourcePixivCat => 'зеркало pixiv.cat';
@@ -650,6 +713,17 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get imageSourceUnreachableMainland =>
       'Обычно недоступно из сетей материкового Китая';
+
+  @override
+  String get imageSourceAuto => 'Авто (выбор зеркала для этой сети)';
+
+  @override
+  String imageSourceAutoWinner(String host) {
+    return 'Текущее: $host';
+  }
+
+  @override
+  String get imageSourceAutoPending => 'Ещё не измерено — прямая загрузка';
 
   @override
   String get previewQuality => 'Качество предпросмотра';
@@ -1147,6 +1221,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get retry => 'Повторить';
+
+  @override
+  String get refresh => 'Обновить';
 
   @override
   String get relatedWorks => 'Похожие работы';

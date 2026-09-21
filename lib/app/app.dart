@@ -69,17 +69,26 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
   Future<void> _runAutoUpdateCheck() async {
     if (!mounted) return;
     final result = await ref.read(updateAutoCheckProvider).checkOnce();
+    // This State's own context sits above MaterialApp — no Localizations —
+    // so `context.l10n` throws here. The messenger's context lives inside
+    // MaterialApp and resolves l10n correctly.
+    final messenger = _messengerKey.currentState;
+    final messengerContext = _messengerKey.currentContext;
     if (!mounted ||
         result == null ||
-        result.status != UpdateCheckStatus.available) {
+        result.status != UpdateCheckStatus.available ||
+        messenger == null ||
+        messengerContext == null ||
+        !messengerContext.mounted) {
       return;
     }
     final version = result.release?.manifest.version ?? '';
+    final l10n = messengerContext.l10n;
     showAppSnackBarOn(
-      _messengerKey.currentState,
-      '${context.l10n.aboutUpdateAvailable}: $version',
+      messenger,
+      '${l10n.aboutUpdateAvailable}: $version',
       action: SnackBarAction(
-        label: context.l10n.aboutUpdateOpen,
+        label: l10n.aboutUpdateOpen,
         onPressed: () => _router.push<void>('/settings/about'),
       ),
     );

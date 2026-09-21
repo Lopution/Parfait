@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
 import 'package:pixiv_func/app/widgets/app_snack_bar.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -37,32 +38,66 @@ Widget _triggerButton({SnackBarAction? action}) {
 }
 
 void main() {
-  testWidgets(
-    'snackbar inside a branch lands above the bottom navigation bar',
-    (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+  testWidgets('snackbar inside a branch clears the floating shell bottom bar', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(_branchHost(child: _triggerButton()));
-      await tester.pumpAndSettle();
+    // The shell bar is an overlay sibling of the branch strip, so the
+    // test reproduces that layering: a 64px bar floating at the bottom,
+    // and the measured height published exactly like FuncShellBottomNav
+    // does on a real shell.
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Stack(
+            children: [
+              BranchRootScaffold(branchIndex: 0, child: _triggerButton()),
+              const Align(
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(key: Key('shellBar'), height: 64),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    container.read(homeShellMetricsProvider.notifier).publish(null, 64);
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('show'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('show'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.byType(SnackBar), findsOneWidget);
-      expect(find.text('提示内容'), findsOneWidget);
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('提示内容'), findsOneWidget);
 
-      // The messenger lives inside the branch Scaffold's body, so a
-      // floating SnackBar anchors to the body edge — never covering the
-      // bottom bar. Before this, callers resolved the root messenger whose
-      // region spans the whole screen and painted over the bar.
-      final snackBarBottom = tester.getBottomLeft(find.byType(SnackBar)).dy;
-      final navTop = tester.getTopLeft(find.byType(FuncBottomNav)).dy;
-      expect(snackBarBottom, lessThanOrEqualTo(navTop));
-    },
-  );
+    // The overlay bar owns no bottomNavigationBar slot, so Scaffold
+    // geometry cannot lift the SnackBar — showAppSnackBar grows the
+    // floating margin by the measured bar height instead. The margin
+    // lives inside the SnackBar's own box (Padding around the card), so
+    // assert on both the margin and the rendered Material card.
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.margin, const EdgeInsets.fromLTRB(16, 0, 16, 80));
+    final cardBottom = tester
+        .getBottomLeft(
+          find.descendant(
+            of: find.byType(SnackBar),
+            matching: find.byType(Material),
+          ),
+        )
+        .dy;
+    final barTop = tester.getTopLeft(find.byKey(const Key('shellBar'))).dy;
+    expect(cardBottom, lessThanOrEqualTo(barTop));
+  });
 
   testWidgets('shared snackbar shape is floating with a uniform margin', (
     tester,

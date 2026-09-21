@@ -116,7 +116,8 @@ enum DetailQuality {
 /// persisted; route memory and probe results are never saved.
 enum NetworkMode {
   automatic(0),
-  directOnly(1);
+  directOnly(1),
+  compatPrefer(2);
 
   const NetworkMode(this.code);
 
@@ -155,7 +156,7 @@ class AppSettings {
     required this.guideCompleted,
     required this.languageTag,
     required this.themeCode,
-    this.imageSource = normalImageSource,
+    this.imageSource = defaultImageSource,
     this.customImageSource,
     this.enableDoh = true,
     this.dohEndpointOverride,
@@ -186,6 +187,11 @@ class AppSettings {
   static const int lightTheme = 1;
   static const int defaultMaxDownloadCount = 3;
   static const String normalImageSource = 'i.pximg.net';
+
+  /// Image source on a fresh install / unset pref: auto races the candidate
+  /// hosts once per network identity and pins the measured winner, which is
+  /// the only knob that actually moves first-load throughput.
+  static const String defaultImageSource = 'auto';
 
   /// Built-in DoH endpoints. Used when [dohEndpointOverride] is null; an
   /// override replaces the whole list.

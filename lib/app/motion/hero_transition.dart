@@ -72,10 +72,7 @@ Widget illustHeroFlightShuttleBuilder(
           heroChild.popChild != null
       ? heroChild.popChild!
       : heroChild;
-  final child = ClipRRect(
-    borderRadius: _illustHeroBorderRadius,
-    child: RepaintBoundary(child: shuttleChild),
-  );
+  final child = RepaintBoundary(child: shuttleChild);
   // Resolve all geometry before the animation starts. The old implementation
   // performed RenderObject walks and NestedScrollView header discovery from
   // AnimatedBuilder; the first return therefore paid that cost on a frame
@@ -103,6 +100,14 @@ Widget illustHeroFlightShuttleBuilder(
       if (size.isEmpty) {
         return HeroRectClip(globalRect: Rect.zero, child: child!);
       }
+      // Corner radius follows the flight animation itself: it runs 0→1 on
+      // push and 1→0 on pop, and the detail endpoint is always the 1 side —
+      // so radius = lerp(card 12 → rect 0) by the raw value either way. A
+      // constant radius used to land rounded then snap square on push.
+      final rawProgress = animation.value;
+      final progress = rawProgress.isFinite
+          ? rawProgress.clamp(0.0, 1.0).toDouble()
+          : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
       return HeroRectClip(
         globalRect: _heroFlightClipRect(
           flightContext,
@@ -116,7 +121,14 @@ Widget illustHeroFlightShuttleBuilder(
           fallbackFrom: fallbackFrom,
           fallbackTo: fallbackTo,
         ),
-        child: child!,
+        child: ClipRRect(
+          borderRadius: BorderRadius.lerp(
+            _illustHeroBorderRadius,
+            BorderRadius.zero,
+            progress,
+          )!,
+          child: child!,
+        ),
       );
     },
   );

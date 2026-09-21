@@ -27,6 +27,7 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
+import 'package:pixiv_func/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:pixiv_func/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
@@ -832,11 +833,17 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
         await tester.pump(const Duration(milliseconds: 350));
       });
-      // A second detail page (901) is open on top of the original one.
+      // The related section is a feed grid, so the tile opens the
+      // work-to-work pager across the related list (Shaft parity) — the
+      // pushed route is a pager whose landing work is 901.
       // (skipOffstage: the freshly pushed route is still in transition.)
+      expect(find.byType(IllustDetailPagerPage), findsOneWidget);
       expect(
-        find.byType(IllustDetailPage, skipOffstage: false),
-        findsNWidgets(2),
+        find.byWidgetPredicate(
+          (w) => w is IllustDetailPage && w.illustId == 901,
+          skipOffstage: false,
+        ),
+        findsOneWidget,
       );
     });
 
