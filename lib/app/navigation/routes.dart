@@ -946,10 +946,7 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
         // RootSwipeSwitcher completes. The strip slides in branch order,
         // which is also the bottom bar's visual order.
         navigatorContainerBuilder: (context, navigationShell, children) =>
-            BranchSlideStack(
-          shell: navigationShell,
-          children: children,
-        ),
+            BranchSlideStack(shell: navigationShell, children: children),
         pageBuilder: (context, state, navigationShell) => NoTransitionPage(
           key: state.pageKey,
           restorationId: RestorationScope.maybeOf(context) == null

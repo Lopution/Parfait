@@ -254,9 +254,7 @@ void main() {
     // bar out — waiting for release would mean only the ballistic phase
     // counts. Time is advanced in frames: a single large pump step does
     // not tick controllers while a pointer is held.
-    final gesture = await tester.startGesture(
-      tester.getCenter(_settingsList),
-    );
+    final gesture = await tester.startGesture(tester.getCenter(_settingsList));
     await gesture.moveBy(const Offset(0, -120));
     await tester.pump();
     await gesture.moveBy(const Offset(0, -120));
@@ -319,10 +317,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 60));
       await tester.sendEventToBinding(
-        PointerScrollEvent(
-          position: center,
-          scrollDelta: const Offset(0, -5),
-        ),
+        PointerScrollEvent(position: center, scrollDelta: const Offset(0, -5)),
       );
       await tester.pump(const Duration(milliseconds: 60));
     }

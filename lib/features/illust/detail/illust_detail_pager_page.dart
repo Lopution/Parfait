@@ -46,8 +46,7 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
       _IllustDetailPagerPageState();
 }
 
-class _IllustDetailPagerPageState
-    extends ConsumerState<IllustDetailPagerPage> {
+class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   late final PageController _controller;
 
   /// The route's landing page — only it carries the feed card's hero
@@ -153,10 +152,10 @@ class _IllustDetailPagerPageState
           key: ValueKey(ids[index]),
           illustId: ids[index],
           heroScope: widget.heroScope,
-          heroImageUrl:
-              index == _initialIndex ? widget.heroImageUrl : null,
-          heroImageDecodeWidth:
-              index == _initialIndex ? widget.heroImageDecodeWidth : null,
+          heroImageUrl: index == _initialIndex ? widget.heroImageUrl : null,
+          heroImageDecodeWidth: index == _initialIndex
+              ? widget.heroImageDecodeWidth
+              : null,
         ),
       ),
     );

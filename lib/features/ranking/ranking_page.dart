@@ -131,8 +131,7 @@ class _RankingPageState extends State<RankingPage>
                 _RankingModeBody(
                   key: ValueKey(RankingMode.values[i]),
                   mode: RankingMode.values[i],
-                  scrollController:
-                      _scrollControllerFor(RankingMode.values[i]),
+                  scrollController: _scrollControllerFor(RankingMode.values[i]),
                 )
               else
                 const SizedBox.shrink(),

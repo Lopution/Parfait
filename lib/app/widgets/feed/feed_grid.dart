@@ -69,11 +69,9 @@ class IllustPagerScope extends InheritedWidget {
   final IllustPagerSource source;
 
   static IllustPagerSource? maybeOf(BuildContext context) {
-    final element =
-        context.getElementForInheritedWidgetOfExactType<IllustPagerScope>();
-    return element == null
-        ? null
-        : (element.widget as IllustPagerScope).source;
+    final element = context
+        .getElementForInheritedWidgetOfExactType<IllustPagerScope>();
+    return element == null ? null : (element.widget as IllustPagerScope).source;
   }
 
   @override

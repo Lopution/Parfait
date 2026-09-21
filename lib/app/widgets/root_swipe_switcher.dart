@@ -128,8 +128,7 @@ class _RootSwipeSwitcherState extends State<RootSwipeSwitcher>
       if (tc == null || tc.length < 2) {
         _owner = _DragOwner.branch;
       } else {
-        final probe =
-            (tc.animation?.value ?? tc.index.toDouble()) + pageDelta;
+        final probe = (tc.animation?.value ?? tc.index.toDouble()) + pageDelta;
         _owner = (probe < 0 || probe > tc.length - 1)
             ? _DragOwner.branch
             : _DragOwner.tabs;
@@ -141,8 +140,7 @@ class _RootSwipeSwitcherState extends State<RootSwipeSwitcher>
       return;
     }
 
-    final target =
-        (tc!.animation?.value ?? tc.index.toDouble()) + pageDelta;
+    final target = (tc!.animation?.value ?? tc.index.toDouble()) + pageDelta;
     final max = tc.length - 1.0;
     if (target < 0 || target > max) {
       // The strip just ran out of track: pin it on the edge, hand the
@@ -202,7 +200,8 @@ class _RootSwipeSwitcherState extends State<RootSwipeSwitcher>
     final pos = tc.animation?.value ?? tc.index.toDouble();
     final base = _dragOrigin.round().clamp(0, tc.length - 1);
     final moved = pos - base;
-    final committed = fling ||
+    final committed =
+        fling ||
         _rawDx.abs() >= width * RootSwipeSwitcher.distanceFraction ||
         moved.abs() >= RootSwipeSwitcher.distanceFraction;
     // A flick's direction wins over net displacement — ViewPager commits
@@ -334,8 +333,8 @@ class _RootSwipeSwitcherState extends State<RootSwipeSwitcher>
       final width = MediaQuery.sizeOf(context).width;
       pager.endDrag(
         vPages,
-        flingPages: RootSwipeSwitcher.minFlingVelocity /
-            (width > 0 ? width : 1),
+        flingPages:
+            RootSwipeSwitcher.minFlingVelocity / (width > 0 ? width : 1),
       );
       return;
     }
@@ -390,19 +389,19 @@ class TabSlideStack extends StatelessWidget {
     final animation = controller.animation;
     final rtl = Directionality.of(context) == TextDirection.rtl;
     Widget stack(double pos) => Stack(
-          fit: StackFit.expand,
-          clipBehavior: Clip.hardEdge,
-          children: [
-            for (var i = 0; i < children.length; i++)
-              Offstage(
-                offstage: (i - pos).abs() > 1.0,
-                child: FractionalTranslation(
-                  translation: Offset(rtl ? pos - i : i - pos, 0),
-                  child: children[i],
-                ),
-              ),
-          ],
-        );
+      fit: StackFit.expand,
+      clipBehavior: Clip.hardEdge,
+      children: [
+        for (var i = 0; i < children.length; i++)
+          Offstage(
+            offstage: (i - pos).abs() > 1.0,
+            child: FractionalTranslation(
+              translation: Offset(rtl ? pos - i : i - pos, 0),
+              child: children[i],
+            ),
+          ),
+      ],
+    );
     if (animation == null) {
       return stack(controller.index.toDouble());
     }

@@ -74,9 +74,10 @@ class BranchSlidePager extends ChangeNotifier {
     _dragging = true;
     _settle?.stop();
     if (tab.indexIsChanging) {
-      tab.index = (tab.animation?.value ?? tab.index.toDouble())
-          .round()
-          .clamp(0, count - 1);
+      tab.index = (tab.animation?.value ?? tab.index.toDouble()).round().clamp(
+        0,
+        count - 1,
+      );
     }
     _dragOrigin = position;
   }
@@ -117,18 +118,17 @@ class BranchSlidePager extends ChangeNotifier {
     // Velocity wins when a flick reverses across the distance the finger
     // already covered — ViewPager reads the release velocity the same way.
     final forward = fling ? vPages > 0 : moved > 0;
-    final target =
-        (committed ? base + (forward ? 1 : -1) : base).clamp(0, count - 1);
+    final target = (committed ? base + (forward ? 1 : -1) : base).clamp(
+      0,
+      count - 1,
+    );
     if (target == tab.index) {
       // A mid-drag warp may have already hopped index onto the target —
       // `animateTo` would early-return, so reel `offset` in by hand.
       _settleTo(target);
       return;
     }
-    tab.animateTo(
-      target,
-      duration: _motionEnabled() ? null : Duration.zero,
-    );
+    tab.animateTo(target, duration: _motionEnabled() ? null : Duration.zero);
   }
 
   /// Bottom-bar tap. Same-index taps keep the "return to branch root"
@@ -147,10 +147,7 @@ class BranchSlidePager extends ChangeNotifier {
     // whose offset ticks would fight the animateTo flight.
     _dragging = false;
     _settle?.stop();
-    tab.animateTo(
-      index,
-      duration: _motionEnabled() ? null : Duration.zero,
-    );
+    tab.animateTo(index, duration: _motionEnabled() ? null : Duration.zero);
   }
 
   /// The shell's index moved outside a drag (deep link, restoration, rail
@@ -165,10 +162,7 @@ class BranchSlidePager extends ChangeNotifier {
     _suppressGoBranch = true;
     try {
       if (tab.index != index) {
-        tab.animateTo(
-          index,
-          duration: _motionEnabled() ? null : Duration.zero,
-        );
+        tab.animateTo(index, duration: _motionEnabled() ? null : Duration.zero);
       } else {
         _settleTo(index);
       }
@@ -241,8 +235,7 @@ class BranchSlideStack extends StatefulWidget {
   /// inside each branch's root page.
   static BranchSlidePager? maybeOf(BuildContext context) =>
       (context
-                  .getElementForInheritedWidgetOfExactType<
-                      _BranchSlideScope>()
+                  .getElementForInheritedWidgetOfExactType<_BranchSlideScope>()
                   ?.widget
               as _BranchSlideScope?)
           ?.pager;
@@ -388,8 +381,9 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     final branch = shell.route.branches[branchIndex];
     final location = branch.initialLocation ?? branch.defaultRoute?.path;
     if (location == null || !location.startsWith('/')) return null;
-    final matchList =
-        GoRouter.of(context).configuration.findMatch(Uri.parse(location));
+    final matchList = GoRouter.of(
+      context,
+    ).configuration.findMatch(Uri.parse(location));
     ShellRouteMatch? match;
     for (final RouteMatchBase m in matchList.matches) {
       if (m is ShellRouteMatch && m.route == shell.route) {
