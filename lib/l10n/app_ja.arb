@@ -275,6 +275,7 @@
     }
   },
   "imageSourceTestFailed": "ミラー接続テストに失敗しました",
+  "imageSourceUnreachableMainland": "中国本土ネットワークからは通常到達不能",
   "previewQuality": "プレビュー画質",
   "viewQuality": "ビューア画質",
   "detailQuality": "詳細画質",
