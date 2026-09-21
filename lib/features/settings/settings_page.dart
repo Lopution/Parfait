@@ -4,8 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_section.dart';
 import '../../app/widgets/settings/settings_tile.dart';
@@ -14,6 +17,7 @@ import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../core/settings/shared_preferences.dart';
 import '../../l10n/context.dart';
 import 'pages/account_settings_page.dart';
 import 'settings_helpers.dart';
@@ -39,14 +43,21 @@ class SettingsPage extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
+      // Root pages own no inline composer: leaving the default `true`
+      // would subscribe this whole subtree to per-frame viewInsets churn
+      // every time the IME animates (e.g. the push that hides the search
+      // keyboard) — a relayout storm across all five live branches.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(context.l10n.settingsTitle)),
-      body: settings.when(
-        loading: () => const FeedLoading(),
-        error: (error, _) => SettingsLoadError(
-          error: error,
-          onRetry: () => ref.read(settingsProvider.notifier).reload(),
+      body: RootSwipeSwitcher(
+        child: settings.when(
+          loading: () => const FeedLoading(),
+          error: (error, _) => SettingsLoadError(
+            error: error,
+            onRetry: () => ref.read(settingsProvider.notifier).reload(),
+          ),
+          data: (_) => _SettingsList(accounts: accounts),
         ),
-        data: (_) => _SettingsList(accounts: accounts),
       ),
     );
   }
@@ -84,17 +95,21 @@ class _SettingsList extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        AccountCard(
-          account: account,
-          onLongPress: account == null
-              ? null
-              : () => _copyAccount(context, ref),
-        ),
+        AccountCard(account: account),
         SettingsTile(
           icon: Icons.manage_accounts_outlined,
           title: context.l10n.accountSettings,
           onTap: () => openSettingsPage(context, '/settings/account'),
         ),
+        // Credential export is a visible entry, not a hidden gesture: the
+        // tile exists only for a signed-in account and the warning dialog
+        // still gates the actual copy.
+        if (account != null)
+          SettingsTile(
+            icon: Icons.send_to_mobile,
+            title: context.l10n.accountTransferExportTitle,
+            onTap: () => _confirmCopyAccount(context, ref),
+          ),
         SettingsSection(title: Text(context.l10n.settingsGroupAppearance)),
         SettingsTile(
           icon: Icons.palette_outlined,
@@ -111,23 +126,26 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.translateSettings,
           onTap: () => openSettingsPage(context, '/settings/translate'),
         ),
-        SettingsSection(title: Text(context.l10n.settingsGroupNetwork)),
-        SettingsTile(
-          icon: Icons.network_check,
-          title: context.l10n.networkSettings,
-          onTap: () => openSettingsPage(context, '/settings/network'),
-        ),
+        SettingsSection(title: Text(context.l10n.settingsGroupBrowse)),
         SettingsTile(
           icon: Icons.image_outlined,
           title: context.l10n.browseSettings,
           onTap: () => openSettingsPage(context, '/settings/browse'),
         ),
-        SettingsSection(title: Text(context.l10n.settingsGroupContent)),
+        SettingsTile(
+          icon: Icons.block_outlined,
+          title: context.l10n.mutedItemsSettings,
+          onTap: () => openSettingsPage(context, '/settings/muted'),
+        ),
         SettingsTile(
           icon: Icons.history,
           title: context.l10n.historySettings,
           onTap: () => openSettingsPage(context, '/settings/history'),
         ),
+        // Content destinations (not preferences) sit in their own group so
+        // the preference sections stay unmixed — the split Shaft draws
+        // between its drawer entries and the settings catalog.
+        SettingsSection(title: Text(context.l10n.settingsGroupLibrary)),
         SettingsTile(
           icon: Icons.bookmark_border,
           title: context.l10n.watchLaterTitle,
@@ -143,12 +161,12 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.localNovelsTitle,
           onTap: () => openLocalNovels(context),
         ),
+        SettingsSection(title: Text(context.l10n.settingsGroupNetwork)),
         SettingsTile(
-          icon: Icons.block_outlined,
-          title: context.l10n.mutedItemsSettings,
-          onTap: () => openSettingsPage(context, '/settings/muted'),
+          icon: Icons.network_check,
+          title: context.l10n.networkSettings,
+          onTap: () => openSettingsPage(context, '/settings/network'),
         ),
-        SettingsSection(title: Text(context.l10n.settingsGroupDownload)),
         SettingsTile(
           icon: Icons.download_outlined,
           title: context.l10n.downloadSettings,
@@ -171,16 +189,47 @@ class _SettingsList extends ConsumerWidget {
           title: context.l10n.aboutSettings,
           onTap: () => openSettingsPage(context, '/settings/about'),
         ),
-        if (!kReleaseMode) ...[
-          const Divider(),
+        // Frame probe is a diagnostics tool, not a preference: it ships in
+        // every build but stays hidden until the about-page gesture (or a
+        // non-release build) unlocks the developer group.
+        if (ref.watch(developerOptionsProvider) || !kReleaseMode) ...[
+          SettingsSection(title: Text(context.l10n.settingsGroupDeveloper)),
           SettingsTile(
             icon: Icons.monitor_heart_outlined,
             title: context.l10n.frameProbeTitle,
             onTap: () => openSettingsPage(context, '/settings/frame-probe'),
           ),
         ],
+        const FuncNavBarSpacer(),
       ],
     );
+  }
+
+  /// Credential export is destructive-adjacent (plaintext tokens on the
+  /// system clipboard): the entry is a visible tile, and this dialog carries
+  /// the warning before any byte is copied.
+  Future<void> _confirmCopyAccount(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.accountTransferExportTitle),
+        content: Text(l10n.accountTransferWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      _copyAccount(context, ref);
+    }
   }
 
   void _copyAccount(BuildContext context, WidgetRef ref) {

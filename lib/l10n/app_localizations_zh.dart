@@ -115,6 +115,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get useLoginWithClipboard => '使用剪贴板数据登录';
 
   @override
+  String get accountTransferExportTitle => '导出账号凭据';
+
+  @override
   String get accountTransferWarning => '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。';
 
   @override
@@ -209,13 +212,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsGroupAppearance => '外观';
 
   @override
-  String get settingsGroupNetwork => '网络与浏览';
+  String get settingsGroupNetwork => '网络与下载';
 
   @override
-  String get settingsGroupContent => '内容';
+  String get settingsGroupBrowse => '浏览';
 
   @override
-  String get settingsGroupDownload => '下载';
+  String get settingsGroupLibrary => '我的内容';
+
+  @override
+  String get settingsGroupDeveloper => '开发者';
+
+  @override
+  String get developerOptionsUnlocked => '开发者选项已开启';
+
+  @override
+  String developerOptionsCountdown(int count) {
+    return '再点 $count 次开启开发者选项';
+  }
 
   @override
   String get settingsGroupData => '数据';
@@ -230,8 +244,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkMode => 'Pixiv 官方网络兼容';
 
   @override
-  String get networkModeHint =>
-      '默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。';
+  String get networkModeHint => '打不开时自动尝试兼容通道；只作用于 Pixiv 官方域名，不会代理其他流量。';
 
   @override
   String get networkModeListTitle => '网络模式';
@@ -240,20 +253,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkModeAutomatic => '自动';
 
   @override
-  String get networkModeAutomaticHint => '标准网络栈：按各主机组选择可达且畅通的路线。';
+  String get networkModeAutomaticHint => '自动选择能用的连接方式。';
 
   @override
   String get networkModeDirectOnly => '仅直连';
 
   @override
-  String get networkModeDirectOnlyHint => '使用系统 DNS + 真实 SNI 直连。适合已知直连可用的网络。';
+  String get networkModeDirectOnlyHint => '只走系统直连；适合直连可用的网络。';
 
   @override
   String get networkModeCompatPrefer => '兼容优先';
 
   @override
-  String get networkModeCompatPreferHint =>
-      '先试 DoH/ECH/空 SNI 等兼容路线，全部失败再直连。适合直连已被阻断的网络。';
+  String get networkModeCompatPreferHint => '优先尝试兼容通道，不行再直连；适合直连已被阻断的网络。';
 
   @override
   String get networkEffectiveRoutes => '当前生效路由';
@@ -265,13 +277,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkRouteKindDirect => '直连';
 
   @override
-  String get networkRouteKindCompat => '兼容通道（无 SNI）';
+  String get networkRouteKindCompat => '兼容通道';
 
   @override
   String get networkThirdParty => '第三方服务可达性';
 
   @override
-  String get networkThirdPartyHint => '走系统路由（你的 VPN/代理会生效），不经过 Pixiv 兼容梯子。';
+  String get networkThirdPartyHint => '走系统网络，你的 VPN/代理会照常生效。';
 
   @override
   String get networkReachable => '可达';
@@ -286,7 +298,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkAdvanced => '高级设置';
 
   @override
-  String get networkAdvancedHint => 'DoH 端点、ECH 前置主机等实现细节。';
+  String get networkAdvancedHint => '面向高级用户的底层选项。';
 
   @override
   String get networkAdvancedReset => '恢复默认值';
@@ -318,8 +330,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkProbeTitle => '分层连通性探测';
 
   @override
-  String get networkProbeHint =>
-      '对 Pixiv 四个官方主机逐层测试：系统 DNS → DoH → TCP → TLS(真实 SNI) → 最小请求。TCP 通但 TLS 握手失败 = SNI 被封。';
+  String get networkProbeHint => '逐层检测 Pixiv 连通性，定位打不开的原因。';
 
   @override
   String get frameProbeTitle => '帧探针';
@@ -632,7 +643,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageSource => '图片源';
 
   @override
-  String get imageSourceNormal => '官方 CDN（系统 DNS / HTTPS）';
+  String get imageSourceNormal => '官方源（默认）';
 
   @override
   String get imageSourcePixivCat => 'pixiv.cat 镜像';

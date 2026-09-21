@@ -115,6 +115,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get useLoginWithClipboard => 'クリップボードに保存されたデータでログイン';
 
   @override
+  String get accountTransferExportTitle => 'アカウント認証情報をエクスポート';
+
+  @override
   String get accountTransferWarning =>
       'クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。';
 
@@ -215,13 +218,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsGroupAppearance => '外観';
 
   @override
-  String get settingsGroupNetwork => 'ネットワークと閲覧';
+  String get settingsGroupNetwork => 'ネットワークとダウンロード';
 
   @override
-  String get settingsGroupContent => 'コンテンツ';
+  String get settingsGroupBrowse => '閲覧';
 
   @override
-  String get settingsGroupDownload => 'ダウンロード';
+  String get settingsGroupLibrary => 'マイコンテンツ';
+
+  @override
+  String get settingsGroupDeveloper => '開発者向け';
+
+  @override
+  String get developerOptionsUnlocked => '開発者向けオプションを有効にしました';
+
+  @override
+  String developerOptionsCountdown(int count) {
+    return 'あと $count 回タップで開発者向けオプションを有効化';
+  }
 
   @override
   String get settingsGroupData => 'データ';
@@ -237,7 +251,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get networkModeHint =>
-      'デフォルトは直結。Pixiv 公式ドメインのみ、明確な転送失敗時に厳格 HTTPS 候補を試します。他トラフィックはプロキシせず、証明書検証は無効化しません。';
+      '開けない時は互換ルートを自動で試行。Pixiv 公式ドメインのみに作用し、他の通信はプロキシしません。';
 
   @override
   String get networkModeListTitle => 'ネットワークモード';
@@ -246,22 +260,20 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkModeAutomatic => '自動';
 
   @override
-  String get networkModeAutomaticHint =>
-      '標準ネットワークスタック：ホストグループごとに到達可能な経路を選択します。';
+  String get networkModeAutomaticHint => '使える接続方式を自動で選びます。';
 
   @override
   String get networkModeDirectOnly => '直結のみ';
 
   @override
-  String get networkModeDirectOnlyHint =>
-      'システム DNS + 実 SNI で直結します。直結で利用可能なネットワーク向け。';
+  String get networkModeDirectOnlyHint => 'システムの直接接続のみ。直結できるネットワーク向け。';
 
   @override
   String get networkModeCompatPrefer => '互換経路優先';
 
   @override
   String get networkModeCompatPreferHint =>
-      'DoH/ECH/空SNI などの互換経路を先に試し、すべて失敗したら直连。直连がすでに遮断されているネットワーク向け。';
+      '互換ルートを優先し、駄目なら直結。直結が遮断されたネットワーク向け。';
 
   @override
   String get networkEffectiveRoutes => '現在有効な経路';
@@ -273,13 +285,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkRouteKindDirect => '直连';
 
   @override
-  String get networkRouteKindCompat => '互換経路（SNI なし）';
+  String get networkRouteKindCompat => '互換ルート';
 
   @override
   String get networkThirdParty => 'サードパーティ到達性';
 
   @override
-  String get networkThirdPartyHint => 'システム経路（VPN/プロキシが有効）。Pixiv 互換ラダーは経由しません。';
+  String get networkThirdPartyHint => 'システムのネットワークを使用。VPN/プロキシがそのまま有効です。';
 
   @override
   String get networkReachable => '到達可能';
@@ -294,7 +306,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkAdvanced => '詳細設定';
 
   @override
-  String get networkAdvancedHint => 'DoH エンドポイント、ECH フロントホストなどの詳細。';
+  String get networkAdvancedHint => '上級者向けの低レベル設定。';
 
   @override
   String get networkAdvancedReset => 'デフォルトに戻す';
@@ -326,8 +338,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkProbeTitle => '階層接続プローブ';
 
   @override
-  String get networkProbeHint =>
-      'Pixiv の4公式ホストを層ごとにテスト：システム DNS → DoH → TCP → TLS(実SNI) → 最小リクエスト。TCP 成功でも TLS ハンドシェイク失敗 = SNI ブロック。';
+  String get networkProbeHint => 'Pixiv への接続を段階的に検査し、開けない原因を特定します。';
 
   @override
   String get frameProbeTitle => 'フレームプローブ';
@@ -641,7 +652,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageSource => '画像ソース';
 
   @override
-  String get imageSourceNormal => '公式 CDN（システム DNS / HTTPS）';
+  String get imageSourceNormal => '公式（デフォルト）';
 
   @override
   String get imageSourcePixivCat => 'pixiv.cat ミラー';
