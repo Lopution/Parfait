@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/test_preferences.dart';
 
@@ -13,12 +14,14 @@ import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/download/download_transport.dart';
+import 'package:pixiv_func/core/network/compat/auto_image_source.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart';
 import 'package:pixiv_func/core/network/compat/network_fast_route_store.dart';
 import 'package:pixiv_func/core/network/compat/pixiv_network_factory.dart';
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/compat/policy_download_transport.dart';
+import 'package:pixiv_func/core/network/compat/route_kind_store.dart';
 import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
 import 'package:pixiv_func/core/settings/image_mirror.dart';
 
@@ -1027,9 +1030,11 @@ void main() {
     await imageClient.get(
       Uri.parse('https://i.pximg.net/img-master/img/1/2/3/a.jpg'),
     );
-    expect(secureDns.requests, hasLength(2));
+    // A cold image host races its top two tiers — one extra send, one
+    // extra resolve, then the winner is remembered.
+    expect(secureDns.requests, hasLength(3));
     expect(direct.requests, isEmpty);
-    expect(resolver.calls, 2);
+    expect(resolver.calls, 3);
     // Both exits observe the same policy-owned route memory.
     expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
     expect(policy.hasStrictRouteMemory('i.pximg.net'), isTrue);
@@ -1239,7 +1244,6 @@ void main() {
         );
 
         expect(response.statusCode, 200);
-        expect(resolver.calls, 1);
         expect(
           resolver.echCalls,
           0,
@@ -1247,7 +1251,13 @@ void main() {
         );
         expect(ech.requests, isEmpty);
         expect(direct.requests, isEmpty);
-        final sent = secure.requests.single;
+        // A cold mirror races its own top two tiers (noSni + dohRealSni);
+        // both requests retarget to the mirror host.
+        expect(secure.requests, hasLength(2));
+        for (final request in secure.requests) {
+          expect(request.url.host, 'i.pixiv.cat');
+        }
+        final sent = secure.requests.first;
         expect(sent.url.host, 'i.pixiv.cat');
         expect(sent.url.path, '/img-original/img/1_p0.jpg');
         expect(sent.url.query, 'x=1');
@@ -1517,6 +1527,414 @@ void main() {
       expect(identical(client, inner), isTrue);
     });
   });
+
+  group('cold-start image racing', () {
+    final imageUri = Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg');
+
+    test(
+      'a cold image GET races the top two tiers and keeps the winner',
+      () async {
+        final noSni = _FakeClient(body: 'noSni');
+        final realSni = _DelayedClient(
+          _FakeClient(body: 'realSni'),
+          const Duration(milliseconds: 200),
+        );
+        final policy = NetworkAccessPolicy(
+          resolver: _FakeResolver([InternetAddress('1.2.3.4')]),
+          clientFactory: (route, _, _) => switch (route.kind) {
+            NetworkRouteKind.noSni => noSni,
+            _ => realSni,
+          },
+        );
+        addTearDown(policy.dispose);
+        final client = PixivPolicyHttpClient(
+          policy: policy,
+          purpose: PixivDestinationPurpose.image,
+        );
+
+        final response = await client.get(imageUri);
+
+        expect(response.statusCode, 200);
+        // Both top tiers were attempted in parallel.
+        expect(noSni.requests, hasLength(1));
+        expect(realSni.requests, hasLength(1));
+        // The faster tier won and is remembered for the next request.
+        expect(
+          policy.rememberedRouteKind('i.pximg.net'),
+          NetworkRouteKind.noSni,
+        );
+      },
+    );
+
+    test(
+      'a warm host does not race — the remembered route is used alone',
+      () async {
+        final client = _FakeClient(body: 'ok');
+        final policy = NetworkAccessPolicy(
+          resolver: _FakeResolver([InternetAddress('1.2.3.4')]),
+          clientFactory: (_, _, _) => client,
+        );
+        addTearDown(policy.dispose);
+        final httpClient = PixivPolicyHttpClient(
+          policy: policy,
+          purpose: PixivDestinationPurpose.image,
+        );
+
+        await httpClient.get(imageUri);
+        await httpClient.get(imageUri);
+
+        // Cold first request raced two tiers; the second request goes
+        // straight to the remembered route — one send each leg.
+        expect(client.requests, hasLength(3));
+        expect(policy.rememberedRouteKind('i.pximg.net'), isNotNull);
+      },
+    );
+
+    test('a cold API GET stays serial — racing is image-only', () async {
+      final client = _FakeClient(body: 'ok');
+      final policy = NetworkAccessPolicy(
+        resolver: _FakeResolver([InternetAddress('1.2.3.4')]),
+        clientFactory: (_, _, _) => client,
+      );
+      addTearDown(policy.dispose);
+      final httpClient = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.appApi,
+      );
+
+      await httpClient.get(_apiUri);
+
+      // The strict tier answered; no second tier was sent in parallel.
+      expect(client.requests, hasLength(1));
+    });
+
+    test('both raced tiers failing falls back to the serial ladder', () async {
+      final failing = _FakeClient(failure: const SocketException('refused'));
+      final direct = _FakeClient(body: 'direct');
+      final policy = NetworkAccessPolicy(
+        resolver: _FakeResolver([InternetAddress('1.2.3.4')]),
+        clientFactory: (route, _, _) =>
+            route.kind == NetworkRouteKind.direct ? direct : failing,
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+
+      final response = await client.get(imageUri);
+
+      expect(response.statusCode, 200);
+      expect(failing.requests, hasLength(2));
+      expect(direct.requests, hasLength(1));
+      expect(
+        policy.rememberedRouteKind('i.pximg.net'),
+        NetworkRouteKind.direct,
+      );
+    });
+
+    test(
+      'a persisted route kind seeds the group preference on warm-up',
+      () async {
+        SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+        final preferences = SharedPreferencesAsync();
+        final store = RouteKindStore(preferences: preferences);
+        // A previous session learned that dohRealSni works for image hosts.
+        await store.remember('initial', 'image', 'dohRealSni');
+
+        final noSni = _FakeClient(failure: const SocketException('refused'));
+        final realSni = _FakeClient(body: 'realSni');
+        final policy = NetworkAccessPolicy(
+          resolver: _FakeResolver([InternetAddress('1.2.3.4')]),
+          routeKindStore: store,
+          clientFactory: (route, _, _) => switch (route.kind) {
+            NetworkRouteKind.noSni => noSni,
+            _ => realSni,
+          },
+        );
+        addTearDown(policy.dispose);
+        await policy.warmUp();
+        // warmUp's seeding is fire-and-forget; let it land before racing.
+        await Future<void>.delayed(Duration.zero);
+
+        final client = PixivPolicyHttpClient(
+          policy: policy,
+          purpose: PixivDestinationPurpose.image,
+        );
+        final response = await client.get(imageUri);
+
+        expect(response.statusCode, 200);
+        // The seeded preference made dohRealSni the first tier — noSni was
+        // never raced because a group preference exists (not cold).
+        expect(noSni.requests, isEmpty);
+        expect(realSni.requests, hasLength(1));
+      },
+    );
+  });
+
+  group('connection warm-up', () {
+    test('HEADs the remembered winning route once per revision', () async {
+      final shared = _FakeClient(body: '{}');
+      final resolver = _FakeResolver([InternetAddress('1.2.3.60')]);
+      final policy = NetworkAccessPolicy(
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, purpose) => shared,
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+      // One real GET seeds the host's route memory.
+      await client.get(Uri.parse('https://i.pximg.net/img/a.jpg'));
+      final before = shared.requests.length;
+      expect(before, greaterThan(0));
+
+      policy.warmConnection(PixivDestinationPurpose.image, 'i.pximg.net');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      // Throttled: a second warm-up for the same host+revision is a no-op.
+      policy.warmConnection(PixivDestinationPurpose.image, 'i.pximg.net');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final warmRequests = shared.requests.sublist(before);
+      expect(warmRequests, hasLength(1));
+      expect(warmRequests.single.method, 'HEAD');
+      expect(warmRequests.single.url, Uri.https('i.pximg.net', '/'));
+    });
+
+    test('no route memory means no warm request', () async {
+      final shared = _FakeClient(body: '{}');
+      final policy = NetworkAccessPolicy(
+        resolver: _FakeResolver([InternetAddress('1.2.3.61')]),
+        clientFactory: (route, canonicalHost, purpose) => shared,
+      );
+      addTearDown(policy.dispose);
+
+      policy.warmConnection(PixivDestinationPurpose.image, 'i.pximg.net');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        shared.requests,
+        isEmpty,
+        reason: 'cold hosts belong to the race, not to warm-up',
+      );
+    });
+  });
+
+  group('auto image source', () {
+    NetworkAccessPolicy autoPolicy(
+      http.Client Function(String host) clientFor,
+    ) {
+      return NetworkAccessPolicy(
+        registry: PixivDestinationRegistry(
+          extraImageHosts: Set<String>.of(ImageMirror.autoCandidates),
+        ),
+        resolver: _FakeResolver([InternetAddress('1.2.3.62')]),
+        clientFactory: (route, canonicalHost, purpose) =>
+            clientFor(canonicalHost),
+      );
+    }
+
+    test('the winner persists scoped to the network identity', () async {
+      installMemoryPreferences();
+      final source = AutoImageSource(preferences: SharedPreferencesAsync());
+      await source.remember('wifi', 'i.pixiv.re');
+
+      expect(await source.winnerFor('wifi'), 'i.pixiv.re');
+      expect(await source.winnerFor('cellular'), isNull);
+      // A fresh instance reads the same store — the winner survives a
+      // cold start.
+      final reloaded = AutoImageSource(preferences: SharedPreferencesAsync());
+      expect(await reloaded.winnerFor('wifi'), 'i.pixiv.re');
+    });
+
+    test('a corrupted blob resolves to null instead of crashing', () async {
+      installMemoryPreferences(const {
+        'pixiv.network.auto_image_source.v1': 'not-json{',
+      });
+      final source = AutoImageSource(preferences: SharedPreferencesAsync());
+      expect(await source.winnerFor('wifi'), isNull);
+    });
+
+    test('a stored winner outside the candidate list is ignored', () async {
+      installMemoryPreferences(const {
+        'pixiv.network.auto_image_source.v1': '{"evil.example.com": "x"}',
+      });
+      final source = AutoImageSource(preferences: SharedPreferencesAsync());
+      expect(await source.winnerFor('evil.example.com'), isNull);
+    });
+
+    test('race picks the fastest transfer, not the first response', () async {
+      final big = List.filled(32 * 1024, 7);
+      final policy = autoPolicy(
+        (host) => switch (host) {
+          // Direct answers fast but its body arrives after a delay — a
+          // TTFB race would crown it; throughput ranking must not.
+          'i.pximg.net' => _DelayedClient(
+            _FakeClient(body: utf8.decode(big)),
+            const Duration(milliseconds: 300),
+          ),
+          'i.pixiv.re' => _FakeClient(body: utf8.decode(big)),
+          _ => _FakeClient(failure: const SocketException('refused')),
+        },
+      );
+      addTearDown(policy.dispose);
+
+      final result = await AutoImageSource.race(policy);
+      expect(result?.host, 'i.pixiv.re');
+      expect(result?.bps, isNotNull);
+    });
+
+    test(
+      'race falls back to the first reachable host without a body',
+      () async {
+        final policy = autoPolicy(
+          (host) => switch (host) {
+            'i.pixiv.re' => _FakeClient(body: '{}'), // reachable, unmeasurable
+            _ => _FakeClient(failure: const SocketException('refused')),
+          },
+        );
+        addTearDown(policy.dispose);
+
+        final result = await AutoImageSource.race(policy);
+        expect(result?.host, 'i.pixiv.re');
+        expect(result?.bps, isNull);
+      },
+    );
+
+    test('race returns null when every candidate fails', () async {
+      final policy = autoPolicy(
+        (_) => _FakeClient(failure: const SocketException('refused')),
+      );
+      addTearDown(policy.dispose);
+
+      expect(await AutoImageSource.race(policy), isNull);
+    });
+
+    test(
+      'a mirror host exhausting its ladder reports onImageHostExhausted',
+      () async {
+        final exhausted = <String>[];
+        final policy = autoPolicy(
+          (_) => _FakeClient(failure: const SocketException('refused')),
+        );
+        policy.onImageHostExhausted = exhausted.add;
+        addTearDown(policy.dispose);
+        final client = PixivPolicyHttpClient(
+          policy: policy,
+          purpose: PixivDestinationPurpose.image,
+        );
+
+        await expectLater(
+          client.get(Uri.parse('https://i.pixiv.re/img/a.jpg')),
+          throwsA(anything),
+        );
+        expect(exhausted, ['i.pixiv.re']);
+      },
+    );
+
+    test('canonical pximg hosts never trigger onImageHostExhausted', () async {
+      final exhausted = <String>[];
+      final policy = autoPolicy(
+        (_) => _FakeClient(failure: const SocketException('refused')),
+      );
+      policy.onImageHostExhausted = exhausted.add;
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+
+      await expectLater(
+        client.get(Uri.parse('https://i.pximg.net/img/a.jpg')),
+        throwsA(anything),
+      );
+      expect(exhausted, isEmpty);
+    });
+  });
+
+  group('network modes', () {
+    Future<List<NetworkRouteKind>> runExhaustingLadder(NetworkMode mode) async {
+      final order = <NetworkRouteKind>[];
+      final policy = NetworkAccessPolicy(
+        resolver: _FakeResolver([InternetAddress('1.2.3.70')]),
+        insecureNoSniEnabled: true,
+        mode: mode,
+        clientFactory: (route, canonicalHost, purpose) {
+          order.add(route.kind);
+          return _FakeClient(failure: const SocketException('refused'));
+        },
+      );
+      addTearDown(policy.dispose);
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.appApi,
+      );
+      await expectLater(
+        client.get(Uri.parse('https://app-api.pixiv.net/v1/ping')),
+        throwsA(anything),
+      );
+      return order;
+    }
+
+    test('automatic keeps direct ahead of the insecure bootstrap', () async {
+      final order = await runExhaustingLadder(NetworkMode.automatic);
+      // ECH yields no route without an ECH-capable resolver, so the
+      // observable ladder is DoH → direct → insecure bootstrap.
+      expect(order, [
+        NetworkRouteKind.dohRealSni,
+        NetworkRouteKind.direct,
+        NetworkRouteKind.insecureNoSni,
+      ]);
+    });
+
+    test('compatPrefer walks every compat tier before direct', () async {
+      final order = await runExhaustingLadder(NetworkMode.compatPrefer);
+      expect(order, [
+        NetworkRouteKind.dohRealSni,
+        NetworkRouteKind.insecureNoSni,
+        NetworkRouteKind.direct,
+      ]);
+    });
+
+    test('effectiveRouteSnapshot reports settled per-host kinds', () async {
+      final policy = NetworkAccessPolicy(
+        resolver: _FakeResolver([InternetAddress('1.2.3.71')]),
+        clientFactory: (route, canonicalHost, purpose) =>
+            _FakeClient(body: '{}'),
+      );
+      addTearDown(policy.dispose);
+      expect(policy.effectiveRouteSnapshot(), isEmpty);
+
+      final client = PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.image,
+      );
+      await client.get(Uri.parse('https://i.pximg.net/img/a.jpg'));
+
+      final snapshot = policy.effectiveRouteSnapshot();
+      expect(snapshot.keys, contains('i.pximg.net'));
+      expect(snapshot['i.pximg.net'], isNotNull);
+    });
+  });
+}
+
+/// Delays the inner send so race tests can pick the winner deterministically.
+class _DelayedClient extends http.BaseClient {
+  _DelayedClient(this._inner, this._delay);
+
+  final _FakeClient _inner;
+  final Duration _delay;
+
+  /// Records on arrival — the delay simulates a slow tier, and a test
+  /// asserting "the loser was also sent" must not depend on it finishing.
+  final requests = <http.BaseRequest>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    await Future<void>.delayed(_delay);
+    return _inner.send(request);
+  }
 }
 
 final _apiUri = Uri.parse(

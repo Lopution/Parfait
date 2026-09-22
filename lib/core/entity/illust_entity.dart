@@ -264,6 +264,15 @@ class IllustEntity {
   /// Per-(work,page) key for [IllustTierCache]-style registries.
   String imageTierKeyAt(int pageIndex) => '${id}_$pageIndex';
 
+  /// Medium-tier URL for [pageIndex] — the viewer's cheap progressive
+  /// underlay / neighbour prefetch target.
+  String mediumUrlAt(int pageIndex) {
+    if (pageCount > 1 && pageIndex >= 0 && pageIndex < metaPages.length) {
+      return metaPages[pageIndex].medium;
+    }
+    return imageUrls.medium;
+  }
+
   /// Which tier [url] represents on this work, or null when the URL is not
   /// one of this work's known image URLs (e.g. squareMedium crops).
   IllustImageTier? imageTierOf(String url) {

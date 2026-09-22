@@ -152,7 +152,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final entity = _entityOf(async);
     final download = ref.watch(illustDownloadControllerProvider);
     return AppBar(
-      title: Text(entity?.title ?? context.l10n.illustDetailTitle),
+      // The work title lives in the body (Shaft's hero_title / official
+      // client layout): a single-line AppBar slot ellipsises anything
+      // beyond a handful of characters, so the bar keeps a generic label
+      // and the real title wraps freely in InfoBlock.
+      title: Text(context.l10n.illustDetailTitle),
       actions: [
         if (entity != null)
           IconButton(

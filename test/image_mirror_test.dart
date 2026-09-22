@@ -60,6 +60,52 @@ void main() {
     });
   });
 
+  group('auto source', () {
+    final url = Uri.parse('https://i.pximg.net/img/a.jpg');
+
+    test("'auto' never normalizes into a bogus https://auto prefix", () {
+      final mirror = ImageMirror.of('auto');
+      expect(identical(mirror.rewrite(url), url), isTrue);
+      // The allowlist admits every race candidate so probes stay routable.
+      expect(
+        mirror.extraHosts,
+        containsAll(<String>[
+          'i.pximg.net',
+          'i.pixiv.re',
+          'i.pixiv.nl',
+          'i.pixiv.cat',
+        ]),
+      );
+    });
+
+    test('a resolved winner rewrites through its preset pair', () {
+      final mirror = ImageMirror.auto('i.pixiv.re');
+      expect(
+        mirror.rewriteUrl('https://i.pximg.net/img/a.jpg'),
+        'https://i.pixiv.re/img/a.jpg',
+      );
+      expect(
+        mirror.rewriteUrl('https://s.pximg.net/common/x.png'),
+        'https://s.pixiv.re/common/x.png',
+      );
+    });
+
+    test('a pximg winner is direct passthrough', () {
+      final mirror = ImageMirror.auto('i.pximg.net');
+      expect(identical(mirror.rewrite(url), url), isTrue);
+    });
+
+    test('an unknown winner host degrades to passthrough', () {
+      final mirror = ImageMirror.auto('bogus.example.com');
+      expect(identical(mirror.rewrite(url), url), isTrue);
+      expect(mirror.extraHosts, isNotEmpty);
+    });
+
+    test("'auto' is a valid persisted source", () {
+      expect(ImageMirror.isValidSource('auto'), isTrue);
+    });
+  });
+
   group('normalizeCustomSource', () {
     test('bare host upgrades to https', () {
       expect(
@@ -124,6 +170,7 @@ void main() {
       guideCompleted: true,
       languageTag: 'en-US',
       themeCode: AppSettings.lightTheme,
+      imageSource: AppSettings.normalImageSource,
     );
 
     test('custom prefix survives fromJson and derives custom mode', () {

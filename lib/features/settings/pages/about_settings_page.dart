@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_displaymode/flutter_displaymode.dart';
@@ -10,15 +11,43 @@ import 'package:share_plus/share_plus.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../core/logging/crash_log.dart';
+import '../../../core/settings/shared_preferences.dart';
 import '../../../core/updater/update_providers.dart';
 import '../../../core/updater/update_service.dart';
 import '../../../l10n/context.dart';
 
-class AboutSettingsPage extends ConsumerWidget {
+class AboutSettingsPage extends ConsumerStatefulWidget {
   const AboutSettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AboutSettingsPage> createState() => _AboutSettingsPageState();
+}
+
+class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
+  static const _unlockTaps = 7;
+  int _versionTaps = 0;
+
+  /// Android's build-number gesture: the version tile counts presses and
+  /// unlocks the developer entries after [_unlockTaps]. The countdown only
+  /// surfaces on the last few taps so casual presses stay silent.
+  void _onVersionTap() {
+    if (ref.read(developerOptionsProvider)) return;
+    _versionTaps++;
+    final remaining = _unlockTaps - _versionTaps;
+    if (remaining <= 0) {
+      _versionTaps = 0;
+      unawaited(ref.read(developerOptionsProvider.notifier).unlock());
+      showAppSnackBar(context, context.l10n.developerOptionsUnlocked);
+    } else if (remaining <= 3) {
+      showAppSnackBar(
+        context,
+        context.l10n.developerOptionsCountdown(remaining),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final appName = 'Pixiv Func';
     final updateService = ref.watch(updateServiceProvider);
     return Scaffold(
@@ -41,6 +70,7 @@ class AboutSettingsPage extends ConsumerWidget {
                     leading: const Icon(Icons.info_outline),
                     title: Text(context.l10n.aboutVersion),
                     trailing: Text(label),
+                    onTap: _onVersionTap,
                   ),
                   ListTile(
                     leading: const Icon(Icons.menu_book_outlined),

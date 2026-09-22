@@ -93,6 +93,9 @@ class ProfileIllustFeed extends ConsumerWidget {
                     prefetchEntities: entities,
                     itemIds: [for (final e in entities) e.id],
                     itemCount: entities.length,
+                    pagerLoadMore: () => ref
+                        .read(profileIllustFeedProvider(feedKey).notifier)
+                        .loadMore(),
                     itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],
                       heroScope:

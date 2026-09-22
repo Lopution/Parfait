@@ -2,23 +2,30 @@ import 'package:flutter/widgets.dart';
 
 import 'motion_tokens.dart';
 
-/// First-screen feed entrance: item [index] fades in and rises
-/// [MotionTokens.listEntranceOffset] over [MotionTokens.listEntrance],
-/// delayed by `index * listStaggerStep`. Items at or beyond
-/// [MotionTokens.listEntranceMaxItems] — i.e. everything scroll-built after
-/// the first batch — render immediately; a mid-feed card popping in during
-/// a fling reads as a layout bug, not motion.
+/// Feed entrance: item fades in and rises [MotionTokens.listEntranceOffset]
+/// over [MotionTokens.listEntrance], delayed by a bounded per-index stagger.
 ///
-/// Once semantics: pass the owning feed's [played] id set and an entity
-/// animates at most once per set lifetime. Identity is keyed by [id], not
-/// position — a refresh that inserts at the head shifts every index, and a
-/// positional set would either replay surviving cards (each "new" index
-/// unread) or silently drop the entrance when ids stay put, the two-tone
-/// refresh users reported. With id keys, only genuinely new entities
-/// animate; moved survivors keep their played mark.
+/// The trigger is *first viewport exposure*, not mount: the list's
+/// `cacheExtent` mounts cards half a viewport below the fold, and a
+/// mount-triggered entrance plays to empty air — by the time the user
+/// scrolls there, `_done` is already set and the card "pops" in
+/// static. Exposure triggering also retires the old
+/// `index < listEntranceMaxItems` cut-off: every card animates on arrival.
 ///
-/// Feed grids drop keep-alives, so a card scrolling out and back rebuilds —
-/// without the set it replays the entrance, which reads as a reload flash.
+/// Two guards keep motion honest:
+/// - **fling gate** — a card that enters the viewport while the scrollable
+///   is ballistic appears *static* immediately (marked done, no animation):
+///   holding it at Opacity(0) for the rest of the fling left visible blank
+///   holes in a fast-scrolled feed, and a pop-in on settle would animate
+///   under the reader's eye. The slow-drag path still plays the entrance.
+/// - **once semantics** — pass the owning feed's [played] id set and an
+///   entity animates at most once per set lifetime. Identity is keyed by
+///   [id], not position — a refresh that inserts at the head shifts every
+///   index, and a positional set would either replay surviving cards or
+///   silently drop the entrance. Feed grids drop keep-alives, so a card
+///   scrolling out and back rebuilds — without the set it replays the
+///   entrance, which reads as a reload flash.
+///
 /// Items mounted or interrupted while [TickerMode] is disabled (a route
 /// transition owns the ticker budget then) render the end state and count
 /// as played: a frozen half-entrance baked into the pop snapshot and
@@ -49,8 +56,26 @@ class StaggeredEntrance extends StatefulWidget {
 
 class _StaggeredEntranceState extends State<StaggeredEntrance>
     with SingleTickerProviderStateMixin {
+  /// Scroll velocity above which a newly-exposed card does not animate —
+  /// mid-fling pop-ins read as bugs. Fling velocities run in the thousands;
+  /// a deliberate slow drag stays far below this.
+  static const _flingGateVelocity = 1000.0;
+
+  /// The stagger delay is capped so a card 200 items deep doesn't wait
+  /// seconds after exposure — delay was designed for the first screen.
+  static const _maxStaggeredIndex = 8;
+
   late final AnimationController _controller = AnimationController(vsync: this);
   var _done = false;
+  ScrollableState? _scrollable;
+
+  /// Self-measured scroll velocity — `ScrollPosition.activity` is a
+  /// protected API, so px/s is derived from position-listener deltas.
+  /// Unknown means "assume fast": a card that can't prove the scroll is
+  /// calm does not animate.
+  var _velocityPxPerSec = double.infinity;
+  double _lastPixels = 0;
+  int _lastSampleMicros = 0;
 
   @override
   void initState() {
@@ -74,6 +99,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     // move (refresh re-seated the slot): the played id keeps its end state
     // instead of replaying the animation in place.
     if (oldWidget.id == widget.id) return;
+    _detachScrollable();
     _controller.stop();
     _syncDuration();
     _done = false;
@@ -82,14 +108,19 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   @override
   void dispose() {
+    _detachScrollable();
     _controller.dispose();
     super.dispose();
   }
 
   void _syncDuration() {
     _controller.duration =
-        MotionTokens.listEntrance + MotionTokens.listStaggerStep * widget.index;
+        MotionTokens.listEntrance +
+        MotionTokens.listStaggerStep * _staggerIndex;
   }
+
+  int get _staggerIndex =>
+      widget.index < 0 ? 0 : widget.index.clamp(0, _maxStaggeredIndex);
 
   void _evaluate() {
     if (_done) return;
@@ -97,16 +128,98 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
         !MotionTokens.enabled(context) ||
         !TickerMode.valuesOf(context).enabled ||
         widget.index < 0 ||
-        widget.index >= MotionTokens.listEntranceMaxItems ||
         (widget.played?.contains(widget.id) ?? false);
     if (skip) {
       _markDone();
-    } else {
-      _controller.forward();
+      return;
     }
+    // Layout may not exist yet at didChangeDependencies — decide on the
+    // first frame whether this card is already visible.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryPlayOrWatch());
+  }
+
+  void _tryPlayOrWatch() {
+    if (_done || !mounted) return;
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable == null) {
+      // Not inside a scrollable — nothing to wait for.
+      _play();
+      return;
+    }
+    if (_scrollable != scrollable) {
+      _detachScrollable();
+      _scrollable = scrollable;
+      _lastPixels = scrollable.position.pixels;
+      _lastSampleMicros = DateTime.now().microsecondsSinceEpoch;
+      // Below the fold (cacheExtent) or mid-fling: wait for exposure. The
+      // position listener catches every scroll frame; the scrolling
+      // notifier catches the settle edge where pixels stop changing.
+      scrollable.position.addListener(_onScroll);
+      scrollable.position.isScrollingNotifier.addListener(_onScroll);
+    }
+    // Attach first, gate second: on a hit _play/_markDone detaches again.
+    _gate();
+  }
+
+  void _onScroll() {
+    if (_done || !mounted) return;
+    final position = _scrollable?.position;
+    if (position == null) return;
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final dt = now - _lastSampleMicros;
+    if (dt > 0) {
+      _velocityPxPerSec =
+          ((position.pixels - _lastPixels) /
+                  (dt / Duration.microsecondsPerSecond))
+              .abs();
+    }
+    _lastPixels = position.pixels;
+    _lastSampleMicros = now;
+    _gate();
+  }
+
+  /// Decides a mounted card's reveal once it overlaps the viewport:
+  /// calm/idle scroll plays the entrance; a fast scroll marks it done
+  /// instantly so fling-exposed cards are never transparent gaps.
+  void _gate() {
+    if (_done || !mounted || !_isInViewport()) return;
+    final position = _scrollable?.position;
+    final midFling =
+        position != null &&
+        position.isScrollingNotifier.value &&
+        _velocityPxPerSec >= _flingGateVelocity;
+    if (midFling) {
+      _markDone();
+      return;
+    }
+    _play();
+  }
+
+  bool _isInViewport() {
+    final box = context.findRenderObject();
+    final viewport = _scrollable?.context.findRenderObject();
+    if (box is! RenderBox || viewport is! RenderBox) return true;
+    if (!box.hasSize || !viewport.hasSize) return true;
+    final cardRect = box.localToGlobal(Offset.zero) & box.size;
+    final viewportRect = viewport.localToGlobal(Offset.zero) & viewport.size;
+    return cardRect.overlaps(viewportRect);
+  }
+
+  void _play() {
+    _detachScrollable();
+    _controller.forward();
+  }
+
+  void _detachScrollable() {
+    final scrollable = _scrollable;
+    if (scrollable == null) return;
+    _scrollable = null;
+    scrollable.position.removeListener(_onScroll);
+    scrollable.position.isScrollingNotifier.removeListener(_onScroll);
   }
 
   void _markDone() {
+    _detachScrollable();
     _done = true;
     widget.played?.add(widget.id);
     if (_controller.value != 1) _controller.value = 1;
@@ -117,7 +230,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     if (_done) return widget.child;
     final total = _controller.duration!.inMicroseconds;
     final delayUs =
-        (MotionTokens.listStaggerStep * widget.index).inMicroseconds;
+        (MotionTokens.listStaggerStep * _staggerIndex).inMicroseconds;
     return AnimatedBuilder(
       animation: _controller,
       child: widget.child,

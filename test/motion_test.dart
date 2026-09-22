@@ -100,32 +100,94 @@ void main() {
       expect(opacityFinder, findsOneWidget);
       expect(tester.widget<Opacity>(opacityFinder).opacity, 0);
 
+      // The exposure check defers the start to a post-frame callback; the
+      // ticker's epoch is the following frame — one bare pump() arms it.
+      await tester.pump();
       await tester.pump(
         MotionTokens.listEntrance + MotionTokens.listStaggerStep * 3,
       );
       expect(tester.widget<Opacity>(opacityFinder).opacity, 1);
     });
 
-    testWidgets('items at the entrance cap render without animation', (
+    testWidgets('below-fold card waits for first viewport exposure', (
       tester,
     ) async {
+      final played = <int>{};
+      // SingleChildScrollView mounts every child eagerly — exactly the
+      // "mounted but not exposed" state cacheExtent creates in a lazy list.
       await tester.pumpWidget(
         _wrap(
-          const StaggeredEntrance(
-            index: MotionTokens.listEntranceMaxItems,
-            id: 1,
-            child: Text('late card'),
+          SizedBox(
+            height: 300,
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (var i = 0; i < 30; i++)
+                    StaggeredEntrance(
+                      index: i,
+                      id: i,
+                      played: played,
+                      child: SizedBox(height: 200, child: Text('card $i')),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       );
-      expect(
-        find.descendant(
-          of: find.byType(StaggeredEntrance),
-          matching: find.byType(Opacity),
-        ),
-        findsNothing,
+      await tester.pumpAndSettle();
+
+      // 300px viewport exposes only card 0 (+ the top sliver of card 1).
+      // Below-fold cards are mounted but must NOT have played — their
+      // entrance belongs to the moment the user scrolls to them.
+      expect(find.text('card 3'), findsOneWidget); // mounted, off-viewport
+      expect(played, isNot(contains(3)));
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -500),
       );
-      expect(find.text('late card'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(played, contains(3));
+    });
+
+    testWidgets('a card exposed mid-fling appears static immediately', (
+      tester,
+    ) async {
+      final played = <int>{};
+      await tester.pumpWidget(
+        _wrap(
+          SingleChildScrollView(
+            child: Column(
+              children: [
+                for (var i = 0; i < 60; i++)
+                  StaggeredEntrance(
+                    index: i,
+                    id: i,
+                    played: played,
+                    child: SizedBox(height: 200, child: Text('card $i')),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final firstViewport = Set<int>.of(played);
+      expect(firstViewport, isNotEmpty);
+
+      // Hard fling: cards entering the viewport mid-flight must render
+      // static *right away* — staying at Opacity(0) for the rest of the
+      // fling was the transparent-card bug. `played` grows during the
+      // fling itself rather than at the settle edge.
+      await tester.fling(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -400),
+        8000,
+      );
+      await tester.pump(const Duration(milliseconds: 80));
+      final midFling = Set<int>.of(played);
+      expect(midFling.length, greaterThan(firstViewport.length));
     });
 
     testWidgets('reduced motion renders without animation', (tester) async {
@@ -310,6 +372,40 @@ void main() {
       await gesture.up();
       await tester.pump();
       expect(_animatedScale(tester).scale, 1.0);
+    });
+
+    testWidgets('a scroll takeover releases the pressed scale', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          ListView(
+            children: [
+              const PressScale(
+                // Opaque + tall: stays hit-testable and mounted after the
+                // drag scrolls it partway up the viewport.
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: SizedBox(height: 100, child: Text('card content')),
+                ),
+              ),
+              for (var i = 0; i < 40; i++)
+                SizedBox(height: 60, child: Text('row $i')),
+            ],
+          ),
+        ),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PressScale)),
+      );
+      await tester.pump();
+      expect(_animatedScale(tester).scale, MotionTokens.pressScale);
+
+      // The drag becomes a scroll: the ListView's recognizer wins the
+      // arena, the tap recognizer is rejected, and onTapCancel releases
+      // the scale — a raw Listener would stay pressed for the whole drag.
+      await gesture.moveBy(const Offset(0, -80));
+      await tester.pump();
+      expect(_animatedScale(tester).scale, 1.0);
+      await gesture.up();
     });
 
     testWidgets('frozen tickers force the neutral scale', (tester) async {

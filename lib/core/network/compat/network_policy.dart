@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import '../pixiv_client_identity.dart';
+import '../pixiv_headers.dart';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
@@ -9,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
 import 'network_fast_route_store.dart';
+import 'route_kind_store.dart';
 import 'rhttp_client_factory.dart';
 import '../rhttp_gate.dart';
 
@@ -39,6 +42,7 @@ class NetworkAccessPolicy {
     NetworkRevision revision = const NetworkRevision(0),
     NetworkClientFactory? clientFactory,
     this.fastRouteStore,
+    this.routeKindStore,
     this.echFrontHost = 'cloudflare-ech.com',
     this.insecureNoSniEnabled = false,
     @visibleForTesting Duration? imageHeadersTimeout,
@@ -101,6 +105,11 @@ class NetworkAccessPolicy {
   /// not need a DNS lookup or a HEAD request.
   final PixivFastRouteStore? fastRouteStore;
 
+  /// Persists the winning route *kind* per network identity so the next
+  /// cold start on the same network seeds the group preference instead of
+  /// paying the discovery walk again.
+  final RouteKindStore? routeKindStore;
+
   /// Cloudflare DoH endpoints' anycast IPs (same values PixEz pins; the
   /// DNS names themselves are only used for SNI/Host — the TCP peer is
   /// always one of these). `InternetAddress` has no const constructor, so
@@ -130,6 +139,12 @@ class NetworkAccessPolicy {
   /// Injectable clock keeps route-memory TTL tests deterministic while the
   /// production default remains wall-clock time.
   final DateTime Function() clock;
+
+  /// Invoked when an image-purpose request to a non-canonical (mirror)
+  /// host exhausted every ladder tier — the auto image-source selection
+  /// uses it to drop a dead winner and re-race. The original error still
+  /// propagates to the request caller.
+  void Function(String host)? onImageHostExhausted;
 
   /// The strict-tier resolver (DoH by default, system when DoH is off).
   /// Exposed for the probe page; production requests use [runLadder].
@@ -177,6 +192,7 @@ class NetworkAccessPolicy {
     // like business requests do.
     final rhttpReady = RhttpGate.ready;
     if (rhttpReady != null) await rhttpReady;
+    unawaited(_seedPersistedGroupKinds());
     final store = fastRouteStore;
     if (!_fastCompatibilityEnabled ||
         store == null ||
@@ -242,6 +258,19 @@ class NetworkAccessPolicy {
       return null;
     }
     return memory.kind;
+  }
+
+  /// Currently-usable remembered route kinds per host — the network
+  /// settings page renders this as the effective-route display.
+  Map<String, NetworkRouteKind> effectiveRouteSnapshot({DateTime? now}) {
+    final at = now ?? clock();
+    final snapshot = <String, NetworkRouteKind>{};
+    for (final entry in _routeMemory.entries) {
+      if (entry.value.isUsable(at, _revision.networkIdentity)) {
+        snapshot[entry.key] = entry.value.kind;
+      }
+    }
+    return snapshot;
   }
 
   @visibleForTesting
@@ -384,7 +413,100 @@ class NetworkAccessPolicy {
     _routeMemory.clear();
     _groupMemory.clear();
     _fastRouteCooldownUntil.clear();
+    // Re-seed group preferences for the *new* identity — the same store
+    // that accelerates a cold restart accelerates a Wi-Fi↔cellular flip.
+    unawaited(_seedPersistedGroupKinds());
     return _revision;
+  }
+
+  /// (host, revision) pairs whose winning route has already been warmed —
+  /// one HEAD per network identity per route-memory lifetime.
+  final LinkedHashSet<String> _warmConnectionSent = LinkedHashSet<String>();
+
+  /// Sends one cheap HEAD on the remembered winning route for [host] so the
+  /// first real image GET after feed data lands reuses an established
+  /// connection instead of paying a TLS/HTTP-2 handshake. Throttled to once
+  /// per (host, revision); a no-op while no winner is known — the cold-start
+  /// race owns discovery, and warming a guessed route would just burn a
+  /// socket on the tier that is about to lose anyway.
+  void warmConnection(PixivDestinationPurpose purpose, String host) {
+    if (_disposed || _mode == NetworkMode.directOnly) return;
+    final key =
+        '${purpose.name}|$host|${_revision.value}|${_revision.networkIdentity}';
+    if (!_warmConnectionSent.add(key)) return;
+    while (_warmConnectionSent.length > 64) {
+      _warmConnectionSent.remove(_warmConnectionSent.first);
+    }
+    unawaited(_warmConnection(purpose, host));
+  }
+
+  Future<void> _warmConnection(
+    PixivDestinationPurpose purpose,
+    String host,
+  ) async {
+    try {
+      final now = clock();
+      final memory = _routeMemory[host];
+      NetworkRoute? route;
+      PixivDestination? destination;
+      if (memory != null && memory.isUsable(now, _revision.networkIdentity)) {
+        route = memory.routeFor(_revision);
+      } else {
+        final group = _routeGroupFor(purpose, host);
+        final groupMemory = _groupMemory[group];
+        if (groupMemory == null ||
+            !groupMemory.isUsable(now, _revision.networkIdentity)) {
+          return;
+        }
+        destination = registry.require(Uri.https(host, '/'), purpose);
+        route = await _routeForTier(
+          groupMemory.kind,
+          destination,
+          resolveHost: () => resolve(destination!, cancelSignal: null),
+          cancelSignal: null,
+        );
+      }
+      if (route == null || _disposed) return;
+      destination ??= registry.require(Uri.https(host, '/'), purpose);
+      final client = clientFor(purpose, route, destination.canonicalHost);
+      // Status is irrelevant — a 403 still established the connection,
+      // which is the entire point of the warm-up.
+      final request = http.Request('HEAD', Uri.https(host, '/'))
+        ..headers.addAll(PixivHeaders.image());
+      final response = await client
+          .send(request)
+          .timeout(const Duration(seconds: 8));
+      await response.stream.drain<void>();
+    } on Object {
+      // Warm-up is opportunistic; the request path owns real failures.
+    }
+  }
+
+  /// Seeds group route-kind preferences persisted for the current network
+  /// identity. Groups that already learned a preference this session keep
+  /// it — a live success is fresher than any persisted hint.
+  Future<void> _seedPersistedGroupKinds() async {
+    final store = routeKindStore;
+    if (store == null || _disposed) return;
+    final kinds = await store.kindsFor(_revision.networkIdentity);
+    if (kinds == null || _disposed) return;
+    final now = clock();
+    for (final entry in kinds.entries) {
+      final group = _RouteGroup.values
+          .where((g) => g.name == entry.key)
+          .firstOrNull;
+      if (group == null || _groupMemory.containsKey(group)) continue;
+      final kind = NetworkRouteKind.values
+          .where((k) => k.name == entry.value)
+          .firstOrNull;
+      if (kind == null || !_isGroupPreferenceKind(kind)) continue;
+      _groupMemory[group] = _RouteGroupMemory(
+        kind: kind,
+        ttl: _kRouteMemoryTtl,
+        createdAt: now,
+        networkIdentity: _revision.networkIdentity,
+      );
+    }
   }
 
   void _trimRouteMemory() {
@@ -543,7 +665,11 @@ class _IdleGuardStream extends Stream<List<int>> {
 
     void rearm() {
       timer?.cancel();
-      timer = Timer(idle, () {
+      // The idle budget is wall-clock semantics, so the timer is rooted in
+      // the real zone: a fake-zone timer (widget tests) would stay pending
+      // for any stream still draining at teardown, and in production there
+      // is no fake zone anyway.
+      timer = Zone.root.createTimer(idle, () {
         emitError(
           TimeoutException('response stream idle', idle),
           StackTrace.current,
@@ -568,8 +694,46 @@ class _IdleGuardStream extends Stream<List<int>> {
       cancelOnError: cancelOnError,
     );
     rearm();
-    return sub;
+    // Cancelling the returned subscription must also stop the idle
+    // timer — an abandoned body (raced loser drained late, caller gone)
+    // would otherwise leak a pending timer until it fires.
+    return _GuardedSubscription(sub, () => timer?.cancel());
   }
+}
+
+class _GuardedSubscription implements StreamSubscription<List<int>> {
+  _GuardedSubscription(this._inner, this._onCancel);
+
+  final StreamSubscription<List<int>> _inner;
+  final void Function() _onCancel;
+
+  @override
+  Future<void> cancel() {
+    _onCancel();
+    return _inner.cancel();
+  }
+
+  @override
+  void onData(void Function(List<int> event)? handleData) =>
+      _inner.onData(handleData);
+
+  @override
+  void onError(Function? handleError) => _inner.onError(handleError);
+
+  @override
+  void onDone(void Function()? handleDone) => _inner.onDone(handleDone);
+
+  @override
+  void pause([Future<void>? resumeSignal]) => _inner.pause(resumeSignal);
+
+  @override
+  void resume() => _inner.resume();
+
+  @override
+  bool get isPaused => _inner.isPaused;
+
+  @override
+  Future<E> asFuture<E>([E? futureValue]) => _inner.asFuture(futureValue);
 }
 
 enum _RouteGroup { cloudflare, image, imageMirror }
