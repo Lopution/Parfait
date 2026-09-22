@@ -146,13 +146,7 @@ class SearchHomePage extends ConsumerWidget {
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                           ),
-                      // Trim to full rows: a dangling partial row looks like a
-                      // layout bug, and the grid only ever shows a teaser of the
-                      // server's trending list anyway. Lists shorter than one
-                      // full row keep everything — an empty section is worse.
-                      itemCount: tags.length >= 3
-                          ? tags.length - (tags.length % 3)
-                          : tags.length,
+                      itemCount: tags.length,
                       itemBuilder: (context, index) => _TrendingTagTile(
                         tag: tags[index],
                         type: trendingType,

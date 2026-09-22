@@ -89,6 +89,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginInstallWebView2 => 'WebView2 Runtime をインストール';
 
   @override
+  String get loginReload => '再読み込み';
+
+  @override
+  String get loginRestart => '再度ログイン';
+
+  @override
   String loginFailed(String error) {
     return 'ログインに失敗しました: $error';
   }
@@ -489,9 +495,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get accountReadFailed => 'アカウント状態を読み込めませんでした';
 
   @override
-  String get reopen => '開き直す';
-
-  @override
   String get dismiss => '閉じる';
 
   @override
@@ -678,7 +681,7 @@ class AppLocalizationsJa extends AppLocalizations {
       '無効なソースです：https・DNS ホスト名・ポート 443 が必要です';
 
   @override
-  String get imageSourceTest => 'テスト';
+  String get imageSourceApplyAndTest => '適用してテスト';
 
   @override
   String imageSourceTestOk(String code) {

@@ -45,6 +45,8 @@
   },
   "loginWebView2Missing": "ログインには WebView2 Runtime が必要ですが、このシステムでは検出されませんでした。インストールしてからこのページを開き直してください。",
   "loginInstallWebView2": "WebView2 Runtime をインストール",
+  "loginReload": "再読み込み",
+  "loginRestart": "再度ログイン",
   "loginFailed": "ログインに失敗しました: {error}",
   "@loginFailed": {
     "placeholders": {
@@ -191,7 +193,6 @@
   "reauthRequired": "再ログインが必要です",
   "accountProfile": "プロフィール",
   "accountReadFailed": "アカウント状態を読み込めませんでした",
-  "reopen": "開き直す",
   "dismiss": "閉じる",
   "profileEditTitle": "プロフィールを編集",
   "profileEditLoadFailed": "プロフィールを読み込めませんでした",
@@ -291,7 +292,7 @@
   "imageSourceCustomHint": "https://host[/path]、例：https://i.pixiv.cat",
   "imageSourceCustomUnset": "未設定",
   "imageSourceCustomInvalid": "無効なソースです：https・DNS ホスト名・ポート 443 が必要です",
-  "imageSourceTest": "テスト",
+  "imageSourceApplyAndTest": "適用してテスト",
   "imageSourceTestOk": "ミラーに接続できました（HTTP {code}）",
   "@imageSourceTestOk": {
     "placeholders": {

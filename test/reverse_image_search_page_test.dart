@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -405,6 +406,107 @@ void main() {
     expect(find.text('重试当前引擎'), findsOneWidget);
     expect(find.text('重新选择'), findsOneWidget);
   });
+
+  testWidgets('progress cancel stops the search but stays on the page', (
+    tester,
+  ) async {
+    final provider = _BlockingProvider();
+    await _pumpPushedPage(
+      tester,
+      platform: platform,
+      providers: {ReverseImageEngine.sauceNao: provider},
+    );
+
+    await tester.tap(find.text('选择图片'));
+    await _pumpUntilVisible(tester, find.text('开始反向搜图'));
+    await tester.ensureVisible(find.text('开始反向搜图'));
+    await tester.tap(find.text('开始反向搜图'));
+    await _pumpUntilVisible(tester, find.text('正在搜索…'));
+
+    // Cancelling the in-flight search is not leaving: the prepared image
+    // comes back on the ready screen.
+    await tester.tap(find.text('取消'));
+    await _pumpUntilVisible(tester, find.text('图片已准备好'));
+
+    expect(find.byType(ReverseImageSearchPage), findsOneWidget);
+    expect(find.text('图片已准备好'), findsOneWidget);
+    expect(find.text('开始反向搜图'), findsOneWidget);
+    expect(platform.deletedPaths, isEmpty);
+  });
+
+  testWidgets('the app bar back button cancels the search and pops', (
+    tester,
+  ) async {
+    final provider = _BlockingProvider();
+    await _pumpPushedPage(
+      tester,
+      platform: platform,
+      providers: {ReverseImageEngine.sauceNao: provider},
+    );
+
+    await tester.tap(find.text('选择图片'));
+    await _pumpUntilVisible(tester, find.text('开始反向搜图'));
+    await tester.ensureVisible(find.text('开始反向搜图'));
+    await tester.tap(find.text('开始反向搜图'));
+    await _pumpUntilVisible(tester, find.text('正在搜索…'));
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    // The pop transition outlives the ~300ms default — give it real frames.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+
+    // The route is gone and the owned image was released by cancel().
+    expect(find.text('open reverse search'), findsOneWidget);
+    expect(find.byType(ReverseImageSearchPage), findsNothing);
+    expect(platform.deletedPaths, isNotEmpty);
+  });
+}
+
+class _PushedHost extends StatelessWidget {
+  const _PushedHost({required this.platform, required this.providers});
+
+  final ReverseImageInputPlatform platform;
+  final Map<ReverseImageEngine, ReverseImageProvider> providers;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => ReverseImageSearchPage(
+                platform: platform,
+                providers: providers,
+              ),
+            ),
+          ),
+          child: const Text('open reverse search'),
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _pumpPushedPage(
+  WidgetTester tester, {
+  required ReverseImageInputPlatform platform,
+  required Map<ReverseImageEngine, ReverseImageProvider> providers,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      child: MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: _PushedHost(platform: platform, providers: providers),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.tap(find.text('open reverse search'));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 800));
 }
 
 Future<void> _pumpPage(
@@ -568,4 +670,26 @@ class _OutcomeProvider implements ReverseImageProvider {
     OwnedReverseImageInput input, {
     CancelToken? cancelToken,
   }) async => outcome;
+}
+
+/// A provider whose search never finishes on its own — [blocker] lets a
+/// test decide when (or whether) the in-flight search resolves.
+class _BlockingProvider implements ReverseImageProvider {
+  final blocker = Completer<ReverseImageSearchOutcome>();
+
+  @override
+  ReverseImageProviderCapability get capability =>
+      const ReverseImageProviderCapability(
+        name: 'blocking-provider',
+        kind: ReverseImageProviderKind.structuredApi,
+        enabled: true,
+        observedAt: 'test',
+        reason: 'test-only provider',
+      );
+
+  @override
+  Future<ReverseImageSearchOutcome> search(
+    OwnedReverseImageInput input, {
+    CancelToken? cancelToken,
+  }) => blocker.future;
 }

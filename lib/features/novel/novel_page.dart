@@ -20,6 +20,7 @@ import '../../core/network/pixiv_http_client.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart';
+import '../../core/search/search_models.dart';
 import '../../core/novel/reader_settings.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/settings/settings_controller.dart';
@@ -129,9 +130,9 @@ class _NovelStatusScaffold extends StatelessWidget {
           bottom: false,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: BackButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
+            // An explicit control means "leave the page"; only the system
+            // back gesture goes through the chrome-first interception.
+            child: BackButton(onPressed: () => Navigator.of(context).pop()),
           ),
         ),
         Expanded(child: child),
@@ -349,7 +350,9 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
             children: [
               IconButton(
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
+                // Imperative pop: the PopScope only intercepts the system
+                // back gesture (chrome-first); this control always leaves.
+                onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back),
               ),
               Expanded(
@@ -569,7 +572,19 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
               Wrap(
                 children: [
                   for (final tag in novel.tags)
-                    TagChip(label: tag.name, translated: tag.translatedName),
+                    TagChip(
+                      label: tag.name,
+                      translated: tag.translatedName,
+                      onTap: () {
+                        // Same close-then-navigate sequence as the author
+                        // chip above.
+                        Navigator.of(sheetContext).pop();
+                        openSearchResults(
+                          context,
+                          NovelSearchQuery(keyword: tag.name),
+                        );
+                      },
+                    ),
                 ],
               ),
             ],

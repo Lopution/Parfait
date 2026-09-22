@@ -157,6 +157,10 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
 
   Future<void> pick() async {
     if (_closed) return;
+    // Bump the generation so a stop while the picker is open makes the
+    // late reference die here instead of flowing into prepare().
+    final generation = ++_generation;
+    _cancelToken?.cancel();
     _setState(
       ReverseImageFlowState(
         status: ReverseImageFlowStatus.picking,
@@ -165,13 +169,16 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     );
     try {
       final reference = await platform.pickImage();
-      if (_closed || reference == null) {
-        if (!_closed) _setState(const ReverseImageFlowState.idle());
+      if (_closed || generation != _generation) return;
+      if (reference == null) {
+        _setState(const ReverseImageFlowState.idle());
         return;
       }
       await prepare(reference);
     } on Object catch (error) {
-      _setFailure(_flowFailure(error));
+      if (!_closed && generation == _generation) {
+        _setFailure(_flowFailure(error));
+      }
     }
   }
 
@@ -330,6 +337,9 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     }
 
     Object? cleanupError;
+    // A stale generation must not release an input the newer flow still
+    // owns — stopSearch()/prepare() already decided that input's fate.
+    if (_closed || generation != _generation) return;
     // The file stays owned on web-upload (the browser submits it later) and
     // on failure (another engine may still accept it — constraints differ).
     // Headless/webview successes are terminal and release it now.
@@ -422,6 +432,27 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
           engineFailures,
         );
     }
+  }
+
+  /// Stops the in-flight step without leaving the page: a held image drops
+  /// back to ready so the user can retry or switch engines, and an empty
+  /// flow returns to idle. Unlike [cancel] the owned input is kept.
+  Future<void> stopSearch() async {
+    if (_closed) return;
+    ++_generation;
+    _cancelToken?.cancel();
+    _cancelToken = null;
+    final input = _input;
+    _setState(
+      ReverseImageFlowState(
+        status: input == null
+            ? ReverseImageFlowStatus.idle
+            : ReverseImageFlowStatus.ready,
+        engine: state.engine,
+        input: input?.info,
+        engineFailures: state.engineFailures,
+      ),
+    );
   }
 
   Future<void> cancel() async {

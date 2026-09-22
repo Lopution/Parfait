@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -169,6 +170,47 @@ void main() {
     expect(find.text('novel 1'), findsNothing);
   });
 
+  testWidgets('explicit back leaves the page even while chrome is visible', (
+    tester,
+  ) async {
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: _Host(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      // Detail + webview fetches, then the first layout pass.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    expect(find.byType(PageView), findsOneWidget);
+
+    // Reveal the chrome, then use the explicit back control: it must leave
+    // the page instead of only hiding the bars. The PopScope's chrome-first
+    // interception covers the system back gesture; an imperative pop()
+    // bypasses it (flutter/flutter#163052).
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.byType(NovelPage), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+  });
+
   testWidgets('work info sheet renders caption HTML without literal <br>', (
     tester,
   ) async {
@@ -203,6 +245,59 @@ void main() {
     // Tags and the comment entry moved into the sheet with the metadata.
     expect(find.text('#tag1 t1'), findsOneWidget);
     expect(find.byIcon(Icons.comment_outlined), findsOneWidget);
+  });
+
+  testWidgets('a tag chip in the info sheet closes it and opens tag search', (
+    tester,
+  ) async {
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      initialLocation: '/novel/1',
+      routes: [
+        GoRoute(
+          path: '/novel/:novelId',
+          builder: (context, state) =>
+              NovelPage(novelId: int.parse(state.pathParameters['novelId']!)),
+        ),
+        GoRoute(
+          path: '/search/results',
+          builder: (context, state) => const Scaffold(body: Text('results')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+    expect(find.text('#tag1 t1'), findsOneWidget);
+
+    await tester.tap(find.text('#tag1 t1'));
+    await tester.pumpAndSettle();
+
+    // The sheet is gone and the typed search route was pushed.
+    expect(find.text('#tag1 t1'), findsNothing);
+    expect(router.state.uri.path, '/search/results');
+    expect(router.state.uri.queryParameters['q'], 'tag1');
+    expect(router.state.uri.queryParameters['type'], 'novel');
   });
 
   testWidgets('chrome surfaces paint through the system-bar insets', (
@@ -267,4 +362,26 @@ void main() {
       greaterThanOrEqualTo(24),
     );
   });
+}
+
+/// Host page that pushes [NovelPage], so an explicit back has a route to
+/// land on.
+class _Host extends StatelessWidget {
+  const _Host();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const NovelPage(novelId: 1),
+            ),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    );
+  }
 }
