@@ -672,6 +672,17 @@
     }
   },
   "searchReverseIntro": "选择图片后将上传到所选引擎进行反向检索；结果页在应用内打开。",
+  "searchReverseFailed": "搜索失败",
+  "searchReverseDone": "已完成",
+  "searchReverseResultCount": "{count} 个结果",
+  "@searchReverseResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseEngineSwitch": "切换引擎",
   "searchNoRepresentative": "该标签暂无代表作品",
   "searchFilters": "筛选",
   "searchReset": "重置",

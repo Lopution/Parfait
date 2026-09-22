@@ -672,6 +672,17 @@
     }
   },
   "searchReverseIntro": "選択した画像は選択中のエンジンにアップロードされ、結果ページがアプリ内で開きます。",
+  "searchReverseFailed": "検索に失敗しました",
+  "searchReverseDone": "完了",
+  "searchReverseResultCount": "{count} 件の結果",
+  "@searchReverseResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseEngineSwitch": "エンジンを切り替え",
   "searchNoRepresentative": "このタグには代表作品がありません",
   "searchFilters": "フィルター",
   "searchReset": "リセット",
