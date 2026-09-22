@@ -986,5 +986,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "tagActionSearch": "このタグを検索",
+  "tagActionCopy": "タグ名をコピー",
+  "tagActionMute": "このタグをミュート",
+  "tagActionUnmute": "このタグのミュートを解除",
+  "tagActionMuteMode": "タグをまとめてミュート",
+  "tagCopied": "タグをコピーしました"
 }

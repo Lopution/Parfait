@@ -2114,4 +2114,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String viewerPageLabel(int page, int total) {
     return '$total ページ中 $page ページ目';
   }
+
+  @override
+  String get tagActionSearch => 'このタグを検索';
+
+  @override
+  String get tagActionCopy => 'タグ名をコピー';
+
+  @override
+  String get tagActionMute => 'このタグをミュート';
+
+  @override
+  String get tagActionUnmute => 'このタグのミュートを解除';
+
+  @override
+  String get tagActionMuteMode => 'タグをまとめてミュート';
+
+  @override
+  String get tagCopied => 'タグをコピーしました';
 }

@@ -2096,4 +2096,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String viewerPageLabel(int page, int total) {
     return '第 $page 页，共 $total 页';
   }
+
+  @override
+  String get tagActionSearch => '搜索该标签';
+
+  @override
+  String get tagActionCopy => '复制标签名';
+
+  @override
+  String get tagActionMute => '屏蔽该标签';
+
+  @override
+  String get tagActionUnmute => '解除屏蔽该标签';
+
+  @override
+  String get tagActionMuteMode => '批量屏蔽标签';
+
+  @override
+  String get tagCopied => '已复制标签';
 }

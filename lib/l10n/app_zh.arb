@@ -986,5 +986,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "tagActionSearch": "搜索该标签",
+  "tagActionCopy": "复制标签名",
+  "tagActionMute": "屏蔽该标签",
+  "tagActionUnmute": "解除屏蔽该标签",
+  "tagActionMuteMode": "批量屏蔽标签",
+  "tagCopied": "已复制标签"
 }
