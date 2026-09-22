@@ -16,7 +16,7 @@ import '../../../l10n/context.dart';
 /// Fullscreen horizontal viewer replicating beta56 ImageScalePage
 /// (R3): `n / total` title, horizontal paging, per-page zoom clamped to
 /// 0.9–6.0, initial page restored, swiping suspended while zoomed.
-class ImageViewerPage extends StatefulWidget {
+class ImageViewerPage extends ConsumerStatefulWidget {
   const ImageViewerPage({
     super.key,
     required this.urls,
@@ -26,6 +26,7 @@ class ImageViewerPage extends StatefulWidget {
     this.tierKeyForPage,
     this.tier,
     this.prefetchUrlForPage,
+    this.entity,
   }) : assert(initialPage >= 0);
 
   final List<String> urls;
@@ -44,15 +45,20 @@ class ImageViewerPage extends StatefulWidget {
   /// instead of a black placeholder.
   final String? Function(int page)? prefetchUrlForPage;
 
+  /// The resolved work entity powering save/share/info. Null on a cold
+  /// deep-link or when the store has not loaded the work yet — in that case
+  /// the entity-bound actions simply do not render.
+  final IllustEntity? entity;
+
   /// Zoom bounds (PRD R3: strictly 0.9–6.0).
   static const double minScale = 0.9;
   static const double maxScale = 6.0;
 
   @override
-  State<ImageViewerPage> createState() => _ImageViewerPageState();
+  ConsumerState<ImageViewerPage> createState() => _ImageViewerPageState();
 }
 
-class _ImageViewerPageState extends State<ImageViewerPage> {
+class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
   late final PageController _pageController;
   final _transformations = <int, TransformationController>{};
   int _activePage = 0;
