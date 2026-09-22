@@ -165,7 +165,7 @@ class _ReverseImageSearchPageState
       appBar: AppBar(
         title: Text(context.l10n.searchReverseImage),
         leading: IconButton(
-          tooltip: context.l10n.searchReverseCancel,
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           onPressed: _cancelAndPop,
           icon: const Icon(Icons.arrow_back),
         ),
@@ -293,8 +293,10 @@ class _ReverseImageSearchPageState
             const SizedBox(height: 18),
             Text(label),
             const SizedBox(height: 18),
+            // Cancelling the in-flight step keeps the page open — leaving
+            // is what the AppBar back button is for.
             OutlinedButton(
-              onPressed: _cancelAndPop,
+              onPressed: _controller.stopSearch,
               child: Text(context.l10n.searchReverseCancel),
             ),
           ],
