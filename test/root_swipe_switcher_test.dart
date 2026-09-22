@@ -1,14 +1,18 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/widgets/branch_slide_stack.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
+import 'package:pixiv_func/features/history/history_page.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
@@ -353,5 +357,123 @@ void main() {
     expect(movedPx, closeTo(movedPages * slotWidth, 8.0));
     await gesture.up();
     await tester.pumpAndSettle();
+  });
+
+  group('re-tap channel', () {
+    List<int> record(WidgetTester tester, Finder page) {
+      final pager = BranchSlideStack.maybeOf(tester.element(page))!;
+      final events = <int>[];
+      pager.reTapEvents.addListener(() => events.add(pager.reTapEvents.branch));
+      return events;
+    }
+
+    testWidgets('a same-destination tap emits one event per tap', (
+      tester,
+    ) async {
+      await _pumpHome(tester);
+      final events = record(tester, find.byType(RecommendedHomePage));
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FuncShellBottomNav),
+          matching: find.byIcon(AppIcons.home),
+        ),
+      );
+      await tester.pump();
+      expect(events, [0]);
+
+      // A repeat fires again — the event is an edge, not a state.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FuncShellBottomNav),
+          matching: find.byIcon(AppIcons.home),
+        ),
+      );
+      await tester.pump();
+      expect(events, [0, 0]);
+    });
+
+    testWidgets('a re-tap pops the branch stack back to its root', (
+      tester,
+    ) async {
+      final router = await _pumpHome(tester);
+      final pager = BranchSlideStack.maybeOf(
+        tester.element(find.byType(RecommendedHomePage)),
+      )!;
+      final events = record(tester, find.byType(RecommendedHomePage));
+
+      // Imperative pushes do not update the URL
+      // (GoRouter.optionURLReflectsImperativeAPIs stays off), so the
+      // pushed route is asserted through the widget tree instead of
+      // routeInformationProvider. The history page keeps a spinner alive,
+      // so bounded pumps drive the transition — never pumpAndSettle here.
+      unawaited(router.push<void>('/recommended/history'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(HistoryPage), findsOneWidget);
+
+      // The bar slides away while a pushed route covers the root, so the
+      // tap arrives at the pager the same way FuncShellBottomNav sends it.
+      pager.selectIndex(0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(find.byType(HistoryPage), findsNothing);
+      expect(find.byType(RecommendedHomePage), findsOneWidget);
+      expect(events, [0]);
+    });
+
+    testWidgets('a different-destination tap does not emit', (tester) async {
+      await _pumpHome(tester);
+      final events = record(tester, find.byType(RecommendedHomePage));
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FuncShellBottomNav),
+          matching: find.byIcon(AppIcons.search),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(events, isEmpty);
+    });
+
+    testWidgets('syncIndex and drag settles never emit', (tester) async {
+      final router = await _pumpHome(tester, location: '/search');
+      final pager = BranchSlideStack.maybeOf(
+        tester.element(find.byType(SearchHomePage)),
+      )!;
+      final events = record(tester, find.byType(SearchHomePage));
+
+      // A committed drag settle crosses to the neighbour branch without
+      // ever being a tap. Search has no top tabs, so the sideways drag is
+      // the branch pager's directly.
+      final gesture = await tester.startGesture(const Offset(300, 400));
+      await gesture.moveBy(const Offset(-140, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(_path(router), '/settings');
+      expect(events, isEmpty);
+
+      // A reel-back settle is also silent.
+      final weak = await tester.startGesture(const Offset(300, 400));
+      await weak.moveBy(const Offset(-60, 0));
+      await tester.pump();
+      await weak.up();
+      await tester.pumpAndSettle();
+      expect(events, isEmpty);
+
+      // Programmatic sync: a deep link moves the shell, didUpdateWidget
+      // runs the suppressed syncIndex path.
+      router.go('/recommended');
+      await tester.pumpAndSettle();
+      expect(events, isEmpty);
+
+      // Direct call — the early-return and animateTo paths alike.
+      pager.syncIndex();
+      await tester.pumpAndSettle();
+      expect(events, isEmpty);
+    });
   });
 }
