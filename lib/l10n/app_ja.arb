@@ -959,5 +959,7 @@
   "spotlightCategoryManga": "マンガ",
   "spotlightLoadFailed": "スポットライトの読み込みに失敗しました",
   "spotlightLoadMoreFailed": "続きの読み込みに失敗しました",
-  "spotlightEmpty": "スポットライト記事がありません"
+  "spotlightEmpty": "スポットライト記事がありません",
+  "enableHaptics": "触覚フィードバック",
+  "enableHapticsHint": "選択・保存完了・失敗時に振動します"
 }

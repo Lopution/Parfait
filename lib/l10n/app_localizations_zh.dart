@@ -2071,4 +2071,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get spotlightEmpty => '暂无特辑';
+
+  @override
+  String get enableHaptics => '触感反馈';
+
+  @override
+  String get enableHapticsHint => '选择、保存成功与失败时振动';
 }

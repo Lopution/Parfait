@@ -480,3 +480,24 @@ a second scroll-notification state machine alongside the framework's. Take the
 framework's answers (its status callbacks, its scroll metrics) rather than
 re-deriving them; "do not rebuild the state machine" is not "do not read the
 framework's state".
+
+## Haptics Contract
+
+`AppHaptics` (`lib/app/haptics/app_haptics.dart`) is the single haptic
+entry point for the app. Feature code must never call
+`HapticFeedback` directly — every trigger goes through the owner so the
+persisted `enableHaptics` setting, per-level throttling, and platform
+tolerance stay in one place.
+
+- Consumers name a **role**, never a level: `select()` (selection
+  toggles, mode exits, copy), `confirm()` (entering a management/
+  selection mode, opening a batched or destructive action surface),
+  `success()` (a save/download/share submission landed) and `error()`
+  (the attempted action failed). The role→`HapticFeedback` level mapping
+  and per-level throttling live inside `AppHaptics`; adding a role needs
+  a real consumer.
+- The enabled reader is injected by `PixivFuncApp.build` via
+  `AppHaptics.configure`; feature code never reads settings itself.
+- Haptics are a redundant feedback channel: with the toggle off or on a
+  platform without haptics support, all visual feedback must still be
+  complete and distinguishable.

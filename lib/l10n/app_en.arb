@@ -959,5 +959,7 @@
   "spotlightCategoryManga": "Manga",
   "spotlightLoadFailed": "Failed to load spotlight",
   "spotlightLoadMoreFailed": "Failed to load more spotlight articles",
-  "spotlightEmpty": "No spotlight articles"
+  "spotlightEmpty": "No spotlight articles",
+  "enableHaptics": "Haptic feedback",
+  "enableHapticsHint": "Vibrate on selections, saved actions and failures"
 }
