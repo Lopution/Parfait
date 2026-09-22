@@ -12,6 +12,7 @@ import '../image_tier_cache.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
+import '../../core/illust/recommended_repository.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/novel/novel_repository.dart' hide NovelPage;
 import '../../core/platform/intent_router.dart';
@@ -277,6 +278,12 @@ RankingMode _rankingMode(String? raw) => RankingMode.values.firstWhere(
 
 NovelRankingMode _novelRankingMode(String? raw) => NovelRankingMode.values
     .firstWhere((mode) => mode.name == raw, orElse: () => NovelRankingMode.day);
+
+RecommendedContentType _recommendedType(String? raw) =>
+    RecommendedContentType.values.firstWhere(
+      (type) => type.name == raw,
+      orElse: () => RecommendedContentType.illust,
+    );
 
 SearchResultType _searchType(String? raw) => SearchResultType.values.firstWhere(
   (value) => value.name == raw,
@@ -975,6 +982,10 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             path: '/recommended',
             branchIndex: 0,
             home: const RecommendedHomePage(),
+            homeBuilder: (context, state) => RecommendedHomePage(
+              initialType: _recommendedType(state.uri.queryParameters['type']),
+              onTypeChanged: (type) => replaceRecommendedType(context, type),
+            ),
             navigatorKey: recommendedNavigatorKey,
             observer: recommendedRouteObserver,
             rootNavigatorKey: appRootNavigatorKey,
@@ -1272,6 +1283,14 @@ void replaceNovelRankingMode(BuildContext context, NovelRankingMode mode) {
   final location = Uri(
     path: '${_currentStackRoot(context)}/novel-ranking',
     queryParameters: {'mode': mode.name},
+  ).toString();
+  context.replace(location);
+}
+
+void replaceRecommendedType(BuildContext context, RecommendedContentType type) {
+  final location = Uri(
+    path: '/recommended',
+    queryParameters: {'type': type.name},
   ).toString();
   context.replace(location);
 }
