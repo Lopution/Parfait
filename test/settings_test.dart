@@ -1176,6 +1176,30 @@ void main() {
       expect(find.textContaining('镜像可达'), findsOneWidget);
     },
   );
+  test('enableHaptics defaults on and round-trips through JSON', () {
+    final base = _baseSettings();
+    expect(base.enableHaptics, isTrue);
+    final restored = AppSettings.fromJson(
+      base.toJson(),
+      fallback: _baseSettings(),
+    );
+    expect(restored.enableHaptics, isTrue);
+    // Payloads from before the key existed also default to on.
+    final legacy = base.toJson()..remove('enableHaptics');
+    expect(
+      AppSettings.fromJson(legacy, fallback: _baseSettings()).enableHaptics,
+      isTrue,
+    );
+    // And the off state persists.
+    final off = base.copyWith(enableHaptics: false);
+    expect(
+      AppSettings.fromJson(
+        off.toJson(),
+        fallback: _baseSettings(),
+      ).enableHaptics,
+      isFalse,
+    );
+  });
 }
 
 Future<void> _scrollCentered(WidgetTester tester, Finder finder) async {

@@ -171,6 +171,7 @@ class AppSettings {
     this.enableLocalBlockAI = false,
     this.hideMuted = false,
     this.reduceMotion = false,
+    this.enableHaptics = true,
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
     this.downloadDestination = DownloadDestination.builtin,
@@ -253,6 +254,11 @@ class AppSettings {
   /// scale, sheet/dialog presentation) to instant state changes. Merged
   /// with the platform `disableAnimations` flag inside `MotionTokens`.
   final bool reduceMotion;
+
+  /// Haptic feedback master switch, consumed by `AppHaptics` (§5.6 single
+  /// owner). Haptics are a redundant channel — visual feedback stays
+  /// complete either way.
+  final bool enableHaptics;
   final int translateIndex;
   final int maxDownloadCount;
   final DownloadDestination downloadDestination;
@@ -360,6 +366,7 @@ class AppSettings {
       ),
       hideMuted: _bool(json['hideMuted'], base.hideMuted),
       reduceMotion: _bool(json['reduceMotion'], base.reduceMotion),
+      enableHaptics: _bool(json['enableHaptics'], base.enableHaptics),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
       downloadDestination: _readDestination(json, base.downloadDestination),
@@ -396,6 +403,7 @@ class AppSettings {
       'enableLocalBlockAI': enableLocalBlockAI,
       'hideMuted': hideMuted,
       'reduceMotion': reduceMotion,
+      'enableHaptics': enableHaptics,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
       ...downloadDestination.toJson(),
@@ -513,6 +521,7 @@ class AppSettings {
     bool? enableLocalBlockAI,
     bool? hideMuted,
     bool? reduceMotion,
+    bool? enableHaptics,
     int? translateIndex,
     int? maxDownloadCount,
     Object? downloadDestination = _unset,
@@ -555,6 +564,7 @@ class AppSettings {
       enableLocalBlockAI: enableLocalBlockAI ?? this.enableLocalBlockAI,
       hideMuted: hideMuted ?? this.hideMuted,
       reduceMotion: reduceMotion ?? this.reduceMotion,
+      enableHaptics: enableHaptics ?? this.enableHaptics,
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??
           this.translateIndex,

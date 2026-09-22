@@ -119,6 +119,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setReduceMotion(bool enabled) =>
       _update((settings) => settings.copyWith(reduceMotion: enabled));
 
+  Future<void> setHapticsEnabled(bool enabled) =>
+      _update((settings) => settings.copyWith(enableHaptics: enabled));
+
   Future<void> selectTranslationProvider(TranslationProvider provider) =>
       _update((settings) => settings.copyWith(translateIndex: provider.code));
 
