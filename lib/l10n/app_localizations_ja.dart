@@ -2109,4 +2109,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get done => '完了';
+
+  @override
+  String viewerPageLabel(int page, int total) {
+    return '$total ページ中 $page ページ目';
+  }
 }

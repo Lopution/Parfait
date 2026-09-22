@@ -975,5 +975,16 @@
     }
   },
   "selectAll": "Выбрать все",
-  "done": "Готово"
+  "done": "Готово",
+  "viewerPageLabel": "Страница {page} из {total}",
+  "@viewerPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

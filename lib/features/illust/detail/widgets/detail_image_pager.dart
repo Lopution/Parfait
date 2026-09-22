@@ -16,6 +16,8 @@ class DetailImagePager extends StatefulWidget {
     required this.entity,
     required this.detailUrlFor,
     required this.downloadMode,
+    required this.selectedPages,
+    required this.onToggleSelect,
     required this.onLongPress,
     required this.heroTag,
     required this.heroScope,
@@ -30,6 +32,11 @@ class DetailImagePager extends StatefulWidget {
   final String? Function(int index) detailUrlFor;
   final bool downloadMode;
   final VoidCallback onLongPress;
+
+  /// Selection-mode state owned by the detail page: which page indexes are
+  /// selected and the per-page toggle callback.
+  final Set<int> selectedPages;
+  final ValueChanged<int> onToggleSelect;
   final String heroTag;
   final String heroScope;
   final String? heroImageUrl;
@@ -121,6 +128,8 @@ class _DetailImagePagerState extends State<DetailImagePager> {
                           : null,
                       detailUrl: widget.detailUrlFor(index),
                       downloadMode: widget.downloadMode,
+                      selected: widget.selectedPages.contains(index),
+                      onToggleSelect: () => widget.onToggleSelect(index),
                       onLongPress: widget.onLongPress,
                     );
               // Contain inside the fixed-height pane: AspectRatio picks the

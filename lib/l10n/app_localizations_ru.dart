@@ -2155,4 +2155,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get done => 'Готово';
+
+  @override
+  String viewerPageLabel(int page, int total) {
+    return 'Страница $page из $total';
+  }
 }

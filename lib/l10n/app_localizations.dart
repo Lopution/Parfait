@@ -4061,6 +4061,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'完成'**
   String get done;
+
+  /// No description provided for @viewerPageLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {page} 页，共 {total} 页'**
+  String viewerPageLabel(int page, int total);
 }
 
 class _AppLocalizationsDelegate

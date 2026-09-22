@@ -2091,4 +2091,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get done => '完成';
+
+  @override
+  String viewerPageLabel(int page, int total) {
+    return '第 $page 页，共 $total 页';
+  }
 }
