@@ -14,6 +14,7 @@ import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/recommended_repository.dart';
 import '../../core/network/compat/network_providers.dart';
+import '../../core/new/new_feed_models.dart';
 import '../../core/novel/novel_repository.dart' hide NovelPage;
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/platform_caps.dart';
@@ -284,6 +285,16 @@ RecommendedContentType _recommendedType(String? raw) =>
       (type) => type.name == raw,
       orElse: () => RecommendedContentType.illust,
     );
+
+NewFeedScope _newFeedScope(String? raw) => NewFeedScope.values.firstWhere(
+  (scope) => scope.name == raw,
+  orElse: () => NewFeedScope.following,
+);
+
+NewFeedType _newFeedType(String? raw) => NewFeedType.values.firstWhere(
+  (type) => type.name == raw,
+  orElse: () => NewFeedType.illust,
+);
 
 SearchResultType _searchType(String? raw) => SearchResultType.values.firstWhere(
   (value) => value.name == raw,
@@ -1010,6 +1021,12 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             path: '/new',
             branchIndex: 2,
             home: const NewPage(),
+            homeBuilder: (context, state) => NewPage(
+              initialScope: _newFeedScope(state.uri.queryParameters['scope']),
+              initialType: _newFeedType(state.uri.queryParameters['type']),
+              onFeedChanged: (scope, type) =>
+                  replaceNewFeed(context, scope: scope, type: type),
+            ),
             navigatorKey: newNavigatorKey,
             observer: newRouteObserver,
             rootNavigatorKey: appRootNavigatorKey,
@@ -1291,6 +1308,18 @@ void replaceRecommendedType(BuildContext context, RecommendedContentType type) {
   final location = Uri(
     path: '/recommended',
     queryParameters: {'type': type.name},
+  ).toString();
+  context.replace(location);
+}
+
+void replaceNewFeed(
+  BuildContext context, {
+  required NewFeedScope scope,
+  required NewFeedType type,
+}) {
+  final location = Uri(
+    path: '/new',
+    queryParameters: {'scope': scope.name, 'type': type.name},
   ).toString();
   context.replace(location);
 }

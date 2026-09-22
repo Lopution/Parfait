@@ -20,10 +20,22 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 
-/// Beta56 New page: scope tabs are stable while the content type selector is
-/// exposed by tapping the selected tab a second time.
+/// Beta56 New page: scope tabs + a content type selector, both route-durable
+/// (`/new?scope=&type=`): [initialScope]/[initialType] seed the controller
+/// and tab/chip changes echo back through [onFeedChanged]. Each
+/// (scope, type) pair keeps its own feed state — switching back does not
+/// refetch.
 class NewPage extends StatefulWidget {
-  const NewPage({super.key});
+  const NewPage({
+    super.key,
+    this.initialScope = NewFeedScope.following,
+    this.initialType = NewFeedType.illust,
+    this.onFeedChanged,
+  });
+
+  final NewFeedScope initialScope;
+  final NewFeedType initialType;
+  final void Function(NewFeedScope scope, NewFeedType type)? onFeedChanged;
 
   @override
   State<NewPage> createState() => _NewPageState();
@@ -31,20 +43,51 @@ class NewPage extends StatefulWidget {
 
 class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final _loadedKeys = <NewFeedKey>{
-    const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.illust),
-  };
-  int _selectedIndex = 0;
-  NewFeedType _type = NewFeedType.illust;
+  final _loadedKeys = <NewFeedKey>{};
+  late int _selectedIndex;
+  late NewFeedType _type;
   bool _selectorExpanded = false;
+  bool _suppressRouteEcho = false;
 
   static const _scopes = NewFeedScope.values;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _scopes.length, vsync: this)
-      ..addListener(_onTabChanged);
+    _selectedIndex = _scopes.indexOf(widget.initialScope);
+    _type = widget.initialType;
+    _loadedKeys.add(_activeKey);
+    _tabController = TabController(
+      length: _scopes.length,
+      vsync: this,
+      initialIndex: _selectedIndex,
+    )..addListener(_onTabChanged);
+  }
+
+  @override
+  void didUpdateWidget(NewPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // context.replace keeps the page key, so a route write lands here as a
+    // widget update. Self-echoes carry the current values and no-op; only
+    // an externally changed param moves the strip — the controller is
+    // never reset.
+    if (widget.initialScope == _scopes[_selectedIndex] &&
+        widget.initialType == _type) {
+      return;
+    }
+    setState(() {
+      _type = widget.initialType;
+      _loadedKeys.add(NewFeedKey(scope: widget.initialScope, type: _type));
+    });
+    final index = _scopes.indexOf(widget.initialScope);
+    if (index != _tabController.index) {
+      _suppressRouteEcho = true;
+      try {
+        _tabController.index = index;
+      } finally {
+        _suppressRouteEcho = false;
+      }
+    }
   }
 
   @override
@@ -65,6 +108,9 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       _selectorExpanded = false;
       _loadedKeys.add(_activeKey);
     });
+    if (!_suppressRouteEcho) {
+      widget.onFeedChanged?.call(_scopes[_selectedIndex], _type);
+    }
   }
 
   void _onTabTap(int index) {
@@ -79,6 +125,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       _selectorExpanded = false;
       _loadedKeys.add(_activeKey);
     });
+    widget.onFeedChanged?.call(_scopes[_selectedIndex], type);
   }
 
   @override
