@@ -489,6 +489,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'searchLoading' => l10n.searchLoading,
   'searchMax' => l10n.searchMax,
   'searchMin' => l10n.searchMin,
+  'searchModifyQuery' => l10n.searchModifyQuery,
   'searchNoRepresentative' => l10n.searchNoRepresentative,
   'searchNoResults' => l10n.searchNoResults,
   'searchNoSuggestions' => l10n.searchNoSuggestions,

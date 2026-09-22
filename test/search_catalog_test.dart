@@ -1360,4 +1360,117 @@ void main() {
       expect(repository.trendingTagsCallCount, callsBefore);
     });
   });
+
+  testWidgets('the result title reopens the input prefilled with the query', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    final router = createPixivRouter(
+      initialLocation: '/search/results?q=%E9%A3%8E%E6%99%AF&type=illust',
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(SearchResultPage), findsOneWidget);
+    await tester.tap(find.text('风景'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchInputPage), findsOneWidget);
+    expect(router.state.uri.path, '/search/input');
+    expect(router.state.uri.queryParameters['q'], '风景');
+    expect(router.state.uri.queryParameters['type'], 'illust');
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '风景',
+    );
+  });
+
+  testWidgets('an empty result keeps the header and offers modify-search', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    final router = createPixivRouter(
+      initialLocation: '/search/results?q=nothing&type=illust',
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // Query context stays visible on the empty surface, and the page
+    // offers a direct edit entry — not just a blind refresh.
+    expect(find.text('nothing'), findsOneWidget);
+    expect(find.text('修改搜索'), findsOneWidget);
+    await tester.tap(find.text('修改搜索'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchInputPage), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'nothing',
+    );
+  });
+
+  testWidgets('the filter summary row chips and clears active filters', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    final router = createPixivRouter(
+      initialLocation:
+          '/search/results?q=cat&type=illust&sort=date_asc&bmin=100',
+    );
+    addTearDown(router.dispose);
+    // Wide surface: the AppBar-bottom chip row fits without scrolling, so
+    // the trailing reset chip's centre is a clean tap target.
+    tester.view.physicalSize = const Size(1100, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    // Active fields surface as chips next to the persistent clear entry.
+    expect(find.textContaining('♥'), findsWidgets);
+    expect(find.text('重置'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ActionChip, '重置'));
+    await tester.pumpAndSettle();
+    // Clearing replaces the route: the URL no longer carries the bounds.
+    expect(router.state.uri.queryParameters.containsKey('bmin'), isFalse);
+    expect(router.state.uri.queryParameters['sort'], 'date_desc');
+    expect(router.state.uri.queryParameters['q'], 'cat');
+  });
 }

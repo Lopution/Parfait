@@ -19,6 +19,7 @@ import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
+import 'search_text.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 
@@ -54,9 +55,30 @@ class SearchResultPage extends ConsumerWidget {
     replaceSearchResults(context, updated);
   }
 
+  /// The result-page header keeps "what am I looking at" live: tapping the
+  /// keyword reopens the input page prefilled with this query so editing a
+  /// search never means retyping it.
+  void _editQuery(BuildContext context) {
+    openSearchInput(context, initialKeyword: query.keyword, type: query.type);
+  }
+
+  void _clearFilters(BuildContext context) {
+    final updated = switch (query) {
+      IllustSearchQuery() => (query as IllustSearchQuery).copyWith(
+        filters: SearchFilters.defaults,
+      ),
+      NovelSearchQuery() => (query as NovelSearchQuery).copyWith(
+        filters: SearchFilters.defaults,
+      ),
+      UserSearchQuery() => query,
+    };
+    replaceSearchResults(context, updated);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(searchFeedProvider(query));
+    final filters = _filters;
     return Scaffold(
       // No inline composer: a `true` here would subscribe this page (and
       // every live branch page) to per-frame viewInsets churn while the
@@ -64,11 +86,49 @@ class SearchResultPage extends ConsumerWidget {
       // search-suggestion push came from that relayout storm.
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: Text(
-          query.keyword.trim(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        titleSpacing: 0,
+        title: Tooltip(
+          message: context.l10n.searchModifyQuery,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => _editQuery(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      query.keyword.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.edit_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
+        // The summary row is persistent context (visible in
+        // loading/error/empty alike): one chip per active filter, tapping
+        // any chip opens the sheet, the clear entry stays on the row even
+        // when nothing is active so its affordance never moves.
+        bottom: filters == null
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(44),
+                child: _FilterSummaryBar(
+                  filters: filters,
+                  onEdit: () => _editFilters(context),
+                  onClear: () => _clearFilters(context),
+                ),
+              ),
         actions: [
           if (_filters != null)
             IconButton(
@@ -141,6 +201,12 @@ class _IllustSearchFeed extends ConsumerWidget {
         title: context.l10n.searchNoResults,
         retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
+        actionLabel: context.l10n.searchModifyQuery,
+        onAction: () => openSearchInput(
+          context,
+          initialKeyword: query.keyword,
+          type: query.type,
+        ),
       );
     }
     return PullToRefresh(
@@ -214,6 +280,12 @@ class _NovelSearchFeed extends ConsumerWidget {
         title: context.l10n.searchNoResults,
         retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
+        actionLabel: context.l10n.searchModifyQuery,
+        onAction: () => openSearchInput(
+          context,
+          initialKeyword: query.keyword,
+          type: query.type,
+        ),
       );
     }
     return PullToRefresh(
@@ -271,6 +343,12 @@ class _UserSearchFeed extends ConsumerWidget {
         title: context.l10n.searchNoResults,
         retryLabel: context.l10n.searchRetry,
         onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
+        actionLabel: context.l10n.searchModifyQuery,
+        onAction: () => openSearchInput(
+          context,
+          initialKeyword: query.keyword,
+          type: query.type,
+        ),
       );
     }
     return PullToRefresh(
@@ -330,6 +408,89 @@ class _SearchUserTile extends StatelessWidget {
           userName: user.name,
           userAccount: user.account,
           compact: true,
+        ),
+      ),
+    );
+  }
+}
+
+/// Persistent filter context under the result-page title: one chip per
+/// non-default field plus a clear entry. Tapping any chip reopens the
+/// sheet; clearing replaces the route with default filters so the URL
+/// keeps describing exactly what the user sees.
+class _FilterSummaryBar extends StatelessWidget {
+  const _FilterSummaryBar({
+    required this.filters,
+    required this.onEdit,
+    required this.onClear,
+  });
+
+  final SearchFilters filters;
+  final VoidCallback onEdit;
+  final VoidCallback onClear;
+
+  String _dateText(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+
+  List<String> _activeLabels(BuildContext context) {
+    final l10n = context.l10n;
+    final labels = <String>[
+      if (filters.target != SearchTarget.partialMatchForTags)
+        searchText(context, filters.target.labelKey),
+      if (filters.sort != SearchSort.dateDesc)
+        searchText(context, filters.sort.labelKey),
+      if (filters.duration != null)
+        searchText(context, filters.duration!.labelKey),
+      if (filters.startDate != null || filters.endDate != null)
+        '${filters.startDate == null ? '…' : _dateText(filters.startDate!)}'
+            ' – ${filters.endDate == null ? '…' : _dateText(filters.endDate!)}',
+      if (filters.aiFilter != SearchAiFilter.all)
+        searchText(context, filters.aiFilter.labelKey),
+      if (filters.bookmarkMin != null || filters.bookmarkMax != null)
+        '♥ ${filters.bookmarkMin ?? 0} – ${filters.bookmarkMax ?? '∞'}',
+      if (filters.ratio != null) searchText(context, filters.ratio!.labelKey),
+      if (filters.contentType != SearchContentType.illustAndMangaAndUgoira)
+        searchText(context, filters.contentType.labelKey),
+      if (filters.widthMin != null || filters.widthMax != null)
+        '${l10n.searchWidth} '
+            '${filters.widthMin ?? 0} – ${filters.widthMax ?? '∞'}',
+      if (filters.heightMin != null || filters.heightMax != null)
+        '${l10n.searchHeight} '
+            '${filters.heightMin ?? 0} – ${filters.heightMax ?? '∞'}',
+    ];
+    return labels;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = _activeLabels(context);
+    return SizedBox(
+      height: 44,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Row(
+          children: [
+            if (labels.isEmpty)
+              ActionChip(
+                avatar: const Icon(Icons.tune, size: 16),
+                label: Text(context.l10n.searchFilters),
+                onPressed: onEdit,
+              )
+            else
+              for (final label in labels) ...[
+                ActionChip(label: Text(label), onPressed: onEdit),
+                const SizedBox(width: 8),
+              ],
+            const SizedBox(width: 4),
+            ActionChip(
+              avatar: const Icon(Icons.filter_alt_off_outlined, size: 16),
+              label: Text(context.l10n.searchReset),
+              onPressed: labels.isEmpty ? null : onClear,
+            ),
+          ],
         ),
       ),
     );

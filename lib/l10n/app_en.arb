@@ -717,6 +717,7 @@
   "searchInvalidDateRange": "Start date cannot be after end date",
   "searchPopularPreviewHint": "Without Pixiv Premium, popular sort uses preview results",
   "searchNoSuggestions": "No suggestions",
+  "searchModifyQuery": "Edit search",
   "searchUserAccount": "Account",
   "illustDetailTitle": "Artwork",
   "illustDetailCreateDateUnknown": "Upload date unknown",
