@@ -4103,6 +4103,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已复制标签'**
   String get tagCopied;
+
+  /// No description provided for @ugoiraExporting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导出 GIF… {percent}%'**
+  String ugoiraExporting(int percent);
 }
 
 class _AppLocalizationsDelegate

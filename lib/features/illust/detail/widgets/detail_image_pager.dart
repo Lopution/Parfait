@@ -103,8 +103,9 @@ class _DetailImagePagerState extends State<DetailImagePager> {
                           : entity.imageTierOf(widget.heroImageUrl!),
                       width: entity.width,
                       height: entity.height,
-                      downloadMode: widget.downloadMode,
-                      onLongPress: widget.onLongPress,
+                      // Ugoira has no pages: it never participates in the
+                      // selection mode and keeps its export action always
+                      // visible instead.
                       heroTag: widget.heroTag,
                       flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                       heroDecodeWidth: widget.heroImageDecodeWidth,

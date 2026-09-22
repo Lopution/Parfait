@@ -992,5 +992,13 @@
   "tagActionMute": "屏蔽该标签",
   "tagActionUnmute": "解除屏蔽该标签",
   "tagActionMuteMode": "批量屏蔽标签",
-  "tagCopied": "已复制标签"
+  "tagCopied": "已复制标签",
+  "ugoiraExporting": "正在导出 GIF… {percent}%",
+  "@ugoiraExporting": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -2178,4 +2178,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tagCopied => 'Тег скопирован';
+
+  @override
+  String ugoiraExporting(int percent) {
+    return 'Экспорт GIF… $percent%';
+  }
 }

@@ -2132,4 +2132,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tagCopied => 'タグをコピーしました';
+
+  @override
+  String ugoiraExporting(int percent) {
+    return 'GIF を書き出し中… $percent%';
+  }
 }

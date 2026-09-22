@@ -2114,4 +2114,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tagCopied => '已复制标签';
+
+  @override
+  String ugoiraExporting(int percent) {
+    return '正在导出 GIF… $percent%';
+  }
 }
