@@ -377,6 +377,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             // without the guard a cached detail payload would swap
             // the cover mid-flight onto an undecoded entry (the
             // grey-shuttle regression).
+            // Ugoira has no page selection: long-press does not enter the
+            // download mode and the GIF export action stays always visible.
             previewUrl: entity.imageUrls.large,
             detailUrl: detailUrlFor(0),
             heroImageUrl: widget.heroImageUrl,
@@ -385,8 +387,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 : entity.imageTierOf(widget.heroImageUrl!),
             width: entity.width,
             height: entity.height,
-            downloadMode: _downloadMode,
-            onLongPress: _enterDownloadMode,
             heroTag: illustHeroTag(widget.heroScope, entity.id),
             flightShuttleBuilder: illustHeroFlightShuttleBuilder,
             heroDecodeWidth: widget.heroImageDecodeWidth,

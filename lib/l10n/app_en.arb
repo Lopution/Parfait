@@ -992,5 +992,13 @@
   "tagActionMute": "Mute this tag",
   "tagActionUnmute": "Unmute this tag",
   "tagActionMuteMode": "Select tags to mute",
-  "tagCopied": "Tag copied"
+  "tagCopied": "Tag copied",
+  "ugoiraExporting": "Exporting GIF… {percent}%",
+  "@ugoiraExporting": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  }
 }

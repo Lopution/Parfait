@@ -45,33 +45,51 @@ void main() {
     });
   });
 
-  testWidgets('keeps the long-press handoff owned by the detail page', (
-    tester,
-  ) async {
-    var longPressed = false;
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
+  testWidgets(
+    'a long-press is inert — ugoira never enters page selection and the '
+    'export affordance stays directly visible',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          const ProviderScope(
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: Locale('zh', 'CN'),
 
-          home: Scaffold(
-            body: UgoiraViewer(
-              illustId: 42,
-              previewUrl: 'https://i.pximg.net/42/large.jpg',
-              width: 800,
-              height: 600,
-              onLongPress: () => longPressed = true,
+              home: Scaffold(
+                body: UgoiraViewer(
+                  illustId: 42,
+                  previewUrl: 'https://i.pximg.net/42/large.jpg',
+                  width: 800,
+                  height: 600,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    );
-    await tester.longPress(find.byType(UgoiraViewer));
+        );
+        await tester.pump();
 
-    expect(longPressed, isTrue);
-  });
+        // The old long-press handoff into the detail page's download mode
+        // is gone: ugoira has no pages to select. The press must not
+        // toggle playback or open anything.
+        await tester.longPress(find.byType(UgoiraViewer));
+        await tester.pump();
+
+        expect(find.byType(UgoiraViewer), findsOneWidget);
+        expect(find.byIcon(Icons.play_circle_outline_outlined), findsOneWidget);
+        // The export entry stays rendered (a disabled IconButton while the
+        // asset has not loaded yet).
+        expect(
+          find.descendant(
+            of: find.byType(UgoiraViewer),
+            matching: find.byType(IconButton),
+          ),
+          findsOneWidget,
+        );
+      });
+    },
+  );
 
   testWidgets('a vertical drag scrolls the detail page instead of popping it', (
     tester,

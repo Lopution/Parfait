@@ -2180,4 +2180,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tagCopied => 'Tag copied';
+
+  @override
+  String ugoiraExporting(int percent) {
+    return 'Exporting GIF… $percent%';
+  }
 }

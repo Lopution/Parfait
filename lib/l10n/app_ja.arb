@@ -992,5 +992,13 @@
   "tagActionMute": "このタグをミュート",
   "tagActionUnmute": "このタグのミュートを解除",
   "tagActionMuteMode": "タグをまとめてミュート",
-  "tagCopied": "タグをコピーしました"
+  "tagCopied": "タグをコピーしました",
+  "ugoiraExporting": "GIF を書き出し中… {percent}%",
+  "@ugoiraExporting": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  }
 }

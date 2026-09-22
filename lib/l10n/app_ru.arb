@@ -992,5 +992,13 @@
   "tagActionMute": "Скрыть этот тег",
   "tagActionUnmute": "Показать этот тег",
   "tagActionMuteMode": "Выбрать теги для скрытия",
-  "tagCopied": "Тег скопирован"
+  "tagCopied": "Тег скопирован",
+  "ugoiraExporting": "Экспорт GIF… {percent}%",
+  "@ugoiraExporting": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  }
 }
