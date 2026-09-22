@@ -5,11 +5,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
+import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
@@ -1284,5 +1286,78 @@ void main() {
     expect(filters.startDate, isNull);
     expect(filters.widthMin, -5); // syntactically valid ints still decode
     expect(page.query.cacheKey, isNotNull);
+  });
+
+  testWidgets('re-tapping the search destination scrolls the guide to top', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository(trendingTagCount: 30);
+    final router = createPixivRouter(initialLocation: '/search');
+    addTearDown(router.dispose);
+    // Compact viewport: at ≥600px the shell swaps the bottom bar for a
+    // rail and FuncShellBottomNav leaves the tree.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            searchRepositoryProvider.overrideWithValue(repository),
+            ...accountProviderOverrides(
+              credentialStore: FakeCredentialStore(
+                values: const {
+                  '100': Credential(
+                    accessToken: 'a-100',
+                    refreshToken: 'r-100',
+                  ),
+                },
+              ),
+              metadataRepository: FakeAccountMetadataRepository(
+                accounts: const [
+                  Account(id: '100', userId: 100, name: 'tester'),
+                ],
+                currentId: '100',
+              ),
+            ),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      final feedView = find.descendant(
+        of: find.byType(SearchHomePage),
+        matching: find.byType(CustomScrollView),
+      );
+      expect(feedView, findsOneWidget);
+      final controller = tester.widget<CustomScrollView>(feedView).controller!;
+      controller.jumpTo(500);
+      await tester.pump();
+      expect(controller.offset, 500);
+
+      // Snapshot rather than a literal: the provider re-fires once when the
+      // account id lands asynchronously — that is hydration, not the re-tap.
+      final callsBefore = repository.trendingTagsCallCount;
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FuncShellBottomNav),
+          matching: find.byIcon(AppIcons.search),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(controller.offset, 0);
+      // Pure scroll — the re-tap itself causes no refresh or re-request.
+      expect(repository.trendingTagsCallCount, callsBefore);
+    });
   });
 }
