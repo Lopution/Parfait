@@ -3006,6 +3006,12 @@ abstract class AppLocalizations {
   /// **'没有匹配建议'**
   String get searchNoSuggestions;
 
+  /// No description provided for @searchModifyQuery.
+  ///
+  /// In zh, this message translates to:
+  /// **'修改搜索'**
+  String get searchModifyQuery;
+
   /// No description provided for @searchUserAccount.
   ///
   /// In zh, this message translates to:

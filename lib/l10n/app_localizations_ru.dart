@@ -1602,6 +1602,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchNoSuggestions => 'Нет подходящих вариантов';
 
   @override
+  String get searchModifyQuery => 'Изменить запрос';
+
+  @override
   String get searchUserAccount => 'Аккаунт';
 
   @override

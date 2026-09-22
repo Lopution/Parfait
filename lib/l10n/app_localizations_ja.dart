@@ -1559,6 +1559,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchNoSuggestions => '候補はありません';
 
   @override
+  String get searchModifyQuery => '検索を編集';
+
+  @override
   String get searchUserAccount => 'アカウント';
 
   @override

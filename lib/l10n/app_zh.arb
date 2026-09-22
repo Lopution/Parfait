@@ -717,6 +717,7 @@
   "searchInvalidDateRange": "开始日期不能晚于结束日期",
   "searchPopularPreviewHint": "未开通会员，热门排序将使用人气预览结果",
   "searchNoSuggestions": "没有匹配建议",
+  "searchModifyQuery": "修改搜索",
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
   "illustDetailCreateDateUnknown": "投稿日期未知",

@@ -717,6 +717,7 @@
   "searchInvalidDateRange": "開始日は終了日より後にできません",
   "searchPopularPreviewHint": "プレミアム未加入のため、人気順はプレビュー結果を使用します",
   "searchNoSuggestions": "候補はありません",
+  "searchModifyQuery": "検索を編集",
   "searchUserAccount": "アカウント",
   "illustDetailTitle": "作品詳細",
   "illustDetailCreateDateUnknown": "投稿日不明",
