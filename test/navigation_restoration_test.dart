@@ -15,10 +15,12 @@ import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/novel/novel_repository.dart';
 import 'package:pixiv_func/core/search/search_models.dart';
 import 'package:pixiv_func/core/search/search_repository.dart';
 import 'package:pixiv_func/core/search/search_trending_controller.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
+import 'package:pixiv_func/features/ranking/novel_ranking_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -215,6 +217,58 @@ void main() {
     expect(
       tester.widget<RankingPage>(find.byType(RankingPage)).initialMode,
       RankingMode.weekR18,
+    );
+  });
+
+  testWidgets('replaces and restores the selected novel ranking mode', (
+    tester,
+  ) async {
+    final router = createPixivRouter(
+      initialLocation: '/ranking/novel-ranking?mode=week',
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _routerApp(
+        router,
+        httpHandler: (_) async =>
+            _json({'novels': <Object?>[], 'next_url': null}),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      tester
+          .widget<NovelRankingPage>(find.byType(NovelRankingPage))
+          .initialMode,
+      NovelRankingMode.week,
+    );
+
+    // Same gesture family as the illust ranking: a tab tap writes the mode
+    // back through context.replace.
+    await tester.tap(find.byType(Tab).at(0));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/ranking/novel-ranking');
+    expect(router.state.uri.queryParameters['mode'], 'day');
+    expect(
+      tester
+          .widget<NovelRankingPage>(find.byType(NovelRankingPage))
+          .initialMode,
+      NovelRankingMode.day,
+    );
+
+    await tester.restartAndRestore();
+    await tester.pump();
+
+    expect(router.state.uri.path, '/ranking/novel-ranking');
+    expect(router.state.uri.queryParameters['mode'], 'day');
+    expect(
+      tester
+          .widget<NovelRankingPage>(find.byType(NovelRankingPage))
+          .initialMode,
+      NovelRankingMode.day,
     );
   });
 
