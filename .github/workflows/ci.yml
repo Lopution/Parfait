@@ -6,6 +6,56 @@ on:
   pull_request:
 
 jobs:
+  changes:
+    # Path gate for the heavy build jobs: docs-only changes (.trellis, *.md)
+    # skip compilation entirely. analyze-and-test stays unconditional because
+    # the ruleset requires it — a workflow-level paths-ignore would leave the
+    # required check pending forever and block merges.
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.filter.outputs.build }}
+      plugin: ${{ steps.filter.outputs.plugin }}
+      deps: ${{ steps.filter.outputs.deps }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Fail-open design: enumerate paths that can affect artifacts, not
+          # paths to ignore. Anything unlisted (docs, .trellis, licenses)
+          # skips the build jobs.
+          filters: |
+            build:
+              - 'lib/**'
+              - 'android/**'
+              - 'windows/**'
+              - 'linux/**'
+              - 'ios/**'
+              - 'macos/**'
+              - 'web/**'
+              - 'assets/**'
+              - 'plugins/**'
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+              - 'l10n.yaml'
+              - 'rust-toolchain.toml'
+              - 'tool/**'
+              - '.github/workflows/**'
+            plugin:
+              - 'plugins/**'
+              - 'rust-toolchain.toml'
+              - '.github/workflows/ci.yml'
+            deps:
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+              - 'plugins/**/pubspec.yaml'
+              - 'plugins/**/pubspec.lock'
+              - 'plugins/**/Cargo.toml'
+              - 'plugins/**/Cargo.lock'
+              - 'rust-toolchain.toml'
+
   analyze-and-test:
     runs-on: ubuntu-latest
     steps:
@@ -23,6 +73,8 @@ jobs:
     # Compile-only guard for the desktop port: proves the Windows runner,
     # the rhttp MSVC toolchain and the InAppWebView/WebView2 integration all
     # link. Runtime acceptance (login, real data) stays a manual checklist.
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -42,6 +94,8 @@ jobs:
   android-release:
     # Release-side safety: the release workflow must never publish a debug
     # signed APK, so the release-signing check runs on the main branch.
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -146,6 +200,8 @@ jobs:
   android-size:
     # Secrets-free size gate. android-release stays red until keystore
     # secrets exist; this job still sees per-ABI volume regressions.
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -201,6 +257,8 @@ jobs:
           retention-days: 14
 
   plugin:
+    needs: changes
+    if: needs.changes.outputs.plugin == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -224,6 +282,8 @@ jobs:
         working-directory: plugins/rhttp/rhttp/rust
 
   android-unit:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -241,6 +301,8 @@ jobs:
         working-directory: android
 
   deps-report:
+    needs: changes
+    if: needs.changes.outputs.deps == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
