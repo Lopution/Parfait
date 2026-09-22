@@ -2143,4 +2143,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get enableHapticsHint =>
       'Vibrate on selections, saved actions and failures';
+
+  @override
+  String get downloadSelectPages => 'Select pages to download';
+
+  @override
+  String downloadSelectedCount(int selected, int total) {
+    return '$selected of $total selected';
+  }
+
+  @override
+  String get selectAll => 'Select all';
+
+  @override
+  String get done => 'Done';
 }

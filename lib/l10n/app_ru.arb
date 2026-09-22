@@ -961,5 +961,19 @@
   "spotlightLoadMoreFailed": "Не удалось загрузить ещё статьи",
   "spotlightEmpty": "Нет статей спотлайта",
   "enableHaptics": "Тактильный отклик",
-  "enableHapticsHint": "Вибрация при выборе, сохранении и ошибках"
+  "enableHapticsHint": "Вибрация при выборе, сохранении и ошибках",
+  "downloadSelectPages": "Выберите страницы для скачивания",
+  "downloadSelectedCount": "Выбрано: {selected} из {total}",
+  "@downloadSelectedCount": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "selectAll": "Выбрать все",
+  "done": "Готово"
 }

@@ -961,5 +961,19 @@
   "spotlightLoadMoreFailed": "Failed to load more spotlight articles",
   "spotlightEmpty": "No spotlight articles",
   "enableHaptics": "Haptic feedback",
-  "enableHapticsHint": "Vibrate on selections, saved actions and failures"
+  "enableHapticsHint": "Vibrate on selections, saved actions and failures",
+  "downloadSelectPages": "Select pages to download",
+  "downloadSelectedCount": "{selected} of {total} selected",
+  "@downloadSelectedCount": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "selectAll": "Select all",
+  "done": "Done"
 }

@@ -2077,4 +2077,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get enableHapticsHint => '选择、保存成功与失败时振动';
+
+  @override
+  String get downloadSelectPages => '选择要下载的页';
+
+  @override
+  String downloadSelectedCount(int selected, int total) {
+    return '已选 $selected / 共 $total 页';
+  }
+
+  @override
+  String get selectAll => '全选';
+
+  @override
+  String get done => '完成';
 }

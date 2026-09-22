@@ -961,5 +961,19 @@
   "spotlightLoadMoreFailed": "特辑加载更多失败",
   "spotlightEmpty": "暂无特辑",
   "enableHaptics": "触感反馈",
-  "enableHapticsHint": "选择、保存成功与失败时振动"
+  "enableHapticsHint": "选择、保存成功与失败时振动",
+  "downloadSelectPages": "选择要下载的页",
+  "downloadSelectedCount": "已选 {selected} / 共 {total} 页",
+  "@downloadSelectedCount": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "selectAll": "全选",
+  "done": "完成"
 }

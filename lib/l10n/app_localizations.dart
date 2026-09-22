@@ -4037,6 +4037,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'选择、保存成功与失败时振动'**
   String get enableHapticsHint;
+
+  /// No description provided for @downloadSelectPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择要下载的页'**
+  String get downloadSelectPages;
+
+  /// No description provided for @downloadSelectedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {selected} / 共 {total} 页'**
+  String downloadSelectedCount(int selected, int total);
+
+  /// No description provided for @selectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get selectAll;
+
+  /// No description provided for @done.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get done;
 }
 
 class _AppLocalizationsDelegate
