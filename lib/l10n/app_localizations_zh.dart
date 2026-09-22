@@ -1710,6 +1710,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get newRefreshFailed => '刷新失败';
 
   @override
+  String get recommendedRefreshFailed => '刷新失败';
+
+  @override
   String get profileId => '用户 ID';
 
   @override

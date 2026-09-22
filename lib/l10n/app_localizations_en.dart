@@ -1771,6 +1771,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newRefreshFailed => 'Refresh failed';
 
   @override
+  String get recommendedRefreshFailed => 'Refresh failed';
+
+  @override
   String get profileId => 'User ID';
 
   @override

@@ -801,6 +801,7 @@
   "newLoadMoreFailed": "加载更多新作失败",
   "newRetry": "重试",
   "newRefreshFailed": "刷新失败",
+  "recommendedRefreshFailed": "刷新失败",
   "profileId": "用户 ID",
   "profileAccount": "账号",
   "profileIntroduction": "简介",

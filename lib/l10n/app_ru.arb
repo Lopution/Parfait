@@ -801,6 +801,7 @@
   "newLoadMoreFailed": "Не удалось загрузить ещё",
   "newRetry": "Повторить",
   "newRefreshFailed": "Не удалось обновить",
+  "recommendedRefreshFailed": "Не удалось обновить",
   "profileId": "ID пользователя",
   "profileAccount": "Аккаунт",
   "profileIntroduction": "Описание",
