@@ -788,6 +788,30 @@ class FuncNavBarSpacer extends ConsumerWidget {
   }
 }
 
+/// Marks a context as living on a branch-root page — i.e. underneath the
+/// floating shell bottom bar. `showAppSnackBar` reads this to lift its
+/// floating margin by the measured bar height, because the overlay bar is
+/// not a real `bottomNavigationBar` slot Scaffold geometry can anchor to.
+/// Routes pushed over the branch root are siblings of [BranchRootScaffold],
+/// not descendants, so they resolve the root messenger with the plain
+/// margin — matching the bar having slid away while they cover.
+class BranchRootScope extends InheritedWidget {
+  const BranchRootScope({
+    super.key,
+    required this.branchIndex,
+    required super.child,
+  });
+
+  final int branchIndex;
+
+  static BranchRootScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<BranchRootScope>();
+
+  @override
+  bool updateShouldNotify(BranchRootScope oldWidget) =>
+      branchIndex != oldWidget.branchIndex;
+}
+
 /// Shell for a branch-root page: reports through RouteAware whether the
 /// branch's root route is covered by a route pushed inside the branch
 /// Navigator, so the shell-level [FuncShellBottomNav] slides away while it
@@ -797,6 +821,11 @@ class FuncNavBarSpacer extends ConsumerWidget {
 /// `didPushNext`/`didPopNext` fire at push/pop start (RouteObserver
 /// notifies synchronously), so the bar animates in step with the route
 /// transition rather than after it.
+///
+/// The ScaffoldMessenger scopes SnackBars to this branch: the page's own
+/// Scaffold registers here instead of the root messenger, so the SnackBar
+/// hides while a pushed route covers the branch (`route.isCurrent` fails
+/// inside the messenger) and never paints into sibling branches.
 class BranchRootScaffold extends ConsumerStatefulWidget {
   const BranchRootScaffold({
     super.key,
@@ -872,5 +901,10 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    return BranchRootScope(
+      branchIndex: widget.branchIndex,
+      child: ScaffoldMessenger(child: widget.child),
+    );
+  }
 }
