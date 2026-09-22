@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import '../../../app/haptics/app_haptics.dart';
 
 import '../../../app/pixiv_image.dart';
 import '../../../app/motion/hero_transition.dart';
@@ -577,6 +578,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final submissionContext = _currentDownloadContext();
     if (submissionContext == null) {
       if (mounted) {
+        AppHaptics.error();
         showAppSnackBar(context, context.l10n.ugoiraLoginRequired);
       }
       return;
@@ -600,6 +602,13 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       UgoiraExportStatus.canceled => context.l10n.ugoiraSaveCanceled,
       _ => context.l10n.ugoiraSaveFailed(result.error ?? 'unknown error'),
     };
+    // Save succeeded → success; failed → error (§5.6); a user cancel is
+    // a deliberate dismissal and gets no vibration.
+    if (result.status == UgoiraExportStatus.succeeded) {
+      AppHaptics.success();
+    } else if (result.status != UgoiraExportStatus.canceled) {
+      AppHaptics.error();
+    }
     showAppSnackBar(context, message);
   }
 

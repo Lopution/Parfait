@@ -16,6 +16,7 @@ import '../../../core/share/share_service.dart';
 import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
+import '../../../app/haptics/app_haptics.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
@@ -87,7 +88,16 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     });
   }
 
-  void _toggleDownloadMode() => setState(() => _downloadMode = !_downloadMode);
+  /// Entering the mode is a management-mode transition → confirm haptic;
+  /// any exit path is a light confirmation → select.
+  void _toggleDownloadMode() {
+    if (_downloadMode) {
+      AppHaptics.select();
+    } else {
+      AppHaptics.confirm();
+    }
+    setState(() => _downloadMode = !_downloadMode);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,11 +185,16 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // manager/ownership/channel errors that are not
                 // FormatException otherwise vanish with no UI feedback.
                 if (!context.mounted) return;
+                AppHaptics.error();
                 showAppSnackBar(
                   context,
                   context.l10n.downloadSubmissionFailed(error.toString()),
                 );
+                return;
               }
+              if (!context.mounted) return;
+              AppHaptics.success();
+              showAppSnackBar(context, context.l10n.downloadQueuedMessage);
             },
             icon: const Icon(Icons.file_download_outlined),
           ),
