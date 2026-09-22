@@ -40,18 +40,33 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required NetworkCancelSignal? cancelSignal,
     required bool canReplay,
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+    bool raceWhenCold = false,
   }) async {
     _checkUsable();
     // First request after a cold start waits for the Rust transport; this
     // keeps `main` free to render the boot before rhttp finishes loading.
     final rhttpReady = RhttpGate.ready;
     if (rhttpReady != null) await rhttpReady;
-    return _runAttemptLadder<T>(
-      destination: destination,
-      cancelSignal: cancelSignal,
-      canReplay: canReplay,
-      attempt: attempt,
-    );
+    try {
+      return await _runAttemptLadder<T>(
+        destination: destination,
+        cancelSignal: cancelSignal,
+        canReplay: canReplay,
+        attempt: attempt,
+        raceWhenCold: raceWhenCold,
+      );
+    } on Object {
+      // A mirror/auto-source host that exhausted every tier is reported so
+      // the auto source selection can drop the dead winner — the original
+      // error still propagates to the caller unchanged.
+      if (destination.purpose == PixivDestinationPurpose.image) {
+        final host = destination.canonicalHost;
+        if (host != 'i.pximg.net' && host != 's.pximg.net') {
+          onImageHostExhausted?.call(host);
+        }
+      }
+      rethrow;
+    }
   }
 
   /// Sends the business request on the selected route and, on a retryable
@@ -65,11 +80,23 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required NetworkCancelSignal? cancelSignal,
     required bool canReplay,
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+    bool raceWhenCold = false,
   }) async {
     final host = destination.canonicalHost;
     final attemptedKeys = <String>{};
     final attemptedKinds = <NetworkRouteKind>{};
     var useMemory = true;
+    if (canReplay && raceWhenCold) {
+      final (raced, value) = await _raceColdTiers<T>(
+        destination: destination,
+        cancelSignal: cancelSignal,
+        attempt: attempt,
+        attemptedKeys: attemptedKeys,
+        attemptedKinds: attemptedKinds,
+      );
+      if (raced) return value as T;
+      useMemory = false;
+    }
     while (true) {
       NetworkRoute route;
       try {
@@ -203,12 +230,17 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     final hasInsecureFallback = fallbackTiers.contains(
       NetworkRouteKind.insecureNoSni,
     );
+    final compatPrefer = _mode == NetworkMode.compatPrefer;
+    final insecureEligible =
+        hasInsecureFallback && !_isFastRouteCooling(host, now);
     final kinds = <NetworkRouteKind>[
       ?usablePreferredKind,
       ...fallbackTiers.where((kind) => kind != NetworkRouteKind.insecureNoSni),
+      // compatPrefer walks every compatibility tier before touching direct —
+      // the user already knows plain direct is blocked on this network.
+      if (compatPrefer && insecureEligible) NetworkRouteKind.insecureNoSni,
       NetworkRouteKind.direct,
-      if (hasInsecureFallback && !_isFastRouteCooling(host, now))
-        NetworkRouteKind.insecureNoSni,
+      if (!compatPrefer && insecureEligible) NetworkRouteKind.insecureNoSni,
     ];
     for (final kind in kinds) {
       if (attemptedKinds.contains(kind)) continue;
@@ -278,6 +310,173 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       Error.throwWithStackTrace(lastError, lastStack ?? StackTrace.current);
     }
     throw const NetworkFailureException(NetworkFailureKind.connect);
+  }
+
+  /// Cold-start racing: when neither the host nor its route group has any
+  /// usable memory, the first request would otherwise pay each candidate
+  /// tier's timeout in series. For idempotent image loads (a duplicate GET
+  /// is safe — [canReplay] is already proven by the caller) the top two
+  /// constructible tiers are sent in parallel and the first success wins;
+  /// the loser is drained and dropped. Both failing falls back to the
+  /// serial ladder with the two raced kinds already marked attempted.
+  ///
+  /// Returns `(true, value)` on a raced win and `(false, null)` when the
+  /// caller should continue with the serial walk.
+  Future<(bool, T?)> _raceColdTiers<T>({
+    required PixivDestination destination,
+    required NetworkCancelSignal? cancelSignal,
+    required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+    required Set<String> attemptedKeys,
+    required Set<NetworkRouteKind> attemptedKinds,
+  }) async {
+    final host = destination.canonicalHost;
+    final now = clock();
+    if (_mode == NetworkMode.directOnly) return (false, null);
+    // Racing only pays when nothing is remembered — a warm host/group would
+    // jump straight to a known-good tier, and two parallel sends would be
+    // pure waste.
+    final remembered = _routeMemory[host];
+    if (remembered != null &&
+        remembered.isUsable(now, _revision.networkIdentity)) {
+      return (false, null);
+    }
+    if (rememberedGroupRouteKind(destination.purpose, host, now: now) != null) {
+      return (false, null);
+    }
+
+    final routeA = await _selectRoute(
+      destination: destination,
+      cancelSignal: cancelSignal,
+      attemptedKeys: attemptedKeys,
+      attemptedKinds: attemptedKinds,
+      useMemory: false,
+    );
+    final sendA = _raceSend(destination, routeA, attempt, cancelSignal);
+    // Selecting the second tier may resolve DNS/ECH while A's send is
+    // already in flight — that overlap is the point of racing.
+    NetworkRoute? routeB;
+    try {
+      routeB = await _selectRoute(
+        destination: destination,
+        cancelSignal: cancelSignal,
+        attemptedKeys: attemptedKeys,
+        attemptedKinds: attemptedKinds,
+        useMemory: false,
+      );
+    } on Object {
+      routeB = null;
+    }
+    if (routeB == null) {
+      // Only one tier was constructible — take A's outcome alone.
+      return switch (await sendA) {
+        _RaceSuccess<T>(value: final value) => (true, value),
+        _RaceFailure<T>(:final error, :final stackTrace) =>
+          Error.throwWithStackTrace(error, stackTrace),
+      };
+    }
+    final sendB = _raceSend(destination, routeB, attempt, cancelSignal);
+
+    // Tag each send so `Future.any` tells us which one resolved.
+    final indexed = [
+      sendA.then((outcome) => (0, outcome)),
+      sendB.then((outcome) => (1, outcome)),
+    ];
+    final (firstIndex, first) = await Future.any(indexed);
+    _RaceSuccess<T>? winner;
+    Future<_RaceOutcome<T>>? loser;
+    if (first is _RaceSuccess<T>) {
+      winner = first;
+      loser = firstIndex == 0 ? sendB : sendA;
+    } else {
+      // The first failure often lands fast (RST/refused) while the winning
+      // tier is still handshaking — wait for the sibling before giving up.
+      final second = await (firstIndex == 0 ? sendB : sendA);
+      if (second is _RaceSuccess<T>) {
+        winner = second;
+      } else {
+        _discardRaceOutcome(destination, first);
+        _discardRaceOutcome(destination, second);
+        _invalidateRouteMemory(host, routeA, purpose: destination.purpose);
+        _invalidateRouteMemory(host, routeB, purpose: destination.purpose);
+        _coolFastRoute(host, routeA);
+        _coolFastRoute(host, routeB);
+        // Racing must not weaken terminal semantics: a failure the serial
+        // ladder would have called final (e.g. a real-SNI certificate
+        // mismatch) still ends the walk here instead of leaking into the
+        // remaining tiers.
+        for (final failure in [first, second]) {
+          if (failure is _RaceFailure<T> &&
+              !_retryEligible(true, failure.error, failure.route)) {
+            Error.throwWithStackTrace(failure.error, failure.stackTrace);
+          }
+        }
+      }
+    }
+    if (winner == null) return (false, null);
+
+    if (cancelSignal?.isCancelled ?? false) {
+      _discardRaceOutcome(destination, winner);
+      if (loser != null) {
+        unawaited(loser.then((o) => _discardRaceOutcome(destination, o)));
+      }
+      throw const NetworkFailureException(NetworkFailureKind.cancelled);
+    }
+    _rememberRoute(host, winner.route, purpose: destination.purpose);
+    _clearFastRouteCooldown(host, winner.route);
+    if (winner.route.kind == NetworkRouteKind.insecureNoSni &&
+        winner.route.address != null) {
+      unawaited(_refreshFastRoute(host, winner.route.address!));
+    }
+    // The loser keeps no memory and never reports back; drain its body so
+    // the socket is reclaimed promptly, or record a late failure so the
+    // diagnostics stay truthful.
+    if (loser != null) {
+      unawaited(loser.then((o) => _discardRaceOutcome(destination, o)));
+    }
+    return (true, winner.value);
+  }
+
+  /// Wraps one raced attempt so neither send ever throws — the race loop
+  /// reads outcomes instead of catching.
+  Future<_RaceOutcome<T>> _raceSend<T>(
+    PixivDestination destination,
+    NetworkRoute route,
+    FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
+    NetworkCancelSignal? cancelSignal,
+  ) async {
+    final timer = Stopwatch()..start();
+    try {
+      if (cancelSignal?.isCancelled ?? false) {
+        throw const NetworkFailureException(NetworkFailureKind.cancelled);
+      }
+      final value = await attempt(route, destination.uri);
+      return _RaceSuccess<T>(route, value, timer.elapsed);
+    } on Object catch (error, stackTrace) {
+      return _RaceFailure<T>(route, error, stackTrace, timer.elapsed);
+    }
+  }
+
+  /// Releases a raced outcome that did not win: a streamed body is drained
+  /// so reqwest reclaims the socket; a failure is recorded for diagnostics
+  /// and clears the optimistically-remembered selection.
+  void _discardRaceOutcome(
+    PixivDestination destination,
+    _RaceOutcome<Object?> outcome,
+  ) {
+    switch (outcome) {
+      case _RaceSuccess(value: final value):
+        if (value is http.StreamedResponse) {
+          unawaited(value.stream.drain<void>());
+        }
+      case _RaceFailure(:final route, :final error, :final latency):
+        policyRecord(destination, route, error, latency);
+        _invalidateRouteMemory(
+          destination.canonicalHost,
+          route,
+          purpose: destination.purpose,
+        );
+        _coolFastRoute(destination.canonicalHost, route);
+    }
   }
 
   Future<T> _sendOnRoute<T>(
@@ -359,6 +558,16 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         ttl: route.ttl ?? _kRouteMemoryTtl,
         createdAt: keepEchGroupCreatedAt ? current!.createdAt : now,
         networkIdentity: _revision.networkIdentity,
+      );
+      // Persist the hint so the next cold start on this network seeds the
+      // group preference instead of paying the discovery walk. Writes are
+      // serialized inside the store; a failure is swallowed there.
+      unawaited(
+        routeKindStore?.remember(
+          _revision.networkIdentity,
+          group.name,
+          route.kind.name,
+        ),
       );
     }
     _trimRouteMemory();
@@ -612,4 +821,26 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       return null;
     }
   }
+}
+
+/// One raced send's outcome. Successes and failures both arrive here so the
+/// race loop never catches — it pattern-matches instead.
+sealed class _RaceOutcome<T> {
+  const _RaceOutcome(this.route, this.latency);
+
+  final NetworkRoute route;
+  final Duration latency;
+}
+
+class _RaceSuccess<T> extends _RaceOutcome<T> {
+  const _RaceSuccess(super.route, this.value, super.latency);
+
+  final T value;
+}
+
+class _RaceFailure<T> extends _RaceOutcome<T> {
+  const _RaceFailure(super.route, this.error, this.stackTrace, super.latency);
+
+  final Object error;
+  final StackTrace stackTrace;
 }

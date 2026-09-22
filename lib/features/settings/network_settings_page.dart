@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings_load_error.dart';
+import '../../core/network/compat/network_contracts.dart' show NetworkRouteKind;
+import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -89,11 +94,21 @@ class NetworkSettingsPage extends ConsumerWidget {
           _modeTile(
             context,
             settings.networkMode,
+            NetworkMode.compatPrefer,
+            () => ref
+                .read(settingsProvider.notifier)
+                .setNetworkMode(NetworkMode.compatPrefer),
+          ),
+          _modeTile(
+            context,
+            settings.networkMode,
             NetworkMode.directOnly,
             () => ref
                 .read(settingsProvider.notifier)
                 .setNetworkMode(NetworkMode.directOnly),
           ),
+          const Divider(),
+          const _EffectiveRoutesSection(),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.network_check),
@@ -102,6 +117,8 @@ class NetworkSettingsPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push<void>('/settings/network/probe'),
           ),
+          const Divider(),
+          const _ThirdPartyReachabilitySection(),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.tune),
@@ -126,16 +143,16 @@ Widget _modeTile(
 ) {
   final selected = current == value;
   return ListTile(
-    title: Text(
-      value == NetworkMode.automatic
-          ? context.l10n.networkModeAutomatic
-          : context.l10n.networkModeDirectOnly,
-    ),
-    subtitle: Text(
-      value == NetworkMode.automatic
-          ? context.l10n.networkModeAutomaticHint
-          : context.l10n.networkModeDirectOnlyHint,
-    ),
+    title: Text(switch (value) {
+      NetworkMode.automatic => context.l10n.networkModeAutomatic,
+      NetworkMode.compatPrefer => context.l10n.networkModeCompatPrefer,
+      NetworkMode.directOnly => context.l10n.networkModeDirectOnly,
+    }),
+    subtitle: Text(switch (value) {
+      NetworkMode.automatic => context.l10n.networkModeAutomaticHint,
+      NetworkMode.compatPrefer => context.l10n.networkModeCompatPreferHint,
+      NetworkMode.directOnly => context.l10n.networkModeDirectOnlyHint,
+    }),
     trailing: selected
         ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
         : null,
@@ -343,6 +360,207 @@ class _NetworkAdvancedSettingsPageState
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Per-host route kinds the ladder has settled on for this network
+/// identity. Not reactive — route memory changes mid-request — so the
+/// section snapshots on build and refreshes on demand.
+class _EffectiveRoutesSection extends ConsumerStatefulWidget {
+  const _EffectiveRoutesSection();
+
+  @override
+  ConsumerState<_EffectiveRoutesSection> createState() =>
+      _EffectiveRoutesSectionState();
+}
+
+class _EffectiveRoutesSectionState
+    extends ConsumerState<_EffectiveRoutesSection> {
+  Map<String, NetworkRouteKind> _routes = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _refresh() {
+    setState(() {
+      _routes = ref.read(networkAccessPolicyProvider).effectiveRouteSnapshot();
+    });
+  }
+
+  String _kindLabel(BuildContext context, NetworkRouteKind kind) {
+    return switch (kind) {
+      NetworkRouteKind.direct => context.l10n.networkRouteKindDirect,
+      NetworkRouteKind.ech => context.l10n.networkProbeStepEch,
+      NetworkRouteKind.dohRealSni => context.l10n.networkProbeStepDoh,
+      NetworkRouteKind.noSni => context.l10n.networkProbeStepNoSni,
+      NetworkRouteKind.insecureNoSni => context.l10n.networkRouteKindCompat,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = _routes.entries.toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.l10n.networkEffectiveRoutes,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20),
+                tooltip: context.l10n.refresh,
+                onPressed: _refresh,
+              ),
+            ],
+          ),
+        ),
+        if (entries.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Text(
+              context.l10n.networkEffectiveRoutesEmpty,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          )
+        else
+          for (final entry in entries)
+            ListTile(
+              dense: true,
+              title: Text(entry.key),
+              trailing: Text(
+                _kindLabel(context, entry.value),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+/// Reachability of the app's third-party exits (reverse-image engines,
+/// translation). These go through ordinary system routing — a user
+/// VPN/TUN applies — and deliberately never touch the Pixiv ladder.
+class _ThirdPartyReachabilitySection extends StatefulWidget {
+  const _ThirdPartyReachabilitySection();
+
+  @override
+  State<_ThirdPartyReachabilitySection> createState() =>
+      _ThirdPartyReachabilitySectionState();
+}
+
+enum _Reachability { checking, reachable, unreachable }
+
+class _ThirdPartyReachabilitySectionState
+    extends State<_ThirdPartyReachabilitySection> {
+  static const _targets = {
+    'SauceNAO': 'saucenao.com',
+    'ascii2d': 'ascii2d.net',
+    'Google Translate': 'translate.googleapis.com',
+  };
+
+  static const _timeout = Duration(seconds: 5);
+
+  final Map<String, _Reachability> _status = {
+    for (final name in _targets.keys) name: _Reachability.checking,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    setState(() {
+      for (final name in _targets.keys) {
+        _status[name] = _Reachability.checking;
+      }
+    });
+    await Future.wait(
+      _targets.entries.map((entry) async {
+        final client = http.Client();
+        var result = _Reachability.unreachable;
+        try {
+          // Any HTTP status — even an error page — proves reachability;
+          // the probe measures transport, not service health.
+          await client.head(Uri.https(entry.value, '/')).timeout(_timeout);
+          result = _Reachability.reachable;
+        } on Object {
+          // unreachable
+        } finally {
+          client.close();
+        }
+        if (mounted) setState(() => _status[entry.key] = result);
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.l10n.networkThirdParty,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20),
+                tooltip: context.l10n.refresh,
+                onPressed: _check,
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: Text(
+            context.l10n.networkThirdPartyHint,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        for (final entry in _targets.entries)
+          ListTile(
+            dense: true,
+            title: Text(entry.key),
+            subtitle: Text(entry.value),
+            trailing: switch (_status[entry.key]) {
+              _Reachability.checking || null => Text(
+                context.l10n.networkChecking,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              _Reachability.reachable => Text(
+                context.l10n.networkReachable,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              _Reachability.unreachable => Text(
+                context.l10n.networkUnreachable,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            },
+          ),
+      ],
     );
   }
 }

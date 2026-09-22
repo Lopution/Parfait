@@ -74,6 +74,16 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
   final manager = DownloadManager(
     transport: ref.watch(pixivMediaTransportProvider),
     sinkFactory: ref.watch(downloadSinkFactoryProvider),
+    // A file already sitting in the image disk cache is a completed
+    // download waiting to be materialized — serve it from disk instead of
+    // re-fetching the same bytes over the network.
+    cacheLookup: (url) async {
+      final info = await ref
+          .read(pixivNetworkFactoryProvider)
+          .imageCacheManager
+          .getFileFromCache(url.toString());
+      return info?.file;
+    },
     maxConcurrent: ref.read(maxDownloadCountProvider),
     requireOwnedSubmissions: true,
     // D5: authenticated product downloads may target the selected custom

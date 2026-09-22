@@ -20,6 +20,7 @@ enum ImageSourceMode {
   pixivCat('i.pixiv.cat'),
   pixivRe('i.pixiv.re'),
   pixivNl('i.pixiv.nl'),
+  auto('auto'),
   custom('');
 
   const ImageSourceMode(this.host);
@@ -38,12 +39,34 @@ enum ImageSourceMode {
 }
 
 class ImageMirror {
-  const ImageMirror._(this._presetPair, this._customPrefix);
+  const ImageMirror._(this._presetPair, this._customPrefix, [this._extraHosts]);
 
   const ImageMirror._preset(String i, String s) : this._((i, s), null);
 
   /// Direct loading: every URL passes through unchanged.
   static const ImageMirror direct = ImageMirror._(null, null);
+
+  /// Hosts the auto mode races for the winning source. `i.pixiv.cat` is a
+  /// candidate even though it is unreachable from the mainland — the race
+  /// is the measurement, so an unreachable candidate simply loses.
+  static const autoCandidates = [
+    'i.pximg.net',
+    'i.pixiv.re',
+    'i.pixiv.nl',
+    'i.pixiv.cat',
+  ];
+
+  /// Auto mode: rewrites through the last raced winner (a preset host, or
+  /// direct when the winner is pximg / not yet resolved), while the
+  /// allowlist admits every candidate so probes are routable.
+  factory ImageMirror.auto(String? winnerHost) {
+    final preset = winnerHost == null ? null : _presets[winnerHost];
+    return ImageMirror._(
+      preset?._presetPair,
+      null,
+      Set.unmodifiable(autoCandidates),
+    );
+  }
 
   /// Preset mirrors keyed by their persisted `imageSource` value (the
   /// `ImageSourceMode.host` of the matching enum entry). Each entry maps
@@ -57,6 +80,10 @@ class ImageMirror {
   final (String, String)? _presetPair;
   final Uri? _customPrefix;
 
+  /// Allowlist override — auto mode admits every candidate host so probes
+  /// stay routable regardless of which one currently wins rewrites.
+  final Set<String>? _extraHosts;
+
   static const String _iPximg = 'i.pximg.net';
   static const String _sPximg = 's.pximg.net';
 
@@ -65,6 +92,11 @@ class ImageMirror {
   /// degrade to stock loading, not to a broken image pipeline.
   factory ImageMirror.of(String imageSource) {
     if (imageSource == _iPximg) return direct;
+    // 'auto' is resolved by the provider layer via the last raced winner;
+    // here it must never normalize into a bogus `https://auto` prefix.
+    if (imageSource == ImageSourceMode.auto.host) {
+      return ImageMirror.auto(null);
+    }
     final preset = _presets[imageSource];
     if (preset != null) return preset;
     final normalized = normalizeCustomSource(imageSource);
@@ -117,10 +149,12 @@ class ImageMirror {
 
   /// Hosts the image-purpose allowlist must accept for this selection,
   /// in addition to the canonical pximg pair the registry already knows.
-  Set<String> get extraHosts => {
-    if (_presetPair != null) ...{_presetPair.$1, _presetPair.$2},
-    ?_customPrefix?.host,
-  };
+  Set<String> get extraHosts =>
+      _extraHosts ??
+      {
+        if (_presetPair != null) ...{_presetPair.$1, _presetPair.$2},
+        ?_customPrefix?.host,
+      };
 
   /// Rewrites a pximg image URL to the selected source. Returns [uri]
   /// unchanged for direct mode, non-pximg hosts, or unparseable state —

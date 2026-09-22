@@ -184,9 +184,20 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               children: [
                 ChoiceChip(
                   label: Text(context.l10n.searchAllTime),
-                  selected: _filters.duration == null,
+                  // "All time" means unconstrained: a custom date bound is
+                  // still sent on the wire even when duration is null, so
+                  // the chip is neither selected by nor allowed to leave
+                  // behind stale bounds.
+                  selected:
+                      _filters.duration == null &&
+                      _filters.startDate == null &&
+                      _filters.endDate == null,
                   onSelected: (_) => setState(
-                    () => _filters = _filters.copyWith(duration: null),
+                    () => _filters = _filters.copyWith(
+                      duration: null,
+                      startDate: null,
+                      endDate: null,
+                    ),
                   ),
                 ),
                 for (final value in SearchDuration.values)

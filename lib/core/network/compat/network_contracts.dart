@@ -102,7 +102,15 @@ class PixivDestinationException implements Exception {
       '$purpose';
 }
 
-enum NetworkMode { automatic, directOnly }
+enum NetworkMode {
+  automatic,
+
+  /// Compatibility tiers (DoH/ECH/no-SNI) are attempted before the direct
+  /// route — for networks where plain direct is already known-blocked.
+  compatPrefer,
+
+  directOnly,
+}
 
 /// The policy tiers. Each tier = DNS source × TLS presentation × certificate
 /// verification. Ordering in a ladder is per-destination-group, not global

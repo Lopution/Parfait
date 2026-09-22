@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,15 +40,22 @@ class _PixivFuncBinding extends WidgetsFlutterBinding {
     _PixivFuncBinding();
   }
 
-  // Replicates the stock chain minus imageCache.clear(): rootBundle assets
-  // and in-flight live image streams are cheap to rebuild; decoded frames
-  // are not. The call-super contract is skipped intentionally — super would
-  // reintroduce the clear this override exists to remove.
+  // Replicates the stock chain with one distinction: decoded frames are
+  // evicted only when the pressure signal arrives while the app is actually
+  // resumed — the genuine low-memory case. TRIM_MEMORY_UI_HIDDEN arrives
+  // hidden/paused on every backgrounding, where clearing the cache would
+  // just force a re-decode-and-fade of every image on return. The
+  // call-super contract is skipped intentionally — super would reintroduce
+  // the unconditional clear this override exists to control.
   @override
   // ignore: must_call_super
   void handleMemoryPressure() {
     rootBundle.clear();
     imageCache.clearLiveImages();
+    final lifecycle = SchedulerBinding.instance.lifecycleState;
+    if (lifecycle == null || lifecycle == AppLifecycleState.resumed) {
+      imageCache.clear();
+    }
   }
 }
 
