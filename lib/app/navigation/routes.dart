@@ -13,6 +13,7 @@ import '../../core/entity/illust_store.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/network/compat/network_providers.dart';
+import '../../core/novel/novel_repository.dart' hide NovelPage;
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/image_input.dart';
@@ -273,6 +274,9 @@ RankingMode _rankingMode(String? raw) => RankingMode.values.firstWhere(
   (mode) => mode.name == raw,
   orElse: () => RankingMode.day,
 );
+
+NovelRankingMode _novelRankingMode(String? raw) => NovelRankingMode.values
+    .firstWhere((mode) => mode.name == raw, orElse: () => NovelRankingMode.day);
 
 SearchResultType _searchType(String? raw) => SearchResultType.values.firstWhere(
   (value) => value.name == raw,
@@ -548,8 +552,15 @@ List<RouteBase> _commonBranchRoutes(
     ),
     GoRoute(
       path: 'novel-ranking',
-      pageBuilder: (context, state) =>
-          _page(context, state, branchObserver, const NovelRankingPage()),
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        NovelRankingPage(
+          initialMode: _novelRankingMode(state.uri.queryParameters['mode']),
+          onModeChanged: (mode) => replaceNovelRankingMode(context, mode),
+        ),
+      ),
     ),
     GoRoute(
       path: 'history',
@@ -1249,6 +1260,17 @@ void replaceSearchInput(
 void replaceRankingMode(BuildContext context, RankingMode mode) {
   final location = Uri(
     path: '/ranking',
+    queryParameters: {'mode': mode.name},
+  ).toString();
+  context.replace(location);
+}
+
+/// Novel ranking lives on a pushed common route (`<branch>/novel-ranking`),
+/// so the replaced location keeps the branch prefix of the stack it was
+/// opened from — same rule [openNovelRanking] uses.
+void replaceNovelRankingMode(BuildContext context, NovelRankingMode mode) {
+  final location = Uri(
+    path: '${_currentStackRoot(context)}/novel-ranking',
     queryParameters: {'mode': mode.name},
   ).toString();
   context.replace(location);
