@@ -486,9 +486,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountReadFailed => '读取账号状态失败';
 
   @override
-  String get reopen => '重新打开';
-
-  @override
   String get dismiss => '知道了';
 
   @override

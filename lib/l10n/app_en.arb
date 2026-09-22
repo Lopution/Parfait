@@ -193,7 +193,6 @@
   "reauthRequired": "Re-authentication required",
   "accountProfile": "Profile",
   "accountReadFailed": "Failed to read account state",
-  "reopen": "Reopen",
   "dismiss": "Dismiss",
   "profileEditTitle": "Edit profile",
   "profileEditLoadFailed": "Failed to load profile",

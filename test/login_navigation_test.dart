@@ -43,9 +43,14 @@ class _FakeWebViewPlatform extends WebViewPlatform {
 }
 
 class _FakeWebViewController extends PlatformWebViewController {
-  _FakeWebViewController(super.params) : super.implementation();
+  _FakeWebViewController(super.params) : super.implementation() {
+    latest = this;
+  }
+
+  static _FakeWebViewController? latest;
 
   Uri? lastLoadedUrl;
+  var reloadCount = 0;
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode mode) async {}
@@ -58,6 +63,11 @@ class _FakeWebViewController extends PlatformWebViewController {
   @override
   Future<void> loadRequest(LoadRequestParams params) async {
     lastLoadedUrl = params.uri;
+  }
+
+  @override
+  Future<void> reload() async {
+    reloadCount++;
   }
 
   @override
@@ -134,6 +144,23 @@ class _FakeWebViewWidget extends PlatformWebViewWidget {
   dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
 }
 
+/// Counts beginSession() calls so a test can prove a fatal card restarted
+/// the PKCE session instead of just reloading or closing the page.
+class _SpyOAuthService extends OAuthService {
+  _SpyOAuthService() : super(exchangeTimeout: Duration.zero);
+
+  var beginCount = 0;
+  Uri? lastAuthorizeUrl;
+
+  @override
+  ({Uri authorizeUrl, String sessionId, String state}) beginSession() {
+    beginCount++;
+    final session = super.beginSession();
+    lastAuthorizeUrl = session.authorizeUrl;
+    return session;
+  }
+}
+
 /// Settings storage that fails a fixed number of reads, then succeeds.
 /// Retry has to be observable as a real second read, not a rebuild.
 class _FlakySettingsRepository implements SettingsRepository {
@@ -161,6 +188,7 @@ void main() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     WebViewPlatform.instance = _FakeWebViewPlatform();
     _FakeNavigationDelegate.latest = null;
+    _FakeWebViewController.latest = null;
   });
 
   Widget wrap() {
@@ -407,9 +435,130 @@ void main() {
     await tester.pump();
 
     // A consumed verifier cannot complete a sign-in, so the card offers to
-    // reopen the page rather than to dismiss. Browsing itself is not blocked.
-    expect(find.text('重新打开'), findsOneWidget);
+    // restart the session in place rather than to dismiss. Browsing itself
+    // is not blocked.
+    expect(find.text('重新登录'), findsOneWidget);
+    expect(find.text('重新打开'), findsNothing);
     expect(find.text('知道了'), findsNothing);
+  });
+
+  testWidgets('a recoverable error card reloads the page in place', (
+    tester,
+  ) async {
+    await pumpLoginPage(tester);
+    final delegate = _FakeNavigationDelegate.latest!;
+    final controller = _FakeWebViewController.latest!;
+    delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+
+    delegate.httpError!.call(
+      HttpResponseError(
+        request: WebResourceRequest(
+          uri: Uri.parse('https://accounts.pixiv.net/login'),
+        ),
+        response: const WebResourceResponse(uri: null, statusCode: 400),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('网络错误 (HTTP 400)'), findsOneWidget);
+
+    await tester.tap(find.text('重新加载'));
+    await tester.pump();
+
+    // Reload re-runs the current document — the route stays put.
+    expect(controller.reloadCount, 1);
+    expect(find.text('网络错误 (HTTP 400)'), findsNothing);
+    expect(find.byType(LoginWebViewPage), findsOneWidget);
+  });
+
+  testWidgets('the fatal card restarts the PKCE session in place', (
+    tester,
+  ) async {
+    final service = _SpyOAuthService();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...accountProviderOverrides(),
+          oauthServiceProvider.overrideWithValue(service),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: LoginWebViewPage(oauthService: service),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final delegate = _FakeNavigationDelegate.latest!;
+    final controller = _FakeWebViewController.latest!;
+    expect(service.beginCount, 1);
+    expect(controller.lastLoadedUrl, service.lastAuthorizeUrl);
+
+    final decision = await navigateTo(
+      delegate,
+      'pixiv://account?error=access_denied',
+    );
+    expect(decision, NavigationDecision.prevent);
+    await tester.pump();
+    expect(find.text('重新登录'), findsOneWidget);
+
+    await tester.tap(find.text('重新登录'));
+    await tester.pump();
+
+    // Restart means a real second PKCE session whose fresh authorize URL is
+    // loaded into the same WebView — not a page reopen.
+    expect(service.beginCount, 2);
+    expect(controller.lastLoadedUrl, service.lastAuthorizeUrl);
+    expect(controller.reloadCount, 0);
+    expect(find.text('重新登录'), findsNothing);
+    expect(find.byType(LoginWebViewPage), findsOneWidget);
+    // The new session is live: normal Pixiv navigation still proceeds.
+    expect(
+      await navigateTo(delegate, 'https://accounts.pixiv.net/login?retry=1'),
+      NavigationDecision.navigate,
+    );
+  });
+
+  testWidgets('signup mode fatal card offers reload, never a session restart', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...accountProviderOverrides(),
+          oauthServiceProvider.overrideWithValue(
+            OAuthService(exchangeTimeout: Duration.zero),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: LoginWebViewPage(
+            create: true,
+            oauthService: OAuthService(exchangeTimeout: Duration.zero),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final controller = _FakeWebViewController.latest!;
+    expect(
+      controller.lastLoadedUrl,
+      Uri.parse('https://accounts.pixiv.net/signup'),
+    );
+
+    // Engine detach is the fatal path reachable in signup mode. Detach
+    // disables frame production, so resume before asserting the card.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.detached);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(find.text('重新登录'), findsNothing);
+    expect(find.text('重新加载'), findsOneWidget);
+    await tester.tap(find.text('重新加载'));
+    await tester.pump();
+    expect(controller.reloadCount, 1);
   });
 
   testWidgets('login compatibility switch changes the real network policy', (

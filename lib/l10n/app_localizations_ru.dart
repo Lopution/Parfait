@@ -507,9 +507,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get accountReadFailed => 'Не удалось прочитать состояние аккаунта';
 
   @override
-  String get reopen => 'Открыть снова';
-
-  @override
   String get dismiss => 'Понятно';
 
   @override

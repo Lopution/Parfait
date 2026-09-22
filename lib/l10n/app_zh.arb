@@ -193,7 +193,6 @@
   "reauthRequired": "需要重新登录",
   "accountProfile": "个人资料",
   "accountReadFailed": "读取账号状态失败",
-  "reopen": "重新打开",
   "dismiss": "知道了",
   "profileEditTitle": "编辑个人资料",
   "profileEditLoadFailed": "个人资料加载失败",

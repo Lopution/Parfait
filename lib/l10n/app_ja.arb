@@ -193,7 +193,6 @@
   "reauthRequired": "再ログインが必要です",
   "accountProfile": "プロフィール",
   "accountReadFailed": "アカウント状態を読み込めませんでした",
-  "reopen": "開き直す",
   "dismiss": "閉じる",
   "profileEditTitle": "プロフィールを編集",
   "profileEditLoadFailed": "プロフィールを読み込めませんでした",

@@ -193,7 +193,6 @@
   "reauthRequired": "Требуется повторный вход",
   "accountProfile": "Профиль",
   "accountReadFailed": "Не удалось прочитать состояние аккаунта",
-  "reopen": "Открыть снова",
   "dismiss": "Понятно",
   "profileEditTitle": "Редактировать профиль",
   "profileEditLoadFailed": "Не удалось загрузить профиль",
