@@ -99,9 +99,11 @@ class InfoBlock extends ConsumerWidget {
               ),
               const SizedBox(width: FuncSpacing.xs),
               // ID stays selectable (PixEz parity): users quote artwork IDs.
-              SelectionArea(
-                child: Text('ID: ${entity.id}', style: _metaNumeric(tokens)),
-              ),
+              // SelectableText, not SelectionArea — SelectionArea pulls in
+              // the whole SelectableRegion/context-menu machinery (~180KB
+              // AOT) that nothing else in the app uses, while SelectableText
+              // is already compiled in for the title.
+              SelectableText('ID: ${entity.id}', style: _metaNumeric(tokens)),
             ],
           ),
           if (entity.caption.isNotEmpty) ...[
