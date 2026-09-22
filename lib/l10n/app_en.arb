@@ -672,6 +672,17 @@
     }
   },
   "searchReverseIntro": "The selected image is uploaded to the chosen engine; the result page opens inside the app.",
+  "searchReverseFailed": "Search failed",
+  "searchReverseDone": "Done",
+  "searchReverseResultCount": "{count} results",
+  "@searchReverseResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseEngineSwitch": "Switch engine",
   "searchNoRepresentative": "This tag has no representative work",
   "searchFilters": "Filters",
   "searchReset": "Reset",

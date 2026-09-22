@@ -2736,6 +2736,30 @@ abstract class AppLocalizations {
   /// **'选择图片后将上传到所选引擎进行反向检索；结果页在应用内打开。'**
   String get searchReverseIntro;
 
+  /// No description provided for @searchReverseFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索失败'**
+  String get searchReverseFailed;
+
+  /// No description provided for @searchReverseDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'已完成'**
+  String get searchReverseDone;
+
+  /// No description provided for @searchReverseResultCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个结果'**
+  String searchReverseResultCount(int count);
+
+  /// No description provided for @searchReverseEngineSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换引擎'**
+  String get searchReverseEngineSwitch;
+
   /// No description provided for @searchNoRepresentative.
   ///
   /// In zh, this message translates to:

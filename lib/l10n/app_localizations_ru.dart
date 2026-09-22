@@ -1464,6 +1464,20 @@ class AppLocalizationsRu extends AppLocalizations {
       'Выбранное изображение отправляется в выбранный движок; страница результатов открывается в приложении.';
 
   @override
+  String get searchReverseFailed => 'Ошибка поиска';
+
+  @override
+  String get searchReverseDone => 'Готово';
+
+  @override
+  String searchReverseResultCount(int count) {
+    return 'Результатов: $count';
+  }
+
+  @override
+  String get searchReverseEngineSwitch => 'Сменить сервис';
+
+  @override
   String get searchNoRepresentative =>
       'У этого тега нет представительной работы';
 

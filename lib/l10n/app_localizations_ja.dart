@@ -1424,6 +1424,20 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseIntro => '選択した画像は選択中のエンジンにアップロードされ、結果ページがアプリ内で開きます。';
 
   @override
+  String get searchReverseFailed => '検索に失敗しました';
+
+  @override
+  String get searchReverseDone => '完了';
+
+  @override
+  String searchReverseResultCount(int count) {
+    return '$count 件の結果';
+  }
+
+  @override
+  String get searchReverseEngineSwitch => 'エンジンを切り替え';
+
+  @override
   String get searchNoRepresentative => 'このタグには代表作品がありません';
 
   @override

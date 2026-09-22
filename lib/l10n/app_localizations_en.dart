@@ -1464,6 +1464,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'The selected image is uploaded to the chosen engine; the result page opens inside the app.';
 
   @override
+  String get searchReverseFailed => 'Search failed';
+
+  @override
+  String get searchReverseDone => 'Done';
+
+  @override
+  String searchReverseResultCount(int count) {
+    return '$count results';
+  }
+
+  @override
+  String get searchReverseEngineSwitch => 'Switch engine';
+
+  @override
   String get searchNoRepresentative => 'This tag has no representative work';
 
   @override
