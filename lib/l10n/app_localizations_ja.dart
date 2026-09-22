@@ -1559,6 +1559,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchNoSuggestions => '候補はありません';
 
   @override
+  String get searchSuggestionFill => '検索欄に入力';
+
+  @override
+  String get searchSuggestionSearch => '今すぐ検索';
+
+  @override
   String get searchModifyQuery => '検索を編集';
 
   @override

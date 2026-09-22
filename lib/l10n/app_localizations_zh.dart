@@ -1543,6 +1543,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchNoSuggestions => '没有匹配建议';
 
   @override
+  String get searchSuggestionFill => '填入搜索框';
+
+  @override
+  String get searchSuggestionSearch => '立即搜索';
+
+  @override
   String get searchModifyQuery => '修改搜索';
 
   @override

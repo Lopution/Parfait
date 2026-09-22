@@ -717,6 +717,8 @@
   "searchInvalidDateRange": "Дата начала не может быть позже даты окончания",
   "searchPopularPreviewHint": "Без Premium сортировка по популярности использует предпросмотр",
   "searchNoSuggestions": "Нет подходящих вариантов",
+  "searchSuggestionFill": "Подставить в строку поиска",
+  "searchSuggestionSearch": "Искать сразу",
   "searchModifyQuery": "Изменить запрос",
   "searchUserAccount": "Аккаунт",
   "illustDetailTitle": "Работа",
