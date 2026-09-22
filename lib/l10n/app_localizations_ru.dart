@@ -2141,4 +2141,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get enableHapticsHint => 'Вибрация при выборе, сохранении и ошибках';
+
+  @override
+  String get downloadSelectPages => 'Выберите страницы для скачивания';
+
+  @override
+  String downloadSelectedCount(int selected, int total) {
+    return 'Выбрано: $selected из $total';
+  }
+
+  @override
+  String get selectAll => 'Выбрать все';
+
+  @override
+  String get done => 'Готово';
 }

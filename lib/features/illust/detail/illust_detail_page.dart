@@ -17,6 +17,8 @@ import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../app/haptics/app_haptics.dart';
+import '../../../app/motion/motion_tokens.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
@@ -56,7 +58,11 @@ class IllustDetailPage extends ConsumerStatefulWidget {
 }
 
 class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
-  bool _downloadMode = false;
+  /// Page indexes selected in the explicit download-selection mode;
+  /// `null` means the mode is off. A non-null empty set means the mode is
+  /// on with nothing selected yet — "Done" stays disabled until n > 0.
+  Set<int>? _selectedPages;
+
   bool _blockMode = false;
   StreamSubscription<DownloadEvent>? _downloadEvents;
 
@@ -88,68 +94,134 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     });
   }
 
-  /// Entering the mode is a management-mode transition → confirm haptic;
-  /// any exit path is a light confirmation → select.
-  void _toggleDownloadMode() {
-    if (_downloadMode) {
-      AppHaptics.select();
-    } else {
-      AppHaptics.confirm();
+  bool get _downloadMode => _selectedPages != null;
+
+  /// Entering the mode is a management-mode transition → confirm haptic.
+  void _enterDownloadMode() {
+    if (_downloadMode) return;
+    AppHaptics.confirm();
+    setState(() => _selectedPages = <int>{});
+  }
+
+  /// Any exit path (cancel button, blank tap, system back) is a light
+  /// confirmation. In-flight download tasks are owned by DownloadManager
+  /// and are never touched here — the mode is only a selection layer.
+  void _exitDownloadMode() {
+    if (!_downloadMode) return;
+    AppHaptics.select();
+    setState(() => _selectedPages = null);
+  }
+
+  void _selectAllPages(IllustEntity entity) {
+    if (_selectedPages == null) return;
+    AppHaptics.select();
+    setState(() {
+      _selectedPages = {for (var i = 0; i < entity.pageCount; i++) i};
+    });
+  }
+
+  /// "Done" submits every selected page through the download controller
+  /// (dedupe/retry-safe). Success exits the mode; failure keeps the mode
+  /// and the selection so the user can retry the remainder.
+  Future<void> _submitSelection(IllustEntity entity) async {
+    final selected = _selectedPages;
+    if (selected == null || selected.isEmpty) return;
+    final download = ref.read(illustDownloadControllerProvider);
+    try {
+      for (final index in selected.toList()..sort()) {
+        await download.download(entity, index);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      AppHaptics.error();
+      showAppSnackBar(
+        context,
+        context.l10n.downloadSubmissionFailed(error.toString()),
+      );
+      return;
     }
-    setState(() => _downloadMode = !_downloadMode);
+    if (!mounted) return;
+    AppHaptics.success();
+    showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+    setState(() => _selectedPages = null);
   }
 
   @override
   Widget build(BuildContext context) {
     _ensureDownloadListener();
     final async = ref.watch(illustDetailControllerProvider(widget.illustId));
-    return Scaffold(
-      appBar: _buildAppBar(context, ref, async),
-      body: async.when(
-        // U5 (R7): AsyncNotifier.build() returns a Future, so the first
-        // frame is ALWAYS AsyncLoading — a spinner here would hide the
-        // store snapshot the feed already placed in IllustStore, and the
-        // Hero destination would not exist on the first frame. Render the
-        // snapshot immediately; the controller's IllustDetailLoading state
-        // stays as the no-snapshot first-load signal.
-        loading: () {
-          final snapshot = _snapshotEntity();
-          if (snapshot != null) {
-            return _buildContent(context, ref, snapshot);
-          }
-          return const FeedLoading();
-        },
-        error: (Object error, StackTrace _) => FeedError(
-          title: context.l10n.illustDetailLoadFailed,
-          error: error,
-          retryLabel: context.l10n.retry,
-          onRetry: () => ref
-              .read(illustDetailControllerProvider(widget.illustId).notifier)
-              .reload(),
+    final entity = _entityOf(async);
+    return PopScope(
+      // While the selection mode is on, system back exits the mode instead
+      // of leaving the page (the AppBar back button routes through maybePop
+      // and lands on the same branch). In-flight downloads are untouched —
+      // the mode is only a UI selection layer.
+      canPop: !_downloadMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitDownloadMode();
+      },
+      child: Scaffold(
+        appBar: _buildAppBar(context, ref, async),
+        bottomNavigationBar: AnimatedSwitcher(
+          duration: MotionTokens.fast,
+          child: _downloadMode && entity != null && !entity.isUgoira
+              ? _DownloadSelectionBar(
+                  selected: _selectedPages?.length ?? 0,
+                  total: entity.pageCount,
+                  onSelectAll: () => _selectAllPages(entity),
+                  onDone: (_selectedPages?.isEmpty ?? true)
+                      ? null
+                      : () => unawaited(_submitSelection(entity)),
+                  onCancel: _exitDownloadMode,
+                )
+              : const SizedBox.shrink(),
         ),
-        data: (state) {
-          // Snapshot-first (R1): the shared store renders stale data behind
-          // any in-flight refresh; the controller state drives the terminal
-          // surfaces (the loading branch above reads the store directly).
-          return switch (state) {
-            IllustDetailRestricted(:final entity) => FeedEmpty(
-              icon: Icons.visibility_off_outlined,
-              title: context.l10n.illustDetailRestricted(entity.id),
-            ),
-            IllustDetailNotFound() => FeedEmpty(
-              icon: Icons.search_off,
-              title: context.l10n.illustDetailNotFound,
-            ),
-            IllustDetailReady(:final entity) => _buildContent(
-              context,
-              ref,
-              entity,
-              detailReady: true,
-            ),
-            IllustDetailError(:final error, :final snapshot) =>
-              _errorOrSnapshot(context, ref, error, snapshot),
-          };
-        },
+        body: async.when(
+          // U5 (R7): AsyncNotifier.build() returns a Future, so the first
+          // frame is ALWAYS AsyncLoading — a spinner here would hide the
+          // store snapshot the feed already placed in IllustStore, and the
+          // Hero destination would not exist on the first frame. Render the
+          // snapshot immediately; the controller's IllustDetailLoading state
+          // stays as the no-snapshot first-load signal.
+          loading: () {
+            final snapshot = _snapshotEntity();
+            if (snapshot != null) {
+              return _buildContent(context, ref, snapshot);
+            }
+            return const FeedLoading();
+          },
+          error: (Object error, StackTrace _) => FeedError(
+            title: context.l10n.illustDetailLoadFailed,
+            error: error,
+            retryLabel: context.l10n.retry,
+            onRetry: () => ref
+                .read(illustDetailControllerProvider(widget.illustId).notifier)
+                .reload(),
+          ),
+          data: (state) {
+            // Snapshot-first (R1): the shared store renders stale data behind
+            // any in-flight refresh; the controller state drives the terminal
+            // surfaces (the loading branch above reads the store directly).
+            return switch (state) {
+              IllustDetailRestricted(:final entity) => FeedEmpty(
+                icon: Icons.visibility_off_outlined,
+                title: context.l10n.illustDetailRestricted(entity.id),
+              ),
+              IllustDetailNotFound() => FeedEmpty(
+                icon: Icons.search_off,
+                title: context.l10n.illustDetailNotFound,
+              ),
+              IllustDetailReady(:final entity) => _buildContent(
+                context,
+                ref,
+                entity,
+                detailReady: true,
+              ),
+              IllustDetailError(:final error, :final snapshot) =>
+                _errorOrSnapshot(context, ref, error, snapshot),
+            };
+          },
+        ),
       ),
     );
   }
@@ -174,7 +246,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             onPressed: () => _share(context, ref, entity),
             icon: const Icon(Icons.share_outlined),
           ),
-        if (_downloadMode && entity != null)
+        // "Download all" is the always-visible plain download entry — it
+        // is no longer gated behind the selection mode.
+        if (entity != null)
           IconButton(
             tooltip: context.l10n.downloadAll,
             onPressed: () async {
@@ -303,7 +377,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             width: entity.width,
             height: entity.height,
             downloadMode: _downloadMode,
-            onLongPress: _toggleDownloadMode,
+            onLongPress: _enterDownloadMode,
             heroTag: illustHeroTag(widget.heroScope, entity.id),
             flightShuttleBuilder: illustHeroFlightShuttleBuilder,
             heroDecodeWidth: widget.heroImageDecodeWidth,
@@ -324,7 +398,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             heroImageDecodeWidth: widget.heroImageDecodeWidth,
             detailUrl: detailUrlFor(0),
             downloadMode: _downloadMode,
-            onLongPress: _toggleDownloadMode,
+            onLongPress: _enterDownloadMode,
           ),
         )
       else
@@ -348,7 +422,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                     : null,
                 detailUrl: detailUrlFor(index),
                 downloadMode: _downloadMode,
-                onLongPress: _toggleDownloadMode,
+                onLongPress: _enterDownloadMode,
                 placeholderOnly: !detailReady && index > 0,
               ),
             ),
@@ -413,7 +487,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final content = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (_downloadMode) _toggleDownloadMode();
+        if (_downloadMode) _exitDownloadMode();
       },
       child: AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)
           ? TwoPane(
@@ -421,7 +495,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 entity: entity,
                 detailUrlFor: detailUrlFor,
                 downloadMode: _downloadMode,
-                onLongPress: _toggleDownloadMode,
+                onLongPress: _enterDownloadMode,
                 heroTag: illustHeroTag(widget.heroScope, entity.id),
                 heroScope: widget.heroScope,
                 heroImageUrl: widget.heroImageUrl,
@@ -456,6 +530,68 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
       isAccountCurrent: () => ref.read(historyAccountIdProvider) == accountId,
       child: content,
+    );
+  }
+}
+
+/// Bottom chrome of the explicit download-selection mode (R2): mode
+/// title + selected/total count + select-all + done + cancel. "Done" is
+/// semantically disabled while nothing is selected.
+class _DownloadSelectionBar extends StatelessWidget {
+  const _DownloadSelectionBar({
+    required this.selected,
+    required this.total,
+    required this.onSelectAll,
+    required this.onDone,
+    required this.onCancel,
+  });
+
+  final int selected;
+  final int total;
+  final VoidCallback onSelectAll;
+  final VoidCallback? onDone;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    return Material(
+      color: theme.colorScheme.surfaceContainer,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FuncSpacing.lg,
+            vertical: FuncSpacing.xs,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.downloadSelectPages, style: theme.textTheme.labelLarge),
+              const SizedBox(height: FuncSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.downloadSelectedCount(selected, total),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onSelectAll,
+                    child: Text(l10n.selectAll),
+                  ),
+                  const SizedBox(width: FuncSpacing.xs),
+                  FilledButton(onPressed: onDone, child: Text(l10n.done)),
+                  TextButton(onPressed: onCancel, child: Text(l10n.cancel)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
