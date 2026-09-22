@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
+import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
@@ -19,11 +20,61 @@ import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
-class SearchHomePage extends ConsumerWidget {
+///
+/// Restoration tiers (design.md §二 matrix): the trending kind is
+/// session memory — `trendingKindProvider` resets to illust after process
+/// death, and `trendingTagsProvider` stays non-autoDispose on purpose so
+/// leaving the branch does not re-request. Scroll offset rides
+/// `PageStorageKey('search-home')` + `restorationId` as before; the
+/// explicit [_scrollController] only exists so the branch re-tap channel
+/// can address this scrollable (on desktop `SmoothWheelScroll` would
+/// otherwise own a private controller `PrimaryScrollController` cannot
+/// reach).
+class SearchHomePage extends ConsumerStatefulWidget {
   const SearchHomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SearchHomePage> createState() => _SearchHomePageState();
+}
+
+class _SearchHomePageState extends ConsumerState<SearchHomePage> {
+  final _scrollController = ScrollController();
+  ReTapChannel? _reTapChannel;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final channel = BranchSlideStack.maybeOf(context)?.reTapEvents;
+    if (identical(channel, _reTapChannel)) return;
+    _reTapChannel?.removeListener(_onBranchReTap);
+    _reTapChannel = channel;
+    _reTapChannel?.addListener(_onBranchReTap);
+  }
+
+  @override
+  void dispose() {
+    _reTapChannel?.removeListener(_onBranchReTap);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Branch-level re-tap (bottom bar same-destination tap): the channel
+  /// fired after the branch stack popped, so the scroll lands post-frame
+  /// on the now-visible root — a vetoed pop leaves a pushed route on top
+  /// and `isCurrent` fails the scroll harmlessly.
+  void _onBranchReTap() {
+    if (_reTapChannel?.branch !=
+        BranchRootScope.maybeOf(context)?.branchIndex) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      reTapScrollToTop(context, _scrollController);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final trendingType = ref.watch(trendingKindProvider);
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
@@ -35,6 +86,7 @@ class SearchHomePage extends ConsumerWidget {
       appBar: AppBar(title: Text(context.l10n.searchTitle)),
       body: RootSwipeSwitcher(
         child: SmoothWheelScroll(
+          controller: _scrollController,
           builder: (context, controller, physics) => CustomScrollView(
             key: const PageStorageKey('search-home'),
             restorationId: 'search-home',
@@ -140,9 +192,13 @@ class SearchHomePage extends ConsumerWidget {
                   return SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
                     sliver: SliverGrid.builder(
+                      // Adaptive: width decides the column count (≈160dp
+                      // tiles) so wide form factors no longer stretch
+                      // three columns and every tag is rendered — no
+                      // partial-row truncation.
                       gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 160,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                           ),
