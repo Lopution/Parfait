@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -244,6 +245,59 @@ void main() {
     // Tags and the comment entry moved into the sheet with the metadata.
     expect(find.text('#tag1 t1'), findsOneWidget);
     expect(find.byIcon(Icons.comment_outlined), findsOneWidget);
+  });
+
+  testWidgets('a tag chip in the info sheet closes it and opens tag search', (
+    tester,
+  ) async {
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      initialLocation: '/novel/1',
+      routes: [
+        GoRoute(
+          path: '/novel/:novelId',
+          builder: (context, state) =>
+              NovelPage(novelId: int.parse(state.pathParameters['novelId']!)),
+        ),
+        GoRoute(
+          path: '/search/results',
+          builder: (context, state) => const Scaffold(body: Text('results')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+    expect(find.text('#tag1 t1'), findsOneWidget);
+
+    await tester.tap(find.text('#tag1 t1'));
+    await tester.pumpAndSettle();
+
+    // The sheet is gone and the typed search route was pushed.
+    expect(find.text('#tag1 t1'), findsNothing);
+    expect(router.state.uri.path, '/search/results');
+    expect(router.state.uri.queryParameters['q'], 'tag1');
+    expect(router.state.uri.queryParameters['type'], 'novel');
   });
 
   testWidgets('chrome surfaces paint through the system-bar insets', (

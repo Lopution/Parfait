@@ -20,6 +20,7 @@ import '../../core/network/pixiv_http_client.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart';
+import '../../core/search/search_models.dart';
 import '../../core/novel/reader_settings.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/settings/settings_controller.dart';
@@ -571,7 +572,19 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
               Wrap(
                 children: [
                   for (final tag in novel.tags)
-                    TagChip(label: tag.name, translated: tag.translatedName),
+                    TagChip(
+                      label: tag.name,
+                      translated: tag.translatedName,
+                      onTap: () {
+                        // Same close-then-navigate sequence as the author
+                        // chip above.
+                        Navigator.of(sheetContext).pop();
+                        openSearchResults(
+                          context,
+                          NovelSearchQuery(keyword: tag.name),
+                        );
+                      },
+                    ),
                 ],
               ),
             ],
