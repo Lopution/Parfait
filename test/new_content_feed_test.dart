@@ -1,11 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/app/navigation/routes.dart';
+import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/new/new_feed_models.dart';
 import 'package:pixiv_func/core/new/new_feed_repository.dart';
@@ -97,6 +98,18 @@ Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
   return (container, repository);
 }
 
+Widget _app(ProviderContainer container, {NewPage? page}) {
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('zh', 'CN'),
+      home: page ?? const NewPage(),
+    ),
+  );
+}
+
 void main() {
   test('NewFeedKey keeps scope and content type independent', () {
     const followingIllust = NewFeedKey(
@@ -117,22 +130,12 @@ void main() {
     expect({followingIllust, followingNovel}, hasLength(2));
   });
 
-  testWidgets('New tabs are lazy and re-tap opens the type selector', (
+  testWidgets('New tabs are lazy and the type selector stays visible', (
     tester,
   ) async {
-    final repository = _FakeNewFeedRepository();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [newFeedRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-
-          home: const NewPage(),
-        ),
-      ),
-    );
+    final (container, repository) = await _makeWorld();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_app(container));
     await tester.pump();
     await tester.pump();
 
@@ -140,6 +143,10 @@ void main() {
     expect(find.text('关注'), findsOneWidget);
     expect(find.text('大家'), findsOneWidget);
     expect(find.text('好P友'), findsOneWidget);
+    // The type selector is persistent chrome now — both chips exist before
+    // any re-tap (the old expand-on-re-tap behavior is gone).
+    expect(find.text('插画'), findsOneWidget);
+    expect(find.text('小说'), findsOneWidget);
     expect(repository.requests, [
       const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.illust),
     ]);
@@ -155,9 +162,11 @@ void main() {
         ),
       ),
     );
-
+    // Re-tapping the active scope must not collapse the selector or
+    // refetch — it is a scroll-only gesture now.
     await tester.tap(find.text('大家'));
     await tester.pumpAndSettle();
+    expect(find.text('插画'), findsOneWidget);
     expect(find.text('小说'), findsOneWidget);
 
     await tester.tap(find.text('小说'));
@@ -169,6 +178,51 @@ void main() {
         const NewFeedKey(scope: NewFeedScope.everyone, type: NewFeedType.novel),
       ),
     );
+  });
+
+  testWidgets('re-tapping the active scope or type scrolls the feed to top', (
+    tester,
+  ) async {
+    final (container, repository) = await _makeWorld(illustCount: 24);
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_app(container));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      final feedView = find.byType(CustomScrollView);
+      expect(feedView, findsOneWidget);
+      ScrollController controller() =>
+          tester.widget<CustomScrollView>(feedView).controller!;
+
+      // A programmatic jump stages the "scrolled away" state deterministi-
+      // cally — the assertion is about the re-tap landing, not gestures.
+      controller().jumpTo(400);
+      await tester.pump();
+      expect(controller().offset, 400);
+
+      // Same-index scope tap → pure scroll-to-top.
+      await tester.tap(find.text('关注'));
+      await tester.pumpAndSettle();
+      expect(controller().offset, 0);
+      // Nothing refetched and the selector did not collapse.
+      expect(repository.requests, [
+        const NewFeedKey(
+          scope: NewFeedScope.following,
+          type: NewFeedType.illust,
+        ),
+      ]);
+      expect(find.text('小说'), findsOneWidget);
+
+      // Same-type chip tap → same scroll-only contract.
+      controller().jumpTo(300);
+      await tester.pump();
+      expect(controller().offset, 300);
+      await tester.tap(find.text('插画'));
+      await tester.pumpAndSettle();
+      expect(controller().offset, 0);
+    });
   });
 
   testWidgets('scope and type round-trip through the route parameters', (
@@ -213,5 +267,15 @@ void main() {
     page = tester.widget<NewPage>(find.byType(NewPage));
     expect(page.initialScope, NewFeedScope.myPixiv);
     expect(page.initialType, NewFeedType.novel);
+
+    // Same for the type selector.
+    await tester.tap(find.text('插画'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.queryParameters['scope'], 'myPixiv');
+    expect(router.state.uri.queryParameters['type'], 'illust');
+    page = tester.widget<NewPage>(find.byType(NewPage));
+    expect(page.initialScope, NewFeedScope.myPixiv);
+    expect(page.initialType, NewFeedType.illust);
   });
 }
