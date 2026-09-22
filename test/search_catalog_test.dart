@@ -1164,4 +1164,125 @@ void main() {
     await tester.pump();
     expect(find.byType(SearchResultPage), findsOneWidget);
   });
+
+  testWidgets('result route parameters round-trip every filter field', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    final router = createPixivRouter(
+      initialLocation:
+          '/search/results?q=cat&type=illust&target=exact_match_for_tags'
+          '&sort=date_asc&duration=within_last_week&start=2026-08-01'
+          '&end=2026-08-27&ai=exclude&bmin=100&bmax=5000&ratio=portrait'
+          '&ct=manga&wmin=1024&wmax=4096&hmin=768&hmax=2160',
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final page = tester.widget<SearchResultPage>(find.byType(SearchResultPage));
+    final query = page.query as IllustSearchQuery;
+    const expected = SearchFilters(
+      target: SearchTarget.exactMatchForTags,
+      sort: SearchSort.dateAsc,
+      duration: SearchDuration.week,
+      aiFilter: SearchAiFilter.exclude,
+      bookmarkMin: 100,
+      bookmarkMax: 5000,
+      ratio: SearchRatioPattern.portrait,
+      contentType: SearchContentType.manga,
+      widthMin: 1024,
+      widthMax: 4096,
+      heightMin: 768,
+      heightMax: 2160,
+    );
+    final filters = query.filters;
+    expect(filters.target, expected.target);
+    expect(filters.sort, expected.sort);
+    expect(filters.duration, expected.duration);
+    expect(filters.startDate, DateTime(2026, 8, 1));
+    expect(filters.endDate, DateTime(2026, 8, 27));
+    expect(filters.aiFilter, expected.aiFilter);
+    expect(filters.bookmarkMin, expected.bookmarkMin);
+    expect(filters.bookmarkMax, expected.bookmarkMax);
+    expect(filters.ratio, expected.ratio);
+    expect(filters.contentType, expected.contentType);
+    expect(filters.widthMin, expected.widthMin);
+    expect(filters.widthMax, expected.widthMax);
+    expect(filters.heightMin, expected.heightMin);
+    expect(filters.heightMax, expected.heightMax);
+
+    // The decoded route describes the same feed identity as a query built
+    // in code — cache keys must agree or restoration would fork the feed.
+    final built = IllustSearchQuery(
+      keyword: 'cat',
+      filters: SearchFilters(
+        target: SearchTarget.exactMatchForTags,
+        sort: SearchSort.dateAsc,
+        duration: SearchDuration.week,
+        startDate: DateTime(2026, 8, 1),
+        endDate: DateTime(2026, 8, 27),
+        aiFilter: SearchAiFilter.exclude,
+        bookmarkMin: 100,
+        bookmarkMax: 5000,
+        ratio: SearchRatioPattern.portrait,
+        contentType: SearchContentType.manga,
+        widthMin: 1024,
+        widthMax: 4096,
+        heightMin: 768,
+        heightMax: 2160,
+      ),
+    );
+    expect(query.cacheKey, built.cacheKey);
+  });
+
+  testWidgets('malformed filter values fall back to defaults per field', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    final router = createPixivRouter(
+      initialLocation:
+          '/search/results?q=cat&type=illust&sort=nonsense&ai=bogus'
+          '&bmin=abc&ct=not-a-type&ratio=diagonal&start=not-a-date'
+          '&wmin=-5',
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final page = tester.widget<SearchResultPage>(find.byType(SearchResultPage));
+    final filters = (page.query as IllustSearchQuery).filters;
+    // One damaged field falls back to its default without discarding the
+    // rest — same permissive rule as SearchFilters.fromJson.
+    expect(filters.sort, SearchSort.dateDesc);
+    expect(filters.aiFilter, SearchAiFilter.all);
+    expect(filters.bookmarkMin, isNull);
+    expect(filters.contentType, SearchContentType.illustAndMangaAndUgoira);
+    expect(filters.ratio, isNull);
+    expect(filters.startDate, isNull);
+    expect(filters.widthMin, -5); // syntactically valid ints still decode
+    expect(page.query.cacheKey, isNotNull);
+  });
 }
