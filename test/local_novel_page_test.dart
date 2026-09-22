@@ -128,4 +128,78 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
   });
+
+  testWidgets('reader restores the persisted read offset on open', (
+    tester,
+  ) async {
+    await warmDatabase(tester);
+    // Enough short paragraphs to span several pages at the default
+    // viewport, bracketed by unique marker lines.
+    final text = [
+      'opening paragraph',
+      for (var i = 0; i < 200; i++) 'filler line $i',
+      'closing paragraph',
+    ].join('\n');
+    final novel = await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .importBytes(
+            fileName: 'Long Read.txt',
+            bytes: Uint8List.fromList(utf8.encode(text)),
+            targetDir: dir,
+          ),
+    );
+    // The cursor sits on the last paragraph of the document.
+    final storedOffset = text.indexOf('closing paragraph');
+    await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .updateReadOffset(novel!.id, storedOffset),
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(LocalNovelReaderPage(localId: novel!.id)),
+      ),
+    );
+    // Asserting the rendered page instead of re-reading the database
+    // avoids racing the reader's unawaited cursor writes, which are issued
+    // inside the fake-async zone and can hold sqflite's lock across a
+    // real-zone `runAsync` call.
+    await _pumpUntil(tester, find.text('closing paragraph'), attempts: 240);
+    expect(find.text('closing paragraph'), findsOneWidget);
+    expect(find.text('opening paragraph'), findsNothing);
+  });
+
+  testWidgets('reader opens on the first page without a stored cursor', (
+    tester,
+  ) async {
+    await warmDatabase(tester);
+    final text = [
+      'opening paragraph',
+      for (var i = 0; i < 200; i++) 'filler line $i',
+      'closing paragraph',
+    ].join('\n');
+    final novel = await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .importBytes(
+            fileName: 'Fresh Read.txt',
+            bytes: Uint8List.fromList(utf8.encode(text)),
+            targetDir: dir,
+          ),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(LocalNovelReaderPage(localId: novel!.id)),
+      ),
+    );
+    await _pumpUntil(tester, find.text('opening paragraph'), attempts: 240);
+    expect(find.text('opening paragraph'), findsOneWidget);
+    // A spurious deep restore would swap the visible page away from the
+    // document start.
+    expect(find.text('closing paragraph'), findsNothing);
+  });
 }

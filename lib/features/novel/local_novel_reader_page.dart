@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/localnovel/local_novel_repository.dart';
+import '../../core/localnovel/read_offset_anchor.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/user/user_entity.dart';
 import 'novel_layout.dart';
@@ -60,6 +61,9 @@ class _LocalNovelReaderBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entity = _entityFor(novel, text);
+    // Restore the persisted read cursor: the stored character offset maps
+    // back to the paragraph anchor the reader consumes on first layout.
+    final restored = novelAnchorForReadOffset(novel.readOffset, text);
     return Column(
       children: [
         ListTile(
@@ -74,6 +78,12 @@ class _LocalNovelReaderBody extends ConsumerWidget {
         Expanded(
           child: NovelReader(
             novel: entity,
+            initialAnchor: restored == null
+                ? null
+                : NovelAnchor(
+                    paragraphId: restored.paragraphId,
+                    offset: restored.offset,
+                  ),
             onAnchorChanged: (anchor) => _persistCursor(ref, entity, anchor),
           ),
         ),
