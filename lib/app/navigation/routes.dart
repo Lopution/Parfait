@@ -314,6 +314,13 @@ T _searchEnum<T>(
 DateTime? _searchDate(String? raw) =>
     raw == null ? null : DateTime.tryParse(raw);
 
+int? _searchInt(String? raw) => raw == null ? null : int.tryParse(raw);
+
+/// Every `SearchFilters` field is a route parameter so a result URL fully
+/// describes the query (refresh/share/process-death all restore it).
+/// Decoding is permissive per field — one damaged value falls back to its
+/// default without discarding the rest, same rule as
+/// `SearchFilters.fromJson`.
 SearchFilters _searchFilters(GoRouterState state) => SearchFilters(
   target: _searchEnum(
     SearchTarget.values,
@@ -330,6 +337,27 @@ SearchFilters _searchFilters(GoRouterState state) => SearchFilters(
   duration: _searchDuration(state.uri.queryParameters['duration']),
   startDate: _searchDate(state.uri.queryParameters['start']),
   endDate: _searchDate(state.uri.queryParameters['end']),
+  // `ai` serializes by enum name: `all`/`only` share the same (null) wire
+  // value because `only` is enforced client-side.
+  aiFilter: _searchEnum(
+    SearchAiFilter.values,
+    state.uri.queryParameters['ai'],
+    (value) => value.name,
+    SearchAiFilter.all,
+  ),
+  bookmarkMin: _searchInt(state.uri.queryParameters['bmin']),
+  bookmarkMax: _searchInt(state.uri.queryParameters['bmax']),
+  ratio: _searchRatio(state.uri.queryParameters['ratio']),
+  contentType: _searchEnum(
+    SearchContentType.values,
+    state.uri.queryParameters['ct'],
+    (value) => value.wireValue,
+    SearchContentType.illustAndMangaAndUgoira,
+  ),
+  widthMin: _searchInt(state.uri.queryParameters['wmin']),
+  widthMax: _searchInt(state.uri.queryParameters['wmax']),
+  heightMin: _searchInt(state.uri.queryParameters['hmin']),
+  heightMax: _searchInt(state.uri.queryParameters['hmax']),
 );
 
 SearchQuery _searchQuery(GoRouterState state) {
@@ -364,6 +392,18 @@ Map<String, String> _searchQueryParameters(SearchQuery query) {
       if (filters.startDate != null)
         'start': _searchDateText(filters.startDate!),
       if (filters.endDate != null) 'end': _searchDateText(filters.endDate!),
+      // Non-nullable selectors always serialize so the URL is
+      // self-describing; `ai` uses the enum name because `all`/`only`
+      // share the null wire value.
+      'ai': filters.aiFilter.name,
+      if (filters.bookmarkMin != null) 'bmin': '${filters.bookmarkMin}',
+      if (filters.bookmarkMax != null) 'bmax': '${filters.bookmarkMax}',
+      if (filters.ratio != null) 'ratio': filters.ratio!.wireValue,
+      'ct': filters.contentType.wireValue,
+      if (filters.widthMin != null) 'wmin': '${filters.widthMin}',
+      if (filters.widthMax != null) 'wmax': '${filters.widthMax}',
+      if (filters.heightMin != null) 'hmin': '${filters.heightMin}',
+      if (filters.heightMax != null) 'hmax': '${filters.heightMax}',
     },
   };
 }
@@ -375,6 +415,13 @@ String _searchDateText(DateTime value) =>
 
 SearchDuration? _searchDuration(String? raw) {
   for (final value in SearchDuration.values) {
+    if (value.wireValue == raw) return value;
+  }
+  return null;
+}
+
+SearchRatioPattern? _searchRatio(String? raw) {
+  for (final value in SearchRatioPattern.values) {
     if (value.wireValue == raw) return value;
   }
   return null;
