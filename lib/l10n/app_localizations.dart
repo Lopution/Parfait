@@ -4025,6 +4025,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无特辑'**
   String get spotlightEmpty;
+
+  /// No description provided for @enableHaptics.
+  ///
+  /// In zh, this message translates to:
+  /// **'触感反馈'**
+  String get enableHaptics;
+
+  /// No description provided for @enableHapticsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择、保存成功与失败时振动'**
+  String get enableHapticsHint;
 }
 
 class _AppLocalizationsDelegate

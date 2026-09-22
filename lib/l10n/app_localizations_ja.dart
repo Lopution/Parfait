@@ -2089,4 +2089,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get spotlightEmpty => 'スポットライト記事がありません';
+
+  @override
+  String get enableHaptics => '触覚フィードバック';
+
+  @override
+  String get enableHapticsHint => '選択・保存完了・失敗時に振動します';
 }

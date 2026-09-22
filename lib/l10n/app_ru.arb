@@ -959,5 +959,7 @@
   "spotlightCategoryManga": "Манга",
   "spotlightLoadFailed": "Не удалось загрузить спотлайт",
   "spotlightLoadMoreFailed": "Не удалось загрузить ещё статьи",
-  "spotlightEmpty": "Нет статей спотлайта"
+  "spotlightEmpty": "Нет статей спотлайта",
+  "enableHaptics": "Тактильный отклик",
+  "enableHapticsHint": "Вибрация при выборе, сохранении и ошибках"
 }

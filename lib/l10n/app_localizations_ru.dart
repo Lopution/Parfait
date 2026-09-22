@@ -2135,4 +2135,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get spotlightEmpty => 'Нет статей спотлайта';
+
+  @override
+  String get enableHaptics => 'Тактильный отклик';
+
+  @override
+  String get enableHapticsHint => 'Вибрация при выборе, сохранении и ошибках';
 }

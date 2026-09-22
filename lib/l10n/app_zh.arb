@@ -959,5 +959,7 @@
   "spotlightCategoryManga": "漫画",
   "spotlightLoadFailed": "特辑加载失败",
   "spotlightLoadMoreFailed": "特辑加载更多失败",
-  "spotlightEmpty": "暂无特辑"
+  "spotlightEmpty": "暂无特辑",
+  "enableHaptics": "触感反馈",
+  "enableHapticsHint": "选择、保存成功与失败时振动"
 }

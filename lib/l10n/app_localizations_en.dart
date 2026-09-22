@@ -2136,4 +2136,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spotlightEmpty => 'No spotlight articles';
+
+  @override
+  String get enableHaptics => 'Haptic feedback';
+
+  @override
+  String get enableHapticsHint =>
+      'Vibrate on selections, saved actions and failures';
 }

@@ -355,6 +355,16 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
               () => ref.read(settingsProvider.notifier).setReduceMotion(value),
             ),
           ),
+          SettingsControl(
+            title: Text(context.l10n.enableHaptics),
+            subtitle: Text(context.l10n.enableHapticsHint),
+            value: settings.enableHaptics,
+            onChanged: (value) => persistSettings(
+              context,
+              () =>
+                  ref.read(settingsProvider.notifier).setHapticsEnabled(value),
+            ),
+          ),
         ],
       ),
     );
