@@ -30,10 +30,20 @@ String _recommendedText(BuildContext context, String key) {
 }
 
 /// Home recommended tab with the beta56 content selector:
-/// 插画 / 漫画 / 小说 / 用户. Each type keeps its own cursor/scroll state
-/// via the Offstage stack, so switching back does not refetch.
+/// 插画 / 漫画 / 小说 / 用户. The active type is route-durable
+/// (`/recommended?type=`): [initialType] seeds the controller and tab
+/// changes echo back through [onTypeChanged]. Each type keeps its own
+/// cursor/scroll state via the TabSlideStack, so switching back does not
+/// refetch.
 class RecommendedHomePage extends StatefulWidget {
-  const RecommendedHomePage({super.key});
+  const RecommendedHomePage({
+    super.key,
+    this.initialType = RecommendedContentType.illust,
+    this.onTypeChanged,
+  });
+
+  final RecommendedContentType initialType;
+  final ValueChanged<RecommendedContentType>? onTypeChanged;
 
   @override
   State<RecommendedHomePage> createState() => _RecommendedHomePageState();
@@ -44,15 +54,43 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
   static const _types = RecommendedContentType.values;
 
   late final TabController _tabController;
-  RecommendedContentType _type = RecommendedContentType.illust;
-  final Set<RecommendedContentType> _loaded = {RecommendedContentType.illust};
+  late RecommendedContentType _type;
+  final _loaded = <RecommendedContentType>{};
   final _entrancePlayed = <RecommendedContentType, Set<int>>{};
+  bool _suppressRouteEcho = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _types.length, vsync: this)
-      ..addListener(_onTabChanged);
+    _type = widget.initialType;
+    _loaded.add(_type);
+    _tabController = TabController(
+      length: _types.length,
+      vsync: this,
+      initialIndex: _types.indexOf(_type),
+    )..addListener(_onTabChanged);
+  }
+
+  @override
+  void didUpdateWidget(RecommendedHomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // context.replace keeps the page key, so a route write lands here as
+    // a widget update. Self-echoes carry the current type and no-op; only
+    // an externally changed param moves the strip — the controller is
+    // never reset.
+    final index = _types.indexOf(widget.initialType);
+    if (widget.initialType != oldWidget.initialType &&
+        index != _tabController.index) {
+      // The controller listener would echo this move back through
+      // onTypeChanged → context.replace — suppress it: the route already
+      // carries this type.
+      _suppressRouteEcho = true;
+      try {
+        _tabController.index = index;
+      } finally {
+        _suppressRouteEcho = false;
+      }
+    }
   }
 
   @override
@@ -69,6 +107,9 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       _type = _types[_tabController.index];
       _loaded.add(_type);
     });
+    if (!_suppressRouteEcho) {
+      widget.onTypeChanged?.call(_type);
+    }
   }
 
   void _selectType(RecommendedContentType type) {
@@ -77,6 +118,9 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       _type = type;
       _loaded.add(type);
     });
+    if (!_suppressRouteEcho) {
+      widget.onTypeChanged?.call(_type);
+    }
   }
 
   @override
