@@ -345,44 +345,113 @@ void main() {
   });
 
   group('IllustDetailPage download mode (R4)', () {
-    testWidgets('long-press enters download mode with per-page actions', (
+    testWidgets(
+      'long-press enters explicit selection mode; Done submits only the '
+      'selected pages',
+      (tester) async {
+        final (container, transport, sinks) = await makeWorld();
+        await pumpDetail(tester, container);
+
+        // The always-visible Download All entry exists; the selection
+        // chrome does not.
+        expect(find.byTooltip('Download All'), findsOneWidget);
+        expect(find.text('Select pages to download'), findsNothing);
+        expect(find.byIcon(Icons.radio_button_unchecked), findsNothing);
+
+        await longPressImage(tester);
+
+        // Mode chrome: title + selected/total count + select-all +
+        // done + cancel. Done is disabled while nothing is selected.
+        expect(find.text('Select pages to download'), findsOneWidget);
+        expect(find.text('0 of 2 selected'), findsOneWidget);
+        expect(find.text('Select all'), findsOneWidget);
+        expect(find.text('Cancel'), findsOneWidget);
+        expect(
+          tester
+              .widget<FilledButton>(find.widgetWithText(FilledButton, 'Done'))
+              .onPressed,
+          isNull,
+        );
+        // Page 0's badge is the unselected hollow circle (page 1 is below
+        // the fold).
+        expect(find.byIcon(Icons.radio_button_unchecked), findsOneWidget);
+
+        // Tapping the page badge toggles the selection — nothing downloads
+        // yet.
+        await mockNetworkImagesFor(() async {
+          await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+          await tester.pump();
+        });
+        final manager = container.read(downloadManagerProvider);
+        expect(manager.tasks, isEmpty);
+        expect(find.byIcon(Icons.check_circle), findsOneWidget);
+        expect(find.text('1 of 2 selected'), findsOneWidget);
+
+        // Done submits exactly the selected page and exits the mode.
+        await mockNetworkImagesFor(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+          await tester.pump();
+        });
+        expect(manager.tasks, hasLength(1));
+        expect(manager.tasks.single.illustId, 42);
+        expect(manager.tasks.single.pageIndex, 0);
+        expect(
+          manager.tasks.single.url.toString(),
+          'https://i.pximg.net/42/p0/original.jpg',
+        );
+        expect(sinks.sinks, hasLength(1));
+
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          if (manager.tasks.single.status != DownloadStatus.running) break;
+        }
+        expect(manager.tasks.single.status, DownloadStatus.succeeded);
+        await tester.pump();
+        expect(find.text('Select pages to download'), findsNothing);
+        expect(transport.openedUrls, hasLength(1));
+      },
+    );
+
+    testWidgets('select-all + cancel keeps the mode a pure selection layer', (
       tester,
     ) async {
-      final (container, transport, sinks) = await makeWorld();
+      final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
 
-      expect(find.byIcon(Icons.file_download_outlined), findsNothing);
+      await longPressImage(tester);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+
+      await tester.tap(find.text('Select all'));
+      await tester.pump();
+      expect(find.text('2 of 2 selected'), findsOneWidget);
+
+      // Cancel exits the mode without submitting anything.
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      expect(find.text('Select pages to download'), findsNothing);
+      expect(
+        container.read(downloadManagerProvider).tasks,
+        isEmpty,
+        reason: 'cancel never enqueues — submission only happens via Done',
+      );
+    });
+
+    testWidgets('system back exits the selection mode instead of popping', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, useRouter: true);
+      await tester.pump(const Duration(milliseconds: 50));
 
       await longPressImage(tester);
+      expect(find.text('Select pages to download'), findsOneWidget);
 
-      // Page 0 badge on screen + Download All app bar action (page 1 is
-      // below the fold).
-      expect(find.byIcon(Icons.file_download_outlined), findsNWidgets(2));
-
-      // Tap the first page badge → real queued task via the manager.
-      final manager = container.read(downloadManagerProvider);
-      await mockNetworkImagesFor(() async {
-        await tester.tap(find.byIcon(Icons.file_download_outlined).first);
-        await tester.pump();
-      });
-      expect(manager.tasks, hasLength(1));
-      expect(manager.tasks.single.illustId, 42);
-      expect(manager.tasks.single.pageIndex, 0);
-      expect(
-        manager.tasks.single.url.toString(),
-        'https://i.pximg.net/42/p0/original.jpg',
-      );
-      expect(sinks.sinks, hasLength(1));
-
-      for (var i = 0; i < 20; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
-        if (manager.tasks.single.status != DownloadStatus.running) break;
-      }
-      expect(manager.tasks.single.status, DownloadStatus.succeeded);
-      // The badge flips only after the widget rebuilds reading the manager.
-      await tester.pump();
-      expect(find.byIcon(Icons.check), findsOneWidget);
-      expect(transport.openedUrls, hasLength(1));
+      await tester.binding.handlePopRoute();
+      await tester.pump(const Duration(milliseconds: 50));
+      // The route stays; the mode is gone.
+      expect(find.byType(IllustDetailPage), findsOneWidget);
+      expect(find.text('Select pages to download'), findsNothing);
+      expect(container.read(downloadManagerProvider).tasks, isEmpty);
     });
 
     testWidgets('Download All enqueues every page once', (tester) async {
@@ -391,7 +460,7 @@ void main() {
       );
       await pumpDetail(tester, container);
 
-      await longPressImage(tester);
+      // Always-visible entry — no selection mode needed.
       await mockNetworkImagesFor(() async {
         await tester.tap(find.byTooltip('Download All'));
         await tester.pump();
@@ -472,20 +541,32 @@ void main() {
       addTearDown(container.dispose);
       await pumpDetail(tester, container);
 
+      // Enter the selection mode, pick page 0, submit — the task itself
+      // then fails asynchronously.
       await longPressImage(tester);
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.byIcon(Icons.file_download_outlined).first);
+        await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+        await tester.pump();
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
         await tester.pump(const Duration(milliseconds: 100));
       });
 
       expect(manager.tasks.single.status, DownloadStatus.failed);
-      // Error state is visually distinct now: badge = error outline (tap =
-      // retry); the app-bar Download All icon stays a download icon.
-      expect(find.byIcon(Icons.file_download_outlined), findsOneWidget);
+
+      // Re-enter the mode: the failed page surfaces as the error badge.
+      // Tapping it selects the page again; Done re-submits and the manager
+      // replaces the failed task on the same dedupe key.
+      await longPressImage(tester);
       expect(find.byIcon(Icons.error_outline), findsOneWidget);
 
       await mockNetworkImagesFor(() async {
         await tester.tap(find.byIcon(Icons.error_outline));
+        await tester.pump();
+      });
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
         await tester.pump(const Duration(milliseconds: 100));
       });
       expect(
@@ -494,7 +575,6 @@ void main() {
         reason: 'retry replaces the failed task (same dedupe key)',
       );
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
-      expect(find.byIcon(Icons.check), findsOneWidget);
     });
   });
 
