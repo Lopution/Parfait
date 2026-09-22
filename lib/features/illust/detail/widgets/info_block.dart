@@ -29,6 +29,7 @@ class InfoBlock extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens = FuncSemanticTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
+
     // Tag chips now block through the MuteStore: tag mutes sync with the
     // official /v1/mute list instead of the legacy local-only pref.
     final mutedTags = ref.watch(muteStoreProvider.select((s) => s.tags));
@@ -61,7 +62,9 @@ class InfoBlock extends ConsumerWidget {
           ),
           const SizedBox(height: FuncSpacing.lg),
           // 日期行与统计行的排版（U2 一并整理）：日期占左侧，视线/收藏
-          // 统计右侧成组，避免数字被日期挤压后换行错位。
+          // 统计右侧成组，避免数字被日期挤压后换行错位。Meta 信息统一走
+          // caption 级（12sp 次色）——PixEz/Shaft 都把日期/统计/ID 收敛到
+          // 同一小字层级，此前 bodyMedium/numeric 混排造成三档字号割裂。
           Row(
             children: [
               Expanded(
@@ -72,7 +75,7 @@ class InfoBlock extends ConsumerWidget {
                           '${createDate.year}/${createDate.month}/${createDate.day}',
                         ),
                   overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodyMedium,
+                  style: tokens.caption,
                 ),
               ),
               const SizedBox(width: FuncSpacing.md),
@@ -92,13 +95,15 @@ class InfoBlock extends ConsumerWidget {
             children: [
               Text(
                 context.l10n.illustDetailSize(entity.width, entity.height),
-                style: textTheme.bodyMedium,
+                style: tokens.caption,
               ),
               const SizedBox(width: FuncSpacing.xs),
-              Text(
-                'ID: ${entity.id}',
-                style: tokens.numeric.copyWith(color: tokens.contentSecondary),
-              ),
+              // ID stays selectable (PixEz parity): users quote artwork IDs.
+              // SelectableText, not SelectionArea — SelectionArea pulls in
+              // the whole SelectableRegion/context-menu machinery (~180KB
+              // AOT) that nothing else in the app uses, while SelectableText
+              // is already compiled in for the title.
+              SelectableText('ID: ${entity.id}', style: _metaNumeric(tokens)),
             ],
           ),
           if (entity.caption.isNotEmpty) ...[
@@ -150,6 +155,15 @@ class InfoBlock extends ConsumerWidget {
   }
 }
 
+/// Meta-row numeric style: tabular figures at caption size and secondary
+/// color so numbers share the meta tier instead of reading as body text.
+TextStyle _metaNumeric(FuncSemanticTokens tokens) {
+  return tokens.numeric.copyWith(
+    fontSize: tokens.caption.fontSize,
+    color: tokens.contentSecondary,
+  );
+}
+
 /// One icon + numeric-stat pair in the detail meta row (U2 排版整理).
 class _StatItem extends StatelessWidget {
   const _StatItem({required this.icon, required this.label});
@@ -165,7 +179,7 @@ class _StatItem extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: tokens.contentSecondary),
         const SizedBox(width: FuncSpacing.xs),
-        Text(label, style: tokens.numeric),
+        Text(label, style: _metaNumeric(tokens)),
       ],
     );
   }
