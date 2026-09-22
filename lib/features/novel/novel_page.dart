@@ -129,9 +129,9 @@ class _NovelStatusScaffold extends StatelessWidget {
           bottom: false,
           child: Align(
             alignment: Alignment.centerLeft,
-            child: BackButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
+            // An explicit control means "leave the page"; only the system
+            // back gesture goes through the chrome-first interception.
+            child: BackButton(onPressed: () => Navigator.of(context).pop()),
           ),
         ),
         Expanded(child: child),
@@ -349,7 +349,9 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
             children: [
               IconButton(
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
+                // Imperative pop: the PopScope only intercepts the system
+                // back gesture (chrome-first); this control always leaves.
+                onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back),
               ),
               Expanded(
