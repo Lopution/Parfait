@@ -169,6 +169,47 @@ void main() {
     expect(find.text('novel 1'), findsNothing);
   });
 
+  testWidgets('explicit back leaves the page even while chrome is visible', (
+    tester,
+  ) async {
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: _Host(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      // Detail + webview fetches, then the first layout pass.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    expect(find.byType(PageView), findsOneWidget);
+
+    // Reveal the chrome, then use the explicit back control: it must leave
+    // the page instead of only hiding the bars. The PopScope's chrome-first
+    // interception covers the system back gesture; an imperative pop()
+    // bypasses it (flutter/flutter#163052).
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.byType(NovelPage), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+  });
+
   testWidgets('work info sheet renders caption HTML without literal <br>', (
     tester,
   ) async {
@@ -267,4 +308,26 @@ void main() {
       greaterThanOrEqualTo(24),
     );
   });
+}
+
+/// Host page that pushes [NovelPage], so an explicit back has a route to
+/// land on.
+class _Host extends StatelessWidget {
+  const _Host();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const NovelPage(novelId: 1),
+            ),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    );
+  }
 }
