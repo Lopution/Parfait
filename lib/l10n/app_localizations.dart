@@ -246,6 +246,18 @@ abstract class AppLocalizations {
   /// **'安装 WebView2 Runtime'**
   String get loginInstallWebView2;
 
+  /// No description provided for @loginReload.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新加载'**
+  String get loginReload;
+
+  /// No description provided for @loginRestart.
+  ///
+  /// In zh, this message translates to:
+  /// **'重新登录'**
+  String get loginRestart;
+
   /// No description provided for @loginFailed.
   ///
   /// In zh, this message translates to:
@@ -1350,11 +1362,11 @@ abstract class AppLocalizations {
   /// **'无效自定义源：需 https、域名且仅支持 443 端口'**
   String get imageSourceCustomInvalid;
 
-  /// No description provided for @imageSourceTest.
+  /// No description provided for @imageSourceApplyAndTest.
   ///
   /// In zh, this message translates to:
-  /// **'测试'**
-  String get imageSourceTest;
+  /// **'应用并测试'**
+  String get imageSourceApplyAndTest;
 
   /// No description provided for @imageSourceTestOk.
   ///

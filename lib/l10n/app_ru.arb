@@ -45,6 +45,8 @@
   },
   "loginWebView2Missing": "Для входа требуется WebView2 Runtime, который не обнаружен в системе. Установите его и откройте страницу заново.",
   "loginInstallWebView2": "Установить WebView2 Runtime",
+  "loginReload": "Перезагрузить",
+  "loginRestart": "Войти снова",
   "loginFailed": "Не удалось войти: {error}",
   "@loginFailed": {
     "placeholders": {
@@ -291,7 +293,7 @@
   "imageSourceCustomHint": "https://host[/path], например https://i.pixiv.cat",
   "imageSourceCustomUnset": "Не настроено",
   "imageSourceCustomInvalid": "Недопустимый источник: нужны https, DNS-имя и порт 443",
-  "imageSourceTest": "Проверить",
+  "imageSourceApplyAndTest": "Применить и проверить",
   "imageSourceTestOk": "Зеркало доступно (HTTP {code})",
   "@imageSourceTestOk": {
     "placeholders": {

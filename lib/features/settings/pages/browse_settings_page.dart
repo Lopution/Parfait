@@ -216,7 +216,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.network_check, size: 18),
-                    label: Text(context.l10n.imageSourceTest),
+                    label: Text(context.l10n.imageSourceApplyAndTest),
                   ),
                 ],
               ),
