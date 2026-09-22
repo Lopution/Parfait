@@ -1600,6 +1600,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchNoSuggestions => 'No suggestions';
 
   @override
+  String get searchSuggestionFill => 'Fill into search box';
+
+  @override
+  String get searchSuggestionSearch => 'Search now';
+
+  @override
   String get searchModifyQuery => 'Edit search';
 
   @override

@@ -955,12 +955,12 @@ void main() {
     expect(scaffold.resizeToAvoidBottomInset, isFalse);
   });
 
-  testWidgets('inline suggestions submit the existing typed query', (
+  testWidgets('a suggestion row tap fills the field; only the action submits', (
     tester,
   ) async {
     final repository = _FakeSearchRepository(
-      autocompleteHandler: (keyword, _) async => [
-        SearchSuggestion(keyword: keyword, translatedName: '猫'),
+      autocompleteHandler: (keyword, _) async => const [
+        SearchSuggestion(keyword: 'neko', translatedName: '猫'),
       ],
     );
     final router = createPixivRouter(initialLocation: '/search/input');
@@ -983,11 +983,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('猫'), findsOneWidget);
+    // Row tap = fill only: the suggestion keyword lands in the field and
+    // the page stays put — submitting on a fill gesture made every touch
+    // of the list jump straight to results.
     await tester.tap(find.text('猫'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/search/input');
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'neko',
+    );
+
+    // The trailing action is the explicit immediate-search affordance.
+    await tester.tap(find.byTooltip('立即搜索'));
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/search/results');
-    expect(router.state.uri.queryParameters['q'], 'cat');
+    expect(router.state.uri.queryParameters['q'], 'neko');
     expect(router.state.uri.queryParameters['type'], 'illust');
     expect(find.byType(SearchResultPage), findsOneWidget);
   });

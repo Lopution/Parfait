@@ -466,10 +466,18 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     ref.read(searchAutocompleteProvider.notifier).update(value);
   }
 
-  void _selectSuggestion(SearchSuggestion suggestion) {
+  /// Row tap only fills the field — the same gesture that submits on the
+  /// result page must not submit here, so the user keeps editing context.
+  /// The trailing action is the explicit "search this now" affordance.
+  void _fillSuggestion(SearchSuggestion suggestion) {
     _textController
       ..text = suggestion.keyword
       ..selection = TextSelection.collapsed(offset: suggestion.keyword.length);
+    _focusNode.requestFocus();
+  }
+
+  void _searchSuggestion(SearchSuggestion suggestion) {
+    _fillSuggestion(suggestion);
     _submit();
   }
 
@@ -556,7 +564,10 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
               ),
             ),
           Expanded(
-            child: _SearchAutocompletePanel(onSelected: _selectSuggestion),
+            child: _SearchAutocompletePanel(
+              onFill: _fillSuggestion,
+              onSearch: _searchSuggestion,
+            ),
           ),
         ],
       ),
@@ -565,9 +576,16 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
 }
 
 class _SearchAutocompletePanel extends ConsumerWidget {
-  const _SearchAutocompletePanel({required this.onSelected});
+  const _SearchAutocompletePanel({
+    required this.onFill,
+    required this.onSearch,
+  });
 
-  final ValueChanged<SearchSuggestion> onSelected;
+  /// Row tap: fill the text field only.
+  final ValueChanged<SearchSuggestion> onFill;
+
+  /// Trailing action: fill and submit immediately.
+  final ValueChanged<SearchSuggestion> onSearch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -605,13 +623,23 @@ class _SearchAutocompletePanel extends ConsumerWidget {
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final suggestion = state.suggestions[index];
-        return ListTile(
-          leading: const Icon(Icons.search),
-          title: Text(suggestion.displayName),
-          subtitle: suggestion.translatedName == null
-              ? null
-              : Text(suggestion.keyword),
-          onTap: () => onSelected(suggestion),
+        return Semantics(
+          // The row's tap fills the field; the trailing button submits.
+          // Distinct labels keep the two actions apart for assistive tech.
+          hint: context.l10n.searchSuggestionFill,
+          child: ListTile(
+            leading: const Icon(Icons.search),
+            title: Text(suggestion.displayName),
+            subtitle: suggestion.translatedName == null
+                ? null
+                : Text(suggestion.keyword),
+            onTap: () => onFill(suggestion),
+            trailing: IconButton(
+              tooltip: context.l10n.searchSuggestionSearch,
+              onPressed: () => onSearch(suggestion),
+              icon: const Icon(Icons.search),
+            ),
+          ),
         );
       },
     );
