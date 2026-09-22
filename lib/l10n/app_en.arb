@@ -975,5 +975,16 @@
     }
   },
   "selectAll": "Select all",
-  "done": "Done"
+  "done": "Done",
+  "viewerPageLabel": "Page {page} of {total}",
+  "@viewerPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

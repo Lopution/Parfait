@@ -975,5 +975,16 @@
     }
   },
   "selectAll": "全选",
-  "done": "完成"
+  "done": "完成",
+  "viewerPageLabel": "第 {page} 页，共 {total} 页",
+  "@viewerPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

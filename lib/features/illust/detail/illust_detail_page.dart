@@ -112,6 +112,15 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     setState(() => _selectedPages = null);
   }
 
+  void _togglePageSelected(int index) {
+    final selected = _selectedPages;
+    if (selected == null) return;
+    AppHaptics.select();
+    setState(() {
+      if (!selected.remove(index)) selected.add(index);
+    });
+  }
+
   void _selectAllPages(IllustEntity entity) {
     if (_selectedPages == null) return;
     AppHaptics.select();
@@ -398,6 +407,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             heroImageDecodeWidth: widget.heroImageDecodeWidth,
             detailUrl: detailUrlFor(0),
             downloadMode: _downloadMode,
+            selected: _selectedPages?.contains(0) ?? false,
+            onToggleSelect: () => _togglePageSelected(0),
             onLongPress: _enterDownloadMode,
           ),
         )
@@ -422,6 +433,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                     : null,
                 detailUrl: detailUrlFor(index),
                 downloadMode: _downloadMode,
+                selected: _selectedPages?.contains(index) ?? false,
+                onToggleSelect: () => _togglePageSelected(index),
                 onLongPress: _enterDownloadMode,
                 placeholderOnly: !detailReady && index > 0,
               ),
@@ -495,6 +508,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 entity: entity,
                 detailUrlFor: detailUrlFor,
                 downloadMode: _downloadMode,
+                selectedPages: _selectedPages ?? const <int>{},
+                onToggleSelect: _togglePageSelected,
                 onLongPress: _enterDownloadMode,
                 heroTag: illustHeroTag(widget.heroScope, entity.id),
                 heroScope: widget.heroScope,

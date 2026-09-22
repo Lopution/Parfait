@@ -975,5 +975,16 @@
     }
   },
   "selectAll": "すべて選択",
-  "done": "完了"
+  "done": "完了",
+  "viewerPageLabel": "{total} ページ中 {page} ページ目",
+  "@viewerPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -2157,4 +2157,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get done => 'Done';
+
+  @override
+  String viewerPageLabel(int page, int total) {
+    return 'Page $page of $total';
+  }
 }
