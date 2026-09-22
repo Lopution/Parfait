@@ -14,6 +14,7 @@ import '../../core/auth/oauth_service.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
+import 'login_session_restart.dart';
 
 /// OAuth login WebView for desktop (Windows via `flutter_inappwebview` /
 /// WebView2). Same contract as `login_webview_page.dart`: one PKCE session
@@ -167,6 +168,31 @@ class _LoginWebViewDesktopPageState
     setState(() => _error = message);
   }
 
+  /// Reloads the current document in place. For a recoverable error this
+  /// retries the failed page; in signup mode there is no PKCE session, so
+  /// it is also the fatal card's only restart action.
+  void _reload() {
+    setState(() => _error = null);
+    unawaited(_controller?.reload());
+  }
+
+  /// Restarts the OAuth attempt without leaving the page: beginSession()
+  /// discards the dead verifier and the fresh authorize URL is loaded into
+  /// the same WebView.
+  void _restartLogin() {
+    final authorizeUrl = restartLoginSession(widget.oauthService);
+    setState(() {
+      _exchanging = false;
+      _error = null;
+      _fatal = false;
+    });
+    unawaited(
+      _controller?.loadUrl(
+        urlRequest: URLRequest(url: WebUri.uri(authorizeUrl)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -287,17 +313,30 @@ class _LoginWebViewDesktopPageState
                       child: Row(
                         children: [
                           Expanded(child: Text(_error!)),
-                          _fatal
-                              ? TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(false),
-                                  child: Text(context.l10n.reopen),
-                                )
-                              : TextButton(
-                                  onPressed: () =>
-                                      setState(() => _error = null),
-                                  child: Text(context.l10n.dismiss),
-                                ),
+                          // Fatal errors killed the PKCE session — restart it
+                          // in place rather than making the user reopen the
+                          // route. Signup mode has no session; it can only
+                          // reload the signup document.
+                          if (_fatal)
+                            widget.create
+                                ? TextButton(
+                                    onPressed: _reload,
+                                    child: Text(context.l10n.loginReload),
+                                  )
+                                : TextButton(
+                                    onPressed: _restartLogin,
+                                    child: Text(context.l10n.loginRestart),
+                                  )
+                          else ...[
+                            TextButton(
+                              onPressed: _reload,
+                              child: Text(context.l10n.loginReload),
+                            ),
+                            TextButton(
+                              onPressed: () => setState(() => _error = null),
+                              child: Text(context.l10n.dismiss),
+                            ),
+                          ],
                         ],
                       ),
                     ),

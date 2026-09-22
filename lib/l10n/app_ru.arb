@@ -45,6 +45,8 @@
   },
   "loginWebView2Missing": "Для входа требуется WebView2 Runtime, который не обнаружен в системе. Установите его и откройте страницу заново.",
   "loginInstallWebView2": "Установить WebView2 Runtime",
+  "loginReload": "Перезагрузить",
+  "loginRestart": "Войти снова",
   "loginFailed": "Не удалось войти: {error}",
   "@loginFailed": {
     "placeholders": {
@@ -191,7 +193,6 @@
   "reauthRequired": "Требуется повторный вход",
   "accountProfile": "Профиль",
   "accountReadFailed": "Не удалось прочитать состояние аккаунта",
-  "reopen": "Открыть снова",
   "dismiss": "Понятно",
   "profileEditTitle": "Редактировать профиль",
   "profileEditLoadFailed": "Не удалось загрузить профиль",
@@ -291,7 +292,7 @@
   "imageSourceCustomHint": "https://host[/path], например https://i.pixiv.cat",
   "imageSourceCustomUnset": "Не настроено",
   "imageSourceCustomInvalid": "Недопустимый источник: нужны https, DNS-имя и порт 443",
-  "imageSourceTest": "Проверить",
+  "imageSourceApplyAndTest": "Применить и проверить",
   "imageSourceTestOk": "Зеркало доступно (HTTP {code})",
   "@imageSourceTestOk": {
     "placeholders": {

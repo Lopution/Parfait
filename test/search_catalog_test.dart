@@ -1022,7 +1022,9 @@ void main() {
     expect(find.text('#风景'), findsOneWidget);
   });
 
-  testWidgets('trending grid trims to complete rows of three', (tester) async {
+  testWidgets('trending grid renders every tag including a partial row', (
+    tester,
+  ) async {
     final repository = _FakeSearchRepository(trendingTagCount: 4);
     await tester.pumpWidget(
       ProviderScope(
@@ -1040,7 +1042,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('#标签3'), findsOneWidget);
-    expect(find.text('#标签4'), findsNothing);
+    // The partial final row stays visible instead of being trimmed away.
+    expect(find.text('#标签4'), findsOneWidget);
   });
 
   testWidgets('switching the trending kind re-requests the novel endpoint', (

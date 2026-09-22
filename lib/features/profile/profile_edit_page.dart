@@ -140,6 +140,12 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
       if (mounted) Navigator.of(context).pop();
       return;
     }
+    // A clean draft has nothing to lose: leaving directly matches the
+    // PopScope's own canPop:true path for the system back gesture.
+    if (!ref.read(profileEditControllerProvider(session)).hasUnsavedChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
     final controller = ref.read(
       profileEditControllerProvider(session).notifier,
     );
@@ -181,7 +187,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
         appBar: AppBar(
           title: Text(context.l10n.profileEditTitle),
           leading: IconButton(
-            tooltip: context.l10n.cancel,
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             onPressed: _attemptPop,
             icon: const Icon(Icons.arrow_back),
           ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -660,6 +661,146 @@ void main() {
       expect(platform.deletedPaths, isEmpty);
     },
   );
+
+  group('stopSearch', () {
+    const reference = ReverseImageInputReference(
+      contentUri: 'content://share/1',
+      mimeType: 'image/png',
+      sizeBytes: 128,
+      hasReadUriPermission: true,
+      source: ReverseImageInputSource.picker,
+    );
+
+    test(
+      'stopping a running search returns to ready and keeps the image',
+      () async {
+        final file = File('${tempDirectory.path}/image.png')
+          ..writeAsBytesSync(_pngHeader(12, 8));
+        final platform = _FakeReverseImageInputPlatform(file);
+        final provider = _OutcomeProvider(
+          const ReverseImageSearchSuccess([
+            ReverseImageHit(similarity: 92.5, pixivId: 42),
+          ]),
+        )..blocker = Completer<ReverseImageSearchOutcome>();
+        final session = ReverseImageSearchSession.single(
+          platform: platform,
+          provider: provider,
+        );
+        final container = _flowContainer(session);
+        final controller = container.read(
+          reverseImageSearchControllerProvider(session).notifier,
+        );
+
+        await controller.prepare(reference);
+        unawaited(controller.search());
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          _stateOf(container, session).status,
+          ReverseImageFlowStatus.searching,
+        );
+
+        await controller.stopSearch();
+        var state = _stateOf(container, session);
+        expect(state.status, ReverseImageFlowStatus.ready);
+        expect(state.input, isNotNull);
+        // The image must survive the stop so the user can retry.
+        expect(platform.deletedPaths, isEmpty);
+
+        // A late provider result belongs to a dead generation and is dropped.
+        provider.blocker!.complete(
+          const ReverseImageSearchSuccess([
+            ReverseImageHit(similarity: 92.5, pixivId: 42),
+          ]),
+        );
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        state = _stateOf(container, session);
+        expect(state.status, ReverseImageFlowStatus.ready);
+        expect(state.results, isEmpty);
+        expect(state.input, isNotNull);
+        expect(platform.deletedPaths, isEmpty);
+      },
+    );
+
+    test(
+      'stopping during prepare returns to idle and drops the late copy',
+      () async {
+        final file = File('${tempDirectory.path}/image.png')
+          ..writeAsBytesSync(_pngHeader(12, 8));
+        final platform = _FakeReverseImageInputPlatform(file)
+          ..copyBlocker = Completer<String>();
+        final session = ReverseImageSearchSession.single(
+          platform: platform,
+          provider: _OutcomeProvider(
+            const ReverseImageSearchSuccess(<ReverseImageHit>[]),
+          ),
+        );
+        final container = _flowContainer(session);
+        final controller = container.read(
+          reverseImageSearchControllerProvider(session).notifier,
+        );
+
+        unawaited(controller.prepare(reference));
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          _stateOf(container, session).status,
+          ReverseImageFlowStatus.preparing,
+        );
+
+        await controller.stopSearch();
+        expect(
+          _stateOf(container, session).status,
+          ReverseImageFlowStatus.idle,
+        );
+
+        // The late copy result is discarded — and its file cleaned up —
+        // instead of reviving the flow.
+        platform.copyBlocker!.complete(file.path);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          _stateOf(container, session).status,
+          ReverseImageFlowStatus.idle,
+        );
+        expect(platform.deletedPaths, [file.path]);
+      },
+    );
+
+    test('stopping during pick discards the late picker result', () async {
+      final file = File('${tempDirectory.path}/image.png')
+        ..writeAsBytesSync(_pngHeader(12, 8));
+      final platform = _FakeReverseImageInputPlatform(file)
+        ..pickBlocker = Completer<ReverseImageInputReference?>();
+      final session = ReverseImageSearchSession.single(
+        platform: platform,
+        provider: _OutcomeProvider(
+          const ReverseImageSearchSuccess(<ReverseImageHit>[]),
+        ),
+      );
+      final container = _flowContainer(session);
+      final controller = container.read(
+        reverseImageSearchControllerProvider(session).notifier,
+      );
+
+      unawaited(controller.pick());
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        _stateOf(container, session).status,
+        ReverseImageFlowStatus.picking,
+      );
+
+      await controller.stopSearch();
+      expect(_stateOf(container, session).status, ReverseImageFlowStatus.idle);
+
+      // The picker answering after the stop must not start a prepare —
+      // the stale generation throws the reference away.
+      platform.pickBlocker!.complete(reference);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(_stateOf(container, session).status, ReverseImageFlowStatus.idle);
+      expect(platform.copyCount, 0);
+    });
+  });
 }
 
 class _RecordingUploadArmer implements ReverseImageUploadArmer {
@@ -693,10 +834,15 @@ class _FakeReverseImageInputPlatform implements ReverseImageInputPlatform {
   final File file;
   final deletedPaths = <String>[];
   int copyCount = 0;
+  Completer<ReverseImageInputReference?>? pickBlocker;
+  Completer<String>? copyBlocker;
+  ReverseImageInputReference? pickResult;
 
   @override
   Future<String> copyToOwnedFile(ReverseImageInputReference reference) async {
     copyCount++;
+    final blocker = copyBlocker;
+    if (blocker != null) return blocker.future;
     return file.path;
   }
 
@@ -704,13 +850,18 @@ class _FakeReverseImageInputPlatform implements ReverseImageInputPlatform {
   Future<void> deleteOwnedFile(String path) async => deletedPaths.add(path);
 
   @override
-  Future<ReverseImageInputReference?> pickImage() async => null;
+  Future<ReverseImageInputReference?> pickImage() async {
+    final blocker = pickBlocker;
+    if (blocker != null) return blocker.future;
+    return pickResult;
+  }
 }
 
 class _OutcomeProvider implements ReverseImageProvider {
-  const _OutcomeProvider(this.outcome);
+  _OutcomeProvider(this.outcome);
 
   final ReverseImageSearchOutcome outcome;
+  Completer<ReverseImageSearchOutcome>? blocker;
 
   @override
   ReverseImageProviderCapability get capability =>
@@ -726,7 +877,11 @@ class _OutcomeProvider implements ReverseImageProvider {
   Future<ReverseImageSearchOutcome> search(
     OwnedReverseImageInput input, {
     CancelToken? cancelToken,
-  }) async => outcome;
+  }) async {
+    final gate = blocker;
+    if (gate != null) return gate.future;
+    return outcome;
+  }
 }
 
 Uint8List _pngHeader(int width, int height) {

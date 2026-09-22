@@ -45,6 +45,8 @@
   },
   "loginWebView2Missing": "登录需要 WebView2 Runtime，但当前系统未检测到它。请安装后重新打开本页。",
   "loginInstallWebView2": "安装 WebView2 Runtime",
+  "loginReload": "重新加载",
+  "loginRestart": "重新登录",
   "loginFailed": "登录失败: {error}",
   "@loginFailed": {
     "placeholders": {
@@ -191,7 +193,6 @@
   "reauthRequired": "需要重新登录",
   "accountProfile": "个人资料",
   "accountReadFailed": "读取账号状态失败",
-  "reopen": "重新打开",
   "dismiss": "知道了",
   "profileEditTitle": "编辑个人资料",
   "profileEditLoadFailed": "个人资料加载失败",
@@ -291,7 +292,7 @@
   "imageSourceCustomHint": "https://host[/path]，例如 https://i.pixiv.cat",
   "imageSourceCustomUnset": "未配置",
   "imageSourceCustomInvalid": "无效自定义源：需 https、域名且仅支持 443 端口",
-  "imageSourceTest": "测试",
+  "imageSourceApplyAndTest": "应用并测试",
   "imageSourceTestOk": "镜像可达（HTTP {code}）",
   "@imageSourceTestOk": {
     "placeholders": {

@@ -469,7 +469,8 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextFormField).first, 'changed');
-    await tester.tap(find.byTooltip('Cancel'));
+    // The leading control is a back affordance, not a "cancel" action.
+    await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
     expect(find.text('Discard unsaved changes?'), findsOneWidget);
 
@@ -478,6 +479,113 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('Discard unsaved changes?'), findsOneWidget);
+  });
+
+  testWidgets('a clean form leaves directly without a confirm dialog', (
+    tester,
+  ) async {
+    final session = ProfileEditSession(
+      repository: _FakeRepository(
+        capabilities: ProfileCapabilities(
+          editableFields: ProfileField.values,
+          channel: ProfileEditChannel.appApi,
+        ),
+        outcome: ProfileEditConfirmed(_user()),
+      ),
+      owner: _owner(),
+      readOwner: () => _owner(),
+      initialUser: _user(),
+      onConfirmed: (_) async {},
+    );
+    final container = ProviderContainer(
+      overrides: [
+        profileEditControllerProvider.overrideWith2(
+          (arguments) => ProfileEditController(arguments),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(profileEditControllerProvider(session).notifier)
+        .load();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en', 'US'),
+          home: _EditHost(session: session),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.byType(ProfileEditPage), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+
+    expect(find.text('Discard unsaved changes?'), findsNothing);
+    expect(find.byType(ProfileEditPage), findsNothing);
+  });
+
+  testWidgets('a dirty form confirms, discards, then pops', (tester) async {
+    final session = ProfileEditSession(
+      repository: _FakeRepository(
+        capabilities: ProfileCapabilities(
+          editableFields: ProfileField.values,
+          channel: ProfileEditChannel.appApi,
+        ),
+        outcome: ProfileEditConfirmed(_user()),
+      ),
+      owner: _owner(),
+      readOwner: () => _owner(),
+      initialUser: _user(),
+      onConfirmed: (_) async {},
+    );
+    final container = ProviderContainer(
+      overrides: [
+        profileEditControllerProvider.overrideWith2(
+          (arguments) => ProfileEditController(arguments),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(profileEditControllerProvider(session).notifier)
+        .load();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en', 'US'),
+          home: _EditHost(session: session),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+
+    await tester.enterText(find.byType(TextFormField).first, 'changed');
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.text('Discard unsaved changes?'), findsOneWidget);
+
+    await tester.tap(find.text('Discard changes'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.byType(ProfileEditPage), findsNothing);
   });
 
   testWidgets('production init keeps the auto-dispose controller alive', (
@@ -533,6 +641,30 @@ void main() {
     expect(find.text('Display name'), findsOneWidget);
     expect(find.byType(TextFormField), findsWidgets);
   });
+}
+
+/// Host page that pushes [ProfileEditPage], so the back affordance has a
+/// route to land on.
+class _EditHost extends StatelessWidget {
+  const _EditHost({required this.session});
+
+  final ProfileEditSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => ProfileEditPage(userId: 42, session: session),
+            ),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    );
+  }
 }
 
 UserEntity _user() => const UserEntity(
