@@ -2162,4 +2162,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String viewerPageLabel(int page, int total) {
     return 'Page $page of $total';
   }
+
+  @override
+  String get tagActionSearch => 'Search this tag';
+
+  @override
+  String get tagActionCopy => 'Copy tag name';
+
+  @override
+  String get tagActionMute => 'Mute this tag';
+
+  @override
+  String get tagActionUnmute => 'Unmute this tag';
+
+  @override
+  String get tagActionMuteMode => 'Select tags to mute';
+
+  @override
+  String get tagCopied => 'Tag copied';
 }

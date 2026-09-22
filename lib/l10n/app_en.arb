@@ -986,5 +986,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "tagActionSearch": "Search this tag",
+  "tagActionCopy": "Copy tag name",
+  "tagActionMute": "Mute this tag",
+  "tagActionUnmute": "Unmute this tag",
+  "tagActionMuteMode": "Select tags to mute",
+  "tagCopied": "Tag copied"
 }

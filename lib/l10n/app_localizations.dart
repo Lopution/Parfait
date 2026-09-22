@@ -4067,6 +4067,42 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'第 {page} 页，共 {total} 页'**
   String viewerPageLabel(int page, int total);
+
+  /// No description provided for @tagActionSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索该标签'**
+  String get tagActionSearch;
+
+  /// No description provided for @tagActionCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制标签名'**
+  String get tagActionCopy;
+
+  /// No description provided for @tagActionMute.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽该标签'**
+  String get tagActionMute;
+
+  /// No description provided for @tagActionUnmute.
+  ///
+  /// In zh, this message translates to:
+  /// **'解除屏蔽该标签'**
+  String get tagActionUnmute;
+
+  /// No description provided for @tagActionMuteMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量屏蔽标签'**
+  String get tagActionMuteMode;
+
+  /// No description provided for @tagCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制标签'**
+  String get tagCopied;
 }
 
 class _AppLocalizationsDelegate

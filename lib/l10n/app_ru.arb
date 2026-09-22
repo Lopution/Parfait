@@ -986,5 +986,11 @@
         "type": "int"
       }
     }
-  }
+  },
+  "tagActionSearch": "Искать этот тег",
+  "tagActionCopy": "Копировать имя тега",
+  "tagActionMute": "Скрыть этот тег",
+  "tagActionUnmute": "Показать этот тег",
+  "tagActionMuteMode": "Выбрать теги для скрытия",
+  "tagCopied": "Тег скопирован"
 }

@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/haptics/app_haptics.dart';
+import '../../../../app/motion/app_overlays.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/widgets/app_snack_bar.dart';
@@ -139,7 +142,15 @@ class InfoBlock extends ConsumerWidget {
                       openTagSearch(context, tag.name);
                     }
                   },
-                  onLongPress: onToggleBlockMode,
+                  // Long-press opens the direct action menu (search /
+                  // copy / mute / batch-mute entry) instead of silently
+                  // flipping the block mode.
+                  onLongPress: () => _showTagActions(
+                    context,
+                    ref,
+                    tag,
+                    muted: mutedTags.contains(tag.name),
+                  ),
                 ),
             ],
           ),
@@ -150,6 +161,85 @@ class InfoBlock extends ConsumerWidget {
             label: Text(context.l10n.commentTitle),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Direct tag action menu (R3): search, copy, mute/unmute, and the entry
+  /// into the batch mute mode. `TagChip`'s signature stays unchanged — the
+  /// menu is call-site behavior, not a chip variant.
+  void _showTagActions(
+    BuildContext context,
+    WidgetRef ref,
+    IllustTag tag, {
+    required bool muted,
+  }) {
+    AppHaptics.confirm();
+    final l10n = context.l10n;
+    unawaited(
+      showAppBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.search),
+                  title: Text(l10n.tagActionSearch),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    openTagSearch(context, tag.name);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.copy_outlined),
+                  title: Text(l10n.tagActionCopy),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(Clipboard.setData(ClipboardData(text: tag.name)));
+                    AppHaptics.select();
+                    if (context.mounted) {
+                      showAppSnackBar(context, l10n.tagCopied);
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    muted
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  title: Text(
+                    muted ? l10n.tagActionUnmute : l10n.tagActionMute,
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(
+                      ref
+                          .read(muteStoreProvider.notifier)
+                          .toggleTag(tag.name)
+                          .catchError((Object error) {
+                            if (context.mounted) {
+                              showAppSnackBar(context, '$error');
+                            }
+                          }),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.playlist_add_check),
+                  title: Text(l10n.tagActionMuteMode),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    onToggleBlockMode();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

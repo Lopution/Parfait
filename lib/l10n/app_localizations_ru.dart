@@ -2160,4 +2160,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String viewerPageLabel(int page, int total) {
     return 'Страница $page из $total';
   }
+
+  @override
+  String get tagActionSearch => 'Искать этот тег';
+
+  @override
+  String get tagActionCopy => 'Копировать имя тега';
+
+  @override
+  String get tagActionMute => 'Скрыть этот тег';
+
+  @override
+  String get tagActionUnmute => 'Показать этот тег';
+
+  @override
+  String get tagActionMuteMode => 'Выбрать теги для скрытия';
+
+  @override
+  String get tagCopied => 'Тег скопирован';
 }
