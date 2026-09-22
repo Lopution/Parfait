@@ -508,9 +508,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountReadFailed => 'Failed to read account state';
 
   @override
-  String get reopen => 'Reopen';
-
-  @override
   String get dismiss => 'Dismiss';
 
   @override

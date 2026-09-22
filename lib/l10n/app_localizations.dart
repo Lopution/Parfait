@@ -1008,12 +1008,6 @@ abstract class AppLocalizations {
   /// **'读取账号状态失败'**
   String get accountReadFailed;
 
-  /// No description provided for @reopen.
-  ///
-  /// In zh, this message translates to:
-  /// **'重新打开'**
-  String get reopen;
-
   /// No description provided for @dismiss.
   ///
   /// In zh, this message translates to:

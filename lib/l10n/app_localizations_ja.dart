@@ -495,9 +495,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get accountReadFailed => 'アカウント状態を読み込めませんでした';
 
   @override
-  String get reopen => '開き直す';
-
-  @override
   String get dismiss => '閉じる';
 
   @override
