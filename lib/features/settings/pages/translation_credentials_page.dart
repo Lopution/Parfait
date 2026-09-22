@@ -25,8 +25,10 @@ class _TranslationCredentialsPageState
   final _baseUrlController = TextEditingController();
   final _apiKeyController = TextEditingController();
   final _modelController = TextEditingController();
-  bool _saving = false;
+  bool _busy = false;
+  bool _clearing = false;
   String? _status;
+  bool _statusIsError = false;
 
   @override
   void initState() {
@@ -66,16 +68,21 @@ class _TranslationCredentialsPageState
       }
     } on Object {
       if (mounted) {
-        setState(() => _status = context.l10n.translateCredentialsStoreError);
+        setState(() {
+          _status = context.l10n.translateCredentialsStoreError;
+          _statusIsError = true;
+        });
       }
     }
   }
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_busy) return;
     setState(() {
-      _saving = true;
+      _busy = true;
+      _clearing = false;
       _status = null;
+      _statusIsError = false;
     });
     try {
       final store = ref.read(translationCredentialStoreProvider);
@@ -109,30 +116,44 @@ class _TranslationCredentialsPageState
         );
       }
       if (mounted) {
-        setState(() => _status = context.l10n.translateCredentialsSaved);
+        setState(() {
+          _status = context.l10n.translateCredentialsSaved;
+          _statusIsError = false;
+        });
       }
     } on CommentTranslationError {
       if (mounted) {
-        setState(() => _status = context.l10n.translateCredentialsInvalid);
+        setState(() {
+          _status = context.l10n.translateCredentialsInvalid;
+          _statusIsError = true;
+        });
       }
     } on TranslationCredentialsStoreException {
       if (mounted) {
-        setState(() => _status = context.l10n.translateCredentialsStoreError);
+        setState(() {
+          _status = context.l10n.translateCredentialsStoreError;
+          _statusIsError = true;
+        });
       }
     } on Object {
       if (mounted) {
-        setState(() => _status = context.l10n.translateCredentialsStoreError);
+        setState(() {
+          _status = context.l10n.translateCredentialsStoreError;
+          _statusIsError = true;
+        });
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _clear() async {
-    if (_saving) return;
+    if (_busy) return;
     setState(() {
-      _saving = true;
+      _busy = true;
+      _clearing = true;
       _status = null;
+      _statusIsError = false;
     });
     try {
       final store = ref.read(translationCredentialStoreProvider);
@@ -142,16 +163,32 @@ class _TranslationCredentialsPageState
         await store.deleteLlm();
       }
       if (mounted) {
+        // The stored row is gone, so the form must not keep showing the
+        // deleted values as if they were still configured.
+        if (widget.baidu) {
+          _appIdController.clear();
+          _secretController.clear();
+        } else {
+          _baseUrlController.clear();
+          _apiKeyController.clear();
+          _modelController.clear();
+        }
         setState(() {
           _status = context.l10n.translateCredentialsCleared;
+          _statusIsError = false;
         });
       }
     } on TranslationCredentialsStoreException {
+      // The delete failed — keep the entered values so the user can
+      // retry or copy them out instead of losing input.
       if (mounted) {
-        setState(() => _status = context.l10n.translateCredentialsStoreError);
+        setState(() {
+          _status = context.l10n.translateCredentialsStoreError;
+          _statusIsError = true;
+        });
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -208,18 +245,34 @@ class _TranslationCredentialsPageState
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 _status!,
-                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                style: TextStyle(
+                  color: _statusIsError
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
           FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            icon: const Icon(Icons.save_outlined),
+            onPressed: _busy ? null : _save,
+            icon: _busy && !_clearing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
             label: Text(context.l10n.translateCredentialsSave),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: _saving ? null : _clear,
-            icon: const Icon(Icons.delete_outline),
+            onPressed: _busy ? null : _clear,
+            icon: _busy && _clearing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_outline),
             label: Text(context.l10n.translateCredentialsClear),
           ),
           Padding(
