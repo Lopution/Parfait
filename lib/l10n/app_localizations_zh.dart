@@ -89,6 +89,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginInstallWebView2 => '安装 WebView2 Runtime';
 
   @override
+  String get loginReload => '重新加载';
+
+  @override
+  String get loginRestart => '重新登录';
+
+  @override
   String loginFailed(String error) {
     return '登录失败: $error';
   }
@@ -668,7 +674,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageSourceCustomInvalid => '无效自定义源：需 https、域名且仅支持 443 端口';
 
   @override
-  String get imageSourceTest => '测试';
+  String get imageSourceApplyAndTest => '应用并测试';
 
   @override
   String imageSourceTestOk(String code) {

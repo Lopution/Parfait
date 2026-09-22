@@ -89,6 +89,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get loginInstallWebView2 => 'Установить WebView2 Runtime';
 
   @override
+  String get loginReload => 'Перезагрузить';
+
+  @override
+  String get loginRestart => 'Войти снова';
+
+  @override
   String loginFailed(String error) {
     return 'Не удалось войти: $error';
   }
@@ -700,7 +706,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Недопустимый источник: нужны https, DNS-имя и порт 443';
 
   @override
-  String get imageSourceTest => 'Проверить';
+  String get imageSourceApplyAndTest => 'Применить и проверить';
 
   @override
   String imageSourceTestOk(String code) {

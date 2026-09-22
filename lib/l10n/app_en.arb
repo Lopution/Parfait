@@ -45,6 +45,8 @@
   },
   "loginWebView2Missing": "Signing in requires the WebView2 Runtime, which was not detected on this system. Install it and reopen this page.",
   "loginInstallWebView2": "Install WebView2 Runtime",
+  "loginReload": "Reload",
+  "loginRestart": "Log in again",
   "loginFailed": "Login failed: {error}",
   "@loginFailed": {
     "placeholders": {
@@ -291,7 +293,7 @@
   "imageSourceCustomHint": "https://host[/path], e.g. https://i.pixiv.cat",
   "imageSourceCustomUnset": "Not configured",
   "imageSourceCustomInvalid": "Invalid source: needs https, a DNS host name and port 443",
-  "imageSourceTest": "Test",
+  "imageSourceApplyAndTest": "Apply and test",
   "imageSourceTestOk": "Mirror reachable (HTTP {code})",
   "@imageSourceTestOk": {
     "placeholders": {

@@ -89,6 +89,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginInstallWebView2 => 'Install WebView2 Runtime';
 
   @override
+  String get loginReload => 'Reload';
+
+  @override
+  String get loginRestart => 'Log in again';
+
+  @override
   String loginFailed(String error) {
     return 'Login failed: $error';
   }
@@ -699,7 +705,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Invalid source: needs https, a DNS host name and port 443';
 
   @override
-  String get imageSourceTest => 'Test';
+  String get imageSourceApplyAndTest => 'Apply and test';
 
   @override
   String imageSourceTestOk(String code) {

@@ -1125,53 +1125,57 @@ void main() {
     expect(find.textContaining('无效自定义源'), findsOneWidget);
   });
 
-  testWidgets('browse image source test probes the live image pipeline', (
-    tester,
-  ) async {
-    final repository = _FakeRepository(_baseSettings());
-    final backend = _RecordingClient();
-    final policy = NetworkAccessPolicy(
-      registry: PixivDestinationRegistry(
-        extraImageHosts: {'proxy.example.com'},
-      ),
-      resolver: _StubResolver([InternetAddress('93.184.216.34')]),
-      clientFactory: (route, canonicalHost, _) => backend,
-    );
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          settingsRepositoryProvider.overrideWithValue(repository),
-          networkAccessPolicyProvider.overrideWithValue(policy),
-        ],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: BrowseSettingsPage(),
+  testWidgets(
+    'browse image source apply-and-test applies then probes the live pipeline',
+    (tester) async {
+      final repository = _FakeRepository(_baseSettings());
+      final backend = _RecordingClient();
+      final policy = NetworkAccessPolicy(
+        registry: PixivDestinationRegistry(
+          extraImageHosts: {'proxy.example.com'},
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+        resolver: _StubResolver([InternetAddress('93.184.216.34')]),
+        clientFactory: (route, canonicalHost, _) => backend,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(repository),
+            networkAccessPolicyProvider.overrideWithValue(policy),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: BrowseSettingsPage(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
 
-    await _scrollCentered(tester, find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'https://proxy.example.com');
-    await _scrollCentered(tester, find.text('测试', skipOffstage: false));
-    await tester.tap(find.text('测试'));
-    await tester.pumpAndSettle();
-    // The raced loser's drained body delivers its done event on the next
-    // FakeAsync elapse — one more pump lets the idle-guard timer unwind.
-    await tester.pump();
+      await _scrollCentered(tester, find.byType(TextField));
+      await tester.enterText(
+        find.byType(TextField),
+        'https://proxy.example.com',
+      );
+      await _scrollCentered(tester, find.text('应用并测试', skipOffstage: false));
+      await tester.tap(find.text('应用并测试'));
+      await tester.pumpAndSettle();
+      // The raced loser's drained body delivers its done event on the next
+      // FakeAsync elapse — one more pump lets the idle-guard timer unwind.
+      await tester.pump();
 
-    // A cold image request races the top two ladder tiers, so the probe
-    // may hit the backend twice — every attempt must target the mirror.
-    expect(backend.requests, isNotEmpty);
-    expect(backend.requests.map((request) => request.url.host).toSet(), {
-      'proxy.example.com',
-    });
-    expect(repository.value.imageSource, 'https://proxy.example.com');
-    expect(find.textContaining('镜像可达'), findsOneWidget);
-  });
+      // A cold image request races the top two ladder tiers, so the probe
+      // may hit the backend twice — every attempt must target the mirror.
+      expect(backend.requests, isNotEmpty);
+      expect(backend.requests.map((request) => request.url.host).toSet(), {
+        'proxy.example.com',
+      });
+      expect(repository.value.imageSource, 'https://proxy.example.com');
+      expect(find.textContaining('镜像可达'), findsOneWidget);
+    },
+  );
 }
 
 Future<void> _scrollCentered(WidgetTester tester, Finder finder) async {
