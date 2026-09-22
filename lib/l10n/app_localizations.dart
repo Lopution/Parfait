@@ -3324,6 +3324,12 @@ abstract class AppLocalizations {
   /// **'刷新失败'**
   String get newRefreshFailed;
 
+  /// No description provided for @recommendedRefreshFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新失败'**
+  String get recommendedRefreshFailed;
+
   /// No description provided for @profileId.
   ///
   /// In zh, this message translates to:

@@ -15,6 +15,8 @@ import '../../../core/user/user_store.dart';
 import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
+import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/branch_slide_stack.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
 import '../../../app/widgets/root_swipe_switcher.dart';
 import '../../../app/widgets/author_summary.dart';
@@ -56,8 +58,10 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
   late final TabController _tabController;
   late RecommendedContentType _type;
   final _loaded = <RecommendedContentType>{};
+  final _scrollControllers = <RecommendedContentType, ScrollController>{};
   final _entrancePlayed = <RecommendedContentType, Set<int>>{};
   bool _suppressRouteEcho = false;
+  ReTapChannel? _reTapChannel;
 
   @override
   void initState() {
@@ -69,6 +73,16 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       vsync: this,
       initialIndex: _types.indexOf(_type),
     )..addListener(_onTabChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final channel = BranchSlideStack.maybeOf(context)?.reTapEvents;
+    if (identical(channel, _reTapChannel)) return;
+    _reTapChannel?.removeListener(_onBranchReTap);
+    _reTapChannel = channel;
+    _reTapChannel?.addListener(_onBranchReTap);
   }
 
   @override
@@ -95,9 +109,13 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
 
   @override
   void dispose() {
+    _reTapChannel?.removeListener(_onBranchReTap);
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
+    for (final controller in _scrollControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -112,15 +130,23 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
     }
   }
 
-  void _selectType(RecommendedContentType type) {
-    if (type == _type) return;
-    setState(() {
-      _type = type;
-      _loaded.add(type);
-    });
-    if (!_suppressRouteEcho) {
-      widget.onTypeChanged?.call(_type);
+  /// Branch-level re-tap (bottom bar same-destination tap): the channel
+  /// fired after the branch stack popped, so the scroll lands post-frame
+  /// on the now-visible root — a vetoed pop leaves a pushed route on top
+  /// and `isCurrent` fails the scroll harmlessly.
+  void _onBranchReTap() {
+    if (_reTapChannel?.branch !=
+        BranchRootScope.maybeOf(context)?.branchIndex) {
+      return;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      reTapScrollToTop(context, _scrollControllerFor(_type));
+    });
+  }
+
+  ScrollController _scrollControllerFor(RecommendedContentType type) {
+    return _scrollControllers.putIfAbsent(type, ScrollController.new);
   }
 
   @override
@@ -138,9 +164,15 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       appBar: AppBar(
         titleSpacing: 0,
         title: _RecommendedTypeSelector(
-          type: _type,
-          onChanged: _selectType,
           controller: _tabController,
+          onTap: (index) {
+            // _changeIndex early-returns on a same-index tap, so
+            // indexIsChanging is still false only for a re-tap: scroll the
+            // current type's feed to top, nothing else.
+            if (!_tabController.indexIsChanging) {
+              reTapScrollToTop(context, _scrollControllerFor(_types[index]));
+            }
+          },
         ),
       ),
       body: RootSwipeSwitcher(
@@ -160,6 +192,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
                 _RecommendedFeedView(
                   key: ValueKey(type),
                   type: type,
+                  scrollController: _scrollControllerFor(type),
                   entrancePlayed: _entrancePlayed.putIfAbsent(type, () => {}),
                 )
               else
@@ -173,41 +206,31 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
 
 class _RecommendedTypeSelector extends StatelessWidget {
   const _RecommendedTypeSelector({
-    required this.type,
-    required this.onChanged,
     required this.controller,
+    required this.onTap,
   });
 
-  final RecommendedContentType type;
-  final ValueChanged<RecommendedContentType> onChanged;
   final TabController controller;
+  final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
     // Same chrome as Ranking/New/Search: a bare TabBar inside the AppBar
     // title (no extra Material/SizedBox — the AppBar constrains height and
-    // provides the surface).
+    // provides the surface). Scrollable instead of equal-width slots +
+    // FittedBox: labels stay at full size in every locale (long Russian
+    // translations used to shrink to unreadable).
     return TabBar(
       controller: controller,
-      // Keep the primary tab bar aligned like the bottom navigation: every
-      // destination owns an equal-width slot in every supported locale.
-      isScrollable: false,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
       indicatorSize: TabBarIndicatorSize.label,
       indicatorPadding: const EdgeInsets.only(bottom: 5),
       labelPadding: const EdgeInsets.symmetric(horizontal: 12),
-      onTap: (index) => onChanged(RecommendedContentType.values[index]),
+      onTap: onTap,
       tabs: [
         for (final value in RecommendedContentType.values)
-          Tab(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                _recommendedText(context, _labelKey(value)),
-                maxLines: 1,
-                softWrap: false,
-              ),
-            ),
-          ),
+          Tab(text: _recommendedText(context, _labelKey(value))),
       ],
     );
   }
@@ -226,15 +249,40 @@ class _RecommendedFeedView extends ConsumerWidget {
   const _RecommendedFeedView({
     super.key,
     required this.type,
+    required this.scrollController,
     required this.entrancePlayed,
   });
 
   final RecommendedContentType type;
+  final ScrollController scrollController;
   final Set<int> entrancePlayed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final key = (type: type);
+    // Refresh failure keeps the loaded feed and surfaces as a transient
+    // banner anchored to this page's ScaffoldMessenger — the inline tail
+    // row it replaced rendered "${feed.loadMoreError}", which the phase
+    // copy never populated ("null").
+    ref.listen(recommendedFeedProvider(key), (previous, next) {
+      final feed = next.asData?.value;
+      final wasError = previous?.asData?.value.refreshPhase == FeedPhase.error;
+      if (feed == null || feed.refreshPhase != FeedPhase.error || wasError) {
+        return;
+      }
+      final error = ref
+          .read(recommendedFeedProvider(key).notifier)
+          .consumeRefreshError();
+      showAppSnackBar(
+        context,
+        '${context.l10n.recommendedRefreshFailed}: $error',
+        action: SnackBarAction(
+          label: context.l10n.retry,
+          onPressed: () =>
+              ref.read(recommendedFeedProvider(key).notifier).refresh(),
+        ),
+      );
+    });
     final feedAsync = ref.watch(recommendedFeedProvider(key));
 
     return feedAsync.when(
@@ -269,6 +317,7 @@ class _RecommendedFeedView extends ConsumerWidget {
         return _RecommendedFeedBody(
           type: type,
           feed: feed,
+          scrollController: scrollController,
           entrancePlayed: entrancePlayed,
           onRefresh: () =>
               ref.read(recommendedFeedProvider(key).notifier).refresh(),
@@ -276,8 +325,6 @@ class _RecommendedFeedView extends ConsumerWidget {
               ref.read(recommendedFeedProvider(key).notifier).loadMore(),
           onRetryLoadMore: () =>
               ref.read(recommendedFeedProvider(key).notifier).retryLoadMore(),
-          onRetryRefresh: () =>
-              ref.read(recommendedFeedProvider(key).notifier).refresh(),
         );
       },
     );
@@ -288,32 +335,24 @@ class _RecommendedFeedBody extends ConsumerWidget {
   const _RecommendedFeedBody({
     required this.type,
     required this.feed,
+    required this.scrollController,
     required this.entrancePlayed,
     required this.onRefresh,
     required this.onLoadMore,
     required this.onRetryLoadMore,
-    required this.onRetryRefresh,
   });
 
   final RecommendedContentType type;
   final PagedFeedState feed;
+  final ScrollController scrollController;
   final Set<int> entrancePlayed;
   final Future<void> Function() onRefresh;
   final VoidCallback onLoadMore;
   final VoidCallback onRetryLoadMore;
-  final VoidCallback onRetryRefresh;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tail = <Widget>[
-      if (feed.refreshPhase == FeedPhase.error)
-        SliverToBoxAdapter(
-          child: FeedTail(
-            feed: feed.copyWith(loadMorePhase: FeedPhase.error),
-            onRetry: onRetryRefresh,
-            retryLabel: context.l10n.retry,
-          ),
-        ),
       SliverToBoxAdapter(
         child: FeedTail(
           feed: feed,
@@ -344,6 +383,10 @@ class _RecommendedFeedBody extends ConsumerWidget {
           return false;
         },
         child: SmoothWheelScroll(
+          // Explicit per-type controller so re-tap can reach the active
+          // feed; without it desktop wheel scrolling would own a private
+          // controller the channel cannot address.
+          controller: scrollController,
           basePhysics: const AlwaysScrollableScrollPhysics(),
           builder: (context, controller, physics) => CustomScrollView(
             key: PageStorageKey('recommended-${type.name}'),

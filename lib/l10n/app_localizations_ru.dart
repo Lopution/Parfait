@@ -1772,6 +1772,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get newRefreshFailed => 'Не удалось обновить';
 
   @override
+  String get recommendedRefreshFailed => 'Не удалось обновить';
+
+  @override
   String get profileId => 'ID пользователя';
 
   @override

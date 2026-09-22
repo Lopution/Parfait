@@ -428,6 +428,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'recommendedLoadMoreFailed' => l10n.recommendedLoadMoreFailed,
   'recommendedManga' => l10n.recommendedManga,
   'recommendedNovel' => l10n.recommendedNovel,
+  'recommendedRefreshFailed' => l10n.recommendedRefreshFailed,
   'recommendedUser' => l10n.recommendedUser,
   'reduceMotion' => l10n.reduceMotion,
   'reduceMotionHint' => l10n.reduceMotionHint,

@@ -1727,6 +1727,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get newRefreshFailed => '更新に失敗しました';
 
   @override
+  String get recommendedRefreshFailed => '更新に失敗しました';
+
+  @override
   String get profileId => 'ユーザー ID';
 
   @override

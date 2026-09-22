@@ -801,6 +801,7 @@
   "newLoadMoreFailed": "追加読み込みに失敗しました",
   "newRetry": "再試行",
   "newRefreshFailed": "更新に失敗しました",
+  "recommendedRefreshFailed": "更新に失敗しました",
   "profileId": "ユーザー ID",
   "profileAccount": "アカウント",
   "profileIntroduction": "紹介",

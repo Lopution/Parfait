@@ -801,6 +801,7 @@
   "newLoadMoreFailed": "Failed to load more",
   "newRetry": "Retry",
   "newRefreshFailed": "Refresh failed",
+  "recommendedRefreshFailed": "Refresh failed",
   "profileId": "User ID",
   "profileAccount": "Account",
   "profileIntroduction": "Introduction",
