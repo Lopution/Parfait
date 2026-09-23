@@ -335,7 +335,9 @@ void main() {
       );
       await tester.pump();
       expect(find.text('没有可显示的图片'), findsOneWidget);
-      expect(find.text('1 / 0'), findsNWidgets(2));
+      // Empty state honesty: no misleading page counter.
+      expect(find.text('1 / 0'), findsNothing);
+      expect(find.text('第 1 页，共 0 页'), findsNothing);
     }, skip: false);
 
     testWidgets(
