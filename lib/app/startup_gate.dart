@@ -9,6 +9,7 @@ import '../core/auth/account_store.dart';
 import '../core/settings/app_settings.dart';
 import '../l10n/lookup.dart';
 import '../l10n/context.dart';
+import 'layout/content_widths.dart';
 
 /// Cold-start router driven by real settings and account state.
 ///
@@ -277,29 +278,36 @@ class _StartupError extends StatelessWidget {
     String text(String key) => l10nLookup(context.l10n, key);
     return Scaffold(
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 48),
-              const SizedBox(height: 16),
-              Text(text('accountReadFailed')),
-              const SizedBox(height: 8),
-              Text(
-                '$error',
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Consumer(
-                builder: (context, ref, _) => TextButton(
-                  onPressed: () =>
-                      ref.read(accountStoreProvider.notifier).reload(),
-                  child: Text(text('retry')),
+        // Content-width role cap (not a breakpoint) keeps the error block
+        // readable on wide surfaces.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: ContentWidths.form),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 48),
+                const SizedBox(height: 16),
+                Text(text('accountReadFailed')),
+                const SizedBox(height: 8),
+                Text(
+                  '$error',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                // Retry is the page's primary action — same weight as
+                // FeedError's retry, not a low-emphasis text button.
+                Consumer(
+                  builder: (context, ref, _) => FilledButton(
+                    onPressed: () =>
+                        ref.read(accountStoreProvider.notifier).reload(),
+                    child: Text(text('retry')),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
