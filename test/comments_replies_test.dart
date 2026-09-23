@@ -667,7 +667,15 @@ void main() {
   );
 
   Widget bareComposer() => Scaffold(
-    body: CommentComposer(onSend: (_) async {}, onStampSend: (_) async {}),
+    // Same contract as the real pages: the Scaffold stays out of insets so
+    // the composer's bottom extent can observe MediaQuery.viewInsets.
+    resizeToAvoidBottomInset: false,
+    body: Column(
+      children: [
+        const Expanded(child: SizedBox()),
+        CommentComposer(onSend: (_) async {}, onStampSend: (_) async {}),
+      ],
+    ),
   );
 
   testWidgets('composer keeps the keyboard and the panels mutually exclusive', (
@@ -788,6 +796,113 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CommentComposer), findsNothing);
   });
+
+  testWidgets('composer reserves the sampled keyboard height for panels', (
+    tester,
+  ) async {
+    Widget withInsets(double bottom) => composerApp(
+      Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(viewInsets: EdgeInsets.only(bottom: bottom)),
+          child: bareComposer(),
+        ),
+      ),
+    );
+
+    // Focused while the IME reports 300: the composer reserves that extent
+    // below the input row (manual insets, no Scaffold resize).
+    await tester.pumpWidget(withInsets(0));
+    final idleHeight = tester.getSize(find.byType(CommentComposer)).height;
+    await tester.pumpWidget(withInsets(300));
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(CommentComposer)).height - idleHeight,
+      300,
+    );
+
+    // Once the IME is gone the panel keeps the sampled height — switching
+    // keyboard → panel does not jump.
+    await tester.pumpWidget(withInsets(0));
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+    expect(tester.getSize(find.byType(GridView)).height, 300);
+  });
+
+  testWidgets('composer panel falls back without a keyboard sample', (
+    tester,
+  ) async {
+    // Never focused, no insets: the panel uses the ~280dp fallback.
+    await tester.pumpWidget(composerApp(bareComposer()));
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+    expect(tester.getSize(find.byType(GridView)).height, 280);
+  });
+
+  testWidgets('comments page opts out of Scaffold resizeToAvoidBottomInset', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          commentRepositoryProvider.overrideWithValue(
+            _FakeCommentRepository(),
+          ),
+        ],
+        child: composerApp(const CommentsPage(workId: 1)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Scaffold>(
+            find.descendant(
+              of: find.byType(CommentsPage),
+              matching: find.byType(Scaffold),
+            ),
+          )
+          .resizeToAvoidBottomInset,
+      isFalse,
+    );
+  });
+
+  testWidgets(
+    'replies page opts out of Scaffold resizeToAvoidBottomInset',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            accountStoreProvider.overrideWith(_StubAccountStore.new),
+            commentRepositoryProvider.overrideWithValue(
+              _FakeCommentRepository(),
+            ),
+          ],
+          child: composerApp(
+            CommentRepliesPage(
+              workId: 1,
+              rootCommentId: 11,
+              rootComment: _comment(11, replyCount: 1),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Scaffold>(
+              find.descendant(
+                of: find.byType(CommentRepliesPage),
+                matching: find.byType(Scaffold),
+              ),
+            )
+            .resizeToAvoidBottomInset,
+        isFalse,
+      );
+    },
+  );
 
   testWidgets('composer input state covers the four-state matrix', (
     tester,

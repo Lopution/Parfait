@@ -48,6 +48,9 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
         'send:${widget.kind.name}:${widget.workId}:${_replyTarget?.id ?? 'root'}';
     final sending = store.mutations[mutationKey]?.pending == true;
     return Scaffold(
+      // Manual insets: the composer reserves the IME/panel extent in layout
+      // instead of letting the Scaffold squeeze the whole body.
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(context.l10n.commentTitle)),
       body: Column(
         children: [
@@ -168,6 +171,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
         'send:${widget.kind.name}:${widget.workId}:${replyTarget?.id ?? widget.rootCommentId}';
     final sending = store.mutations[mutationKey]?.pending == true;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(context.l10n.commentReplies)),
       body: Column(
         children: [
@@ -333,6 +337,10 @@ class _CommentFeedView extends ConsumerWidget {
               builder: (context, controller, physics) => ListView.builder(
                 controller: controller,
                 physics: physics,
+                // Constant breathing room only: the composer's bottom extent
+                // already reserves the IME/panel space in layout, so the
+                // list tail never needs an extra inset pad.
+                padding: const EdgeInsets.only(bottom: 8),
                 itemCount: comments.length + 1,
                 itemBuilder: (context, index) {
                   if (index == comments.length) {
