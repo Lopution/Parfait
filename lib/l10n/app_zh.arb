@@ -791,6 +791,15 @@
   "commentTranslationInvalidCredentials": "翻译凭据无效，请在设置中检查。",
   "commentTranslationRateLimited": "翻译过于频繁或额度已用完",
   "commentEmoji": "Emoji",
+  "commentSending": "发送中",
+  "commentStampLabel": "贴图 {id}",
+  "@commentStampLabel": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
   "commentStamps": "Stamp",
   "commentPermissionDenied": "只能删除自己的评论",
   "newTitle": "新作",
