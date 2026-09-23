@@ -116,6 +116,10 @@ class FeedEmpty extends StatelessWidget {
   }) : assert(
          onRefresh == null || retryLabel != null,
          'retryLabel is required when onRefresh is provided',
+       ),
+       assert(
+         onAction == null || actionLabel != null,
+         'actionLabel is required when onAction is provided',
        );
 
   final IconData icon;

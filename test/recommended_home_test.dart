@@ -7,11 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
+import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
+import 'package:pixiv_func/core/illust/recommended_feed_controller.dart';
 import 'package:pixiv_func/core/illust/recommended_repository.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
@@ -41,7 +44,15 @@ String _novelJson(int id) => jsonEncode({
 });
 
 class _ApiFixture {
-  _ApiFixture();
+  _ApiFixture({this.illustCount = 5});
+
+  /// First-page size — a scrollable feed needs enough entries to
+  /// overflow the test viewport.
+  final int illustCount;
+
+  /// Once set, `/v1/illust/recommended` answers 500 — drives the
+  /// refresh-error path after the first page has already loaded.
+  bool failRecommended = false;
 
   final requests = <String>[];
 
@@ -53,9 +64,12 @@ class _ApiFixture {
       final path = request.url.path;
       requests.add('$path?${request.url.query}');
       if (path == '/v1/illust/recommended') {
+        if (failRecommended) {
+          return http.Response('refresh failed', 500);
+        }
         return http.Response(
           jsonEncode({
-            'illusts': [for (var i = 1; i <= 5; i++) illustJson(i)],
+            'illusts': [for (var i = 1; i <= illustCount; i++) illustJson(i)],
             'next_url': null,
           }),
           200,
@@ -104,9 +118,11 @@ class _ApiFixture {
   }
 }
 
-Future<(ProviderContainer, _ApiFixture)> _makeWorld() async {
+Future<(ProviderContainer, _ApiFixture)> _makeWorld({
+  int illustCount = 5,
+}) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final fixture = _ApiFixture();
+  final fixture = _ApiFixture(illustCount: illustCount);
   final credentials = FakeCredentialStore()
     ..seed(
       '100',
@@ -346,5 +362,104 @@ void main() {
     });
     expect(fixture.requests, contains('/v1/user/recommended?filter=for_ios'));
     expect(find.text('user 1'), findsOneWidget);
+  });
+
+  testWidgets('branch re-tap scrolls the active feed to top without refetch', (
+    tester,
+  ) async {
+    final (container, fixture) = await _makeWorld(illustCount: 24);
+    addTearDown(container.dispose);
+    final router = createPixivRouter(initialLocation: '/recommended');
+    addTearDown(router.dispose);
+    // Compact viewport: at ≥600px the shell swaps the bottom bar for a
+    // rail and FuncShellBottomNav leaves the tree.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      final feedView = find.descendant(
+        of: find.byType(RecommendedHomePage),
+        matching: find.byType(CustomScrollView),
+      );
+      expect(feedView, findsOneWidget);
+      final controller = tester.widget<CustomScrollView>(feedView).controller!;
+      controller.jumpTo(400);
+      await tester.pump();
+      expect(controller.offset, 400);
+
+      // Same-destination tap on the home slot: pure scroll-to-top — no
+      // refresh, no re-request.
+      final requestsBefore = fixture.requests.length;
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FuncShellBottomNav),
+          matching: find.byIcon(AppIcons.home),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(controller.offset, 0);
+      expect(fixture.requests.length, requestsBefore);
+    });
+  });
+
+  testWidgets('a failed refresh surfaces a snackbar, not only a tail row', (
+    tester,
+  ) async {
+    final (container, fixture) = await _makeWorld();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: RecommendedHomePage(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+
+      // Fail the next recommended request, then refresh — the error must
+      // surface in the viewport as a SnackBar with a retry action.
+      fixture.failRecommended = true;
+      await container
+          .read(
+            recommendedFeedProvider((
+              type: RecommendedContentType.illust,
+            )).notifier,
+          )
+          .refresh();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.textContaining('刷新失败'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(SnackBar), matching: find.text('重试')),
+        findsOneWidget,
+      );
+    });
   });
 }

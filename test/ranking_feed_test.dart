@@ -14,7 +14,10 @@ import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/app/icons/app_icons.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
+import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -51,6 +54,11 @@ Map<String, dynamic> _illust(int id) => {
 };
 
 class _RankingFixture {
+  _RankingFixture({this.itemsPerPage = 2});
+
+  /// First page size — a scrollable feed needs enough entries to
+  /// overflow the test viewport.
+  final int itemsPerPage;
   final requests = <Uri>[];
   final Completer<void> release = Completer<void>();
   RankingMode? mismatchedNextMode;
@@ -81,7 +89,9 @@ class _RankingFixture {
     final nextMode = mismatchedNextMode?.apiValue ?? mode;
     return http.Response(
       jsonEncode({
-        'illusts': [for (var id = start; id < start + 2; id++) _illust(id)],
+        'illusts': [
+          for (var id = start; id < start + itemsPerPage; id++) _illust(id),
+        ],
         'next_url': isFirst
             ? 'https://app-api.pixiv.net/v1/illust/ranking'
                   '?filter=for_android&mode=$nextMode&offset=30'
@@ -324,6 +334,64 @@ void main() {
         findsOneWidget,
       );
       expect(fixture.requests, isNotEmpty);
+    });
+  });
+
+  testWidgets('branch re-tap scrolls the active ranking feed to top', (
+    tester,
+  ) async {
+    final (container, fixture) = await _makeWorld(
+      fixture: _RankingFixture(itemsPerPage: 24),
+    );
+    addTearDown(container.dispose);
+    final router = createPixivRouter(initialLocation: '/ranking');
+    addTearDown(router.dispose);
+    // Compact viewport: at ≥600px the shell swaps the bottom bar for a
+    // rail and FuncShellBottomNav leaves the tree.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      final feedView = find.descendant(
+        of: find.byType(RankingPage),
+        matching: find.byType(CustomScrollView),
+      );
+      expect(feedView, findsOneWidget);
+      final controller = tester.widget<CustomScrollView>(feedView).controller!;
+      controller.jumpTo(400);
+      await tester.pump();
+      expect(controller.offset, 400);
+
+      // Same-destination tap on the ranking bottom-bar slot: pure
+      // scroll-to-top — no refresh, no re-request.
+      final requestsBefore = fixture.requests.length;
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FuncShellBottomNav),
+          matching: find.byIcon(AppIcons.ranking),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(controller.offset, 0);
+      expect(fixture.requests.length, requestsBefore);
     });
   });
 }
