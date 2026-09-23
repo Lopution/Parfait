@@ -134,6 +134,7 @@
   "networkAdvanced": "詳細設定",
   "networkAdvancedHint": "上級者向けの低レベル設定。",
   "networkAdvancedReset": "デフォルトに戻す",
+  "networkAdvancedResetConfirm": "DoH エンドポイントと ECH フロントホストをデフォルトに戻します。",
   "networkDoh": "厳格フォールバックで DoH を使用",
   "networkDohHint": "有効時、フォールバック層は DoH（デフォルト Cloudflare DoH：ドメイン端点を静的 Anycast IP にピン留め — 汚染されたシステム DNS を回避；カスタム端点は自身のホスト名を解決）で解決します。無効時はシステム DNS を使用します。",
   "networkDohEndpoints": "DoH エンドポイント（カンマ区切り、https URL）",

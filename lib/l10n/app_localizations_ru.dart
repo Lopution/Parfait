@@ -325,6 +325,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkAdvancedReset => 'Сбросить настройки';
 
   @override
+  String get networkAdvancedResetConfirm =>
+      'Сбрасывает DoH-эндпоинты и ECH-фронт до значений по умолчанию.';
+
+  @override
   String get networkDoh => 'Использовать DoH для строгого резерва';
 
   @override

@@ -315,6 +315,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkAdvancedReset => 'デフォルトに戻す';
 
   @override
+  String get networkAdvancedResetConfirm =>
+      'DoH エンドポイントと ECH フロントホストをデフォルトに戻します。';
+
+  @override
   String get networkDoh => '厳格フォールバックで DoH を使用';
 
   @override

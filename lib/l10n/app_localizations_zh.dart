@@ -307,6 +307,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkAdvancedReset => '恢复默认值';
 
   @override
+  String get networkAdvancedResetConfirm => '将 DoH 端点与 ECH 前置主机恢复为默认值。';
+
+  @override
   String get networkDoh => '严格回退使用 DoH 解析';
 
   @override

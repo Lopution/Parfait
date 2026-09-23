@@ -259,6 +259,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'networkAdvanced' => l10n.networkAdvanced,
   'networkAdvancedHint' => l10n.networkAdvancedHint,
   'networkAdvancedReset' => l10n.networkAdvancedReset,
+  'networkAdvancedResetConfirm' => l10n.networkAdvancedResetConfirm,
   'networkChecking' => l10n.networkChecking,
   'networkCompatibility' => l10n.networkCompatibility,
   'networkCompatibilityHint' => l10n.networkCompatibilityHint,
