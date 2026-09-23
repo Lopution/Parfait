@@ -5,13 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/feed/illust_card.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/press_scale.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/haptics/app_haptics.dart';
-import '../../app/widgets/replica_empty_state.dart';
+import '../../app/widgets/entity_row.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/history/history_models.dart';
@@ -261,13 +263,13 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
       ),
       data: (state) {
         if (state.ids.isEmpty) {
-          return ReplicaEmptyState(
-            message: context.l10n.historyEmpty,
+          return FeedEmpty(
+            icon: Icons.history,
+            title: context.l10n.historyEmpty,
             retryLabel: context.l10n.retry,
-            onRetry: () => ref
+            onRefresh: () => ref
                 .read(historyFeedControllerProvider(widget.accountId).notifier)
                 .refresh(),
-            icon: Icons.history,
           );
         }
         final entries = [
@@ -359,10 +361,18 @@ class _HistoryEntry extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Known-illust cells render the shared IllustCard; its own long-press
+    // would open the card action sheet, but in history the gesture is the
+    // selection-mode entry/toggle (prd.md history matrix), so the page
+    // supplies the callback.
+    final longPress = managing
+        ? () => onToggle(recordKey)
+        : () => onEnterManaging(recordKey);
     final child = switch (record.contentType) {
       HistoryContentType.illust => _IllustHistoryEntry(
         record: record,
         entity: ref.watch(illustStoreProvider).get(record.contentId),
+        onLongPress: longPress,
       ),
       HistoryContentType.novel => _NovelHistoryEntry(
         record: record,
@@ -375,9 +385,7 @@ class _HistoryEntry extends ConsumerWidget {
       // nested secondary actions) — any press toggles, the card's own
       // navigation is absorbed.
       onTap: managing ? () => onToggle(recordKey) : null,
-      onLongPress: managing
-          ? () => onToggle(recordKey)
-          : () => onEnterManaging(recordKey),
+      onLongPress: longPress,
       child: Stack(
         children: [
           AbsorbPointer(absorbing: managing, child: child),
@@ -412,17 +420,26 @@ class _HistoryEntry extends ConsumerWidget {
 }
 
 class _IllustHistoryEntry extends StatelessWidget {
-  const _IllustHistoryEntry({required this.record, required this.entity});
+  const _IllustHistoryEntry({
+    required this.record,
+    required this.entity,
+    required this.onLongPress,
+  });
 
   final HistoryRecord record;
   final IllustEntity? entity;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
+    final entity = this.entity;
     if (entity != null) {
-      return _HistoryCardFrame(
-        lastViewedAt: record.lastViewedAt,
-        child: _KnownIllustEntry(entity: entity!),
+      // Shared object contract: the card consumes FeedItemExtent for its
+      // preview height and carries the visit date in the meta slot.
+      return IllustCard(
+        entity: entity,
+        meta: EntityMetaText(_formatHistoryDate(record.lastViewedAt)),
+        onLongPress: onLongPress,
       );
     }
     return _HistoryCardFrame(
@@ -430,59 +447,6 @@ class _IllustHistoryEntry extends StatelessWidget {
       child: InkWell(
         onTap: () => openIllust(context, record.contentId),
         child: _SnapshotEntry(record: record, icon: Icons.image_outlined),
-      ),
-    );
-  }
-}
-
-class _KnownIllustEntry extends StatelessWidget {
-  const _KnownIllustEntry({required this.entity});
-
-  final IllustEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    final previewHeight = entity.width > 0
-        ? (MediaQuery.sizeOf(context).width - 30) /
-              2 /
-              entity.width *
-              entity.height
-        : 140.0;
-    return InkWell(
-      onTap: () => openIllust(context, entity.id),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              height: previewHeight,
-              width: double.infinity,
-              child: PixivImage.feed(
-                entity.imageUrls.medium,
-                layoutWidth: MediaQuery.sizeOf(context).width / 2,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-            child: Text(
-              entity.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
-            child: Text(
-              entity.user.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -496,24 +460,63 @@ class _NovelHistoryEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = entity == null
-        ? InkWell(
-            onTap: () => openNovel(context, record.contentId),
-            child: _SnapshotEntry(
-              record: record,
-              icon: Icons.menu_book_outlined,
-            ),
-          )
-        : InkWell(
-            onTap: () => openNovel(context, record.contentId),
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = entity?.title ?? record.snapshot.title;
+    final author = entity?.user.name ?? record.snapshot.authorName;
+    final coverUrl = entity?.coverImageUrl ?? record.snapshot.coverUrl;
+    void open() => openNovel(context, record.contentId);
+    return _HistoryCardFrame(
+      lastViewedAt: record.lastViewedAt,
+      // The square cell follows the object contract: PressScale feedback,
+      // an explicit Semantics label, rounded cover and a type badge so
+      // novels stay distinguishable in the mixed history grid.
+      child: PressScale(
+        child: Semantics(
+          container: true,
+          button: true,
+          image: true,
+          label: '$title, $author',
+          onTap: open,
+          child: GestureDetector(
+            excludeFromSemantics: true,
+            onTap: open,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SnapshotCover(record: record, icon: Icons.menu_book_outlined),
+                Stack(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: coverUrl == null
+                            ? ColoredBox(
+                                color: colorScheme.surfaceContainer,
+                                child: const Icon(
+                                  Icons.menu_book_outlined,
+                                  size: 42,
+                                ),
+                              )
+                            : PixivImage.feed(
+                                coverUrl,
+                                layoutWidth:
+                                    MediaQuery.sizeOf(context).width / 2,
+                              ),
+                      ),
+                    ),
+                    const Positioned(
+                      left: 7,
+                      top: 7,
+                      child: EntityBadge(
+                        child: Icon(Icons.menu_book_outlined, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
                   child: Text(
-                    entity!.title,
+                    title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w600),
@@ -522,7 +525,7 @@ class _NovelHistoryEntry extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
                   child: Text(
-                    entity!.user.name,
+                    author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
@@ -530,10 +533,9 @@ class _NovelHistoryEntry extends StatelessWidget {
                 ),
               ],
             ),
-          );
-    return _HistoryCardFrame(
-      lastViewedAt: record.lastViewedAt,
-      child: snapshot,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -555,10 +557,7 @@ class _HistoryCardFrame extends StatelessWidget {
           child,
           Padding(
             padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-            child: Text(
-              _formatHistoryDate(lastViewedAt),
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
+            child: EntityMetaText(_formatHistoryDate(lastViewedAt)),
           ),
         ],
       ),
