@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:pixiv_func/app/widgets/entity_row.dart';
 import 'package:pixiv_func/core/localnovel/local_novel_database.dart';
 import 'package:pixiv_func/core/localnovel/local_novel_repository.dart';
 import 'package:pixiv_func/core/localnovel/local_novel_store.dart';
@@ -278,6 +279,59 @@ void main() {
       () => container.read(localNovelRepositoryProvider).list(),
     );
     expect(remaining, isEmpty);
+  });
+
+  testWidgets('list caps at the management content width', (tester) async {
+    await warmDatabase(tester);
+    await tester.runAsync(
+      () => container.read(localNovelStoreProvider.notifier).importPicked(),
+    );
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(const LocalNovelsPage()),
+      ),
+    );
+    await _pumpUntil(tester, find.text('My Story'));
+    final rowRect = tester.getRect(find.byType(EntityRow));
+    expect(rowRect.width, 840);
+    // Centered in the 1200dp viewport.
+    expect(rowRect.left, (1200 - 840) / 2);
+    // Drain the refresh indicator's settle timer before teardown.
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('320dp keeps every row action reachable', (tester) async {
+    await warmDatabase(tester);
+    await tester.runAsync(
+      () => container.read(localNovelStoreProvider.notifier).importPicked(),
+    );
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(const LocalNovelsPage()),
+      ),
+    );
+    await _pumpUntil(tester, find.text('My Story'));
+    // Below the cap the constraint is a no-op — the row fills the
+    // viewport and the overflow action stays on screen.
+    expect(tester.getRect(find.byType(EntityRow)).width, 320);
+    expect(
+      tester.getRect(find.byIcon(Icons.more_vert)).right,
+      lessThanOrEqualTo(320),
+    );
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    // Close the sheet and drain its settle timer before teardown.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('reader mounts the shared stage: chrome, settings, footer', (

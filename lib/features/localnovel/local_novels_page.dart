@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
@@ -33,32 +34,39 @@ class LocalNovelsPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: async.when(
-        loading: () => const FeedLoading(),
-        error: (error, _) => FeedError(
-          title: context.l10n.localNovelsLoadFailed,
-          error: error,
-          retryLabel: context.l10n.retry,
-          onRetry: () => ref.invalidate(localNovelStoreProvider),
-        ),
-        data: (novels) {
-          if (novels.isEmpty) {
-            return FeedEmpty(
-              icon: Icons.menu_book_outlined,
-              title: context.l10n.localNovelsEmpty,
-              retryLabel: context.l10n.localNovelsImport,
-              onRefresh: () => _import(context, ref),
-            );
-          }
-          return PullToRefresh(
-            onRefresh: () async => ref.invalidate(localNovelStoreProvider),
-            child: ListView.builder(
-              itemCount: novels.length,
-              itemBuilder: (context, index) =>
-                  _LocalNovelTile(novel: novels[index]),
+      // Management-list cap (parent §5.5): below
+      // ContentWidths.management the constraint is a no-op.
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: ContentWidths.management),
+          child: async.when(
+            loading: () => const FeedLoading(),
+            error: (error, _) => FeedError(
+              title: context.l10n.localNovelsLoadFailed,
+              error: error,
+              retryLabel: context.l10n.retry,
+              onRetry: () => ref.invalidate(localNovelStoreProvider),
             ),
-          );
-        },
+            data: (novels) {
+              if (novels.isEmpty) {
+                return FeedEmpty(
+                  icon: Icons.menu_book_outlined,
+                  title: context.l10n.localNovelsEmpty,
+                  retryLabel: context.l10n.localNovelsImport,
+                  onRefresh: () => _import(context, ref),
+                );
+              }
+              return PullToRefresh(
+                onRefresh: () async => ref.invalidate(localNovelStoreProvider),
+                child: ListView.builder(
+                  itemCount: novels.length,
+                  itemBuilder: (context, index) =>
+                      _LocalNovelTile(novel: novels[index]),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
@@ -56,48 +57,56 @@ class _WatchlistFeedBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(watchlistFeedProvider(type));
-    return async.when(
-      loading: () => const FeedLoading(),
-      error: (error, _) => FeedError(
-        title: context.l10n.watchlistLoadFailed,
-        error: error,
-        retryLabel: context.l10n.retry,
-        onRetry: () => ref.read(watchlistFeedProvider(type).notifier).refresh(),
-      ),
-      data: (feed) {
-        if (feed.entries.isEmpty) {
-          return FeedEmpty(
-            icon: Icons.collections_bookmark_outlined,
-            title: context.l10n.watchlistEmpty,
+    // Management-list cap (parent §5.5): below ContentWidths.management
+    // the constraint is a no-op, so there is no breakpoint branch.
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: ContentWidths.management),
+        child: async.when(
+          loading: () => const FeedLoading(),
+          error: (error, _) => FeedError(
+            title: context.l10n.watchlistLoadFailed,
+            error: error,
             retryLabel: context.l10n.retry,
-            onRefresh: () =>
+            onRetry: () =>
                 ref.read(watchlistFeedProvider(type).notifier).refresh(),
-          );
-        }
-        return PullToRefresh(
-          onRefresh: () =>
-              ref.read(watchlistFeedProvider(type).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              final metrics = notification.metrics;
-              if (metrics.maxScrollExtent > 0 &&
-                  metrics.pixels >= metrics.maxScrollExtent - 400) {
-                ref.read(watchlistFeedProvider(type).notifier).loadMore();
-              }
-              return false;
-            },
-            child: ListView.builder(
-              itemCount: feed.entries.length + 1,
-              itemBuilder: (context, index) {
-                if (index == feed.entries.length) {
-                  return _LoadMoreFooter(feed: feed);
-                }
-                return _WatchlistEntryTile(entry: feed.entries[index]);
-              },
-            ),
           ),
-        );
-      },
+          data: (feed) {
+            if (feed.entries.isEmpty) {
+              return FeedEmpty(
+                icon: Icons.collections_bookmark_outlined,
+                title: context.l10n.watchlistEmpty,
+                retryLabel: context.l10n.retry,
+                onRefresh: () =>
+                    ref.read(watchlistFeedProvider(type).notifier).refresh(),
+              );
+            }
+            return PullToRefresh(
+              onRefresh: () =>
+                  ref.read(watchlistFeedProvider(type).notifier).refresh(),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  final metrics = notification.metrics;
+                  if (metrics.maxScrollExtent > 0 &&
+                      metrics.pixels >= metrics.maxScrollExtent - 400) {
+                    ref.read(watchlistFeedProvider(type).notifier).loadMore();
+                  }
+                  return false;
+                },
+                child: ListView.builder(
+                  itemCount: feed.entries.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == feed.entries.length) {
+                      return _LoadMoreFooter(feed: feed);
+                    }
+                    return _WatchlistEntryTile(entry: feed.entries[index]);
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }

@@ -17,6 +17,7 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/series/series_recent_open_store.dart';
 import 'package:pixiv_func/core/watchlist/watchlist_models.dart';
 import 'package:pixiv_func/core/watchlist/watchlist_store.dart';
+import 'package:pixiv_func/app/widgets/entity_row.dart';
 import 'package:pixiv_func/app/widgets/watchlist_toggle.dart';
 import 'package:pixiv_func/features/watchlist/watchlist_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -149,6 +150,35 @@ void main() {
     await tester.tap(find.text('Novel'));
     await tester.pumpAndSettle();
     expect(find.text('Novel Series'), findsOneWidget);
+  });
+
+  testWidgets('feed caps at the management content width', (tester) async {
+    final fixture = _Fixture()
+      ..mangaSeries = [
+        {
+          'id': 9,
+          'title': 'Series Nine',
+          'user': {'id': 5, 'name': 'author-a'},
+          'latest_content_id': 777,
+        },
+      ];
+    final (container, _) = await _makeWorld(fixture: fixture);
+    addTearDown(container.dispose);
+
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(const WatchlistPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final rowRect = tester.getRect(find.byType(EntityRow));
+    expect(rowRect.width, 840);
+    expect(rowRect.left, (1200 - 840) / 2);
   });
 
   testWidgets('unseen series shows the new-content badge; seen hides it', (
