@@ -147,9 +147,15 @@ class _WatchLaterAction extends CardAction {
           context.l10n.watchLaterRemoved,
           action: SnackBarAction(
             label: context.l10n.undo,
-            onPressed: () => unawaited(
-              removed != null ? store.restore(removed) : store.add(entity),
-            ),
+            // Undo landing is the light-tick role (parent §5.6) — the
+            // snackbar is the visual channel, the tick is redundant
+            // feedback, not the notification itself.
+            onPressed: () {
+              AppHaptics.select();
+              unawaited(
+                removed != null ? store.restore(removed) : store.add(entity),
+              );
+            },
           ),
         );
       }

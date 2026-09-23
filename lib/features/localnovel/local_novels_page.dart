@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/haptics/app_haptics.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
@@ -165,6 +166,9 @@ class _LocalNovelTile extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
+    // Opening the destructive confirm surface is the explicit-vibration
+    // role (parent §5.6); the neutral overflow menu stays silent.
+    AppHaptics.confirm();
     final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(

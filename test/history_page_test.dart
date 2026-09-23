@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:path/path.dart' as path;
+import 'package:pixiv_func/app/haptics/app_haptics.dart';
 import 'package:pixiv_func/app/motion/press_scale.dart';
 import 'package:pixiv_func/app/widgets/entity_row.dart';
 import 'package:pixiv_func/app/widgets/feed/feed_grid.dart';
@@ -331,6 +332,51 @@ void main() {
         findsOneWidget,
       );
     });
+  });
+
+  testWidgets('management interactions fire graded haptics', (tester) async {
+    // AppHaptics is a static owner — its observable seam is the
+    // HapticFeedback.vibrate call landing on the platform channel.
+    final calls = <String>[];
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'HapticFeedback.vibrate') {
+        calls.add(call.arguments as String);
+      }
+      return null;
+    });
+    AppHaptics.debugReset();
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+      AppHaptics.debugReset();
+    });
+    await _seedPage(tester, [_record(1), _record(2)]);
+
+    // Long-press entering selection mode = explicit vibration.
+    await tester.longPress(find.text('work 1'));
+    await tester.pump();
+    expect(calls, ['HapticFeedbackType.heavyImpact']);
+
+    // In-mode toggling = light selection tick (separate channel, not
+    // throttled by the heavy window).
+    await tester.tap(find.text('work 2'), warnIfMissed: false);
+    await tester.pump();
+    expect(calls, [
+      'HapticFeedbackType.heavyImpact',
+      'HapticFeedbackType.selectionClick',
+    ]);
+
+    // Opening the destructive confirm surface = explicit vibration. The
+    // throttle window is real-clock, so a second confirm inside 120ms
+    // would be swallowed — reset the timestamps to isolate the call site.
+    AppHaptics.debugReset();
+    calls.clear();
+    await tester.tap(find.byTooltip('删除历史记录'));
+    await tester.pump();
+    expect(calls, ['HapticFeedbackType.heavyImpact']);
+    // Let the confirm sheet finish dismissing before teardown.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pump(const Duration(milliseconds: 300));
   });
 
   testWidgets('system back exits selection mode instead of popping', (

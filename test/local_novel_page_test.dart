@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:pixiv_func/app/haptics/app_haptics.dart';
 import 'package:pixiv_func/app/widgets/entity_row.dart';
 import 'package:pixiv_func/core/localnovel/local_novel_database.dart';
 import 'package:pixiv_func/core/localnovel/local_novel_repository.dart';
@@ -232,6 +233,21 @@ void main() {
   testWidgets('delete lives in the more menu behind the shared dialog', (
     tester,
   ) async {
+    // The destructive confirm surface opening is the explicit-vibration
+    // role — capture HapticFeedback.vibrate on the platform channel.
+    final haptics = <String>[];
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'HapticFeedback.vibrate') {
+        haptics.add(call.arguments as String);
+      }
+      return null;
+    });
+    AppHaptics.debugReset();
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+      AppHaptics.debugReset();
+    });
     await warmDatabase(tester);
     await tester.runAsync(
       () => container.read(localNovelStoreProvider.notifier).importPicked(),
@@ -251,9 +267,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.delete_outline));
     await tester.pumpAndSettle();
     // The sheet popped and the shared confirm dialog (showAppDialog →
-    // AlertDialog) is up.
+    // AlertDialog) is up — its opening fired the explicit vibration;
+    // the neutral overflow menu itself stayed silent.
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.byType(AlertDialog), findsOneWidget);
+    expect(haptics, ['HapticFeedbackType.heavyImpact']);
     expect(
       find.text('Delete "My Story"? The local file will be removed too.'),
       findsOneWidget,
