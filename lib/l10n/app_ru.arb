@@ -877,6 +877,8 @@
   "cardActionWatchLater": "Посмотреть позже",
   "cardActionRemoveWatchLater": "Убрать из «Посмотреть позже»",
   "cardActionShare": "Поделиться",
+  "share": "Поделиться",
+  "openInBrowser": "Открыть в браузере",
   "linkCopied": "Ссылка скопирована",
   "copyLink": "Копировать ссылку",
   "openLink": "Открыть ссылку",

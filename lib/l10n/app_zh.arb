@@ -877,6 +877,8 @@
   "cardActionWatchLater": "稍后再看",
   "cardActionRemoveWatchLater": "从稍后再看移除",
   "cardActionShare": "分享",
+  "share": "分享",
+  "openInBrowser": "在浏览器打开",
   "linkCopied": "链接已复制",
   "copyLink": "复制链接",
   "openLink": "打开链接",
