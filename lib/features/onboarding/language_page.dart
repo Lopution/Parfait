@@ -2,12 +2,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
+import '../../app/widgets/scrollable_form_shell.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/settings/app_settings.dart';
@@ -45,70 +45,51 @@ class LanguagePage extends ConsumerWidget {
     WidgetRef ref,
     AppSettings settings,
   ) {
-    final width = MediaQuery.sizeOf(context).width;
     final language = ReplicaLanguage.fromTag(settings.languageTag);
-    return ReplicaScaffold(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: width * .1),
-        child: Column(
-          children: [
-            const Spacer(flex: 2),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                l10nLookupFor(language.locale, 'selectLanguage'),
-                maxLines: 1,
-                style: const TextStyle(
-                  fontSize: 24,
+    void next() => context.push<void>('/welcome/theme');
+
+    return ScrollableFormShell(
+      // Wrapping centered title — long translations take a second line
+      // instead of shrinking to an unreadable size.
+      header: Text(
+        l10nLookupFor(language.locale, 'selectLanguage'),
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final item in _items) ...[
+            ReplicaSwitchTile(
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 6,
+                horizontal: 24,
+              ),
+              value: settings.languageTag == item.$2,
+              title: Text(
+                item.$1,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              onTap: () =>
+                  ref.read(settingsProvider.notifier).selectLanguage(item.$2),
             ),
-            const Spacer(),
-            for (final item in _items) ...[
-              ReplicaSwitchTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 6,
-                  horizontal: 24,
-                ),
-                value: settings.languageTag == item.$2,
-                title: Text(
-                  item.$1,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                onTap: () =>
-                    ref.read(settingsProvider.notifier).selectLanguage(item.$2),
-              ),
-              const Divider(),
-            ],
-            const Spacer(flex: 2),
-            SizedBox(
-              width: double.infinity,
-              child: ReplicaButton(
-                label: l10nLookupFor(language.locale, 'next'),
-                backgroundColor: FuncTokens.primary,
-                foregroundColor: FuncTokens.lightBackground,
-                onPressed: () => context.push<void>('/welcome/theme'),
-              ),
-            ),
-            const Spacer(),
-            // Fixed-height slot: long translations (ru/en wrap to two
-            // lines) keep the same visual anchor as one-line locales.
-            SizedBox(
-              height: 44,
-              child: Center(
-                child: Text(
-                  l10nLookupFor(language.locale, 'later'),
-                  textAlign: TextAlign.center,
-                  style: FuncSemanticTokens.of(context).body,
-                ),
-              ),
-            ),
-            const Spacer(),
+            const Divider(),
           ],
-        ),
+        ],
+      ),
+      primaryAction: ReplicaButton(
+        label: l10nLookupFor(language.locale, 'next'),
+        backgroundColor: FuncTokens.primary,
+        foregroundColor: FuncTokens.lightBackground,
+        onPressed: next,
+      ),
+      // Skipping this step lands on the same next page; the choice stays
+      // changeable in settings later.
+      secondary: TextButton(
+        onPressed: next,
+        child: Text(l10nLookupFor(language.locale, 'setupLater')),
       ),
     );
   }

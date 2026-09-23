@@ -7,7 +7,7 @@
   "selectLanguage": "选择您的语言",
   "selectTheme": "选择喜欢的主题",
   "next": "下一步",
-  "later": "稍后您可以在设置中进行相应变更",
+  "setupLater": "稍后设置",
   "dark": "黑暗",
   "light": "明亮",
   "system": "跟随系统",

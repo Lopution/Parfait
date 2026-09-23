@@ -7,7 +7,7 @@
   "selectLanguage": "言語の選択",
   "selectTheme": "テーマの選択",
   "next": "次へ",
-  "later": "後で設定を変更できます",
+  "setupLater": "あとで設定する",
   "dark": "ダーク",
   "light": "ライト",
   "system": "システムのデフォルト",
