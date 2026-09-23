@@ -18,9 +18,11 @@ FrameTiming _frame(int spanMicros) => FrameTiming(
 
 void main() {
   tearDown(() {
-    // Singleton: leave no recording or frames behind for other tests.
+    // Singleton: leave no recording or frames behind for other tests —
+    // stop() detaches the timings callback, debugClearTimings empties the
+    // buffer (debugRecordTimings([]) would not).
     FrameProbe.instance.stop();
-    FrameProbe.instance.debugRecordTimings(const []);
+    FrameProbe.instance.debugClearTimings();
   });
 
   test('frame probe keeps at most maxFrames and drops the oldest', () {
