@@ -84,7 +84,8 @@ class _LocalNovelReaderBody extends ConsumerWidget {
                     paragraphId: restored.paragraphId,
                     offset: restored.offset,
                   ),
-            onAnchorChanged: (anchor) => _persistCursor(ref, entity, anchor),
+            onAnchorChanged: (anchor, cause) =>
+                _persistCursor(ref, entity, anchor),
           ),
         ),
       ],
