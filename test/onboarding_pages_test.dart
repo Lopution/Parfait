@@ -64,6 +64,7 @@ void main() {
     Widget page, {
     double textScale = 1,
     SettingsRepository? repository,
+    Locale? locale,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -79,7 +80,7 @@ void main() {
           child: MaterialApp(
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
+            locale: locale ?? const Locale('zh', 'CN'),
             home: page,
           ),
         ),
@@ -114,6 +115,49 @@ void main() {
             expect(rect.bottom, lessThanOrEqualTo(size.height));
           });
         }
+      }
+    }
+  });
+
+  group('long translations', () {
+    // ru strings are the longest bundled translations; the acceptance gate
+    // asks for a non-CJK long-translation pass on top of the zh matrix.
+    SettingsRepository ruRepository() => _StubSettingsRepository(
+      const AppSettings(
+        guideCompleted: false,
+        languageTag: 'ru-RU',
+        themeCode: AppSettings.systemTheme,
+      ),
+    );
+    final pages = <String, Widget>{
+      'welcome': const WelcomePage(),
+      'language': const LanguagePage(),
+      'theme': const ThemePage(),
+    };
+    for (final size in const [Size(320, 568), Size(640, 320)]) {
+      for (final entry in pages.entries) {
+        testWidgets('${entry.key} keeps the CTA reachable in ru at '
+            '${size.width}x${size.height} @1.3x', (tester) async {
+          addTearDown(tester.view.reset);
+          // Welcome reads the app locale; language/theme read the persisted
+          // settings tag — set both so every page renders ru strings.
+          await pumpPage(
+            tester,
+            size,
+            entry.value,
+            textScale: 1.3,
+            repository: ruRepository(),
+            locale: const Locale('ru'),
+          );
+          expect(tester.takeException(), isNull, reason: 'no overflow');
+
+          final cta = find.byType(ReplicaButton);
+          expect(cta, findsOneWidget);
+          await tester.ensureVisible(cta);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(tester.getRect(cta).bottom, lessThanOrEqualTo(size.height));
+        });
       }
     }
   });
