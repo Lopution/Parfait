@@ -272,23 +272,19 @@ class IllustCard extends ConsumerWidget {
     final rank = this.rank;
     return [
       // The four corner slots are fixed; rank joins the top-left cluster
-      // ahead of R-18 so a ranked R-18 work keeps both markers.
+      // stacked vertically above R-18 so a ranked R-18 work keeps both
+      // markers without widening the corner cluster.
       if (rank != null || entity.isR18)
         Positioned(
           left: 7,
           top: 7,
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (rank != null) ...[
-                EntityBadge(
-                  color: colorScheme.primary,
-                  child: Text(
-                    '$rank',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                if (entity.isR18) const SizedBox(width: 4),
+                EntityRankBadge(rank),
+                if (entity.isR18) const SizedBox(height: 4),
               ],
               if (entity.isR18)
                 EntityBadge(
