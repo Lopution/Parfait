@@ -2081,6 +2081,18 @@ abstract class AppLocalizations {
   /// **'移除'**
   String get downloadRemoveRecord;
 
+  /// No description provided for @downloadBatchCancelConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消选中的 {count} 项下载？未完成的进度会被丢弃。'**
+  String downloadBatchCancelConfirm(int count);
+
+  /// No description provided for @downloadBatchRemoveConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除选中的 {count} 项记录？仅移除记录，已下载文件保留。'**
+  String downloadBatchRemoveConfirm(int count);
+
   /// No description provided for @resumeDownload.
   ///
   /// In zh, this message translates to:

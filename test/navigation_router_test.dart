@@ -19,7 +19,6 @@ import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/tag_search_page.dart';
-import 'package:pixiv_func/features/settings/pages/download_tasks_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';

@@ -60,6 +60,7 @@ class LocalNovelsPage extends ConsumerWidget {
               return PullToRefresh(
                 onRefresh: () async => ref.invalidate(localNovelStoreProvider),
                 child: ListView.builder(
+                  restorationId: 'local-novels',
                   itemCount: novels.length,
                   itemBuilder: (context, index) =>
                       _LocalNovelTile(novel: novels[index]),

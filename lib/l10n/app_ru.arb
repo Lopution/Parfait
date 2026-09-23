@@ -474,6 +474,22 @@
   "downloadProcessing": "Обработка",
   "downloadViewResult": "Открыть",
   "downloadRemoveRecord": "Убрать из списка",
+  "downloadBatchCancelConfirm": "Отменить выбранные загрузки ({count})? Незавершённый прогресс будет потерян.",
+  "@downloadBatchCancelConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadBatchRemoveConfirm": "Убрать выбранные записи ({count}) из списка? Скачанные файлы останутся.",
+  "@downloadBatchRemoveConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "resumeDownload": "Возобновить",
   "downloadGroupTitle": "Пакетная загрузка · {count} шт.",
   "@downloadGroupTitle": {

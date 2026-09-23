@@ -3,13 +3,15 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/haptics/app_haptics.dart';
+import '../../../app/layout/content_widths.dart';
+import '../../../app/motion/app_overlays.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart';
 import '../../../l10n/context.dart';
-import '../settings_helpers.dart';
 
 class DownloadTasksPage extends ConsumerStatefulWidget {
   const DownloadTasksPage({super.key});
@@ -22,12 +24,24 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   late final DownloadManager _manager;
   StreamSubscription<void>? _changes;
 
+  /// Selection mode is page-local state — nothing outside this page
+  /// consumes it, so it never leaves the widget tree (same contract as
+  /// the history page).
+  bool _managing = false;
+  final Set<String> _selected = {};
+
   @override
   void initState() {
     super.initState();
     _manager = ref.read(downloadManagerProvider);
     _changes = _manager.changes.listen((_) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        // Tasks leaving the list (dismiss/clear) drop out of the
+        // selection too.
+        _selected.removeWhere((id) => _manager.taskById(id) == null);
+        if (_managing && _manager.tasks.isEmpty) _managing = false;
+        setState(() {});
+      }
     });
     unawaited(
       _manager.recover().whenComplete(() {
@@ -42,6 +56,101 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     super.dispose();
   }
 
+  void _enterManaging([String? taskId]) {
+    // Entering management mode is the explicit-vibration role (§5.6).
+    AppHaptics.confirm();
+    setState(() {
+      _managing = true;
+      if (taskId != null) _selected.add(taskId);
+    });
+  }
+
+  void _exitManaging() {
+    setState(() {
+      _managing = false;
+      _selected.clear();
+    });
+  }
+
+  void _toggleSelected(String taskId) {
+    AppHaptics.select();
+    setState(() {
+      if (!_selected.remove(taskId)) _selected.add(taskId);
+    });
+  }
+
+  void _selectAll() {
+    AppHaptics.select();
+    setState(() {
+      _selected.addAll(_manager.tasks.map((task) => task.id));
+    });
+  }
+
+  Future<void> _cancelSelected() async {
+    final targets = [
+      for (final task in _manager.tasks)
+        if (_selected.contains(task.id) && !isTerminal(task.status)) task.id,
+    ];
+    if (targets.isEmpty) return;
+    final confirmed = await _confirmBatch(
+      context,
+      title: context.l10n.cancelDownload,
+      body: context.l10n.downloadBatchCancelConfirm(targets.length),
+    );
+    if (!confirmed) return;
+    for (final id in targets) {
+      await _manager.cancel(id);
+    }
+    _exitManaging();
+  }
+
+  Future<void> _dismissSelected() async {
+    final targets = [
+      for (final task in _manager.tasks)
+        if (_selected.contains(task.id) && isTerminal(task.status)) task.id,
+    ];
+    if (targets.isEmpty) return;
+    final confirmed = await _confirmBatch(
+      context,
+      title: context.l10n.downloadRemoveRecord,
+      body: context.l10n.downloadBatchRemoveConfirm(targets.length),
+    );
+    if (!confirmed) return;
+    for (final id in targets) {
+      _manager.dismiss(id);
+    }
+    _exitManaging();
+  }
+
+  /// Batch confirm through the shared dialog — its opening is the
+  /// explicit-vibration role; canceling and record removal both discard
+  /// something (partial output / the durable record).
+  Future<bool> _confirmBatch(
+    BuildContext context, {
+    required String title,
+    required String body,
+  }) async {
+    AppHaptics.confirm();
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(title),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tasks = _manager.tasks;
@@ -50,26 +159,106 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     // ungrouped tasks stay in the flat list — a child must not appear at
     // both levels.
     final groupedJobIds = {for (final group in groups) ...group.jobIds};
-    return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.downloaderSettings)),
-      body: tasks.isEmpty
-          ? FeedEmpty(title: context.l10n.downloadTasksEmpty)
-          : settingsNarrowBody(
-              ListView(
-                padding: const EdgeInsets.all(12),
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(context.l10n.downloaderSettingsHint),
+    final selectedNonTerminal = [
+      for (final task in tasks)
+        if (_selected.contains(task.id) && !isTerminal(task.status)) task,
+    ];
+    final selectedTerminal = [
+      for (final task in tasks)
+        if (_selected.contains(task.id) && isTerminal(task.status)) task,
+    ];
+    final colorScheme = Theme.of(context).colorScheme;
+    return PopScope(
+      // System back exits selection mode instead of popping the page.
+      canPop: !_managing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitManaging();
+      },
+      child: Scaffold(
+        appBar: _managing
+            ? AppBar(
+                backgroundColor: colorScheme.primaryContainer,
+                leading: IconButton(
+                  tooltip: context.l10n.cancel,
+                  icon: const Icon(Icons.close),
+                  onPressed: _exitManaging,
+                ),
+                title: Text(context.l10n.selectedCount(_selected.length)),
+                actions: [
+                  IconButton(
+                    tooltip: context.l10n.selectAll,
+                    onPressed: _selectAll,
+                    icon: const Icon(Icons.select_all),
                   ),
-                  for (final group in groups)
-                    _DownloadGroupSection(group: group, manager: _manager),
-                  for (final task in tasks)
-                    if (!groupedJobIds.contains(task.id))
-                      _DownloadTaskTile(task: task, manager: _manager),
+                  IconButton(
+                    // Batch-cancel applies to in-flight selections;
+                    // batch-remove applies to terminal ones.
+                    tooltip: context.l10n.cancelDownload,
+                    onPressed: selectedNonTerminal.isEmpty
+                        ? null
+                        : _cancelSelected,
+                    icon: const Icon(Icons.cancel_outlined),
+                  ),
+                  IconButton(
+                    tooltip: context.l10n.downloadRemoveRecord,
+                    onPressed: selectedTerminal.isEmpty
+                        ? null
+                        : _dismissSelected,
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
+                ],
+              )
+            : AppBar(
+                title: Text(context.l10n.downloaderSettings),
+                actions: [
+                  if (tasks.isNotEmpty)
+                    IconButton(
+                      tooltip: context.l10n.manage,
+                      onPressed: _enterManaging,
+                      icon: const Icon(Icons.checklist_outlined),
+                    ),
                 ],
               ),
-            ),
+        body: tasks.isEmpty
+            ? FeedEmpty(title: context.l10n.downloadTasksEmpty)
+            // Management-list cap (parent §5.5).
+            : Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: ContentWidths.management,
+                  ),
+                  child: ListView(
+                    restorationId: 'download-tasks',
+                    padding: const EdgeInsets.all(12),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(context.l10n.downloaderSettingsHint),
+                      ),
+                      for (final group in groups)
+                        _DownloadGroupSection(
+                          group: group,
+                          manager: _manager,
+                          managing: _managing,
+                          selected: _selected,
+                          onToggle: _toggleSelected,
+                          onEnterManaging: _enterManaging,
+                        ),
+                      for (final task in tasks)
+                        if (!groupedJobIds.contains(task.id))
+                          _DownloadTaskTile(
+                            task: task,
+                            manager: _manager,
+                            managing: _managing,
+                            selected: _selected.contains(task.id),
+                            onToggle: () => _toggleSelected(task.id),
+                            onEnterManaging: () => _enterManaging(task.id),
+                          ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
     );
   }
 }
@@ -77,10 +266,21 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
 /// Aggregate section for one submission group (D8 batch): combined progress
 /// plus group-level pause/resume/cancel instead of per-tile hunting.
 class _DownloadGroupSection extends StatelessWidget {
-  const _DownloadGroupSection({required this.group, required this.manager});
+  const _DownloadGroupSection({
+    required this.group,
+    required this.manager,
+    required this.managing,
+    required this.selected,
+    required this.onToggle,
+    required this.onEnterManaging,
+  });
 
   final DownloadGroupSnapshot group;
   final DownloadManager manager;
+  final bool managing;
+  final Set<String> selected;
+  final void Function(String taskId) onToggle;
+  final void Function(String taskId) onEnterManaging;
 
   bool get _everyRetryablePaused {
     final retryable = [
@@ -129,7 +329,14 @@ class _DownloadGroupSection extends StatelessWidget {
             child: Column(
               children: [
                 for (final child in children)
-                  _DownloadTaskTile(task: child, manager: manager),
+                  _DownloadTaskTile(
+                    task: child,
+                    manager: manager,
+                    managing: managing,
+                    selected: selected.contains(child.id),
+                    onToggle: () => onToggle(child.id),
+                    onEnterManaging: () => onEnterManaging(child.id),
+                  ),
               ],
             ),
           ),
@@ -243,16 +450,33 @@ class _DownloadGroupSection extends StatelessWidget {
 }
 
 class _DownloadTaskTile extends StatelessWidget {
-  const _DownloadTaskTile({required this.task, required this.manager});
+  const _DownloadTaskTile({
+    required this.task,
+    required this.manager,
+    required this.managing,
+    required this.selected,
+    required this.onToggle,
+    required this.onEnterManaging,
+  });
 
   final DownloadTaskSnapshot task;
   final DownloadManager manager;
+
+  /// In selection mode the tile becomes a single selection unit: tap
+  /// toggles membership and the nested action row disappears (M3/T5).
+  final bool managing;
+  final bool selected;
+  final VoidCallback onToggle;
+  final VoidCallback onEnterManaging;
 
   @override
   Widget build(BuildContext context) {
     final progress = task.progress;
     return Card(
       child: ListTile(
+        selected: managing && selected,
+        onTap: managing ? onToggle : null,
+        onLongPress: managing ? null : onEnterManaging,
         title: Text(task.displayName, overflow: TextOverflow.ellipsis),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +488,12 @@ class _DownloadTaskTile extends StatelessWidget {
               Text(task.error!),
           ],
         ),
-        trailing: _trailingActions(context),
+        trailing: managing
+            ? Icon(
+                selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: selected ? Theme.of(context).colorScheme.primary : null,
+              )
+            : _trailingActions(context),
       ),
     );
   }

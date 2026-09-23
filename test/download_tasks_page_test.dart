@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:pixiv_func/app/haptics/app_haptics.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/download_providers.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
@@ -372,5 +374,130 @@ void main() {
     );
     await tester.pump();
     expect(manager.tasks, isEmpty);
+  });
+  testWidgets(
+    'selection mode batch-removes terminal and batch-cancels active',
+    (tester) async {
+      final haptics = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') {
+            haptics.add(call.arguments as String);
+          }
+          return null;
+        },
+      );
+      AppHaptics.debugReset();
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+        AppHaptics.debugReset();
+      });
+
+      final gate = Completer<void>();
+      final (container, manager, _) = await _world(
+        responses: [
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [1],
+            ],
+          ),
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [2],
+            ],
+            completers: [gate],
+          ),
+        ],
+      );
+      manager.submit(_req(1));
+      manager.submit(_req(2));
+      await _pumpPage(tester, container);
+      await _drain(
+        tester,
+        () =>
+            manager.tasks.any((t) => t.status == DownloadStatus.succeeded) &&
+            manager.tasks.any((t) => t.status == DownloadStatus.running),
+      );
+
+      // Entering selection mode fires the explicit vibration; the AppBar
+      // swaps to the count surface.
+      await tester.tap(find.byIcon(Icons.checklist_outlined));
+      await tester.pump();
+      expect(find.text('已选 0 项'), findsOneWidget);
+      expect(haptics, ['HapticFeedbackType.heavyImpact']);
+
+      // Select-all is the light tick; selected rows drop their nested
+      // action row for the check affordance.
+      await tester.tap(find.byIcon(Icons.select_all));
+      await tester.pump();
+      expect(find.text('已选 2 项'), findsOneWidget);
+      expect(haptics.last, 'HapticFeedbackType.selectionClick');
+      expect(find.byIcon(Icons.check_circle), findsNWidgets(2));
+      expect(find.byIcon(Icons.open_in_new), findsNothing);
+
+      // Batch remove qualifies only the terminal task — the confirm
+      // dialog opening fires the explicit vibration.
+      AppHaptics.debugReset();
+      haptics.clear();
+      await tester.tap(find.byIcon(Icons.remove_circle_outline));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(haptics, ['HapticFeedbackType.heavyImpact']);
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '移除'));
+      await tester.pump();
+      expect(manager.tasks.single.status, DownloadStatus.running);
+      expect(find.text('已选 0 项'), findsNothing);
+      expect(find.text('下载任务'), findsOneWidget);
+
+      // Batch cancel on the running task also goes through the confirm
+      // dialog, then the task unwinds once its gate opens.
+      await tester.tap(find.byIcon(Icons.checklist_outlined));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.select_all));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.cancel_outlined));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '取消'));
+      gate.complete();
+      await _drain(
+        tester,
+        () => manager.tasks.single.status == DownloadStatus.canceled,
+      );
+    },
+  );
+
+  testWidgets('list caps at the management content width', (tester) async {
+    final (container, manager, _) = await _world(
+      responses: [
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [1],
+          ],
+        ),
+      ],
+    );
+    manager.submit(_req(1));
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpPage(tester, container);
+    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await tester.pump();
+
+    final listRect = tester.getRect(find.byType(ListView));
+    expect(listRect.width, 840);
+    expect(listRect.left, (1200 - 840) / 2);
+    // Let the completed download's stream drain finish before teardown.
+    await tester.pump(const Duration(seconds: 1));
   });
 }
