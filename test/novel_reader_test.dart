@@ -348,6 +348,74 @@ void main() {
     await tester.pump();
     expect(handle.currentPage?.call(), chapters[1].pageIndex);
   });
+
+  testWidgets(
+    'wide layouts cap the text column at fontSize*40 and keep edge taps',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final handle = NovelReaderHandle();
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Scaffold(
+            body: NovelReader(novel: _novel('reader ' * 400), handle: handle),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Default fontSize 17 → cap 17*40 + 2*24 = 728, fed into the layout
+      // cache key rather than only clipping the render width.
+      const cap = 17 * 40 + 2 * 24.0;
+      expect(handle.layout!.call()!.key.viewport.width, cap);
+
+      // The text column centers inside the 1200-wide page slot.
+      final column = find.byWidgetPredicate(
+        (widget) =>
+            widget is ConstrainedBox && widget.constraints.maxWidth == cap,
+      );
+      expect(column, findsWidgets);
+      expect(
+        tester.getRect(column.first).left,
+        closeTo((1200 - cap) / 2, 0.5),
+      );
+
+      // A tap in the right margin — outside the centered column — still
+      // turns the page; the gesture zones span the full width.
+      await tester.tapAt(const Offset(1190, 400));
+      await tester.pumpAndSettle();
+      expect(handle.currentPage?.call(), 1);
+    },
+  );
+
+  testWidgets('narrow layouts keep the full viewport width', (tester) async {
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final handle = NovelReaderHandle();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(
+          body: NovelReader(novel: _novel('reader ' * 400), handle: handle),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 390 < 728 → the cap never engages on phones.
+    expect(handle.layout!.call()!.key.viewport.width, 390);
+  });
 }
 
 /// Records each document-layout invocation so tests can assert a retry
