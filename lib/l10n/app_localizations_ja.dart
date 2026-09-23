@@ -1893,6 +1893,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelLoadFailed => '小説の読み込みに失敗しました';
 
   @override
+  String get novelLayoutFailed => '小説の組版に失敗しました';
+
+  @override
   String get novelRetry => '再試行';
 
   @override
@@ -1930,6 +1933,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get novelReaderSettings => '読書設定';
+
+  @override
+  String get novelSettingsSaveFailed => '読書設定の保存に失敗しました';
 
   @override
   String get novelFontSize => '文字サイズ';
@@ -2120,6 +2126,22 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String localNovelsDeleteConfirm(String title) {
     return '「$title」を削除しますか？ローカルファイルも削除されます。';
+  }
+
+  @override
+  String get novelChapters => '目次';
+
+  @override
+  String get localNovelFileInfo => 'ファイル情報';
+
+  @override
+  String localNovelFileEncoding(String encoding) {
+    return 'エンコーディング: $encoding';
+  }
+
+  @override
+  String localNovelFileImportedAt(String date) {
+    return 'インポート日時 $date';
   }
 
   @override

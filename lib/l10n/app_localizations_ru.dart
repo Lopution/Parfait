@@ -1938,6 +1938,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelLoadFailed => 'Не удалось загрузить новеллу';
 
   @override
+  String get novelLayoutFailed => 'Не удалось сверстать новеллу';
+
+  @override
   String get novelRetry => 'Повторить';
 
   @override
@@ -1975,6 +1978,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get novelReaderSettings => 'Настройки чтения';
+
+  @override
+  String get novelSettingsSaveFailed => 'Не удалось сохранить настройки чтения';
 
   @override
   String get novelFontSize => 'Размер шрифта';
@@ -2165,6 +2171,22 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String localNovelsDeleteConfirm(String title) {
     return 'Удалить «$title»? Локальный файл тоже будет удалён.';
+  }
+
+  @override
+  String get novelChapters => 'Главы';
+
+  @override
+  String get localNovelFileInfo => 'Информация о файле';
+
+  @override
+  String localNovelFileEncoding(String encoding) {
+    return 'Кодировка: $encoding';
+  }
+
+  @override
+  String localNovelFileImportedAt(String date) {
+    return 'Импортировано $date';
   }
 
   @override

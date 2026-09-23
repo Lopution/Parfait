@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -14,6 +15,8 @@ import 'package:pixiv_func/features/localnovel/local_novels_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'helpers/test_preferences.dart';
 
 Widget _app(Widget child) => MaterialApp(
   localizationsDelegates: appLocalizationsDelegates,
@@ -37,8 +40,42 @@ Future<void> _pumpUntil(
   }
 }
 
+/// Reads a row back without crossing the async boundary twice: the sqflite
+/// call is issued inside the fake-async zone (same zone the reader's
+/// unawaited cursor writes run in) so its lock queue advances on `pump`,
+/// while `runAsync` only buys real time. Awaiting a db future inside
+/// `runAsync` deadlocks when a fake-zone write still holds the lock —
+/// the real zone waits, the fake zone never runs again.
+Future<LocalNovel?> _readStored(
+  WidgetTester tester,
+  ProviderContainer container,
+  int id,
+) async {
+  LocalNovel? result;
+  var done = false;
+  unawaited(
+    container.read(localNovelRepositoryProvider).get(id).then((value) {
+      result = value;
+      done = true;
+    }),
+  );
+  for (var i = 0; i < 120 && !done; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+  if (!done) {
+    fail('timed out waiting for local novel $id to be readable');
+  }
+  return result;
+}
+
 void main() {
   sqfliteFfiInit();
+  // The shared stage loads reader settings from SharedPreferencesAsync —
+  // back it with the in-memory platform.
+  installMemoryPreferences();
 
   late Directory dir;
   late LocalNovelDatabase database;
@@ -99,7 +136,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('reader page renders the imported text via the shared reader', (
+  testWidgets('reader mounts the shared stage: chrome, settings, footer', (
     tester,
   ) async {
     await warmDatabase(tester);
@@ -118,16 +155,111 @@ void main() {
         child: _app(LocalNovelReaderPage(localId: novel!.id)),
       ),
     );
-    await _pumpUntil(tester, find.text('Read Me'));
-    expect(find.text('Read Me'), findsOneWidget);
+    await _pumpUntil(tester, find.byType(PageView));
     expect(find.byType(LocalNovelReaderPage), findsOneWidget);
+
+    // No library AppBar and no ListTile header — the file name shows up
+    // in the always-on footer tip instead.
+    expect(find.byType(AppBar), findsNothing);
+    expect(find.byType(ListTile), findsNothing);
+    expect(find.text('Local novels'), findsNothing);
+    expect(find.textContaining('Read Me'), findsOneWidget);
+
+    // Center tap opens the reader chrome with the book title in the top
+    // bar; the settings sheet is reachable from the bottom bar.
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.text('Read Me'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.tune_outlined));
+    await tester.pumpAndSettle();
+    expect(find.byType(Slider), findsNWidgets(2));
+
+    // Dismiss the settings sheet via the barrier, then open the file-info
+    // sheet from the top bar.
+    await tester.tapAt(const Offset(400, 100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+    expect(find.text('Read Me'), findsNWidgets(2)); // top bar + sheet
+    expect(find.text('18 chars'), findsOneWidget);
+    expect(find.text('Encoding: UTF-8'), findsOneWidget);
+    expect(find.textContaining('Imported '), findsOneWidget);
+    // Imports never carry an author — no author row renders (D9).
+    expect(find.text('local'), findsNothing);
+
     // The shared NovelReader lays out asynchronously across several frames;
     // extra pumps also drain Riverpod's zero-duration vsync timers before
     // the pending-timer invariant check.
+    await tester.tapAt(const Offset(400, 100));
+    await tester.pumpAndSettle();
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
   });
+
+  testWidgets(
+    'read_offset stays null until a real page turn, then stores the page start',
+    (tester) async {
+      await warmDatabase(tester);
+      final text = [
+        'opening paragraph',
+        for (var i = 0; i < 200; i++) 'filler line $i',
+        'closing paragraph',
+      ].join('\n');
+      final novel = await tester.runAsync(
+        () => container
+            .read(localNovelRepositoryProvider)
+            .importBytes(
+              fileName: 'Cursor Book.txt',
+              bytes: Uint8List.fromList(utf8.encode(text)),
+              targetDir: dir,
+            ),
+      );
+      expect(novel!.readOffset, isNull);
+
+      // Push the reader over a host so the page can actually pop back out.
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: _app(_ReaderHost(localId: novel.id)),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      // Push lands on a loading spinner first — pumpUntil waits the real
+      // async load out instead of pumpAndSettle, which never settles while
+      // the indicator animates.
+      await _pumpUntil(tester, find.byType(PageView));
+
+      // Open, reveal the chrome and leave — nothing was read, so the
+      // cursor must stay null (W6's "unread" signal).
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      var stored = await _readStored(tester, container, novel.id);
+      expect(stored!.readOffset, isNull);
+      // System back closed the chrome first; a second one leaves.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(LocalNovelReaderPage), findsNothing);
+      stored = await _readStored(tester, container, novel.id);
+      expect(stored!.readOffset, isNull);
+
+      // Reopen, turn one page and the cursor lands on that page's first
+      // line — a newline boundary in the stored text.
+      await tester.tap(find.text('open'));
+      await _pumpUntil(tester, find.byType(PageView));
+      await tester.tapAt(const Offset(780, 300));
+      await tester.pumpAndSettle();
+      stored = await _readStored(tester, container, novel.id);
+      final offset = stored!.readOffset;
+      expect(offset, isNotNull);
+      expect(offset, greaterThan(0));
+      expect(offset, lessThan(text.length));
+      expect(text[offset! - 1], '\n');
+    },
+  );
 
   testWidgets('reader restores the persisted read offset on open', (
     tester,
@@ -202,4 +334,28 @@ void main() {
     // document start.
     expect(find.text('closing paragraph'), findsNothing);
   });
+}
+
+/// Host page that pushes [LocalNovelReaderPage], so a system back has a
+/// route to land on.
+class _ReaderHost extends StatelessWidget {
+  const _ReaderHost({required this.localId});
+
+  final int localId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => LocalNovelReaderPage(localId: localId),
+            ),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    );
+  }
 }

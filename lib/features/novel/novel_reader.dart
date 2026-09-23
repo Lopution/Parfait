@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
@@ -8,9 +9,23 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/reader_settings.dart';
+import '../../l10n/context.dart';
 import 'novel_layout.dart';
 
 enum NovelTapZone { previous, center, next }
+
+/// Why an anchor notification was emitted. Persistence binds only to
+/// [userTurn] — a layout echo re-asserts position without meaning the user
+/// read there (open/restore, settings relayout).
+enum NovelAnchorCause {
+  /// First-layout restore or a post-commit re-assert of the current page
+  /// (relayout after settings/viewport changes).
+  layoutEcho,
+
+  /// A user-committed page change: tap-zone/swipe turn, `goToPage`,
+  /// keyboard turn.
+  userTurn,
+}
 
 @immutable
 class NovelReaderLayoutContext {
@@ -207,8 +222,19 @@ class NovelReaderHandle {
   int Function()? currentPage;
   int Function()? pageCount;
 
-  /// Jump the PageView to [page] (clamped).
-  void Function(int page)? goToPage;
+  /// Jump the PageView to [page] (clamped). `animate: false` lands on the
+  /// target in the same frame — far jumps from the progress sheet skip the
+  /// page-turn animation entirely.
+  void Function(int page, {bool animate})? goToPage;
+
+  /// Chapter entries of the committed layout — `(title, pageIndex)` pairs
+  /// in document order. Empty for chapter-less documents and before the
+  /// first layout lands.
+  List<({String title, int pageIndex})> Function()? chapters;
+
+  /// The committed layout — tests read `key.viewport` to verify which
+  /// measure width actually fed the layout cache key.
+  NovelLayout? Function()? layout;
 }
 
 /// Horizontal, non-scrolling body reader with a cancellable relayout path.
@@ -223,6 +249,8 @@ class NovelReader extends StatefulWidget {
     this.onCenterTap,
     this.onProgressChanged,
     this.handle,
+    this.layoutEngine,
+    this.budget = const NovelLayoutBudget(),
   });
 
   final NovelEntity novel;
@@ -238,7 +266,11 @@ class NovelReader extends StatefulWidget {
   /// ambient `colorScheme.onSurface`.
   final Color? textColor;
 
-  final ValueChanged<NovelAnchor>? onAnchorChanged;
+  /// Fires when the current page's start anchor is reported — either by a
+  /// layout commit re-asserting position ([NovelAnchorCause.layoutEcho]) or
+  /// by a user-committed turn settling ([NovelAnchorCause.userTurn]).
+  final void Function(NovelAnchor anchor, NovelAnchorCause cause)?
+  onAnchorChanged;
 
   /// Middle tap-zone hit — the hosting page toggles its reader chrome.
   final VoidCallback? onCenterTap;
@@ -249,6 +281,14 @@ class NovelReader extends StatefulWidget {
   /// Chrome-facing command surface (see [NovelReaderHandle]).
   final NovelReaderHandle? handle;
 
+  /// Test seam for layout-engine behavior (e.g. counting relayouts);
+  /// production leaves the default.
+  final NovelLayoutEngine? layoutEngine;
+
+  /// Per-layout transaction budget — inject a small one in tests to reach
+  /// the [NovelLayoutBudgetExceeded] error path.
+  final NovelLayoutBudget budget;
+
   @override
   State<NovelReader> createState() => _NovelReaderState();
 }
@@ -256,14 +296,26 @@ class NovelReader extends StatefulWidget {
 class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   late final NovelReaderController _reader;
   late final PageController _pageController;
-  final NovelLayoutEngine _layoutEngine = NovelLayoutEngine();
+  late final NovelLayoutEngine _layoutEngine =
+      widget.layoutEngine ?? NovelLayoutEngine();
   final NovelReaderCommitGate _commitGate = NovelReaderCommitGate();
 
   NovelLayout? _layout;
+
+  /// A committed-nowhere layout failure (budget overflow, deterministic
+  /// engine error) — rendered as a retryable error state instead of an
+  /// unhandled async exception.
+  Object? _layoutError;
   Size? _requestedViewport;
   Brightness? _requestedBrightness;
   TextDirection? _requestedDirection;
   bool _layoutScheduled = false;
+
+  /// Set while a commit postFrame performs the programmatic restore
+  /// `jumpToPage`: that call dispatches `onPageChanged` synchronously, so
+  /// the flag turns its notification into a layout echo instead of a user
+  /// turn.
+  bool _layoutEchoPending = false;
 
   @override
   void initState() {
@@ -274,14 +326,24 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (handle != null) {
       handle.currentPage = () => _reader.currentPage;
       handle.pageCount = () => _reader.pageCount;
-      handle.goToPage = (page) {
+      handle.goToPage = (page, {animate = true}) {
         final target = page.clamp(0, _reader.pageCount - 1);
+        if (!animate) {
+          _pageController.jumpToPage(target);
+          return;
+        }
         _pageController.animateToPage(
           target,
           duration: MotionTokens.fast,
           curve: MotionTokens.fastCurve,
         );
       };
+      handle.chapters = () => [
+        for (final page in _layout?.pages ?? const <NovelLayoutPage>[])
+          if (page.chapterTitle != null)
+            (title: page.chapterTitle!, pageIndex: page.index),
+      ];
+      handle.layout = () => _layout;
     }
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -321,6 +383,8 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       handle.currentPage = null;
       handle.pageCount = null;
       handle.goToPage = null;
+      handle.chapters = null;
+      handle.layout = null;
     }
     _commitGate.dispose();
     _pageController.dispose();
@@ -332,12 +396,28 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+        // WCAG 1.4.8 line-length cap: ~40 CJK glyphs per line, relative to
+        // the font slider so the cap scales with settings and only bites
+        // on wide screens (a 390dp phone is narrower than 17*40+48).
+        final layoutWidth = math.min(
+          constraints.maxWidth,
+          _style.fontSize * 40 + _style.horizontalPadding * 2,
+        );
+        final viewport = Size(layoutWidth, constraints.maxHeight);
         _scheduleLayout(
           viewport: viewport,
           brightness: theme.brightness,
           direction: Directionality.of(context),
         );
+        final layoutError = _layoutError;
+        if (layoutError != null) {
+          return FeedError(
+            title: context.l10n.novelLayoutFailed,
+            error: layoutError,
+            retryLabel: context.l10n.retry,
+            onRetry: () => _scheduleLayout(force: true),
+          );
+        }
         final layout = _layout;
         if (layout == null) {
           return const FeedLoading();
@@ -372,13 +452,21 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             itemCount: layout.pages.length,
             onPageChanged: (page) {
               setState(() => _reader.setPage(page));
-              _notifyAnchor();
+              _notifyAnchor(
+                _layoutEchoPending
+                    ? NovelAnchorCause.layoutEcho
+                    : NovelAnchorCause.userTurn,
+              );
               _notifyProgress();
             },
             itemBuilder: (context, index) => _NovelPage(
               page: layout.pages[index],
               style: _style,
               color: widget.textColor ?? theme.colorScheme.onSurface,
+              // The layout viewport already carries the line-length cap —
+              // the text column centers inside it while tap zones keep the
+              // full width.
+              maxWidth: layout.key.viewport.width,
             ),
           ),
         );
@@ -409,7 +497,12 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         nextViewport == _requestedViewport &&
         nextBrightness == _requestedBrightness &&
         nextDirection == _requestedDirection;
-    if (unchanged && !force && _layout != null) return;
+    // A recorded layout error counts as "answered" for the same request —
+    // re-running it automatically would retry a deterministic failure
+    // forever; only an explicit [force] (retry/settings change) re-enters.
+    if (unchanged && !force && (_layout != null || _layoutError != null)) {
+      return;
+    }
     _requestedViewport = nextViewport;
     _requestedBrightness = nextBrightness;
     _requestedDirection = nextDirection;
@@ -453,6 +546,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         brightness: brightness,
         textDirection: direction,
         cancelToken: layoutContext.cancelToken,
+        budget: widget.budget,
       );
       _commitGate.commit(
         layoutContext,
@@ -472,27 +566,41 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           setState(() {
             _reader.updatePageCount(result.pages.length, page: restoredPage);
           });
-          setState(() => _layout = result);
+          setState(() {
+            _layout = result;
+            _layoutError = null;
+          });
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || !_pageController.hasClients) return;
             if (!_commitGate.isCurrent(layoutContext)) return;
+            _layoutEchoPending = true;
             _pageController.jumpToPage(restoredPage);
-            _notifyAnchor();
+            _layoutEchoPending = false;
+            // The explicit echo also covers the no-op jump where the
+            // restored page already equals the current one (no
+            // onPageChanged fires then).
+            _notifyAnchor(NovelAnchorCause.layoutEcho);
             _notifyProgress();
           });
         },
       );
     } on ApiCancelled {
       // A newer viewport/style calculation owns the reader now.
+    } catch (error) {
+      // Budget overflows and other deterministic layout failures must not
+      // surface as unhandled async errors — a stale context's failure is
+      // still dropped because a newer layout owns the reader.
+      if (!mounted || !_commitGate.isCurrent(layoutContext)) return;
+      setState(() => _layoutError = error);
     }
   }
 
-  void _notifyAnchor() {
+  void _notifyAnchor(NovelAnchorCause cause) {
     final layout = _layout;
     if (layout == null || layout.pages.isEmpty) return;
     final page =
         layout.pages[_reader.currentPage.clamp(0, layout.pages.length - 1)];
-    widget.onAnchorChanged?.call(page.startAnchor);
+    widget.onAnchorChanged?.call(page.startAnchor, cause);
   }
 
   void _notifyProgress() {
@@ -505,14 +613,28 @@ class _NovelPage extends StatelessWidget {
     required this.page,
     required this.style,
     required this.color,
+    required this.maxWidth,
   });
 
   final NovelLayoutPage page;
   final NovelLayoutStyle style;
   final Color color;
 
+  /// Width of the layout viewport that measured this page — the text
+  /// column centers inside the (possibly wider) page slot.
+  final double maxWidth;
+
   @override
   Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: _buildColumn(),
+      ),
+    );
+  }
+
+  Widget _buildColumn() {
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: style.horizontalPadding,

@@ -891,6 +891,7 @@
   "novelRestricted": "This novel is restricted",
   "novelContentUnavailable": "The current API did not provide the novel body",
   "novelLoadFailed": "Failed to load novel",
+  "novelLayoutFailed": "Failed to lay out the novel",
   "novelRetry": "Retry",
   "novelNoContent": "No body text",
   "novelWords": "words",
@@ -904,6 +905,7 @@
   "novelIncreaseFont": "Increase font size",
   "novelReadingProgress": "Reading progress",
   "novelReaderSettings": "Reading settings",
+  "novelSettingsSaveFailed": "Failed to save reading settings",
   "novelFontSize": "Font size",
   "novelLineHeight": "Line height",
   "novelThemeSystem": "System",
@@ -1002,6 +1004,24 @@
   "@localNovelsDeleteConfirm": {
     "placeholders": {
       "title": {
+        "type": "String"
+      }
+    }
+  },
+  "novelChapters": "Chapters",
+  "localNovelFileInfo": "File info",
+  "localNovelFileEncoding": "Encoding: {encoding}",
+  "@localNovelFileEncoding": {
+    "placeholders": {
+      "encoding": {
+        "type": "String"
+      }
+    }
+  },
+  "localNovelFileImportedAt": "Imported {date}",
+  "@localNovelFileImportedAt": {
+    "placeholders": {
+      "date": {
         "type": "String"
       }
     }

@@ -1876,6 +1876,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelLoadFailed => '小说加载失败';
 
   @override
+  String get novelLayoutFailed => '小说排版失败';
+
+  @override
   String get novelRetry => '重试';
 
   @override
@@ -1913,6 +1916,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get novelReaderSettings => '阅读设置';
+
+  @override
+  String get novelSettingsSaveFailed => '阅读设置保存失败';
 
   @override
   String get novelFontSize => '字号';
@@ -2102,6 +2108,22 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String localNovelsDeleteConfirm(String title) {
     return '删除「$title」？本地文件会一并删除。';
+  }
+
+  @override
+  String get novelChapters => '目录';
+
+  @override
+  String get localNovelFileInfo => '文件信息';
+
+  @override
+  String localNovelFileEncoding(String encoding) {
+    return '编码：$encoding';
+  }
+
+  @override
+  String localNovelFileImportedAt(String date) {
+    return '导入时间 $date';
   }
 
   @override

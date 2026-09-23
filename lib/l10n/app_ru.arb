@@ -891,6 +891,7 @@
   "novelRestricted": "Новелла ограничена",
   "novelContentUnavailable": "Текущий API не вернул текст новеллы",
   "novelLoadFailed": "Не удалось загрузить новеллу",
+  "novelLayoutFailed": "Не удалось сверстать новеллу",
   "novelRetry": "Повторить",
   "novelNoContent": "Нет текста",
   "novelWords": "слов",
@@ -904,6 +905,7 @@
   "novelIncreaseFont": "Увеличить шрифт",
   "novelReadingProgress": "Прогресс чтения",
   "novelReaderSettings": "Настройки чтения",
+  "novelSettingsSaveFailed": "Не удалось сохранить настройки чтения",
   "novelFontSize": "Размер шрифта",
   "novelLineHeight": "Межстрочный интервал",
   "novelThemeSystem": "Системная",
@@ -1002,6 +1004,24 @@
   "@localNovelsDeleteConfirm": {
     "placeholders": {
       "title": {
+        "type": "String"
+      }
+    }
+  },
+  "novelChapters": "Главы",
+  "localNovelFileInfo": "Информация о файле",
+  "localNovelFileEncoding": "Кодировка: {encoding}",
+  "@localNovelFileEncoding": {
+    "placeholders": {
+      "encoding": {
+        "type": "String"
+      }
+    }
+  },
+  "localNovelFileImportedAt": "Импортировано {date}",
+  "@localNovelFileImportedAt": {
+    "placeholders": {
+      "date": {
         "type": "String"
       }
     }
