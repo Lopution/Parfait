@@ -1172,12 +1172,77 @@ void main() {
         await tester.tap(find.widgetWithText(FilledButton, 'Done'));
         await tester.pump(const Duration(milliseconds: 100));
       });
-      expect(
-        manager.tasks,
-        hasLength(1),
-        reason: 'retry replaces the failed task (same dedupe key)',
-      );
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
+    });
+
+    testWidgets('two-pane layout presents the same selection chrome', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpDetail(tester, container);
+
+      // The two-pane pager forwards the same long-press entry; the
+      // selection bar is shared chrome, not a narrow-layout special case.
+      await longPressImage(tester);
+      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+      expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
+        await tester.pump();
+      });
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.text('1 of 2 selected'), findsOneWidget);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.pump();
+      });
+      final manager = container.read(downloadManagerProvider);
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+        if (manager.tasks.every((t) => t.status == DownloadStatus.succeeded)) {
+          break;
+        }
+      }
+      expect(manager.tasks.single.pageIndex, 0);
+      expect(find.text('Select pages to download'), findsNothing);
+    });
+
+    testWidgets('landscape narrow layout presents the same selection chrome', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      tester.view.physicalSize = const Size(844, 390);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpDetail(tester, container);
+
+      // Rotated phones stay on the narrow branch; the selection chrome
+      // must present identically in the shorter viewport. The page image
+      // is taller than the 390px viewport, so the long-press lands on the
+      // visible slice rather than the widget's geometric centre.
+      final imageRect = tester.getRect(find.byType(PixivImage).first);
+      final pressPoint = Offset(
+        imageRect.center.dx,
+        imageRect.top + (390 - imageRect.top) / 2,
+      );
+      final gesture = await tester.startGesture(pressPoint);
+      await tester.pump(const Duration(milliseconds: 700));
+      await gesture.up();
+      await tester.pump();
+      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
+        await tester.pump();
+      });
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
     });
   });
 
