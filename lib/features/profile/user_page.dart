@@ -462,7 +462,7 @@ class _UserPageState extends ConsumerState<UserPage>
                   // Bookmarks tab only: the tag collection entry sits in the
                   // collapsed toolbar next to the restrict selector.
                   onOpenBookmarkTags: widget.isMe && _selectedIndex == 0
-                      ? () => openBookmarkTags(context)
+                      ? () => openBookmarkTags(context, restrict: _restrict)
                       : null,
                   onDownloadAll: canBulkDownload ? _downloadAuthorWorks : null,
                   topInset: MediaQuery.viewPaddingOf(context).top,

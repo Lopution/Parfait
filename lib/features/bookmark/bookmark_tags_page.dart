@@ -13,14 +13,33 @@ import '../../l10n/context.dart';
 /// feed. Illust-only for now — the novel twin endpoint is wired in the
 /// repository but has no UI consumer yet.
 class BookmarkTagsPage extends ConsumerStatefulWidget {
-  const BookmarkTagsPage({super.key});
+  const BookmarkTagsPage({
+    super.key,
+    this.initialRestrict = BookmarkRestrict.public,
+  });
+
+  final BookmarkRestrict initialRestrict;
 
   @override
   ConsumerState<BookmarkTagsPage> createState() => _BookmarkTagsPageState();
 }
 
 class _BookmarkTagsPageState extends ConsumerState<BookmarkTagsPage> {
-  BookmarkRestrict _restrict = BookmarkRestrict.public;
+  late BookmarkRestrict _restrict;
+
+  @override
+  void initState() {
+    super.initState();
+    _restrict = widget.initialRestrict;
+  }
+
+  @override
+  void didUpdateWidget(covariant BookmarkTagsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialRestrict != widget.initialRestrict) {
+      _restrict = widget.initialRestrict;
+    }
+  }
 
   BookmarkTagQuery get _query => (BookmarkEntityType.illust, _restrict);
 

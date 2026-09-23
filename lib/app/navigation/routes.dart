@@ -21,6 +21,7 @@ import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
 import '../../core/settings/app_settings.dart';
+import '../../core/user/user_repository.dart';
 import '../../features/bookmark/bookmark_tags_page.dart';
 import '../../features/profile/bookmark_tag_feed_page.dart';
 import '../../features/comments/comments_page.dart';
@@ -661,8 +662,16 @@ List<RouteBase> _commonBranchRoutes(
     ),
     GoRoute(
       path: 'bookmarks/tags',
-      pageBuilder: (context, state) =>
-          _page(context, state, branchObserver, const BookmarkTagsPage()),
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        BookmarkTagsPage(
+          initialRestrict: _bookmarkRestrictFromQuery(
+            state.uri.queryParameters['restrict'],
+          ),
+        ),
+      ),
     ),
     GoRoute(
       path: 'bookmarks/tag',
@@ -672,9 +681,9 @@ List<RouteBase> _commonBranchRoutes(
         branchObserver,
         BookmarkTagFeedPage(
           tag: state.uri.queryParameters['tag'] ?? '',
-          restrict: state.uri.queryParameters['restrict'] == 'private'
-              ? BookmarkRestrict.private
-              : BookmarkRestrict.public,
+          restrict: _bookmarkRestrictFromQuery(
+            state.uri.queryParameters['restrict'],
+          ),
         ),
       ),
     ),
@@ -1293,8 +1302,26 @@ Future<void> openLocalNovelReader(BuildContext context, int localId) async {
   await _push(context, '${_currentStackRoot(context)}/local-novels/$localId');
 }
 
-Future<void> openBookmarkTags(BuildContext context) async {
-  await _push(context, '${_currentStackRoot(context)}/bookmarks/tags');
+BookmarkRestrict _bookmarkRestrictFromQuery(String? restrict) =>
+    restrict == BookmarkRestrict.private.name
+    ? BookmarkRestrict.private
+    : BookmarkRestrict.public;
+
+BookmarkRestrict _bookmarkRestrictFromUser(UserRestrict restrict) =>
+    switch (restrict) {
+      UserRestrict.public => BookmarkRestrict.public,
+      UserRestrict.private => BookmarkRestrict.private,
+    };
+
+Future<void> openBookmarkTags(
+  BuildContext context, {
+  required UserRestrict restrict,
+}) async {
+  final location = Uri(
+    path: '${_currentStackRoot(context)}/bookmarks/tags',
+    queryParameters: {'restrict': _bookmarkRestrictFromUser(restrict).name},
+  ).toString();
+  await _push(context, location);
 }
 
 Future<void> openBookmarkTagFeed(
