@@ -2417,4 +2417,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get illustInfoJump => 'Jump to artwork info';
+
+  @override
+  String get manage => 'Manage';
+
+  @override
+  String selectedCount(int n) {
+    return '$n selected';
+  }
 }

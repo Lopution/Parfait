@@ -2416,4 +2416,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get illustInfoJump => 'К информации о работе';
+
+  @override
+  String get manage => 'Управление';
+
+  @override
+  String selectedCount(int n) {
+    return 'Выбрано: $n';
+  }
 }
