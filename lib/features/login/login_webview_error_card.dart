@@ -20,6 +20,15 @@ import '../../l10n/context.dart';
 ///
 /// What each callback does is the caller's contract; this card only
 /// decides which actions exist for a given error state.
+///
+/// [describeWebViewFailure] is the matching message-shape contract: both
+/// pages report `'<type> <host>'` so the card shows what failed and on
+/// which host, without echoing the full URL or its query string.
+String describeWebViewFailure(Object type, Uri? uri) {
+  final host = uri?.host ?? '';
+  return host.isEmpty ? '$type' : '$type $host';
+}
+
 class LoginWebViewErrorCard extends StatelessWidget {
   const LoginWebViewErrorCard({
     super.key,

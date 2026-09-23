@@ -280,12 +280,11 @@ class _LoginWebViewDesktopPageState
               },
               onReceivedError: (controller, request, error) {
                 if (request.isForMainFrame == false) return;
-                // Surface the failing URL — CONNECTION_ABORTED alone does
-                // not say whether the authorize page or a consumed callback
-                // produced it.
+                // '<type> <host>' — says which host produced the failure
+                // without echoing the full URL into the card.
                 _reportRecoverable(
                   context.l10n.loginPageLoadFailed(
-                    '${error.type} ${request.url}',
+                    describeWebViewFailure(error.type, request.url),
                   ),
                 );
               },
@@ -293,7 +292,10 @@ class _LoginWebViewDesktopPageState
                 if (request.isForMainFrame == false) return;
                 _reportRecoverable(
                   context.l10n.loginNetworkError(
-                    '${response.statusCode} ${request.url}',
+                    describeWebViewFailure(
+                      response.statusCode ?? 'unknown',
+                      request.url,
+                    ),
                   ),
                 );
               },
