@@ -2259,6 +2259,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String localNovelContinue(int percent) {
+    return '続きを読む · $percent%';
+  }
+
+  @override
   String get profileSeries => 'シリーズ';
 
   @override
@@ -2361,4 +2366,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get illustInfoJump => '作品情報へ移動';
+
+  @override
+  String get manage => '管理';
+
+  @override
+  String selectedCount(int n) {
+    return '$n 件選択中';
+  }
+
+  @override
+  String get undo => '元に戻す';
+
+  @override
+  String get watchLaterRemoved => 'あとで見るから削除しました';
+
+  @override
+  String get watchlistOpenContents => '目次を開く';
 }

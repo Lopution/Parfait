@@ -5,12 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/feed/illust_card.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/press_scale.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
-import '../../app/widgets/replica_empty_state.dart';
+import '../../app/haptics/app_haptics.dart';
+import '../../app/widgets/entity_row.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/history/history_models.dart';
@@ -32,29 +35,142 @@ class HistoryPage extends ConsumerStatefulWidget {
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   int _clearGeneration = 0;
 
+  /// Selection mode is page-local state (design.md §二): nothing outside
+  /// this page consumes it, so it never leaves the widget tree.
+  bool _managing = false;
+  final Set<int> _selected = <int>{};
+
+  void _enterManaging([int? recordKey]) {
+    // Entering management mode is the explicit-vibration role (W4).
+    AppHaptics.confirm();
+    setState(() {
+      _managing = true;
+      if (recordKey != null) _selected.add(recordKey);
+    });
+  }
+
+  void _toggleSelected(int recordKey) {
+    AppHaptics.select();
+    setState(() {
+      if (!_selected.remove(recordKey)) _selected.add(recordKey);
+    });
+  }
+
+  void _exitManaging() {
+    setState(() {
+      _managing = false;
+      _selected.clear();
+    });
+  }
+
+  void _selectAll(String accountId) {
+    AppHaptics.select();
+    final ids = ref.read(historyFeedControllerProvider(accountId)).value?.ids;
+    if (ids == null || ids.isEmpty) return;
+    setState(() => _selected.addAll(ids));
+  }
+
   @override
   Widget build(BuildContext context) {
     final accountId = ref.watch(historyAccountIdProvider);
     final repository = ref.watch(historyRepositoryProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(context.l10n.historySettings),
-        actions: [
-          if (accountId != null)
-            IconButton(
-              tooltip: context.l10n.historyDeleteAll,
-              onPressed: () => _deleteAll(context, repository, accountId),
-              icon: const Icon(Icons.delete_forever_outlined),
-            ),
-        ],
+    final colorScheme = Theme.of(context).colorScheme;
+    return PopScope(
+      // System back exits selection mode instead of popping the page.
+      canPop: !_managing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitManaging();
+      },
+      child: Scaffold(
+        appBar: _managing
+            ? AppBar(
+                backgroundColor: colorScheme.primaryContainer,
+                leading: IconButton(
+                  tooltip: context.l10n.cancel,
+                  icon: const Icon(Icons.close),
+                  onPressed: _exitManaging,
+                ),
+                title: Text(context.l10n.selectedCount(_selected.length)),
+                actions: [
+                  IconButton(
+                    tooltip: context.l10n.selectAll,
+                    onPressed: accountId == null
+                        ? null
+                        : () => _selectAll(accountId),
+                    icon: const Icon(Icons.select_all),
+                  ),
+                  IconButton(
+                    tooltip: context.l10n.historyDelete,
+                    onPressed: _selected.isEmpty || accountId == null
+                        ? null
+                        : () => _deleteSelected(repository, accountId),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              )
+            : AppBar(
+                title: Text(context.l10n.historySettings),
+                actions: [
+                  if (accountId != null) ...[
+                    IconButton(
+                      tooltip: context.l10n.manage,
+                      onPressed: _enterManaging,
+                      icon: const Icon(Icons.checklist_outlined),
+                    ),
+                    IconButton(
+                      tooltip: context.l10n.historyDeleteAll,
+                      onPressed: () =>
+                          _deleteAll(context, repository, accountId),
+                      icon: const Icon(Icons.delete_forever_outlined),
+                    ),
+                  ],
+                ],
+              ),
+        body: accountId == null
+            ? Center(child: Text(context.l10n.signedOut))
+            : _HistoryBody(
+                key: ValueKey('$accountId-$_clearGeneration'),
+                accountId: accountId,
+                managing: _managing,
+                selectedKeys: _selected,
+                onToggle: _toggleSelected,
+                onEnterManaging: _enterManaging,
+              ),
       ),
-      body: accountId == null
-          ? Center(child: Text(context.l10n.signedOut))
-          : _HistoryBody(
-              key: ValueKey('$accountId-$_clearGeneration'),
-              accountId: accountId,
-            ),
     );
+  }
+
+  Future<void> _deleteSelected(
+    HistoryRepository repository,
+    String accountId,
+  ) async {
+    // Opening the destructive confirm surface is the explicit-vibration
+    // role; the row-level toggles stay on the light tick.
+    AppHaptics.confirm();
+    final confirmed = await _confirmDelete(
+      context,
+      title: context.l10n.historyDelete,
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final controller = ref.read(
+        historyFeedControllerProvider(accountId).notifier,
+      );
+      for (final key in List<int>.of(_selected)) {
+        final record = controller.recordFor(key);
+        if (record != null) await controller.removeRecord(record);
+      }
+      if (mounted) {
+        setState(() {
+          _managing = false;
+          _selected.clear();
+        });
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        showAppSnackBar(context, '$error');
+      }
+    }
   }
 
   Future<void> _deleteAll(
@@ -82,9 +198,22 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 }
 
 class _HistoryBody extends ConsumerStatefulWidget {
-  const _HistoryBody({super.key, required this.accountId});
+  const _HistoryBody({
+    super.key,
+    required this.accountId,
+    required this.managing,
+    required this.selectedKeys,
+    required this.onToggle,
+    required this.onEnterManaging,
+  });
 
+  /// Selection state is owned by the page — the AppBar renders the count
+  /// and reads the feed's ids for select-all; the body only reports taps.
   final String accountId;
+  final bool managing;
+  final Set<int> selectedKeys;
+  final ValueChanged<int> onToggle;
+  final ValueChanged<int> onEnterManaging;
 
   @override
   ConsumerState<_HistoryBody> createState() => _HistoryBodyState();
@@ -119,22 +248,6 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
     }
   }
 
-  Future<void> _delete(HistoryRecord record) async {
-    final confirmed = await _confirmDelete(
-      context,
-      title: context.l10n.historyDelete,
-    );
-    if (confirmed != true) return;
-    try {
-      await ref
-          .read(historyFeedControllerProvider(widget.accountId).notifier)
-          .removeRecord(record);
-    } on Object catch (error) {
-      if (!mounted) return;
-      showAppSnackBar(context, '$error');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(historyFeedControllerProvider(widget.accountId));
@@ -150,19 +263,21 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
       ),
       data: (state) {
         if (state.ids.isEmpty) {
-          return ReplicaEmptyState(
-            message: context.l10n.historyEmpty,
+          return FeedEmpty(
+            icon: Icons.history,
+            title: context.l10n.historyEmpty,
             retryLabel: context.l10n.retry,
-            onRetry: () => ref
+            onRefresh: () => ref
                 .read(historyFeedControllerProvider(widget.accountId).notifier)
                 .refresh(),
-            icon: Icons.history,
           );
         }
-        final records = [
+        final entries = [
           for (final key in state.ids)
-            if (_controllerRecord(key) != null) _controllerRecord(key)!,
+            if (_controllerRecord(key) != null)
+              (key: key, record: _controllerRecord(key)!),
         ];
+
         return PullToRefresh(
           onRefresh: () => ref
               .read(historyFeedControllerProvider(widget.accountId).notifier)
@@ -180,10 +295,14 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                   padding: const EdgeInsets.all(10),
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  itemCount: records.length,
+                  itemCount: entries.length,
                   itemBuilder: (context, index) => _HistoryEntry(
-                    record: records[index],
-                    onLongPress: () => _delete(records[index]),
+                    record: entries[index].record,
+                    recordKey: entries[index].key,
+                    managing: widget.managing,
+                    selected: widget.selectedKeys.contains(entries[index].key),
+                    onToggle: widget.onToggle,
+                    onEnterManaging: widget.onEnterManaging,
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -219,17 +338,41 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
 }
 
 class _HistoryEntry extends ConsumerWidget {
-  const _HistoryEntry({required this.record, required this.onLongPress});
+  const _HistoryEntry({
+    required this.record,
+    required this.recordKey,
+    required this.managing,
+    required this.selected,
+    required this.onToggle,
+    required this.onEnterManaging,
+  });
 
   final HistoryRecord record;
-  final VoidCallback onLongPress;
+
+  /// The encoded feed key (content type in the high bits) — selection
+  /// tracks records by it, so an illust and a novel sharing a numeric id
+  /// never collide.
+  final int recordKey;
+  final bool managing;
+  final bool selected;
+  final ValueChanged<int> onToggle;
+  final ValueChanged<int> onEnterManaging;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // Known-illust cells render the shared IllustCard; its own long-press
+    // would open the card action sheet, but in history the gesture is the
+    // selection-mode entry/toggle (prd.md history matrix), so the page
+    // supplies the callback.
+    final longPress = managing
+        ? () => onToggle(recordKey)
+        : () => onEnterManaging(recordKey);
     final child = switch (record.contentType) {
       HistoryContentType.illust => _IllustHistoryEntry(
         record: record,
         entity: ref.watch(illustStoreProvider).get(record.contentId),
+        onLongPress: longPress,
       ),
       HistoryContentType.novel => _NovelHistoryEntry(
         record: record,
@@ -237,25 +380,66 @@ class _HistoryEntry extends ConsumerWidget {
       ),
     };
     return GestureDetector(
-      onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
-      child: child,
+      // In selection mode the whole cell is the selection unit (M3: no
+      // nested secondary actions) — any press toggles, the card's own
+      // navigation is absorbed.
+      onTap: managing ? () => onToggle(recordKey) : null,
+      onLongPress: longPress,
+      child: Stack(
+        children: [
+          AbsorbPointer(absorbing: managing, child: child),
+          if (managing)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: selected
+                        ? Border.all(color: colorScheme.primary, width: 2)
+                        : null,
+                    color: selected
+                        ? colorScheme.primary.withValues(alpha: 0.14)
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          if (selected)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IgnorePointer(
+                child: Icon(Icons.check_circle, color: colorScheme.primary),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
 class _IllustHistoryEntry extends StatelessWidget {
-  const _IllustHistoryEntry({required this.record, required this.entity});
+  const _IllustHistoryEntry({
+    required this.record,
+    required this.entity,
+    required this.onLongPress,
+  });
 
   final HistoryRecord record;
   final IllustEntity? entity;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
+    final entity = this.entity;
     if (entity != null) {
-      return _HistoryCardFrame(
-        lastViewedAt: record.lastViewedAt,
-        child: _KnownIllustEntry(entity: entity!),
+      // Shared object contract: the card consumes FeedItemExtent for its
+      // preview height and carries the visit date in the meta slot.
+      return IllustCard(
+        entity: entity,
+        meta: EntityMetaText(_formatHistoryDate(record.lastViewedAt)),
+        onLongPress: onLongPress,
       );
     }
     return _HistoryCardFrame(
@@ -263,59 +447,6 @@ class _IllustHistoryEntry extends StatelessWidget {
       child: InkWell(
         onTap: () => openIllust(context, record.contentId),
         child: _SnapshotEntry(record: record, icon: Icons.image_outlined),
-      ),
-    );
-  }
-}
-
-class _KnownIllustEntry extends StatelessWidget {
-  const _KnownIllustEntry({required this.entity});
-
-  final IllustEntity entity;
-
-  @override
-  Widget build(BuildContext context) {
-    final previewHeight = entity.width > 0
-        ? (MediaQuery.sizeOf(context).width - 30) /
-              2 /
-              entity.width *
-              entity.height
-        : 140.0;
-    return InkWell(
-      onTap: () => openIllust(context, entity.id),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              height: previewHeight,
-              width: double.infinity,
-              child: PixivImage.feed(
-                entity.imageUrls.medium,
-                layoutWidth: MediaQuery.sizeOf(context).width / 2,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-            child: Text(
-              entity.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
-            child: Text(
-              entity.user.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -329,24 +460,63 @@ class _NovelHistoryEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = entity == null
-        ? InkWell(
-            onTap: () => openNovel(context, record.contentId),
-            child: _SnapshotEntry(
-              record: record,
-              icon: Icons.menu_book_outlined,
-            ),
-          )
-        : InkWell(
-            onTap: () => openNovel(context, record.contentId),
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = entity?.title ?? record.snapshot.title;
+    final author = entity?.user.name ?? record.snapshot.authorName;
+    final coverUrl = entity?.coverImageUrl ?? record.snapshot.coverUrl;
+    void open() => openNovel(context, record.contentId);
+    return _HistoryCardFrame(
+      lastViewedAt: record.lastViewedAt,
+      // The square cell follows the object contract: PressScale feedback,
+      // an explicit Semantics label, rounded cover and a type badge so
+      // novels stay distinguishable in the mixed history grid.
+      child: PressScale(
+        child: Semantics(
+          container: true,
+          button: true,
+          image: true,
+          label: '$title, $author',
+          onTap: open,
+          child: GestureDetector(
+            excludeFromSemantics: true,
+            onTap: open,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SnapshotCover(record: record, icon: Icons.menu_book_outlined),
+                Stack(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: coverUrl == null
+                            ? ColoredBox(
+                                color: colorScheme.surfaceContainer,
+                                child: const Icon(
+                                  Icons.menu_book_outlined,
+                                  size: 42,
+                                ),
+                              )
+                            : PixivImage.feed(
+                                coverUrl,
+                                layoutWidth:
+                                    MediaQuery.sizeOf(context).width / 2,
+                              ),
+                      ),
+                    ),
+                    const Positioned(
+                      left: 7,
+                      top: 7,
+                      child: EntityBadge(
+                        child: Icon(Icons.menu_book_outlined, size: 18),
+                      ),
+                    ),
+                  ],
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
                   child: Text(
-                    entity!.title,
+                    title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w600),
@@ -355,7 +525,7 @@ class _NovelHistoryEntry extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
                   child: Text(
-                    entity!.user.name,
+                    author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
@@ -363,10 +533,9 @@ class _NovelHistoryEntry extends StatelessWidget {
                 ),
               ],
             ),
-          );
-    return _HistoryCardFrame(
-      lastViewedAt: record.lastViewedAt,
-      child: snapshot,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -388,10 +557,7 @@ class _HistoryCardFrame extends StatelessWidget {
           child,
           Padding(
             padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-            child: Text(
-              _formatHistoryDate(lastViewedAt),
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
+            child: EntityMetaText(_formatHistoryDate(lastViewedAt)),
           ),
         ],
       ),
@@ -462,36 +628,36 @@ Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
     context: context,
     builder: (sheetContext) {
       return SafeArea(
-        child: FractionallySizedBox(
-          heightFactor: 0.35,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                Text(context.l10n.historyDeleteHint),
-                const Spacer(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(false),
-                        child: Text(context.l10n.cancel),
-                      ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            // Wraps content: a fixed fraction of the sheet height overflowed
+            // on short surfaces and left the buttons partially unhit-testable.
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text(context.l10n.historyDeleteHint),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(false),
+                      child: Text(context.l10n.cancel),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(true),
-                        child: Text(context.l10n.confirm),
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(true),
+                      child: Text(context.l10n.confirm),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       );

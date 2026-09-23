@@ -1087,6 +1087,14 @@
       }
     }
   },
+  "localNovelContinue": "続きを読む · {percent}%",
+  "@localNovelContinue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "シリーズ",
   "spotlightTitle": "スポットライト",
   "spotlightArticleLoadFailed": "記事の読み込みに失敗しました",
@@ -1155,5 +1163,30 @@
   "illustInfoJump": "作品情報へ移動",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
+  },
+  "manage": "管理",
+  "@manage": {
+    "description": "Enter the management/selection mode"
+  },
+  "selectedCount": "{n} 件選択中",
+  "@selectedCount": {
+    "description": "AppBar title in selection mode",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "undo": "元に戻す",
+  "@undo": {
+    "description": "SnackBar action that restores a just-removed watch-later entry"
+  },
+  "watchLaterRemoved": "あとで見るから削除しました",
+  "@watchLaterRemoved": {
+    "description": "SnackBar shown after removing a watch-later entry; offers undo"
+  },
+  "watchlistOpenContents": "目次を開く",
+  "@watchlistOpenContents": {
+    "description": "Watchlist sheet action: open the manga series contents page"
   }
 }

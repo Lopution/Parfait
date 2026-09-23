@@ -2313,6 +2313,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String localNovelContinue(int percent) {
+    return 'Continue reading · $percent%';
+  }
+
+  @override
   String get profileSeries => 'Series';
 
   @override
@@ -2417,4 +2422,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get illustInfoJump => 'Jump to artwork info';
+
+  @override
+  String get manage => 'Manage';
+
+  @override
+  String selectedCount(int n) {
+    return '$n selected';
+  }
+
+  @override
+  String get undo => 'Undo';
+
+  @override
+  String get watchLaterRemoved => 'Removed from Watch later';
+
+  @override
+  String get watchlistOpenContents => 'Open contents';
 }
