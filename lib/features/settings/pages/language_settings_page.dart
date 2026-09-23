@@ -27,6 +27,9 @@ class LanguageSettingsPage extends ConsumerWidget {
           children: [
             for (final item in languageItems)
               ListTile(
+                // Same selected-state contract as the theme page: the
+                // trailing check plus Semantics(selected) (R3).
+                selected: settings.languageTag == item.$2,
                 title: Text(item.$1),
                 trailing: settings.languageTag == item.$2
                     ? Icon(
