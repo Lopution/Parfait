@@ -1087,6 +1087,14 @@
       }
     }
   },
+  "localNovelContinue": "继续阅读 · {percent}%",
+  "@localNovelContinue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "系列",
   "spotlightTitle": "特辑",
   "spotlightArticleLoadFailed": "文章加载失败",

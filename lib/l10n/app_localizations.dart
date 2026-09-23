@@ -4301,6 +4301,12 @@ abstract class AppLocalizations {
   /// **'{count} 字'**
   String localNovelsChars(int count);
 
+  /// No description provided for @localNovelContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续阅读 · {percent}%'**
+  String localNovelContinue(int percent);
+
   /// No description provided for @profileSeries.
   ///
   /// In zh, this message translates to:

@@ -2232,6 +2232,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String localNovelContinue(int percent) {
+    return '继续阅读 · $percent%';
+  }
+
+  @override
   String get profileSeries => '系列';
 
   @override

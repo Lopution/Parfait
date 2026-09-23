@@ -2314,6 +2314,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String localNovelContinue(int percent) {
+    return 'Продолжить чтение · $percent%';
+  }
+
+  @override
   String get profileSeries => 'Серии';
 
   @override
