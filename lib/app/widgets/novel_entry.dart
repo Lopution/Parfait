@@ -4,7 +4,6 @@ import '../../core/novel/novel_entity.dart';
 import '../../l10n/context.dart';
 import '../navigation/routes.dart';
 import '../pixiv_image.dart';
-import '../theme/func_tokens.dart';
 import 'entity_row.dart';
 
 /// The single novel list-entry contract — replaces the parallel
@@ -168,7 +167,7 @@ class NovelEntry extends StatelessWidget {
                   ),
           ),
         ),
-        badge: rank == null ? null : _RankBadge(rank!),
+        badge: rank == null ? null : EntityRankBadge(rank!),
         title: entity.title,
         subtitle: entity.user.name,
         meta: '${entity.textLength} ${context.l10n.novelWords}',
@@ -178,28 +177,6 @@ class NovelEntry extends StatelessWidget {
         onLongPress: onLongPress,
         selected: selected,
         semanticLabel: semanticLabel,
-      ),
-    );
-  }
-}
-
-/// Rank pill shared by the ranking variant — same container contract as
-/// the illust card badges ([EntityBadge]) filled with the primary color.
-class _RankBadge extends StatelessWidget {
-  const _RankBadge(this.rank);
-
-  final int rank;
-
-  @override
-  Widget build(BuildContext context) {
-    return EntityBadge(
-      color: Theme.of(context).colorScheme.primary,
-      child: Text(
-        '$rank',
-        style: const TextStyle(
-          color: FuncTokens.lightBackground,
-          fontWeight: FontWeight.bold,
-        ),
       ),
     );
   }

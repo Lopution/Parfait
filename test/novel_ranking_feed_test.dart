@@ -12,6 +12,7 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/app/widgets/novel_entry.dart';
 import 'package:pixiv_func/core/novel/novel_ranking_feed_controller.dart';
 import 'package:pixiv_func/core/novel/novel_repository.dart';
 import 'package:pixiv_func/core/novel/novel_store.dart';
@@ -224,5 +225,39 @@ void main() {
     });
     expect(fixture.requests, hasLength(2));
     expect(fixture.requests.last.queryParameters['mode'], 'day_male');
+  });
+
+  testWidgets('rank badges land on the ranked novel entries', (tester) async {
+    final (container, fixture) = await _makeWorld();
+    addTearDown(container.dispose);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const NovelRankingPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The first day-mode page carries novels 1 and 2; each entry pins
+      // its rank pill to the cover's top-left corner (O4).
+      final entries = find.byType(NovelEntry);
+      expect(entries, findsNWidgets(2));
+      expect(
+        find.descendant(of: entries.at(0), matching: find.text('1')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: entries.at(1), matching: find.text('2')),
+        findsOneWidget,
+      );
+      expect(fixture.requests, isNotEmpty);
+    });
   });
 }
