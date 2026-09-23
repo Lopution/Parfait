@@ -28,6 +28,7 @@ import 'package:pixiv_func/features/comments/comment_item.dart';
 import 'package:pixiv_func/features/comments/comments_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:pixiv_func/l10n/context.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
@@ -953,6 +954,22 @@ void main() {
     expect(state().debugInputState, CommentComposerInputState.none);
   });
 
+  Future<void> pumpCommentsPage(
+    WidgetTester tester,
+    _FakeCommentRepository repo,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          commentRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: composerApp(const CommentsPage(workId: 1)),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
   Future<void> pumpRepliesPage(
     WidgetTester tester,
     _FakeCommentRepository repo, {
@@ -1077,7 +1094,9 @@ void main() {
     expect(
       tester
           .widget<Semantics>(
-            find.ancestor(of: replyText, matching: find.byType(Semantics)).first,
+            find
+                .ancestor(of: replyText, matching: find.byType(Semantics))
+                .first,
           )
           .container,
       isTrue,
@@ -1106,4 +1125,99 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets('send success clears the reply target and the draft', (
+    tester,
+  ) async {
+    await pumpCommentsPage(tester, _FakeCommentRepository());
+
+    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.pump();
+    Finder replyRef() => find.descendant(
+      of: find.byType(CommentComposer),
+      matching: find.textContaining('user 10'),
+    );
+    expect(replyRef(), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'hi there');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.send_outlined));
+    await tester.pumpAndSettle();
+
+    // Success clears both the draft and the pinned reply target.
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      isEmpty,
+    );
+    expect(replyRef(), findsNothing);
+  });
+
+  testWidgets('a mid-flight retarget is not cleared by the old send', (
+    tester,
+  ) async {
+    final repo = _FakeCommentRepository()
+      ..rootComments = [_comment(11, replyCount: 1), _comment(12, userId: 21)]
+      ..addCompleter = Completer<CommentEntity>();
+    await pumpCommentsPage(tester, repo);
+
+    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'hi there');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.send_outlined));
+    await tester.pump();
+
+    // While the first send is in flight the user re-targets comment 12.
+    await tester.tap(find.byIcon(Icons.reply_outlined).last);
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byType(CommentComposer),
+        matching: find.textContaining('user 21'),
+      ),
+      findsOneWidget,
+    );
+
+    repo.addCompleter!.complete(_comment(20));
+    await tester.pumpAndSettle();
+
+    // The completed send must not clear the newer target.
+    expect(
+      find.descendant(
+        of: find.byType(CommentComposer),
+        matching: find.textContaining('user 21'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'replies send failure keeps the draft and target, flags permission',
+    (tester) async {
+      final repo = _FakeCommentRepository()
+        ..addError = const CommentPermissionException();
+      await pumpRepliesPage(tester, repo);
+
+      // The default target is the root author; a failed send keeps it.
+      await tester.enterText(find.byType(TextField), 'keep me');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.send_outlined));
+      await tester.pump();
+      await tester.pump();
+
+      final context = tester.element(find.byType(CommentRepliesPage));
+      expect(find.text(context.l10n.commentPermissionDenied), findsOneWidget);
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+        'keep me',
+      );
+      expect(
+        find.descendant(
+          of: find.byType(CommentComposer),
+          matching: find.textContaining('user 10'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
 }

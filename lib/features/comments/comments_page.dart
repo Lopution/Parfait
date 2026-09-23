@@ -95,6 +95,12 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
             stampId: stampId,
           ),
         );
+    // A successful send drops the reply target — but only when the user has
+    // not re-targeted while the request was in flight.
+    if (mounted &&
+        (identical(_replyTarget, target) || _replyTarget?.id == target?.id)) {
+      setState(() => _replyTarget = null);
+    }
   }
 
   /// Reply pill on a feed row: pin the target and raise the keyboard so
@@ -236,23 +242,31 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   }
 
   Future<void> _send({String? text, int? stampId}) async {
+    final target = _replyTarget;
     await ref
         .read(commentActionsProvider)
         .send(
           CommentAddRequest(
             workId: widget.workId,
             kind: widget.kind,
-            parentCommentId: _replyTarget?.id ?? widget.rootCommentId,
+            parentCommentId: target?.id ?? widget.rootCommentId,
             rootCommentId: widget.rootCommentId,
             text: text,
             stampId: stampId,
           ),
         );
+    if (mounted &&
+        (identical(_replyTarget, target) || _replyTarget?.id == target?.id)) {
+      setState(() => _replyTarget = null);
+    }
   }
 
   void _showMutationError(Object error) {
     if (!mounted) return;
-    showAppSnackBar(context, context.l10n.commentSendFailed);
+    final key = error is CommentPermissionException
+        ? 'commentPermissionDenied'
+        : 'commentSendFailed';
+    showAppSnackBar(context, commentText(context, key));
   }
 
   void _deleteComment(CommentEntity comment) {
