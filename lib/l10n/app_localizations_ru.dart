@@ -1981,6 +1981,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cardActionShare => 'Поделиться';
 
   @override
+  String get share => 'Поделиться';
+
+  @override
+  String get openInBrowser => 'Открыть в браузере';
+
+  @override
   String get linkCopied => 'Ссылка скопирована';
 
   @override

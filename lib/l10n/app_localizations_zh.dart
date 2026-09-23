@@ -1919,6 +1919,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cardActionShare => '分享';
 
   @override
+  String get share => '分享';
+
+  @override
+  String get openInBrowser => '在浏览器打开';
+
+  @override
   String get linkCopied => '链接已复制';
 
   @override

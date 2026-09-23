@@ -9,7 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../core/share/share_service.dart';
 import '../../core/spotlight/spotlight_article_controller.dart';
 import '../../core/spotlight/spotlight_models.dart';
 import '../../core/spotlight/spotlight_store.dart';
@@ -33,6 +35,23 @@ class SpotlightArticlePage extends ConsumerWidget {
 
   String get _url => articleUrl ?? 'https://www.pixivision.net/a/$articleId';
 
+  /// Shares the resolved article link. Platforms without a sharesheet fall
+  /// back to the clipboard inside the service — surface that copy outcome.
+  Future<void> _share(BuildContext context, WidgetRef ref) async {
+    final title =
+        ref.read(spotlightArticleStoreProvider)[articleId]?.title ??
+        context.l10n.spotlightTitle;
+    final outcome = await ref
+        .read(shareServiceProvider)
+        .share(
+          SharePayload(title: title, author: 'pixivision', url: _url),
+          sharePositionOrigin: shareOriginOf(context),
+        );
+    if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
+      showAppSnackBar(context, context.l10n.linkCopied);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entry = ref.watch(spotlightArticleStoreProvider)[articleId];
@@ -46,6 +65,20 @@ class SpotlightArticlePage extends ConsumerWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: context.l10n.share,
+            onPressed: () => unawaited(_share(context, ref)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: context.l10n.openInBrowser,
+            onPressed: () => unawaited(
+              launchUrl(Uri.parse(_url), mode: LaunchMode.externalApplication),
+            ),
+          ),
+        ],
       ),
       body: async.when(
         loading: () => const FeedLoading(),

@@ -877,6 +877,8 @@
   "cardActionWatchLater": "あとで見る",
   "cardActionRemoveWatchLater": "あとで見るから削除",
   "cardActionShare": "共有",
+  "share": "共有",
+  "openInBrowser": "ブラウザで開く",
   "linkCopied": "リンクをコピーしました",
   "copyLink": "リンクをコピー",
   "openLink": "リンクを開く",
