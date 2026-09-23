@@ -351,6 +351,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'novelRetry' => l10n.novelRetry,
   'novelSeries' => l10n.novelSeries,
   'novelSeriesUnavailable' => l10n.novelSeriesUnavailable,
+  'novelSettingsSaveFailed' => l10n.novelSettingsSaveFailed,
   'novelThemeNight' => l10n.novelThemeNight,
   'novelThemePaper' => l10n.novelThemePaper,
   'novelThemeSepia' => l10n.novelThemeSepia,

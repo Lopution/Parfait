@@ -1,8 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:pixiv_func/core/novel/novel_entity.dart';
+import 'package:pixiv_func/core/novel/reader_settings.dart';
+import 'package:pixiv_func/core/settings/shared_preferences.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/features/novel/novel_layout.dart';
 import 'package:pixiv_func/features/novel/novel_reader_stage.dart';
@@ -65,6 +68,66 @@ void main() {
     expect(binding.saves, isEmpty);
     expect(binding.loadCalls, 1);
   });
+
+  testWidgets('settings sliders span exactly the model clamp range', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_stageApp(_RecordingBinding()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.tune_outlined));
+    await tester.pumpAndSettle();
+
+    final sliders = tester
+        .widgetList<Slider>(find.byType(Slider))
+        .toList();
+    expect(sliders, hasLength(2));
+    expect(sliders[0].min, NovelReaderSettings.minFontSize);
+    expect(sliders[0].max, NovelReaderSettings.maxFontSize);
+    expect(sliders[1].min, NovelReaderSettings.minLineHeight);
+    expect(sliders[1].max, NovelReaderSettings.maxLineHeight);
+  });
+
+  testWidgets('a failed settings save surfaces a snackbar', (tester) async {
+    await tester.pumpWidget(
+      _stageApp(
+        _RecordingBinding(),
+        preferences: _FailingPreferences(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.text_decrease_outlined));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(SnackBar), findsOneWidget);
+
+    // The in-memory value still applied — the snackbar reports the
+    // persistence failure rather than silently dropping it. Dismiss it
+    // programmatically so it stops covering the bottom bar.
+    ScaffoldMessenger.of(
+      tester.element(find.byType(Scaffold).first),
+    ).hideCurrentSnackBar();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.tune_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('16'), findsOneWidget);
+  });
+}
+
+/// setString always fails — the in-memory platform still backs getString
+/// so the settings load returns defaults.
+class _FailingPreferences extends SharedPreferencesAsync {
+  @override
+  Future<void> setString(String key, String value) =>
+      Future.error(StateError('disk full'));
 }
 
 class _RecordingBinding implements ReaderProgressBinding {
@@ -86,8 +149,16 @@ class _RecordingBinding implements ReaderProgressBinding {
   }
 }
 
-Widget _stageApp(_RecordingBinding binding, {String? text}) {
+Widget _stageApp(
+  _RecordingBinding binding, {
+  String? text,
+  SharedPreferencesAsync? preferences,
+}) {
   return ProviderScope(
+    overrides: [
+      if (preferences != null)
+        sharedPreferencesProvider.overrideWithValue(preferences),
+    ],
     child: MaterialApp(
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

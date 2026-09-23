@@ -153,7 +153,20 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
 
   void _applySettings(NovelReaderSettings next) {
     setState(() => _settings = next);
-    unawaited(ref.read(novelReaderSettingsStoreProvider).save(next));
+    unawaited(_saveSettings(next));
+  }
+
+  /// Immediate write-through for the settings sheet. A failed save must
+  /// be visible — silently dropping it would leave the on-screen values
+  /// pretending to be persisted.
+  Future<void> _saveSettings(NovelReaderSettings next) async {
+    try {
+      await ref.read(novelReaderSettingsStoreProvider).save(next);
+    } catch (error) {
+      if (mounted) {
+        showAppSnackBar(context, context.l10n.novelSettingsSaveFailed);
+      }
+    }
   }
 
   void _persistAnchor(NovelAnchor anchor) {
@@ -396,15 +409,18 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
                     _SettingsSliderRow(
                       label: l10n.novelFontSize,
                       value: _settings.fontSize,
-                      min: 12,
-                      max: 30,
+                      min: NovelReaderSettings.minFontSize,
+                      max: NovelReaderSettings.maxFontSize,
                       onChanged: (v) => apply(_settings.copyWith(fontSize: v)),
                     ),
+                    // Slider range == the model's clamp range (1.3–2.4):
+                    // the old 1.1–2.2 span was a dead zone at the bottom
+                    // and unreachable at the top.
                     _SettingsSliderRow(
                       label: l10n.novelLineHeight,
                       value: _settings.lineHeight,
-                      min: 1.1,
-                      max: 2.2,
+                      min: NovelReaderSettings.minLineHeight,
+                      max: NovelReaderSettings.maxLineHeight,
                       divisions: 11,
                       onChanged: (v) =>
                           apply(_settings.copyWith(lineHeight: v)),

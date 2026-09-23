@@ -3720,6 +3720,12 @@ abstract class AppLocalizations {
   /// **'阅读设置'**
   String get novelReaderSettings;
 
+  /// No description provided for @novelSettingsSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'阅读设置保存失败'**
+  String get novelSettingsSaveFailed;
+
   /// No description provided for @novelFontSize.
   ///
   /// In zh, this message translates to:
