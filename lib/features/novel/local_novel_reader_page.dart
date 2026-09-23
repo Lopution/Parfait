@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
@@ -9,9 +8,9 @@ import '../../core/localnovel/local_novel_repository.dart';
 import '../../core/localnovel/read_offset_anchor.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/user/user_entity.dart';
-import 'novel_layout.dart';
-import 'novel_reader.dart';
 import '../../l10n/context.dart';
+import 'novel_layout.dart';
+import 'novel_reader_stage.dart';
 
 /// Loaded local novel: the index row plus the decoded text on disk.
 final _localNovelContentProvider = FutureProvider.autoDispose
@@ -25,7 +24,7 @@ final _localNovelContentProvider = FutureProvider.autoDispose
     });
 
 /// Local TXT reader — feeds the imported text into the shared
-/// [NovelReader]/layout engine as a synthetic [NovelEntity] and persists a
+/// [NovelReaderStage] as a synthetic [NovelEntity] and persists a
 /// character-offset reading cursor in `local_novels.read_offset`.
 class LocalNovelReaderPage extends ConsumerWidget {
   const LocalNovelReaderPage({super.key, required this.localId});
@@ -36,72 +35,43 @@ class LocalNovelReaderPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_localNovelContentProvider(localId));
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.localNovelsTitle)),
       body: async.when(
-        loading: () => const FeedLoading(),
-        error: (error, _) => FeedError(
-          title: context.l10n.localNovelsLoadFailed,
-          error: error,
-          retryLabel: context.l10n.retry,
-          onRetry: () => ref.invalidate(_localNovelContentProvider(localId)),
+        loading: () =>
+            const NovelStatusScaffold(child: FeedLoading()),
+        error: (error, _) => NovelStatusScaffold(
+          child: FeedError(
+            title: context.l10n.localNovelsLoadFailed,
+            error: error,
+            retryLabel: context.l10n.retry,
+            onRetry: () =>
+                ref.invalidate(_localNovelContentProvider(localId)),
+          ),
         ),
         data: (loaded) =>
-            _LocalNovelReaderBody(novel: loaded.$1, text: loaded.$2),
+            _buildReader(context, ref, novel: loaded.$1, text: loaded.$2),
       ),
     );
   }
-}
 
-class _LocalNovelReaderBody extends ConsumerWidget {
-  const _LocalNovelReaderBody({required this.novel, required this.text});
-
-  final LocalNovel novel;
-  final String text;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget _buildReader(
+    BuildContext context,
+    WidgetRef ref, {
+    required LocalNovel novel,
+    required String text,
+  }) {
     final entity = _entityFor(novel, text);
-    // Restore the persisted read cursor: the stored character offset maps
-    // back to the paragraph anchor the reader consumes on first layout.
-    final restored = novelAnchorForReadOffset(novel.readOffset, text);
-    return Column(
-      children: [
-        ListTile(
-          title: Text(
-            novel.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(context.l10n.localNovelsChars(novel.charCount)),
-          dense: true,
+    return NovelReaderStage(
+      spec: NovelReaderStageSpec(
+        novel: entity,
+        infoTooltip: context.l10n.localNovelsTitle,
+        infoSheet: (_) => _LocalNovelInfoSheet(novel: novel),
+        progress: _LocalProgressBinding(
+          ProviderScope.containerOf(context, listen: false),
+          novel: novel,
+          text: text,
+          entity: entity,
         ),
-        Expanded(
-          child: NovelReader(
-            novel: entity,
-            initialAnchor: restored == null
-                ? null
-                : NovelAnchor(
-                    paragraphId: restored.paragraphId,
-                    offset: restored.offset,
-                  ),
-            onAnchorChanged: (anchor, cause) =>
-                _persistCursor(ref, entity, anchor),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Converts the anchor (paragraph id + intra-paragraph offset) into a
-  /// character offset in the stored text and records it.
-  void _persistCursor(WidgetRef ref, NovelEntity entity, NovelAnchor anchor) {
-    var offset = anchor.offset;
-    for (final paragraph in entity.paragraphs) {
-      if (paragraph.id == anchor.paragraphId) break;
-      offset += paragraph.text.length + 1;
-    }
-    unawaited(
-      ref.read(localNovelRepositoryProvider).updateReadOffset(novel.id, offset),
+      ),
     );
   }
 
@@ -122,5 +92,70 @@ class _LocalNovelReaderBody extends ConsumerWidget {
           NovelParagraph(id: 'p$i', text: lines[i]),
       ],
     );
+  }
+}
+
+/// File-info sheet content — the stage owns presentation; this owns the
+/// fields a local TXT file can describe.
+class _LocalNovelInfoSheet extends StatelessWidget {
+  const _LocalNovelInfoSheet({required this.novel});
+
+  final LocalNovel novel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(novel.title, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Text(context.l10n.localNovelsChars(novel.charCount)),
+        ],
+      ),
+    );
+  }
+}
+
+/// `read_offset` persistence behind the stage: `load` maps the stored
+/// character offset back to a paragraph anchor, `save` converts the
+/// user-committed anchor into a character offset. Both directions treat
+/// the `\n` separator as one character so write → read is a stable
+/// round trip.
+class _LocalProgressBinding implements ReaderProgressBinding {
+  const _LocalProgressBinding(
+    this._container, {
+    required this.novel,
+    required this.text,
+    required this.entity,
+  });
+
+  final ProviderContainer _container;
+  final LocalNovel novel;
+  final String text;
+  final NovelEntity entity;
+
+  @override
+  Future<NovelAnchor?> load() async {
+    final restored = novelAnchorForReadOffset(novel.readOffset, text);
+    if (restored == null) return null;
+    return NovelAnchor(
+      paragraphId: restored.paragraphId,
+      offset: restored.offset,
+    );
+  }
+
+  @override
+  Future<void> save(NovelAnchor anchor) {
+    var offset = anchor.offset;
+    for (final paragraph in entity.paragraphs) {
+      if (paragraph.id == anchor.paragraphId) break;
+      offset += paragraph.text.length + 1;
+    }
+    return _container
+        .read(localNovelRepositoryProvider)
+        .updateReadOffset(novel.id, offset);
   }
 }
