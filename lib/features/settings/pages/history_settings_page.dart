@@ -24,41 +24,44 @@ class HistorySettingsPage extends ConsumerWidget {
     }
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.historySettings)),
-      body: ListView(
-        children: [
-          SettingsControl(
-            title: Text(context.l10n.localHistory),
-            value: settings.enableHistory,
-            onChanged: (value) => persistSettings(
-              context,
-              () =>
-                  ref.read(settingsProvider.notifier).setHistoryEnabled(value),
+      body: settingsNarrowBody(
+        ListView(
+          children: [
+            SettingsControl(
+              title: Text(context.l10n.localHistory),
+              value: settings.enableHistory,
+              onChanged: (value) => persistSettings(
+                context,
+                () => ref
+                    .read(settingsProvider.notifier)
+                    .setHistoryEnabled(value),
+              ),
             ),
-          ),
-          SettingsControl(
-            title: Text(context.l10n.pixivHistory),
-            value: settings.enablePixivHistory,
-            onChanged: (value) => persistSettings(
-              context,
-              () => ref
-                  .read(settingsProvider.notifier)
-                  .setPixivHistoryEnabled(value),
+            SettingsControl(
+              title: Text(context.l10n.pixivHistory),
+              value: settings.enablePixivHistory,
+              onChanged: (value) => persistSettings(
+                context,
+                () => ref
+                    .read(settingsProvider.notifier)
+                    .setPixivHistoryEnabled(value),
+              ),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.history_outlined),
-            title: Text(context.l10n.historyView),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => openHistory(context),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              context.l10n.historySettingsHint,
-              style: Theme.of(context).textTheme.bodySmall,
+            ListTile(
+              leading: const Icon(Icons.history_outlined),
+              title: Text(context.l10n.historyView),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => openHistory(context),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                context.l10n.historySettingsHint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

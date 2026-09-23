@@ -138,234 +138,241 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
     final autoWinner = ref.watch(autoImageSourceWinnerProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.browseSettings)),
-      body: ListView(
-        children: [
-          SettingsSection(title: Text(context.l10n.imageSource)),
-          for (final mode in _presets)
+      body: settingsNarrowBody(
+        ListView(
+          children: [
+            SettingsSection(title: Text(context.l10n.imageSource)),
+            for (final mode in _presets)
+              ListTile(
+                title: Text(imageSourceLabel(context, mode)),
+                subtitle: switch (mode) {
+                  ImageSourceMode.pixivCat => Text(
+                    context.l10n.imageSourceUnreachableMainland,
+                  ),
+                  ImageSourceMode.auto => Text(
+                    autoWinner == null
+                        ? context.l10n.imageSourceAutoPending
+                        : context.l10n.imageSourceAutoWinner(autoWinner),
+                  ),
+                  _ => null,
+                },
+                trailing: settings.imageSource == mode.host
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => _selectSource(mode.host),
+              ),
             ListTile(
-              title: Text(imageSourceLabel(context, mode)),
-              subtitle: switch (mode) {
-                ImageSourceMode.pixivCat => Text(
-                  context.l10n.imageSourceUnreachableMainland,
-                ),
-                ImageSourceMode.auto => Text(
-                  autoWinner == null
-                      ? context.l10n.imageSourceAutoPending
-                      : context.l10n.imageSourceAutoWinner(autoWinner),
-                ),
-                _ => null,
-              },
-              trailing: settings.imageSource == mode.host
+              title: Text(context.l10n.imageSourceCustom),
+              subtitle: Text(
+                settings.customImageSource ??
+                    context.l10n.imageSourceCustomUnset,
+              ),
+              trailing: isCustom
                   ? Icon(
                       Icons.check,
                       color: Theme.of(context).colorScheme.primary,
                     )
                   : null,
-              onTap: () => _selectSource(mode.host),
+              onTap: () {
+                final saved = settings.customImageSource;
+                if (saved != null) {
+                  _selectSource(saved);
+                } else {
+                  _customFocusNode.requestFocus();
+                }
+              },
             ),
-          ListTile(
-            title: Text(context.l10n.imageSourceCustom),
-            subtitle: Text(
-              settings.customImageSource ?? context.l10n.imageSourceCustomUnset,
-            ),
-            trailing: isCustom
-                ? Icon(
-                    Icons.check,
-                    color: Theme.of(context).colorScheme.primary,
-                  )
-                : null,
-            onTap: () {
-              final saved = settings.customImageSource;
-              if (saved != null) {
-                _selectSource(saved);
-              } else {
-                _customFocusNode.requestFocus();
-              }
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: TextField(
-              controller: _customController,
-              focusNode: _customFocusNode,
-              decoration: InputDecoration(
-                labelText: context.l10n.imageSourceCustom,
-                helperText: context.l10n.imageSourceCustomHint,
-                border: const OutlineInputBorder(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: TextField(
+                controller: _customController,
+                focusNode: _customFocusNode,
+                decoration: InputDecoration(
+                  labelText: context.l10n.imageSourceCustom,
+                  helperText: context.l10n.imageSourceCustomHint,
+                  border: const OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() => _customDirty = true),
               ),
-              onChanged: (_) => setState(() => _customDirty = true),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Wrap(
-                spacing: 8,
-                children: [
-                  FilledButton.tonal(
-                    onPressed: _testingMirror ? null : _saveCustomSource,
-                    child: Text(context.l10n.save),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: _testingMirror ? null : _testMirror,
-                    icon: _testingMirror
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.network_check, size: 18),
-                    label: Text(context.l10n.imageSourceApplyAndTest),
-                  ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    FilledButton.tonal(
+                      onPressed: _testingMirror ? null : _saveCustomSource,
+                      child: Text(context.l10n.save),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: _testingMirror ? null : _testMirror,
+                      icon: _testingMirror
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.network_check, size: 18),
+                      label: Text(context.l10n.imageSourceApplyAndTest),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                context.l10n.previewQuality,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<PreviewQuality>(
+                segments: [
+                  for (final quality in PreviewQuality.values)
+                    ButtonSegment<PreviewQuality>(
+                      value: quality,
+                      label: Text(_qualityText(context, quality)),
+                    ),
                 ],
+                selected: {settings.previewQuality},
+                onSelectionChanged: (selected) => persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .setPreviewQuality(selected.first),
+                ),
               ),
             ),
-          ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              context.l10n.previewQuality,
-              style: Theme.of(context).textTheme.titleSmall,
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                context.l10n.detailQuality,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<PreviewQuality>(
-              segments: [
-                for (final quality in PreviewQuality.values)
-                  ButtonSegment<PreviewQuality>(
-                    value: quality,
-                    label: Text(_qualityText(context, quality)),
-                  ),
-              ],
-              selected: {settings.previewQuality},
-              onSelectionChanged: (selected) => persistSettings(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<DetailQuality>(
+                segments: [
+                  for (final quality in const [
+                    DetailQuality.large,
+                    DetailQuality.original,
+                  ])
+                    ButtonSegment<DetailQuality>(
+                      value: quality,
+                      label: Text(_qualityText(context, quality)),
+                    ),
+                ],
+                selected: {settings.detailQuality},
+                onSelectionChanged: (selected) => persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .setDetailQuality(selected.first),
+                ),
+              ),
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                context.l10n.viewQuality,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SegmentedButton<ViewQuality>(
+                segments: [
+                  for (final quality in const [
+                    ViewQuality.large,
+                    ViewQuality.original,
+                  ])
+                    ButtonSegment<ViewQuality>(
+                      value: quality,
+                      label: Text(_qualityText(context, quality)),
+                    ),
+                ],
+                selected: {settings.viewQuality},
+                onSelectionChanged: (selected) => persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .setViewQuality(selected.first),
+                ),
+              ),
+            ),
+            const Divider(),
+            SettingsControl(
+              title: Text(context.l10n.pixivHistory),
+              value: settings.enablePixivHistory,
+              onChanged: (value) => persistSettings(
                 context,
                 () => ref
                     .read(settingsProvider.notifier)
-                    .setPreviewQuality(selected.first),
+                    .setPixivHistoryEnabled(value),
               ),
             ),
-          ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              context.l10n.detailQuality,
-              style: Theme.of(context).textTheme.titleSmall,
+            SettingsControl(
+              title: Text(context.l10n.blockR18),
+              value: settings.enableLocalBlockR18,
+              onChanged: (value) => persistSettings(
+                context,
+                () =>
+                    ref.read(settingsProvider.notifier).setLocalBlockR18(value),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<DetailQuality>(
-              segments: [
-                for (final quality in const [
-                  DetailQuality.large,
-                  DetailQuality.original,
-                ])
-                  ButtonSegment<DetailQuality>(
-                    value: quality,
-                    label: Text(_qualityText(context, quality)),
-                  ),
-              ],
-              selected: {settings.detailQuality},
-              onSelectionChanged: (selected) => persistSettings(
+            SettingsControl(
+              title: Text(context.l10n.blockAI),
+              value: settings.enableLocalBlockAI,
+              onChanged: (value) => persistSettings(
+                context,
+                () =>
+                    ref.read(settingsProvider.notifier).setLocalBlockAI(value),
+              ),
+            ),
+            SettingsControl(
+              title: Text(context.l10n.hideMuted),
+              subtitle: Text(context.l10n.hideMutedHint),
+              value: settings.hideMuted,
+              onChanged: (value) => persistSettings(
+                context,
+                () => ref.read(settingsProvider.notifier).setHideMuted(value),
+              ),
+            ),
+            const Divider(),
+            SettingsControl(
+              title: Text(context.l10n.reduceMotion),
+              subtitle: Text(context.l10n.reduceMotionHint),
+              value: settings.reduceMotion,
+              onChanged: (value) => persistSettings(
+                context,
+                () =>
+                    ref.read(settingsProvider.notifier).setReduceMotion(value),
+              ),
+            ),
+            SettingsControl(
+              title: Text(context.l10n.enableHaptics),
+              subtitle: Text(context.l10n.enableHapticsHint),
+              value: settings.enableHaptics,
+              onChanged: (value) => persistSettings(
                 context,
                 () => ref
                     .read(settingsProvider.notifier)
-                    .setDetailQuality(selected.first),
+                    .setHapticsEnabled(value),
               ),
             ),
-          ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text(
-              context.l10n.viewQuality,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<ViewQuality>(
-              segments: [
-                for (final quality in const [
-                  ViewQuality.large,
-                  ViewQuality.original,
-                ])
-                  ButtonSegment<ViewQuality>(
-                    value: quality,
-                    label: Text(_qualityText(context, quality)),
-                  ),
-              ],
-              selected: {settings.viewQuality},
-              onSelectionChanged: (selected) => persistSettings(
-                context,
-                () => ref
-                    .read(settingsProvider.notifier)
-                    .setViewQuality(selected.first),
-              ),
-            ),
-          ),
-          const Divider(),
-          SettingsControl(
-            title: Text(context.l10n.pixivHistory),
-            value: settings.enablePixivHistory,
-            onChanged: (value) => persistSettings(
-              context,
-              () => ref
-                  .read(settingsProvider.notifier)
-                  .setPixivHistoryEnabled(value),
-            ),
-          ),
-          SettingsControl(
-            title: Text(context.l10n.blockR18),
-            value: settings.enableLocalBlockR18,
-            onChanged: (value) => persistSettings(
-              context,
-              () => ref.read(settingsProvider.notifier).setLocalBlockR18(value),
-            ),
-          ),
-          SettingsControl(
-            title: Text(context.l10n.blockAI),
-            value: settings.enableLocalBlockAI,
-            onChanged: (value) => persistSettings(
-              context,
-              () => ref.read(settingsProvider.notifier).setLocalBlockAI(value),
-            ),
-          ),
-          SettingsControl(
-            title: Text(context.l10n.hideMuted),
-            subtitle: Text(context.l10n.hideMutedHint),
-            value: settings.hideMuted,
-            onChanged: (value) => persistSettings(
-              context,
-              () => ref.read(settingsProvider.notifier).setHideMuted(value),
-            ),
-          ),
-          const Divider(),
-          SettingsControl(
-            title: Text(context.l10n.reduceMotion),
-            subtitle: Text(context.l10n.reduceMotionHint),
-            value: settings.reduceMotion,
-            onChanged: (value) => persistSettings(
-              context,
-              () => ref.read(settingsProvider.notifier).setReduceMotion(value),
-            ),
-          ),
-          SettingsControl(
-            title: Text(context.l10n.enableHaptics),
-            subtitle: Text(context.l10n.enableHapticsHint),
-            value: settings.enableHaptics,
-            onChanged: (value) => persistSettings(
-              context,
-              () =>
-                  ref.read(settingsProvider.notifier).setHapticsEnabled(value),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

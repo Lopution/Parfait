@@ -56,118 +56,122 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final destination = settings.downloadDestination;
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.downloadSettings)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            '${context.l10n.maxDownloadCount}: $_draftMaxDownloads',
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          Slider(
-            min: 1,
-            max: 10,
-            divisions: 9,
-            value: (_draftMaxDownloads ?? settings.maxDownloadCount).toDouble(),
-            label: '$_draftMaxDownloads',
-            onChanged: (value) =>
-                setState(() => _draftMaxDownloads = value.round()),
-            onChangeEnd: (value) => _saveMaxDownloads(value.round()),
-          ),
-          const Divider(),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(context.l10n.saveLocation),
-            subtitle: Text(downloadDestinationLabel(context, destination)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push<void>('/settings/download/destination'),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(context.l10n.downloadCaption),
-            subtitle: Text(context.l10n.downloadCaptionHint),
-            value: settings.downloadCaption,
-            onChanged: (enabled) => persistSettings(
-              context,
-              () => ref
-                  .read(settingsProvider.notifier)
-                  .setDownloadCaption(enabled),
+      body: settingsNarrowBody(
+        ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              '${context.l10n.maxDownloadCount}: $_draftMaxDownloads',
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-          ),
-          const Divider(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
-            child: Text(
-              context.l10n.namingPreset,
-              style: Theme.of(context).textTheme.titleSmall,
+            Slider(
+              min: 1,
+              max: 10,
+              divisions: 9,
+              value: (_draftMaxDownloads ?? settings.maxDownloadCount)
+                  .toDouble(),
+              label: '$_draftMaxDownloads',
+              onChanged: (value) =>
+                  setState(() => _draftMaxDownloads = value.round()),
+              onChangeEnd: (value) => _saveMaxDownloads(value.round()),
             ),
-          ),
-          for (final preset in NamingPreset.values)
+            const Divider(),
             ListTile(
-              title: Text(namingPresetLabel(context, preset)),
-              trailing: namingRule.preset == preset
-                  ? Icon(
-                      Icons.check,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () => persistSettings(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.l10n.saveLocation),
+              subtitle: Text(downloadDestinationLabel(context, destination)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push<void>('/settings/download/destination'),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.l10n.downloadCaption),
+              subtitle: Text(context.l10n.downloadCaptionHint),
+              value: settings.downloadCaption,
+              onChanged: (enabled) => persistSettings(
                 context,
                 () => ref
                     .read(settingsProvider.notifier)
-                    .setNamingRule(NamingRule(preset: preset)),
+                    .setDownloadCaption(enabled),
               ),
             ),
-          if (namingRule.preset == NamingPreset.custom) ...[
-            TextField(
-              controller: _templateController,
-              focusNode: _templateFocusNode,
-              decoration: InputDecoration(
-                labelText: context.l10n.namingTemplate,
-                hintText: settingsText(context, 'namingTemplateHint'),
-                errorText: !NamingRule.isValidTemplate(_templateController.text)
-                    ? context.l10n.namingTemplateInvalid
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+              child: Text(
+                context.l10n.namingPreset,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            for (final preset in NamingPreset.values)
+              ListTile(
+                title: Text(namingPresetLabel(context, preset)),
+                trailing: namingRule.preset == preset
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
                     : null,
-              ),
-              maxLength: 128,
-              onChanged: (_) => setState(() {}),
-            ),
-            Text(
-              '${context.l10n.namingPreview}: '
-              '${_previewName(context, namingRule.preset == NamingPreset.custom ? NamingRule(preset: NamingPreset.custom, template: _templateController.text) : namingRule)}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.namingTemplateVariables(
-                NamingRule.supportedVariables
-                    .map((name) => '{$name}')
-                    .join(' '),
-              ),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            FilledButton(
-              onPressed: () async {
-                final template = _templateController.text.trim();
-                if (!NamingRule.isValidTemplate(template)) return;
-                final saved = await persistSettings(
+                onTap: () => persistSettings(
                   context,
                   () => ref
                       .read(settingsProvider.notifier)
-                      .setNamingRule(
-                        NamingRule(
-                          preset: NamingPreset.custom,
-                          template: template,
+                      .setNamingRule(NamingRule(preset: preset)),
+                ),
+              ),
+            if (namingRule.preset == NamingPreset.custom) ...[
+              TextField(
+                controller: _templateController,
+                focusNode: _templateFocusNode,
+                decoration: InputDecoration(
+                  labelText: context.l10n.namingTemplate,
+                  hintText: settingsText(context, 'namingTemplateHint'),
+                  errorText:
+                      !NamingRule.isValidTemplate(_templateController.text)
+                      ? context.l10n.namingTemplateInvalid
+                      : null,
+                ),
+                maxLength: 128,
+                onChanged: (_) => setState(() {}),
+              ),
+              Text(
+                '${context.l10n.namingPreview}: '
+                '${_previewName(context, namingRule.preset == NamingPreset.custom ? NamingRule(preset: NamingPreset.custom, template: _templateController.text) : namingRule)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.namingTemplateVariables(
+                  NamingRule.supportedVariables
+                      .map((name) => '{$name}')
+                      .join(' '),
+                ),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final template = _templateController.text.trim();
+                  if (!NamingRule.isValidTemplate(template)) return;
+                  final saved = await persistSettings(
+                    context,
+                    () => ref
+                        .read(settingsProvider.notifier)
+                        .setNamingRule(
+                          NamingRule(
+                            preset: NamingPreset.custom,
+                            template: template,
+                          ),
                         ),
-                      ),
-                );
-                if (saved && context.mounted) {
-                  showAppSnackBar(context, context.l10n.saved);
-                }
-              },
-              child: Text(context.l10n.save),
-            ),
+                  );
+                  if (saved && context.mounted) {
+                    showAppSnackBar(context, context.l10n.saved);
+                  }
+                },
+                child: Text(context.l10n.save),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

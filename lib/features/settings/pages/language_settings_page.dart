@@ -22,24 +22,27 @@ class LanguageSettingsPage extends ConsumerWidget {
     }
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.languageSettings)),
-      body: ListView(
-        children: [
-          for (final item in languageItems)
-            ListTile(
-              title: Text(item.$1),
-              trailing: settings.languageTag == item.$2
-                  ? Icon(
-                      Icons.check,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () => persistSettings(
-                context,
-                () =>
-                    ref.read(settingsProvider.notifier).selectLanguage(item.$2),
+      body: settingsNarrowBody(
+        ListView(
+          children: [
+            for (final item in languageItems)
+              ListTile(
+                title: Text(item.$1),
+                trailing: settings.languageTag == item.$2
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .selectLanguage(item.$2),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

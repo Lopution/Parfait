@@ -205,89 +205,91 @@ class _TranslationCredentialsPageState
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (widget.baidu)
-            _credentialField(
-              controller: _appIdController,
-              label: context.l10n.translateBaiduAppId,
-              obscure: false,
-            )
-          else
-            _credentialField(
-              controller: _baseUrlController,
-              label: context.l10n.translateLlmBaseUrl,
-              obscure: false,
-              hint: 'https://api.example.com/v1',
-            ),
-          if (widget.baidu)
-            _credentialField(
-              controller: _secretController,
-              label: context.l10n.translateBaiduSecret,
-              obscure: true,
-            )
-          else
-            _credentialField(
-              controller: _apiKeyController,
-              label: context.l10n.translateLlmApiKey,
-              obscure: true,
-            ),
-          if (!widget.baidu)
-            _credentialField(
-              controller: _modelController,
-              label: context.l10n.translateLlmModel,
-              obscure: false,
-            ),
-          const SizedBox(height: 8),
-          if (_status != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                _status!,
-                style: TextStyle(
-                  color: _statusIsError
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).colorScheme.primary,
+      body: settingsNarrowBody(
+        ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (widget.baidu)
+              _credentialField(
+                controller: _appIdController,
+                label: context.l10n.translateBaiduAppId,
+                obscure: false,
+              )
+            else
+              _credentialField(
+                controller: _baseUrlController,
+                label: context.l10n.translateLlmBaseUrl,
+                obscure: false,
+                hint: 'https://api.example.com/v1',
+              ),
+            if (widget.baidu)
+              _credentialField(
+                controller: _secretController,
+                label: context.l10n.translateBaiduSecret,
+                obscure: true,
+              )
+            else
+              _credentialField(
+                controller: _apiKeyController,
+                label: context.l10n.translateLlmApiKey,
+                obscure: true,
+              ),
+            if (!widget.baidu)
+              _credentialField(
+                controller: _modelController,
+                label: context.l10n.translateLlmModel,
+                obscure: false,
+              ),
+            const SizedBox(height: 8),
+            if (_status != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  _status!,
+                  style: TextStyle(
+                    color: _statusIsError
+                        ? Theme.of(context).colorScheme.error
+                        : Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
+            FilledButton.icon(
+              onPressed: _busy ? null : _save,
+              icon: _busy && !_clearing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: Text(context.l10n.translateCredentialsSave),
             ),
-          FilledButton.icon(
-            onPressed: _busy ? null : _save,
-            icon: _busy && !_clearing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: Text(context.l10n.translateCredentialsSave),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _clear,
-            icon: _busy && _clearing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.delete_outline),
-            label: Text(context.l10n.translateCredentialsClear),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Text(
-              settingsText(
-                context,
-                widget.baidu
-                    ? 'translateBaiduHint'
-                    : 'translateLlmCredentialHint',
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _clear,
+              icon: _busy && _clearing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline),
+              label: Text(context.l10n.translateCredentialsClear),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Text(
+                settingsText(
+                  context,
+                  widget.baidu
+                      ? 'translateBaiduHint'
+                      : 'translateLlmCredentialHint',
+                ),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              style: Theme.of(context).textTheme.bodySmall,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

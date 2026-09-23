@@ -9,6 +9,7 @@ import '../../../core/entity/illust_store.dart';
 import '../../../core/mute/mute_models.dart';
 import '../../../core/mute/mute_store.dart';
 import '../../../l10n/context.dart';
+import '../settings_helpers.dart';
 
 /// Muted items management: tags and users mirror the official client's
 /// `/v1/mute` list; works are local-only (no official endpoint). Removing
@@ -64,74 +65,78 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
     final works = state.workIds.toList()..sort();
     return Scaffold(
       appBar: AppBar(title: Text(l10n.mutedItemsSettings)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _SectionHeader(l10n.mutedTagsSection),
-          TextField(
-            controller: _controller,
-            decoration: InputDecoration(
-              labelText: l10n.muteTagInputHint,
-              suffixIcon: IconButton(
-                tooltip: l10n.add,
-                icon: const Icon(Icons.add),
-                onPressed: () => _addTag(_controller.text),
+      body: settingsNarrowBody(
+        ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _SectionHeader(l10n.mutedTagsSection),
+            TextField(
+              controller: _controller,
+              decoration: InputDecoration(
+                labelText: l10n.muteTagInputHint,
+                suffixIcon: IconButton(
+                  tooltip: l10n.add,
+                  icon: const Icon(Icons.add),
+                  onPressed: () => _addTag(_controller.text),
+                ),
               ),
+              onSubmitted: _addTag,
             ),
-            onSubmitted: _addTag,
-          ),
-          for (final tag in tags)
-            ListTile(
-              dense: true,
-              title: Text(tag),
-              onTap: () => openTagSearch(context, tag),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: l10n.unmuteTag,
-                onPressed: state.pending.contains(MuteKey.tag(tag))
+            for (final tag in tags)
+              ListTile(
+                dense: true,
+                title: Text(tag),
+                onTap: () => openTagSearch(context, tag),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: l10n.unmuteTag,
+                  onPressed: state.pending.contains(MuteKey.tag(tag))
+                      ? null
+                      : () => _unmute(() => store.toggleTag(tag)),
+                ),
+              ),
+            const Divider(),
+            _SectionHeader(l10n.mutedUsersSection),
+            for (final user in users)
+              ListTile(
+                dense: true,
+                title: Text(user.name),
+                subtitle: user.account == null
                     ? null
-                    : () => _unmute(() => store.toggleTag(tag)),
+                    : Text('@${user.account}'),
+                onTap: () => openUser(context, user.userId),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: l10n.unmuteAuthor,
+                  onPressed: state.pending.contains(MuteKey.user(user.userId))
+                      ? null
+                      : () => _unmute(() => store.toggleUser(user)),
+                ),
               ),
-            ),
-          const Divider(),
-          _SectionHeader(l10n.mutedUsersSection),
-          for (final user in users)
-            ListTile(
-              dense: true,
-              title: Text(user.name),
-              subtitle: user.account == null ? null : Text('@${user.account}'),
-              onTap: () => openUser(context, user.userId),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: l10n.unmuteAuthor,
-                onPressed: state.pending.contains(MuteKey.user(user.userId))
-                    ? null
-                    : () => _unmute(() => store.toggleUser(user)),
+            const Divider(),
+            _SectionHeader(l10n.mutedWorksSection),
+            for (final id in works)
+              ListTile(
+                dense: true,
+                title: Text(
+                  ref.watch(illustStoreProvider).get(id)?.title ?? '#$id',
+                ),
+                onTap: () => openIllust(context, id),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: l10n.unmuteWork,
+                  onPressed: state.pending.contains(MuteKey.work(id))
+                      ? null
+                      : () => _unmute(() => store.toggleWork(id)),
+                ),
               ),
-            ),
-          const Divider(),
-          _SectionHeader(l10n.mutedWorksSection),
-          for (final id in works)
-            ListTile(
-              dense: true,
-              title: Text(
-                ref.watch(illustStoreProvider).get(id)?.title ?? '#$id',
+            if (tags.isEmpty && users.isEmpty && works.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Center(child: Text(l10n.mutedEmpty)),
               ),
-              onTap: () => openIllust(context, id),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: l10n.unmuteWork,
-                onPressed: state.pending.contains(MuteKey.work(id))
-                    ? null
-                    : () => _unmute(() => store.toggleWork(id)),
-              ),
-            ),
-          if (tags.isEmpty && users.isEmpty && works.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: Text(l10n.mutedEmpty)),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

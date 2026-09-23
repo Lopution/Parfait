@@ -28,23 +28,26 @@ class ThemeSettingsPage extends ConsumerWidget {
     ];
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.themeSettings)),
-      body: ListView(
-        children: [
-          for (final item in items)
-            ListTile(
-              title: Text(item.$2),
-              trailing: settings.themeCode == item.$1
-                  ? Icon(
-                      Icons.check,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () => persistSettings(
-                context,
-                () => ref.read(settingsProvider.notifier).selectTheme(item.$1),
+      body: settingsNarrowBody(
+        ListView(
+          children: [
+            for (final item in items)
+              ListTile(
+                title: Text(item.$2),
+                trailing: settings.themeCode == item.$1
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => persistSettings(
+                  context,
+                  () =>
+                      ref.read(settingsProvider.notifier).selectTheme(item.$1),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
