@@ -270,8 +270,8 @@ void main() {
     // and confirm is disabled — confirming here would overwrite a private
     // bookmark with the default public+empty-tags values.
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    MaterialButton confirm() => tester.widget<MaterialButton>(
-      find.widgetWithText(MaterialButton, '确定'),
+    FilledButton confirm() => tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '确定'),
     );
     expect(confirm().onPressed, isNull);
     await tester.tap(find.text('确定'));
@@ -329,16 +329,58 @@ void main() {
     expect(find.text('取消'), findsOneWidget);
     expect(find.text('确定'), findsOneWidget);
 
-    // Choose 私密, then confirm.
-    await tester.tap(find.text('公开'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('私密').last);
+    // Global control set: segmented restrict, outlined cancel, filled
+    // confirm — same as the follow sheet and the bookmark tags page.
+    expect(
+      find.byType(SegmentedButton<BookmarkRestrict>),
+      findsOneWidget,
+    );
+    expect(find.byType(OutlinedButton), findsOneWidget);
+    expect(find.byType(FilledButton), findsOneWidget);
+
+    // Choose 私密 on the segmented control, then confirm.
+    await tester.tap(find.text('私密'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
     expect(repository.adds, hasLength(1));
     expect(repository.adds.single.$2, 'private');
+  });
+
+  testWidgets('edit sheet caps content width at ContentWidths.form on '
+      'expanded surfaces', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    final capped = find.byWidgetPredicate(
+      (w) => w is ConstrainedBox && w.constraints.maxWidth == 520,
+    );
+    expect(capped, findsOneWidget);
+    expect(tester.getSize(capped).width, 520);
+    // Centered on the expanded surface.
+    expect(tester.getCenter(capped).dx, 700);
+  });
+
+  testWidgets('edit sheet uses full width on compact surfaces', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is ConstrainedBox && w.constraints.maxWidth == 520,
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('failure surfaces a snackbar and restores the icon (R5)', (
