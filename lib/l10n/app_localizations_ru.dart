@@ -298,6 +298,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkThirdParty => 'Доступность сторонних сервисов';
 
   @override
+  String get networkThirdPartyAuto =>
+      'Проверяется автоматически при открытии страницы.';
+
+  @override
   String get networkThirdPartyHint =>
       'Обычное системное подключение — ваш VPN/прокси применяется.';
 
@@ -319,6 +323,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkAdvancedReset => 'Сбросить настройки';
+
+  @override
+  String get networkAdvancedResetConfirm =>
+      'Сбрасывает DoH-эндпоинты и ECH-фронт до значений по умолчанию.';
 
   @override
   String get networkDoh => 'Использовать DoH для строгого резерва';
@@ -355,10 +363,17 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get frameProbeHint =>
-      'Записывает тайминги кадров во время прокрутки. Прокрутите с резкими свайпами, остановите и скопируйте отчёт. Только debug/profile-сборки.';
+      'Записывает время кадров при прокрутке. Можно уйти со страницы, прокрутить нужный экран, вернуться и остановить запись, затем скопировать отчёт. Только debug/profile-сборки.';
 
   @override
   String get frameProbeStart => 'Начать запись';
+
+  @override
+  String get frameProbeRecording => 'Запись';
+
+  @override
+  String get frameProbeCapHint =>
+      'Достигнут лимит кадров — самые старые отбрасываются.';
 
   @override
   String get frameProbeStop => 'Стоп';
@@ -435,6 +450,51 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkProbeConclusionInconclusive => 'Неопределённо';
+
+  @override
+  String get networkProbeOverview => 'Обзор';
+
+  @override
+  String get networkProbeWorst => 'Худший';
+
+  @override
+  String get networkProbeDetails => 'Подробности';
+
+  @override
+  String get networkProbeNotPersisted =>
+      'Результаты не сохраняются — при выходе со страницы они теряются.';
+
+  @override
+  String get networkProbeAdviceAllReachable =>
+      'Все хосты доступны — менять ничего не нужно.';
+
+  @override
+  String get networkProbeAdviceEchAvailable =>
+      'ECH доступен — режим «Авто» или «Совместимость» его использует.';
+
+  @override
+  String get networkProbeAdviceNoSniAvailable =>
+      'Пустой SNI доступен — режим «Совместимость» будет его использовать.';
+
+  @override
+  String get networkProbeAdviceSniBlocked =>
+      'Реальный SNI заблокирован — попробуйте режим «Совместимость».';
+
+  @override
+  String get networkProbeAdviceDnsPolluted =>
+      'Системный DNS загрязнён — включённый DoH это обходит.';
+
+  @override
+  String get networkProbeAdviceIpBlackholed =>
+      'IP-адреса в чёрной дыре — приложение это не обойдёт; смените сеть.';
+
+  @override
+  String get networkProbeAdviceAppLayer =>
+      'Транспорт в порядке — сбой на уровне приложения; скопируйте отчёт для отзыва.';
+
+  @override
+  String get networkProbeAdviceInconclusive =>
+      'Не удалось определить — попробуйте другую сеть или повторите позже.';
 
   @override
   String get copy => 'Копировать';

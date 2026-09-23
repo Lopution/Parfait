@@ -299,6 +299,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkThirdParty => 'Third-party reachability';
 
   @override
+  String get networkThirdPartyAuto =>
+      'Checks once automatically when this page opens.';
+
+  @override
   String get networkThirdPartyHint =>
       'Uses your system network — your VPN/proxy applies.';
 
@@ -319,6 +323,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkAdvancedReset => 'Reset to defaults';
+
+  @override
+  String get networkAdvancedResetConfirm =>
+      'Resets the DoH endpoints and the ECH front host to their defaults.';
 
   @override
   String get networkDoh => 'Use DoH for strict fallback';
@@ -356,10 +364,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get frameProbeHint =>
-      'Records frame timings while you scroll. Stop after a fling-heavy pass, then copy the report. Dev/profile builds only.';
+      'Records frame timings while you scroll. You can leave this page, scroll the target screen, then come back to stop and copy the report. Dev/profile builds only.';
 
   @override
   String get frameProbeStart => 'Start recording';
+
+  @override
+  String get frameProbeRecording => 'Recording';
+
+  @override
+  String get frameProbeCapHint =>
+      'Frame cap reached — the oldest frames are being dropped.';
 
   @override
   String get frameProbeStop => 'Stop';
@@ -436,6 +451,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkProbeConclusionInconclusive => 'Inconclusive';
+
+  @override
+  String get networkProbeOverview => 'Overview';
+
+  @override
+  String get networkProbeWorst => 'Worst';
+
+  @override
+  String get networkProbeDetails => 'Details';
+
+  @override
+  String get networkProbeNotPersisted =>
+      'Results are not kept — leaving this page discards them.';
+
+  @override
+  String get networkProbeAdviceAllReachable =>
+      'All hosts reachable — nothing to change.';
+
+  @override
+  String get networkProbeAdviceEchAvailable =>
+      'ECH works here — Automatic or Compatibility-first mode will use it.';
+
+  @override
+  String get networkProbeAdviceNoSniAvailable =>
+      'Empty-SNI works here — Compatibility-first mode will use it.';
+
+  @override
+  String get networkProbeAdviceSniBlocked =>
+      'Real SNI is blocked — try Compatibility-first mode.';
+
+  @override
+  String get networkProbeAdviceDnsPolluted =>
+      'System DNS is poisoned — keeping DoH on bypasses it.';
+
+  @override
+  String get networkProbeAdviceIpBlackholed =>
+      'IPs are blackholed — the app cannot bypass this; switch networks.';
+
+  @override
+  String get networkProbeAdviceAppLayer =>
+      'Transport is fine — the failure is at the app layer; copy the report for feedback.';
+
+  @override
+  String get networkProbeAdviceInconclusive =>
+      'Inconclusive — try another network or retry later.';
 
   @override
   String get copy => 'Copy';

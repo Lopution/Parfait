@@ -283,6 +283,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkThirdParty => '第三方服务可达性';
 
   @override
+  String get networkThirdPartyAuto => '进入本页时自动检测一次。';
+
+  @override
   String get networkThirdPartyHint => '走系统网络，你的 VPN/代理会照常生效。';
 
   @override
@@ -302,6 +305,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get networkAdvancedReset => '恢复默认值';
+
+  @override
+  String get networkAdvancedResetConfirm => '将 DoH 端点与 ECH 前置主机恢复为默认值。';
 
   @override
   String get networkDoh => '严格回退使用 DoH 解析';
@@ -336,10 +342,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get frameProbeTitle => '帧探针';
 
   @override
-  String get frameProbeHint => '滚动时记录帧耗时。快速滑动一段后停止，再复制报告。仅 debug/profile 构建可见。';
+  String get frameProbeHint =>
+      '滚动时记录帧耗时。可离开本页去目标页面滚动，回来停止并复制报告。仅 debug/profile 构建可见。';
 
   @override
   String get frameProbeStart => '开始记录';
+
+  @override
+  String get frameProbeRecording => '录制中';
+
+  @override
+  String get frameProbeCapHint => '已达帧数上限，正在丢弃最旧帧。';
 
   @override
   String get frameProbeStop => '停止';
@@ -415,6 +428,42 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get networkProbeConclusionInconclusive => '不确定';
+
+  @override
+  String get networkProbeOverview => '探测总览';
+
+  @override
+  String get networkProbeWorst => '最劣';
+
+  @override
+  String get networkProbeDetails => '明细';
+
+  @override
+  String get networkProbeNotPersisted => '结果不保存——离开本页即丢失。';
+
+  @override
+  String get networkProbeAdviceAllReachable => '全部可达，无需调整。';
+
+  @override
+  String get networkProbeAdviceEchAvailable => 'ECH 可用——「自动」或「兼容优先」模式都会用它。';
+
+  @override
+  String get networkProbeAdviceNoSniAvailable => '空 SNI 通道可用——「兼容优先」模式会用它。';
+
+  @override
+  String get networkProbeAdviceSniBlocked => '真实 SNI 被封——建议把网络模式设为「兼容优先」。';
+
+  @override
+  String get networkProbeAdviceDnsPolluted => '系统 DNS 被污染——保持 DoH 开启即可绕过。';
+
+  @override
+  String get networkProbeAdviceIpBlackholed => 'IP 被黑洞，客户端无法绕过——请更换网络。';
+
+  @override
+  String get networkProbeAdviceAppLayer => '传输层正常，问题在应用层——可复制报告反馈。';
+
+  @override
+  String get networkProbeAdviceInconclusive => '无法得出结论——换个网络或稍后重试。';
 
   @override
   String get copy => '复制';

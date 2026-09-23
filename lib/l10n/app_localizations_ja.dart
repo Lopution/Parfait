@@ -291,6 +291,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkThirdParty => 'サードパーティ到達性';
 
   @override
+  String get networkThirdPartyAuto => 'このページを開くと自動で一度チェックします。';
+
+  @override
   String get networkThirdPartyHint => 'システムのネットワークを使用。VPN/プロキシがそのまま有効です。';
 
   @override
@@ -310,6 +313,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get networkAdvancedReset => 'デフォルトに戻す';
+
+  @override
+  String get networkAdvancedResetConfirm =>
+      'DoH エンドポイントと ECH フロントホストをデフォルトに戻します。';
 
   @override
   String get networkDoh => '厳格フォールバックで DoH を使用';
@@ -345,10 +352,16 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get frameProbeHint =>
-      'スクロール中のフレーム時間を記録します。フリックで一通りスクロールして停止し、レポートをコピーしてください。debug/profile ビルド限定。';
+      'スクロール中のフレーム時間を記録します。このページを離れて対象画面をスクロールし、戻って停止してレポートをコピーできます。debug/profile ビルドのみ。';
 
   @override
   String get frameProbeStart => '記録開始';
+
+  @override
+  String get frameProbeRecording => '記録中';
+
+  @override
+  String get frameProbeCapHint => 'フレーム上限に達しました。最古のフレームを破棄しています。';
 
   @override
   String get frameProbeStop => '停止';
@@ -424,6 +437,49 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get networkProbeConclusionInconclusive => '不明';
+
+  @override
+  String get networkProbeOverview => '概要';
+
+  @override
+  String get networkProbeWorst => '最悪';
+
+  @override
+  String get networkProbeDetails => '詳細';
+
+  @override
+  String get networkProbeNotPersisted => '結果は保存されません。このページを離れると破棄されます。';
+
+  @override
+  String get networkProbeAdviceAllReachable => 'すべてのホストに到達可能。調整は不要です。';
+
+  @override
+  String get networkProbeAdviceEchAvailable =>
+      'ECH が利用可能——「自動」または「互換優先」モードで使われます。';
+
+  @override
+  String get networkProbeAdviceNoSniAvailable =>
+      '空 SNI が利用可能——「互換優先」モードで使われます。';
+
+  @override
+  String get networkProbeAdviceSniBlocked =>
+      '実 SNI が遮断されています——「互換優先」モードを試してください。';
+
+  @override
+  String get networkProbeAdviceDnsPolluted =>
+      'システム DNS が汚染されています——DoH を有効のままにすれば回避できます。';
+
+  @override
+  String get networkProbeAdviceIpBlackholed =>
+      'IP がブラックホール化——アプリでは回避できません。ネットワークを変えてください。';
+
+  @override
+  String get networkProbeAdviceAppLayer =>
+      '伝送層は正常。問題はアプリ層です——レポートをコピーして報告してください。';
+
+  @override
+  String get networkProbeAdviceInconclusive =>
+      '結論が出ません——別のネットワークか、後で再試行してください。';
 
   @override
   String get copy => 'コピー';

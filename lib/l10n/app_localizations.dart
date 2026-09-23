@@ -606,6 +606,12 @@ abstract class AppLocalizations {
   /// **'第三方服务可达性'**
   String get networkThirdParty;
 
+  /// No description provided for @networkThirdPartyAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'进入本页时自动检测一次。'**
+  String get networkThirdPartyAuto;
+
   /// No description provided for @networkThirdPartyHint.
   ///
   /// In zh, this message translates to:
@@ -647,6 +653,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'恢复默认值'**
   String get networkAdvancedReset;
+
+  /// No description provided for @networkAdvancedResetConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'将 DoH 端点与 ECH 前置主机恢复为默认值。'**
+  String get networkAdvancedResetConfirm;
 
   /// No description provided for @networkDoh.
   ///
@@ -711,7 +723,7 @@ abstract class AppLocalizations {
   /// No description provided for @frameProbeHint.
   ///
   /// In zh, this message translates to:
-  /// **'滚动时记录帧耗时。快速滑动一段后停止，再复制报告。仅 debug/profile 构建可见。'**
+  /// **'滚动时记录帧耗时。可离开本页去目标页面滚动，回来停止并复制报告。仅 debug/profile 构建可见。'**
   String get frameProbeHint;
 
   /// No description provided for @frameProbeStart.
@@ -719,6 +731,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'开始记录'**
   String get frameProbeStart;
+
+  /// No description provided for @frameProbeRecording.
+  ///
+  /// In zh, this message translates to:
+  /// **'录制中'**
+  String get frameProbeRecording;
+
+  /// No description provided for @frameProbeCapHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'已达帧数上限，正在丢弃最旧帧。'**
+  String get frameProbeCapHint;
 
   /// No description provided for @frameProbeStop.
   ///
@@ -869,6 +893,78 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'不确定'**
   String get networkProbeConclusionInconclusive;
+
+  /// No description provided for @networkProbeOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'探测总览'**
+  String get networkProbeOverview;
+
+  /// No description provided for @networkProbeWorst.
+  ///
+  /// In zh, this message translates to:
+  /// **'最劣'**
+  String get networkProbeWorst;
+
+  /// No description provided for @networkProbeDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'明细'**
+  String get networkProbeDetails;
+
+  /// No description provided for @networkProbeNotPersisted.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果不保存——离开本页即丢失。'**
+  String get networkProbeNotPersisted;
+
+  /// No description provided for @networkProbeAdviceAllReachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部可达，无需调整。'**
+  String get networkProbeAdviceAllReachable;
+
+  /// No description provided for @networkProbeAdviceEchAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'ECH 可用——「自动」或「兼容优先」模式都会用它。'**
+  String get networkProbeAdviceEchAvailable;
+
+  /// No description provided for @networkProbeAdviceNoSniAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'空 SNI 通道可用——「兼容优先」模式会用它。'**
+  String get networkProbeAdviceNoSniAvailable;
+
+  /// No description provided for @networkProbeAdviceSniBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'真实 SNI 被封——建议把网络模式设为「兼容优先」。'**
+  String get networkProbeAdviceSniBlocked;
+
+  /// No description provided for @networkProbeAdviceDnsPolluted.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统 DNS 被污染——保持 DoH 开启即可绕过。'**
+  String get networkProbeAdviceDnsPolluted;
+
+  /// No description provided for @networkProbeAdviceIpBlackholed.
+  ///
+  /// In zh, this message translates to:
+  /// **'IP 被黑洞，客户端无法绕过——请更换网络。'**
+  String get networkProbeAdviceIpBlackholed;
+
+  /// No description provided for @networkProbeAdviceAppLayer.
+  ///
+  /// In zh, this message translates to:
+  /// **'传输层正常，问题在应用层——可复制报告反馈。'**
+  String get networkProbeAdviceAppLayer;
+
+  /// No description provided for @networkProbeAdviceInconclusive.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法得出结论——换个网络或稍后重试。'**
+  String get networkProbeAdviceInconclusive;
 
   /// No description provided for @copy.
   ///

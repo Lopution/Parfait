@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/motion/app_overlays.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/network/compat/network_contracts.dart' show NetworkRouteKind;
@@ -95,8 +96,6 @@ class NetworkSettingsPage extends ConsumerWidget {
                   .setNetworkMode(NetworkMode.directOnly),
             ),
             const Divider(),
-            const _EffectiveRoutesSection(),
-            const Divider(),
             ListTile(
               leading: const Icon(Icons.network_check),
               title: Text(context.l10n.networkProbe),
@@ -106,6 +105,8 @@ class NetworkSettingsPage extends ConsumerWidget {
             ),
             const Divider(),
             const _ThirdPartyReachabilitySection(),
+            const Divider(),
+            const _EffectiveRoutesSection(),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.tune),
@@ -187,23 +188,39 @@ class _NetworkAdvancedSettingsPageState
     super.dispose();
   }
 
-  Future<void> _saveEndpoints() async {
-    final value = _dohController.text.trim();
-    if (!_dohDirty) return;
-    if (value.isNotEmpty && !_validEndpointList(value)) {
-      if (mounted) {
-        showAppSnackBar(context, context.l10n.networkDohEndpointsInvalid);
-      }
+  bool get _dirty => _dohDirty || _echHostDirty;
+
+  /// Page-level draft: one Save commits whichever of the two fields changed.
+  /// Every dirty field validates before any write, so an invalid entry never
+  /// silently blocks (or partially commits alongside) the other field.
+  Future<void> _saveAll() async {
+    final dohValue = _dohController.text.trim();
+    if (_dohDirty && dohValue.isNotEmpty && !_validEndpointList(dohValue)) {
+      showAppSnackBar(context, context.l10n.networkDohEndpointsInvalid);
       return;
     }
-    final saved = await persistSettings(
-      context,
-      () => ref
-          .read(settingsProvider.notifier)
-          .setDohEndpointOverride(value.isEmpty ? null : value),
-    );
+    final echValue = _echHostController.text.trim();
+    if (_echHostDirty &&
+        echValue.isNotEmpty &&
+        !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(echValue)) {
+      showAppSnackBar(context, context.l10n.networkEchHostInvalid);
+      return;
+    }
+    final saved = await persistSettings(context, () async {
+      if (_dohDirty) {
+        await ref
+            .read(settingsProvider.notifier)
+            .setDohEndpointOverride(dohValue.isEmpty ? null : dohValue);
+      }
+      if (_echHostDirty) {
+        await ref.read(settingsProvider.notifier).setEchFrontHost(echValue);
+      }
+    });
     if (saved && mounted) {
-      setState(() => _dohDirty = false);
+      setState(() {
+        _dohDirty = false;
+        _echHostDirty = false;
+      });
       showAppSnackBar(context, context.l10n.saved);
     }
   }
@@ -230,26 +247,27 @@ class _NetworkAdvancedSettingsPageState
     return true;
   }
 
-  Future<void> _saveEchHost() async {
-    final value = _echHostController.text.trim();
-    if (!_echHostDirty) return;
-    if (value.isNotEmpty && !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(value)) {
-      if (mounted) {
-        showAppSnackBar(context, context.l10n.networkEchHostInvalid);
-      }
-      return;
-    }
-    final saved = await persistSettings(
-      context,
-      () => ref.read(settingsProvider.notifier).setEchFrontHost(value),
-    );
-    if (saved && mounted) {
-      setState(() => _echHostDirty = false);
-      showAppSnackBar(context, context.l10n.saved);
-    }
-  }
-
+  /// Resetting rewrites two stored fields at once, so it asks first —
+  /// destructive-lite like the credentials clear.
   Future<void> _resetDefaults() async {
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.networkAdvancedReset),
+        content: Text(context.l10n.networkAdvancedResetConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.l10n.networkAdvancedReset),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     final saved = await persistSettings(context, () async {
       await ref.read(settingsProvider.notifier).setDohEnabled(true);
       await ref.read(settingsProvider.notifier).setDohEndpointOverride(null);
@@ -288,66 +306,59 @@ class _NetworkAdvancedSettingsPageState
     if (!_echHostDirty && _echHostController.text != echHost) {
       _echHostController.text = echHost;
     }
-    return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.networkAdvanced)),
-      body: settingsNarrowBody(
-        ListView(
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: TextField(
-                controller: _dohController,
-                focusNode: _dohFocusNode,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: context.l10n.networkDohEndpoints,
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: (_) => setState(() => _dohDirty = true),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.tonal(
-                  onPressed: _saveEndpoints,
-                  child: Text(context.l10n.save),
+    return guardDraft(
+      dirty: _dirty,
+      child: Scaffold(
+        appBar: AppBar(title: Text(context.l10n.networkAdvanced)),
+        body: settingsNarrowBody(
+          ListView(
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: TextField(
+                  controller: _dohController,
+                  focusNode: _dohFocusNode,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.networkDohEndpoints,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() => _dohDirty = true),
                 ),
               ),
-            ),
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: TextField(
-                controller: _echHostController,
-                focusNode: _echHostFocusNode,
-                decoration: InputDecoration(
-                  labelText: context.l10n.networkEchFrontHost,
-                  helperText: context.l10n.networkEchFrontHostHint,
-                  border: const OutlineInputBorder(),
-                ),
-                onChanged: (_) => setState(() => _echHostDirty = true),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton.tonal(
-                  onPressed: _saveEchHost,
-                  child: Text(context.l10n.save),
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: TextField(
+                  controller: _echHostController,
+                  focusNode: _echHostFocusNode,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.networkEchFrontHost,
+                    helperText: context.l10n.networkEchFrontHostHint,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() => _echHostDirty = true),
                 ),
               ),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.restart_alt),
-              title: Text(context.l10n.networkAdvancedReset),
-              onTap: _resetDefaults,
-            ),
-          ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.tonal(
+                    onPressed: _dirty ? _saveAll : null,
+                    child: Text(context.l10n.save),
+                  ),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.restart_alt),
+                title: Text(context.l10n.networkAdvancedReset),
+                onTap: _resetDefaults,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -521,9 +532,20 @@ class _ThirdPartyReachabilitySectionState
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-          child: Text(
-            context.l10n.networkThirdPartyHint,
-            style: Theme.of(context).textTheme.bodySmall,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // D7: the check still fires on page entry; the note tells the
+              // user so the "checking" state is not mistaken for a manual tap.
+              Text(
+                context.l10n.networkThirdPartyAuto,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              Text(
+                context.l10n.networkThirdPartyHint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ),
         ),
         for (final entry in _targets.entries)
