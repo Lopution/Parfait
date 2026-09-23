@@ -259,6 +259,13 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
               context.l10n.networkProbeHint,
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            const SizedBox(height: 4),
+            // Reports live only in page state — say so instead of letting the
+            // user expect history (spec: probe results are not persisted).
+            Text(
+              context.l10n.networkProbeNotPersisted,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: _running ? null : _runAll,
@@ -276,8 +283,10 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
               ),
             ),
             const SizedBox(height: 16),
+            if (_finished.isNotEmpty || _errors.isNotEmpty)
+              NetworkProbeOverview(reports: _finished, errors: _errors),
             for (final target in _targets)
-              _HostProbePanel(
+              NetworkProbeHostPanel(
                 host: target.host,
                 report: _finished[target.host],
                 error: _errors[target.host],
@@ -290,8 +299,125 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   }
 }
 
-class _HostProbePanel extends StatelessWidget {
-  const _HostProbePanel({
+/// Summary-first overview (design §9): conclusion counts, the worst host and
+/// one actionable suggestion sit above the per-host detail cards.
+class NetworkProbeOverview extends StatelessWidget {
+  const NetworkProbeOverview({
+    super.key,
+    required this.reports,
+    required this.errors,
+  });
+
+  final Map<String, NetworkProbeReport?> reports;
+  final Map<String, Object> errors;
+
+  /// Worse-first ordering for the counts line and the "worst" pick.
+  static int _severity(NetworkProbeConclusion c) => switch (c) {
+    NetworkProbeConclusion.ipBlackholed => 7,
+    NetworkProbeConclusion.sniBlocked => 6,
+    NetworkProbeConclusion.dnsPolluted => 5,
+    NetworkProbeConclusion.appLayer => 4,
+    NetworkProbeConclusion.inconclusive => 3,
+    NetworkProbeConclusion.noSniAvailable => 2,
+    NetworkProbeConclusion.echAvailable => 1,
+    NetworkProbeConclusion.allReachable => 0,
+  };
+
+  static String _adviceKey(NetworkProbeConclusion c) => switch (c) {
+    NetworkProbeConclusion.ipBlackholed => 'networkProbeAdviceIpBlackholed',
+    NetworkProbeConclusion.sniBlocked => 'networkProbeAdviceSniBlocked',
+    NetworkProbeConclusion.dnsPolluted => 'networkProbeAdviceDnsPolluted',
+    NetworkProbeConclusion.appLayer => 'networkProbeAdviceAppLayer',
+    NetworkProbeConclusion.inconclusive => 'networkProbeAdviceInconclusive',
+    NetworkProbeConclusion.noSniAvailable => 'networkProbeAdviceNoSniAvailable',
+    NetworkProbeConclusion.echAvailable => 'networkProbeAdviceEchAvailable',
+    NetworkProbeConclusion.allReachable => 'networkProbeAdviceAllReachable',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final finished = reports.values.whereType<NetworkProbeReport>().toList();
+    final counts = <NetworkProbeConclusion, int>{};
+    for (final report in finished) {
+      counts[report.conclusion] = (counts[report.conclusion] ?? 0) + 1;
+    }
+    final ranked = counts.keys.toList()
+      ..sort((a, b) => _severity(b).compareTo(_severity(a)));
+    final worst = finished.isEmpty
+        ? null
+        : finished.reduce(
+            (a, b) =>
+                _severity(a.conclusion) >= _severity(b.conclusion) ? a : b,
+          );
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.l10n.networkProbeOverview,
+              style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                for (final conclusion in ranked)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ConclusionBadge(conclusion: conclusion),
+                      Text(
+                        ' ×${counts[conclusion]}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                if (errors.isNotEmpty)
+                  Text(
+                    '${context.l10n.networkProbeHostFailed} '
+                    '×${errors.length}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+              ],
+            ),
+            if (worst != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      '${context.l10n.networkProbeWorst}: ${worst.host}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _ConclusionBadge(conclusion: worst.conclusion),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _probeText(context, _adviceKey(worst.conclusion)),
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class NetworkProbeHostPanel extends StatelessWidget {
+  const NetworkProbeHostPanel({
+    super.key,
     required this.host,
     required this.report,
     required this.error,
@@ -347,39 +473,62 @@ class _HostProbePanel extends StatelessWidget {
                 style: theme.textTheme.bodySmall,
               )
             else ...[
-              if (body.dnsDisagrees)
+              if (body.firstError != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
-                    context.l10n.networkProbeDnsDiff,
+                    body.firstError!,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: FuncTokens.networkProbeDnsWarning,
+                      color: theme.colorScheme.error,
                     ),
                   ),
                 ),
-              for (final step in body.steps)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    _probeStepLine(context, step),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: step.ok ? null : theme.colorScheme.error,
+              ExpansionTile(
+                title: Text(context.l10n.networkProbeDetails),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                children: [
+                  if (body.dnsDisagrees)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        context.l10n.networkProbeDnsDiff,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: FuncTokens.networkProbeDnsWarning,
+                        ),
+                      ),
+                    ),
+                  for (final step in body.steps)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _probeStepLine(context, step),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: step.ok ? null : theme.colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Clipboard.setData(
+                          ClipboardData(text: body.toCopyableText()),
+                        );
+                        showAppSnackBar(
+                          context,
+                          context.l10n.networkProbeCopied,
+                        );
+                      },
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: Text(context.l10n.copy),
                     ),
                   ),
-                ),
-              const SizedBox(height: 6),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () {
-                    Clipboard.setData(
-                      ClipboardData(text: body.toCopyableText()),
-                    );
-                    showAppSnackBar(context, context.l10n.networkProbeCopied);
-                  },
-                  icon: const Icon(Icons.copy, size: 16),
-                  label: Text(context.l10n.copy),
-                ),
+                ],
               ),
             ],
           ],
