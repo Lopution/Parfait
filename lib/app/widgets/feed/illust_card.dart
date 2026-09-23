@@ -11,7 +11,6 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../../theme/func_semantic_tokens.dart';
-import '../../theme/func_tokens.dart';
 import '../../motion/hero_transition.dart';
 import '../../motion/press_scale.dart';
 import '../../navigation/routes.dart';
@@ -19,6 +18,7 @@ import '../../pixiv_image.dart';
 import '../../image_tier_cache.dart';
 import '../../widgets/bookmark_switch_button.dart';
 import '../card_actions/card_action_sheet.dart';
+import '../entity_row.dart';
 import 'feed_grid.dart';
 import 'muted_cover.dart';
 
@@ -31,11 +31,24 @@ class IllustCard extends ConsumerWidget {
   /// different one — the image widget then sees a slot hand-off only when
   /// the element genuinely changed works. The scope disambiguates the same
   /// work appearing in two feeds at once (e.g. ranking + search copies).
-  IllustCard({Key? key, required this.entity, this.heroScope = 'feed'})
-    : super(key: key ?? ValueKey('illust-$heroScope-${entity.id}'));
+  IllustCard({
+    Key? key,
+    required this.entity,
+    this.heroScope = 'feed',
+    this.rank,
+    this.meta,
+  }) : super(key: key ?? ValueKey('illust-$heroScope-${entity.id}'));
 
   final IllustEntity entity;
   final String heroScope;
+
+  /// Optional rank badge (ranking lists) — pins a numbered pill to the
+  /// top-left badge cluster, ahead of R-18.
+  final int? rank;
+
+  /// Optional meta line under the author (the history page's date row).
+  /// Rendered as the caller hands it over — typically [EntityMetaText].
+  final Widget? meta;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -256,70 +269,52 @@ class IllustCard extends ConsumerWidget {
   }
 
   List<Widget> _buildBadges(ColorScheme colorScheme) {
+    final rank = this.rank;
     return [
-      if (entity.isR18)
+      // The four corner slots are fixed; rank joins the top-left cluster
+      // ahead of R-18 so a ranked R-18 work keeps both markers.
+      if (rank != null || entity.isR18)
         Positioned(
           left: 7,
           top: 7,
-          child: Card(
-            color: colorScheme.primary,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              child: Text(
-                'R-18',
-                style: TextStyle(color: FuncTokens.lightBackground),
-              ),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (rank != null) ...[
+                EntityBadge(
+                  color: colorScheme.primary,
+                  child: Text(
+                    '$rank',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                if (entity.isR18) const SizedBox(width: 4),
+              ],
+              if (entity.isR18)
+                EntityBadge(
+                  color: colorScheme.primary,
+                  child: const Text('R-18'),
+                ),
+            ],
           ),
         ),
       if (entity.isUgoira)
-        Positioned(
+        const Positioned(
           left: 7,
           bottom: 7,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(5),
-              color: const Color(0x99343838),
-            ),
-            child: const Icon(
-              Icons.gif_box_outlined,
-              color: FuncTokens.lightBackground,
-              size: 30,
-            ),
-          ),
+          child: EntityBadge(child: Icon(Icons.gif_box_outlined, size: 30)),
         ),
       if (entity.pageCount > 1)
         Positioned(
           right: 7,
           top: 7,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(7.5),
-              color: const Color(0x99343838),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              child: Text(
-                '${entity.pageCount}',
-                style: TextStyle(color: FuncTokens.lightBackground),
-              ),
-            ),
-          ),
+          child: EntityBadge(child: Text('${entity.pageCount}')),
         ),
       if (entity.isAi)
         Positioned(
           right: 7,
           bottom: 7,
-          child: Card(
-            color: colorScheme.error,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              child: Text(
-                'AI',
-                style: TextStyle(color: FuncTokens.lightBackground),
-              ),
-            ),
-          ),
+          child: EntityBadge(color: colorScheme.error, child: const Text('AI')),
         ),
     ];
   }
@@ -348,6 +343,7 @@ class IllustCard extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
                 style: FuncSemanticTokens.of(context).caption,
               ),
+              ?meta,
             ],
           ),
         ),
