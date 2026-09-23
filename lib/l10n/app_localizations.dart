@@ -144,11 +144,11 @@ abstract class AppLocalizations {
   /// **'下一步'**
   String get next;
 
-  /// No description provided for @later.
+  /// No description provided for @setupLater.
   ///
   /// In zh, this message translates to:
-  /// **'稍后您可以在设置中进行相应变更'**
-  String get later;
+  /// **'稍后设置'**
+  String get setupLater;
 
   /// No description provided for @dark.
   ///
