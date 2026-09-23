@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -170,6 +171,23 @@ void main() {
     // The chapter tap jumped straight to its page — one user-committed
     // write for the landing anchor.
     expect(binding.saves, hasLength(1));
+  });
+
+  testWidgets('arrow keys turn pages with user-turn semantics', (
+    tester,
+  ) async {
+    final binding = _RecordingBinding();
+    await tester.pumpWidget(_stageApp(binding));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(binding.saves, hasLength(1));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(binding.saves, hasLength(2));
   });
 
   testWidgets('a failed settings save surfaces a snackbar', (tester) async {

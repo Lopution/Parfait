@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -185,7 +186,13 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _hideChrome();
       },
-      child: ColoredBox(
+      // Arrow-key paging lives on the stage's own Focus — when a sheet
+      // route opens it takes the primary focus, so keys reach the sheet
+      // instead of the reader without any extra guard.
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: _onKeyEvent,
+        child: ColoredBox(
         color: palette.background ?? Theme.of(context).scaffoldBackgroundColor,
         child: Stack(
           children: [
@@ -225,8 +232,27 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
             ),
           ],
         ),
+        ),
       ),
     );
+  }
+
+  /// ←/→ turn the page. The handle reports the live position, so the key
+  /// path shares the same clamp and user-turn semantics as the tap zones.
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final current = _readerHandle.currentPage?.call();
+    final count = _readerHandle.pageCount?.call();
+    if (current == null || count == null) return KeyEventResult.ignored;
+    final next = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowLeft => current - 1,
+      LogicalKeyboardKey.arrowRight => current + 1,
+      _ => null,
+    };
+    if (next == null) return KeyEventResult.ignored;
+    if (next < 0 || next >= count) return KeyEventResult.handled;
+    _readerHandle.goToPage?.call(next);
+    return KeyEventResult.handled;
   }
 
   Widget _buildStage(BuildContext context, NovelReaderPalette palette) {
