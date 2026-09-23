@@ -753,16 +753,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get muteWork => '屏蔽此作品';
 
   @override
-  String get unmuteWork => '取消屏蔽此作品';
+  String get unmuteWork => '解除屏蔽此作品';
 
   @override
   String get muteAuthor => '屏蔽作者';
 
   @override
-  String get unmuteAuthor => '取消屏蔽作者';
+  String get unmuteAuthor => '解除屏蔽作者';
 
   @override
-  String get unmuteTag => '取消屏蔽';
+  String get unmuteTag => '解除屏蔽';
 
   @override
   String muteFailed(Object error) {
