@@ -176,33 +176,34 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
       body: Column(
         children: [
           Expanded(
-            child: Column(
-              children: [
-                if (root != null)
-                  CommentItem(
-                    comment: root,
-                    onReply: () => setState(() => _replyTarget = root),
-                    onDelete: () => _deleteComment(root),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      context.l10n.commentReplies,
-                      style: Theme.of(context).textTheme.titleMedium,
+            child: _CommentFeedView(
+              query: _query,
+              // The root comment and the section title ride the list's first
+              // slot: they scroll away like every other row, and the composer
+              // reply bar keeps the reply context visible meanwhile.
+              header: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (root != null)
+                    CommentItem(
+                      comment: root,
+                      onReply: () => setState(() => _replyTarget = root),
+                      onDelete: () => _deleteComment(root),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        context.l10n.commentReplies,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: _CommentFeedView(
-                    query: _query,
-                    onReply: (comment) =>
-                        setState(() => _replyTarget = comment),
-                    onDelete: _deleteComment,
-                  ),
-                ),
-              ],
+                ],
+              ),
+              onReply: (comment) => setState(() => _replyTarget = comment),
+              onDelete: _deleteComment,
             ),
           ),
           CommentComposer(
@@ -279,6 +280,7 @@ class _CommentFeedView extends ConsumerWidget {
     required this.onReply,
     required this.onDelete,
     this.onOpenReplies,
+    this.header,
   });
 
   final CommentFeedQuery query;
@@ -286,38 +288,50 @@ class _CommentFeedView extends ConsumerWidget {
   final ValueChanged<CommentEntity> onDelete;
   final ValueChanged<CommentEntity>? onOpenReplies;
 
+  /// Optional leading slot scrolled with the feed — the replies page passes
+  /// the root comment plus the section title so a long root no longer pins
+  /// the reply list to a sliver. Non-list states still render it statically
+  /// above them, preserving the pre-merge visibility contract.
+  final Widget? header;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(commentFeedProvider(query));
     final store = ref.watch(commentStoreProvider);
     return async.when(
-      loading: () => const FeedLoading(),
-      error: (error, _) => FeedError(
-        title: context.l10n.commentLoadFailed,
-        retryLabel: context.l10n.retry,
-        onRetry: () => ref.invalidate(commentFeedProvider(query)),
+      loading: () => _withHeader(const FeedLoading()),
+      error: (error, _) => _withHeader(
+        FeedError(
+          title: context.l10n.commentLoadFailed,
+          retryLabel: context.l10n.retry,
+          onRetry: () => ref.invalidate(commentFeedProvider(query)),
+        ),
       ),
       data: (feed) {
         final comments = store.getAll(store.idsFor(query));
         if (feed.showInitialError && comments.isEmpty) {
-          return FeedError(
-            title: context.l10n.commentLoadFailed,
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: context.l10n.retry,
-            onRetry: () =>
-                ref.read(commentFeedProvider(query).notifier).retryInitial(),
+          return _withHeader(
+            FeedError(
+              title: context.l10n.commentLoadFailed,
+              error: feed.initialError ?? const ApiParseError('unknown error'),
+              retryLabel: context.l10n.retry,
+              onRetry: () =>
+                  ref.read(commentFeedProvider(query).notifier).retryInitial(),
+            ),
           );
         }
         if (feed.showInitialSpinner && comments.isEmpty) {
-          return const FeedLoading();
+          return _withHeader(const FeedLoading());
         }
         if (comments.isEmpty && feed.isEmptyAndReady) {
-          return ReplicaEmptyState(
-            message: context.l10n.commentNoResults,
-            retryLabel: context.l10n.retry,
-            onRetry: () =>
-                ref.read(commentFeedProvider(query).notifier).refresh(),
-            icon: Icons.comment_outlined,
+          return _withHeader(
+            ReplicaEmptyState(
+              message: context.l10n.commentNoResults,
+              retryLabel: context.l10n.retry,
+              onRetry: () =>
+                  ref.read(commentFeedProvider(query).notifier).refresh(),
+              icon: Icons.comment_outlined,
+            ),
           );
         }
         return PullToRefresh(
@@ -341,9 +355,12 @@ class _CommentFeedView extends ConsumerWidget {
                 // already reserves the IME/panel space in layout, so the
                 // list tail never needs an extra inset pad.
                 padding: const EdgeInsets.only(bottom: 8),
-                itemCount: comments.length + 1,
+                itemCount: comments.length + 1 + (header == null ? 0 : 1),
                 itemBuilder: (context, index) {
-                  if (index == comments.length) {
+                  final offset = header == null ? 0 : 1;
+                  if (index < offset) return header!;
+                  final itemIndex = index - offset;
+                  if (itemIndex == comments.length) {
                     return FeedTail(
                       feed: feed,
                       onRetry: () => ref
@@ -352,7 +369,7 @@ class _CommentFeedView extends ConsumerWidget {
                       retryLabel: context.l10n.commentLoadMoreFailed,
                     );
                   }
-                  final comment = comments[index];
+                  final comment = comments[itemIndex];
                   return CommentItem(
                     key: ValueKey(comment.id),
                     comment: comment,
@@ -368,6 +385,25 @@ class _CommentFeedView extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  /// Non-list states keep the header leading them — same visibility the
+  /// replies page had before the root joined the scrollable. The whole
+  /// region scrolls so a root taller than the viewport cannot squeeze the
+  /// state into an overflowing sliver.
+  Widget _withHeader(Widget child) {
+    final header = this.header;
+    if (header == null) return child;
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: Column(
+          children: [
+            header,
+            SizedBox(height: constraints.maxHeight, child: child),
+          ],
+        ),
+      ),
     );
   }
 }
