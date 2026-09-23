@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/layout/content_widths.dart';
+import '../../app/motion/app_overlays.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings_load_error.dart';
@@ -26,6 +29,59 @@ Widget settingsNarrowBody(Widget child) => Center(
     child: child,
   ),
 );
+
+/// Draft-form leave guard (same PopScope contract as ProfileEditPage):
+/// a clean form pops directly; a dirty one asks via [confirmDiscardDraft]
+/// before the route is dropped.
+Widget guardDraft({required bool dirty, required Widget child}) =>
+    _DraftGuard(dirty: dirty, child: child);
+
+class _DraftGuard extends StatelessWidget {
+  const _DraftGuard({required this.dirty, required this.child});
+
+  final bool dirty;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        unawaited(
+          confirmDiscardDraft(context).then((leave) {
+            if (leave && context.mounted) Navigator.of(context).pop();
+          }),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+/// The dirty-leave dialog: 取消 keeps editing, the filled button discards
+/// the draft. Keys are shared with the profile edit flow so the wording
+/// stays identical wherever the guard appears.
+Future<bool> confirmDiscardDraft(BuildContext context) async {
+  final leave = await showAppDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(context.l10n.profileEditLeaveTitle),
+      content: Text(context.l10n.profileEditLeaveDetail),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: Text(context.l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: Text(context.l10n.profileEditLeaveConfirm),
+        ),
+      ],
+    ),
+  );
+  return leave == true;
+}
 
 /// Wraps an immediate settings write: failures surface as a snackbar and the
 /// controller keeps the old value (SettingsController._writeTail rolls back).
