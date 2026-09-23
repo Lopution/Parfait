@@ -909,6 +909,23 @@
       }
     }
   },
+  "seriesStartReading": "开始阅读",
+  "@seriesStartReading": {
+    "description": "Opens the first work in this series"
+  },
+  "seriesBackToEpisode": "返回第 {order} 话",
+  "@seriesBackToEpisode": {
+    "description": "Opens the most recently opened work in this series",
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesBackToLast": "返回上次阅读的作品",
+  "@seriesBackToLast": {
+    "description": "Opens the most recently opened work in this series (order unknown)"
+  },
   "seriesPrevious": "上一话",
   "seriesNext": "下一话",
   "watchlistTitle": "追更",
@@ -959,5 +976,65 @@
   "spotlightCategoryManga": "漫画",
   "spotlightLoadFailed": "特辑加载失败",
   "spotlightLoadMoreFailed": "特辑加载更多失败",
-  "spotlightEmpty": "暂无特辑"
+  "spotlightEmpty": "暂无特辑",
+  "enableHaptics": "触感反馈",
+  "enableHapticsHint": "选择、保存成功与失败时振动",
+  "downloadSelectPages": "选择要下载的页",
+  "downloadSelectedCount": "已选 {selected} / 共 {total} 页",
+  "@downloadSelectedCount": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "selectAll": "全选",
+  "done": "完成",
+  "viewerPageLabel": "第 {page} 页，共 {total} 页",
+  "@viewerPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tagActionSearch": "搜索该标签",
+  "tagActionCopy": "复制标签名",
+  "tagActionMute": "屏蔽该标签",
+  "tagActionUnmute": "解除屏蔽该标签",
+  "tagActionMuteMode": "批量屏蔽标签",
+  "tagCopied": "已复制标签",
+  "ugoiraExporting": "正在导出 GIF… {percent}%",
+  "@ugoiraExporting": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerEnterFullscreen": "进入全屏",
+  "viewerExitFullscreen": "退出全屏",
+  "viewerFitScreen": "适应屏幕",
+  "viewerSavePage": "保存当前页",
+  "viewerJumpToPage": "跳转到页码",
+  "viewerInfo": "作品信息",
+  "viewerOpenDetail": "打开详情页",
+  "illustPagesTotal": "共 {count} 页",
+  "@illustPagesTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "illustInfoJump": "跳到作品信息区",
+  "@illustInfoJump": {
+    "description": "Jump to the artwork info section"
+  }
 }

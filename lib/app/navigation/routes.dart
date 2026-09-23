@@ -129,6 +129,7 @@ class _ImageViewerRoute extends ConsumerWidget {
         ref.watch(illustStoreProvider).get(illustId) ?? extra?.entity;
     final urls = entity?.viewerUrls(quality) ?? extra?.urls ?? const <String>[];
     return ImageViewerPage(
+      entity: entity,
       urls: urls,
       initialPage: page,
       heroTagForPage: extra?.heroScope == null

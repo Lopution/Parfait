@@ -2040,6 +2040,17 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get seriesStartReading => 'Начать чтение';
+
+  @override
+  String seriesBackToEpisode(int order) {
+    return 'К части $order';
+  }
+
+  @override
+  String get seriesBackToLast => 'К последней открытой';
+
+  @override
   String get seriesPrevious => 'Предыдущая';
 
   @override
@@ -2135,4 +2146,81 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get spotlightEmpty => 'Нет статей спотлайта';
+
+  @override
+  String get enableHaptics => 'Тактильный отклик';
+
+  @override
+  String get enableHapticsHint => 'Вибрация при выборе, сохранении и ошибках';
+
+  @override
+  String get downloadSelectPages => 'Выберите страницы для скачивания';
+
+  @override
+  String downloadSelectedCount(int selected, int total) {
+    return 'Выбрано: $selected из $total';
+  }
+
+  @override
+  String get selectAll => 'Выбрать все';
+
+  @override
+  String get done => 'Готово';
+
+  @override
+  String viewerPageLabel(int page, int total) {
+    return 'Страница $page из $total';
+  }
+
+  @override
+  String get tagActionSearch => 'Искать этот тег';
+
+  @override
+  String get tagActionCopy => 'Копировать имя тега';
+
+  @override
+  String get tagActionMute => 'Скрыть этот тег';
+
+  @override
+  String get tagActionUnmute => 'Показать этот тег';
+
+  @override
+  String get tagActionMuteMode => 'Выбрать теги для скрытия';
+
+  @override
+  String get tagCopied => 'Тег скопирован';
+
+  @override
+  String ugoiraExporting(int percent) {
+    return 'Экспорт GIF… $percent%';
+  }
+
+  @override
+  String get viewerEnterFullscreen => 'Полный экран';
+
+  @override
+  String get viewerExitFullscreen => 'Выйти из полноэкранного';
+
+  @override
+  String get viewerFitScreen => 'По размеру экрана';
+
+  @override
+  String get viewerSavePage => 'Сохранить страницу';
+
+  @override
+  String get viewerJumpToPage => 'Перейти к странице';
+
+  @override
+  String get viewerInfo => 'Об иллюстрации';
+
+  @override
+  String get viewerOpenDetail => 'Открыть страницу работы';
+
+  @override
+  String illustPagesTotal(int count) {
+    return 'Всего страниц: $count';
+  }
+
+  @override
+  String get illustInfoJump => 'К информации о работе';
 }

@@ -7,12 +7,18 @@ import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
 import 'package:pixiv_func/core/series/illust_series_context_controller.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/series/series_feed_controller.dart';
+import 'package:pixiv_func/core/series/series_recent_open_store.dart';
 import 'package:pixiv_func/core/series/series_store.dart';
+import 'package:pixiv_func/core/watchlist/watchlist_models.dart';
+import 'package:pixiv_func/core/watchlist/watchlist_store.dart';
+import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/series/illust_series_page.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/series_world.dart';
 import 'helpers/test_preferences.dart';
@@ -20,6 +26,9 @@ import 'helpers/test_preferences.dart';
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    // Navigating into the detail page brings VisibilityDetector-based page
+    // tracking; a zero interval keeps timers out of test teardown.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
   });
 
   test(
@@ -155,5 +164,91 @@ void main() {
       expect(find.text('author'), findsWidgets);
       expect(find.byType(IllustCard), findsNWidgets(2));
     });
+  });
+
+  Future<void> pumpSeriesPage(
+    WidgetTester tester,
+    ProviderContainer container, {
+    int seriesId = 55,
+  }) async {
+    final router = createPixivRouter(
+      initialLocation: '/recommended/series/$seriesId',
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('header shows 开始阅读 and 返回第 n 话 from their own data sources', (
+    tester,
+  ) async {
+    final (container, _) = await makeSeriesWorld();
+    addTearDown(container.dispose);
+    // The session memory recorded part 2 (illust 911); the detail payload
+    // independently carries first=901 and latest=912.
+    container
+        .read(seriesRecentOpenStoreProvider.notifier)
+        .record(accountId: '100', seriesId: 55, illustId: 911, contentOrder: 2);
+
+    await mockNetworkImagesFor(() async {
+      await pumpSeriesPage(tester, container);
+    });
+
+    expect(find.text('开始阅读'), findsOneWidget);
+    expect(find.text('返回第 2 话'), findsOneWidget);
+
+    // 开始阅读 opens the first work (firstContentId=901).
+    await tester.tap(find.text('开始阅读'));
+    await tester.pumpAndSettle();
+    final detail = tester.widget<IllustDetailPage>(
+      find.byType(IllustDetailPage),
+    );
+    expect(detail.illustId, 901);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    // 返回第 n 话 opens the session-recorded work (911), not the
+    // markSeen cursor's latest (912) — distinct state sources (W4 gate).
+    await tester.tap(find.text('返回第 2 话'));
+    await tester.pumpAndSettle();
+    final back = tester.widget<IllustDetailPage>(find.byType(IllustDetailPage));
+    expect(back.illustId, 911);
+
+    // markSeen is untouched and still tracked by its own store.
+    final cursor = container.read(watchlistReadCursorProvider);
+    expect(
+      await cursor.read('100', WatchlistKey(WatchlistType.manga, 55)),
+      912,
+    );
+  });
+
+  testWidgets('返回第 n 话 renders only with a memory hit; falls back when the '
+      'order is unknown', (tester) async {
+    final (container, _) = await makeSeriesWorld();
+    addTearDown(container.dispose);
+
+    await mockNetworkImagesFor(() async {
+      await pumpSeriesPage(tester, container);
+    });
+    // No record → only 开始阅读 renders.
+    expect(find.text('开始阅读'), findsOneWidget);
+    expect(find.textContaining('返回'), findsNothing);
+
+    // Record without an order → fallback copy.
+    container
+        .read(seriesRecentOpenStoreProvider.notifier)
+        .record(accountId: '100', seriesId: 55, illustId: 910);
+    await tester.pump();
+    expect(find.text('返回上次阅读的作品'), findsOneWidget);
   });
 }

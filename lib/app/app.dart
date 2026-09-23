@@ -15,6 +15,7 @@ import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
 import '../core/platform/android_intent_channel.dart';
 import 'external_intent_bridge.dart';
+import 'haptics/app_haptics.dart';
 import 'motion/motion_tokens.dart';
 import 'scroll_behavior.dart';
 import 'navigation/routes.dart';
@@ -118,6 +119,12 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final themeMode = ref.watch(themeModeProvider);
+    // §5.6: AppHaptics is the sole haptic entry. The reader re-reads the
+    // latest persisted setting on each trigger, so the settings toggle
+    // applies immediately without a restart.
+    AppHaptics.configure(
+      isEnabled: () => ref.read(settingsProvider).value?.enableHaptics ?? true,
+    );
     return settings.when(
       loading: () => _materialApp(
         settings: AppSettings.defaults(),

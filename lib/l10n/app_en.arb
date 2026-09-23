@@ -909,6 +909,23 @@
       }
     }
   },
+  "seriesStartReading": "Start reading",
+  "@seriesStartReading": {
+    "description": "Opens the first work in this series"
+  },
+  "seriesBackToEpisode": "Back to part {order}",
+  "@seriesBackToEpisode": {
+    "description": "Opens the most recently opened work in this series",
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesBackToLast": "Back to last opened",
+  "@seriesBackToLast": {
+    "description": "Opens the most recently opened work in this series (order unknown)"
+  },
   "seriesPrevious": "Previous",
   "seriesNext": "Next",
   "watchlistTitle": "Watchlist",
@@ -959,5 +976,65 @@
   "spotlightCategoryManga": "Manga",
   "spotlightLoadFailed": "Failed to load spotlight",
   "spotlightLoadMoreFailed": "Failed to load more spotlight articles",
-  "spotlightEmpty": "No spotlight articles"
+  "spotlightEmpty": "No spotlight articles",
+  "enableHaptics": "Haptic feedback",
+  "enableHapticsHint": "Vibrate on selections, saved actions and failures",
+  "downloadSelectPages": "Select pages to download",
+  "downloadSelectedCount": "{selected} of {total} selected",
+  "@downloadSelectedCount": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "selectAll": "Select all",
+  "done": "Done",
+  "viewerPageLabel": "Page {page} of {total}",
+  "@viewerPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tagActionSearch": "Search this tag",
+  "tagActionCopy": "Copy tag name",
+  "tagActionMute": "Mute this tag",
+  "tagActionUnmute": "Unmute this tag",
+  "tagActionMuteMode": "Select tags to mute",
+  "tagCopied": "Tag copied",
+  "ugoiraExporting": "Exporting GIF… {percent}%",
+  "@ugoiraExporting": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerEnterFullscreen": "Enter fullscreen",
+  "viewerExitFullscreen": "Exit fullscreen",
+  "viewerFitScreen": "Fit to screen",
+  "viewerSavePage": "Save current page",
+  "viewerJumpToPage": "Jump to page",
+  "viewerInfo": "Artwork info",
+  "viewerOpenDetail": "Open detail page",
+  "illustPagesTotal": "{count} pages",
+  "@illustPagesTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "illustInfoJump": "Jump to artwork info",
+  "@illustInfoJump": {
+    "description": "Scrolls to the artwork info section"
+  }
 }

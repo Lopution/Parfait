@@ -1994,6 +1994,17 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get seriesStartReading => '読み始める';
+
+  @override
+  String seriesBackToEpisode(int order) {
+    return '第 $order 話へ戻る';
+  }
+
+  @override
+  String get seriesBackToLast => '前回開いた作品へ戻る';
+
+  @override
   String get seriesPrevious => '前の作品';
 
   @override
@@ -2089,4 +2100,81 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get spotlightEmpty => 'スポットライト記事がありません';
+
+  @override
+  String get enableHaptics => '触覚フィードバック';
+
+  @override
+  String get enableHapticsHint => '選択・保存完了・失敗時に振動します';
+
+  @override
+  String get downloadSelectPages => 'ダウンロードするページを選択';
+
+  @override
+  String downloadSelectedCount(int selected, int total) {
+    return '$total 件中 $selected 件を選択';
+  }
+
+  @override
+  String get selectAll => 'すべて選択';
+
+  @override
+  String get done => '完了';
+
+  @override
+  String viewerPageLabel(int page, int total) {
+    return '$total ページ中 $page ページ目';
+  }
+
+  @override
+  String get tagActionSearch => 'このタグを検索';
+
+  @override
+  String get tagActionCopy => 'タグ名をコピー';
+
+  @override
+  String get tagActionMute => 'このタグをミュート';
+
+  @override
+  String get tagActionUnmute => 'このタグのミュートを解除';
+
+  @override
+  String get tagActionMuteMode => 'タグをまとめてミュート';
+
+  @override
+  String get tagCopied => 'タグをコピーしました';
+
+  @override
+  String ugoiraExporting(int percent) {
+    return 'GIF を書き出し中… $percent%';
+  }
+
+  @override
+  String get viewerEnterFullscreen => '全画面表示';
+
+  @override
+  String get viewerExitFullscreen => '全画面を終了';
+
+  @override
+  String get viewerFitScreen => '画面に合わせる';
+
+  @override
+  String get viewerSavePage => 'このページを保存';
+
+  @override
+  String get viewerJumpToPage => 'ページへ移動';
+
+  @override
+  String get viewerInfo => '作品情報';
+
+  @override
+  String get viewerOpenDetail => '詳細ページを開く';
+
+  @override
+  String illustPagesTotal(int count) {
+    return '全 $count ページ';
+  }
+
+  @override
+  String get illustInfoJump => '作品情報へ移動';
 }

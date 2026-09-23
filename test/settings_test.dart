@@ -1176,6 +1176,67 @@ void main() {
       expect(find.textContaining('镜像可达'), findsOneWidget);
     },
   );
+  test('enableHaptics defaults on and round-trips through JSON', () {
+    final base = _baseSettings();
+    expect(base.enableHaptics, isTrue);
+    final restored = AppSettings.fromJson(
+      base.toJson(),
+      fallback: _baseSettings(),
+    );
+    expect(restored.enableHaptics, isTrue);
+    // Payloads from before the key existed also default to on.
+    final legacy = base.toJson()..remove('enableHaptics');
+    expect(
+      AppSettings.fromJson(legacy, fallback: _baseSettings()).enableHaptics,
+      isTrue,
+    );
+    // And the off state persists.
+    final off = base.copyWith(enableHaptics: false);
+    expect(
+      AppSettings.fromJson(
+        off.toJson(),
+        fallback: _baseSettings(),
+      ).enableHaptics,
+      isFalse,
+    );
+  });
+  testWidgets('the haptics toggle persists through the repository', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    tester.view.physicalSize = const Size(800, 2400);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: BrowseSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    // The tile sits below the fold of a lazily-built list — scroll it
+    // into the viewport first (finders cannot reach an unbuilt child).
+    // (widgetWithText can't find the Switch itself: in a SwitchListTile
+    // the switch is the title's sibling in the trailing slot.)
+    final tile = find.widgetWithText(SwitchListTile, '触感反馈');
+    await tester.scrollUntilVisible(
+      tile,
+      300,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 20,
+    );
+    await tester.pumpAndSettle();
+    expect(tile, findsOneWidget);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(repository.value.enableHaptics, isFalse);
+    expect(repository.saved.last.enableHaptics, isFalse);
+  });
 }
 
 Future<void> _scrollCentered(WidgetTester tester, Finder finder) async {

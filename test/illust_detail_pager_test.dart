@@ -12,6 +12,7 @@ import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'illust_detail_page_test.dart';
@@ -48,6 +49,13 @@ double _page(WidgetTester tester) =>
     tester.widget<PageView>(find.byType(PageView)).controller!.page!;
 
 void main() {
+  setUp(() {
+    // Detail pages embed VisibilityDetector page trackers; a zero interval
+    // uses post-frame callbacks instead of a periodic timer, which would
+    // otherwise linger into test teardown.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+  });
+
   testWidgets('swiping sideways moves through the feed order', (tester) async {
     final (container, _, _) = await makeWorld();
     container.read(illustStoreProvider).mergeAll([
