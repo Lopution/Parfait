@@ -6,6 +6,8 @@ import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
 import '../../core/bookmark/bookmark_tag_providers.dart';
+import '../layout/app_breakpoints.dart';
+import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
@@ -232,301 +234,236 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
     final awaitingPrefill = widget.initiallyBookmarked && !_prefilled;
     final prefillFailed = awaitingPrefill && (detailState?.hasError ?? false);
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
-        color: colorScheme.surface,
-      ),
+    final contentMaxWidth =
+        MediaQuery.widthOf(context) >= AppBreakpoints.expanded
+        ? ContentWidths.form
+        : double.infinity;
+    return Align(
+      // heightFactor shrink-wraps vertically: a bare Center would expand to
+      // the sheet slot's max height. On expanded surfaces the form column
+      // caps at ContentWidths.form and stays centered (parent §5.5).
+      alignment: Alignment.topCenter,
+      heightFactor: 1.0,
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: MediaQuery.heightOf(context) * 0.35,
-          maxHeight: MediaQuery.heightOf(context) * 0.75,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
-              child: Row(
+        constraints: BoxConstraints(maxWidth: contentMaxWidth),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+            color: colorScheme.surface,
+          ),
+          child: SafeArea(
+            top: false,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.heightOf(context) * 0.35,
+                maxHeight: MediaQuery.heightOf(context) * 0.75,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      widget.initiallyBookmarked
-                          ? l10n.bookmarkEditTitle
-                          : _bookmarkText(
-                              context,
-                              widget.isNovel
-                                  ? 'bookmarkNovel'
-                                  : 'bookmarkIllust',
-                            ),
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  _RestrictSelect(
-                    value: _restrict,
-                    onChanged: (value) {
-                      if (value != null) setState(() => _restrict = value);
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 30),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: FuncSemanticTokens.of(context).title,
-                    ),
-                    Text(
-                      '${widget.bookmarkKey.id}',
-                      style: FuncSemanticTokens.of(context).caption,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      l10n.bookmarkTags,
-                      style: FuncSemanticTokens.of(context).body,
-                    ),
-                    const SizedBox(height: 8),
-                    if (awaitingPrefill)
-                      if (prefillFailed)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  l10n.bookmarkTagsLoadFailed,
-                                  style: FuncSemanticTokens.of(
-                                    context,
-                                  ).caption.copyWith(color: colorScheme.error),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => ref.invalidate(
-                                  bookmarkDetailProvider(widget.bookmarkKey),
-                                ),
-                                child: Text(l10n.retry),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        )
-                    else ...[
-                      if (_tags.isNotEmpty)
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            for (final tag in _tags)
-                              InputChip(
-                                label: Text(tag),
-                                onDeleted: () => _removeTag(tag),
-                              ),
-                          ],
-                        ),
-                      TextField(
-                        controller: _tagInput,
-                        decoration: InputDecoration(
-                          hintText: l10n.bookmarkTagNewHint,
-                          isDense: true,
-                        ),
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: _addTag,
-                      ),
-                      switch (suggestions) {
-                        AsyncData(:final value) when value.isNotEmpty => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 12),
-                            Text(
-                              l10n.bookmarkTagSuggestions,
-                              style: FuncSemanticTokens.of(context).caption,
-                            ),
-                            const SizedBox(height: 4),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: [
-                                for (final suggestion in value)
-                                  if (!_tags.contains(suggestion.name))
-                                    FilterChip(
-                                      label: Text(suggestion.name),
-                                      selected: false,
-                                      onSelected: (_) =>
-                                          _addTag(suggestion.name),
-                                    ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        _ => const SizedBox.shrink(),
-                      },
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: MaterialButton(
-                      elevation: 0,
-                      color: colorScheme.surfaceContainer,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(40),
-                        side: BorderSide.none,
-                      ),
-                      minWidth: double.infinity,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Text(
-                          l10n.cancel,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: MaterialButton(
-                      elevation: 0,
-                      color: colorScheme.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(40),
-                      ),
-                      minWidth: double.infinity,
-                      // Disabled until the existing bookmark's detail has
-                      // prefilled: confirming earlier would overwrite a
-                      // private/tagged bookmark with the default
-                      // public+empty-tags values.
-                      onPressed: awaitingPrefill
-                          ? null
-                          : () {
-                              final pending = _tagInput.text.trim();
-                              Navigator.of(context).pop();
-                              ref
-                                  .read(bookmarkActionsProvider)
-                                  .addWithRestrict(
-                                    widget.bookmarkKey,
-                                    _restrict,
-                                    tags: pending.isEmpty
-                                        ? _tags
-                                        : [..._tags, pending],
-                                  );
-                            },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Text(
-                          l10n.confirm,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: colorScheme.onPrimary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Beta56 SelectButton replica: pill dropdown with toggle icon; the selected
-/// value gets a primary border.
-class _RestrictSelect extends StatelessWidget {
-  const _RestrictSelect({required this.value, required this.onChanged});
-
-  final BookmarkRestrict value;
-  final ValueChanged<BookmarkRestrict?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(8),
-      child: SizedBox(
-        height: 35,
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<BookmarkRestrict>(
-            elevation: 0,
-            borderRadius: BorderRadius.circular(12),
-            items: [
-              for (final restrict in BookmarkRestrict.values)
-                DropdownMenuItem<BookmarkRestrict>(
-                  value: restrict,
-                  child: Container(
-                    height: 35,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(17),
-                      border: value == restrict
-                          ? Border.all(color: colorScheme.primary)
-                          : null,
-                      color: colorScheme.surfaceContainer,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.toggle_off_outlined,
-                          size: 12,
-                          color: colorScheme.onSurface,
-                        ),
-                        const SizedBox(width: 10),
                         Text(
-                          _bookmarkText(
-                            context,
-                            restrict == BookmarkRestrict.private
-                                ? 'restrictPrivate'
-                                : 'restrictPublic',
-                          ),
-                          style: FuncSemanticTokens.of(context).body,
+                          widget.initiallyBookmarked
+                              ? l10n.bookmarkEditTitle
+                              : _bookmarkText(
+                                  context,
+                                  widget.isNovel
+                                      ? 'bookmarkNovel'
+                                      : 'bookmarkIllust',
+                                ),
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.title,
+                          style: FuncSemanticTokens.of(context).title,
+                        ),
+                        Text(
+                          '${widget.bookmarkKey.id}',
+                          style: FuncSemanticTokens.of(context).caption,
+                        ),
+                        const SizedBox(height: 16),
+                        SegmentedButton<BookmarkRestrict>(
+                          segments: [
+                            ButtonSegment(
+                              value: BookmarkRestrict.public,
+                              label: Text(l10n.restrictPublic),
+                            ),
+                            ButtonSegment(
+                              value: BookmarkRestrict.private,
+                              label: Text(l10n.restrictPrivate),
+                            ),
+                          ],
+                          selected: {_restrict},
+                          onSelectionChanged: (selection) =>
+                              setState(() => _restrict = selection.first),
+                        ),
                       ],
                     ),
                   ),
-                ),
-            ],
-            value: value,
-            onChanged: onChanged,
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.bookmarkTags,
+                            style: FuncSemanticTokens.of(context).body,
+                          ),
+                          const SizedBox(height: 8),
+                          if (awaitingPrefill)
+                            if (prefillFailed)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        l10n.bookmarkTagsLoadFailed,
+                                        style: FuncSemanticTokens.of(context)
+                                            .caption
+                                            .copyWith(color: colorScheme.error),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => ref.invalidate(
+                                        bookmarkDetailProvider(
+                                          widget.bookmarkKey,
+                                        ),
+                                      ),
+                                      child: Text(l10n.retry),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              )
+                          else ...[
+                            if (_tags.isNotEmpty)
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                children: [
+                                  for (final tag in _tags)
+                                    InputChip(
+                                      label: Text(tag),
+                                      onDeleted: () => _removeTag(tag),
+                                    ),
+                                ],
+                              ),
+                            TextField(
+                              controller: _tagInput,
+                              decoration: InputDecoration(
+                                hintText: l10n.bookmarkTagNewHint,
+                                isDense: true,
+                              ),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: _addTag,
+                            ),
+                            switch (suggestions) {
+                              AsyncData(:final value) when value.isNotEmpty =>
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      l10n.bookmarkTagSuggestions,
+                                      style: FuncSemanticTokens.of(
+                                        context,
+                                      ).caption,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      children: [
+                                        for (final suggestion in value)
+                                          if (!_tags.contains(suggestion.name))
+                                            FilterChip(
+                                              label: Text(suggestion.name),
+                                              selected: false,
+                                              onSelected: (_) =>
+                                                  _addTag(suggestion.name),
+                                            ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              _ => const SizedBox.shrink(),
+                            },
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text(l10n.cancel),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          // Disabled until the existing bookmark's detail has
+                          // prefilled: confirming earlier would overwrite a
+                          // private/tagged bookmark with the default
+                          // public+empty-tags values.
+                          child: FilledButton(
+                            onPressed: awaitingPrefill
+                                ? null
+                                : () {
+                                    final pending = _tagInput.text.trim();
+                                    Navigator.of(context).pop();
+                                    ref
+                                        .read(bookmarkActionsProvider)
+                                        .addWithRestrict(
+                                          widget.bookmarkKey,
+                                          _restrict,
+                                          tags: pending.isEmpty
+                                              ? _tags
+                                              : [..._tags, pending],
+                                        );
+                                  },
+                            child: Text(l10n.confirm),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
           ),
         ),
       ),
