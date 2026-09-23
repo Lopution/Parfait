@@ -189,77 +189,66 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets(
-    'header shows 开始阅读 and 返回第 n 话 from their own data sources',
-    (tester) async {
-      final (container, _) = await makeSeriesWorld();
-      addTearDown(container.dispose);
-      // The session memory recorded part 2 (illust 911); the detail payload
-      // independently carries first=901 and latest=912.
-      container
-          .read(seriesRecentOpenStoreProvider.notifier)
-          .record(
-            accountId: '100',
-            seriesId: 55,
-            illustId: 911,
-            contentOrder: 2,
-          );
+  testWidgets('header shows 开始阅读 and 返回第 n 话 from their own data sources', (
+    tester,
+  ) async {
+    final (container, _) = await makeSeriesWorld();
+    addTearDown(container.dispose);
+    // The session memory recorded part 2 (illust 911); the detail payload
+    // independently carries first=901 and latest=912.
+    container
+        .read(seriesRecentOpenStoreProvider.notifier)
+        .record(accountId: '100', seriesId: 55, illustId: 911, contentOrder: 2);
 
-      await mockNetworkImagesFor(() async {
-        await pumpSeriesPage(tester, container);
-      });
+    await mockNetworkImagesFor(() async {
+      await pumpSeriesPage(tester, container);
+    });
 
-      expect(find.text('开始阅读'), findsOneWidget);
-      expect(find.text('返回第 2 话'), findsOneWidget);
+    expect(find.text('开始阅读'), findsOneWidget);
+    expect(find.text('返回第 2 话'), findsOneWidget);
 
-      // 开始阅读 opens the first work (firstContentId=901).
-      await tester.tap(find.text('开始阅读'));
-      await tester.pumpAndSettle();
-      final detail = tester.widget<IllustDetailPage>(
-        find.byType(IllustDetailPage),
-      );
-      expect(detail.illustId, 901);
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
+    // 开始阅读 opens the first work (firstContentId=901).
+    await tester.tap(find.text('开始阅读'));
+    await tester.pumpAndSettle();
+    final detail = tester.widget<IllustDetailPage>(
+      find.byType(IllustDetailPage),
+    );
+    expect(detail.illustId, 901);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
 
-      // 返回第 n 话 opens the session-recorded work (911), not the
-      // markSeen cursor's latest (912) — distinct state sources (W4 gate).
-      await tester.tap(find.text('返回第 2 话'));
-      await tester.pumpAndSettle();
-      final back = tester.widget<IllustDetailPage>(
-        find.byType(IllustDetailPage),
-      );
-      expect(back.illustId, 911);
+    // 返回第 n 话 opens the session-recorded work (911), not the
+    // markSeen cursor's latest (912) — distinct state sources (W4 gate).
+    await tester.tap(find.text('返回第 2 话'));
+    await tester.pumpAndSettle();
+    final back = tester.widget<IllustDetailPage>(find.byType(IllustDetailPage));
+    expect(back.illustId, 911);
 
-      // markSeen is untouched and still tracked by its own store.
-      final cursor = container.read(watchlistReadCursorProvider);
-      expect(
-        await cursor.read('100', WatchlistKey(WatchlistType.manga, 55)),
-        912,
-      );
-    },
-  );
+    // markSeen is untouched and still tracked by its own store.
+    final cursor = container.read(watchlistReadCursorProvider);
+    expect(
+      await cursor.read('100', WatchlistKey(WatchlistType.manga, 55)),
+      912,
+    );
+  });
 
-  testWidgets(
-    '返回第 n 话 renders only with a memory hit; falls back when the '
-    'order is unknown',
-    (tester) async {
-      final (container, _) = await makeSeriesWorld();
-      addTearDown(container.dispose);
+  testWidgets('返回第 n 话 renders only with a memory hit; falls back when the '
+      'order is unknown', (tester) async {
+    final (container, _) = await makeSeriesWorld();
+    addTearDown(container.dispose);
 
-      await mockNetworkImagesFor(() async {
-        await pumpSeriesPage(tester, container);
-      });
-      // No record → only 开始阅读 renders.
-      expect(find.text('开始阅读'), findsOneWidget);
-      expect(find.textContaining('返回'), findsNothing);
+    await mockNetworkImagesFor(() async {
+      await pumpSeriesPage(tester, container);
+    });
+    // No record → only 开始阅读 renders.
+    expect(find.text('开始阅读'), findsOneWidget);
+    expect(find.textContaining('返回'), findsNothing);
 
-      // Record without an order → fallback copy.
-      container
-          .read(seriesRecentOpenStoreProvider.notifier)
-          .record(accountId: '100', seriesId: 55, illustId: 910);
-      await tester.pump();
-      expect(find.text('返回上次阅读的作品'), findsOneWidget);
-    },
-  );
+    // Record without an order → fallback copy.
+    container
+        .read(seriesRecentOpenStoreProvider.notifier)
+        .record(accountId: '100', seriesId: 55, illustId: 910);
+    await tester.pump();
+    expect(find.text('返回上次阅读的作品'), findsOneWidget);
+  });
 }
