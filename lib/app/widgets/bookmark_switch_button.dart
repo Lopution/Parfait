@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -181,10 +184,90 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
   List<String> _tags = const [];
   bool _prefilled = false;
 
+  /// Draft baseline: the persisted bookmark state (public+empty for a fresh
+  /// work, the prefilled detail for an existing one). Closing the sheet
+  /// while [ _isDirty ] asks before discarding.
+  BookmarkRestrict _initialRestrict = BookmarkRestrict.public;
+  List<String> _initialTags = const [];
+
+  bool _submitting = false;
+  Object? _submitError;
+
   @override
   void dispose() {
     _tagInput.dispose();
     super.dispose();
+  }
+
+  bool get _isDirty =>
+      _restrict != _initialRestrict || !listEquals(_tags, _initialTags);
+
+  /// Closing is safe without a prompt when the draft matches the baseline or
+  /// a submit is already in flight — the in-flight mutation keeps running
+  /// and the store entry still reports its outcome.
+  bool get _closableFreely => _submitting || !_isDirty;
+
+  Future<void> _attemptClose() async {
+    if (_closableFreely) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final leave = await showAppDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.profileEditLeaveTitle),
+        content: Text(context.l10n.profileEditLeaveDetail),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.l10n.profileEditLeaveConfirm),
+          ),
+        ],
+      ),
+    );
+    if (leave == true && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _confirm() async {
+    final pending = _tagInput.text.trim();
+    final tags = pending.isEmpty ? _tags : [..._tags, pending];
+    setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
+    try {
+      await ref
+          .read(bookmarkActionsProvider)
+          .addWithRestrict(widget.bookmarkKey, _restrict, tags: tags);
+    } on Object catch (error) {
+      // Thrown before the store even saw the op (e.g. no session): same
+      // keep-open + inline-error handling as a store-level failure.
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _submitError = error;
+        });
+      }
+      return;
+    }
+    if (!mounted) return;
+    final error = ref.read(bookmarkStoreProvider)[widget.bookmarkKey]?.error;
+    if (error != null) {
+      // Non-connectivity failure: keep the sheet open, keep the draft
+      // untouched, show the error inline (D6).
+      setState(() {
+        _submitting = false;
+        _submitError = error;
+      });
+      return;
+    }
+    // Committed, or a connectivity failure already queued for replay —
+    // either way the draft is accepted and the sheet closes (D6).
+    Navigator.of(context).pop();
   }
 
   void _addTag(String raw) {
@@ -214,8 +297,17 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
         if (detail != null && !_prefilled) {
           setState(() {
             _prefilled = true;
-            _restrict = detail.restrict ?? _restrict;
-            _tags = detail.tagNames;
+            // The persisted state is the draft baseline. Values typed
+            // while the detail was still in flight are kept — late-arriving
+            // prefill must not clobber a user's edits. Dirtiness is judged
+            // against the old baseline before it moves.
+            final stillPristine = !_isDirty;
+            _initialRestrict = detail.restrict ?? BookmarkRestrict.public;
+            _initialTags = detail.tagNames;
+            if (stillPristine) {
+              _restrict = _initialRestrict;
+              _tags = _initialTags;
+            }
           });
         }
       });
@@ -238,7 +330,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
         MediaQuery.widthOf(context) >= AppBreakpoints.expanded
         ? ContentWidths.form
         : double.infinity;
-    return Align(
+    Widget sheet = Align(
       // heightFactor shrink-wraps vertically: a bare Center would expand to
       // the sheet slot's max height. On expanded surfaces the form column
       // caps at ContentWidths.form and stays centered (parent §5.5).
@@ -422,13 +514,23 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (_submitError != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                      child: Text(
+                        l10n.bookmarkOperationFailed('$_submitError'),
+                        style: FuncSemanticTokens.of(
+                          context,
+                        ).caption.copyWith(color: colorScheme.error),
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop(),
+                            onPressed: () => unawaited(_attemptClose()),
                             child: Text(l10n.cancel),
                           ),
                         ),
@@ -437,23 +539,12 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                           // Disabled until the existing bookmark's detail has
                           // prefilled: confirming earlier would overwrite a
                           // private/tagged bookmark with the default
-                          // public+empty-tags values.
+                          // public+empty-tags values. Also disabled while a
+                          // submit is in flight to dedupe taps.
                           child: FilledButton(
-                            onPressed: awaitingPrefill
+                            onPressed: (awaitingPrefill || _submitting)
                                 ? null
-                                : () {
-                                    final pending = _tagInput.text.trim();
-                                    Navigator.of(context).pop();
-                                    ref
-                                        .read(bookmarkActionsProvider)
-                                        .addWithRestrict(
-                                          widget.bookmarkKey,
-                                          _restrict,
-                                          tags: pending.isEmpty
-                                              ? _tags
-                                              : [..._tags, pending],
-                                        );
-                                  },
+                                : () => unawaited(_confirm()),
                             child: Text(l10n.confirm),
                           ),
                         ),
@@ -467,6 +558,31 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
           ),
         ),
       ),
+    );
+    if (!_closableFreely) {
+      // Drag-to-dismiss bypasses PopScope entirely: BottomSheet.onClosing
+      // calls Navigator.pop() directly, and imperative pops never consult
+      // popDisposition. While dirty the sheet content claims vertical
+      // drags itself and routes a downward release through the same
+      // _attemptClose confirmation. The inner scroll view still wins
+      // drags that start inside it, so scrolling is unaffected.
+      sheet = GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragEnd: (details) {
+          if ((details.primaryVelocity ?? 0) > 0) unawaited(_attemptClose());
+        },
+        child: sheet,
+      );
+    }
+    return PopScope(
+      canPop: _closableFreely,
+      onPopInvokedWithResult: (didPop, _) {
+        // Only maybePop paths (system back, barrier tap) deliver
+        // didPop:false here; our own Navigator.pop() calls bypass the
+        // scope, so confirmed closes cannot recurse back in.
+        if (!didPop) unawaited(_attemptClose());
+      },
+      child: sheet,
     );
   }
 }
