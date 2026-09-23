@@ -258,35 +258,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       // same treatment as the onboarding pages sharing this shell.
       header: widget.isFirst ? title : const SizedBox.shrink(),
       content: _buildNetworkOptions(context, text: text),
-      primaryAction: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: _buildLoginActions(text, onClipboardLogin),
-      ),
-      secondary: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            text('loginAgree'),
-            textAlign: TextAlign.center,
-            style: FuncSemanticTokens.of(context).body,
-          ),
-          TextButton(
-            onPressed: () => context.push<void>('/user-agreement'),
-            style: TextButton.styleFrom(
-              foregroundColor: FuncTokens.primary,
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(0, 32),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              text('userAgreement'),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+      primaryAction: _buildMainActions(text),
+      secondary: _buildSecondary(
+        context,
+        text: text,
+        onClipboardLogin: onClipboardLogin,
       ),
     );
   }
@@ -305,23 +281,109 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           onTap: _toggleNetworkMode,
         ),
         const Divider(),
-        if (_help)
-          RichText(
-            text: TextSpan(
-              style: FuncSemanticTokens.of(
-                context,
-              ).body.copyWith(color: Theme.of(context).colorScheme.onSecondary),
+      ],
+    );
+  }
+
+  /// The register/login row is the page's primary action and stays in place
+  /// regardless of the help toggle — `_help` only reveals the secondary
+  /// zone below it, it never replaces this row.
+  Widget _buildMainActions(String Function(String) text) {
+    return Row(
+      children: [
+        Expanded(
+          child: ReplicaButton(
+            label: text('register'),
+            backgroundColor: FuncTokens.lightBackground,
+            foregroundColor: FuncTokens.primary,
+            borderColor: FuncTokens.primary,
+            onPressed:
+                widget.onRegister ?? () => _openLoginWebview(create: true),
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: ReplicaButton(
+            label: text('login'),
+            backgroundColor: FuncTokens.primary,
+            foregroundColor: FuncTokens.lightBackground,
+            onPressed: widget.onLogin ?? () => _openLoginWebview(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecondary(
+    BuildContext context, {
+    required String Function(String) text,
+    required VoidCallback onClipboardLogin,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_help) ...[
+          Text(
+            text('networkCompatibilityHint'),
+            style: FuncSemanticTokens.of(
+              context,
+            ).body.copyWith(color: Theme.of(context).colorScheme.onSecondary),
+          ),
+          const SizedBox(height: 12),
+          // Clipboard import is an action (idle/busy/success/error): while
+          // busy the button is disabled and its label carries a small
+          // progress indicator — ReplicaButton has no loading variant, so
+          // a disabled OutlinedButton is the equivalent secondary form.
+          OutlinedButton(
+            onPressed: _clipboardBusy ? null : onClipboardLogin,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                TextSpan(text: text('networkCompatibilityHint')),
-                TextSpan(
-                  text: text('getMoreHelp'),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
+                if (_clipboardBusy) ...[
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                  child: Text(
+                    text('useLoginWithClipboard'),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            text('accountTransferWarning'),
+            textAlign: TextAlign.center,
+            style: FuncSemanticTokens.of(context).caption,
+          ),
+          const SizedBox(height: 12),
+        ],
+        Text(
+          text('loginAgree'),
+          textAlign: TextAlign.center,
+          style: FuncSemanticTokens.of(context).body,
+        ),
+        TextButton(
+          onPressed: () => context.push<void>('/user-agreement'),
+          style: TextButton.styleFrom(
+            foregroundColor: FuncTokens.primary,
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 32),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            text('userAgreement'),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
@@ -368,63 +430,5 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       NetworkMode.compatPrefer => network_contracts.NetworkMode.compatPrefer,
     });
     _persistNetworkMode(_networkMode);
-  }
-
-  List<Widget> _buildLoginActions(
-    String Function(String) text,
-    VoidCallback onClipboardLogin,
-  ) {
-    if (_help) {
-      return [
-        Text(
-          text('accountTransferWarning'),
-          textAlign: TextAlign.center,
-          style: FuncSemanticTokens.of(context).caption,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          text('useLoginWithClipboardHint'),
-          textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: ReplicaButton(
-            label: text('useLoginWithClipboard'),
-            backgroundColor: FuncTokens.primary,
-            foregroundColor: FuncTokens.lightBackground,
-            onPressed: onClipboardLogin,
-          ),
-        ),
-      ];
-    }
-    return [
-      Row(
-        children: [
-          Expanded(
-            child: ReplicaButton(
-              label: text('register'),
-              backgroundColor: FuncTokens.lightBackground,
-              foregroundColor: FuncTokens.primary,
-              borderColor: FuncTokens.primary,
-              onPressed:
-                  widget.onRegister ?? () => _openLoginWebview(create: true),
-            ),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: ReplicaButton(
-              label: text('login'),
-              backgroundColor: FuncTokens.primary,
-              foregroundColor: FuncTokens.lightBackground,
-              onPressed: widget.onLogin ?? () => _openLoginWebview(),
-            ),
-          ),
-        ],
-      ),
-    ];
   }
 }
