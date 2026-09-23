@@ -791,6 +791,14 @@
   "commentTranslationInvalidCredentials": "Translation credentials are invalid; check settings",
   "commentTranslationRateLimited": "Too many translations or quota exhausted",
   "commentEmoji": "Emoji",
+  "commentStampLabel": "Stamp {id}",
+  "@commentStampLabel": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
   "commentStamps": "Stamps",
   "commentPermissionDenied": "You can only delete your own comments",
   "newTitle": "New",

@@ -791,6 +791,14 @@
   "commentTranslationInvalidCredentials": "翻訳の認証情報が無効です。設定を確認してください。",
   "commentTranslationRateLimited": "翻訳が混み合っているか、上限に達しました",
   "commentEmoji": "Emoji",
+  "commentStampLabel": "スタンプ {id}",
+  "@commentStampLabel": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
   "commentStamps": "Stamp",
   "commentPermissionDenied": "自分のコメントのみ削除できます",
   "newTitle": "新着",

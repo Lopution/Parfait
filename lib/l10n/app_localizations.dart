@@ -3222,6 +3222,12 @@ abstract class AppLocalizations {
   /// **'Emoji'**
   String get commentEmoji;
 
+  /// No description provided for @commentStampLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'贴图 {id}'**
+  String commentStampLabel(int id);
+
   /// No description provided for @commentStamps.
   ///
   /// In zh, this message translates to:

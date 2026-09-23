@@ -1678,6 +1678,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commentEmoji => 'Emoji';
 
   @override
+  String commentStampLabel(int id) {
+    return 'スタンプ $id';
+  }
+
+  @override
   String get commentStamps => 'Stamp';
 
   @override

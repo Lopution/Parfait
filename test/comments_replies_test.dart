@@ -1239,4 +1239,59 @@ void main() {
       );
     },
   );
+
+  testWidgets('grid cells expose button semantics with labels', (tester) async {
+    await tester.pumpWidget(composerApp(bareComposer()));
+    final context = tester.element(find.byType(CommentComposer));
+
+    bool isCellButton(Widget widget, String label) =>
+        widget is Semantics &&
+        widget.properties.button == true &&
+        widget.properties.label == label;
+
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+
+    // Emoji cells announce as buttons named after the emoji token; the
+    // images stay decorative-only.
+    expect(
+      find.byWidgetPredicate(
+        (widget) => isCellButton(widget, commentEmojiNames.first),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(GridView),
+        matching: find.byType(ExcludeSemantics),
+      ),
+      findsWidgets,
+    );
+    // The panel grid itself is one semantics container.
+    expect(
+      tester
+          .widget<Semantics>(
+            find
+                .ancestor(
+                  of: find.byType(GridView),
+                  matching: find.byType(Semantics),
+                )
+                .first,
+          )
+          .container,
+      isTrue,
+    );
+
+    await tester.tap(find.byTooltip('Stamp'));
+    await tester.pump();
+    expect(
+      find.byWidgetPredicate(
+        (widget) => isCellButton(
+          widget,
+          context.l10n.commentStampLabel(commentStampIds.first),
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
 }

@@ -791,6 +791,14 @@
   "commentTranslationInvalidCredentials": "Учётные данные перевода недействительны; проверьте настройки",
   "commentTranslationRateLimited": "Слишком много переводов или исчерпана квота",
   "commentEmoji": "Emoji",
+  "commentStampLabel": "Стикер {id}",
+  "@commentStampLabel": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
   "commentStamps": "Stamps",
   "commentPermissionDenied": "Можно удалять только свои комментарии",
   "newTitle": "Новинки",

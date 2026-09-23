@@ -1722,6 +1722,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commentEmoji => 'Emoji';
 
   @override
+  String commentStampLabel(int id) {
+    return 'Стикер $id';
+  }
+
+  @override
   String get commentStamps => 'Stamps';
 
   @override
