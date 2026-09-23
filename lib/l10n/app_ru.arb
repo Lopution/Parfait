@@ -1003,5 +1003,17 @@
   },
   "viewerEnterFullscreen": "Полный экран",
   "viewerExitFullscreen": "Выйти из полноэкранного",
-  "viewerFitScreen": "По размеру экрана"
+  "viewerFitScreen": "По размеру экрана",
+  "viewerSavePage": "Сохранить страницу",
+  "viewerJumpToPage": "Перейти к странице",
+  "viewerInfo": "Об иллюстрации",
+  "viewerOpenDetail": "Открыть страницу работы",
+  "illustPagesTotal": "Всего страниц: {count}",
+  "@illustPagesTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

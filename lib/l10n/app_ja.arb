@@ -1003,5 +1003,17 @@
   },
   "viewerEnterFullscreen": "全画面表示",
   "viewerExitFullscreen": "全画面を終了",
-  "viewerFitScreen": "画面に合わせる"
+  "viewerFitScreen": "画面に合わせる",
+  "viewerSavePage": "このページを保存",
+  "viewerJumpToPage": "ページへ移動",
+  "viewerInfo": "作品情報",
+  "viewerOpenDetail": "詳細ページを開く",
+  "illustPagesTotal": "全 {count} ページ",
+  "@illustPagesTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

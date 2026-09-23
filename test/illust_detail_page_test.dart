@@ -248,11 +248,13 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.text('2 / 2'), findsOneWidget);
+        // The counter lives in both chrome bars (top title + bottom
+        // jump-to-page entry).
+        expect(find.text('2 / 2'), findsNWidgets(2));
 
         await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
         await tester.pumpAndSettle();
-        expect(find.text('1 / 2'), findsOneWidget);
+        expect(find.text('1 / 2'), findsNWidgets(2));
       });
     });
 
@@ -333,7 +335,7 @@ void main() {
       );
       await tester.pump();
       expect(find.text('没有可显示的图片'), findsOneWidget);
-      expect(find.text('1 / 0'), findsOneWidget);
+      expect(find.text('1 / 0'), findsNWidgets(2));
     }, skip: false);
 
     testWidgets(
@@ -435,7 +437,7 @@ void main() {
             1000,
           );
           await tester.pumpAndSettle();
-          expect(find.text('2 / 2'), findsOneWidget);
+          expect(find.text('2 / 2'), findsNWidgets(2));
           expectViewerChrome(tester, visible: false);
 
           // A route swap (replaceImageViewerPage builds a fresh widget on a
@@ -553,6 +555,93 @@ void main() {
         });
       },
     );
+
+    testWidgets('the page counter opens the jump-to-page sheet', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+
+            home: ImageViewerPage(
+              urls: [
+                'https://i.pximg.net/1/original.jpg',
+                'https://i.pximg.net/2/original.jpg',
+                'https://i.pximg.net/3/original.jpg',
+              ],
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('1 / 3'), findsNWidgets(2));
+
+        await tester.tap(find.text('1 / 3').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('3'));
+        await tester.pumpAndSettle();
+        expect(find.text('3 / 3'), findsNWidgets(2));
+      });
+    });
+
+    testWidgets('entity-less viewer renders no save/share/info actions', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+
+            home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+          ),
+        );
+        await tester.pump();
+        expect(find.byIcon(Icons.download_outlined), findsNothing);
+        expect(find.byIcon(Icons.share_outlined), findsNothing);
+        expect(find.byIcon(Icons.info_outline), findsNothing);
+        // Entity-independent chrome stays available.
+        expect(find.byIcon(Icons.fit_screen), findsOneWidget);
+        expect(find.byIcon(Icons.fullscreen), findsOneWidget);
+      });
+    });
+
+    testWidgets('the save action submits the active page', (tester) async {
+      final (container, transport, sinks) = await makeWorld();
+      final entity = parseIllust(
+        illustJson(42, pageCount: 2, withMetaPages: true),
+      );
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+                entity: entity,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.download_outlined));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        final manager = container.read(downloadManagerProvider);
+        expect(manager.tasks, hasLength(1));
+        expect(manager.tasks.single.pageIndex, 0);
+      });
+    });
   });
 
   group('IllustDetailPage download mode (R4)', () {

@@ -4127,6 +4127,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'适应屏幕'**
   String get viewerFitScreen;
+
+  /// No description provided for @viewerSavePage.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存当前页'**
+  String get viewerSavePage;
+
+  /// No description provided for @viewerJumpToPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳转到页码'**
+  String get viewerJumpToPage;
+
+  /// No description provided for @viewerInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品信息'**
+  String get viewerInfo;
+
+  /// No description provided for @viewerOpenDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开详情页'**
+  String get viewerOpenDetail;
+
+  /// No description provided for @illustPagesTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 页'**
+  String illustPagesTotal(int count);
 }
 
 class _AppLocalizationsDelegate

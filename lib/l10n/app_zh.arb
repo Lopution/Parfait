@@ -1003,5 +1003,17 @@
   },
   "viewerEnterFullscreen": "进入全屏",
   "viewerExitFullscreen": "退出全屏",
-  "viewerFitScreen": "适应屏幕"
+  "viewerFitScreen": "适应屏幕",
+  "viewerSavePage": "保存当前页",
+  "viewerJumpToPage": "跳转到页码",
+  "viewerInfo": "作品信息",
+  "viewerOpenDetail": "打开详情页",
+  "illustPagesTotal": "共 {count} 页",
+  "@illustPagesTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

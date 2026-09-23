@@ -2192,4 +2192,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get viewerFitScreen => 'По размеру экрана';
+
+  @override
+  String get viewerSavePage => 'Сохранить страницу';
+
+  @override
+  String get viewerJumpToPage => 'Перейти к странице';
+
+  @override
+  String get viewerInfo => 'Об иллюстрации';
+
+  @override
+  String get viewerOpenDetail => 'Открыть страницу работы';
+
+  @override
+  String illustPagesTotal(int count) {
+    return 'Всего страниц: $count';
+  }
 }
