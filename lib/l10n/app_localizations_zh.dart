@@ -1661,6 +1661,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commentEmoji => 'Emoji';
 
   @override
+  String get commentSending => '发送中';
+
+  @override
+  String commentStampLabel(int id) {
+    return '贴图 $id';
+  }
+
+  @override
   String get commentStamps => 'Stamp';
 
   @override
