@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/comments/comment_assets.dart';
@@ -34,9 +36,14 @@ class CommentComposer extends StatefulWidget {
 }
 
 class CommentComposerState extends State<CommentComposer> {
+  /// Panel height before any real keyboard height is sampled — between
+  /// Shaft's 270dp and chat_bottom_container's 300dp fallbacks.
+  static const _fallbackPanelHeight = 280.0;
+
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   CommentComposerInputState _inputState = CommentComposerInputState.none;
+  double _cachedKeyboardHeight = 0;
   bool _busy = false;
 
   bool get _disabled => widget.sending || _busy;
@@ -89,6 +96,21 @@ class CommentComposerState extends State<CommentComposer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // The viewInsets read is scoped to this subtree so per-frame IME
+    // animation rebuilds stay inside the composer (search_page precedent).
+    final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
+    // Sample the peak only while the field owns focus: some OEM IMEs fold
+    // the nav-bar inset into viewInsets when nothing is focused, which
+    // would poison the cache (Shaft BottomPanelCoordinator note).
+    if (_focusNode.hasFocus && viewInsetsBottom > _cachedKeyboardHeight) {
+      _cachedKeyboardHeight = viewInsetsBottom;
+    }
+    final bottomExtent = math.max(
+      viewInsetsBottom,
+      _panelVisible
+          ? math.max(_cachedKeyboardHeight, _fallbackPanelHeight)
+          : 0.0,
+    );
     return PopScope(
       // An open picker panel is a transient layer on this route: system back
       // collapses it instead of leaving (§5.4). The keyboard leg is never
@@ -194,7 +216,15 @@ class CommentComposerState extends State<CommentComposer> {
                   ],
                 ),
               ),
-              if (_panelVisible) _buildPanel(context),
+              // The bottom extent slot does all avoidance in layout: the
+              // IME rides over a plain spacer, and a panel swaps into the
+              // same slot at keyboard height so IME ↔ panel switches do
+              // not jump (the feed list is only compressed, never doubly
+              // padded — design 「避让责任唯一」).
+              SizedBox(
+                height: bottomExtent,
+                child: _panelVisible ? _buildPanel(context) : null,
+              ),
             ],
           ),
         ),
@@ -204,35 +234,32 @@ class CommentComposerState extends State<CommentComposer> {
 
   Widget _buildPanel(BuildContext context) {
     final isEmoji = _inputState == CommentComposerInputState.emoji;
-    return SizedBox(
-      height: isEmoji ? 210 : 250,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(8),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: isEmoji ? 10 : 5,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-        ),
-        itemCount: isEmoji ? commentEmojiNames.length : commentStampIds.length,
-        itemBuilder: (context, index) {
-          if (isEmoji) {
-            final name = commentEmojiNames[index];
-            return InkResponse(
-              onTap: () => _insertEmoji(name),
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: Image.asset(commentEmojiAsset(name)),
-              ),
-            );
-          }
-          final id = commentStampIds[index];
-          return InkResponse(
-            onTap: () => _sendStamp(id),
-            child: Image.asset(commentStampAsset(id)),
-          );
-        },
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isEmoji ? 10 : 5,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
+      itemCount: isEmoji ? commentEmojiNames.length : commentStampIds.length,
+      itemBuilder: (context, index) {
+        if (isEmoji) {
+          final name = commentEmojiNames[index];
+          return InkResponse(
+            onTap: () => _insertEmoji(name),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Image.asset(commentEmojiAsset(name)),
+            ),
+          );
+        }
+        final id = commentStampIds[index];
+        return InkResponse(
+          onTap: () => _sendStamp(id),
+          child: Image.asset(commentStampAsset(id)),
+        );
+      },
     );
   }
 
