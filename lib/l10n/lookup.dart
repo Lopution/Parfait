@@ -336,6 +336,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'novelFontSize' => l10n.novelFontSize,
   'novelIncreaseFont' => l10n.novelIncreaseFont,
   'novelInfoTitle' => l10n.novelInfoTitle,
+  'novelLayoutFailed' => l10n.novelLayoutFailed,
   'novelLineHeight' => l10n.novelLineHeight,
   'novelLoadFailed' => l10n.novelLoadFailed,
   'novelLoading' => l10n.novelLoading,

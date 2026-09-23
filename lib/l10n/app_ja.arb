@@ -891,6 +891,7 @@
   "novelRestricted": "この小説は制限されています",
   "novelContentUnavailable": "現在の API は小説本文を返しませんでした",
   "novelLoadFailed": "小説の読み込みに失敗しました",
+  "novelLayoutFailed": "小説の組版に失敗しました",
   "novelRetry": "再試行",
   "novelNoContent": "本文はありません",
   "novelWords": "文字",

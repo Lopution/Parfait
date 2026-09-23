@@ -3636,6 +3636,12 @@ abstract class AppLocalizations {
   /// **'小说加载失败'**
   String get novelLoadFailed;
 
+  /// No description provided for @novelLayoutFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说排版失败'**
+  String get novelLayoutFailed;
+
   /// No description provided for @novelRetry.
   ///
   /// In zh, this message translates to:

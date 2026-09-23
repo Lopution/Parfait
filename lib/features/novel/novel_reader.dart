@@ -8,6 +8,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/reader_settings.dart';
+import '../../l10n/context.dart';
 import 'novel_layout.dart';
 
 enum NovelTapZone { previous, center, next }
@@ -238,6 +239,8 @@ class NovelReader extends StatefulWidget {
     this.onCenterTap,
     this.onProgressChanged,
     this.handle,
+    this.layoutEngine,
+    this.budget = const NovelLayoutBudget(),
   });
 
   final NovelEntity novel;
@@ -268,6 +271,14 @@ class NovelReader extends StatefulWidget {
   /// Chrome-facing command surface (see [NovelReaderHandle]).
   final NovelReaderHandle? handle;
 
+  /// Test seam for layout-engine behavior (e.g. counting relayouts);
+  /// production leaves the default.
+  final NovelLayoutEngine? layoutEngine;
+
+  /// Per-layout transaction budget — inject a small one in tests to reach
+  /// the [NovelLayoutBudgetExceeded] error path.
+  final NovelLayoutBudget budget;
+
   @override
   State<NovelReader> createState() => _NovelReaderState();
 }
@@ -275,10 +286,16 @@ class NovelReader extends StatefulWidget {
 class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   late final NovelReaderController _reader;
   late final PageController _pageController;
-  final NovelLayoutEngine _layoutEngine = NovelLayoutEngine();
+  late final NovelLayoutEngine _layoutEngine =
+      widget.layoutEngine ?? NovelLayoutEngine();
   final NovelReaderCommitGate _commitGate = NovelReaderCommitGate();
 
   NovelLayout? _layout;
+
+  /// A committed-nowhere layout failure (budget overflow, deterministic
+  /// engine error) — rendered as a retryable error state instead of an
+  /// unhandled async exception.
+  Object? _layoutError;
   Size? _requestedViewport;
   Brightness? _requestedBrightness;
   TextDirection? _requestedDirection;
@@ -367,6 +384,15 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           brightness: theme.brightness,
           direction: Directionality.of(context),
         );
+        final layoutError = _layoutError;
+        if (layoutError != null) {
+          return FeedError(
+            title: context.l10n.novelLayoutFailed,
+            error: layoutError,
+            retryLabel: context.l10n.retry,
+            onRetry: () => _scheduleLayout(force: true),
+          );
+        }
         final layout = _layout;
         if (layout == null) {
           return const FeedLoading();
@@ -442,7 +468,12 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         nextViewport == _requestedViewport &&
         nextBrightness == _requestedBrightness &&
         nextDirection == _requestedDirection;
-    if (unchanged && !force && _layout != null) return;
+    // A recorded layout error counts as "answered" for the same request —
+    // re-running it automatically would retry a deterministic failure
+    // forever; only an explicit [force] (retry/settings change) re-enters.
+    if (unchanged && !force && (_layout != null || _layoutError != null)) {
+      return;
+    }
     _requestedViewport = nextViewport;
     _requestedBrightness = nextBrightness;
     _requestedDirection = nextDirection;
@@ -486,6 +517,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         brightness: brightness,
         textDirection: direction,
         cancelToken: layoutContext.cancelToken,
+        budget: widget.budget,
       );
       _commitGate.commit(
         layoutContext,
@@ -505,7 +537,10 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           setState(() {
             _reader.updatePageCount(result.pages.length, page: restoredPage);
           });
-          setState(() => _layout = result);
+          setState(() {
+            _layout = result;
+            _layoutError = null;
+          });
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || !_pageController.hasClients) return;
             if (!_commitGate.isCurrent(layoutContext)) return;
@@ -522,6 +557,12 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       );
     } on ApiCancelled {
       // A newer viewport/style calculation owns the reader now.
+    } catch (error) {
+      // Budget overflows and other deterministic layout failures must not
+      // surface as unhandled async errors — a stale context's failure is
+      // still dropped because a newer layout owns the reader.
+      if (!mounted || !_commitGate.isCurrent(layoutContext)) return;
+      setState(() => _layoutError = error);
     }
   }
 

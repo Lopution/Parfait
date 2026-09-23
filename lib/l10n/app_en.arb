@@ -891,6 +891,7 @@
   "novelRestricted": "This novel is restricted",
   "novelContentUnavailable": "The current API did not provide the novel body",
   "novelLoadFailed": "Failed to load novel",
+  "novelLayoutFailed": "Failed to lay out the novel",
   "novelRetry": "Retry",
   "novelNoContent": "No body text",
   "novelWords": "words",

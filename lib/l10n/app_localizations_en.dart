@@ -1938,6 +1938,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelLoadFailed => 'Failed to load novel';
 
   @override
+  String get novelLayoutFailed => 'Failed to lay out the novel';
+
+  @override
   String get novelRetry => 'Retry';
 
   @override
