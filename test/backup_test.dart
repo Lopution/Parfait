@@ -561,6 +561,7 @@ void main() {
     Future<_FakeBackupService> pumpPage(
       WidgetTester tester, {
       List<int>? fileBytes,
+      double textScale = 1,
     }) async {
       final service = _FakeBackupService();
       await tester.pumpWidget(
@@ -569,11 +570,14 @@ void main() {
             backupServiceProvider.overrideWithValue(service),
             backupFilePickerProvider.overrideWithValue(() async => fileBytes),
           ],
-          child: const MaterialApp(
+          child: MaterialApp(
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: BackupSettingsPage(),
+            locale: const Locale('zh', 'CN'),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+              child: const BackupSettingsPage(),
+            ),
           ),
         ),
       );
@@ -602,7 +606,7 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
     });
 
-    testWidgets('import parses, asks the strategy and applies merge', (
+    testWidgets('import picks a strategy, then confirms before applying', (
       tester,
     ) async {
       final bytes = BackupEnvelope(
@@ -618,12 +622,26 @@ void main() {
       await tester.tap(find.text('导入备份'));
       await tester.pumpAndSettle();
 
-      // The dialog states scope, origin account and the add-only caveat.
+      // Step 1 states scope and origin account; 继续 stays disabled until
+      // a strategy is picked.
       expect(find.text('选择导入方式'), findsOneWidget);
       expect(find.textContaining('导出账号：other'), findsOneWidget);
-      expect(find.textContaining('只增不删'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '继续'))
+            .onPressed,
+        isNull,
+      );
+      expect(service.lastEnvelope, isNull);
 
       await tester.tap(find.text('合并'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '继续'));
+      await tester.pumpAndSettle();
+
+      // Step 2 restates the merge consequence in the title.
+      expect(find.textContaining('将添加 2 个屏蔽标签'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
       await tester.pumpAndSettle();
 
       expect(service.lastStrategy, BackupImportStrategy.merge);
@@ -631,7 +649,9 @@ void main() {
       expect(find.textContaining('导入完成'), findsOneWidget);
     });
 
-    testWidgets('overwrite choice reaches the service', (tester) async {
+    testWidgets('overwrite confirms against the destructive consequence', (
+      tester,
+    ) async {
       final bytes = BackupEnvelope(
         exportedAt: DateTime.utc(2026, 9, 20),
         settings: const {},
@@ -641,6 +661,70 @@ void main() {
       await tester.tap(find.text('导入备份'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('覆盖'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '继续'));
+      await tester.pumpAndSettle();
+
+      // The overwrite consequence plus the add-only server-mute caveat.
+      expect(find.textContaining('将清空本地历史'), findsOneWidget);
+      expect(find.textContaining('只增不删'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
+      await tester.pumpAndSettle();
+
+      expect(service.lastStrategy, BackupImportStrategy.overwrite);
+    });
+
+    testWidgets('cancelling either step aborts the import', (tester) async {
+      final bytes = BackupEnvelope(
+        exportedAt: DateTime.utc(2026, 9, 20),
+        settings: const {},
+      ).encode();
+      final service = await pumpPage(tester, fileBytes: bytes);
+
+      // Step 1 cancel.
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(service.lastEnvelope, isNull);
+      expect(find.text('选择导入方式'), findsNothing);
+
+      // Step 2 cancel.
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('合并'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '继续'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+      expect(service.lastEnvelope, isNull);
+    });
+
+    // Both steps go through showAppDialog on every form factor, so the
+    // pick -> continue -> confirm order is identical at desktop width.
+    testWidgets('desktop width walks the same pick-then-confirm order', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final bytes = BackupEnvelope(
+        exportedAt: DateTime.utc(2026, 9, 20),
+        settings: const {},
+        muteTags: {'t'},
+      ).encode();
+      final service = await pumpPage(tester, fileBytes: bytes);
+
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('覆盖'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '继续'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('将清空本地历史'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
       await tester.pumpAndSettle();
 
       expect(service.lastStrategy, BackupImportStrategy.overwrite);
@@ -679,8 +763,72 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('合并'));
       await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '继续'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
+      await tester.pumpAndSettle();
 
       expect(find.textContaining('导入失败'), findsOneWidget);
+    });
+
+    // Width-matrix spot check (W8 acceptance): the two-step dialog must
+    // fit every supported width and landscape without overflow exceptions.
+    for (final size in [
+      const Size(320, 800),
+      const Size(390, 844),
+      const Size(600, 800),
+      const Size(840, 900),
+      const Size(1200, 800),
+      const Size(844, 390), // landscape
+    ]) {
+      testWidgets('strategy flow fits ${size.width}x${size.height}', (
+        tester,
+      ) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final bytes = BackupEnvelope(
+          exportedAt: DateTime.utc(2026, 9, 20),
+          accountId: 'other',
+          settings: const {},
+          muteTags: {'t1'},
+          muteWorkIds: {1},
+          history: [_record(3)],
+        ).encode();
+        await pumpPage(tester, fileBytes: bytes);
+
+        await tester.tap(find.text('导入备份'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('覆盖'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, '继续'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('将清空本地历史'), findsOneWidget);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+      });
+    }
+
+    testWidgets('strategy flow survives 1.3x text at 320dp', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final bytes = BackupEnvelope(
+        exportedAt: DateTime.utc(2026, 9, 20),
+        settings: const {},
+        muteTags: {'t1'},
+      ).encode();
+      await pumpPage(tester, fileBytes: bytes, textScale: 1.3);
+
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('合并'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '继续'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('将添加'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'no overflow');
     });
   });
 }

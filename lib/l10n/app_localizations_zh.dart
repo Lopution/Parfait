@@ -684,6 +684,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backupOverwrite => '覆盖';
 
   @override
+  String get backupMergeHint => '保留现有数据，添加文件内容';
+
+  @override
+  String get backupOverwriteHint => '以文件内容替换本地数据';
+
+  @override
+  String backupImportMergeConfirmTitle(
+    int tags,
+    int users,
+    int works,
+    int history,
+  ) {
+    return '将添加 $tags 个屏蔽标签、$users 个屏蔽用户、$works 个屏蔽作品和 $history 条历史记录';
+  }
+
+  @override
+  String get backupImportOverwriteConfirmTitle => '将清空本地历史，屏蔽作品与设置以文件为准';
+
+  @override
   String backupImportDone(int tags, int users, int works, int history) {
     return '导入完成：新增 $tags 个标签、$users 个用户、$works 项作品屏蔽变更、$history 条历史';
   }
@@ -1130,6 +1149,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutUpdateFailed => '更新检查或安装失败，请稍后重试';
 
   @override
+  String get aboutUpdateOffline => '无法连接更新服务，请检查网络后重试';
+
+  @override
+  String get aboutUpdateRateLimited => 'GitHub 限流，请稍后重试';
+
+  @override
+  String get aboutUpdateInvalid => '更新清单无效，请向开发者反馈';
+
+  @override
+  String get aboutUpdateBusy => '已有更新任务进行中';
+
+  @override
+  String get aboutUpdateCanceled => '已取消更新安装';
+
+  @override
   String get aboutLicense => '许可证';
 
   @override
@@ -1272,6 +1306,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get confirm => '确定';
+
+  @override
+  String get continueAction => '继续';
 
   @override
   String get rankingDay => '每日';

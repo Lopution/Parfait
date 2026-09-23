@@ -3,15 +3,18 @@ import 'dart:io';
 
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../core/logging/crash_log.dart';
 import '../../../core/settings/shared_preferences.dart';
+import '../../../core/updater/update_manifest.dart';
 import '../../../core/updater/update_providers.dart';
 import '../../../core/updater/update_service.dart';
 import '../../../l10n/context.dart';
@@ -26,6 +29,7 @@ class AboutSettingsPage extends ConsumerStatefulWidget {
 
 class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
   static const _unlockTaps = 7;
+  static const _sourceRepositoryUrl = 'https://github.com/$updateRepository';
   int _versionTaps = 0;
 
   /// Android's build-number gesture: the version tile counts presses and
@@ -44,6 +48,24 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
         context,
         context.l10n.developerOptionsCountdown(remaining),
       );
+    }
+  }
+
+  /// Fire-and-forget like the spotlight outbound links: the browser owns
+  /// the failure surface when no handler can open the URL.
+  void _openSourceRepository() {
+    unawaited(
+      launchUrl(
+        Uri.parse(_sourceRepositoryUrl),
+        mode: LaunchMode.externalApplication,
+      ),
+    );
+  }
+
+  Future<void> _copySourceUrl() async {
+    await Clipboard.setData(const ClipboardData(text: _sourceRepositoryUrl));
+    if (mounted) {
+      showAppSnackBar(context, context.l10n.linkCopied);
     }
   }
 
@@ -99,7 +121,16 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
             ListTile(
               leading: const Icon(Icons.code),
               title: Text(context.l10n.aboutSource),
-              subtitle: const Text('github.com/Lopution/Pixiv-func'),
+              subtitle: const Text('github.com/$updateRepository'),
+              // The row opens the repository; copying the URL is the
+              // secondary trailing action (settings action row, not a
+              // navigation row).
+              onTap: _openSourceRepository,
+              trailing: IconButton(
+                icon: const Icon(Icons.copy_outlined),
+                tooltip: context.l10n.copy,
+                onPressed: _copySourceUrl,
+              ),
             ),
             ListTile(
               leading: const Icon(Icons.bug_report_outlined),
@@ -240,19 +271,22 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
       UpdateCheckStatus.disabled => context.l10n.aboutUpdateUnavailable,
       UpdateCheckStatus.noUpdate => context.l10n.aboutUpdateNoUpdate,
       UpdateCheckStatus.prerelease => context.l10n.aboutUpdatePrerelease,
-      UpdateCheckStatus.invalid ||
-      UpdateCheckStatus.rateLimited ||
-      UpdateCheckStatus.offline ||
-      UpdateCheckStatus.failed ||
-      UpdateCheckStatus.busy => context.l10n.aboutUpdateFailed,
+      // Failure states split by the action the user can take (R10): retry
+      // after fixing the network, wait out GitHub rate limiting, report an
+      // invalid manifest, or just acknowledge a busy/generic failure.
+      UpdateCheckStatus.offline => context.l10n.aboutUpdateOffline,
+      UpdateCheckStatus.rateLimited => context.l10n.aboutUpdateRateLimited,
+      UpdateCheckStatus.invalid => context.l10n.aboutUpdateInvalid,
+      UpdateCheckStatus.busy => context.l10n.aboutUpdateBusy,
+      UpdateCheckStatus.failed => context.l10n.aboutUpdateFailed,
       null => null,
     };
     final applyText = switch (_applyResult?.status) {
       UpdateApplyStatus.installPermissionRequired =>
         context.l10n.aboutUpdatePermission,
       UpdateApplyStatus.installStarted => context.l10n.aboutUpdateStarted,
-      UpdateApplyStatus.failed ||
-      UpdateApplyStatus.canceled => context.l10n.aboutUpdateFailed,
+      UpdateApplyStatus.canceled => context.l10n.aboutUpdateCanceled,
+      UpdateApplyStatus.failed => context.l10n.aboutUpdateFailed,
       _ => null,
     };
     return Padding(

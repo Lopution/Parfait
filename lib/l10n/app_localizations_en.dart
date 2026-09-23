@@ -724,6 +724,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backupOverwrite => 'Overwrite';
 
   @override
+  String get backupMergeHint =>
+      'Keep existing data and add the file\'s contents';
+
+  @override
+  String get backupOverwriteHint =>
+      'Replace local data with the file\'s contents';
+
+  @override
+  String backupImportMergeConfirmTitle(
+    int tags,
+    int users,
+    int works,
+    int history,
+  ) {
+    return 'Merge will add $tags muted tags, $users muted users, $works muted works and $history history rows';
+  }
+
+  @override
+  String get backupImportOverwriteConfirmTitle =>
+      'Local history will be cleared; muted works and settings will follow the file';
+
+  @override
   String backupImportDone(int tags, int users, int works, int history) {
     return 'Imported: +$tags tags, +$users users, $works work-mute changes, $history history rows';
   }
@@ -1191,6 +1213,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'The update check or installation failed. Try again later.';
 
   @override
+  String get aboutUpdateOffline =>
+      'Could not reach the update server — check the network connection and try again';
+
+  @override
+  String get aboutUpdateRateLimited =>
+      'GitHub rate limit reached — try again later';
+
+  @override
+  String get aboutUpdateInvalid =>
+      'The update manifest is invalid — please report this';
+
+  @override
+  String get aboutUpdateBusy => 'An update task is already in progress';
+
+  @override
+  String get aboutUpdateCanceled => 'The update installation was canceled';
+
+  @override
   String get aboutLicense => 'License';
 
   @override
@@ -1334,6 +1374,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirm => 'Confirm';
+
+  @override
+  String get continueAction => 'Continue';
 
   @override
   String get rankingDay => 'Daily';
