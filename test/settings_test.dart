@@ -1277,6 +1277,11 @@ void main() {
       ),
     );
     await tester.pump();
+    // The custom input sits at the bottom after the R4
+    // regroup — a tall surface builds every lazy row so
+    // ensureVisible-based scrolling below stays legal.
+    tester.view.physicalSize = const Size(800, 4000);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
 
     expect(find.text('pixiv.cat 镜像'), findsOneWidget);
@@ -1338,6 +1343,11 @@ void main() {
       ),
     );
     await tester.pump();
+    // The custom input sits at the bottom after the R4
+    // regroup — a tall surface builds every lazy row so
+    // ensureVisible-based scrolling below stays legal.
+    tester.view.physicalSize = const Size(800, 4000);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
 
     await _scrollCentered(tester, find.byType(TextField));
@@ -1348,6 +1358,96 @@ void main() {
 
     expect(repository.value.imageSource, AppSettings.normalImageSource);
     expect(find.textContaining('无效自定义源'), findsOneWidget);
+  });
+
+  testWidgets('browse page groups preferences first and source last', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    // Tall surface so every lazily-built row exists for position asserts.
+    tester.view.physicalSize = const Size(800, 4000);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: BrowseSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    double dyOf(String text) => tester.getCenter(find.text(text)).dy;
+    expect(dyOf('本地屏蔽 R-18 作品'), lessThan(dyOf('预览质量')));
+    expect(dyOf('预览质量'), lessThan(dyOf('触感反馈')));
+    expect(dyOf('触感反馈'), lessThan(dyOf('图片源')));
+
+    // R4: pixivHistory has a single owner — the history settings page.
+    expect(find.text('Pixiv 浏览历史'), findsNothing);
+  });
+
+  testWidgets('browse custom input draft asks before leaving', (tester) async {
+    final repository = _FakeRepository(_baseSettings());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BrowseSettingsPage(),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // A clean draft pops straight through without a prompt.
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(BrowseSettingsPage), findsNothing);
+
+    // Dirty draft: system back opens the discard dialog and 取消 stays.
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(TextField),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(find.byType(TextField), 'https://proxy.example.com');
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(BrowseSettingsPage), findsOneWidget);
+
+    // 放弃 leaves the page and drops the draft.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BrowseSettingsPage), findsNothing);
   });
 
   testWidgets(
@@ -1377,6 +1477,11 @@ void main() {
         ),
       );
       await tester.pump();
+      // The custom input sits at the bottom after the R4
+      // regroup — a tall surface builds every lazy row so
+      // ensureVisible-based scrolling below stays legal.
+      tester.view.physicalSize = const Size(800, 4000);
+      addTearDown(tester.view.resetPhysicalSize);
       await tester.pump();
 
       await _scrollCentered(tester, find.byType(TextField));
@@ -1401,6 +1506,47 @@ void main() {
       expect(find.textContaining('镜像可达'), findsOneWidget);
     },
   );
+  testWidgets('theme and language pages expose Semantics selected state', (
+    tester,
+  ) async {
+    // R3: the check icon is the visual channel; Semantics(selected) is the
+    // assistive one — both must move together.
+    final repository = _FakeRepository(_baseSettings());
+    Widget host(Widget home) => ProviderScope(
+      overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+      child: MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: home,
+      ),
+    );
+
+    await tester.pumpWidget(host(const ThemeSettingsPage()));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, '明亮')),
+      isSemantics(isSelected: true),
+    );
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, '黑暗')),
+      isSemantics(isSelected: false),
+    );
+
+    await tester.pumpWidget(host(const LanguageSettingsPage()));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, 'English')),
+      isSemantics(isSelected: true),
+    );
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, '简体中文')),
+      isSemantics(isSelected: false),
+    );
+  });
+
   test('enableHaptics defaults on and round-trips through JSON', () {
     final base = _baseSettings();
     expect(base.enableHaptics, isTrue);

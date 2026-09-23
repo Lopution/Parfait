@@ -33,6 +33,10 @@ class ThemeSettingsPage extends ConsumerWidget {
           children: [
             for (final item in items)
               ListTile(
+                // `selected` is the second channel: the check icon shows
+                // sighted users the value while Semantics(selected) tells
+                // assistive tech the same fact (R3).
+                selected: settings.themeCode == item.$1,
                 title: Text(item.$2),
                 trailing: settings.themeCode == item.$1
                     ? Icon(

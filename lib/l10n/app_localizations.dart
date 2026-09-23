@@ -1515,7 +1515,7 @@ abstract class AppLocalizations {
   /// No description provided for @unmuteWork.
   ///
   /// In zh, this message translates to:
-  /// **'取消屏蔽此作品'**
+  /// **'解除屏蔽此作品'**
   String get unmuteWork;
 
   /// No description provided for @muteAuthor.
@@ -1527,13 +1527,13 @@ abstract class AppLocalizations {
   /// No description provided for @unmuteAuthor.
   ///
   /// In zh, this message translates to:
-  /// **'取消屏蔽作者'**
+  /// **'解除屏蔽作者'**
   String get unmuteAuthor;
 
   /// No description provided for @unmuteTag.
   ///
   /// In zh, this message translates to:
-  /// **'取消屏蔽'**
+  /// **'解除屏蔽'**
   String get unmuteTag;
 
   /// No description provided for @muteFailed.
