@@ -76,6 +76,12 @@ abstract class TranslationCredentialStore {
   Future<void> writeBaidu(BaiduTranslationCredentials credentials);
   Future<LlmTranslationCredentials?> readLlm();
   Future<void> writeLlm(LlmTranslationCredentials credentials);
+
+  /// Key-existence probes for summary UI (D8): they answer "configured?"
+  /// without loading secret values, so summaries never render secrets.
+  Future<bool> hasBaidu();
+  Future<bool> hasLlm();
+
   Future<void> deleteBaidu();
   Future<void> deleteLlm();
   Future<void> deleteAll();
@@ -130,6 +136,23 @@ class SecureTranslationCredentialStore implements TranslationCredentialStore {
       await _storage.delete(key: _llmModelKey);
     } else {
       await _write(_llmModelKey, model);
+    }
+  }
+
+  @override
+  Future<bool> hasBaidu() => _hasKeys(const [_baiduAppIdKey, _baiduSecretKey]);
+
+  @override
+  Future<bool> hasLlm() => _hasKeys(const [_llmBaseUrlKey, _llmApiKeyKey]);
+
+  Future<bool> _hasKeys(List<String> keys) async {
+    try {
+      for (final key in keys) {
+        if (!await _storage.containsKey(key: key)) return false;
+      }
+      return true;
+    } catch (error) {
+      throw TranslationCredentialsStoreException('read', error);
     }
   }
 

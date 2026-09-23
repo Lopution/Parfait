@@ -509,6 +509,37 @@
   "aboutAttributionText": "Авторские права и сопровождение: Lopution.",
   "settingsReadFailed": "Не удалось прочитать настройки",
   "settingsWriteFailed": "Не удалось сохранить настройки",
+  "settingsSummaryOn": "Вкл",
+  "settingsSummaryOff": "Выкл",
+  "settingsHistorySummary": "Локально: {local} · Pixiv: {pixiv}",
+  "@settingsHistorySummary": {
+    "placeholders": {
+      "local": {
+        "type": "String"
+      },
+      "pixiv": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMutedSummary": "Скрытых элементов: {count}",
+  "@settingsMutedSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsDownloadTasksSummary": "Активных задач: {count}",
+  "@settingsDownloadTasksSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsCredentialConfigured": "Настроено",
+  "settingsCredentialNotConfigured": "Не настроено",
   "add": "Добавить",
   "viewerNoImages": "Нет изображений для отображения",
   "downloadAll": "Скачать всё",

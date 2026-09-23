@@ -1135,6 +1135,33 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsWriteFailed => 'Не удалось сохранить настройки';
 
   @override
+  String get settingsSummaryOn => 'Вкл';
+
+  @override
+  String get settingsSummaryOff => 'Выкл';
+
+  @override
+  String settingsHistorySummary(String local, String pixiv) {
+    return 'Локально: $local · Pixiv: $pixiv';
+  }
+
+  @override
+  String settingsMutedSummary(int count) {
+    return 'Скрытых элементов: $count';
+  }
+
+  @override
+  String settingsDownloadTasksSummary(int count) {
+    return 'Активных задач: $count';
+  }
+
+  @override
+  String get settingsCredentialConfigured => 'Настроено';
+
+  @override
+  String get settingsCredentialNotConfigured => 'Не настроено';
+
+  @override
   String get add => 'Добавить';
 
   @override

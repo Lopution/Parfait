@@ -509,6 +509,37 @@
   "aboutAttributionText": "Copyright and maintained by Lopution.",
   "settingsReadFailed": "Failed to read settings",
   "settingsWriteFailed": "Failed to save settings",
+  "settingsSummaryOn": "On",
+  "settingsSummaryOff": "Off",
+  "settingsHistorySummary": "Local {local} · Pixiv {pixiv}",
+  "@settingsHistorySummary": {
+    "placeholders": {
+      "local": {
+        "type": "String"
+      },
+      "pixiv": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMutedSummary": "{count} muted items",
+  "@settingsMutedSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsDownloadTasksSummary": "{count} active tasks",
+  "@settingsDownloadTasksSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsCredentialConfigured": "Configured",
+  "settingsCredentialNotConfigured": "Not configured",
   "add": "Add",
   "viewerNoImages": "No images to display",
   "downloadAll": "Download All",

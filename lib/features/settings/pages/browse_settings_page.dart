@@ -143,7 +143,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
           SettingsSection(title: Text(context.l10n.imageSource)),
           for (final mode in _presets)
             ListTile(
-              title: Text(_presetLabel(context, mode)),
+              title: Text(imageSourceLabel(context, mode)),
               subtitle: switch (mode) {
                 ImageSourceMode.pixivCat => Text(
                   context.l10n.imageSourceUnreachableMainland,
@@ -369,17 +369,6 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
       ),
     );
   }
-}
-
-String _presetLabel(BuildContext context, ImageSourceMode mode) {
-  return switch (mode) {
-    ImageSourceMode.auto => context.l10n.imageSourceAuto,
-    ImageSourceMode.normal => context.l10n.imageSourceNormal,
-    ImageSourceMode.pixivCat => context.l10n.imageSourcePixivCat,
-    ImageSourceMode.pixivRe => context.l10n.imageSourcePixivRe,
-    ImageSourceMode.pixivNl => context.l10n.imageSourcePixivNl,
-    ImageSourceMode.custom => context.l10n.imageSourceCustom,
-  };
 }
 
 String _qualityText(BuildContext context, Object quality) {

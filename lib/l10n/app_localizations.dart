@@ -2136,6 +2136,48 @@ abstract class AppLocalizations {
   /// **'设置保存失败'**
   String get settingsWriteFailed;
 
+  /// No description provided for @settingsSummaryOn.
+  ///
+  /// In zh, this message translates to:
+  /// **'开'**
+  String get settingsSummaryOn;
+
+  /// No description provided for @settingsSummaryOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关'**
+  String get settingsSummaryOff;
+
+  /// No description provided for @settingsHistorySummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地 {local} · Pixiv {pixiv}'**
+  String settingsHistorySummary(String local, String pixiv);
+
+  /// No description provided for @settingsMutedSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个屏蔽项'**
+  String settingsMutedSummary(int count);
+
+  /// No description provided for @settingsDownloadTasksSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个活动任务'**
+  String settingsDownloadTasksSummary(int count);
+
+  /// No description provided for @settingsCredentialConfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'已配置'**
+  String get settingsCredentialConfigured;
+
+  /// No description provided for @settingsCredentialNotConfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置'**
+  String get settingsCredentialNotConfigured;
+
   /// No description provided for @add.
   ///
   /// In zh, this message translates to:

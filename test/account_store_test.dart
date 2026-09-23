@@ -112,6 +112,9 @@ makeContainer() {
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(metadata),
+      // removeAccount reaches the real history database at its shared
+      // default path; a spy keeps parallel test files off the same file.
+      historyRepositoryProvider.overrideWithValue(_SpyHistoryRepository()),
     ],
   );
   addTearDown(container.dispose);
