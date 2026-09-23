@@ -12,7 +12,10 @@ import '../image_tier_cache.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
+import '../../core/illust/recommended_repository.dart';
 import '../../core/network/compat/network_providers.dart';
+import '../../core/new/new_feed_models.dart';
+import '../../core/novel/novel_repository.dart' hide NovelPage;
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/image_input.dart';
@@ -274,6 +277,25 @@ RankingMode _rankingMode(String? raw) => RankingMode.values.firstWhere(
   orElse: () => RankingMode.day,
 );
 
+NovelRankingMode _novelRankingMode(String? raw) => NovelRankingMode.values
+    .firstWhere((mode) => mode.name == raw, orElse: () => NovelRankingMode.day);
+
+RecommendedContentType _recommendedType(String? raw) =>
+    RecommendedContentType.values.firstWhere(
+      (type) => type.name == raw,
+      orElse: () => RecommendedContentType.illust,
+    );
+
+NewFeedScope _newFeedScope(String? raw) => NewFeedScope.values.firstWhere(
+  (scope) => scope.name == raw,
+  orElse: () => NewFeedScope.following,
+);
+
+NewFeedType _newFeedType(String? raw) => NewFeedType.values.firstWhere(
+  (type) => type.name == raw,
+  orElse: () => NewFeedType.illust,
+);
+
 SearchResultType _searchType(String? raw) => SearchResultType.values.firstWhere(
   (value) => value.name == raw,
   orElse: () => SearchResultType.illust,
@@ -292,6 +314,13 @@ T _searchEnum<T>(
 DateTime? _searchDate(String? raw) =>
     raw == null ? null : DateTime.tryParse(raw);
 
+int? _searchInt(String? raw) => raw == null ? null : int.tryParse(raw);
+
+/// Every `SearchFilters` field is a route parameter so a result URL fully
+/// describes the query (refresh/share/process-death all restore it).
+/// Decoding is permissive per field — one damaged value falls back to its
+/// default without discarding the rest, same rule as
+/// `SearchFilters.fromJson`.
 SearchFilters _searchFilters(GoRouterState state) => SearchFilters(
   target: _searchEnum(
     SearchTarget.values,
@@ -308,6 +337,27 @@ SearchFilters _searchFilters(GoRouterState state) => SearchFilters(
   duration: _searchDuration(state.uri.queryParameters['duration']),
   startDate: _searchDate(state.uri.queryParameters['start']),
   endDate: _searchDate(state.uri.queryParameters['end']),
+  // `ai` serializes by enum name: `all`/`only` share the same (null) wire
+  // value because `only` is enforced client-side.
+  aiFilter: _searchEnum(
+    SearchAiFilter.values,
+    state.uri.queryParameters['ai'],
+    (value) => value.name,
+    SearchAiFilter.all,
+  ),
+  bookmarkMin: _searchInt(state.uri.queryParameters['bmin']),
+  bookmarkMax: _searchInt(state.uri.queryParameters['bmax']),
+  ratio: _searchRatio(state.uri.queryParameters['ratio']),
+  contentType: _searchEnum(
+    SearchContentType.values,
+    state.uri.queryParameters['ct'],
+    (value) => value.wireValue,
+    SearchContentType.illustAndMangaAndUgoira,
+  ),
+  widthMin: _searchInt(state.uri.queryParameters['wmin']),
+  widthMax: _searchInt(state.uri.queryParameters['wmax']),
+  heightMin: _searchInt(state.uri.queryParameters['hmin']),
+  heightMax: _searchInt(state.uri.queryParameters['hmax']),
 );
 
 SearchQuery _searchQuery(GoRouterState state) {
@@ -342,6 +392,18 @@ Map<String, String> _searchQueryParameters(SearchQuery query) {
       if (filters.startDate != null)
         'start': _searchDateText(filters.startDate!),
       if (filters.endDate != null) 'end': _searchDateText(filters.endDate!),
+      // Non-nullable selectors always serialize so the URL is
+      // self-describing; `ai` uses the enum name because `all`/`only`
+      // share the null wire value.
+      'ai': filters.aiFilter.name,
+      if (filters.bookmarkMin != null) 'bmin': '${filters.bookmarkMin}',
+      if (filters.bookmarkMax != null) 'bmax': '${filters.bookmarkMax}',
+      if (filters.ratio != null) 'ratio': filters.ratio!.wireValue,
+      'ct': filters.contentType.wireValue,
+      if (filters.widthMin != null) 'wmin': '${filters.widthMin}',
+      if (filters.widthMax != null) 'wmax': '${filters.widthMax}',
+      if (filters.heightMin != null) 'hmin': '${filters.heightMin}',
+      if (filters.heightMax != null) 'hmax': '${filters.heightMax}',
     },
   };
 }
@@ -353,6 +415,13 @@ String _searchDateText(DateTime value) =>
 
 SearchDuration? _searchDuration(String? raw) {
   for (final value in SearchDuration.values) {
+    if (value.wireValue == raw) return value;
+  }
+  return null;
+}
+
+SearchRatioPattern? _searchRatio(String? raw) {
+  for (final value in SearchRatioPattern.values) {
     if (value.wireValue == raw) return value;
   }
   return null;
@@ -548,8 +617,15 @@ List<RouteBase> _commonBranchRoutes(
     ),
     GoRoute(
       path: 'novel-ranking',
-      pageBuilder: (context, state) =>
-          _page(context, state, branchObserver, const NovelRankingPage()),
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        NovelRankingPage(
+          initialMode: _novelRankingMode(state.uri.queryParameters['mode']),
+          onModeChanged: (mode) => replaceNovelRankingMode(context, mode),
+        ),
+      ),
     ),
     GoRoute(
       path: 'history',
@@ -964,6 +1040,10 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             path: '/recommended',
             branchIndex: 0,
             home: const RecommendedHomePage(),
+            homeBuilder: (context, state) => RecommendedHomePage(
+              initialType: _recommendedType(state.uri.queryParameters['type']),
+              onTypeChanged: (type) => replaceRecommendedType(context, type),
+            ),
             navigatorKey: recommendedNavigatorKey,
             observer: recommendedRouteObserver,
             rootNavigatorKey: appRootNavigatorKey,
@@ -988,6 +1068,12 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             path: '/new',
             branchIndex: 2,
             home: const NewPage(),
+            homeBuilder: (context, state) => NewPage(
+              initialScope: _newFeedScope(state.uri.queryParameters['scope']),
+              initialType: _newFeedType(state.uri.queryParameters['type']),
+              onFeedChanged: (scope, type) =>
+                  replaceNewFeed(context, scope: scope, type: type),
+            ),
             navigatorKey: newNavigatorKey,
             observer: newRouteObserver,
             rootNavigatorKey: appRootNavigatorKey,
@@ -1250,6 +1336,37 @@ void replaceRankingMode(BuildContext context, RankingMode mode) {
   final location = Uri(
     path: '/ranking',
     queryParameters: {'mode': mode.name},
+  ).toString();
+  context.replace(location);
+}
+
+/// Novel ranking lives on a pushed common route (`<branch>/novel-ranking`),
+/// so the replaced location keeps the branch prefix of the stack it was
+/// opened from — same rule [openNovelRanking] uses.
+void replaceNovelRankingMode(BuildContext context, NovelRankingMode mode) {
+  final location = Uri(
+    path: '${_currentStackRoot(context)}/novel-ranking',
+    queryParameters: {'mode': mode.name},
+  ).toString();
+  context.replace(location);
+}
+
+void replaceRecommendedType(BuildContext context, RecommendedContentType type) {
+  final location = Uri(
+    path: '/recommended',
+    queryParameters: {'type': type.name},
+  ).toString();
+  context.replace(location);
+}
+
+void replaceNewFeed(
+  BuildContext context, {
+  required NewFeedScope scope,
+  required NewFeedType type,
+}) {
+  final location = Uri(
+    path: '/new',
+    queryParameters: {'scope': scope.name, 'type': type.name},
   ).toString();
   context.replace(location);
 }

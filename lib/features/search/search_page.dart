@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
+import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
@@ -19,11 +20,61 @@ import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
-class SearchHomePage extends ConsumerWidget {
+///
+/// Restoration tiers (design.md §二 matrix): the trending kind is
+/// session memory — `trendingKindProvider` resets to illust after process
+/// death, and `trendingTagsProvider` stays non-autoDispose on purpose so
+/// leaving the branch does not re-request. Scroll offset rides
+/// `PageStorageKey('search-home')` + `restorationId` as before; the
+/// explicit [_scrollController] only exists so the branch re-tap channel
+/// can address this scrollable (on desktop `SmoothWheelScroll` would
+/// otherwise own a private controller `PrimaryScrollController` cannot
+/// reach).
+class SearchHomePage extends ConsumerStatefulWidget {
   const SearchHomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SearchHomePage> createState() => _SearchHomePageState();
+}
+
+class _SearchHomePageState extends ConsumerState<SearchHomePage> {
+  final _scrollController = ScrollController();
+  ReTapChannel? _reTapChannel;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final channel = BranchSlideStack.maybeOf(context)?.reTapEvents;
+    if (identical(channel, _reTapChannel)) return;
+    _reTapChannel?.removeListener(_onBranchReTap);
+    _reTapChannel = channel;
+    _reTapChannel?.addListener(_onBranchReTap);
+  }
+
+  @override
+  void dispose() {
+    _reTapChannel?.removeListener(_onBranchReTap);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Branch-level re-tap (bottom bar same-destination tap): the channel
+  /// fired after the branch stack popped, so the scroll lands post-frame
+  /// on the now-visible root — a vetoed pop leaves a pushed route on top
+  /// and `isCurrent` fails the scroll harmlessly.
+  void _onBranchReTap() {
+    if (_reTapChannel?.branch !=
+        BranchRootScope.maybeOf(context)?.branchIndex) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      reTapScrollToTop(context, _scrollController);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final trendingType = ref.watch(trendingKindProvider);
     final trending = ref.watch(trendingTagsProvider);
     return Scaffold(
@@ -35,6 +86,7 @@ class SearchHomePage extends ConsumerWidget {
       appBar: AppBar(title: Text(context.l10n.searchTitle)),
       body: RootSwipeSwitcher(
         child: SmoothWheelScroll(
+          controller: _scrollController,
           builder: (context, controller, physics) => CustomScrollView(
             key: const PageStorageKey('search-home'),
             restorationId: 'search-home',
@@ -140,9 +192,13 @@ class SearchHomePage extends ConsumerWidget {
                   return SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
                     sliver: SliverGrid.builder(
+                      // Adaptive: width decides the column count (≈160dp
+                      // tiles) so wide form factors no longer stretch
+                      // three columns and every tag is rendered — no
+                      // partial-row truncation.
                       gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 160,
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                           ),
@@ -410,10 +466,18 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     ref.read(searchAutocompleteProvider.notifier).update(value);
   }
 
-  void _selectSuggestion(SearchSuggestion suggestion) {
+  /// Row tap only fills the field — the same gesture that submits on the
+  /// result page must not submit here, so the user keeps editing context.
+  /// The trailing action is the explicit "search this now" affordance.
+  void _fillSuggestion(SearchSuggestion suggestion) {
     _textController
       ..text = suggestion.keyword
       ..selection = TextSelection.collapsed(offset: suggestion.keyword.length);
+    _focusNode.requestFocus();
+  }
+
+  void _searchSuggestion(SearchSuggestion suggestion) {
+    _fillSuggestion(suggestion);
     _submit();
   }
 
@@ -500,7 +564,10 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
               ),
             ),
           Expanded(
-            child: _SearchAutocompletePanel(onSelected: _selectSuggestion),
+            child: _SearchAutocompletePanel(
+              onFill: _fillSuggestion,
+              onSearch: _searchSuggestion,
+            ),
           ),
         ],
       ),
@@ -509,9 +576,16 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
 }
 
 class _SearchAutocompletePanel extends ConsumerWidget {
-  const _SearchAutocompletePanel({required this.onSelected});
+  const _SearchAutocompletePanel({
+    required this.onFill,
+    required this.onSearch,
+  });
 
-  final ValueChanged<SearchSuggestion> onSelected;
+  /// Row tap: fill the text field only.
+  final ValueChanged<SearchSuggestion> onFill;
+
+  /// Trailing action: fill and submit immediately.
+  final ValueChanged<SearchSuggestion> onSearch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -549,13 +623,23 @@ class _SearchAutocompletePanel extends ConsumerWidget {
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final suggestion = state.suggestions[index];
-        return ListTile(
-          leading: const Icon(Icons.search),
-          title: Text(suggestion.displayName),
-          subtitle: suggestion.translatedName == null
-              ? null
-              : Text(suggestion.keyword),
-          onTap: () => onSelected(suggestion),
+        return Semantics(
+          // The row's tap fills the field; the trailing button submits.
+          // Distinct labels keep the two actions apart for assistive tech.
+          hint: context.l10n.searchSuggestionFill,
+          child: ListTile(
+            leading: const Icon(Icons.search),
+            title: Text(suggestion.displayName),
+            subtitle: suggestion.translatedName == null
+                ? null
+                : Text(suggestion.keyword),
+            onTap: () => onFill(suggestion),
+            trailing: IconButton(
+              tooltip: context.l10n.searchSuggestionSearch,
+              onPressed: () => onSearch(suggestion),
+              icon: const Icon(Icons.search),
+            ),
+          ),
         );
       },
     );

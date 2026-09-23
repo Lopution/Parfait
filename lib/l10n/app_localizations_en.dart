@@ -1464,6 +1464,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'The selected image is uploaded to the chosen engine; the result page opens inside the app.';
 
   @override
+  String get searchReverseFailed => 'Search failed';
+
+  @override
+  String get searchReverseDone => 'Done';
+
+  @override
+  String searchReverseResultCount(int count) {
+    return '$count results';
+  }
+
+  @override
+  String get searchReverseEngineSwitch => 'Switch engine';
+
+  @override
   String get searchNoRepresentative => 'This tag has no representative work';
 
   @override
@@ -1598,6 +1612,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchNoSuggestions => 'No suggestions';
+
+  @override
+  String get searchSuggestionFill => 'Fill into search box';
+
+  @override
+  String get searchSuggestionSearch => 'Search now';
+
+  @override
+  String get searchModifyQuery => 'Edit search';
 
   @override
   String get searchUserAccount => 'Account';
@@ -1769,6 +1792,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get newRefreshFailed => 'Refresh failed';
+
+  @override
+  String get recommendedRefreshFailed => 'Refresh failed';
 
   @override
   String get profileId => 'User ID';

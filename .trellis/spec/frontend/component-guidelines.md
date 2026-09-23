@@ -356,6 +356,38 @@ animation from the callback resets the indicator/body flight and produces a
 visible stall on fast taps. Programmatic selection may call `animateTo` only
 when it did not originate from the `TabBar` tap callback.
 
+## Branch Re-tap Contract
+
+A tap on the bottom-bar destination that is already active is the re-tap
+gesture. `BranchSlidePager.selectIndex`
+(`lib/app/widgets/branch_slide_stack.dart`) detects it, calls
+`goBranch` (a no-op on the live branch), pops the branch Navigator to its
+root — a `PopScope`-vetoed route (`doNotPop`) cuts the pop short — and
+fires `reTapEvents`.
+
+- `reTapEvents` is a `ReTapChannel` (`ChangeNotifier`): an edge, not a
+  state. Every same-destination tap emits, including consecutive taps on
+  the same index — a `ValueNotifier<int>` carrying the branch index would
+  swallow repeats.
+- `syncIndex`, drag settles, and programmatic moves never emit.
+- Consumers read `channel.branch`, compare it against
+  `BranchRootScope.maybeOf(context)?.branchIndex`, and schedule the
+  scroll post-frame so it lands after the pop commits. A vetoed pop
+  leaves a pushed route covering the root — the scroll must tolerate
+  landing on a covered page (`isCurrent`/`hasClients`/`mounted` guards).
+- The scroll itself goes through the shared `reTapScrollToTop(context,
+  controller)` helper: `MotionTokens`-gated `animateTo(0)`, `jumpTo(0)`
+  under reduced motion. Re-tap is pure scroll-to-top — never a refresh,
+  a selector toggle, or a selection change.
+- In-page re-taps (a `TabBar`/chip for the already-selected index) follow
+  the same rule locally: `onTap` with `!controller.indexIsChanging` calls
+  `reTapScrollToTop` on that slot's own `ScrollController`.
+
+Owning tests: the `re-tap channel` group in
+`test/root_swipe_switcher_test.dart` (emit-once-per-tap, pop-to-root,
+sync/drag silence), plus per-page re-tap cases in
+`test/new_content_feed_test.dart` and `test/search_catalog_test.dart`.
+
 ## Shared Pull-to-Refresh Contract
 
 ### 1. Scope / Trigger

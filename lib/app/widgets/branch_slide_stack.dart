@@ -39,6 +39,10 @@ class BranchSlidePager extends ChangeNotifier {
   /// renders its destinations in branch order, so no slot remap exists.
   final TabController tab;
 
+  /// Branch-level re-tap broadcast — see [ReTapChannel] for the frozen
+  /// contract W3 pages consume.
+  final ReTapChannel reTapEvents = ReTapChannel();
+
   final TickerProvider _vsync;
   final bool Function() _motionEnabled;
   StatefulNavigationShell? _shell;
@@ -131,14 +135,30 @@ class BranchSlidePager extends ChangeNotifier {
     tab.animateTo(target, duration: _motionEnabled() ? null : Duration.zero);
   }
 
-  /// Bottom-bar tap. Same-index taps keep the "return to branch root"
-  /// semantics of a direct goBranch; other slots slide over like Shaft's
-  /// `viewPager.setCurrentItem` (smooth scroll).
+  /// Bottom-bar tap. A same-destination tap is the re-tap gesture: the
+  /// branch stack returns to its root and [reTapEvents] fires so the
+  /// revealed root page can scroll to top. Other slots slide over like
+  /// Shaft's `viewPager.setCurrentItem` (smooth scroll).
   void selectIndex(int index) {
     final shell = _shell;
     if (shell == null) return;
     if (index == tab.index) {
+      // goBranch restores the branch's stored match list — for the
+      // current branch that IS the live location (pushed routes included),
+      // so the call itself is a no-op. The branch Navigator's stack is
+      // popped to its root route explicitly. A vetoed route (PopScope
+      // canPop:false → doNotPop) stops the pop: pop() on it never removes
+      // the route and popUntil would loop forever, so the predicate must
+      // cut the pop short — the tick still fires and lands on a covered
+      // root page, which consumers must tolerate.
       shell.goBranch(index);
+      shell.route.branches[index].navigatorKey.currentState?.popUntil(
+        (route) =>
+            route.isFirst ||
+            (route is ModalRoute &&
+                route.popDisposition == RoutePopDisposition.doNotPop),
+      );
+      reTapEvents.emit(index);
       return;
     }
     // A programmatic move wins over an in-flight drag: clear the gesture
@@ -205,9 +225,59 @@ class BranchSlidePager extends ChangeNotifier {
 
   @override
   void dispose() {
+    reTapEvents.dispose();
     _settle?.dispose();
     tab.dispose();
     super.dispose();
+  }
+}
+
+/// Broadcast signal for branch-level re-taps — a tap on the bottom bar's
+/// already-selected destination (Shaft/iOS "return to root, scroll to
+/// top" parity; PixEz `topStore` is the same shape).
+///
+/// Frozen contract — W3 pages consume this channel, do not fork it or
+/// change the payload semantics:
+/// * Emitted ONLY from [BranchSlidePager.selectIndex] on the
+///   `index == tab.index` path — an explicit same-destination tap — after
+///   the branch Navigator has been popped back toward its root route.
+/// * Never emitted from `syncIndex`, drag settles, or any
+///   `_suppressGoBranch` path: programmatic moves are not re-taps.
+/// * Fires on every tap, including repeats on the same branch — the event
+///   is an edge, not a state (a `ValueNotifier<int>` would swallow
+///   consecutive same-index taps).
+/// * Consumers `addListener`, read [branch], and — in a post-frame
+///   callback, after the pop commits and the root page is visible again —
+///   scroll the *visible* scrollable's explicit `ScrollController` to the
+///   top via [reTapScrollToTop]. Pure scroll: no refresh, no selector
+///   expand/collapse, no selection change.
+class ReTapChannel extends ChangeNotifier {
+  int _branch = -1;
+
+  /// The branch index of the most recent re-tap; -1 before the first one.
+  int get branch => _branch;
+
+  void emit(int branch) {
+    _branch = branch;
+    notifyListeners();
+  }
+}
+
+/// The shared consumer half of the re-tap contract: scroll [controller]
+/// to offset 0, motion-gated by `MotionTokens` — reduced motion jumps
+/// instead of animating. Used by both channel subscribers (branch-level
+/// re-tap) and in-page same-index selector taps (`TabBar.onTap`/chips).
+///
+/// Callers must pass the scrollable's explicit `ScrollController` — on
+/// desktop `SmoothWheelScroll` owns a private controller that
+/// `PrimaryScrollController.of` cannot reach.
+void reTapScrollToTop(BuildContext context, ScrollController controller) {
+  if (!controller.hasClients) return;
+  final duration = MotionTokens.resolve(context, MotionTokens.fast);
+  if (duration == Duration.zero) {
+    controller.jumpTo(0);
+  } else {
+    controller.animateTo(0, duration: duration, curve: MotionTokens.fastCurve);
   }
 }
 

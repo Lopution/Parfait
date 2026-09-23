@@ -7,10 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
+import 'package:pixiv_func/core/illust/recommended_repository.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -210,6 +212,79 @@ void main() {
       fixture.requests,
       contains(
         '/v1/illust/recommended?content_type=manga&include_ranking_illusts=true&filter=for_ios',
+      ),
+    );
+  });
+
+  testWidgets('type is route-driven and a replace keeps the gesture state', (
+    tester,
+  ) async {
+    final (container, fixture) = await _makeWorld();
+    addTearDown(container.dispose);
+    final router = createPixivRouter(
+      initialLocation: '/recommended?type=manga',
+    );
+    addTearDown(router.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // The URL seeds the selected type.
+      expect(
+        tester
+            .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
+            .initialType,
+        RecommendedContentType.manga,
+      );
+
+      // A tab tap writes back through context.replace — the route rebuild
+      // delivers the new initialType while the strip keeps its position.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(RecommendedHomePage),
+          matching: find.byType(Tab).at(2),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.path, '/recommended');
+      expect(router.state.uri.queryParameters['type'], 'novel');
+      expect(
+        tester
+            .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
+            .initialType,
+        RecommendedContentType.novel,
+      );
+      expect(
+        tester
+            .widget<TabBar>(
+              find.descendant(
+                of: find.byType(RecommendedHomePage),
+                matching: find.byType(TabBar),
+              ),
+            )
+            .controller!
+            .index,
+        2,
+      );
+    });
+    expect(
+      fixture.requests,
+      contains(
+        '/v1/novel/recommended?filter=for_android&include_privacy_policy=true&include_ranking_novels=true',
       ),
     );
   });

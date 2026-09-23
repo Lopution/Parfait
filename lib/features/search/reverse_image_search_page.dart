@@ -59,6 +59,13 @@ class _ReverseImageSearchPageState
   late final ReverseImageExternalLauncher _externalLauncher;
   ProviderSubscription<ReverseImageFlowState>? _flowSubscription;
 
+  /// Last held input, kept only as the task-header's thumbnail source for
+  /// terminal states that already released the file (headless/webView
+  /// success). The controller still owns the temp file's lifecycle — this
+  /// reference never extends it; the cached decode survives deletion via
+  /// the image cache and falls back to a placeholder on eviction.
+  ReverseImageInputInfo? _lastInput;
+
   @override
   void initState() {
     super.initState();
@@ -87,7 +94,15 @@ class _ReverseImageSearchPageState
         );
     _flowSubscription = ref.listenManual(
       reverseImageSearchControllerProvider(_session),
-      (_, _) {
+      (_, next) {
+        if (next.input != null) {
+          _lastInput = next.input;
+        } else if (next.status == ReverseImageFlowStatus.idle ||
+            next.status == ReverseImageFlowStatus.canceled) {
+          // Flow reset — a stale thumbnail must not survive into the next
+          // pick's context strip.
+          _lastInput = null;
+        }
         if (mounted) setState(() {});
       },
     );
@@ -158,6 +173,32 @@ class _ReverseImageSearchPageState
     );
   }
 
+  /// The task header is the "what am I looking at" strip: thumbnail +
+  /// engine + phase. It exists in every phase that carries an image
+  /// context — ready/searching/failure and all three success surfaces —
+  /// and disappears on idle/picking/preparing/canceled where no image
+  /// context exists yet (or anymore).
+  bool _showsTaskHeader(ReverseImageFlowState state) => switch (state.status) {
+    ReverseImageFlowStatus.ready ||
+    ReverseImageFlowStatus.searching ||
+    ReverseImageFlowStatus.failure ||
+    ReverseImageFlowStatus.success => true,
+    ReverseImageFlowStatus.idle ||
+    ReverseImageFlowStatus.picking ||
+    ReverseImageFlowStatus.preparing ||
+    ReverseImageFlowStatus.canceled => false,
+  };
+
+  /// Engine switching is only meaningful while an image is still held —
+  /// ready/failure/webUpload success. A released input (headless or
+  /// WebView success) would only relabel the selection, so the chip turns
+  /// inert exactly when the controller's switch is a no-op for this image.
+  bool _engineSwitchable(ReverseImageFlowState state) =>
+      state.input != null &&
+      (state.status == ReverseImageFlowStatus.ready ||
+          state.status == ReverseImageFlowStatus.failure ||
+          state.status == ReverseImageFlowStatus.success);
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(reverseImageSearchControllerProvider(_session));
@@ -170,7 +211,21 @@ class _ReverseImageSearchPageState
           icon: const Icon(Icons.arrow_back),
         ),
       ),
-      body: SafeArea(child: _body(context, state)),
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (_showsTaskHeader(state))
+              _TaskHeader(
+                key: const ValueKey('reverseTaskHeader'),
+                state: state,
+                input: state.input ?? _lastInput,
+                engineSwitchable: _engineSwitchable(state),
+                onSelectEngine: _selectEngine,
+              ),
+            Expanded(child: _body(context, state)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -471,6 +526,174 @@ class _ReverseImageSearchPageState
       if (!mounted) return;
       showAppSnackBar(context, context.l10n.searchReverseOpenFailed);
     }
+  }
+}
+
+/// Persistent reverse-image task context: which image, which engine, which
+/// phase. Rendered under the AppBar for every phase that carries an image,
+/// including the WebView surfaces where the body otherwise looks like the
+/// engine's own page. The header owns no flow state — the engine chip just
+/// forwards to `selectEngine` and is inert outside the switchable phases.
+class _TaskHeader extends StatelessWidget {
+  const _TaskHeader({
+    super.key,
+    required this.state,
+    required this.input,
+    required this.engineSwitchable,
+    required this.onSelectEngine,
+  });
+
+  final ReverseImageFlowState state;
+
+  /// Thumbnail/info source — `state.input` while held, the last held input
+  /// after a terminal release.
+  final ReverseImageInputInfo? input;
+  final bool engineSwitchable;
+  final ValueChanged<ReverseImageEngine> onSelectEngine;
+
+  String _phaseLabel(BuildContext context) {
+    final l10n = context.l10n;
+    return switch (state.status) {
+      ReverseImageFlowStatus.ready => l10n.searchReverseReady,
+      ReverseImageFlowStatus.searching => l10n.searchReverseSearching,
+      ReverseImageFlowStatus.failure => l10n.searchReverseFailed,
+      ReverseImageFlowStatus.success =>
+        state.results.isNotEmpty
+            ? l10n.searchReverseResultCount(state.results.length)
+            : state.webView != null || state.webUpload != null
+            ? l10n.searchReverseDone
+            : l10n.searchReverseNoResults,
+      ReverseImageFlowStatus.idle ||
+      ReverseImageFlowStatus.picking ||
+      ReverseImageFlowStatus.preparing ||
+      ReverseImageFlowStatus.canceled => '',
+    };
+  }
+
+  Widget _phaseIndicator(BuildContext context) {
+    final style = Theme.of(context).textTheme.titleSmall;
+    final Widget? icon = switch (state.status) {
+      ReverseImageFlowStatus.searching => const SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+      ReverseImageFlowStatus.failure => Icon(
+        Icons.error_outline,
+        size: 16,
+        color: Theme.of(context).colorScheme.error,
+      ),
+      ReverseImageFlowStatus.success => Icon(
+        Icons.check_circle_outline,
+        size: 16,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      _ => null,
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[icon, const SizedBox(width: 6)],
+        Flexible(child: Text(_phaseLabel(context), style: style)),
+      ],
+    );
+  }
+
+  Widget _engineSelector(BuildContext context) {
+    final spec = ReverseImageEngineSpecs.all[state.engine]!;
+    final failed = state.engineFailures.containsKey(state.engine);
+    final input = state.input;
+    Widget chip({Widget? trailing}) => Chip(
+      avatar: failed ? const Icon(Icons.error_outline, size: 16) : null,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(spec.displayName),
+          if (trailing != null) ...[const SizedBox(width: 2), trailing],
+        ],
+      ),
+    );
+    if (!engineSwitchable) return chip();
+    return PopupMenuButton<ReverseImageEngine>(
+      tooltip: context.l10n.searchReverseEngineSwitch,
+      onSelected: onSelectEngine,
+      itemBuilder: (context) => [
+        for (final engineSpec in ReverseImageEngineSpecs.all.values)
+          PopupMenuItem(
+            value: engineSpec.engine,
+            enabled: input == null || engineSpec.supportsInput(input),
+            child: Row(
+              children: [
+                if (state.engineFailures.containsKey(engineSpec.engine)) ...[
+                  const Icon(Icons.error_outline, size: 18),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(child: Text(engineSpec.displayName)),
+                if (engineSpec.engine == state.engine)
+                  const Icon(Icons.check, size: 18),
+              ],
+            ),
+          ),
+      ],
+      child: chip(trailing: const Icon(Icons.arrow_drop_down, size: 18)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = this.input;
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: input == null
+                    ? Icon(Icons.image_outlined, color: scheme.onSurfaceVariant)
+                    : Image.file(
+                        File(input.path),
+                        fit: BoxFit.cover,
+                        // The 128px decode lands in the image cache while
+                        // the file exists, so the thumbnail keeps working
+                        // after a terminal success releases it.
+                        cacheWidth: 128,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.broken_image_outlined,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _phaseIndicator(context),
+                  if (input != null)
+                    Text(
+                      '${input.width} × ${input.height} · '
+                      '${_formatBytes(input.sizeBytes)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _engineSelector(context),
+          ],
+        ),
+      ),
+    );
   }
 }
 

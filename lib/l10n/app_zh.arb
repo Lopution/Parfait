@@ -672,6 +672,17 @@
     }
   },
   "searchReverseIntro": "选择图片后将上传到所选引擎进行反向检索；结果页在应用内打开。",
+  "searchReverseFailed": "搜索失败",
+  "searchReverseDone": "已完成",
+  "searchReverseResultCount": "{count} 个结果",
+  "@searchReverseResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseEngineSwitch": "切换引擎",
   "searchNoRepresentative": "该标签暂无代表作品",
   "searchFilters": "筛选",
   "searchReset": "重置",
@@ -717,6 +728,9 @@
   "searchInvalidDateRange": "开始日期不能晚于结束日期",
   "searchPopularPreviewHint": "未开通会员，热门排序将使用人气预览结果",
   "searchNoSuggestions": "没有匹配建议",
+  "searchSuggestionFill": "填入搜索框",
+  "searchSuggestionSearch": "立即搜索",
+  "searchModifyQuery": "修改搜索",
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
   "illustDetailCreateDateUnknown": "投稿日期未知",
@@ -801,6 +815,7 @@
   "newLoadMoreFailed": "加载更多新作失败",
   "newRetry": "重试",
   "newRefreshFailed": "刷新失败",
+  "recommendedRefreshFailed": "刷新失败",
   "profileId": "用户 ID",
   "profileAccount": "账号",
   "profileIntroduction": "简介",

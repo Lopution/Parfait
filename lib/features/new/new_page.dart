@@ -4,7 +4,6 @@ import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
-import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/novel_card.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/new/new_feed_controller.dart';
@@ -13,6 +12,7 @@ import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
@@ -20,10 +20,22 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 
-/// Beta56 New page: scope tabs are stable while the content type selector is
-/// exposed by tapping the selected tab a second time.
+/// Beta56 New page: scope tabs + a persistent content-type selector. Both
+/// are route-durable (`/new?scope=&type=`): [initialScope]/[initialType]
+/// seed the controller and tab/chip changes echo back through
+/// [onFeedChanged]. Each (scope, type) pair keeps its own feed state,
+/// scroll offset and cursor — switching back does not refetch.
 class NewPage extends StatefulWidget {
-  const NewPage({super.key});
+  const NewPage({
+    super.key,
+    this.initialScope = NewFeedScope.following,
+    this.initialType = NewFeedType.illust,
+    this.onFeedChanged,
+  });
+
+  final NewFeedScope initialScope;
+  final NewFeedType initialType;
+  final void Function(NewFeedScope scope, NewFeedType type)? onFeedChanged;
 
   @override
   State<NewPage> createState() => _NewPageState();
@@ -31,53 +43,126 @@ class NewPage extends StatefulWidget {
 
 class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  final _loadedKeys = <NewFeedKey>{
-    const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.illust),
-  };
-  int _selectedIndex = 0;
-  NewFeedType _type = NewFeedType.illust;
-  bool _selectorExpanded = false;
+  final _loadedKeys = <NewFeedKey>{};
+  final _scrollControllers = <NewFeedKey, ScrollController>{};
+  late int _selectedIndex;
+  late NewFeedType _type;
+  bool _suppressRouteEcho = false;
+  ReTapChannel? _reTapChannel;
 
   static const _scopes = NewFeedScope.values;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _scopes.length, vsync: this)
-      ..addListener(_onTabChanged);
+    _selectedIndex = _scopes.indexOf(widget.initialScope);
+    _type = widget.initialType;
+    _loadedKeys.add(_activeKey);
+    _tabController = TabController(
+      length: _scopes.length,
+      vsync: this,
+      initialIndex: _selectedIndex,
+    )..addListener(_onTabChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final channel = BranchSlideStack.maybeOf(context)?.reTapEvents;
+    if (identical(channel, _reTapChannel)) return;
+    _reTapChannel?.removeListener(_onBranchReTap);
+    _reTapChannel = channel;
+    _reTapChannel?.addListener(_onBranchReTap);
+  }
+
+  @override
+  void didUpdateWidget(NewPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // context.replace keeps the page key, so a route write lands here as a
+    // widget update. Self-echoes carry the current values and no-op; only
+    // an externally changed param moves the strip — the controller is
+    // never reset.
+    if (widget.initialScope == _scopes[_selectedIndex] &&
+        widget.initialType == _type) {
+      return;
+    }
+    setState(() {
+      _type = widget.initialType;
+      _loadedKeys.add(NewFeedKey(scope: widget.initialScope, type: _type));
+    });
+    final index = _scopes.indexOf(widget.initialScope);
+    if (index != _tabController.index) {
+      _suppressRouteEcho = true;
+      try {
+        _tabController.index = index;
+      } finally {
+        _suppressRouteEcho = false;
+      }
+    }
   }
 
   @override
   void dispose() {
+    _reTapChannel?.removeListener(_onBranchReTap);
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
+    for (final controller in _scrollControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   NewFeedKey get _activeKey =>
       NewFeedKey(scope: _scopes[_selectedIndex], type: _type);
 
+  ScrollController _scrollControllerFor(NewFeedKey key) =>
+      _scrollControllers.putIfAbsent(key, ScrollController.new);
+
   void _onTabChanged() {
     if (_tabController.index == _selectedIndex) return;
     setState(() {
       _selectedIndex = _tabController.index;
-      _selectorExpanded = false;
       _loadedKeys.add(_activeKey);
     });
-  }
-
-  void _onTabTap(int index) {
-    if (index == _selectedIndex && !_tabController.indexIsChanging) {
-      setState(() => _selectorExpanded = !_selectorExpanded);
+    if (!_suppressRouteEcho) {
+      widget.onFeedChanged?.call(_scopes[_selectedIndex], _type);
     }
   }
 
-  void _selectType(NewFeedType type) {
+  void _onTabTap(int index) {
+    // A same-index scope tap scrolls the visible feed to top — it never
+    // toggles the type selector, refreshes, or changes selection.
+    if (index == _selectedIndex && !_tabController.indexIsChanging) {
+      reTapScrollToTop(context, _scrollControllerFor(_activeKey));
+    }
+  }
+
+  void _onTypeSelected(NewFeedType type) {
+    if (type == _type) {
+      // Same-index type tap: pure scroll-to-top, same as a scope re-tap.
+      reTapScrollToTop(context, _scrollControllerFor(_activeKey));
+      return;
+    }
     setState(() {
       _type = type;
-      _selectorExpanded = false;
       _loadedKeys.add(_activeKey);
+    });
+    widget.onFeedChanged?.call(_scopes[_selectedIndex], type);
+  }
+
+  /// Branch-level re-tap (bottom bar same-destination tap): the channel
+  /// fired after the branch stack popped, so the scroll lands post-frame
+  /// on the now-visible root — a vetoed pop leaves a pushed route on top
+  /// and `isCurrent` fails the scroll harmlessly.
+  void _onBranchReTap() {
+    if (_reTapChannel?.branch !=
+        BranchRootScope.maybeOf(context)?.branchIndex) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      reTapScrollToTop(context, _scrollControllerFor(_activeKey));
     });
   }
 
@@ -93,25 +178,18 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
         titleSpacing: 0,
         title: TabBar(
           controller: _tabController,
-          // Keep the primary tab bar aligned like the bottom navigation: each
-          // scope owns an equal-width slot in every supported locale.
-          isScrollable: false,
+          // Scrollable instead of equal-width slots + FittedBox: labels
+          // stay at full size in every locale (long translations used to
+          // shrink to unreadable).
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           indicatorSize: TabBarIndicatorSize.label,
           indicatorPadding: const EdgeInsets.only(bottom: 5),
           labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           onTap: _onTabTap,
           tabs: [
             for (final scope in _scopes)
-              Tab(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    _newText(context, _scopeLabelKey(scope)),
-                    maxLines: 1,
-                    softWrap: false,
-                  ),
-                ),
-              ),
+              Tab(text: _newText(context, _scopeLabelKey(scope))),
           ],
         ),
         // Feature entries (watchlist, local novels) live in settings'
@@ -131,13 +209,9 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
         }),
         child: Column(
           children: [
-            AnimatedSize(
-              duration: MotionTokens.fast,
-              alignment: Alignment.topCenter,
-              child: _selectorExpanded
-                  ? _NewTypeSelector(type: _type, onChanged: _selectType)
-                  : const SizedBox.shrink(),
-            ),
+            // The type selector is persistent chrome — the query context
+            // (scope × type) stays visible in every feed state.
+            _NewTypeSelector(type: _type, onChanged: _onTypeSelected),
             Expanded(
               child: TabSlideStack(
                 controller: _tabController,
@@ -156,6 +230,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
                               child: _NewFeedBody(
                                 key: ValueKey(key),
                                 feedKey: key,
+                                scrollController: _scrollControllerFor(key),
                               ),
                             ),
                       ],
@@ -217,33 +292,21 @@ class _NewTypeSelector extends StatelessWidget {
 
 /// One keyed feed body. The state is kept alive by [NewPage]'s Offstage stack
 /// so scroll/cursor/error state is not shared with another scope or type.
-class _NewFeedBody extends ConsumerStatefulWidget {
-  const _NewFeedBody({super.key, required this.feedKey});
+/// [scrollController] is owned by the page (one per [NewFeedKey]) so re-tap
+/// gestures can address the visible feed.
+class _NewFeedBody extends ConsumerWidget {
+  const _NewFeedBody({
+    super.key,
+    required this.feedKey,
+    required this.scrollController,
+  });
 
   final NewFeedKey feedKey;
+  final ScrollController scrollController;
 
   @override
-  ConsumerState<_NewFeedBody> createState() => _NewFeedBodyState();
-}
-
-class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
-  late final ScrollController _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final feedAsync = ref.watch(newFeedProvider(widget.feedKey));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final feedAsync = ref.watch(newFeedProvider(feedKey));
     return feedAsync.when(
       loading: () => FeedEmpty(
         icon: Icons.fiber_new_outlined,
@@ -253,7 +316,7 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
         title: context.l10n.newLoadFailed,
         error: error,
         retryLabel: context.l10n.newRetry,
-        onRetry: () => ref.invalidate(newFeedProvider(widget.feedKey)),
+        onRetry: () => ref.invalidate(newFeedProvider(feedKey)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
@@ -261,9 +324,8 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
             title: context.l10n.newLoadFailed,
             error: feed.initialError ?? const ApiParseError('unknown error'),
             retryLabel: context.l10n.newRetry,
-            onRetry: () => ref
-                .read(newFeedProvider(widget.feedKey).notifier)
-                .retryInitial(),
+            onRetry: () =>
+                ref.read(newFeedProvider(feedKey).notifier).retryInitial(),
           );
         }
         if (feed.showInitialSpinner) {
@@ -278,35 +340,34 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
             title: context.l10n.newEmpty,
             retryLabel: context.l10n.newRetry,
             onRefresh: () =>
-                ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
+                ref.read(newFeedProvider(feedKey).notifier).refresh(),
           );
         }
 
-        final slivers = _buildSlivers(feed);
+        final slivers = _buildSlivers(context, ref, feed);
         return PullToRefresh(
           onRefresh: () =>
-              ref.read(newFeedProvider(widget.feedKey).notifier).refresh(),
+              ref.read(newFeedProvider(feedKey).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification &&
                   notification.metrics.extentAfter <
                       notification.metrics.viewportDimension * 1.2) {
-                ref.read(newFeedProvider(widget.feedKey).notifier).loadMore();
+                ref.read(newFeedProvider(feedKey).notifier).loadMore();
               }
               return false;
             },
             child: SmoothWheelScroll(
-              controller: _scrollController,
+              controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),
               builder: (context, controller, physics) => CustomScrollView(
                 key: PageStorageKey(
-                  'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
+                  'new-${feedKey.scope.name}-${feedKey.type.name}',
                 ),
                 controller: controller,
                 physics: physics,
                 scrollCacheExtent: kFeedCacheExtent,
-                restorationId:
-                    'new-${widget.feedKey.scope.name}-${widget.feedKey.type.name}',
+                restorationId: 'new-${feedKey.scope.name}-${feedKey.type.name}',
                 slivers: slivers,
               ),
             ),
@@ -316,7 +377,11 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
     );
   }
 
-  List<Widget> _buildSlivers(PagedFeedState feed) {
+  List<Widget> _buildSlivers(
+    BuildContext context,
+    WidgetRef ref,
+    PagedFeedState feed,
+  ) {
     final tail = <Widget>[
       if (feed.refreshPhase == FeedPhase.error)
         SliverToBoxAdapter(
@@ -328,9 +393,8 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
               children: [
                 Expanded(child: Text(context.l10n.newRefreshFailed)),
                 TextButton(
-                  onPressed: () => ref
-                      .read(newFeedProvider(widget.feedKey).notifier)
-                      .refresh(),
+                  onPressed: () =>
+                      ref.read(newFeedProvider(feedKey).notifier).refresh(),
                   child: Text(context.l10n.newRetry),
                 ),
               ],
@@ -340,16 +404,15 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
       SliverToBoxAdapter(
         child: FeedTail(
           feed: feed,
-          onRetry: () => ref
-              .read(newFeedProvider(widget.feedKey).notifier)
-              .retryLoadMore(),
+          onRetry: () =>
+              ref.read(newFeedProvider(feedKey).notifier).retryLoadMore(),
           errorTitle: context.l10n.newLoadMoreFailed,
           retryLabel: context.l10n.newRetry,
         ),
       ),
       const SliverToBoxAdapter(child: FuncNavBarSpacer()),
     ];
-    if (widget.feedKey.type == NewFeedType.illust) {
+    if (feedKey.type == NewFeedType.illust) {
       final store = ref.watch(illustStoreProvider);
       final entities = store.getAll(feed.ids);
       return [
@@ -361,11 +424,10 @@ class _NewFeedBodyState extends ConsumerState<_NewFeedBody> {
           itemIds: [for (final e in entities) e.id],
           itemCount: entities.length,
           pagerLoadMore: () =>
-              ref.read(newFeedProvider(widget.feedKey).notifier).loadMore(),
+              ref.read(newFeedProvider(feedKey).notifier).loadMore(),
           itemBuilder: (context, index) => IllustCard(
             entity: entities[index],
-            heroScope:
-                'new:${widget.feedKey.scope.name}:${widget.feedKey.type.name}',
+            heroScope: 'new:${feedKey.scope.name}:${feedKey.type.name}',
           ),
         ),
         ...tail,

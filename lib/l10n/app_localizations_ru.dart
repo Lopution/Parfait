@@ -1464,6 +1464,20 @@ class AppLocalizationsRu extends AppLocalizations {
       'Выбранное изображение отправляется в выбранный движок; страница результатов открывается в приложении.';
 
   @override
+  String get searchReverseFailed => 'Ошибка поиска';
+
+  @override
+  String get searchReverseDone => 'Готово';
+
+  @override
+  String searchReverseResultCount(int count) {
+    return 'Результатов: $count';
+  }
+
+  @override
+  String get searchReverseEngineSwitch => 'Сменить сервис';
+
+  @override
   String get searchNoRepresentative =>
       'У этого тега нет представительной работы';
 
@@ -1600,6 +1614,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get searchNoSuggestions => 'Нет подходящих вариантов';
+
+  @override
+  String get searchSuggestionFill => 'Подставить в строку поиска';
+
+  @override
+  String get searchSuggestionSearch => 'Искать сразу';
+
+  @override
+  String get searchModifyQuery => 'Изменить запрос';
 
   @override
   String get searchUserAccount => 'Аккаунт';
@@ -1770,6 +1793,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get newRefreshFailed => 'Не удалось обновить';
+
+  @override
+  String get recommendedRefreshFailed => 'Не удалось обновить';
 
   @override
   String get profileId => 'ID пользователя';
