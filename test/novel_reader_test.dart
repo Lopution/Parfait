@@ -330,7 +330,9 @@ void main() {
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
-        home: Scaffold(body: NovelReader(novel: novel, handle: handle)),
+        home: Scaffold(
+          body: NovelReader(novel: novel, handle: handle),
+        ),
       ),
     );
     await tester.pump();
@@ -381,10 +383,7 @@ void main() {
             widget is ConstrainedBox && widget.constraints.maxWidth == cap,
       );
       expect(column, findsWidgets);
-      expect(
-        tester.getRect(column.first).left,
-        closeTo((1200 - cap) / 2, 0.5),
-      );
+      expect(tester.getRect(column.first).left, closeTo((1200 - cap) / 2, 0.5));
 
       // A tap in the right margin — outside the centered column — still
       // turns the page; the gesture zones span the full width.

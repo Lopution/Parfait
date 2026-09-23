@@ -37,15 +37,13 @@ class LocalNovelReaderPage extends ConsumerWidget {
     final async = ref.watch(_localNovelContentProvider(localId));
     return Scaffold(
       body: async.when(
-        loading: () =>
-            const NovelStatusScaffold(child: FeedLoading()),
+        loading: () => const NovelStatusScaffold(child: FeedLoading()),
         error: (error, _) => NovelStatusScaffold(
           child: FeedError(
             title: context.l10n.localNovelsLoadFailed,
             error: error,
             retryLabel: context.l10n.retry,
-            onRetry: () =>
-                ref.invalidate(_localNovelContentProvider(localId)),
+            onRetry: () => ref.invalidate(_localNovelContentProvider(localId)),
           ),
         ),
         data: (loaded) =>

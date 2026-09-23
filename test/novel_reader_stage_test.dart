@@ -82,9 +82,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.tune_outlined));
     await tester.pumpAndSettle();
 
-    final sliders = tester
-        .widgetList<Slider>(find.byType(Slider))
-        .toList();
+    final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
     expect(sliders, hasLength(2));
     expect(sliders[0].min, NovelReaderSettings.minFontSize);
     expect(sliders[0].max, NovelReaderSettings.maxFontSize);
@@ -173,9 +171,7 @@ void main() {
     expect(binding.saves, hasLength(1));
   });
 
-  testWidgets('arrow keys turn pages with user-turn semantics', (
-    tester,
-  ) async {
+  testWidgets('arrow keys turn pages with user-turn semantics', (tester) async {
     final binding = _RecordingBinding();
     await tester.pumpWidget(_stageApp(binding));
     await tester.pump();
@@ -192,10 +188,7 @@ void main() {
 
   testWidgets('a failed settings save surfaces a snackbar', (tester) async {
     await tester.pumpWidget(
-      _stageApp(
-        _RecordingBinding(),
-        preferences: _FailingPreferences(),
-      ),
+      _stageApp(_RecordingBinding(), preferences: _FailingPreferences()),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
