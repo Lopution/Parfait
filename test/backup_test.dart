@@ -561,6 +561,7 @@ void main() {
     Future<_FakeBackupService> pumpPage(
       WidgetTester tester, {
       List<int>? fileBytes,
+      double textScale = 1,
     }) async {
       final service = _FakeBackupService();
       await tester.pumpWidget(
@@ -569,11 +570,14 @@ void main() {
             backupServiceProvider.overrideWithValue(service),
             backupFilePickerProvider.overrideWithValue(() async => fileBytes),
           ],
-          child: const MaterialApp(
+          child: MaterialApp(
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: BackupSettingsPage(),
+            locale: const Locale('zh', 'CN'),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+              child: const BackupSettingsPage(),
+            ),
           ),
         ),
       );
@@ -765,6 +769,66 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('导入失败'), findsOneWidget);
+    });
+
+    // Width-matrix spot check (W8 acceptance): the two-step dialog must
+    // fit every supported width and landscape without overflow exceptions.
+    for (final size in [
+      const Size(320, 800),
+      const Size(390, 844),
+      const Size(600, 800),
+      const Size(840, 900),
+      const Size(1200, 800),
+      const Size(844, 390), // landscape
+    ]) {
+      testWidgets('strategy flow fits ${size.width}x${size.height}', (
+        tester,
+      ) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final bytes = BackupEnvelope(
+          exportedAt: DateTime.utc(2026, 9, 20),
+          accountId: 'other',
+          settings: const {},
+          muteTags: {'t1'},
+          muteWorkIds: {1},
+          history: [_record(3)],
+        ).encode();
+        await pumpPage(tester, fileBytes: bytes);
+
+        await tester.tap(find.text('导入备份'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('覆盖'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, '继续'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('将清空本地历史'), findsOneWidget);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+      });
+    }
+
+    testWidgets('strategy flow survives 1.3x text at 320dp', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final bytes = BackupEnvelope(
+        exportedAt: DateTime.utc(2026, 9, 20),
+        settings: const {},
+        muteTags: {'t1'},
+      ).encode();
+      await pumpPage(tester, fileBytes: bytes, textScale: 1.3);
+
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('合并'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '继续'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('将添加'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'no overflow');
     });
   });
 }

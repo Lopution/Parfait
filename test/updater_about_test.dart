@@ -149,6 +149,39 @@ void main() {
     // is the assertion that matters; the message itself is l10n-covered.
   });
 
+  // Width-matrix spot check: the source tile's trailing copy action must
+  // fit the narrowest supported width at 1.3x text without overflow.
+  testWidgets('source tile fits 320dp at 1.3x text', (tester) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          updateServiceProvider.overrideWith(
+            (ref) async => UpdateService(
+              manifestTransport: _UnusedTransport(),
+              platform: _FdroidPlatform(),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+            child: const AboutSettingsPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('复制'), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'no overflow');
+  });
+
   // Each check failure state maps to its own actionable message (R10):
   // retry after fixing the network, wait out GitHub rate limiting, report
   // an invalid manifest, or acknowledge a busy/generic failure.

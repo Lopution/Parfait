@@ -127,6 +127,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     return showAppDialog<BackupImportStrategy>(
       context: context,
       builder: (dialogContext) => AlertDialog(
+        // Landscape/大字号下标题+说明+按钮可能超过弹窗高度——可滚动避免溢出。
+        scrollable: true,
         title: Text(switch (strategy) {
           BackupImportStrategy.merge => l10n.backupImportMergeConfirmTitle(
             envelope.muteTags.length,
@@ -235,6 +237,8 @@ class _BackupStrategyChoiceDialogState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return AlertDialog(
+      // Same landscape/大字号 overflow guard as the confirm step.
+      scrollable: true,
       title: Text(l10n.backupImportStrategyTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
