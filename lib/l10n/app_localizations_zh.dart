@@ -2119,4 +2119,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String ugoiraExporting(int percent) {
     return '正在导出 GIF… $percent%';
   }
+
+  @override
+  String get viewerEnterFullscreen => '进入全屏';
+
+  @override
+  String get viewerExitFullscreen => '退出全屏';
 }

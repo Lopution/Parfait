@@ -2185,4 +2185,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String ugoiraExporting(int percent) {
     return 'Exporting GIF… $percent%';
   }
+
+  @override
+  String get viewerEnterFullscreen => 'Enter fullscreen';
+
+  @override
+  String get viewerExitFullscreen => 'Exit fullscreen';
 }

@@ -199,6 +199,26 @@ Future<void> longPressImage(WidgetTester tester) async {
   await tester.pump();
 }
 
+// Hidden chrome stays mounted (Opacity 0 + ExcludeSemantics — dropping it
+// from the tree races the semantics flush). Visibility assertions check
+// the bars' opacity and the toggle icon rather than whether finders still
+// see the (mounted) counter text.
+void expectViewerChrome(WidgetTester tester, {required bool visible}) {
+  final bars = tester
+      .widgetList<Opacity>(
+        find.byWidgetPredicate((w) => w is Opacity && w.alwaysIncludeSemantics),
+      )
+      .toList();
+  expect(bars.length, 2, reason: 'top + bottom chrome bars');
+  for (final bar in bars) {
+    expect(bar.opacity, visible ? 1.0 : 0.0);
+  }
+  expect(
+    find.byIcon(visible ? Icons.fullscreen : Icons.fullscreen_exit),
+    findsOneWidget,
+  );
+}
+
 void main() {
   installMemoryPreferences();
   setUp(() {
@@ -206,6 +226,10 @@ void main() {
   });
 
   group('ImageViewerPage (R3)', () {
+    // The chrome toggle is session-level state (revision ①): reset it
+    // between tests so one test's hidden chrome cannot leak into the next.
+    setUp(debugResetViewerSession);
+
     testWidgets('shows n / total and honors the initial page', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
@@ -339,6 +363,95 @@ void main() {
           expect(expand, isA<SizedBox>());
           expect((expand as SizedBox).width, double.infinity);
           expect(expand.height, double.infinity);
+        });
+      },
+    );
+
+    testWidgets('a lone tap hides and restores the chrome', (tester) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+
+            home: ImageViewerPage(
+              urls: [
+                'https://i.pximg.net/1/original.jpg',
+                'https://i.pximg.net/2/original.jpg',
+              ],
+              initialPage: 1,
+            ),
+          ),
+        );
+        await tester.pump();
+        expectViewerChrome(tester, visible: true);
+
+        // Tap the media area — chrome fades out (mounted but opacity 0).
+        await tester.tap(find.byType(PageView));
+        await tester.pumpAndSettle();
+        expectViewerChrome(tester, visible: false);
+
+        await tester.tap(find.byType(PageView));
+        await tester.pumpAndSettle();
+        expectViewerChrome(tester, visible: true);
+      });
+    });
+
+    testWidgets(
+      'hidden chrome belongs to the session: it survives page turns and '
+      'route swaps (revision ①)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+              ),
+            ),
+          );
+          await tester.pump();
+
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+
+          // Page turn — the chrome stays hidden.
+          await tester.fling(
+            find.byType(PageView),
+            const Offset(-300, 0),
+            1000,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('2 / 2'), findsOneWidget);
+          expectViewerChrome(tester, visible: false);
+
+          // A route swap (replaceImageViewerPage builds a fresh widget on a
+          // new route) keeps the session flag too.
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+                initialPage: 1,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
         });
       },
     );

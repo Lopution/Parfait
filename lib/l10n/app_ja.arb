@@ -1000,5 +1000,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "viewerEnterFullscreen": "全画面表示",
+  "viewerExitFullscreen": "全画面を終了"
 }

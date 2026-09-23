@@ -4109,6 +4109,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正在导出 GIF… {percent}%'**
   String ugoiraExporting(int percent);
+
+  /// No description provided for @viewerEnterFullscreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'进入全屏'**
+  String get viewerEnterFullscreen;
+
+  /// No description provided for @viewerExitFullscreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出全屏'**
+  String get viewerExitFullscreen;
 }
 
 class _AppLocalizationsDelegate
