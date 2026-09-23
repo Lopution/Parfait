@@ -351,12 +351,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ImageViewerPage), findsOneWidget);
-    expect(find.text('1 / 2'), findsOneWidget);
+    expect(find.text('1 / 2'), findsNWidgets(2));
 
     await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/recommended/illust/42/viewer/1');
-    expect(find.text('2 / 2'), findsOneWidget);
+    expect(find.text('2 / 2'), findsNWidgets(2));
 
     await tester.restartAndRestore();
     await tester.pumpAndSettle();

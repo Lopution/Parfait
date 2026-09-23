@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../../../app/haptics/app_haptics.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/theme/func_tokens.dart';
@@ -36,8 +37,6 @@ class UgoiraViewer extends ConsumerStatefulWidget {
     required this.previewUrl,
     required this.width,
     required this.height,
-    this.downloadMode = false,
-    this.onLongPress,
     this.heroTag,
     this.flightShuttleBuilder,
     this.heroImageUrl,
@@ -75,8 +74,6 @@ class UgoiraViewer extends ConsumerStatefulWidget {
   final IllustImageTier? tier;
   final int width;
   final int height;
-  final bool downloadMode;
-  final VoidCallback? onLongPress;
   final Object? heroTag;
   final HeroFlightShuttleBuilder? flightShuttleBuilder;
 
@@ -192,7 +189,11 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _togglePlayback,
-        onLongPress: widget.onLongPress,
+        // An explicit no-op long-press handler keeps LongPressGesture-
+        // Recognizer in the arena: without it a held tap still resolves
+        // [onTap] on release and would toggle playback (the "inert
+        // long-press" test).
+        onLongPress: () {},
         child: AspectRatio(
           aspectRatio: aspectRatio,
           child: Stack(
@@ -220,30 +221,20 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                   ),
                 ),
               ),
-              if (widget.downloadMode && _asset != null)
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Material(
-                    color: Theme.of(context).colorScheme.surface,
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      tooltip: context.l10n.ugoiraSaveGif,
-                      onPressed: _export,
-                      icon:
-                          _exportJob?.snapshot.status ==
-                                  UgoiraExportStatus.running ||
-                              _exportJob?.snapshot.status ==
-                                  UgoiraExportStatus.finalizing
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.file_download_outlined),
-                    ),
-                  ),
+              // The GIF export entry is always visible — the ugoira
+              // equivalent of the plain download action. One slot carries
+              // three states: preparing (asset not loaded → disabled),
+              // exporting (progress spinner), failed (error icon, tap to
+              // retry).
+              Positioned(
+                top: 12,
+                right: 12,
+                child: _ExportButton(
+                  assetReady: _asset != null,
+                  snapshot: _exportJob?.snapshot,
+                  onExport: _export,
                 ),
+              ),
             ],
           ),
         ),
@@ -577,6 +568,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final submissionContext = _currentDownloadContext();
     if (submissionContext == null) {
       if (mounted) {
+        AppHaptics.error();
         showAppSnackBar(context, context.l10n.ugoiraLoginRequired);
       }
       return;
@@ -600,6 +592,13 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       UgoiraExportStatus.canceled => context.l10n.ugoiraSaveCanceled,
       _ => context.l10n.ugoiraSaveFailed(result.error ?? 'unknown error'),
     };
+    // Save succeeded → success; failed → error (§5.6); a user cancel is
+    // a deliberate dismissal and gets no vibration.
+    if (result.status == UgoiraExportStatus.succeeded) {
+      AppHaptics.success();
+    } else if (result.status != UgoiraExportStatus.canceled) {
+      AppHaptics.error();
+    }
     showAppSnackBar(context, message);
   }
 
@@ -681,6 +680,73 @@ class _ErrorOverlay extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Always-visible GIF export entry (R5). One slot presents three states:
+/// preparing (asset not loaded → disabled spinner), exporting (progress
+/// spinner with percent tooltip), failed (error icon, tap retries).
+class _ExportButton extends StatelessWidget {
+  const _ExportButton({
+    required this.assetReady,
+    required this.snapshot,
+    required this.onExport,
+  });
+
+  /// Whether the ugoira ZIP/metadata has loaded. Until it has, the button
+  /// is a disabled spinner — there is nothing exportable yet.
+  final bool assetReady;
+  final UgoiraExportSnapshot? snapshot;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final status = snapshot?.status;
+    final exporting =
+        status == UgoiraExportStatus.running ||
+        status == UgoiraExportStatus.finalizing ||
+        status == UgoiraExportStatus.queued;
+
+    final String tooltip;
+    final Widget icon;
+    final VoidCallback? onPressed;
+    if (!assetReady && snapshot == null) {
+      // Nothing has been loaded yet — the entry stays discoverable but
+      // inert until the first play loads the archive. A static disabled
+      // icon, not a spinner: a perpetual animation here would keep every
+      // ancestor scheduling frames (and would never let pumpAndSettle
+      // settle in tests).
+      tooltip = l10n.ugoiraSaveGif;
+      icon = const Icon(Icons.file_download_outlined);
+      onPressed = null;
+    } else if (exporting) {
+      final percent = ((snapshot?.progress ?? 0) * 100).round();
+      tooltip = l10n.ugoiraExporting(percent);
+      icon = const SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+      onPressed = null;
+    } else if (status == UgoiraExportStatus.failed) {
+      tooltip = l10n.retry;
+      icon = Icon(
+        Icons.error_outline,
+        color: Theme.of(context).colorScheme.error,
+      );
+      onPressed = onExport;
+    } else {
+      tooltip = l10n.ugoiraSaveGif;
+      icon = const Icon(Icons.file_download_outlined);
+      onPressed = onExport;
+    }
+
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      shape: const CircleBorder(),
+      child: IconButton(tooltip: tooltip, onPressed: onPressed, icon: icon),
     );
   }
 }

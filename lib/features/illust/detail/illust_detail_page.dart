@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart' show DownloadEvent;
@@ -16,6 +18,9 @@ import '../../../core/share/share_service.dart';
 import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
+import '../../../app/haptics/app_haptics.dart';
+import '../../../app/motion/motion_tokens.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
@@ -55,7 +60,40 @@ class IllustDetailPage extends ConsumerStatefulWidget {
 }
 
 class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
-  bool _downloadMode = false;
+  /// Page indexes selected in the explicit download-selection mode;
+  /// `null` means the mode is off. A non-null empty set means the mode is
+  /// on with nothing selected yet — "Done" stays disabled until n > 0.
+  Set<int>? _selectedPages;
+
+  /// Narrow-layout compact header: the topmost image page currently in
+  /// view feeds the `n/共N页` counter (VisibilityDetector per page,
+  /// 200ms cadence — the counter does not need frame-exact updates).
+  final Set<int> _visiblePages = <int>{};
+  final GlobalKey _infoAnchorKey = GlobalKey();
+
+  int get _firstVisiblePage =>
+      _visiblePages.isEmpty ? 0 : _visiblePages.reduce(math.min);
+
+  void _onPageVisibility(int index, VisibilityInfo info) {
+    final visible = info.visibleFraction > 0;
+    final before = _firstVisiblePage;
+    if (visible) {
+      _visiblePages.add(index);
+    } else {
+      _visiblePages.remove(index);
+    }
+    if (_firstVisiblePage != before && mounted) setState(() {});
+  }
+
+  /// The 「信息」 button scrolls the meta column's InfoBlock into view.
+  /// ensureVisible uses the target's own context (risks R9 — we never
+  /// touch SmoothWheelScroll's controller).
+  void _scrollToInfo() {
+    final ctx = _infoAnchorKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(ctx, duration: MotionTokens.medium);
+  }
+
   bool _blockMode = false;
   StreamSubscription<DownloadEvent>? _downloadEvents;
 
@@ -87,59 +125,143 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     });
   }
 
-  void _toggleDownloadMode() => setState(() => _downloadMode = !_downloadMode);
+  bool get _downloadMode => _selectedPages != null;
+
+  /// Entering the mode is a management-mode transition → confirm haptic.
+  void _enterDownloadMode() {
+    if (_downloadMode) return;
+    AppHaptics.confirm();
+    setState(() => _selectedPages = <int>{});
+  }
+
+  /// Any exit path (cancel button, blank tap, system back) is a light
+  /// confirmation. In-flight download tasks are owned by DownloadManager
+  /// and are never touched here — the mode is only a selection layer.
+  void _exitDownloadMode() {
+    if (!_downloadMode) return;
+    AppHaptics.select();
+    setState(() => _selectedPages = null);
+  }
+
+  void _togglePageSelected(int index) {
+    final selected = _selectedPages;
+    if (selected == null) return;
+    AppHaptics.select();
+    setState(() {
+      if (!selected.remove(index)) selected.add(index);
+    });
+  }
+
+  void _selectAllPages(IllustEntity entity) {
+    if (_selectedPages == null) return;
+    AppHaptics.select();
+    setState(() {
+      _selectedPages = {for (var i = 0; i < entity.pageCount; i++) i};
+    });
+  }
+
+  /// "Done" submits every selected page through the download controller
+  /// (dedupe/retry-safe). Success exits the mode; failure keeps the mode
+  /// and the selection so the user can retry the remainder.
+  Future<void> _submitSelection(IllustEntity entity) async {
+    final selected = _selectedPages;
+    if (selected == null || selected.isEmpty) return;
+    final download = ref.read(illustDownloadControllerProvider);
+    try {
+      for (final index in selected.toList()..sort()) {
+        await download.download(entity, index);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      AppHaptics.error();
+      showAppSnackBar(
+        context,
+        context.l10n.downloadSubmissionFailed(error.toString()),
+      );
+      return;
+    }
+    if (!mounted) return;
+    AppHaptics.success();
+    showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+    setState(() => _selectedPages = null);
+  }
 
   @override
   Widget build(BuildContext context) {
     _ensureDownloadListener();
     final async = ref.watch(illustDetailControllerProvider(widget.illustId));
-    return Scaffold(
-      appBar: _buildAppBar(context, ref, async),
-      body: async.when(
-        // U5 (R7): AsyncNotifier.build() returns a Future, so the first
-        // frame is ALWAYS AsyncLoading — a spinner here would hide the
-        // store snapshot the feed already placed in IllustStore, and the
-        // Hero destination would not exist on the first frame. Render the
-        // snapshot immediately; the controller's IllustDetailLoading state
-        // stays as the no-snapshot first-load signal.
-        loading: () {
-          final snapshot = _snapshotEntity();
-          if (snapshot != null) {
-            return _buildContent(context, ref, snapshot);
-          }
-          return const FeedLoading();
-        },
-        error: (Object error, StackTrace _) => FeedError(
-          title: context.l10n.illustDetailLoadFailed,
-          error: error,
-          retryLabel: context.l10n.retry,
-          onRetry: () => ref
-              .read(illustDetailControllerProvider(widget.illustId).notifier)
-              .reload(),
+    final entity = _entityOf(async);
+    return PopScope(
+      // While the selection mode is on, system back exits the mode instead
+      // of leaving the page (the AppBar back button routes through maybePop
+      // and lands on the same branch). In-flight downloads are untouched —
+      // the mode is only a UI selection layer.
+      canPop: !_downloadMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitDownloadMode();
+      },
+      child: Scaffold(
+        appBar: _buildAppBar(context, ref, async),
+        bottomNavigationBar: AnimatedSwitcher(
+          duration: MotionTokens.fast,
+          child: _downloadMode && entity != null && !entity.isUgoira
+              ? _DownloadSelectionBar(
+                  selected: _selectedPages?.length ?? 0,
+                  total: entity.pageCount,
+                  onSelectAll: () => _selectAllPages(entity),
+                  onDone: (_selectedPages?.isEmpty ?? true)
+                      ? null
+                      : () => unawaited(_submitSelection(entity)),
+                  onCancel: _exitDownloadMode,
+                )
+              : const SizedBox.shrink(),
         ),
-        data: (state) {
-          // Snapshot-first (R1): the shared store renders stale data behind
-          // any in-flight refresh; the controller state drives the terminal
-          // surfaces (the loading branch above reads the store directly).
-          return switch (state) {
-            IllustDetailRestricted(:final entity) => FeedEmpty(
-              icon: Icons.visibility_off_outlined,
-              title: context.l10n.illustDetailRestricted(entity.id),
-            ),
-            IllustDetailNotFound() => FeedEmpty(
-              icon: Icons.search_off,
-              title: context.l10n.illustDetailNotFound,
-            ),
-            IllustDetailReady(:final entity) => _buildContent(
-              context,
-              ref,
-              entity,
-              detailReady: true,
-            ),
-            IllustDetailError(:final error, :final snapshot) =>
-              _errorOrSnapshot(context, ref, error, snapshot),
-          };
-        },
+        body: async.when(
+          // U5 (R7): AsyncNotifier.build() returns a Future, so the first
+          // frame is ALWAYS AsyncLoading — a spinner here would hide the
+          // store snapshot the feed already placed in IllustStore, and the
+          // Hero destination would not exist on the first frame. Render the
+          // snapshot immediately; the controller's IllustDetailLoading state
+          // stays as the no-snapshot first-load signal.
+          loading: () {
+            final snapshot = _snapshotEntity();
+            if (snapshot != null) {
+              return _buildContent(context, ref, snapshot);
+            }
+            return const FeedLoading();
+          },
+          error: (Object error, StackTrace _) => FeedError(
+            title: context.l10n.illustDetailLoadFailed,
+            error: error,
+            retryLabel: context.l10n.retry,
+            onRetry: () => ref
+                .read(illustDetailControllerProvider(widget.illustId).notifier)
+                .reload(),
+          ),
+          data: (state) {
+            // Snapshot-first (R1): the shared store renders stale data behind
+            // any in-flight refresh; the controller state drives the terminal
+            // surfaces (the loading branch above reads the store directly).
+            return switch (state) {
+              IllustDetailRestricted(:final entity) => FeedEmpty(
+                icon: Icons.visibility_off_outlined,
+                title: context.l10n.illustDetailRestricted(entity.id),
+              ),
+              IllustDetailNotFound() => FeedEmpty(
+                icon: Icons.search_off,
+                title: context.l10n.illustDetailNotFound,
+              ),
+              IllustDetailReady(:final entity) => _buildContent(
+                context,
+                ref,
+                entity,
+                detailReady: true,
+              ),
+              IllustDetailError(:final error, :final snapshot) =>
+                _errorOrSnapshot(context, ref, error, snapshot),
+            };
+          },
+        ),
       ),
     );
   }
@@ -164,7 +286,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             onPressed: () => _share(context, ref, entity),
             icon: const Icon(Icons.share_outlined),
           ),
-        if (_downloadMode && entity != null)
+        // "Download all" is the always-visible plain download entry — it
+        // is no longer gated behind the selection mode.
+        if (entity != null)
           IconButton(
             tooltip: context.l10n.downloadAll,
             onPressed: () async {
@@ -175,11 +299,16 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // manager/ownership/channel errors that are not
                 // FormatException otherwise vanish with no UI feedback.
                 if (!context.mounted) return;
+                AppHaptics.error();
                 showAppSnackBar(
                   context,
                   context.l10n.downloadSubmissionFailed(error.toString()),
                 );
+                return;
               }
+              if (!context.mounted) return;
+              AppHaptics.success();
+              showAppSnackBar(context, context.l10n.downloadQueuedMessage);
             },
             icon: const Icon(Icons.file_download_outlined),
           ),
@@ -271,45 +400,57 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final imageSlivers = <Widget>[
       if (entity.isUgoira)
         SliverToBoxAdapter(
-          child: UgoiraViewer(
-            illustId: entity.id,
-            // Same contract as DetailPageImage: the viewer keeps the
-            // feed card's URL for the opening Hero flight and only
-            // upgrades to the detail quality once the route settles —
-            // without the guard a cached detail payload would swap
-            // the cover mid-flight onto an undecoded entry (the
-            // grey-shuttle regression).
-            previewUrl: entity.imageUrls.large,
-            detailUrl: detailUrlFor(0),
-            heroImageUrl: widget.heroImageUrl,
-            heroTier: widget.heroImageUrl == null
-                ? null
-                : entity.imageTierOf(widget.heroImageUrl!),
-            width: entity.width,
-            height: entity.height,
-            downloadMode: _downloadMode,
-            onLongPress: _toggleDownloadMode,
-            heroTag: illustHeroTag(widget.heroScope, entity.id),
-            flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-            heroDecodeWidth: widget.heroImageDecodeWidth,
-            heroPopUrl: widget.heroImageUrl,
-            heroPopDecodeWidth: widget.heroImageDecodeWidth,
-            tier: entity.imageTierOf(detailUrlFor(0) ?? entity.imageUrls.large),
+          child: VisibilityDetector(
+            key: ValueKey('illust-visibility-${entity.id}-0'),
+            onVisibilityChanged: (info) => _onPageVisibility(0, info),
+            child: UgoiraViewer(
+              illustId: entity.id,
+              // Same contract as DetailPageImage: the viewer keeps the
+              // feed card's URL for the opening Hero flight and only
+              // upgrades to the detail quality once the route settles —
+              // without the guard a cached detail payload would swap
+              // the cover mid-flight onto an undecoded entry (the
+              // grey-shuttle regression).
+              // Ugoira has no page selection: long-press does not enter the
+              // download mode and the GIF export action stays always visible.
+              previewUrl: entity.imageUrls.large,
+              detailUrl: detailUrlFor(0),
+              heroImageUrl: widget.heroImageUrl,
+              heroTier: widget.heroImageUrl == null
+                  ? null
+                  : entity.imageTierOf(widget.heroImageUrl!),
+              width: entity.width,
+              height: entity.height,
+              heroTag: illustHeroTag(widget.heroScope, entity.id),
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+              heroDecodeWidth: widget.heroImageDecodeWidth,
+              heroPopUrl: widget.heroImageUrl,
+              heroPopDecodeWidth: widget.heroImageDecodeWidth,
+              tier: entity.imageTierOf(
+                detailUrlFor(0) ?? entity.imageUrls.large,
+              ),
+            ),
           ),
         )
       else if (entity.pageCount == 1)
         SliverToBoxAdapter(
-          child: DetailPageImage(
-            key: ValueKey<Object?>('illust-page-${entity.id}-0'),
-            entity: entity,
-            index: 0,
-            heroTag: illustHeroTag(widget.heroScope, entity.id),
-            heroScope: widget.heroScope,
-            heroImageUrl: widget.heroImageUrl,
-            heroImageDecodeWidth: widget.heroImageDecodeWidth,
-            detailUrl: detailUrlFor(0),
-            downloadMode: _downloadMode,
-            onLongPress: _toggleDownloadMode,
+          child: VisibilityDetector(
+            key: ValueKey('illust-visibility-${entity.id}-0'),
+            onVisibilityChanged: (info) => _onPageVisibility(0, info),
+            child: DetailPageImage(
+              key: ValueKey<Object?>('illust-page-${entity.id}-0'),
+              entity: entity,
+              index: 0,
+              heroTag: illustHeroTag(widget.heroScope, entity.id),
+              heroScope: widget.heroScope,
+              heroImageUrl: widget.heroImageUrl,
+              heroImageDecodeWidth: widget.heroImageDecodeWidth,
+              detailUrl: detailUrlFor(0),
+              downloadMode: _downloadMode,
+              selected: _selectedPages?.contains(0) ?? false,
+              onToggleSelect: () => _togglePageSelected(0),
+              onLongPress: _enterDownloadMode,
+            ),
           ),
         )
       else
@@ -319,22 +460,28 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               padding: EdgeInsets.only(
                 bottom: index == entity.pageCount - 1 ? 0 : 10,
               ),
-              child: DetailPageImage(
-                key: ValueKey<Object?>('illust-page-${entity.id}-$index'),
-                entity: entity,
-                index: index,
-                heroTag: index == 0
-                    ? illustHeroTag(widget.heroScope, entity.id)
-                    : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
-                heroScope: widget.heroScope,
-                heroImageUrl: index == 0 ? widget.heroImageUrl : null,
-                heroImageDecodeWidth: index == 0
-                    ? widget.heroImageDecodeWidth
-                    : null,
-                detailUrl: detailUrlFor(index),
-                downloadMode: _downloadMode,
-                onLongPress: _toggleDownloadMode,
-                placeholderOnly: !detailReady && index > 0,
+              child: VisibilityDetector(
+                key: ValueKey('illust-visibility-${entity.id}-$index'),
+                onVisibilityChanged: (info) => _onPageVisibility(index, info),
+                child: DetailPageImage(
+                  key: ValueKey<Object?>('illust-page-${entity.id}-$index'),
+                  entity: entity,
+                  index: index,
+                  heroTag: index == 0
+                      ? illustHeroTag(widget.heroScope, entity.id)
+                      : '${illustHeroTag(widget.heroScope, entity.id)}-$index',
+                  heroScope: widget.heroScope,
+                  heroImageUrl: index == 0 ? widget.heroImageUrl : null,
+                  heroImageDecodeWidth: index == 0
+                      ? widget.heroImageDecodeWidth
+                      : null,
+                  detailUrl: detailUrlFor(index),
+                  downloadMode: _downloadMode,
+                  selected: _selectedPages?.contains(index) ?? false,
+                  onToggleSelect: () => _togglePageSelected(index),
+                  onLongPress: _enterDownloadMode,
+                  placeholderOnly: !detailReady && index > 0,
+                ),
               ),
             ),
             // All pages appear immediately: before the detail payload the
@@ -351,10 +498,15 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       // and the info block (name, 第 N 话, prev/next navigation).
       IllustSeriesSection(illustId: widget.illustId),
       SliverToBoxAdapter(
-        child: InfoBlock(
-          entity: entity,
-          blockMode: _blockMode,
-          onToggleBlockMode: () => setState(() => _blockMode = !_blockMode),
+        // The compact header's 「信息」 button scrolls to this anchor
+        // (ensureVisible by context — no controller takeover, risks R9).
+        child: Container(
+          key: _infoAnchorKey,
+          child: InfoBlock(
+            entity: entity,
+            blockMode: _blockMode,
+            onToggleBlockMode: () => setState(() => _blockMode = !_blockMode),
+          ),
         ),
       ),
       // Official client behaviour: "関連作品" below the caption/tags,
@@ -398,7 +550,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final content = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (_downloadMode) _toggleDownloadMode();
+        if (_downloadMode) _exitDownloadMode();
       },
       child: AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)
           ? TwoPane(
@@ -406,7 +558,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 entity: entity,
                 detailUrlFor: detailUrlFor,
                 downloadMode: _downloadMode,
-                onLongPress: _toggleDownloadMode,
+                selectedPages: _selectedPages ?? const <int>{},
+                onToggleSelect: _togglePageSelected,
+                onLongPress: _enterDownloadMode,
                 heroTag: illustHeroTag(widget.heroScope, entity.id),
                 heroScope: widget.heroScope,
                 heroImageUrl: widget.heroImageUrl,
@@ -416,15 +570,31 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               // scrollbar lands where the main scrollbar belongs.
               secondary: Scrollbar(child: metaScroll),
             )
-          : NotificationListener<ScrollNotification>(
-              onNotification: onScrollNotification,
-              child: SmoothWheelScroll(
-                builder: (context, controller, physics) => CustomScrollView(
-                  controller: controller,
-                  physics: physics,
-                  slivers: [...imageSlivers, ...metaSlivers],
+          : Column(
+              children: [
+                // Narrow-only compact header: persistent title/author/
+                // page-count context + an info jump that scrolls to
+                // InfoBlock (design §2.2 — the two-pane branch already
+                // carries the same info in its right column).
+                _CompactDetailHeader(
+                  entity: entity,
+                  visiblePage: _firstVisiblePage,
+                  onInfo: _scrollToInfo,
                 ),
-              ),
+                Expanded(
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: onScrollNotification,
+                    child: SmoothWheelScroll(
+                      builder: (context, controller, physics) =>
+                          CustomScrollView(
+                            controller: controller,
+                            physics: physics,
+                            slivers: [...imageSlivers, ...metaSlivers],
+                          ),
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
     final accountId = ref.watch(historyAccountIdProvider);
@@ -441,6 +611,135 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
       isAccountCurrent: () => ref.read(historyAccountIdProvider) == accountId,
       child: content,
+    );
+  }
+}
+
+/// Bottom chrome of the explicit download-selection mode (R2): mode
+/// title + selected/total count + select-all + done + cancel. "Done" is
+/// semantically disabled while nothing is selected.
+/// Narrow-layout (<1200) persistent header under the AppBar: the detail
+/// body keeps title/author/page-context visible while the user scrolls
+/// through pages, and the 「信息」 button jumps straight to InfoBlock.
+/// Not rendered in the two-pane layout (the meta column carries the same
+/// information) or in degraded states (this only builds inside
+/// _buildContent, which requires a non-null entity).
+class _CompactDetailHeader extends StatelessWidget {
+  const _CompactDetailHeader({
+    required this.entity,
+    required this.visiblePage,
+    required this.onInfo,
+  });
+
+  final IllustEntity entity;
+  final int visiblePage;
+  final VoidCallback onInfo;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    return Material(
+      color: theme.colorScheme.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: FuncSpacing.lg,
+          vertical: FuncSpacing.xs,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entity.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  Text(
+                    entity.user.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: FuncSpacing.sm),
+            Text(
+              l10n.viewerPageLabel(visiblePage + 1, entity.pageCount),
+              style: theme.textTheme.bodySmall,
+            ),
+            IconButton(
+              tooltip: l10n.illustInfoJump,
+              onPressed: onInfo,
+              icon: const Icon(Icons.info_outline),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DownloadSelectionBar extends StatelessWidget {
+  const _DownloadSelectionBar({
+    required this.selected,
+    required this.total,
+    required this.onSelectAll,
+    required this.onDone,
+    required this.onCancel,
+  });
+
+  final int selected;
+  final int total;
+  final VoidCallback onSelectAll;
+  final VoidCallback? onDone;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    return Material(
+      color: theme.colorScheme.surfaceContainer,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FuncSpacing.lg,
+            vertical: FuncSpacing.xs,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.downloadSelectPages, style: theme.textTheme.labelLarge),
+              const SizedBox(height: FuncSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.downloadSelectedCount(selected, total),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onSelectAll,
+                    child: Text(l10n.selectAll),
+                  ),
+                  const SizedBox(width: FuncSpacing.xs),
+                  FilledButton(onPressed: onDone, child: Text(l10n.done)),
+                  TextButton(onPressed: onCancel, child: Text(l10n.cancel)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

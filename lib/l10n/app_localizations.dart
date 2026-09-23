@@ -3846,6 +3846,24 @@ abstract class AppLocalizations {
   /// **'第 {order} 话'**
   String seriesEpisode(int order);
 
+  /// Opens the first work in this series
+  ///
+  /// In zh, this message translates to:
+  /// **'开始阅读'**
+  String get seriesStartReading;
+
+  /// Opens the most recently opened work in this series
+  ///
+  /// In zh, this message translates to:
+  /// **'返回第 {order} 话'**
+  String seriesBackToEpisode(int order);
+
+  /// Opens the most recently opened work in this series (order unknown)
+  ///
+  /// In zh, this message translates to:
+  /// **'返回上次阅读的作品'**
+  String get seriesBackToLast;
+
   /// No description provided for @seriesPrevious.
   ///
   /// In zh, this message translates to:
@@ -4025,6 +4043,144 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无特辑'**
   String get spotlightEmpty;
+
+  /// No description provided for @enableHaptics.
+  ///
+  /// In zh, this message translates to:
+  /// **'触感反馈'**
+  String get enableHaptics;
+
+  /// No description provided for @enableHapticsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择、保存成功与失败时振动'**
+  String get enableHapticsHint;
+
+  /// No description provided for @downloadSelectPages.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择要下载的页'**
+  String get downloadSelectPages;
+
+  /// No description provided for @downloadSelectedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {selected} / 共 {total} 页'**
+  String downloadSelectedCount(int selected, int total);
+
+  /// No description provided for @selectAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全选'**
+  String get selectAll;
+
+  /// No description provided for @done.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get done;
+
+  /// No description provided for @viewerPageLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {page} 页，共 {total} 页'**
+  String viewerPageLabel(int page, int total);
+
+  /// No description provided for @tagActionSearch.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索该标签'**
+  String get tagActionSearch;
+
+  /// No description provided for @tagActionCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制标签名'**
+  String get tagActionCopy;
+
+  /// No description provided for @tagActionMute.
+  ///
+  /// In zh, this message translates to:
+  /// **'屏蔽该标签'**
+  String get tagActionMute;
+
+  /// No description provided for @tagActionUnmute.
+  ///
+  /// In zh, this message translates to:
+  /// **'解除屏蔽该标签'**
+  String get tagActionUnmute;
+
+  /// No description provided for @tagActionMuteMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量屏蔽标签'**
+  String get tagActionMuteMode;
+
+  /// No description provided for @tagCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制标签'**
+  String get tagCopied;
+
+  /// No description provided for @ugoiraExporting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导出 GIF… {percent}%'**
+  String ugoiraExporting(int percent);
+
+  /// No description provided for @viewerEnterFullscreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'进入全屏'**
+  String get viewerEnterFullscreen;
+
+  /// No description provided for @viewerExitFullscreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出全屏'**
+  String get viewerExitFullscreen;
+
+  /// No description provided for @viewerFitScreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'适应屏幕'**
+  String get viewerFitScreen;
+
+  /// No description provided for @viewerSavePage.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存当前页'**
+  String get viewerSavePage;
+
+  /// No description provided for @viewerJumpToPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳转到页码'**
+  String get viewerJumpToPage;
+
+  /// No description provided for @viewerInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品信息'**
+  String get viewerInfo;
+
+  /// No description provided for @viewerOpenDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开详情页'**
+  String get viewerOpenDetail;
+
+  /// No description provided for @illustPagesTotal.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 页'**
+  String illustPagesTotal(int count);
+
+  /// Jump to the artwork info section
+  ///
+  /// In zh, this message translates to:
+  /// **'跳到作品信息区'**
+  String get illustInfoJump;
 }
 
 class _AppLocalizationsDelegate

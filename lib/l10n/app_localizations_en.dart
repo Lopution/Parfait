@@ -2040,6 +2040,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get seriesStartReading => 'Start reading';
+
+  @override
+  String seriesBackToEpisode(int order) {
+    return 'Back to part $order';
+  }
+
+  @override
+  String get seriesBackToLast => 'Back to last opened';
+
+  @override
   String get seriesPrevious => 'Previous';
 
   @override
@@ -2136,4 +2147,82 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spotlightEmpty => 'No spotlight articles';
+
+  @override
+  String get enableHaptics => 'Haptic feedback';
+
+  @override
+  String get enableHapticsHint =>
+      'Vibrate on selections, saved actions and failures';
+
+  @override
+  String get downloadSelectPages => 'Select pages to download';
+
+  @override
+  String downloadSelectedCount(int selected, int total) {
+    return '$selected of $total selected';
+  }
+
+  @override
+  String get selectAll => 'Select all';
+
+  @override
+  String get done => 'Done';
+
+  @override
+  String viewerPageLabel(int page, int total) {
+    return 'Page $page of $total';
+  }
+
+  @override
+  String get tagActionSearch => 'Search this tag';
+
+  @override
+  String get tagActionCopy => 'Copy tag name';
+
+  @override
+  String get tagActionMute => 'Mute this tag';
+
+  @override
+  String get tagActionUnmute => 'Unmute this tag';
+
+  @override
+  String get tagActionMuteMode => 'Select tags to mute';
+
+  @override
+  String get tagCopied => 'Tag copied';
+
+  @override
+  String ugoiraExporting(int percent) {
+    return 'Exporting GIF… $percent%';
+  }
+
+  @override
+  String get viewerEnterFullscreen => 'Enter fullscreen';
+
+  @override
+  String get viewerExitFullscreen => 'Exit fullscreen';
+
+  @override
+  String get viewerFitScreen => 'Fit to screen';
+
+  @override
+  String get viewerSavePage => 'Save current page';
+
+  @override
+  String get viewerJumpToPage => 'Jump to page';
+
+  @override
+  String get viewerInfo => 'Artwork info';
+
+  @override
+  String get viewerOpenDetail => 'Open detail page';
+
+  @override
+  String illustPagesTotal(int count) {
+    return '$count pages';
+  }
+
+  @override
+  String get illustInfoJump => 'Jump to artwork info';
 }

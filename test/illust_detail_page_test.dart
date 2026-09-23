@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
@@ -40,6 +41,7 @@ import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/core/i18n/replica_language.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 /// Widget test host: real DownloadManager over a scripted transport +
 /// memory sinks, detail API over a MockClient — no platform channels.
@@ -199,13 +201,41 @@ Future<void> longPressImage(WidgetTester tester) async {
   await tester.pump();
 }
 
+// Hidden chrome stays mounted (Opacity 0 + ExcludeSemantics — dropping it
+// from the tree races the semantics flush). Visibility assertions check
+// the bars' opacity and the toggle icon rather than whether finders still
+// see the (mounted) counter text.
+void expectViewerChrome(WidgetTester tester, {required bool visible}) {
+  final bars = tester
+      .widgetList<Opacity>(
+        find.byWidgetPredicate((w) => w is Opacity && w.alwaysIncludeSemantics),
+      )
+      .toList();
+  expect(bars.length, 2, reason: 'top + bottom chrome bars');
+  for (final bar in bars) {
+    expect(bar.opacity, visible ? 1.0 : 0.0);
+  }
+  expect(
+    find.byIcon(visible ? Icons.fullscreen : Icons.fullscreen_exit),
+    findsOneWidget,
+  );
+}
+
 void main() {
   installMemoryPreferences();
+  // The detail page tracks the visible image page through
+  // VisibilityDetector (compact-header page counter); a zero interval
+  // defers updates to post-frame callbacks so no Timer outlives a test.
+  VisibilityDetectorController.instance.updateInterval = Duration.zero;
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
   group('ImageViewerPage (R3)', () {
+    // The chrome toggle is session-level state (revision ①): reset it
+    // between tests so one test's hidden chrome cannot leak into the next.
+    setUp(debugResetViewerSession);
+
     testWidgets('shows n / total and honors the initial page', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
@@ -224,11 +254,13 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.text('2 / 2'), findsOneWidget);
+        // The counter lives in both chrome bars (top title + bottom
+        // jump-to-page entry).
+        expect(find.text('2 / 2'), findsNWidgets(2));
 
         await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
         await tester.pumpAndSettle();
-        expect(find.text('1 / 2'), findsOneWidget);
+        expect(find.text('1 / 2'), findsNWidgets(2));
       });
     });
 
@@ -309,7 +341,9 @@ void main() {
       );
       await tester.pump();
       expect(find.text('没有可显示的图片'), findsOneWidget);
-      expect(find.text('1 / 0'), findsOneWidget);
+      // Empty state honesty: no misleading page counter.
+      expect(find.text('1 / 0'), findsNothing);
+      expect(find.text('第 1 页，共 0 页'), findsNothing);
     }, skip: false);
 
     testWidgets(
@@ -342,47 +376,684 @@ void main() {
         });
       },
     );
+
+    testWidgets('a lone tap hides and restores the chrome', (tester) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+
+            home: ImageViewerPage(
+              urls: [
+                'https://i.pximg.net/1/original.jpg',
+                'https://i.pximg.net/2/original.jpg',
+              ],
+              initialPage: 1,
+            ),
+          ),
+        );
+        await tester.pump();
+        expectViewerChrome(tester, visible: true);
+
+        // Tap the media area — chrome fades out (mounted but opacity 0).
+        // The tap resolves only after the double-tap window: pump past
+        // ~kDoubleTapTimeout before asserting.
+        await tester.tap(find.byType(PageView));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expectViewerChrome(tester, visible: false);
+
+        await tester.tap(find.byType(PageView));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expectViewerChrome(tester, visible: true);
+      });
+    });
+
+    testWidgets(
+      'hidden chrome belongs to the session: it survives page turns and '
+      'route swaps (revision ①)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+              ),
+            ),
+          );
+          await tester.pump();
+
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+
+          // Page turn — the chrome stays hidden.
+          await tester.fling(
+            find.byType(PageView),
+            const Offset(-300, 0),
+            1000,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('2 / 2'), findsNWidgets(2));
+          expectViewerChrome(tester, visible: false);
+
+          // A route swap (replaceImageViewerPage builds a fresh widget on a
+          // new route) keeps the session flag too.
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+                initialPage: 1,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+        });
+      },
+    );
+
+    testWidgets(
+      'double-tap runs the fit<->2.5 zoom cycle without toggling chrome',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: ['https://i.pximg.net/1/original.jpg'],
+              ),
+            ),
+          );
+          await tester.pump();
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+          expect(scale(), 1.0);
+
+          // fit → 2.5. The second tap must land inside the double-tap
+          // window (>= kDoubleTapMinTime, < kDoubleTapTimeout).
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(2.5, 0.01));
+          expectViewerChrome(tester, visible: true);
+
+          // 2.5 → fit
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(1.0, 0.01));
+        });
+      },
+    );
+
+    testWidgets(
+      'tap/double-tap disambiguation: tap waits out the window, double-tap '
+      'zooms, the next tap toggles chrome again',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: ['https://i.pximg.net/1/original.jpg'],
+              ),
+            ),
+          );
+          await tester.pump();
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          // A lone tap resolves only after the double-tap window; pump past
+          // ~kDoubleTapTimeout before asserting the chrome toggle.
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+          expect(scale(), 1.0);
+
+          // Double-tap zooms without touching the chrome.
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(2.5, 0.01));
+          expectViewerChrome(tester, visible: false);
+
+          // The following lone tap toggles chrome again — the disambiguation
+          // resolved cleanly instead of swallowing the tap.
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: true);
+        });
+      },
+    );
+
+    testWidgets('the page counter opens the jump-to-page sheet', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+
+            home: ImageViewerPage(
+              urls: [
+                'https://i.pximg.net/1/original.jpg',
+                'https://i.pximg.net/2/original.jpg',
+                'https://i.pximg.net/3/original.jpg',
+              ],
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('1 / 3'), findsNWidgets(2));
+
+        await tester.tap(find.text('1 / 3').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('3'));
+        await tester.pumpAndSettle();
+        expect(find.text('3 / 3'), findsNWidgets(2));
+      });
+    });
+
+    testWidgets('entity-less viewer renders no save/share/info actions', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+
+            home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+          ),
+        );
+        await tester.pump();
+        expect(find.byIcon(Icons.download_outlined), findsNothing);
+        expect(find.byIcon(Icons.share_outlined), findsNothing);
+        expect(find.byIcon(Icons.info_outline), findsNothing);
+        // Entity-independent chrome stays available.
+        expect(find.byIcon(Icons.fit_screen), findsOneWidget);
+        expect(find.byIcon(Icons.fullscreen), findsOneWidget);
+      });
+    });
+
+    testWidgets('the save action submits the active page', (tester) async {
+      final (container, transport, sinks) = await makeWorld();
+      final entity = parseIllust(
+        illustJson(42, pageCount: 2, withMetaPages: true),
+      );
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+                entity: entity,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.download_outlined));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        final manager = container.read(downloadManagerProvider);
+        expect(manager.tasks, hasLength(1));
+        expect(manager.tasks.single.pageIndex, 0);
+      });
+    });
+
+    testWidgets(
+      'explicit exits pop imperatively even while zoomed (Esc + back button)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ImageViewerPage(
+                        urls: ['https://i.pximg.net/1/original.jpg'],
+                      ),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.tap(find.text('open'));
+          await tester.pumpAndSettle();
+          expect(find.byType(ImageViewerPage), findsOneWidget);
+
+          // Zoom in, then Esc — the route pops directly (imperative pop
+          // does not reset zoom first; that is the system-back contract).
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(find.byType(ImageViewerPage), findsNothing);
+          expect(find.text('open'), findsOneWidget);
+        });
+      },
+    );
+
+    testWidgets(
+      'keyboard: arrows page, +/- zooms, 0 resets, F toggles chrome',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+              ),
+            ),
+          );
+          await tester.pump();
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          // Arrows page forward/back.
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expect(find.text('2 / 2'), findsNWidgets(2));
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+          await tester.pumpAndSettle();
+          expect(find.text('1 / 2'), findsNWidgets(2));
+
+          // +/- zoom in place, 0 resets.
+          await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+          await tester.pumpAndSettle();
+          expect(scale(), greaterThan(1.0));
+          await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(1.0, 0.01));
+
+          // F toggles the chrome.
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: true);
+        });
+      },
+    );
+
+    testWidgets(
+      'mouse wheel zooms the active page; shift+wheel turns the page',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+              ),
+            ),
+          );
+          await tester.pump();
+          final center = tester.getCenter(find.byType(PageView));
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          // Wheel-up zooms in around the pointer; wheel-down zooms back.
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: center,
+              scrollDelta: const Offset(0, -120),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(scale(), greaterThan(1.0));
+          // The pager must not consume the wheel event — still page 1.
+          expect(find.text('1 / 2'), findsNWidgets(2));
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: center,
+              scrollDelta: const Offset(0, 120),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(1.0, 0.01));
+
+          // Shift+wheel pages instead of zooming.
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: center,
+              scrollDelta: const Offset(0, 120),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('2 / 2'), findsNWidgets(2));
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        });
+      },
+    );
+
+    // System-back tests need the viewer pushed as a *second* route —
+    // `handlePopRoute` -> maybePop refuses to pop the last route (the OS
+    // would take over), so a stub home sits underneath.
+    Future<void> pumpPushedViewer(
+      WidgetTester tester, {
+      List<String> urls = const ['https://i.pximg.net/1/original.jpg'],
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ImageViewerPage(urls: urls),
+                  ),
+                ),
+                child: const Text('open-viewer'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open-viewer'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('system back while zoomed resets to fit and keeps the route', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await pumpPushedViewer(tester);
+
+        double scale() => tester
+            .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+            .transformationController!
+            .value
+            .getMaxScaleOnAxis();
+
+        await tester.tap(find.byType(PageView));
+        await tester.pump(const Duration(milliseconds: 80));
+        await tester.tap(find.byType(PageView));
+        await tester.pumpAndSettle();
+        expect(scale(), greaterThan(1.0));
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        // Zoom reset; the route stayed.
+        expect(scale(), closeTo(1.0, 0.01));
+        expect(find.byType(ImageViewerPage), findsOneWidget);
+
+        // Now at fit — the next system back leaves the route.
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(ImageViewerPage), findsNothing);
+      });
+    });
+
+    testWidgets(
+      'system back with hidden chrome leaves directly — no restore step '
+      '(revision \u2461)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await pumpPushedViewer(tester);
+
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          expect(find.byType(ImageViewerPage), findsNothing);
+        });
+      },
+    );
+
+    testWidgets('the explicit back button pops even while zoomed', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await pumpPushedViewer(tester);
+
+        await tester.tap(find.byType(PageView));
+        await tester.pump(const Duration(milliseconds: 80));
+        await tester.tap(find.byType(PageView));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(ImageViewerPage), findsNothing);
+      });
+    });
+
+    testWidgets(
+      'the zoom gate still intercepts after a route swap rebuilds the '
+      'viewer state',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await pumpPushedViewer(tester);
+
+          // Route swap: replaceImageViewerPage pushes a fresh viewer route
+          // (new State) over the same underlying home.
+          final context = tester.element(find.byType(ImageViewerPage));
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => ImageViewerPage(
+                urls: const ['https://i.pximg.net/1/original.jpg'],
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), greaterThan(1.0));
+
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(1.0, 0.01));
+          expect(find.byType(ImageViewerPage), findsOneWidget);
+        });
+      },
+    );
   });
 
   group('IllustDetailPage download mode (R4)', () {
-    testWidgets('long-press enters download mode with per-page actions', (
+    testWidgets(
+      'long-press enters explicit selection mode; Done submits only the '
+      'selected pages',
+      (tester) async {
+        final (container, transport, sinks) = await makeWorld();
+        await pumpDetail(tester, container);
+
+        // The always-visible Download All entry exists; the selection
+        // chrome does not.
+        expect(find.byTooltip('Download All'), findsOneWidget);
+        expect(find.text('Select pages to download'), findsNothing);
+        expect(find.byIcon(Icons.radio_button_unchecked), findsNothing);
+
+        await longPressImage(tester);
+
+        // Mode chrome: title + selected/total count + select-all +
+        // done + cancel. Done is disabled while nothing is selected.
+        expect(find.text('Select pages to download'), findsOneWidget);
+        expect(find.text('0 of 2 selected'), findsOneWidget);
+        expect(find.text('Select all'), findsOneWidget);
+        expect(find.text('Cancel'), findsOneWidget);
+        expect(
+          tester
+              .widget<FilledButton>(find.widgetWithText(FilledButton, 'Done'))
+              .onPressed,
+          isNull,
+        );
+        // Page 0's badge is the unselected hollow circle (page 1 is below
+        // the fold).
+        expect(find.byIcon(Icons.radio_button_unchecked), findsOneWidget);
+
+        // Tapping the page badge toggles the selection — nothing downloads
+        // yet.
+        await mockNetworkImagesFor(() async {
+          await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+          await tester.pump();
+        });
+        final manager = container.read(downloadManagerProvider);
+        expect(manager.tasks, isEmpty);
+        expect(find.byIcon(Icons.check_circle), findsOneWidget);
+        expect(find.text('1 of 2 selected'), findsOneWidget);
+
+        // Done submits exactly the selected page and exits the mode.
+        await mockNetworkImagesFor(() async {
+          await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+          await tester.pump();
+        });
+        expect(manager.tasks, hasLength(1));
+        expect(manager.tasks.single.illustId, 42);
+        expect(manager.tasks.single.pageIndex, 0);
+        expect(
+          manager.tasks.single.url.toString(),
+          'https://i.pximg.net/42/p0/original.jpg',
+        );
+        expect(sinks.sinks, hasLength(1));
+
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          if (manager.tasks.single.status != DownloadStatus.running) break;
+        }
+        expect(manager.tasks.single.status, DownloadStatus.succeeded);
+        await tester.pump();
+        expect(find.text('Select pages to download'), findsNothing);
+        expect(transport.openedUrls, hasLength(1));
+      },
+    );
+
+    testWidgets('select-all + cancel keeps the mode a pure selection layer', (
       tester,
     ) async {
-      final (container, transport, sinks) = await makeWorld();
+      final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
 
-      expect(find.byIcon(Icons.file_download_outlined), findsNothing);
+      await longPressImage(tester);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+
+      await tester.tap(find.text('Select all'));
+      await tester.pump();
+      expect(find.text('2 of 2 selected'), findsOneWidget);
+
+      // Cancel exits the mode without submitting anything.
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      expect(find.text('Select pages to download'), findsNothing);
+      expect(
+        container.read(downloadManagerProvider).tasks,
+        isEmpty,
+        reason: 'cancel never enqueues — submission only happens via Done',
+      );
+    });
+
+    testWidgets('system back exits the selection mode instead of popping', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, useRouter: true);
+      await tester.pump(const Duration(milliseconds: 50));
 
       await longPressImage(tester);
+      expect(find.text('Select pages to download'), findsOneWidget);
 
-      // Page 0 badge on screen + Download All app bar action (page 1 is
-      // below the fold).
-      expect(find.byIcon(Icons.file_download_outlined), findsNWidgets(2));
-
-      // Tap the first page badge → real queued task via the manager.
-      final manager = container.read(downloadManagerProvider);
-      await mockNetworkImagesFor(() async {
-        await tester.tap(find.byIcon(Icons.file_download_outlined).first);
-        await tester.pump();
-      });
-      expect(manager.tasks, hasLength(1));
-      expect(manager.tasks.single.illustId, 42);
-      expect(manager.tasks.single.pageIndex, 0);
-      expect(
-        manager.tasks.single.url.toString(),
-        'https://i.pximg.net/42/p0/original.jpg',
-      );
-      expect(sinks.sinks, hasLength(1));
-
-      for (var i = 0; i < 20; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
-        if (manager.tasks.single.status != DownloadStatus.running) break;
-      }
-      expect(manager.tasks.single.status, DownloadStatus.succeeded);
-      // The badge flips only after the widget rebuilds reading the manager.
-      await tester.pump();
-      expect(find.byIcon(Icons.check), findsOneWidget);
-      expect(transport.openedUrls, hasLength(1));
+      await tester.binding.handlePopRoute();
+      await tester.pump(const Duration(milliseconds: 50));
+      // The route stays; the mode is gone.
+      expect(find.byType(IllustDetailPage), findsOneWidget);
+      expect(find.text('Select pages to download'), findsNothing);
+      expect(container.read(downloadManagerProvider).tasks, isEmpty);
     });
 
     testWidgets('Download All enqueues every page once', (tester) async {
@@ -391,7 +1062,7 @@ void main() {
       );
       await pumpDetail(tester, container);
 
-      await longPressImage(tester);
+      // Always-visible entry — no selection mode needed.
       await mockNetworkImagesFor(() async {
         await tester.tap(find.byTooltip('Download All'));
         await tester.pump();
@@ -472,29 +1143,105 @@ void main() {
       addTearDown(container.dispose);
       await pumpDetail(tester, container);
 
+      // Enter the selection mode, pick page 0, submit — the task itself
+      // then fails asynchronously.
       await longPressImage(tester);
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.byIcon(Icons.file_download_outlined).first);
+        await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+        await tester.pump();
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
         await tester.pump(const Duration(milliseconds: 100));
       });
 
       expect(manager.tasks.single.status, DownloadStatus.failed);
-      // Error state is visually distinct now: badge = error outline (tap =
-      // retry); the app-bar Download All icon stays a download icon.
-      expect(find.byIcon(Icons.file_download_outlined), findsOneWidget);
+
+      // Re-enter the mode: the failed page surfaces as the error badge.
+      // Tapping it selects the page again; Done re-submits and the manager
+      // replaces the failed task on the same dedupe key.
+      await longPressImage(tester);
       expect(find.byIcon(Icons.error_outline), findsOneWidget);
 
       await mockNetworkImagesFor(() async {
         await tester.tap(find.byIcon(Icons.error_outline));
+        await tester.pump();
+      });
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
         await tester.pump(const Duration(milliseconds: 100));
       });
-      expect(
-        manager.tasks,
-        hasLength(1),
-        reason: 'retry replaces the failed task (same dedupe key)',
-      );
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
-      expect(find.byIcon(Icons.check), findsOneWidget);
+    });
+
+    testWidgets('two-pane layout presents the same selection chrome', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpDetail(tester, container);
+
+      // The two-pane pager forwards the same long-press entry; the
+      // selection bar is shared chrome, not a narrow-layout special case.
+      await longPressImage(tester);
+      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+      expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
+        await tester.pump();
+      });
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.text('1 of 2 selected'), findsOneWidget);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.pump();
+      });
+      final manager = container.read(downloadManagerProvider);
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+        if (manager.tasks.every((t) => t.status == DownloadStatus.succeeded)) {
+          break;
+        }
+      }
+      expect(manager.tasks.single.pageIndex, 0);
+      expect(find.text('Select pages to download'), findsNothing);
+    });
+
+    testWidgets('landscape narrow layout presents the same selection chrome', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      tester.view.physicalSize = const Size(844, 390);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpDetail(tester, container);
+
+      // Rotated phones stay on the narrow branch; the selection chrome
+      // must present identically in the shorter viewport. The page image
+      // is taller than the 390px viewport, so the long-press lands on the
+      // visible slice rather than the widget's geometric centre.
+      final imageRect = tester.getRect(find.byType(PixivImage).first);
+      final pressPoint = Offset(
+        imageRect.center.dx,
+        imageRect.top + (390 - imageRect.top) / 2,
+      );
+      final gesture = await tester.startGesture(pressPoint);
+      await tester.pump(const Duration(milliseconds: 700));
+      await gesture.up();
+      await tester.pump();
+      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
+        await tester.pump();
+      });
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
     });
   });
 
@@ -541,8 +1288,8 @@ void main() {
       // cards); it renders author, meta and tags.
       expect(
         find.text('author'),
-        findsNWidgets(2),
-        reason: 'author name + account render in the author block',
+        findsNWidgets(3),
+        reason: 'compact header + author block name + account',
       );
       expect(find.textContaining('800x600'), findsOneWidget);
       expect(find.textContaining('ID: 42'), findsOneWidget);
@@ -586,7 +1333,9 @@ void main() {
             findsWidgets,
             reason: 'content renders from the card snapshot, not a spinner',
           );
-          expect(find.text('illust 42'), findsOneWidget);
+          // Two copies are expected: the persistent compact header carries
+          // the title too (C17); the snapshot proves out through either.
+          expect(find.text('illust 42'), findsNWidgets(2));
           expect(find.text('author'), findsWidgets);
           expect(
             tester.widget<PixivImage>(find.byType(PixivImage).first).url,
@@ -712,7 +1461,9 @@ void main() {
       });
 
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.text('author').first);
+        // .last — the compact header carries a non-tappable copy first
+        // in tree order; the author block's InkWell is the last match.
+        await tester.tap(find.text('author').last);
         await tester.pumpAndSettle();
       });
       expect(find.byType(UserPage), findsOneWidget);
@@ -858,6 +1609,60 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
       });
       expect(find.text('Related works'), findsNothing);
+    });
+  });
+
+  group('narrow compact header (C17)', () {
+    testWidgets('renders title/author/page context and the info jump on narrow '
+        'surfaces', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+
+      // Header shows the work context while the body is still on page 1.
+      expect(find.text('illust 42'), findsOneWidget);
+      expect(find.text('author'), findsOneWidget);
+      expect(find.text('第 1 页，共 2 页'), findsOneWidget);
+      expect(find.byTooltip('跳到作品信息区'), findsOneWidget);
+    });
+
+    testWidgets('the info button scrolls InfoBlock into view', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      // InfoBlock's caption sits below the fold — not built yet.
+      expect(find.text('作品说明文字'), findsNothing);
+
+      await tester.tap(find.byTooltip('跳到作品信息区'));
+      await tester.pumpAndSettle();
+      expect(find.text('作品说明文字'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('作品说明文字')).top,
+        lessThan(tester.view.physicalSize.height),
+      );
+    });
+
+    testWidgets('the header is absent in the two-pane layout', (tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+
+      expect(find.byType(TwoPane), findsOneWidget);
+      expect(find.byTooltip('跳到作品信息区'), findsNothing);
+      expect(find.text('第 1 页，共 2 页'), findsNothing);
+    });
+
+    testWidgets('the header is absent in the restricted state', (tester) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {42: illustJson(42, visible: false)},
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('该作品已被删除或受限（ID: 42）'), findsOneWidget);
+      expect(find.byTooltip('跳到作品信息区'), findsNothing);
     });
   });
 

@@ -909,6 +909,23 @@
       }
     }
   },
+  "seriesStartReading": "読み始める",
+  "@seriesStartReading": {
+    "description": "Opens the first work in this series"
+  },
+  "seriesBackToEpisode": "第 {order} 話へ戻る",
+  "@seriesBackToEpisode": {
+    "description": "Opens the most recently opened work in this series",
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesBackToLast": "前回開いた作品へ戻る",
+  "@seriesBackToLast": {
+    "description": "Opens the most recently opened work in this series (order unknown)"
+  },
   "seriesPrevious": "前の作品",
   "seriesNext": "次の作品",
   "watchlistTitle": "ウォッチリスト",
@@ -959,5 +976,65 @@
   "spotlightCategoryManga": "マンガ",
   "spotlightLoadFailed": "スポットライトの読み込みに失敗しました",
   "spotlightLoadMoreFailed": "続きの読み込みに失敗しました",
-  "spotlightEmpty": "スポットライト記事がありません"
+  "spotlightEmpty": "スポットライト記事がありません",
+  "enableHaptics": "触覚フィードバック",
+  "enableHapticsHint": "選択・保存完了・失敗時に振動します",
+  "downloadSelectPages": "ダウンロードするページを選択",
+  "downloadSelectedCount": "{total} 件中 {selected} 件を選択",
+  "@downloadSelectedCount": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "selectAll": "すべて選択",
+  "done": "完了",
+  "viewerPageLabel": "{total} ページ中 {page} ページ目",
+  "@viewerPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "tagActionSearch": "このタグを検索",
+  "tagActionCopy": "タグ名をコピー",
+  "tagActionMute": "このタグをミュート",
+  "tagActionUnmute": "このタグのミュートを解除",
+  "tagActionMuteMode": "タグをまとめてミュート",
+  "tagCopied": "タグをコピーしました",
+  "ugoiraExporting": "GIF を書き出し中… {percent}%",
+  "@ugoiraExporting": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "viewerEnterFullscreen": "全画面表示",
+  "viewerExitFullscreen": "全画面を終了",
+  "viewerFitScreen": "画面に合わせる",
+  "viewerSavePage": "このページを保存",
+  "viewerJumpToPage": "ページへ移動",
+  "viewerInfo": "作品情報",
+  "viewerOpenDetail": "詳細ページを開く",
+  "illustPagesTotal": "全 {count} ページ",
+  "@illustPagesTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "illustInfoJump": "作品情報へ移動",
+  "@illustInfoJump": {
+    "description": "Scrolls to the artwork info section"
+  }
 }

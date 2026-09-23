@@ -4,9 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/motion/hero_transition.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
-import '../../../../app/widgets/app_snack_bar.dart';
-import '../../../../core/download/download_providers.dart';
-import '../../../../core/download/download_task.dart' show DownloadStatus;
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/illust/illust_download_controller.dart';
 import '../../../../core/settings/app_settings.dart';
@@ -25,6 +22,8 @@ class DetailPageImage extends ConsumerStatefulWidget {
     this.heroImageDecodeWidth,
     this.detailUrl,
     required this.downloadMode,
+    required this.selected,
+    required this.onToggleSelect,
     required this.onLongPress,
     this.placeholderOnly = false,
   });
@@ -49,7 +48,13 @@ class DetailPageImage extends ConsumerStatefulWidget {
   /// over [heroImageUrl] means the detail hero upgrades from the feed
   /// preview to the user's chosen detail quality as soon as data arrives.
   final String? detailUrl;
+
+  /// Explicit download-selection mode: while on, taps toggle [selected]
+  /// through [onToggleSelect] instead of opening the viewer, and the
+  /// corner badge shows the selection/download state.
   final bool downloadMode;
+  final bool selected;
+  final VoidCallback onToggleSelect;
   final VoidCallback onLongPress;
 
   @override
@@ -57,10 +62,6 @@ class DetailPageImage extends ConsumerStatefulWidget {
 }
 
 class _DetailPageImageState extends ConsumerState<DetailPageImage> {
-  /// Optimistic in-flight flag: the badge switches to the loading spinner
-  /// the moment the user taps, before the coordinator notification arrives.
-  bool _optimisticDownloading = false;
-
   /// Detail data can arrive while the route is still flying. Keep the feed
   /// preview as the Hero child until the route settles; swapping its provider
   /// during the flight makes the image appear to be sampled or rescaled on
@@ -110,26 +111,9 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   @override
   Widget build(BuildContext context) {
     final download = ref.watch(illustDownloadControllerProvider);
-    final manager = ref.watch(downloadManagerProvider);
     final viewQuality = ref.watch(viewQualityProvider);
     final state = download.stateFor(entity.id, widget.index);
     final isPagePlaceholder = widget.placeholderOnly && widget.index > 0;
-    final hasActiveTask = manager.tasks.any(
-      (task) =>
-          task.illustId == entity.id &&
-          task.pageIndex == widget.index &&
-          switch (task.status) {
-            DownloadStatus.queued ||
-            DownloadStatus.running ||
-            DownloadStatus.finalizing ||
-            DownloadStatus.canceling => true,
-            DownloadStatus.failed ||
-            DownloadStatus.canceled ||
-            DownloadStatus.retryable ||
-            DownloadStatus.succeeded ||
-            DownloadStatus.orphaned => false,
-          },
-    );
     // PixivImage keeps its last decoded frame when this URL changes. That
     // gives every quality hand-off (preview -> detail and medium -> large ->
     // original) the same gapless behavior without a second preload state in
@@ -145,8 +129,12 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                   ? entity.metaPages[widget.index].large
                   : entity.imageUrls.large);
     final image = GestureDetector(
+      // Selection mode turns the whole page into a select toggle; outside
+      // the mode a tap opens the viewer as before.
       onTap: isPagePlaceholder
           ? null
+          : downloadMode
+          ? widget.onToggleSelect
           : () => _openViewer(context, quality: viewQuality),
       onLongPress: isPagePlaceholder ? null : widget.onLongPress,
       // Loose stack: the loaded image sizes itself to its intrinsic aspect
@@ -223,34 +211,13 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               top: 20,
               right: 20,
               child: _DownloadBadge(
-                state:
-                    _optimisticDownloading &&
-                        state == IllustPageSaveState.none &&
-                        hasActiveTask
-                    ? IllustPageSaveState.downloading
-                    : state,
-                onTap: () async {
-                  try {
-                    await download.download(entity, widget.index);
-                    if (!context.mounted) return;
-                    // Immediate visual feedback: the spinner shows before
-                    // the coordinator/task notification round trip.
-                    setState(() => _optimisticDownloading = true);
-                    showAppSnackBar(
-                      context,
-                      context.l10n.downloadQueuedMessage,
-                    );
-                  } catch (error) {
-                    // Any submission failure must be visible on device: the
-                    // manager/ownership/channel errors that are not
-                    // FormatException otherwise vanish with no UI feedback.
-                    if (!context.mounted) return;
-                    showAppSnackBar(
-                      context,
-                      context.l10n.downloadSubmissionFailed(error.toString()),
-                    );
-                  }
-                },
+                state: state,
+                selected: widget.selected,
+                label: context.l10n.viewerPageLabel(
+                  widget.index + 1,
+                  entity.pageCount,
+                ),
+                onTap: widget.onToggleSelect,
               ),
             ),
         ],
@@ -291,45 +258,68 @@ class _DetailImageFallback extends StatelessWidget {
   }
 }
 
+/// Selection-mode corner badge. Priority: in-flight spinner > selected
+/// check > error/exist markers > unselected hollow circle. Tapping toggles
+/// the page's selection — nothing downloads until the bottom bar's "done".
 class _DownloadBadge extends StatelessWidget {
-  const _DownloadBadge({required this.state, required this.onTap});
+  const _DownloadBadge({
+    required this.state,
+    required this.selected,
+    required this.label,
+    required this.onTap,
+  });
 
   final IllustPageSaveState state;
+  final bool selected;
+
+  /// TalkBack/Narrator label for the toggle ("Page n of N").
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final child = switch (state) {
-      IllustPageSaveState.none => const Icon(
-        Icons.file_download_outlined,
-        size: 30,
-      ),
-      IllustPageSaveState.downloading => const SizedBox(
+    final child = switch ((state, selected)) {
+      (IllustPageSaveState.downloading, _) => const SizedBox(
         width: 30,
         height: 30,
         child: CircularProgressIndicator(),
       ),
-      IllustPageSaveState.error => Icon(
+      (_, true) => Icon(
+        Icons.check_circle,
+        color: theme.colorScheme.primary,
+        size: 30,
+      ),
+      (IllustPageSaveState.error, false) => Icon(
         Icons.error_outline,
         color: theme.colorScheme.error,
         size: 30,
       ),
-      IllustPageSaveState.exist => Icon(
+      (IllustPageSaveState.exist, false) => Icon(
         Icons.check,
         color: theme.colorScheme.primary,
+        size: 30,
+      ),
+      _ => Icon(
+        Icons.radio_button_unchecked,
+        color: theme.colorScheme.onSurfaceVariant,
         size: 30,
       ),
     };
     return GestureDetector(
       onTap: state == IllustPageSaveState.downloading ? null : onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(30),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: child,
         ),
-        child: child,
       ),
     );
   }

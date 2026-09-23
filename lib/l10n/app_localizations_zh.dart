@@ -1977,6 +1977,17 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get seriesStartReading => '开始阅读';
+
+  @override
+  String seriesBackToEpisode(int order) {
+    return '返回第 $order 话';
+  }
+
+  @override
+  String get seriesBackToLast => '返回上次阅读的作品';
+
+  @override
   String get seriesPrevious => '上一话';
 
   @override
@@ -2071,4 +2082,81 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get spotlightEmpty => '暂无特辑';
+
+  @override
+  String get enableHaptics => '触感反馈';
+
+  @override
+  String get enableHapticsHint => '选择、保存成功与失败时振动';
+
+  @override
+  String get downloadSelectPages => '选择要下载的页';
+
+  @override
+  String downloadSelectedCount(int selected, int total) {
+    return '已选 $selected / 共 $total 页';
+  }
+
+  @override
+  String get selectAll => '全选';
+
+  @override
+  String get done => '完成';
+
+  @override
+  String viewerPageLabel(int page, int total) {
+    return '第 $page 页，共 $total 页';
+  }
+
+  @override
+  String get tagActionSearch => '搜索该标签';
+
+  @override
+  String get tagActionCopy => '复制标签名';
+
+  @override
+  String get tagActionMute => '屏蔽该标签';
+
+  @override
+  String get tagActionUnmute => '解除屏蔽该标签';
+
+  @override
+  String get tagActionMuteMode => '批量屏蔽标签';
+
+  @override
+  String get tagCopied => '已复制标签';
+
+  @override
+  String ugoiraExporting(int percent) {
+    return '正在导出 GIF… $percent%';
+  }
+
+  @override
+  String get viewerEnterFullscreen => '进入全屏';
+
+  @override
+  String get viewerExitFullscreen => '退出全屏';
+
+  @override
+  String get viewerFitScreen => '适应屏幕';
+
+  @override
+  String get viewerSavePage => '保存当前页';
+
+  @override
+  String get viewerJumpToPage => '跳转到页码';
+
+  @override
+  String get viewerInfo => '作品信息';
+
+  @override
+  String get viewerOpenDetail => '打开详情页';
+
+  @override
+  String illustPagesTotal(int count) {
+    return '共 $count 页';
+  }
+
+  @override
+  String get illustInfoJump => '跳到作品信息区';
 }

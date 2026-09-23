@@ -54,6 +54,7 @@ class IllustSeriesStore extends Notifier<Map<int, IllustSeriesEntity>> {
         watchlistAdded: added,
         isConcluded: existing.isConcluded,
         latestContentId: existing.latestContentId,
+        firstContentId: existing.firstContentId,
       ),
     };
   }
