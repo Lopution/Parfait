@@ -1294,4 +1294,94 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('send shows an in-button progress indicator while busy', (
+    tester,
+  ) async {
+    final repo = _FakeCommentRepository()
+      ..addCompleter = Completer<CommentEntity>();
+    await pumpCommentsPage(tester, repo);
+    final context = tester.element(find.byType(CommentComposer));
+
+    await tester.enterText(find.byType(TextField), 'hi');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.send_outlined));
+    await tester.pump();
+
+    Finder spinner() => find.descendant(
+      of: find.byType(CommentComposer),
+      matching: find.byType(CircularProgressIndicator),
+    );
+    // The send affordance becomes a labelled spinner — the visible
+    // non-optimistic wait.
+    expect(spinner(), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(CommentComposer),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics &&
+              widget.properties.label == context.l10n.commentSending,
+        ),
+      ),
+      findsOneWidget,
+    );
+    // And the button stays disabled while the request is in flight.
+    expect(
+      tester
+          .widget<IconButton>(
+            find
+                .ancestor(
+                  of: find.byType(CircularProgressIndicator),
+                  matching: find.byType(IconButton),
+                )
+                .first,
+          )
+          .onPressed,
+      isNull,
+    );
+
+    repo.addCompleter!.complete(_comment(20));
+    await tester.pumpAndSettle();
+    expect(spinner(), findsNothing);
+  });
+
+  testWidgets('busy spinner survives the early-false mutation key window', (
+    tester,
+  ) async {
+    final repo = _FakeCommentRepository()
+      ..rootComments = [_comment(11, replyCount: 1), _comment(12, userId: 21)]
+      ..addCompleter = Completer<CommentEntity>();
+    await pumpCommentsPage(tester, repo);
+
+    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'hi');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.send_outlined));
+    await tester.pump();
+
+    // Re-target mid-flight: the mutation key now maps to comment 12, which
+    // has no pending send — `sending` reports false while `_busy` still
+    // covers the await. The spinner must persist through the window.
+    await tester.tap(find.byIcon(Icons.reply_outlined).last);
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byType(CommentComposer),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+
+    repo.addCompleter!.complete(_comment(20));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(CommentComposer),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+    );
+  });
 }

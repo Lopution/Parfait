@@ -1678,6 +1678,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commentEmoji => 'Emoji';
 
   @override
+  String get commentSending => '送信中';
+
+  @override
   String commentStampLabel(int id) {
     return 'スタンプ $id';
   }
