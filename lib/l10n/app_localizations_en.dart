@@ -1191,6 +1191,24 @@ class AppLocalizationsEn extends AppLocalizations {
       'The update check or installation failed. Try again later.';
 
   @override
+  String get aboutUpdateOffline =>
+      'Could not reach the update server — check the network connection and try again';
+
+  @override
+  String get aboutUpdateRateLimited =>
+      'GitHub rate limit reached — try again later';
+
+  @override
+  String get aboutUpdateInvalid =>
+      'The update manifest is invalid — please report this';
+
+  @override
+  String get aboutUpdateBusy => 'An update task is already in progress';
+
+  @override
+  String get aboutUpdateCanceled => 'The update installation was canceled';
+
+  @override
   String get aboutLicense => 'License';
 
   @override

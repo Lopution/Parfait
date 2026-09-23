@@ -271,19 +271,22 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
       UpdateCheckStatus.disabled => context.l10n.aboutUpdateUnavailable,
       UpdateCheckStatus.noUpdate => context.l10n.aboutUpdateNoUpdate,
       UpdateCheckStatus.prerelease => context.l10n.aboutUpdatePrerelease,
-      UpdateCheckStatus.invalid ||
-      UpdateCheckStatus.rateLimited ||
-      UpdateCheckStatus.offline ||
-      UpdateCheckStatus.failed ||
-      UpdateCheckStatus.busy => context.l10n.aboutUpdateFailed,
+      // Failure states split by the action the user can take (R10): retry
+      // after fixing the network, wait out GitHub rate limiting, report an
+      // invalid manifest, or just acknowledge a busy/generic failure.
+      UpdateCheckStatus.offline => context.l10n.aboutUpdateOffline,
+      UpdateCheckStatus.rateLimited => context.l10n.aboutUpdateRateLimited,
+      UpdateCheckStatus.invalid => context.l10n.aboutUpdateInvalid,
+      UpdateCheckStatus.busy => context.l10n.aboutUpdateBusy,
+      UpdateCheckStatus.failed => context.l10n.aboutUpdateFailed,
       null => null,
     };
     final applyText = switch (_applyResult?.status) {
       UpdateApplyStatus.installPermissionRequired =>
         context.l10n.aboutUpdatePermission,
       UpdateApplyStatus.installStarted => context.l10n.aboutUpdateStarted,
-      UpdateApplyStatus.failed ||
-      UpdateApplyStatus.canceled => context.l10n.aboutUpdateFailed,
+      UpdateApplyStatus.canceled => context.l10n.aboutUpdateCanceled,
+      UpdateApplyStatus.failed => context.l10n.aboutUpdateFailed,
       _ => null,
     };
     return Padding(

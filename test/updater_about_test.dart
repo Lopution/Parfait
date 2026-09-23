@@ -57,14 +57,18 @@ List<String?> mockClipboard(WidgetTester tester) {
 }
 
 void main() {
-  Future<void> pumpAbout(WidgetTester tester) async {
-    final service = UpdateService(
-      manifestTransport: _UnusedTransport(),
-      platform: _FdroidPlatform(),
-    );
+  Future<void> pumpAbout(WidgetTester tester, {UpdateService? service}) async {
+    final effectiveService =
+        service ??
+        UpdateService(
+          manifestTransport: _UnusedTransport(),
+          platform: _FdroidPlatform(),
+        );
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [updateServiceProvider.overrideWith((ref) async => service)],
+        overrides: [
+          updateServiceProvider.overrideWith((ref) async => effectiveService),
+        ],
         child: MaterialApp(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -144,6 +148,151 @@ void main() {
     // The unlock snackbar queues behind the countdown ones — provider state
     // is the assertion that matters; the message itself is l10n-covered.
   });
+
+  // Each check failure state maps to its own actionable message (R10):
+  // retry after fixing the network, wait out GitHub rate limiting, report
+  // an invalid manifest, or acknowledge a busy/generic failure.
+  for (final (status, expected) in [
+    (UpdateCheckStatus.offline, '无法连接更新服务，请检查网络后重试'),
+    (UpdateCheckStatus.rateLimited, 'GitHub 限流，请稍后重试'),
+    (UpdateCheckStatus.invalid, '更新清单无效，请向开发者反馈'),
+    (UpdateCheckStatus.busy, '已有更新任务进行中'),
+    (UpdateCheckStatus.failed, '更新检查或安装失败，请稍后重试'),
+  ]) {
+    testWidgets('check status $status renders its own text', (tester) async {
+      await pumpAbout(
+        tester,
+        service: _StubUpdateService(
+          checkResult: UpdateCheckResult(status: status),
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, '检查更新'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(expected), findsOneWidget);
+    });
+  }
+
+  testWidgets('apply canceled reports cancellation, not generic failure', (
+    tester,
+  ) async {
+    await pumpAbout(
+      tester,
+      service: _StubUpdateService(
+        checkResult: UpdateCheckResult(
+          status: UpdateCheckStatus.available,
+          release: fakeUpdateRelease(),
+        ),
+        applyResult: const UpdateApplyResult(
+          status: UpdateApplyStatus.canceled,
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, '检查更新'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '下载并安装'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已取消更新安装'), findsOneWidget);
+    expect(find.text('更新检查或安装失败，请稍后重试'), findsNothing);
+  });
+
+  testWidgets('apply failed keeps the generic failure text', (tester) async {
+    await pumpAbout(
+      tester,
+      service: _StubUpdateService(
+        checkResult: UpdateCheckResult(
+          status: UpdateCheckStatus.available,
+          release: fakeUpdateRelease(),
+        ),
+        applyResult: const UpdateApplyResult(
+          status: UpdateApplyStatus.failed,
+          errorCode: 'install_failed',
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, '检查更新'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '下载并安装'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('更新检查或安装失败，请稍后重试'), findsOneWidget);
+  });
+}
+
+/// Serves the staged check/apply results — the github-flavoured capability
+/// keeps the update controls rendered while the service internals never run.
+class _StubUpdateService extends UpdateService {
+  _StubUpdateService({required this.checkResult, this.applyResult})
+    : super(manifestTransport: _UnusedTransport(), platform: _FdroidPlatform());
+
+  final UpdateCheckResult checkResult;
+  final UpdateApplyResult? applyResult;
+
+  @override
+  Future<UpdateCapability> capability() async =>
+      const UpdateCapability.github();
+
+  @override
+  Future<UpdateCheckResult> check({
+    UpdateChannel channel = UpdateChannel.stable,
+  }) async => checkResult;
+
+  @override
+  Future<UpdateApplyResult> apply(
+    UpdateRelease release, {
+    bool confirmed = false,
+  }) async =>
+      applyResult ??
+      const UpdateApplyResult(status: UpdateApplyStatus.installStarted);
+}
+
+UpdateRelease fakeUpdateRelease() =>
+    UpdateRelease(manifest: const _FakeUpdateManifest(), rawManifest: const []);
+
+class _FakeUpdateManifest implements UpdateManifestLike {
+  const _FakeUpdateManifest();
+
+  @override
+  String get repository => 'Lopution/Pixiv-func';
+  @override
+  String get tag => 'v9.9.9';
+  @override
+  UpdateChannel get channel => UpdateChannel.stable;
+  @override
+  UpdateVersionLike get version => const _FakeUpdateVersion('9.9.9');
+  @override
+  int get versionCode => 999;
+  @override
+  UpdateReleaseAsset get asset => UpdateReleaseAsset(
+    url: Uri.parse('https://example.invalid/app.apk'),
+    exactSize: 1,
+    sha256: '',
+    packageName: 'com.example.pixiv_func',
+    signingCertificateSha256: '',
+  );
+}
+
+class _FakeUpdateVersion implements UpdateVersionLike {
+  const _FakeUpdateVersion(this.text);
+
+  final String text;
+
+  @override
+  bool get isPrerelease => false;
+
+  @override
+  int compareTo(UpdateVersionLike other) => 0;
+
+  @override
+  String toString() => text;
 }
 
 class _FdroidPlatform implements UpdatePlatform {

@@ -1130,6 +1130,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutUpdateFailed => '更新检查或安装失败，请稍后重试';
 
   @override
+  String get aboutUpdateOffline => '无法连接更新服务，请检查网络后重试';
+
+  @override
+  String get aboutUpdateRateLimited => 'GitHub 限流，请稍后重试';
+
+  @override
+  String get aboutUpdateInvalid => '更新清单无效，请向开发者反馈';
+
+  @override
+  String get aboutUpdateBusy => '已有更新任务进行中';
+
+  @override
+  String get aboutUpdateCanceled => '已取消更新安装';
+
+  @override
   String get aboutLicense => '许可证';
 
   @override

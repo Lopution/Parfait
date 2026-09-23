@@ -2214,6 +2214,36 @@ abstract class AppLocalizations {
   /// **'更新检查或安装失败，请稍后重试'**
   String get aboutUpdateFailed;
 
+  /// No description provided for @aboutUpdateOffline.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法连接更新服务，请检查网络后重试'**
+  String get aboutUpdateOffline;
+
+  /// No description provided for @aboutUpdateRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'GitHub 限流，请稍后重试'**
+  String get aboutUpdateRateLimited;
+
+  /// No description provided for @aboutUpdateInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新清单无效，请向开发者反馈'**
+  String get aboutUpdateInvalid;
+
+  /// No description provided for @aboutUpdateBusy.
+  ///
+  /// In zh, this message translates to:
+  /// **'已有更新任务进行中'**
+  String get aboutUpdateBusy;
+
+  /// No description provided for @aboutUpdateCanceled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消更新安装'**
+  String get aboutUpdateCanceled;
+
   /// No description provided for @aboutLicense.
   ///
   /// In zh, this message translates to:
