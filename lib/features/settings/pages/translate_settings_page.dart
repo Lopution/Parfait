@@ -2,16 +2,65 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/comments/comment_translation.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 
-class TranslateSettingsPage extends ConsumerWidget {
+class TranslateSettingsPage extends ConsumerStatefulWidget {
   const TranslateSettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TranslateSettingsPage> createState() =>
+      _TranslateSettingsPageState();
+}
+
+class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
+  /// Key-existence probes behind the credential entry summaries (D8):
+  /// they answer "configured?" without loading secret values. Re-read
+  /// when the credentials route pops — the sub-page may have written or
+  /// cleared keys while this route was covered.
+  Future<bool>? _baiduConfigured;
+  Future<bool>? _llmConfigured;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshCredentials();
+  }
+
+  void _refreshCredentials() {
+    final store = ref.read(translationCredentialStoreProvider);
+    _baiduConfigured = store.hasBaidu();
+    _llmConfigured = store.hasLlm();
+  }
+
+  Future<void> _openTranslationCredentials(bool baidu) async {
+    final provider = baidu ? 'baidu' : 'llm';
+    await context.push<void>('/settings/translate/credentials/$provider');
+    if (mounted) setState(_refreshCredentials);
+  }
+
+  /// Subtitle under a credential entry. Pending or a store error renders
+  /// nothing — the summary never invents a state.
+  Widget _credentialStatus(Future<bool>? configured) {
+    return FutureBuilder<bool>(
+      future: configured,
+      builder: (context, snapshot) {
+        final state = snapshot.data;
+        if (state == null) return const SizedBox.shrink();
+        return Text(
+          state
+              ? context.l10n.settingsCredentialConfigured
+              : context.l10n.settingsCredentialNotConfigured,
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(settingsProvider);
     final settings = state.value;
     if (settings == null) {
@@ -53,14 +102,16 @@ class TranslateSettingsPage extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.key_outlined),
                 title: Text(context.l10n.translateBaiduCredential),
-                onTap: () => _openTranslationCredentials(context, ref, true),
+                subtitle: _credentialStatus(_baiduConfigured),
+                onTap: () => _openTranslationCredentials(true),
               ),
             if (settings.translationProvider ==
                 TranslationProvider.translationLlm)
               ListTile(
                 leading: const Icon(Icons.key_outlined),
                 title: Text(context.l10n.translateLlmCredential),
-                onTap: () => _openTranslationCredentials(context, ref, false),
+                subtitle: _credentialStatus(_llmConfigured),
+                onTap: () => _openTranslationCredentials(false),
               ),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -81,14 +132,5 @@ class TranslateSettingsPage extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  void _openTranslationCredentials(
-    BuildContext context,
-    WidgetRef ref,
-    bool baidu,
-  ) {
-    final provider = baidu ? 'baidu' : 'llm';
-    context.push<void>('/settings/translate/credentials/$provider');
   }
 }
