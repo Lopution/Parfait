@@ -803,6 +803,143 @@ void main() {
         });
       },
     );
+
+    // System-back tests need the viewer pushed as a *second* route —
+    // `handlePopRoute` -> maybePop refuses to pop the last route (the OS
+    // would take over), so a stub home sits underneath.
+    Future<void> pumpPushedViewer(
+      WidgetTester tester, {
+      List<String> urls = const ['https://i.pximg.net/1/original.jpg'],
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ImageViewerPage(urls: urls),
+                  ),
+                ),
+                child: const Text('open-viewer'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open-viewer'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'system back while zoomed resets to fit and keeps the route',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await pumpPushedViewer(tester);
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), greaterThan(1.0));
+
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          // Zoom reset; the route stayed.
+          expect(scale(), closeTo(1.0, 0.01));
+          expect(find.byType(ImageViewerPage), findsOneWidget);
+
+          // Now at fit — the next system back leaves the route.
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          expect(find.byType(ImageViewerPage), findsNothing);
+        });
+      },
+    );
+
+    testWidgets(
+      'system back with hidden chrome leaves directly — no restore step '
+      '(revision \u2461)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await pumpPushedViewer(tester);
+
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          expect(find.byType(ImageViewerPage), findsNothing);
+        });
+      },
+    );
+
+    testWidgets('the explicit back button pops even while zoomed', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await pumpPushedViewer(tester);
+
+        await tester.tap(find.byType(PageView));
+        await tester.pump(const Duration(milliseconds: 80));
+        await tester.tap(find.byType(PageView));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(BackButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(ImageViewerPage), findsNothing);
+      });
+    });
+
+    testWidgets(
+      'the zoom gate still intercepts after a route swap rebuilds the '
+      'viewer state',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await pumpPushedViewer(tester);
+
+          // Route swap: replaceImageViewerPage pushes a fresh viewer route
+          // (new State) over the same underlying home.
+          final context = tester.element(find.byType(ImageViewerPage));
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => ImageViewerPage(
+                urls: const ['https://i.pximg.net/1/original.jpg'],
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), greaterThan(1.0));
+
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(1.0, 0.01));
+          expect(find.byType(ImageViewerPage), findsOneWidget);
+        });
+      },
+    );
   });
 
   group('IllustDetailPage download mode (R4)', () {
