@@ -241,6 +241,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     this.onEditProfile,
     this.onToggleFollow,
     this.onFollowPrivately,
+    this.onCopyLink,
     this.onOpenBookmarkTags,
     this.onDownloadAll,
     this.expandedExtent = 320,
@@ -253,12 +254,13 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final bool showRestrictSelector;
   final UserRestrict restrict;
   final ValueChanged<UserRestrict> onRestrictChanged;
-  final VoidCallback onShare;
+  final ValueChanged<BuildContext> onShare;
   final List<ProfileStatisticData> statistics;
   final bool isFollowed;
   final VoidCallback? onEditProfile;
   final VoidCallback? onToggleFollow;
   final VoidCallback? onFollowPrivately;
+  final VoidCallback? onCopyLink;
 
   /// Own-profile bookmarks tab only: opens the bookmark-tag collection.
   final VoidCallback? onOpenBookmarkTags;
@@ -281,11 +283,13 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
       icon: Icons.share_outlined,
       primary: true,
       onSelected: onShare,
-      buildInline: (context) => IconButton(
-        tooltip: context.l10n.profileShare,
-        onPressed: onShare,
-        color: user.backgroundImageUrl == null ? null : Colors.white,
-        icon: const Icon(Icons.share_outlined),
+      buildInline: (context) => Builder(
+        builder: (buttonContext) => IconButton(
+          tooltip: context.l10n.profileShare,
+          onPressed: () => onShare(buttonContext),
+          color: user.backgroundImageUrl == null ? null : Colors.white,
+          icon: const Icon(Icons.share_outlined),
+        ),
       ),
     ),
     if (isMe && onEditProfile != null)
@@ -294,7 +298,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         label: context.l10n.profileEditTitle,
         icon: Icons.edit_outlined,
         primary: true,
-        onSelected: onEditProfile!,
+        onSelected: (_) => onEditProfile!(),
         buildInline: (context) => IconButton(
           tooltip: context.l10n.profileEditTitle,
           onPressed: onEditProfile,
@@ -308,7 +312,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         label: isFollowed ? context.l10n.unfollow : context.l10n.follow,
         icon: Icons.person_add_alt_1_outlined,
         primary: true,
-        onSelected: onToggleFollow!,
+        onSelected: (_) => onToggleFollow!(),
         buildInline: (_) => FollowSwitchButton(
           userId: user.id,
           userName: user.name,
@@ -320,7 +324,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         value: 'followPrivately',
         label: context.l10n.followPrivately,
         icon: Icons.lock_outline,
-        onSelected: onFollowPrivately!,
+        onSelected: (_) => onFollowPrivately!(),
       ),
     if (isMe && showRestrictSelector) ...[
       _ProfileHeaderAction(
@@ -328,14 +332,14 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         label: context.l10n.restrictPublic,
         icon: Icons.public,
         checked: restrict == UserRestrict.public,
-        onSelected: () => onRestrictChanged(UserRestrict.public),
+        onSelected: (_) => onRestrictChanged(UserRestrict.public),
       ),
       _ProfileHeaderAction(
         value: 'restrictPrivate',
         label: context.l10n.restrictPrivate,
         icon: Icons.lock_outline,
         checked: restrict == UserRestrict.private,
-        onSelected: () => onRestrictChanged(UserRestrict.private),
+        onSelected: (_) => onRestrictChanged(UserRestrict.private),
       ),
     ],
     if (onOpenBookmarkTags != null)
@@ -343,14 +347,21 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         value: 'bookmarkTags',
         label: context.l10n.bookmarkTags,
         icon: Icons.label_outline,
-        onSelected: onOpenBookmarkTags!,
+        onSelected: (_) => onOpenBookmarkTags!(),
       ),
     if (onDownloadAll != null)
       _ProfileHeaderAction(
         value: 'downloadAll',
         label: context.l10n.downloadAuthorWorks,
         icon: Icons.download_outlined,
-        onSelected: onDownloadAll!,
+        onSelected: (_) => onDownloadAll!(),
+      ),
+    if (onCopyLink != null)
+      _ProfileHeaderAction(
+        value: 'copyLink',
+        label: context.l10n.copyLink,
+        icon: Icons.copy_outlined,
+        onSelected: (_) => onCopyLink!(),
       ),
   ];
 
@@ -453,6 +464,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.isFollowed != isFollowed ||
         oldDelegate.onToggleFollow != onToggleFollow ||
         oldDelegate.onFollowPrivately != onFollowPrivately ||
+        oldDelegate.onCopyLink != onCopyLink ||
         oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
         oldDelegate.onDownloadAll != onDownloadAll ||
         oldDelegate.onShare != onShare ||
@@ -679,7 +691,7 @@ class _ProfileHeaderAction {
   final String value;
   final String label;
   final IconData icon;
-  final VoidCallback onSelected;
+  final ValueChanged<BuildContext> onSelected;
   final bool primary;
   final bool? checked;
   final WidgetBuilder? buildInline;
@@ -705,7 +717,7 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
       onSelected: (value) {
         for (final action in entries) {
           if (action.value == value) {
-            action.onSelected();
+            action.onSelected(context);
             return;
           }
         }
