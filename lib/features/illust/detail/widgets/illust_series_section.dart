@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../core/entity/illust_store.dart';
+import '../../../../core/history/history_repository.dart';
 import '../../../../core/series/illust_series_context_controller.dart';
 import '../../../../core/series/series_models.dart';
+import '../../../../core/series/series_recent_open_store.dart';
 import '../../../../core/series/series_store.dart';
 import '../../../../l10n/context.dart';
 
@@ -27,6 +29,23 @@ class IllustSeriesSection extends ConsumerWidget {
     final detail = ref.watch(illustSeriesStoreProvider)[contextData.seriesId];
     if (detail == null) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+    // Opening a series work on the detail page records it as the session's
+    // most-recently-opened entry for the series page's 「返回第 n 话」.
+    // Post-frame because build must not write providers; the store dedupes
+    // identical entries so rebuilds stay cheap.
+    final accountId = ref.watch(historyAccountIdProvider);
+    if (accountId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(seriesRecentOpenStoreProvider.notifier)
+            .record(
+              accountId: accountId,
+              seriesId: contextData.seriesId,
+              illustId: illustId,
+              contentOrder: contextData.contentOrder,
+            );
+      });
     }
     return SliverToBoxAdapter(
       child: _SeriesCardView(detail: detail, context: contextData),
