@@ -537,13 +537,14 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
               onPressed: () => Navigator.of(context).pop<void>(),
             ),
             const Spacer(),
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Text(
-                '${_activePage + 1} / $_pageCount',
-                style: TextStyle(color: FuncTokens.lightBackground),
+            if (_pageCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Text(
+                  '${_activePage + 1} / $_pageCount',
+                  style: TextStyle(color: FuncTokens.lightBackground),
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -564,6 +565,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         top: false,
         child: Row(
           children: [
+            // Empty state honesty: no misleading "1 / 0" counter. The jump
+            // slot stays mounted but inert (consistent with the disabled
+            // action buttons rather than a layout that loses its chrome).
             Tooltip(
               message: l10n.viewerJumpToPage,
               child: InkWell(
@@ -573,10 +577,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                     horizontal: 16,
                     vertical: 12,
                   ),
-                  child: Text(
-                    '${_activePage + 1} / $_pageCount',
-                    style: TextStyle(color: color),
-                  ),
+                  child: hasPages
+                      ? Text(
+                          '${_activePage + 1} / $_pageCount',
+                          style: TextStyle(color: color),
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ),
             ),
@@ -599,11 +605,13 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             if (entity != null) ...[
               IconButton(
                 tooltip: l10n.viewerSavePage,
-                onPressed: switch (saveState) {
-                  IllustPageSaveState.downloading ||
-                  IllustPageSaveState.exist => null,
-                  _ => () => unawaited(_saveActivePage(entity)),
-                },
+                onPressed: !hasPages
+                    ? null
+                    : switch (saveState) {
+                        IllustPageSaveState.downloading ||
+                        IllustPageSaveState.exist => null,
+                        _ => () => unawaited(_saveActivePage(entity)),
+                      },
                 icon: switch (saveState) {
                   IllustPageSaveState.downloading => const SizedBox(
                     width: 20,
@@ -623,12 +631,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
               ),
               IconButton(
                 tooltip: l10n.cardActionShare,
-                onPressed: () => unawaited(_share(entity)),
+                onPressed: hasPages ? () => unawaited(_share(entity)) : null,
                 icon: Icon(Icons.share_outlined, color: color),
               ),
               IconButton(
                 tooltip: l10n.viewerInfo,
-                onPressed: () => _showInfo(entity),
+                onPressed: hasPages ? () => _showInfo(entity) : null,
                 icon: Icon(Icons.info_outline, color: color),
               ),
             ],
