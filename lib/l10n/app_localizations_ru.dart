@@ -1188,6 +1188,24 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось проверить или установить обновление. Повторите позже.';
 
   @override
+  String get aboutUpdateOffline =>
+      'Не удалось связаться с сервером обновлений — проверьте сеть и повторите попытку';
+
+  @override
+  String get aboutUpdateRateLimited =>
+      'Достигнут лимит запросов GitHub — повторите позже';
+
+  @override
+  String get aboutUpdateInvalid =>
+      'Манифест обновления недействителен — сообщите разработчику';
+
+  @override
+  String get aboutUpdateBusy => 'Задача обновления уже выполняется';
+
+  @override
+  String get aboutUpdateCanceled => 'Установка обновления отменена';
+
+  @override
   String get aboutLicense => 'Лицензия';
 
   @override

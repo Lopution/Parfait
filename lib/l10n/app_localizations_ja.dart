@@ -1152,6 +1152,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutUpdateFailed => '更新の確認またはインストールに失敗しました。後でもう一度お試しください';
 
   @override
+  String get aboutUpdateOffline => '更新サーバーに接続できません。ネットワークを確認して再試行してください';
+
+  @override
+  String get aboutUpdateRateLimited => 'GitHub のレート制限に達しました。しばらくしてから再試行してください';
+
+  @override
+  String get aboutUpdateInvalid => '更新マニフェストが無効です。開発者に報告してください';
+
+  @override
+  String get aboutUpdateBusy => '別の更新タスクが進行中です';
+
+  @override
+  String get aboutUpdateCanceled => '更新のインストールはキャンセルされました';
+
+  @override
   String get aboutLicense => 'ライセンス';
 
   @override
