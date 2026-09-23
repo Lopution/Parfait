@@ -1,16 +1,23 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_scaffold.dart';
+import '../../app/widgets/follow_switch_button.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/download/author_works_enumerator.dart';
 import '../../core/network/api_error.dart';
+import '../../core/platform/android_intent_channel.dart';
+import '../../core/user/follow_actions.dart';
+import '../../core/user/follow_store.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import 'author_works_download_dialog.dart';
@@ -23,7 +30,6 @@ import '../../core/profile/profile_models.dart';
 import '../../core/share/share_service.dart';
 import '../../core/user/user_detail_controller.dart';
 import '../../l10n/context.dart';
-import '../../l10n/lookup.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
@@ -88,14 +94,14 @@ class MePage extends ConsumerWidget {
   }
 }
 
-String _profileText(BuildContext context, String key) =>
-    l10nLookup(context.l10n, key);
+enum _ProfileStatTarget { following, myPixiv, illust, manga, novel, series }
 
 class _UserPageState extends ConsumerState<UserPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final List<String> _tabKeys;
-  bool _selectorExpanded = false;
+  late final ScrollController _outerScrollController;
+  late final List<GlobalKey<_ProfileTabBodyState>> _bodyKeys;
   ProfileWorkSection _workSection = ProfileWorkSection.illust;
   UserRestrict _restrict = UserRestrict.public;
   int _selectedIndex = 0;
@@ -117,6 +123,11 @@ class _UserPageState extends ConsumerState<UserPage>
             'profileFollowing',
             'profileAbout',
           ];
+    _outerScrollController = ScrollController();
+    _bodyKeys = [
+      for (var index = 0; index < _tabKeys.length; index++)
+        GlobalKey<_ProfileTabBodyState>(),
+    ];
     _tabController = TabController(length: _tabKeys.length, vsync: this)
       ..addListener(_onTabChanged);
   }
@@ -126,6 +137,7 @@ class _UserPageState extends ConsumerState<UserPage>
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
+    _outerScrollController.dispose();
     super.dispose();
   }
 
@@ -134,18 +146,35 @@ class _UserPageState extends ConsumerState<UserPage>
         _tabController.indexIsChanging) {
       return;
     }
-    setState(() {
-      _selectedIndex = _tabController.index;
-      _selectorExpanded = false;
-    });
+    setState(() => _selectedIndex = _tabController.index);
   }
 
   void _onTabTap(int index) {
-    final workTabIndex = widget.isMe ? _tabKeys.length - 1 : 0;
-    if (index == _selectedIndex &&
-        index == workTabIndex &&
-        !_tabController.indexIsChanging) {
-      setState(() => _selectorExpanded = !_selectorExpanded);
+    if (index == _selectedIndex && !_tabController.indexIsChanging) {
+      unawaited(_scrollActiveTabToTop());
+    }
+  }
+
+  Future<void> _scrollActiveTabToTop() async {
+    final animated = MotionTokens.enabled(context);
+    final duration = MotionTokens.resolve(context, MotionTokens.fast);
+    final curve = Curves.easeOutCubic;
+    await _bodyKeys[_selectedIndex].currentState?.scrollToTop(
+      animated: animated,
+      duration: duration,
+      curve: curve,
+    );
+    if (!mounted) return;
+    if (_outerScrollController.hasClients) {
+      if (animated) {
+        await _outerScrollController.animateTo(
+          0,
+          duration: duration,
+          curve: curve,
+        );
+      } else {
+        _outerScrollController.jumpTo(0);
+      }
     }
   }
 
@@ -196,14 +225,107 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   void _onSectionChanged(ProfileWorkSection section) {
-    setState(() {
-      _workSection = section;
-      _selectorExpanded = false;
-    });
+    if (section == _workSection) {
+      unawaited(_scrollActiveTabToTop());
+      return;
+    }
+    setState(() => _workSection = section);
   }
 
   void _onRestrictChanged(UserRestrict restrict) {
     setState(() => _restrict = restrict);
+  }
+
+  List<ProfileStatisticData> _profileStatistics(UserEntity user) => [
+    ProfileStatisticData(
+      id: 'following',
+      icon: AppIcons.follow,
+      label: context.l10n.profileFollowing,
+      value: user.totalFollowUsers,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.following),
+    ),
+    ProfileStatisticData(
+      id: 'myPixiv',
+      icon: AppIcons.friend,
+      label: context.l10n.profileMyPixiv,
+      value: user.totalMyPixivUsers,
+      onTap: widget.isMe
+          ? () => _navigateToStatistic(_ProfileStatTarget.myPixiv)
+          : null,
+    ),
+    ProfileStatisticData(
+      id: 'illust',
+      icon: Icons.palette_outlined,
+      label: context.l10n.profileIllust,
+      value: user.totalIllusts,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.illust),
+    ),
+    ProfileStatisticData(
+      id: 'manga',
+      icon: Icons.menu_book_outlined,
+      label: context.l10n.profileManga,
+      value: user.totalManga,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.manga),
+    ),
+    ProfileStatisticData(
+      id: 'novel',
+      icon: Icons.auto_stories_outlined,
+      label: context.l10n.profileNovel,
+      value: user.totalNovels,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.novel),
+    ),
+    ProfileStatisticData(
+      id: 'series',
+      icon: Icons.collections_bookmark_outlined,
+      label: context.l10n.profileSeries,
+      value: user.totalIllustSeries + user.totalNovelSeries,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.series),
+    ),
+  ];
+
+  void _navigateToStatistic(_ProfileStatTarget target) {
+    switch (target) {
+      case _ProfileStatTarget.following:
+        _navigateToTab('profileFollowing');
+        break;
+      case _ProfileStatTarget.myPixiv:
+        _navigateToTab('profileMyPixiv');
+        break;
+      case _ProfileStatTarget.illust:
+        _navigateToWorkSection(ProfileWorkSection.illust);
+        break;
+      case _ProfileStatTarget.manga:
+        _navigateToWorkSection(ProfileWorkSection.manga);
+        break;
+      case _ProfileStatTarget.novel:
+        _navigateToWorkSection(ProfileWorkSection.novel);
+        break;
+      case _ProfileStatTarget.series:
+        _navigateToWorkSection(ProfileWorkSection.series);
+        break;
+    }
+  }
+
+  void _navigateToTab(String key) {
+    final index = _tabKeys.indexOf(key);
+    if (index < 0) return;
+    if (index == _selectedIndex) {
+      unawaited(_scrollActiveTabToTop());
+    } else {
+      _tabController.animateTo(index);
+    }
+  }
+
+  void _navigateToWorkSection(ProfileWorkSection section) {
+    final workIndex = _tabKeys.indexOf('profileWork');
+    if (workIndex < 0) return;
+    final sameSection = _workSection == section;
+    if (!sameSection) setState(() => _workSection = section);
+    if (workIndex == _selectedIndex) {
+      if (sameSection) unawaited(_scrollActiveTabToTop());
+    } else {
+      _tabController.animateTo(workIndex);
+    }
   }
 
   @override
@@ -270,6 +392,14 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   Widget _buildProfile(UserEntity user, {ApiError? staleError}) {
+    final statistics = _profileStatistics(user);
+    final followed = widget.isMe
+        ? user.isFollowed ?? false
+        : ref.watch(
+                followStoreProvider.select((state) => state[user.id]?.followed),
+              ) ??
+              user.isFollowed ??
+              false;
     final showRestrictSelector =
         widget.isMe && (_selectedIndex == 0 || _selectedIndex == 1);
     final workTabIndex = widget.isMe ? _tabKeys.length - 1 : 0;
@@ -293,6 +423,8 @@ class _UserPageState extends ConsumerState<UserPage>
           ),
         Expanded(
           child: NestedScrollView(
+            key: const ValueKey('profile-nested-scroll'),
+            controller: _outerScrollController,
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               SliverPersistentHeader(
                 pinned: true,
@@ -307,12 +439,30 @@ class _UserPageState extends ConsumerState<UserPage>
                   showRestrictSelector: showRestrictSelector,
                   restrict: _restrict,
                   onRestrictChanged: _onRestrictChanged,
-                  onShare: () => _showProfileShare(context, ref, user),
+                  onShare: (originContext) =>
+                      unawaited(_shareProfile(originContext, ref, user)),
+                  isFollowed: followed,
+                  onToggleFollow: widget.isMe
+                      ? null
+                      : () => ref.read(followActionsProvider).toggle(user.id),
+                  onFollowPrivately: widget.isMe
+                      ? null
+                      : () => unawaited(
+                          showFollowRestrictSheet(
+                            context,
+                            ref,
+                            userId: user.id,
+                            userName: user.name,
+                            userAccount: user.account,
+                          ),
+                        ),
+                  onCopyLink: () => unawaited(_copyProfileLink(context, user)),
+                  statistics: statistics,
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                   // Bookmarks tab only: the tag collection entry sits in the
                   // collapsed toolbar next to the restrict selector.
                   onOpenBookmarkTags: widget.isMe && _selectedIndex == 0
-                      ? () => openBookmarkTags(context)
+                      ? () => openBookmarkTags(context, restrict: _restrict)
                       : null,
                   onDownloadAll: canBulkDownload ? _downloadAuthorWorks : null,
                   topInset: MediaQuery.viewPaddingOf(context).top,
@@ -323,7 +473,6 @@ class _UserPageState extends ConsumerState<UserPage>
                 delegate: ReplicaProfileTabsDelegate(
                   controller: _tabController,
                   isMe: widget.isMe,
-                  expanded: _selectorExpanded,
                   section: _workSection,
                   onTabTap: _onTabTap,
                   onSectionChanged: _onSectionChanged,
@@ -335,15 +484,14 @@ class _UserPageState extends ConsumerState<UserPage>
               children: [
                 for (var index = 0; index < _tabKeys.length; index++)
                   _ProfileTabBody(
-                    key: ValueKey<Object?>(
-                      _feedKeyFor(index) ?? _tabKeys[index],
-                    ),
+                    key: _bodyKeys[index],
                     user: user,
                     userId: widget.userId,
                     isMe: widget.isMe,
                     tabIndex: index,
                     feedKey: _feedKeyFor(index),
                     workSection: _workSection,
+                    statistics: statistics,
                   ),
               ],
             ),
@@ -363,6 +511,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.tabIndex,
     required this.feedKey,
     required this.workSection,
+    required this.statistics,
   });
 
   final UserEntity user;
@@ -374,6 +523,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   /// The work-tab selector value; only meaningful when [feedKey] is a
   /// `ProfileFeedKind.work` key (other tabs ignore it).
   final ProfileWorkSection workSection;
+  final List<ProfileStatisticData> statistics;
 
   @override
   ConsumerState<_ProfileTabBody> createState() => _ProfileTabBodyState();
@@ -384,11 +534,27 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   @override
   bool get wantKeepAlive => true;
 
+  Future<void> scrollToTop({
+    required bool animated,
+    required Duration duration,
+    required Curve curve,
+  }) async {
+    final controller = PrimaryScrollController.maybeOf(context);
+    if (controller == null || !controller.hasClients) return;
+    if (animated) {
+      await controller.animateTo(0, duration: duration, curve: curve);
+    } else {
+      controller.jumpTo(0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final feedKey = widget.feedKey;
-    if (feedKey == null) return _ProfileAbout(user: widget.user);
+    if (feedKey == null) {
+      return _ProfileAbout(user: widget.user, statistics: widget.statistics);
+    }
     if (feedKey.kind == ProfileFeedKind.work &&
         widget.workSection == ProfileWorkSection.series) {
       // The series section is a display selector over its own endpoint; the
@@ -410,23 +576,38 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   }
 }
 
-class _ProfileAbout extends StatelessWidget {
-  const _ProfileAbout({required this.user});
+class _ProfileAbout extends ConsumerWidget {
+  const _ProfileAbout({required this.user, required this.statistics});
 
   final UserEntity user;
+  final List<ProfileStatisticData> statistics;
 
   @override
-  Widget build(BuildContext context) {
-    final entries = <({String label, String value})>[
-      (label: context.l10n.profileId, value: '${user.id}'),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entries = <({String label, String value, String? socialId})>[
+      (label: context.l10n.profileId, value: '${user.id}', socialId: null),
       if (user.account.isNotEmpty)
-        (label: context.l10n.profileAccount, value: user.account),
+        (
+          label: context.l10n.profileAccount,
+          value: user.account,
+          socialId: null,
+        ),
       if (user.comment != null)
-        (label: context.l10n.profileIntroduction, value: user.comment!),
+        (
+          label: context.l10n.profileIntroduction,
+          value: user.comment!,
+          socialId: null,
+        ),
       if (user.webpage != null)
-        (label: context.l10n.profileWebsite, value: user.webpage!),
-      if (user.twitterUrl != null) (label: 'Twitter', value: user.twitterUrl!),
-      if (user.pawooUrl != null) (label: 'Pawoo', value: user.pawooUrl!),
+        (
+          label: context.l10n.profileWebsite,
+          value: user.webpage!,
+          socialId: 'website',
+        ),
+      if (user.twitterUrl != null)
+        (label: 'Twitter', value: user.twitterUrl!, socialId: 'twitter'),
+      if (user.pawooUrl != null)
+        (label: 'Pawoo', value: user.pawooUrl!, socialId: 'pawoo'),
     ];
     return ListView(
       key: PageStorageKey('profile-about-${user.id}'),
@@ -434,76 +615,118 @@ class _ProfileAbout extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
       children: [
         for (final entry in entries)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.label,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                SelectableText(entry.value),
-              ],
+          if (entry.socialId == null)
+            _ProfileAboutTextEntry(label: entry.label, value: entry.value)
+          else
+            _ProfileSocialLinkRow(
+              key: ValueKey('profile-link-${entry.socialId}'),
+              id: entry.socialId!,
+              label: entry.label,
+              value: entry.value,
+              onOpen: () =>
+                  unawaited(_openProfileSocialLink(context, ref, entry.value)),
+              onCopy: () =>
+                  unawaited(_copyProfileSocialLink(context, entry.value)),
             ),
-          ),
         const Divider(),
         Text(
           context.l10n.profileStats,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        _ProfileStatRow(
-          icon: AppIcons.follow,
-          label: context.l10n.profileFollowing,
-          value: user.totalFollowUsers,
-        ),
-        _ProfileStatRow(
-          icon: AppIcons.friend,
-          label: context.l10n.profileMyPixiv,
-          value: user.totalMyPixivUsers,
-        ),
-        _ProfileStatRow(
-          icon: Icons.palette_outlined,
-          label: context.l10n.profileIllust,
-          value: user.totalIllusts,
-        ),
-        _ProfileStatRow(
-          icon: Icons.menu_book_outlined,
-          label: context.l10n.profileManga,
-          value: user.totalManga,
-        ),
-        _ProfileStatRow(
-          icon: Icons.auto_stories_outlined,
-          label: context.l10n.profileNovel,
-          value: user.totalNovels,
-        ),
+        for (final statistic in statistics)
+          ProfileStatistic(statistic: statistic),
       ],
     );
   }
 }
 
-class _ProfileStatRow extends StatelessWidget {
-  const _ProfileStatRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+class _ProfileAboutTextEntry extends StatelessWidget {
+  const _ProfileAboutTextEntry({required this.label, required this.value});
 
-  final IconData icon;
   final String label;
-  final int value;
+  final String value;
 
   @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: Icon(icon, size: 18),
-      title: Text(label),
-      trailing: Text('$value'),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        SelectableText(value),
+      ],
+    ),
+  );
+}
+
+class _ProfileSocialLinkRow extends StatelessWidget {
+  const _ProfileSocialLinkRow({
+    super.key,
+    required this.id,
+    required this.label,
+    required this.value,
+    required this.onOpen,
+    required this.onCopy,
+  });
+
+  final String id;
+  final String label;
+  final String value;
+  final VoidCallback onOpen;
+  final VoidCallback onCopy;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(child: SelectableText(value)),
+            IconButton(
+              key: ValueKey('profile-link-open-$id'),
+              tooltip: context.l10n.openLink,
+              onPressed: onOpen,
+              icon: const Icon(Icons.open_in_new),
+            ),
+            IconButton(
+              key: ValueKey('profile-link-copy-$id'),
+              tooltip: context.l10n.copyLink,
+              onPressed: onCopy,
+              icon: const Icon(Icons.copy_outlined),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _openProfileSocialLink(
+  BuildContext context,
+  WidgetRef ref,
+  String url,
+) async {
+  try {
+    await ref.read(outboundUrlOpenerProvider).openExternal(url);
+  } on Object catch (error) {
+    if (!context.mounted) return;
+    showAppSnackBar(
+      context,
+      context.l10n.illustDetailOpenLinkFailed(error.toString()),
     );
   }
+}
+
+Future<void> _copyProfileSocialLink(BuildContext context, String url) async {
+  await Clipboard.setData(ClipboardData(text: url));
+  if (!context.mounted) return;
+  showAppSnackBar(context, context.l10n.linkCopied);
 }
 
 class _ProfileStatusPage extends StatelessWidget {
@@ -538,45 +761,23 @@ class _ProfileStatusPage extends StatelessWidget {
   }
 }
 
-void _showProfileShare(BuildContext context, WidgetRef ref, UserEntity user) {
-  final url = 'https://www.pixiv.net/users/${user.id}';
+Future<void> _shareProfile(
+  BuildContext originContext,
+  WidgetRef ref,
+  UserEntity user,
+) async {
   final payload = SharePayload.user(id: user.id, name: user.name);
-  showAppDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(_profileText(dialogContext, 'profileShare')),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_profileText(dialogContext, 'profileShareHint')),
-          const SizedBox(height: 10),
-          SelectableText('$url\n${user.name}'),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            await Clipboard.setData(ClipboardData(text: payload.text));
-            if (!dialogContext.mounted || !context.mounted) return;
-            Navigator.of(dialogContext).pop();
-            showAppSnackBar(context, context.l10n.linkCopied);
-          },
-          child: Text(_profileText(dialogContext, 'copyLink')),
-        ),
-        FilledButton(
-          onPressed: () async {
-            Navigator.of(dialogContext).pop();
-            final outcome = await ref
-                .read(shareServiceProvider)
-                .share(payload, sharePositionOrigin: shareOriginOf(context));
-            if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
-              showAppSnackBar(context, context.l10n.linkCopied);
-            }
-          },
-          child: Text(_profileText(dialogContext, 'cardActionShare')),
-        ),
-      ],
-    ),
-  );
+  final outcome = await ref
+      .read(shareServiceProvider)
+      .share(payload, sharePositionOrigin: shareOriginOf(originContext));
+  if (outcome == ShareOutcome.copiedToClipboard && originContext.mounted) {
+    showAppSnackBar(originContext, originContext.l10n.linkCopied);
+  }
+}
+
+Future<void> _copyProfileLink(BuildContext context, UserEntity user) async {
+  final payload = SharePayload.user(id: user.id, name: user.name);
+  await Clipboard.setData(ClipboardData(text: payload.text));
+  if (!context.mounted) return;
+  showAppSnackBar(context, context.l10n.linkCopied);
 }

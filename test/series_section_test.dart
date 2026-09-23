@@ -125,7 +125,6 @@ void main() {
                 delegate: ReplicaProfileTabsDelegate(
                   controller: controller,
                   isMe: false,
-                  expanded: true,
                   section: ProfileWorkSection.illust,
                   onTabTap: (_) {},
                   onSectionChanged: (section) => selected = section,

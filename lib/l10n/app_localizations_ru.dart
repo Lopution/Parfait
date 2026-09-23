@@ -1883,6 +1883,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get followUser => 'Подписаться на пользователя';
 
   @override
+  String get followPrivately => 'Подписаться приватно';
+
+  @override
+  String get unfollow => 'Отписаться';
+
+  @override
   String get followFailed => 'Не удалось изменить подписку';
 
   @override
@@ -1988,6 +1994,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get copyLink => 'Копировать ссылку';
 
   @override
+  String get openLink => 'Открыть ссылку';
+
+  @override
   String get watchLaterAdded => 'Добавлено в «Посмотреть позже»';
 
   @override
@@ -2009,6 +2018,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bookmarkTagNewHint => 'Введите тег и нажмите Enter';
 
   @override
+  String get bookmarkTagFilterEmpty => 'Среди загруженных работ нет совпадений';
+
+  @override
+  String get bookmarkTagFilterHint => 'Фильтр загруженных работ';
+
+  @override
   String get bookmarkTagSuggestions => 'Частые теги';
 
   @override
@@ -2016,6 +2031,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => 'Не удалось загрузить теги закладок';
+
+  @override
+  String get bookmarkTagsEnd => 'Все теги загружены';
 
   @override
   String get seriesTitle => 'Серия';

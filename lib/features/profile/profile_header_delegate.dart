@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
-import '../../app/icons/app_icons.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../core/profile/profile_models.dart';
@@ -11,6 +10,121 @@ import '../../core/user/user_repository.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+
+@immutable
+class ProfileStatisticData {
+  const ProfileStatisticData({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
+
+  final String id;
+  final IconData icon;
+  final String label;
+  final int value;
+  final VoidCallback? onTap;
+}
+
+/// Shared stat control for the compact header chips and the about-page rows.
+/// A single semantic node announces the label and value together.
+class ProfileStatistic extends StatelessWidget {
+  const ProfileStatistic({
+    super.key,
+    required this.statistic,
+    this.compact = false,
+    this.foregroundColor,
+  });
+
+  final ProfileStatisticData statistic;
+  final bool compact;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final chipBackground = foregroundColor == null
+        ? colors.surfaceContainerHighest
+        : Colors.black.withValues(alpha: 0.25);
+    return Semantics(
+      key: ValueKey(
+        'profile-stat-${statistic.id}-${compact ? 'header' : 'about'}',
+      ),
+      container: true,
+      button: statistic.onTap != null,
+      label: '${statistic.label}, ${statistic.value}',
+      onTap: statistic.onTap,
+      child: ExcludeSemantics(
+        child: compact
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Material(
+                  color: chipBackground,
+                  shape: StadiumBorder(
+                    side: BorderSide(
+                      color: foregroundColor == null
+                          ? colors.outlineVariant
+                          : Colors.white.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: InkWell(
+                    onTap: statistic.onTap,
+                    customBorder: const StadiumBorder(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            statistic.icon,
+                            size: 17,
+                            color: foregroundColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${statistic.value}',
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: foregroundColor,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1,
+                                    ),
+                              ),
+                              Text(
+                                statistic.label,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: foregroundColor),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : ListTile(
+                dense: true,
+                leading: Icon(statistic.icon, size: 18),
+                title: Text(statistic.label),
+                trailing: Text('${statistic.value}'),
+                onTap: statistic.onTap,
+              ),
+      ),
+    );
+  }
+}
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
 @immutable
@@ -122,7 +236,12 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.restrict,
     required this.onRestrictChanged,
     required this.onShare,
+    this.statistics = const [],
+    this.isFollowed = false,
     this.onEditProfile,
+    this.onToggleFollow,
+    this.onFollowPrivately,
+    this.onCopyLink,
     this.onOpenBookmarkTags,
     this.onDownloadAll,
     this.expandedExtent = 320,
@@ -135,8 +254,13 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final bool showRestrictSelector;
   final UserRestrict restrict;
   final ValueChanged<UserRestrict> onRestrictChanged;
-  final VoidCallback onShare;
+  final ValueChanged<BuildContext> onShare;
+  final List<ProfileStatisticData> statistics;
+  final bool isFollowed;
   final VoidCallback? onEditProfile;
+  final VoidCallback? onToggleFollow;
+  final VoidCallback? onFollowPrivately;
+  final VoidCallback? onCopyLink;
 
   /// Own-profile bookmarks tab only: opens the bookmark-tag collection.
   final VoidCallback? onOpenBookmarkTags;
@@ -152,6 +276,95 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => math.max(expandedExtent, minExtent);
 
+  List<_ProfileHeaderAction> _actions(BuildContext context) => [
+    _ProfileHeaderAction(
+      value: 'share',
+      label: context.l10n.profileShare,
+      icon: Icons.share_outlined,
+      primary: true,
+      onSelected: onShare,
+      buildInline: (context) => Builder(
+        builder: (buttonContext) => IconButton(
+          tooltip: context.l10n.profileShare,
+          onPressed: () => onShare(buttonContext),
+          color: user.backgroundImageUrl == null ? null : Colors.white,
+          icon: const Icon(Icons.share_outlined),
+        ),
+      ),
+    ),
+    if (isMe && onEditProfile != null)
+      _ProfileHeaderAction(
+        value: 'editProfile',
+        label: context.l10n.profileEditTitle,
+        icon: Icons.edit_outlined,
+        primary: true,
+        onSelected: (_) => onEditProfile!(),
+        buildInline: (context) => IconButton(
+          tooltip: context.l10n.profileEditTitle,
+          onPressed: onEditProfile,
+          color: user.backgroundImageUrl == null ? null : Colors.white,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+      ),
+    if (!isMe && onToggleFollow != null)
+      _ProfileHeaderAction(
+        value: 'toggleFollow',
+        label: isFollowed ? context.l10n.unfollow : context.l10n.follow,
+        icon: Icons.person_add_alt_1_outlined,
+        primary: true,
+        onSelected: (_) => onToggleFollow!(),
+        buildInline: (_) => FollowSwitchButton(
+          userId: user.id,
+          userName: user.name,
+          userAccount: user.account,
+        ),
+      ),
+    if (!isMe && !isFollowed && onFollowPrivately != null)
+      _ProfileHeaderAction(
+        value: 'followPrivately',
+        label: context.l10n.followPrivately,
+        icon: Icons.lock_outline,
+        onSelected: (_) => onFollowPrivately!(),
+      ),
+    if (isMe && showRestrictSelector) ...[
+      _ProfileHeaderAction(
+        value: 'restrictPublic',
+        label: context.l10n.restrictPublic,
+        icon: Icons.public,
+        checked: restrict == UserRestrict.public,
+        onSelected: (_) => onRestrictChanged(UserRestrict.public),
+      ),
+      _ProfileHeaderAction(
+        value: 'restrictPrivate',
+        label: context.l10n.restrictPrivate,
+        icon: Icons.lock_outline,
+        checked: restrict == UserRestrict.private,
+        onSelected: (_) => onRestrictChanged(UserRestrict.private),
+      ),
+    ],
+    if (onOpenBookmarkTags != null)
+      _ProfileHeaderAction(
+        value: 'bookmarkTags',
+        label: context.l10n.bookmarkTags,
+        icon: Icons.label_outline,
+        onSelected: (_) => onOpenBookmarkTags!(),
+      ),
+    if (onDownloadAll != null)
+      _ProfileHeaderAction(
+        value: 'downloadAll',
+        label: context.l10n.downloadAuthorWorks,
+        icon: Icons.download_outlined,
+        onSelected: (_) => onDownloadAll!(),
+      ),
+    if (onCopyLink != null)
+      _ProfileHeaderAction(
+        value: 'copyLink',
+        label: context.l10n.copyLink,
+        icon: Icons.copy_outlined,
+        onSelected: (_) => onCopyLink!(),
+      ),
+  ];
+
   @override
   Widget build(
     BuildContext context,
@@ -164,6 +377,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
       maxExtent: maxExtent,
     );
     final colors = Theme.of(context).colorScheme;
+    final actions = _actions(context);
     // The artwork band covers the whole expanded header; identity content
     // sits on a bottom gradient so the text stays readable over any image.
     final backgroundHeight = maxExtent;
@@ -196,14 +410,16 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                   height: maxExtent,
                   child: _ExpandedProfile(
                     user: user,
-                    isMe: isMe,
                     backgroundHeight: backgroundHeight,
                     detailsOpacity: geometry.expandedDetailsOpacity,
-                    onShare: onShare,
-                    onEditProfile: onEditProfile,
+                    actions: actions,
+                    statistics: statistics,
                   ),
                 ),
-              if (geometry.collapsedOpacity > 0)
+              // The pinned toolbar is mounted only after the flexible header
+              // has fully collapsed. A fading, mounted toolbar cannot expose
+              // a visible-but-untappable action window during the hand-off.
+              if (geometry.isFullyCollapsed)
                 Align(
                   alignment: Alignment.topCenter,
                   child: SizedBox(
@@ -215,25 +431,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                       padding: EdgeInsets.only(top: topInset),
                       child: SizedBox(
                         height: kToolbarHeight,
-                        child: Opacity(
-                          opacity: geometry.collapsedOpacity,
-                          child: IgnorePointer(
-                            // Hit testing stays disabled until the toolbar is
-                            // the only visible header state.
-                            ignoring: !geometry.isFullyCollapsed,
-                            child: _CollapsedProfile(
-                              user: user,
-                              isMe: isMe,
-                              showRestrictSelector: showRestrictSelector,
-                              restrict: restrict,
-                              onRestrictChanged: onRestrictChanged,
-                              onShare: onShare,
-                              onEditProfile: onEditProfile,
-                              onOpenBookmarkTags: onOpenBookmarkTags,
-                              onDownloadAll: onDownloadAll,
-                            ),
-                          ),
-                        ),
+                        child: _CollapsedProfile(user: user, actions: actions),
                       ),
                     ),
                   ),
@@ -263,9 +461,14 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.showRestrictSelector != showRestrictSelector ||
         oldDelegate.restrict != restrict ||
         oldDelegate.onEditProfile != onEditProfile ||
+        oldDelegate.isFollowed != isFollowed ||
+        oldDelegate.onToggleFollow != onToggleFollow ||
+        oldDelegate.onFollowPrivately != onFollowPrivately ||
+        oldDelegate.onCopyLink != onCopyLink ||
         oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
         oldDelegate.onDownloadAll != onDownloadAll ||
         oldDelegate.onShare != onShare ||
+        oldDelegate.statistics != statistics ||
         oldDelegate.onRestrictChanged != onRestrictChanged ||
         oldDelegate.expandedExtent != expandedExtent ||
         oldDelegate.topInset != topInset;
@@ -275,22 +478,17 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
 class _ExpandedProfile extends StatelessWidget {
   const _ExpandedProfile({
     required this.user,
-    required this.isMe,
     required this.backgroundHeight,
     required this.detailsOpacity,
-    required this.onShare,
-    required this.onEditProfile,
+    required this.actions,
+    required this.statistics,
   });
 
   final UserEntity user;
-  final bool isMe;
   final double backgroundHeight;
   final double detailsOpacity;
-  final VoidCallback onShare;
-  final VoidCallback? onEditProfile;
-
-  String _profileText(BuildContext context, String key) =>
-      l10nLookup(context.l10n, key);
+  final List<_ProfileHeaderAction> actions;
+  final List<ProfileStatisticData> statistics;
 
   @override
   Widget build(BuildContext context) {
@@ -322,10 +520,8 @@ class _ExpandedProfile extends StatelessWidget {
                 opacity: detailsOpacity,
                 child: _ExpandedProfileDetails(
                   user: user,
-                  isMe: isMe,
-                  onShare: onShare,
-                  onEditProfile: onEditProfile,
-                  profileText: _profileText,
+                  actions: actions,
+                  statistics: statistics,
                 ),
               ),
             ),
@@ -401,17 +597,13 @@ class _ProfileBackground extends StatelessWidget {
 class _ExpandedProfileDetails extends StatelessWidget {
   const _ExpandedProfileDetails({
     required this.user,
-    required this.isMe,
-    required this.onShare,
-    required this.onEditProfile,
-    required this.profileText,
+    required this.actions,
+    required this.statistics,
   });
 
   final UserEntity user;
-  final bool isMe;
-  final VoidCallback onShare;
-  final VoidCallback? onEditProfile;
-  final String Function(BuildContext context, String key) profileText;
+  final List<_ProfileHeaderAction> actions;
+  final List<ProfileStatisticData> statistics;
 
   @override
   Widget build(BuildContext context) {
@@ -453,24 +645,18 @@ class _ExpandedProfileDetails extends StatelessWidget {
             ).textTheme.bodySmall?.copyWith(color: secondaryColor),
           ),
         const SizedBox(height: 7),
-        Row(
-          children: [
-            _Stat(
-              icon: AppIcons.follow,
-              label: '${user.totalFollowUsers}',
-              color: textColor,
-            ),
-            _Stat(
-              icon: AppIcons.friend,
-              label: '${user.totalMyPixivUsers}',
-              color: textColor,
-            ),
-            _Stat(
-              icon: Icons.palette_outlined,
-              label: '${user.totalIllusts}',
-              color: textColor,
-            ),
-          ],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final statistic in statistics)
+                ProfileStatistic(
+                  statistic: statistic,
+                  compact: true,
+                  foregroundColor: textColor,
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         // One actions row under the stats — the share icon used to sit alone
@@ -479,26 +665,10 @@ class _ExpandedProfileDetails extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              tooltip: context.l10n.profileShare,
-              onPressed: onShare,
-              color: textColor,
-              icon: const Icon(Icons.share_outlined),
-            ),
-            if (isMe) ...[
-              if (onEditProfile != null)
-                IconButton(
-                  tooltip: context.l10n.profileEditTitle,
-                  onPressed: onEditProfile,
-                  color: textColor,
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-            ] else
-              FollowSwitchButton(
-                userId: user.id,
-                userName: user.name,
-                userAccount: user.account,
-              ),
+            for (final action in actions.where((action) => action.primary))
+              if (action.buildInline != null) action.buildInline!(context),
+            if (actions.any((action) => !action.primary))
+              _ProfileHeaderMoreButton(actions: actions),
           ],
         ),
       ],
@@ -506,88 +676,94 @@ class _ExpandedProfileDetails extends StatelessWidget {
   }
 }
 
-class _CollapsedProfile extends StatelessWidget {
-  const _CollapsedProfile({
-    required this.user,
-    required this.isMe,
-    required this.showRestrictSelector,
-    required this.restrict,
-    required this.onRestrictChanged,
-    required this.onShare,
-    required this.onEditProfile,
-    required this.onOpenBookmarkTags,
-    required this.onDownloadAll,
+@immutable
+class _ProfileHeaderAction {
+  const _ProfileHeaderAction({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    this.primary = false,
+    this.checked,
+    this.buildInline,
   });
 
-  final UserEntity user;
-  final bool isMe;
-  final bool showRestrictSelector;
-  final UserRestrict restrict;
-  final ValueChanged<UserRestrict> onRestrictChanged;
-  final VoidCallback onShare;
-  final VoidCallback? onEditProfile;
-  final VoidCallback? onOpenBookmarkTags;
-  final VoidCallback? onDownloadAll;
+  final String value;
+  final String label;
+  final IconData icon;
+  final ValueChanged<BuildContext> onSelected;
+  final bool primary;
+  final bool? checked;
+  final WidgetBuilder? buildInline;
+}
 
-  String _text(BuildContext context, String key) =>
-      l10nLookup(context.l10n, key);
+class _ProfileHeaderMoreButton extends StatelessWidget {
+  const _ProfileHeaderMoreButton({
+    required this.actions,
+    this.includePrimary = false,
+  });
+
+  final List<_ProfileHeaderAction> actions;
+  final bool includePrimary;
 
   @override
   Widget build(BuildContext context) {
-    // One overflow entry per header action. Settings is the fifth home tab
-    // now, so it no longer needs a spot here.
-    final entries = <PopupMenuEntry<String>>[
-      if (isMe && showRestrictSelector) ...[
-        CheckedPopupMenuItem(
-          value: 'restrictPublic',
-          checked: restrict == UserRestrict.public,
-          child: Text(_text(context, 'restrictPublic')),
-        ),
-        CheckedPopupMenuItem(
-          value: 'restrictPrivate',
-          checked: restrict == UserRestrict.private,
-          child: Text(_text(context, 'restrictPrivate')),
-        ),
-        const PopupMenuDivider(),
+    final entries = actions
+        .where((action) => includePrimary || !action.primary)
+        .toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+    return PopupMenuButton<String>(
+      tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+      onSelected: (value) {
+        for (final action in entries) {
+          if (action.value == value) {
+            action.onSelected(context);
+            return;
+          }
+        }
+      },
+      itemBuilder: (context) => [
+        for (final action in entries)
+          if (action.checked == null)
+            PopupMenuItem<String>(
+              value: action.value,
+              child: _ProfileHeaderMenuLabel(action: action),
+            )
+          else
+            CheckedPopupMenuItem<String>(
+              value: action.value,
+              checked: action.checked!,
+              child: _ProfileHeaderMenuLabel(action: action),
+            ),
       ],
-      if (onOpenBookmarkTags != null)
-        PopupMenuItem(
-          value: 'bookmarkTags',
-          child: Text(_text(context, 'bookmarkTags')),
-        ),
-      if (onDownloadAll != null)
-        PopupMenuItem(
-          value: 'downloadAll',
-          child: Text(_text(context, 'downloadAuthorWorks')),
-        ),
-      if (onEditProfile != null)
-        PopupMenuItem(
-          value: 'editProfile',
-          child: Text(_text(context, 'profileEditTitle')),
-        ),
-      if (!isMe)
-        PopupMenuItem(
-          value: 'share',
-          child: Text(_text(context, 'profileShare')),
-        ),
-    ];
-    void onMenuSelected(String value) {
-      switch (value) {
-        case 'restrictPublic':
-          onRestrictChanged(UserRestrict.public);
-        case 'restrictPrivate':
-          onRestrictChanged(UserRestrict.private);
-        case 'bookmarkTags':
-          onOpenBookmarkTags?.call();
-        case 'downloadAll':
-          onDownloadAll?.call();
-        case 'editProfile':
-          onEditProfile?.call();
-        case 'share':
-          onShare();
-      }
-    }
+      icon: const Icon(Icons.more_vert),
+    );
+  }
+}
 
+class _ProfileHeaderMenuLabel extends StatelessWidget {
+  const _ProfileHeaderMenuLabel({required this.action});
+
+  final _ProfileHeaderAction action;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(action.icon, size: 18),
+      const SizedBox(width: 12),
+      Text(action.label),
+    ],
+  );
+}
+
+class _CollapsedProfile extends StatelessWidget {
+  const _CollapsedProfile({required this.user, required this.actions});
+
+  final UserEntity user;
+  final List<_ProfileHeaderAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
     // Three-section toolbar: leading spacer / centred title / a single
     // overflow button. The persistent _HeaderBackButton overlays the
     // leading 48px slot, so both ends reserve identical 56px chrome and
@@ -609,14 +785,10 @@ class _CollapsedProfile extends StatelessWidget {
         SizedBox(
           width: 48,
           height: 48,
-          child: entries.isEmpty
-              ? const SizedBox.shrink()
-              : PopupMenuButton<String>(
-                  tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-                  onSelected: onMenuSelected,
-                  itemBuilder: (context) => entries,
-                  icon: const Icon(Icons.more_vert),
-                ),
+          child: _ProfileHeaderMoreButton(
+            actions: actions,
+            includePrimary: true,
+          ),
         ),
         const SizedBox(width: 8),
       ],
@@ -672,38 +844,11 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.label, this.color});
-
-  final IconData icon;
-  final String label;
-
-  /// White over the dimmed artwork band; null keeps the theme colour for
-  /// the no-background variant.
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: color)),
-        ],
-      ),
-    );
-  }
-}
-
-/// Pinned profile tab bar and the beta56 re-tap type selector.
+/// Pinned profile tab bar and the persistent work-section selector.
 class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileTabsDelegate({
     required this.controller,
     required this.isMe,
-    required this.expanded,
     required this.section,
     required this.onTabTap,
     required this.onSectionChanged,
@@ -711,16 +856,15 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
 
   final TabController controller;
   final bool isMe;
-  final bool expanded;
   final ProfileWorkSection section;
   final ValueChanged<int> onTabTap;
   final ValueChanged<ProfileWorkSection> onSectionChanged;
 
   @override
-  double get minExtent => kToolbarHeight;
+  double get minExtent => kToolbarHeight + (_isWorkTab ? 64 : 0);
 
   @override
-  double get maxExtent => kToolbarHeight + (expanded && _isWorkTab ? 64 : 0);
+  double get maxExtent => minExtent;
 
   bool get _isWorkTab => isMe ? controller.index == 4 : controller.index == 0;
 
@@ -818,7 +962,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
               },
             ),
           ),
-          if (expanded && isWorkTab)
+          if (isWorkTab)
             SizedBox(
               height: 64,
               child: SingleChildScrollView(
@@ -856,6 +1000,5 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant ReplicaProfileTabsDelegate oldDelegate) =>
       oldDelegate.controller != controller ||
       oldDelegate.isMe != isMe ||
-      oldDelegate.expanded != expanded ||
       oldDelegate.section != section;
 }

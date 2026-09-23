@@ -4,7 +4,10 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/layout/app_breakpoints.dart';
+import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/platform/platform_caps.dart';
@@ -55,6 +58,7 @@ class ProfileEditPage extends ConsumerStatefulWidget {
 }
 
 class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
+  final _bodyKey = GlobalKey<_ProfileEditBodyState>();
   ProfileEditSession? _session;
   ProviderSubscription<AsyncValue<AccountState>>? _accountSubscription;
   ProviderSubscription<ProfileEditState>? _editSubscription;
@@ -175,11 +179,25 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
-    final hasUnsaved =
-        session != null &&
-        ref.watch(profileEditControllerProvider(session)).hasUnsavedChanges;
+    final state = session == null
+        ? null
+        : ref.watch(profileEditControllerProvider(session));
+    final hasUnsaved = state?.hasUnsavedChanges ?? false;
+    final draft = state?.draft;
+    final editingEnabled =
+        state != null &&
+        draft != null &&
+        draft.capabilities.isAvailable &&
+        state.status != ProfileEditStatus.submitting &&
+        state.status != ProfileEditStatus.confirmed;
+    final isSubmitting = state?.status == ProfileEditStatus.submitting;
+    // Wide surfaces cap the form column at ContentWidths.form (parent §5.5
+    // frozen role table); below expanded the page stays full width.
+    final contentMaxWidth = _profileEditContentMaxWidth(
+      MediaQuery.widthOf(context),
+    );
     return PopScope(
-      canPop: session == null || !hasUnsaved,
+      canPop: !hasUnsaved,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_attemptPop());
       },
@@ -192,17 +210,69 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
             icon: const Icon(Icons.arrow_back),
           ),
         ),
-        body: session == null
-            ? _initializationError == null
-                  ? const FeedLoading()
-                  : _InitializationFailure(error: _initializationError!)
-            : _ProfileEditBody(
-                session: session,
-                imagePlatform:
-                    widget.imagePlatform ??
-                    (PlatformCaps.system().isAndroid
-                        ? MethodChannelReverseImageInputPlatform()
-                        : const DesktopReverseImageInputPlatform()),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: contentMaxWidth),
+            child: session == null
+                ? _initializationError == null
+                      ? const FeedLoading()
+                      : _InitializationFailure(error: _initializationError!)
+                : _ProfileEditBody(
+                    key: _bodyKey,
+                    session: session,
+                    imagePlatform:
+                        widget.imagePlatform ??
+                        (PlatformCaps.system().isAndroid
+                            ? MethodChannelReverseImageInputPlatform()
+                            : const DesktopReverseImageInputPlatform()),
+                  ),
+          ),
+        ),
+        bottomNavigationBar: draft == null
+            ? null
+            : SafeArea(
+                // heightFactor shrink-wraps vertically: a bare Center would
+                // expand to the slot's max height and starve the body.
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: 1.0,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: contentMaxWidth),
+                    // Scaffold pins bottomNavigationBar to the view's bottom
+                    // edge — it does not float above the keyboard, so the bar
+                    // must lift itself by viewInsets to keep save reachable.
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.viewInsetsOf(context).bottom,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: editingEnabled
+                                ? () {
+                                    final bodyState = _bodyKey.currentState;
+                                    if (bodyState != null) {
+                                      unawaited(bodyState._submit());
+                                    }
+                                  }
+                                : null,
+                            icon: isSubmitting
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_outlined),
+                            label: Text(context.l10n.profileEditSave),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
       ),
     );
@@ -235,7 +305,11 @@ class _InitializationFailure extends StatelessWidget {
 }
 
 class _ProfileEditBody extends ConsumerStatefulWidget {
-  const _ProfileEditBody({required this.session, required this.imagePlatform});
+  const _ProfileEditBody({
+    super.key,
+    required this.session,
+    required this.imagePlatform,
+  });
 
   final ProfileEditSession session;
   final ReverseImageInputPlatform imagePlatform;
@@ -325,7 +399,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
         state.status != ProfileEditStatus.confirmed;
     return Form(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         children: [
           if (!capabilities.isAvailable)
             _Notice(
@@ -398,6 +472,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             title: context.l10n.profileEditAvatar,
             currentUrl: draft.values.avatarUrl,
             selection: draft.avatar,
+            avatar: true,
             enabled:
                 editingEnabled && capabilities.supports(ProfileField.avatar),
             unsupported: !capabilities.supports(ProfileField.avatar),
@@ -408,6 +483,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             title: context.l10n.profileEditBackground,
             currentUrl: draft.values.backgroundUrl,
             selection: draft.background,
+            avatar: false,
             enabled:
                 editingEnabled &&
                 capabilities.supports(ProfileField.background),
@@ -426,17 +502,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
               ),
             ),
           ],
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: editingEnabled ? _submit : null,
-            icon: state.status == ProfileEditStatus.submitting
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: Text(context.l10n.profileEditSave),
-          ),
         ],
       ),
     );
@@ -467,6 +532,7 @@ class _ImageField extends StatelessWidget {
     required this.title,
     required this.currentUrl,
     required this.selection,
+    required this.avatar,
     required this.enabled,
     required this.unsupported,
     required this.onPick,
@@ -475,43 +541,136 @@ class _ImageField extends StatelessWidget {
   final String title;
   final String? currentUrl;
   final ProfileImageSelection? selection;
+  final bool avatar;
   final bool enabled;
   final bool unsupported;
   final VoidCallback onPick;
 
   @override
   Widget build(BuildContext context) {
-    final preview = selection == null
-        ? currentUrl == null || currentUrl!.isEmpty
-              ? const Icon(Icons.image_outlined, size: 42)
-              : PixivImage.avatar(currentUrl!, size: 54, fit: BoxFit.cover)
-        : Image.file(
-            File(selection!.path),
-            width: 54,
-            height: 54,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) =>
-                const Icon(Icons.image_outlined, size: 42),
-          );
+    final subtitle = unsupported
+        ? context.l10n.profileEditFieldUnsupported
+        : selection == null
+        ? context.l10n.profileEditImageChoose
+        : '${selection!.width} × ${selection!.height}';
+    final chooseButton = OutlinedButton(
+      onPressed: enabled ? onPick : null,
+      child: Text(context.l10n.profileEditChooseImage),
+    );
     return Card(
-      child: ListTile(
-        leading: SizedBox.square(dimension: 54, child: Center(child: preview)),
-        title: Text(title),
-        subtitle: Text(
-          unsupported
-              ? context.l10n.profileEditFieldUnsupported
-              : selection == null
-              ? context.l10n.profileEditImageChoose
-              : '${selection!.width} × ${selection!.height}',
-        ),
-        trailing: OutlinedButton(
-          onPressed: enabled ? onPick : null,
-          child: Text(context.l10n.profileEditChooseImage),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: avatar
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _avatarPreview(context),
+                      const Spacer(),
+                      chooseButton,
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _details(context, subtitle),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 3.2,
+                    child: ClipRRect(
+                      key: const ValueKey('profile-edit-background-preview'),
+                      borderRadius: BorderRadius.circular(8),
+                      child: _backgroundPreview(context),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: _details(context, subtitle)),
+                      const SizedBox(width: 8),
+                      chooseButton,
+                    ],
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _avatarPreview(BuildContext context) {
+    const radius = 40.0;
+    final image = selection;
+    if (image == null) {
+      return PersonAvatar(
+        key: const ValueKey('profile-edit-avatar-preview'),
+        imageUrl: currentUrl == null || currentUrl!.isEmpty ? null : currentUrl,
+        radius: radius,
+        ring: true,
+      );
+    }
+    return Container(
+      key: const ValueKey('profile-edit-avatar-preview'),
+      width: radius * 2,
+      height: radius * 2,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Theme.of(context).colorScheme.surface,
+      ),
+      child: ClipOval(
+        child: Image.file(
+          File(image.path),
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => ColoredBox(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            child: const Icon(Icons.image_outlined, size: 42),
+          ),
         ),
       ),
     );
   }
+
+  Widget _backgroundPreview(BuildContext context) {
+    final image = selection;
+    if (image != null) {
+      return Image.file(
+        File(image.path),
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _emptyImagePreview(context),
+      );
+    }
+    final url = currentUrl;
+    if (url == null || url.isEmpty) return _emptyImagePreview(context);
+    return PixivImage.detail(
+      url,
+      fit: BoxFit.cover,
+      alignment: Alignment.topCenter,
+    );
+  }
+
+  Widget _emptyImagePreview(BuildContext context) => ColoredBox(
+    color: Theme.of(context).colorScheme.surfaceContainer,
+    child: const Center(child: Icon(Icons.image_outlined, size: 42)),
+  );
+
+  Widget _details(BuildContext context, String subtitle) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(title, style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 4),
+      Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+    ],
+  );
 }
+
+double _profileEditContentMaxWidth(double availableWidth) =>
+    availableWidth >= AppBreakpoints.expanded
+    ? ContentWidths.form
+    : availableWidth;
 
 class _Notice extends StatelessWidget {
   const _Notice({required this.icon, required this.text});

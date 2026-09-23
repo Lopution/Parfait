@@ -13,14 +13,33 @@ import '../../l10n/context.dart';
 /// feed. Illust-only for now — the novel twin endpoint is wired in the
 /// repository but has no UI consumer yet.
 class BookmarkTagsPage extends ConsumerStatefulWidget {
-  const BookmarkTagsPage({super.key});
+  const BookmarkTagsPage({
+    super.key,
+    this.initialRestrict = BookmarkRestrict.public,
+  });
+
+  final BookmarkRestrict initialRestrict;
 
   @override
   ConsumerState<BookmarkTagsPage> createState() => _BookmarkTagsPageState();
 }
 
 class _BookmarkTagsPageState extends ConsumerState<BookmarkTagsPage> {
-  BookmarkRestrict _restrict = BookmarkRestrict.public;
+  late BookmarkRestrict _restrict;
+
+  @override
+  void initState() {
+    super.initState();
+    _restrict = widget.initialRestrict;
+  }
+
+  @override
+  void didUpdateWidget(covariant BookmarkTagsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialRestrict != widget.initialRestrict) {
+      _restrict = widget.initialRestrict;
+    }
+  }
 
   BookmarkTagQuery get _query => (BookmarkEntityType.illust, _restrict);
 
@@ -109,20 +128,44 @@ class _TagList extends ConsumerWidget {
         return false;
       },
       child: ListView.builder(
-        itemCount:
-            state.tags.length + (state.hasMore || state.loadingMore ? 1 : 0),
+        itemCount: state.tags.length + 1,
         itemBuilder: (context, index) {
           if (index >= state.tags.length) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+            if (state.loadingMore) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
-              ),
-            );
+              );
+            }
+            if (state.loadMoreError != null) {
+              return ListTile(
+                title: Text(l10n.profileLoadMoreFailed),
+                trailing: TextButton(
+                  onPressed: () => ref
+                      .read(userBookmarkTagsProvider(query).notifier)
+                      .loadMore(),
+                  child: Text(l10n.profileRetry),
+                ),
+              );
+            }
+            if (!state.hasMore) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: Text(
+                    l10n.bookmarkTagsEnd,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
           }
           final tag = state.tags[index];
           return ListTile(

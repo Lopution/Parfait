@@ -3,13 +3,17 @@ import 'dart:async';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
+import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/platform/android_intent_channel.dart';
+import 'package:pixiv_func/core/share/share_service.dart';
 import 'package:pixiv_func/core/user/follow_actions.dart';
 import 'package:pixiv_func/core/user/follow_models.dart';
 import 'package:pixiv_func/core/user/follow_repository.dart';
@@ -17,6 +21,7 @@ import 'package:pixiv_func/core/user/follow_store.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
+import 'package:pixiv_func/core/profile/profile_models.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
@@ -56,9 +61,11 @@ class _FakeFollowRepository implements FollowRepository {
 }
 
 class _FakeUserRepository implements UserRepository {
-  _FakeUserRepository({UserEntity? detail}) : detail = detail ?? _user(42);
+  _FakeUserRepository({UserEntity? detail, this.works = const []})
+    : detail = detail ?? _user(42);
 
   final UserEntity detail;
+  final List<IllustEntity> works;
   final requests = <String>[];
 
   @override
@@ -77,7 +84,10 @@ class _FakeUserRepository implements UserRepository {
     requests.add(
       'works:$userId:${type.name}:${cursor == null ? 'first' : 'next'}',
     );
-    return const UserIllustPage(illusts: [], nextUrl: null);
+    return UserIllustPage(
+      illusts: type == UserWorkType.illust ? works : const [],
+      nextUrl: null,
+    );
   }
 
   @override
@@ -140,10 +150,40 @@ class _FakeUserRepository implements UserRepository {
   bool validateRecommendedCursor({required String cursor}) => false;
 }
 
+class _FakeOutboundUrlOpener implements OutboundUrlOpener {
+  final requests = <String>[];
+  Object? failure;
+
+  @override
+  Future<void> openExternal(String url) async {
+    requests.add(url);
+    final error = failure;
+    if (error != null) throw error;
+  }
+}
+
+class _FakeShareService implements ShareService {
+  ShareOutcome outcome = ShareOutcome.openedSheet;
+  SharePayload? lastPayload;
+  Rect? lastOrigin;
+
+  @override
+  Future<ShareOutcome> share(
+    SharePayload payload, {
+    Rect? sharePositionOrigin,
+  }) async {
+    lastPayload = payload;
+    lastOrigin = sharePositionOrigin;
+    return outcome;
+  }
+}
+
 Future<ProviderContainer> _makeWorld({
   bool twoAccounts = false,
   _FakeFollowRepository? follows,
   UserRepository? users,
+  OutboundUrlOpener? outboundUrlOpener,
+  ShareService? shareService,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = FakeCredentialStore(
@@ -168,6 +208,10 @@ Future<ProviderContainer> _makeWorld({
       followRepositoryProvider.overrideWithValue(
         follows ?? _FakeFollowRepository(),
       ),
+      if (outboundUrlOpener != null)
+        outboundUrlOpenerProvider.overrideWithValue(outboundUrlOpener),
+      if (shareService != null)
+        shareServiceProvider.overrideWithValue(shareService),
       if (users != null) userRepositoryProvider.overrideWithValue(users),
     ],
   );
@@ -368,6 +412,55 @@ void main() {
     expect(geometryAt(1).collapsedOpacity, 1);
   });
 
+  testWidgets('collapsed chrome stays unmounted through the fade interval', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(
+          body: CustomScrollView(
+            controller: controller,
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: ReplicaProfileHeaderDelegate(
+                  user: _user(42),
+                  isMe: true,
+                  selectedTabIndex: 0,
+                  showRestrictSelector: false,
+                  restrict: UserRestrict.public,
+                  onRestrictChanged: (_) {},
+                  onShare: (_) {},
+                  expandedExtent: 320,
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    controller.jumpTo(210); // 80% through the 264dp collapse range.
+    await tester.pump();
+    expect(find.byKey(const ValueKey('profile-toolbar-title')), findsNothing);
+
+    controller.jumpTo(263.4);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('profile-toolbar-title')), findsNothing);
+
+    controller.jumpTo(264);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('profile-toolbar-title')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
   test('the pinned toolbar includes the status-bar inset', () {
     final geometry = geometryAt(0, topInset: 24);
     expect(geometry.minExtent, 80);
@@ -410,7 +503,7 @@ void main() {
                         showRestrictSelector: false,
                         restrict: UserRestrict.public,
                         onRestrictChanged: (_) {},
-                        onShare: () {},
+                        onShare: (_) {},
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 2000)),
@@ -474,7 +567,7 @@ void main() {
                   showRestrictSelector: false,
                   restrict: UserRestrict.public,
                   onRestrictChanged: (_) {},
-                  onShare: () {},
+                  onShare: (_) {},
                   topInset: 24,
                 ),
               ),
@@ -520,7 +613,7 @@ void main() {
                   showRestrictSelector: true,
                   restrict: UserRestrict.public,
                   onRestrictChanged: (_) {},
-                  onShare: () {},
+                  onShare: (_) {},
                   onEditProfile: () {},
                   onOpenBookmarkTags: () {},
                   onDownloadAll: () {},
@@ -550,8 +643,9 @@ void main() {
   });
 
   testWidgets(
-    'current profile header keeps share inline and overflows into a menu',
+    'expanded and collapsed header actions use the same action list',
     (tester) async {
+      final controller = ScrollController();
       await tester.pumpWidget(
         MaterialApp(
           localizationsDelegates: appLocalizationsDelegates,
@@ -560,6 +654,7 @@ void main() {
 
           home: Scaffold(
             body: CustomScrollView(
+              controller: controller,
               slivers: [
                 SliverPersistentHeader(
                   pinned: true,
@@ -567,11 +662,13 @@ void main() {
                     user: _user(42),
                     isMe: true,
                     selectedTabIndex: 0,
-                    showRestrictSelector: false,
+                    showRestrictSelector: true,
                     restrict: UserRestrict.public,
                     onRestrictChanged: (_) {},
-                    onShare: () {},
+                    onShare: (_) {},
                     onEditProfile: () {},
+                    onOpenBookmarkTags: () {},
+                    onDownloadAll: () {},
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 1000)),
@@ -581,13 +678,31 @@ void main() {
         ),
       );
       await tester.pump();
-      // Expanded header keeps share/edit inline; the collapsed toolbar carries
-      // the remaining actions in a single overflow menu.
-      expect(find.byIcon(Icons.share_outlined), findsWidgets);
+      expect(find.byTooltip('分享用户'), findsOneWidget);
+      expect(find.byTooltip('编辑个人资料'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('公开'), findsOneWidget);
+      expect(find.text('私密'), findsOneWidget);
+      expect(find.text('收藏标签'), findsOneWidget);
+      expect(find.text('下载全部作品'), findsOneWidget);
+      expect(find.text('分享用户'), findsNothing);
+      expect(find.text('编辑个人资料'), findsNothing);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
 
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      controller.jumpTo(264);
       await tester.pump();
       expect(find.byIcon(Icons.more_vert), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('分享用户'), findsOneWidget);
+      expect(find.text('编辑个人资料'), findsOneWidget);
+      expect(find.text('公开'), findsOneWidget);
+      expect(find.text('收藏标签'), findsOneWidget);
+      expect(find.text('下载全部作品'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
     },
   );
 
@@ -606,7 +721,7 @@ void main() {
               showRestrictSelector: false,
               restrict: UserRestrict.public,
               onRestrictChanged: (_) {},
-              onShare: () {},
+              onShare: (_) {},
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 1000)),
@@ -648,7 +763,7 @@ void main() {
   });
 
   testWidgets(
-    'UserPage renders tabs and re-tapping the current tab opens type selector',
+    'UserPage keeps work types visible and re-tapping never toggles them',
     (tester) async {
       final repository = _FakeUserRepository();
       final container = await _makeWorld(users: repository);
@@ -674,12 +789,15 @@ void main() {
       );
       expect(find.text('关于'), findsOneWidget);
       expect(find.text('sample user'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '插画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '漫画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '小说'), findsOneWidget);
 
       await tester.tap(find.text('作品'));
       await tester.pumpAndSettle();
-      expect(find.text('插画'), findsOneWidget);
-      expect(find.text('漫画'), findsOneWidget);
-      expect(find.text('小说'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '插画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '漫画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '小说'), findsOneWidget);
       expect(find.byType(EasyRefresh), findsOneWidget);
       expect(find.byType(HeaderLocator), findsOneWidget);
 
@@ -688,15 +806,402 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('收藏'));
       await tester.pumpAndSettle();
-      expect(find.text('插画'), findsNothing);
-      expect(find.text('漫画'), findsNothing);
-      expect(find.text('小说'), findsNothing);
+      expect(find.widgetWithText(ChoiceChip, '插画'), findsNothing);
+      expect(find.widgetWithText(ChoiceChip, '漫画'), findsNothing);
+      expect(find.widgetWithText(ChoiceChip, '小说'), findsNothing);
     },
   );
+
+  testWidgets(
+    'profile stats navigate to their sections and keep myPixiv read-only',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        detail: _user(42).copyWith(
+          totalFollowUsers: 11,
+          totalMyPixivUsers: 12,
+          totalIllusts: 13,
+          totalManga: 14,
+          totalNovels: 15,
+          totalIllustSeries: 3,
+          totalNovelSeries: 4,
+        ),
+      );
+      final container = await _makeWorld(users: repository);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final seriesStat = find.byKey(
+        const ValueKey('profile-stat-series-header'),
+      );
+      expect(
+        tester.getSemantics(seriesStat),
+        isSemantics(label: '系列, 7', isButton: true, hasTapAction: true),
+      );
+      final myPixivStat = find.byKey(
+        const ValueKey('profile-stat-myPixiv-header'),
+      );
+      expect(
+        tester.getSemantics(myPixivStat),
+        isSemantics(isButton: false, hasTapAction: false),
+      );
+
+      final mangaStat = find.byKey(const ValueKey('profile-stat-manga-header'));
+      await tester.ensureVisible(mangaStat);
+      await tester.tap(mangaStat);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '漫画'))
+            .selected,
+        isTrue,
+      );
+      expect(repository.requests, contains('works:42:manga:first'));
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+      );
+      await tester.pumpAndSettle();
+      final aboutSeriesStat = find.byKey(
+        const ValueKey('profile-stat-series-about'),
+      );
+      await tester.ensureVisible(aboutSeriesStat);
+      await tester.tap(aboutSeriesStat);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '系列'))
+            .selected,
+        isTrue,
+      );
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+      );
+      await tester.pumpAndSettle();
+      final aboutFollowingStat = find.byKey(
+        const ValueKey('profile-stat-following-about'),
+      );
+      await tester.ensureVisible(aboutFollowingStat);
+      await tester.tap(aboutFollowingStat);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 2);
+      expect(repository.requests, contains('relation:42:following'));
+
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+      );
+      await tester.pumpAndSettle();
+      final aboutMangaStat = find.byKey(
+        const ValueKey('profile-stat-manga-about'),
+      );
+      await tester.ensureVisible(aboutMangaStat);
+      await tester.tap(aboutMangaStat);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '漫画'))
+            .selected,
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets(
+    'same work tab tap returns both profile scroll positions to top',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        works: List.generate(36, (index) => _illust(index + 1)),
+      );
+      final container = await _makeWorld(users: repository);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: const UserPage(userId: 42),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final outerScrollable = find
+            .descendant(
+              of: find.byKey(const ValueKey('profile-nested-scroll')),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable &&
+                    widget.axisDirection == AxisDirection.down,
+              ),
+            )
+            .first;
+        final innerScrollable = find
+            .descendant(
+              of: find.byKey(
+                const PageStorageKey(
+                  ProfileFeedKey(
+                    userId: 42,
+                    kind: ProfileFeedKind.work,
+                    workType: UserWorkType.illust,
+                  ),
+                ),
+              ),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable &&
+                    widget.axisDirection == AxisDirection.down,
+              ),
+            )
+            .first;
+        final outer = tester.state<ScrollableState>(outerScrollable).position;
+        final inner = tester.state<ScrollableState>(innerScrollable).position;
+        expect(outer.maxScrollExtent, greaterThan(0));
+        expect(inner.maxScrollExtent, greaterThan(0));
+
+        outer.jumpTo(80);
+        inner.jumpTo(120);
+        await tester.pump();
+        expect(outer.pixels, greaterThan(0));
+        expect(inner.pixels, greaterThan(0));
+
+        await tester.tap(find.text('作品').first);
+        await tester.pumpAndSettle();
+        expect(outer.pixels, 0);
+        expect(inner.pixels, 0);
+
+        outer.jumpTo(80);
+        inner.jumpTo(120);
+        await tester.pump();
+        await tester.tap(find.widgetWithText(ChoiceChip, '插画'));
+        await tester.pumpAndSettle();
+        expect(outer.pixels, 0);
+        expect(inner.pixels, 0);
+      });
+    },
+  );
+
+  testWidgets('profile social links open, report failures, and copy', (
+    tester,
+  ) async {
+    final opener = _FakeOutboundUrlOpener();
+    final clipboardWrites = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboardWrites.add((call.arguments as Map)['text'] as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final user = _user(42).copyWith(
+      webpage: 'https://example.test/portfolio',
+      twitterUrl: 'https://social.test/sample',
+      pawooUrl: 'https://pawoo.test/sample',
+    );
+    final container = await _makeWorld(
+      users: _FakeUserRepository(detail: user),
+      outboundUrlOpener: opener,
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: const UserPage(userId: 42),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+    );
+    await tester.pumpAndSettle();
+
+    final openWebsite = find.byKey(const ValueKey('profile-link-open-website'));
+    await tester.ensureVisible(openWebsite);
+    await tester.tap(openWebsite);
+    await tester.pumpAndSettle();
+    expect(opener.requests, contains('https://example.test/portfolio'));
+
+    opener.failure = StateError('no activity');
+    final openTwitter = find.byKey(const ValueKey('profile-link-open-twitter'));
+    await tester.ensureVisible(openTwitter);
+    await tester.tap(openTwitter);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('无法打开链接'), findsOneWidget);
+
+    final copyPawoo = find.byKey(const ValueKey('profile-link-copy-pawoo'));
+    await tester.ensureVisible(copyPawoo);
+    await tester.tap(copyPawoo);
+    await tester.pumpAndSettle();
+    expect(clipboardWrites, contains('https://pawoo.test/sample'));
+  });
+
+  testWidgets(
+    'collapsed profile follow menu tracks state and opens shared sheet',
+    (tester) async {
+      final repository = _FakeFollowRepository();
+      final container = await _makeWorld(
+        follows: repository,
+        users: _FakeUserRepository(),
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final outerScrollable = find
+          .descendant(
+            of: find.byKey(const ValueKey('profile-nested-scroll')),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Scrollable &&
+                  widget.axisDirection == AxisDirection.down,
+            ),
+          )
+          .first;
+      final outer = tester.state<ScrollableState>(outerScrollable).position;
+      outer.jumpTo(outer.maxScrollExtent);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('关注'), findsWidgets);
+      expect(find.text('私密关注'), findsOneWidget);
+
+      await tester.tap(find.text('私密关注'));
+      await tester.pumpAndSettle();
+      expect(find.text('关注用户'), findsOneWidget);
+      expect(find.byType(SegmentedButton<FollowRestrict>), findsOneWidget);
+      await tester.tap(find.text('私密').last);
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(repository.requests, contains('add:42:private'));
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('取消关注'), findsOneWidget);
+      expect(find.text('私密关注'), findsNothing);
+    },
+  );
+
+  testWidgets('profile share calls the share service and exposes copy link', (
+    tester,
+  ) async {
+    final share = _FakeShareService()..outcome = ShareOutcome.copiedToClipboard;
+    final clipboardWrites = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboardWrites.add((call.arguments as Map)['text'] as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final container = await _makeWorld(
+      users: _FakeUserRepository(),
+      shareService: share,
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: const UserPage(userId: 42),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final shareButton = find.byTooltip('分享用户');
+    final buttonRect = tester.getRect(shareButton);
+    await tester.tap(shareButton);
+    await tester.pumpAndSettle();
+    expect(share.lastPayload?.text, contains('https://www.pixiv.net/users/42'));
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(share.lastOrigin, isNotNull);
+    expect(share.lastOrigin!.width, lessThan(100));
+    expect(share.lastOrigin!.height, lessThan(100));
+    expect(share.lastOrigin!.center.dx, closeTo(buttonRect.center.dx, 10));
+    expect(share.lastOrigin!.center.dy, closeTo(buttonRect.center.dy, 10));
+    expect(find.text('链接已复制'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('复制链接'), findsOneWidget);
+    await tester.tap(find.text('复制链接'));
+    await tester.pumpAndSettle();
+    expect(
+      clipboardWrites,
+      contains(
+        'sample user | sample user #Pixiv https://www.pixiv.net/users/42',
+      ),
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+  });
 }
 
 UserEntity _user(int id) =>
     UserEntity(id: id, name: 'sample user', account: 'sample');
+
+IllustEntity _illust(int id) => IllustEntity(
+  id: id,
+  title: 'work $id',
+  type: IllustType.illust,
+  imageUrls: const IllustImageUrls(
+    squareMedium: 'https://i.pximg.net/square.png',
+    medium: 'https://i.pximg.net/medium.png',
+    large: 'https://i.pximg.net/large.png',
+  ),
+  caption: '',
+  user: const IllustUser(
+    id: 42,
+    name: 'sample user',
+    account: 'sample',
+    profileImageUrl: null,
+  ),
+  tags: const [],
+  pageCount: 1,
+  width: 300,
+  height: 400,
+  xRestrict: 0,
+  aiType: 0,
+  isBookmarked: false,
+  totalView: 1,
+  totalBookmarks: 1,
+);
 
 Map<String, dynamic> _detailJson() => {
   'user': {

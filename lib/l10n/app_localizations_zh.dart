@@ -1820,6 +1820,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get followUser => '关注用户';
 
   @override
+  String get followPrivately => '私密关注';
+
+  @override
+  String get unfollow => '取消关注';
+
+  @override
   String get followFailed => '关注操作失败';
 
   @override
@@ -1925,6 +1931,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get copyLink => '复制链接';
 
   @override
+  String get openLink => '打开链接';
+
+  @override
   String get watchLaterAdded => '已加入稍后再看';
 
   @override
@@ -1946,6 +1955,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bookmarkTagNewHint => '输入新标签，回车添加';
 
   @override
+  String get bookmarkTagFilterEmpty => '已加载内容中无匹配';
+
+  @override
+  String get bookmarkTagFilterHint => '筛选已加载作品';
+
+  @override
   String get bookmarkTagSuggestions => '常用标签';
 
   @override
@@ -1953,6 +1968,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bookmarkTagsLoadFailed => '收藏标签加载失败';
+
+  @override
+  String get bookmarkTagsEnd => '已显示全部标签';
 
   @override
   String get seriesTitle => '系列';
