@@ -86,6 +86,7 @@ class _FakeNavigationDelegate extends PlatformNavigationDelegate {
   HttpResponseErrorCallback? httpError;
   PageEventCallback? pageStarted;
   UrlChangeCallback? urlChange;
+  ProgressCallback? progress;
 
   @override
   Future<void> setOnNavigationRequest(
@@ -103,7 +104,9 @@ class _FakeNavigationDelegate extends PlatformNavigationDelegate {
   Future<void> setOnPageFinished(PageEventCallback? onPageFinished) async {}
 
   @override
-  Future<void> setOnProgress(ProgressCallback? onProgress) async {}
+  Future<void> setOnProgress(ProgressCallback? onProgress) async {
+    progress = onProgress;
+  }
 
   @override
   Future<void> setOnWebResourceError(
@@ -415,7 +418,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('网络错误 (HTTP 400)'), findsOneWidget);
+    expect(find.text('网络错误 (HTTP 400 accounts.pixiv.net)'), findsOneWidget);
     expect(find.text('重新打开'), findsNothing);
     expect(
       await navigateTo(delegate, 'https://accounts.pixiv.net/login?retry=1'),
@@ -459,14 +462,14 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('网络错误 (HTTP 400)'), findsOneWidget);
+    expect(find.text('网络错误 (HTTP 400 accounts.pixiv.net)'), findsOneWidget);
 
     await tester.tap(find.text('重新加载'));
     await tester.pump();
 
     // Reload re-runs the current document — the route stays put.
     expect(controller.reloadCount, 1);
-    expect(find.text('网络错误 (HTTP 400)'), findsNothing);
+    expect(find.text('网络错误 (HTTP 400 accounts.pixiv.net)'), findsNothing);
     expect(find.byType(LoginWebViewPage), findsOneWidget);
   });
 
@@ -559,6 +562,85 @@ void main() {
     await tester.tap(find.text('重新加载'));
     await tester.pump();
     expect(controller.reloadCount, 1);
+  });
+
+  testWidgets('signup mode reports page progress like the desktop page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...accountProviderOverrides(),
+          oauthServiceProvider.overrideWithValue(
+            OAuthService(exchangeTimeout: Duration.zero),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: LoginWebViewPage(
+            create: true,
+            oauthService: OAuthService(exchangeTimeout: Duration.zero),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final delegate = _FakeNavigationDelegate.latest!;
+
+    delegate.progress?.call(40);
+    await tester.pump();
+    final indicator = tester.widget<LinearProgressIndicator>(
+      find.byType(LinearProgressIndicator),
+    );
+    expect(indicator.value, 0.4);
+
+    // Full progress hides the bar again.
+    delegate.progress?.call(100);
+    await tester.pump();
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+  });
+
+  testWidgets('error messages carry type and host, never the full URL', (
+    tester,
+  ) async {
+    await pumpLoginPage(tester);
+    final delegate = _FakeNavigationDelegate.latest!;
+    delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+
+    delegate.webResourceError!.call(
+      const WebResourceError(
+        errorCode: -8,
+        description: 'failed',
+        errorType: WebResourceErrorType.timeout,
+        isForMainFrame: true,
+        url: 'https://accounts.pixiv.net/login?code=secret&state=abc',
+      ),
+    );
+    await tester.pump();
+
+    // Same '<type> <host>' shape the desktop page reports: the query
+    // string must not leak into the card.
+    expect(find.text('页面加载失败 (timeout accounts.pixiv.net)'), findsOneWidget);
+    expect(find.textContaining('code=secret'), findsNothing);
+
+    // HTTP errors follow the same '<status> <host>' contract. The main
+    // frame has moved to the query URL so this one is reported.
+    await tester.tap(find.text('知道了'));
+    await tester.pump();
+    delegate.pageStarted?.call('https://accounts.pixiv.net/login?ref=x');
+    delegate.httpError!.call(
+      HttpResponseError(
+        request: WebResourceRequest(
+          uri: Uri.parse('https://accounts.pixiv.net/login?ref=x'),
+        ),
+        response: const WebResourceResponse(uri: null, statusCode: 403),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('网络错误 (HTTP 403 accounts.pixiv.net)'), findsOneWidget);
+    expect(find.textContaining('ref=x'), findsNothing);
   });
 
   testWidgets('login compatibility switch changes the real network policy', (

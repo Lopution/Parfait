@@ -125,7 +125,7 @@ void main() {
     platform.lastWidget!.params.onReceivedError?.call(
       controller,
       WebResourceRequest(
-        url: WebUri('https://accounts.pixiv.net/login'),
+        url: WebUri('https://accounts.pixiv.net/login?code=secret'),
         isForMainFrame: true,
       ),
       WebResourceError(
@@ -137,6 +137,16 @@ void main() {
 
     final card = find.byType(LoginWebViewErrorCard);
     expect(card, findsOneWidget);
+    // Same '<type> <host>' message shape as the mobile page — the query
+    // string never reaches the card.
+    expect(
+      find.descendant(
+        of: card,
+        matching: find.text('页面加载失败 (CONNECTION_ABORTED accounts.pixiv.net)'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('code=secret'), findsNothing);
     expect(
       find.descendant(of: card, matching: find.text('重新加载')),
       findsOneWidget,
@@ -149,6 +159,21 @@ void main() {
       find.descendant(of: card, matching: find.text('重新登录')),
       findsNothing,
     );
+  });
+
+  testWidgets('desktop page reports progress into the app bar', (tester) async {
+    final controller = await pumpDesktopLogin(tester);
+
+    platform.lastWidget!.params.onProgressChanged?.call(controller, 40);
+    await tester.pump();
+    final indicator = tester.widget<LinearProgressIndicator>(
+      find.byType(LinearProgressIndicator),
+    );
+    expect(indicator.value, 0.4);
+
+    platform.lastWidget!.params.onProgressChanged?.call(controller, 100);
+    await tester.pump();
+    expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 
   testWidgets('desktop fatal card offers the session restart', (tester) async {
