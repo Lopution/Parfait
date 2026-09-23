@@ -1,14 +1,17 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/follow_switch_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
+import '../../app/widgets/follow_switch_button.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/download/author_works_enumerator.dart';
 import '../../core/network/api_error.dart';
@@ -98,7 +101,8 @@ class _UserPageState extends ConsumerState<UserPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final List<String> _tabKeys;
-  bool _selectorExpanded = false;
+  late final ScrollController _outerScrollController;
+  late final List<GlobalKey<_ProfileTabBodyState>> _bodyKeys;
   ProfileWorkSection _workSection = ProfileWorkSection.illust;
   UserRestrict _restrict = UserRestrict.public;
   int _selectedIndex = 0;
@@ -120,6 +124,11 @@ class _UserPageState extends ConsumerState<UserPage>
             'profileFollowing',
             'profileAbout',
           ];
+    _outerScrollController = ScrollController();
+    _bodyKeys = [
+      for (var index = 0; index < _tabKeys.length; index++)
+        GlobalKey<_ProfileTabBodyState>(),
+    ];
     _tabController = TabController(length: _tabKeys.length, vsync: this)
       ..addListener(_onTabChanged);
   }
@@ -129,6 +138,7 @@ class _UserPageState extends ConsumerState<UserPage>
     _tabController
       ..removeListener(_onTabChanged)
       ..dispose();
+    _outerScrollController.dispose();
     super.dispose();
   }
 
@@ -137,18 +147,35 @@ class _UserPageState extends ConsumerState<UserPage>
         _tabController.indexIsChanging) {
       return;
     }
-    setState(() {
-      _selectedIndex = _tabController.index;
-      _selectorExpanded = false;
-    });
+    setState(() => _selectedIndex = _tabController.index);
   }
 
   void _onTabTap(int index) {
-    final workTabIndex = widget.isMe ? _tabKeys.length - 1 : 0;
-    if (index == _selectedIndex &&
-        index == workTabIndex &&
-        !_tabController.indexIsChanging) {
-      setState(() => _selectorExpanded = !_selectorExpanded);
+    if (index == _selectedIndex && !_tabController.indexIsChanging) {
+      unawaited(_scrollActiveTabToTop());
+    }
+  }
+
+  Future<void> _scrollActiveTabToTop() async {
+    final animated = MotionTokens.enabled(context);
+    final duration = MotionTokens.resolve(context, MotionTokens.fast);
+    final curve = Curves.easeOutCubic;
+    await _bodyKeys[_selectedIndex].currentState?.scrollToTop(
+      animated: animated,
+      duration: duration,
+      curve: curve,
+    );
+    if (!mounted) return;
+    if (_outerScrollController.hasClients) {
+      if (animated) {
+        await _outerScrollController.animateTo(
+          0,
+          duration: duration,
+          curve: curve,
+        );
+      } else {
+        _outerScrollController.jumpTo(0);
+      }
     }
   }
 
@@ -199,10 +226,11 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   void _onSectionChanged(ProfileWorkSection section) {
-    setState(() {
-      _workSection = section;
-      _selectorExpanded = false;
-    });
+    if (section == _workSection) {
+      unawaited(_scrollActiveTabToTop());
+      return;
+    }
+    setState(() => _workSection = section);
   }
 
   void _onRestrictChanged(UserRestrict restrict) {
@@ -303,6 +331,8 @@ class _UserPageState extends ConsumerState<UserPage>
           ),
         Expanded(
           child: NestedScrollView(
+            key: const ValueKey('profile-nested-scroll'),
+            controller: _outerScrollController,
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               SliverPersistentHeader(
                 pinned: true,
@@ -324,15 +354,15 @@ class _UserPageState extends ConsumerState<UserPage>
                       : () => ref.read(followActionsProvider).toggle(user.id),
                   onFollowPrivately: widget.isMe
                       ? null
-                      : () async {
-                          await showFollowRestrictSheet(
+                      : () => unawaited(
+                          showFollowRestrictSheet(
                             context,
                             ref,
                             userId: user.id,
                             userName: user.name,
                             userAccount: user.account,
-                          );
-                        },
+                          ),
+                        ),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                   // Bookmarks tab only: the tag collection entry sits in the
                   // collapsed toolbar next to the restrict selector.
@@ -348,7 +378,6 @@ class _UserPageState extends ConsumerState<UserPage>
                 delegate: ReplicaProfileTabsDelegate(
                   controller: _tabController,
                   isMe: widget.isMe,
-                  expanded: _selectorExpanded,
                   section: _workSection,
                   onTabTap: _onTabTap,
                   onSectionChanged: _onSectionChanged,
@@ -360,9 +389,7 @@ class _UserPageState extends ConsumerState<UserPage>
               children: [
                 for (var index = 0; index < _tabKeys.length; index++)
                   _ProfileTabBody(
-                    key: ValueKey<Object?>(
-                      _feedKeyFor(index) ?? _tabKeys[index],
-                    ),
+                    key: _bodyKeys[index],
                     user: user,
                     userId: widget.userId,
                     isMe: widget.isMe,
@@ -408,6 +435,20 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
     with AutomaticKeepAliveClientMixin<_ProfileTabBody> {
   @override
   bool get wantKeepAlive => true;
+
+  Future<void> scrollToTop({
+    required bool animated,
+    required Duration duration,
+    required Curve curve,
+  }) async {
+    final controller = PrimaryScrollController.maybeOf(context);
+    if (controller == null || !controller.hasClients) return;
+    if (animated) {
+      await controller.animateTo(0, duration: duration, curve: curve);
+    } else {
+      controller.jumpTo(0);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

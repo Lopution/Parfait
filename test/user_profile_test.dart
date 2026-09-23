@@ -9,6 +9,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
+import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/user/follow_actions.dart';
 import 'package:pixiv_func/core/user/follow_models.dart';
@@ -17,6 +18,7 @@ import 'package:pixiv_func/core/user/follow_store.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
+import 'package:pixiv_func/core/profile/profile_models.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
@@ -56,9 +58,11 @@ class _FakeFollowRepository implements FollowRepository {
 }
 
 class _FakeUserRepository implements UserRepository {
-  _FakeUserRepository({UserEntity? detail}) : detail = detail ?? _user(42);
+  _FakeUserRepository({UserEntity? detail, this.works = const []})
+    : detail = detail ?? _user(42);
 
   final UserEntity detail;
+  final List<IllustEntity> works;
   final requests = <String>[];
 
   @override
@@ -77,7 +81,10 @@ class _FakeUserRepository implements UserRepository {
     requests.add(
       'works:$userId:${type.name}:${cursor == null ? 'first' : 'next'}',
     );
-    return const UserIllustPage(illusts: [], nextUrl: null);
+    return UserIllustPage(
+      illusts: type == UserWorkType.illust ? works : const [],
+      nextUrl: null,
+    );
   }
 
   @override
@@ -402,12 +409,14 @@ void main() {
     );
     await tester.pump();
 
-    controller.jumpTo(210);
+    controller.jumpTo(210); // 80% through the 264dp collapse range.
     await tester.pump();
     expect(find.byKey(const ValueKey('profile-toolbar-title')), findsNothing);
+
     controller.jumpTo(263.4);
     await tester.pump();
     expect(find.byKey(const ValueKey('profile-toolbar-title')), findsNothing);
+
     controller.jumpTo(264);
     await tester.pump();
     expect(find.byKey(const ValueKey('profile-toolbar-title')), findsOneWidget);
@@ -717,7 +726,7 @@ void main() {
   });
 
   testWidgets(
-    'UserPage renders tabs and re-tapping the current tab opens type selector',
+    'UserPage keeps work types visible and re-tapping never toggles them',
     (tester) async {
       final repository = _FakeUserRepository();
       final container = await _makeWorld(users: repository);
@@ -743,6 +752,9 @@ void main() {
       );
       expect(find.text('关于'), findsOneWidget);
       expect(find.text('sample user'), findsOneWidget);
+      expect(find.text('插画'), findsOneWidget);
+      expect(find.text('漫画'), findsOneWidget);
+      expect(find.text('小说'), findsOneWidget);
 
       await tester.tap(find.text('作品'));
       await tester.pumpAndSettle();
@@ -760,6 +772,82 @@ void main() {
       expect(find.text('插画'), findsNothing);
       expect(find.text('漫画'), findsNothing);
       expect(find.text('小说'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'same work tab tap returns both profile scroll positions to top',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        works: List.generate(36, (index) => _illust(index + 1)),
+      );
+      final container = await _makeWorld(users: repository);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: const UserPage(userId: 42),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final outerScrollable = find
+            .descendant(
+              of: find.byKey(const ValueKey('profile-nested-scroll')),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable &&
+                    widget.axisDirection == AxisDirection.down,
+              ),
+            )
+            .first;
+        final innerScrollable = find
+            .descendant(
+              of: find.byKey(
+                const PageStorageKey(
+                  ProfileFeedKey(
+                    userId: 42,
+                    kind: ProfileFeedKind.work,
+                    workType: UserWorkType.illust,
+                  ),
+                ),
+              ),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Scrollable &&
+                    widget.axisDirection == AxisDirection.down,
+              ),
+            )
+            .first;
+        final outer = tester.state<ScrollableState>(outerScrollable).position;
+        final inner = tester.state<ScrollableState>(innerScrollable).position;
+        expect(outer.maxScrollExtent, greaterThan(0));
+        expect(inner.maxScrollExtent, greaterThan(0));
+
+        outer.jumpTo(80);
+        inner.jumpTo(120);
+        await tester.pump();
+        expect(outer.pixels, greaterThan(0));
+        expect(inner.pixels, greaterThan(0));
+
+        await tester.tap(find.text('作品').first);
+        await tester.pumpAndSettle();
+        expect(outer.pixels, 0);
+        expect(inner.pixels, 0);
+
+        outer.jumpTo(80);
+        inner.jumpTo(120);
+        await tester.pump();
+        await tester.tap(find.widgetWithText(ChoiceChip, '插画'));
+        await tester.pumpAndSettle();
+        expect(outer.pixels, 0);
+        expect(inner.pixels, 0);
+      });
     },
   );
 
@@ -783,8 +871,20 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(NestedScrollView), const Offset(0, -600));
-      await tester.pumpAndSettle();
+
+      final outerScrollable = find
+          .descendant(
+            of: find.byKey(const ValueKey('profile-nested-scroll')),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Scrollable &&
+                  widget.axisDirection == AxisDirection.down,
+            ),
+          )
+          .first;
+      final outer = tester.state<ScrollableState>(outerScrollable).position;
+      outer.jumpTo(outer.maxScrollExtent);
+      await tester.pump();
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
       expect(find.text('关注'), findsWidgets);
@@ -809,6 +909,33 @@ void main() {
 
 UserEntity _user(int id) =>
     UserEntity(id: id, name: 'sample user', account: 'sample');
+
+IllustEntity _illust(int id) => IllustEntity(
+  id: id,
+  title: 'work $id',
+  type: IllustType.illust,
+  imageUrls: const IllustImageUrls(
+    squareMedium: 'https://i.pximg.net/square.png',
+    medium: 'https://i.pximg.net/medium.png',
+    large: 'https://i.pximg.net/large.png',
+  ),
+  caption: '',
+  user: const IllustUser(
+    id: 42,
+    name: 'sample user',
+    account: 'sample',
+    profileImageUrl: null,
+  ),
+  tags: const [],
+  pageCount: 1,
+  width: 300,
+  height: 400,
+  xRestrict: 0,
+  aiType: 0,
+  isBookmarked: false,
+  totalView: 1,
+  totalBookmarks: 1,
+);
 
 Map<String, dynamic> _detailJson() => {
   'user': {
