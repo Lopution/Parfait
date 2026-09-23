@@ -1068,6 +1068,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pauseDownload => '一時停止';
 
   @override
+  String get downloadProcessing => '処理中';
+
+  @override
+  String get downloadViewResult => '表示';
+
+  @override
+  String get downloadRemoveRecord => '一覧から削除';
+
+  @override
   String get resumeDownload => '再開';
 
   @override

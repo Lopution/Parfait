@@ -471,6 +471,9 @@
   "cancelDownload": "Отмена",
   "downloadPaused": "Приостановлено",
   "pauseDownload": "Пауза",
+  "downloadProcessing": "Обработка",
+  "downloadViewResult": "Открыть",
+  "downloadRemoveRecord": "Убрать из списка",
   "resumeDownload": "Возобновить",
   "downloadGroupTitle": "Пакетная загрузка · {count} шт.",
   "@downloadGroupTitle": {

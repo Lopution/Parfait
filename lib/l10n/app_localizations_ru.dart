@@ -1103,6 +1103,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get pauseDownload => 'Пауза';
 
   @override
+  String get downloadProcessing => 'Обработка';
+
+  @override
+  String get downloadViewResult => 'Открыть';
+
+  @override
+  String get downloadRemoveRecord => 'Убрать из списка';
+
+  @override
   String get resumeDownload => 'Возобновить';
 
   @override

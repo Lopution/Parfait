@@ -2063,6 +2063,24 @@ abstract class AppLocalizations {
   /// **'暂停'**
   String get pauseDownload;
 
+  /// No description provided for @downloadProcessing.
+  ///
+  /// In zh, this message translates to:
+  /// **'处理中'**
+  String get downloadProcessing;
+
+  /// No description provided for @downloadViewResult.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看'**
+  String get downloadViewResult;
+
+  /// No description provided for @downloadRemoveRecord.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除'**
+  String get downloadRemoveRecord;
+
   /// No description provided for @resumeDownload.
   ///
   /// In zh, this message translates to:

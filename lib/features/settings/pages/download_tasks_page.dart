@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/navigation/routes.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
@@ -97,13 +98,6 @@ class _DownloadGroupSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final canAct =
-        group.status == DownloadGroupStatus.queued ||
-        group.status == DownloadGroupStatus.running;
-    final canResume =
-        group.status == DownloadGroupStatus.retryable ||
-        group.status == DownloadGroupStatus.failed ||
-        group.status == DownloadGroupStatus.canceled;
     final children = [for (final id in group.jobIds) ?manager.taskById(id)];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -124,46 +118,7 @@ class _DownloadGroupSection extends StatelessWidget {
                 ),
               ],
             ),
-            trailing: canAct
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: l10n.pauseDownload,
-                        icon: const Icon(Icons.pause),
-                        onPressed: () =>
-                            unawaited(manager.pauseGroup(group.id)),
-                      ),
-                      IconButton(
-                        tooltip: l10n.cancelDownload,
-                        icon: const Icon(Icons.close),
-                        onPressed: () =>
-                            unawaited(manager.cancelGroup(group.id)),
-                      ),
-                    ],
-                  )
-                : canResume
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: l10n.resumeDownload,
-                        icon: const Icon(Icons.play_arrow),
-                        onPressed: () => manager.resumeGroup(group.id),
-                      ),
-                      IconButton(
-                        tooltip: l10n.cancelDownload,
-                        icon: const Icon(Icons.close),
-                        onPressed: () =>
-                            unawaited(manager.cancelGroup(group.id)),
-                      ),
-                    ],
-                  )
-                : Icon(
-                    group.status == DownloadGroupStatus.succeeded
-                        ? Icons.check_circle_outline
-                        : Icons.info_outline,
-                  ),
+            trailing: _groupActions(context, children),
           ),
         ),
         // Child rows indent under the group header — the parent/child
@@ -182,12 +137,99 @@ class _DownloadGroupSection extends StatelessWidget {
     );
   }
 
+  /// Group-level mapping mirrors the per-task table: queued/running
+  /// pause+cancel, retryable/failed/canceled resume+cancel, succeeded
+  /// offers 查看 (first succeeded work) + 移除; a fully-terminal orphaned
+  /// group can only be removed.
+  Widget _groupActions(
+    BuildContext context,
+    List<DownloadTaskSnapshot> children,
+  ) {
+    final l10n = context.l10n;
+    void dismissChildren() {
+      for (final child in children) {
+        manager.dismiss(child.id);
+      }
+    }
+
+    return switch (group.status) {
+      DownloadGroupStatus.queued || DownloadGroupStatus.running => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: l10n.pauseDownload,
+            icon: const Icon(Icons.pause),
+            onPressed: () => unawaited(manager.pauseGroup(group.id)),
+          ),
+          IconButton(
+            tooltip: l10n.cancelDownload,
+            icon: const Icon(Icons.close),
+            onPressed: () => unawaited(manager.cancelGroup(group.id)),
+          ),
+        ],
+      ),
+      DownloadGroupStatus.retryable ||
+      DownloadGroupStatus.failed ||
+      DownloadGroupStatus.canceled => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            // A paused group continues (resume anchors); a failed or
+            // canceled group retries — same resumeGroup entry, the verb
+            // follows the dominant child state.
+            tooltip: group.status == DownloadGroupStatus.retryable
+                ? l10n.resumeDownload
+                : l10n.retryDownload,
+            icon: Icon(
+              group.status == DownloadGroupStatus.retryable
+                  ? Icons.play_arrow
+                  : Icons.refresh,
+            ),
+            onPressed: () => manager.resumeGroup(group.id),
+          ),
+          IconButton(
+            tooltip: l10n.cancelDownload,
+            icon: const Icon(Icons.close),
+            onPressed: () => unawaited(manager.cancelGroup(group.id)),
+          ),
+        ],
+      ),
+      DownloadGroupStatus.succeeded => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: l10n.downloadViewResult,
+            icon: const Icon(Icons.open_in_new),
+            onPressed: () {
+              final first = children.firstWhere(
+                (child) => child.status == DownloadStatus.succeeded,
+              );
+              unawaited(openIllust(context, first.illustId));
+            },
+          ),
+          IconButton(
+            tooltip: l10n.downloadRemoveRecord,
+            icon: const Icon(Icons.remove_circle_outline),
+            onPressed: dismissChildren,
+          ),
+        ],
+      ),
+      DownloadGroupStatus.orphaned => IconButton(
+        tooltip: l10n.downloadRemoveRecord,
+        icon: const Icon(Icons.remove_circle_outline),
+        onPressed: dismissChildren,
+      ),
+      // finalizing/canceling are in-flight teardown — no actions.
+      _ => const SizedBox.shrink(),
+    };
+  }
+
   String _statusText(BuildContext context) {
     final l10n = context.l10n;
     return switch (group.status) {
       DownloadGroupStatus.queued => l10n.downloadQueued,
       DownloadGroupStatus.running => l10n.downloadRunning,
-      DownloadGroupStatus.finalizing => l10n.downloadRunning,
+      DownloadGroupStatus.finalizing => l10n.downloadProcessing,
       DownloadGroupStatus.succeeded => l10n.downloadSucceeded,
       DownloadGroupStatus.failed => l10n.downloadFailed,
       DownloadGroupStatus.canceled => l10n.downloadCanceled,
@@ -222,56 +264,106 @@ class _DownloadTaskTile extends StatelessWidget {
               Text(task.error!),
           ],
         ),
-        trailing: switch (task.status) {
+        trailing: _trailingActions(context),
+      ),
+    );
+  }
+
+  /// §5.7/§8.2 action mapping: 取消 only terminates in-flight work, 移除
+  /// drops a terminal record, 继续 resumes a paused anchor (not the retry
+  /// icon), 重试 re-attempts a real failure, 查看 opens the finished work.
+  Widget _trailingActions(BuildContext context) {
+    final l10n = context.l10n;
+    final pausedRetryable =
+        task.status == DownloadStatus.retryable &&
+        task.failureKind == DownloadFailureKind.paused;
+    return switch (task.status) {
+      DownloadStatus.queued => IconButton(
+        tooltip: l10n.cancelDownload,
+        icon: const Icon(Icons.close),
+        onPressed: () => unawaited(manager.cancel(task.id)),
+      ),
+      DownloadStatus.running => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: l10n.pauseDownload,
+            icon: const Icon(Icons.pause),
+            onPressed: () => unawaited(manager.pause(task.id)),
+          ),
+          IconButton(
+            tooltip: l10n.cancelDownload,
+            icon: const Icon(Icons.close),
+            onPressed: () => unawaited(manager.cancel(task.id)),
+          ),
+        ],
+      ),
+      // In-flight teardown (finalizing/canceling) takes no further
+      // action — the status text carries the state.
+      DownloadStatus.finalizing ||
+      DownloadStatus.canceling => const SizedBox.shrink(),
+      DownloadStatus.retryable => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            // A paused task continues from its preserved resume anchor —
+            // semantically 继续, not 重试.
+            tooltip: pausedRetryable ? l10n.resumeDownload : l10n.retryDownload,
+            icon: Icon(pausedRetryable ? Icons.play_arrow : Icons.refresh),
+            onPressed: () => manager.retry(task.id),
+          ),
           // A paused (retryable) task may still be canceled — cancel is
           // what discards the preserved partial output.
-          DownloadStatus.queued ||
-          DownloadStatus.running ||
-          DownloadStatus.canceling ||
-          DownloadStatus.retryable => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (task.status != DownloadStatus.canceling)
-                IconButton(
-                  tooltip: task.status == DownloadStatus.retryable
-                      ? context.l10n.retryDownload
-                      : context.l10n.pauseDownload,
-                  icon: Icon(
-                    task.status == DownloadStatus.retryable
-                        ? Icons.refresh
-                        : Icons.pause,
-                  ),
-                  onPressed: () => task.status == DownloadStatus.retryable
-                      ? manager.retry(task.id)
-                      : unawaited(manager.pause(task.id)),
-                ),
-              IconButton(
-                tooltip: context.l10n.cancelDownload,
-                icon: const Icon(Icons.close),
-                onPressed: () => manager.cancel(task.id),
-              ),
-            ],
+          IconButton(
+            tooltip: l10n.cancelDownload,
+            icon: const Icon(Icons.close),
+            onPressed: () => unawaited(manager.cancel(task.id)),
           ),
-          DownloadStatus.failed || DownloadStatus.canceled => IconButton(
-            tooltip: context.l10n.retryDownload,
+        ],
+      ),
+      DownloadStatus.failed || DownloadStatus.canceled => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: l10n.retryDownload,
             icon: const Icon(Icons.refresh),
             onPressed: () => manager.retry(task.id),
           ),
-          _ => Icon(
-            task.status == DownloadStatus.succeeded
-                ? Icons.check_circle_outline
-                : Icons.info_outline,
+          IconButton(
+            tooltip: l10n.downloadRemoveRecord,
+            icon: const Icon(Icons.remove_circle_outline),
+            onPressed: () => manager.dismiss(task.id),
           ),
-        },
+        ],
       ),
-    );
+      DownloadStatus.succeeded => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: l10n.downloadViewResult,
+            icon: const Icon(Icons.open_in_new),
+            onPressed: () => unawaited(openIllust(context, task.illustId)),
+          ),
+          IconButton(
+            tooltip: l10n.downloadRemoveRecord,
+            icon: const Icon(Icons.remove_circle_outline),
+            onPressed: () => manager.dismiss(task.id),
+          ),
+        ],
+      ),
+      DownloadStatus.orphaned => IconButton(
+        tooltip: l10n.downloadRemoveRecord,
+        icon: const Icon(Icons.remove_circle_outline),
+        onPressed: () => manager.dismiss(task.id),
+      ),
+    };
   }
 
   String _downloadStatusText(BuildContext context) {
     return switch (task.status) {
       DownloadStatus.queued => context.l10n.downloadQueued,
       DownloadStatus.running => context.l10n.downloadRunning,
-      DownloadStatus.finalizing => context.l10n.downloadRunning,
+      DownloadStatus.finalizing => context.l10n.downloadProcessing,
       DownloadStatus.canceling => context.l10n.downloadCanceling,
       DownloadStatus.succeeded => context.l10n.downloadSucceeded,
       DownloadStatus.failed => context.l10n.downloadFailed,

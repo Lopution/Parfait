@@ -1047,6 +1047,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pauseDownload => '暂停';
 
   @override
+  String get downloadProcessing => '处理中';
+
+  @override
+  String get downloadViewResult => '查看';
+
+  @override
+  String get downloadRemoveRecord => '移除';
+
+  @override
   String get resumeDownload => '继续';
 
   @override

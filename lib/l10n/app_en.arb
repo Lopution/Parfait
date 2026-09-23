@@ -471,6 +471,9 @@
   "cancelDownload": "Cancel",
   "downloadPaused": "Paused",
   "pauseDownload": "Pause",
+  "downloadProcessing": "Processing",
+  "downloadViewResult": "View",
+  "downloadRemoveRecord": "Remove",
   "resumeDownload": "Resume",
   "downloadGroupTitle": "Batch download · {count} items",
   "@downloadGroupTitle": {
