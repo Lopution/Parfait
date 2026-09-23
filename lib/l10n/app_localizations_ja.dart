@@ -2129,6 +2129,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get novelChapters => '目次';
+
+  @override
   String get localNovelFileInfo => 'ファイル情報';
 
   @override

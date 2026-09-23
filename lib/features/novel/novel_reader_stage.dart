@@ -346,14 +346,23 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
                     icon: const Icon(Icons.text_decrease_outlined),
                   ),
                   Expanded(
-                    child: Text(
-                      '${_page + 1}/$_pageCount · ${percent.round()}%',
-                      textAlign: TextAlign.center,
-                      semanticsLabel: l10n.novelReadingProgress,
-                      maxLines: 1,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: foreground),
+                    // Tap opens the progress/TOC sheet — the readout keeps
+                    // its a11y label so screen readers announce it as the
+                    // progress control, not a bare number.
+                    child: InkWell(
+                      onTap: () => _showProgressSheet(context),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          '${_page + 1}/$_pageCount · ${percent.round()}%',
+                          textAlign: TextAlign.center,
+                          semanticsLabel: l10n.novelReadingProgress,
+                          maxLines: 1,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(color: foreground),
+                        ),
+                      ),
                     ),
                   ),
                   IconButton(
@@ -383,6 +392,126 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: widget.spec.infoSheet,
+    );
+  }
+
+  /// Page-jump sheet: the slider only moves a local preview — the reader
+  /// stays put until confirm, so a cancelled drag never rewinds the user.
+  /// Chapter rows jump immediately on tap (D2/D4).
+  void _showProgressSheet(BuildContext context) {
+    final l10n = context.l10n;
+    final pageCount = _pageCount;
+    final chapters = _readerHandle.chapters?.call() ?? const [];
+    var preview = _page;
+    showAppBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final percent = pageCount <= 1
+                ? 100
+                : (preview / (pageCount - 1) * 100).round();
+            void jumpTo(int page) {
+              Navigator.of(sheetContext).pop();
+              _readerHandle.goToPage?.call(page, animate: false);
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.novelReadingProgress,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Slider(
+                            value: preview
+                                .toDouble()
+                                .clamp(0.0, (pageCount - 1).toDouble()),
+                            min: 0,
+                            max: (pageCount - 1).toDouble(),
+                            onChanged: pageCount <= 1
+                                ? null
+                                : (v) => setSheetState(
+                                    () => preview = v.round(),
+                                  ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 88,
+                          child: Text(
+                            '${preview + 1}/$pageCount · $percent%',
+                            textAlign: TextAlign.end,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          child: Text(l10n.cancel),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: () => jumpTo(preview),
+                          child: Text(l10n.confirm),
+                        ),
+                      ],
+                    ),
+                    // D4: the TOC section only exists when the document
+                    // actually has chapters — local TXT files never do.
+                    if (chapters.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.novelChapters,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 240),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: chapters.length,
+                          itemBuilder: (context, index) {
+                            final chapter = chapters[index];
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                chapter.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Text(
+                                '${chapter.pageIndex + 1}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              onTap: () => jumpTo(chapter.pageIndex),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

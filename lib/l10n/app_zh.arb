@@ -1008,6 +1008,7 @@
       }
     }
   },
+  "novelChapters": "目录",
   "localNovelFileInfo": "文件信息",
   "localNovelFileEncoding": "编码：{encoding}",
   "@localNovelFileEncoding": {

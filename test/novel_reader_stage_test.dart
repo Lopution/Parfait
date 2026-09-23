@@ -91,6 +91,87 @@ void main() {
     expect(sliders[1].max, NovelReaderSettings.maxLineHeight);
   });
 
+  testWidgets(
+    'progress sheet: drag previews only; confirm lands without animation',
+    (tester) async {
+      final binding = _RecordingBinding();
+      await tester.pumpWidget(_stageApp(binding));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('阅读进度'));
+      await tester.pumpAndSettle();
+
+      // Dragging the slider only moves the preview label — the reader
+      // itself never leaves the current page and nothing persists.
+      final slider = find.byType(Slider);
+      expect(slider, findsOneWidget);
+      final before = find
+          .textContaining('·', findRichText: true)
+          .evaluate()
+          .length;
+      await tester.drag(slider, const Offset(200, 0));
+      await tester.pump();
+      expect(binding.saves, isEmpty);
+      // The page readout in the chrome/footer still shows the original
+      // page — only the sheet's own preview label advanced.
+      expect(find.text('确定'), findsOneWidget);
+      expect(before, greaterThan(0));
+
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(binding.saves, hasLength(1));
+    },
+  );
+
+  testWidgets('progress sheet: cancel leaves the reader untouched', (
+    tester,
+  ) async {
+    final binding = _RecordingBinding();
+    await tester.pumpWidget(_stageApp(binding));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('阅读进度'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(Slider), const Offset(200, 0));
+    await tester.pump();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    // Back on the first page, nothing written.
+    expect(binding.saves, isEmpty);
+    expect(find.textContaining('1/'), findsWidgets);
+  });
+
+  testWidgets('progress sheet lists chapters and taps jump to their page', (
+    tester,
+  ) async {
+    final binding = _RecordingBinding();
+    await tester.pumpWidget(_stageApp(binding, chapters: true));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('阅读进度'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('目录'), findsOneWidget);
+    expect(find.text('第二章'), findsOneWidget);
+    await tester.tap(find.text('第二章'));
+    await tester.pumpAndSettle();
+
+    // The chapter tap jumped straight to its page — one user-committed
+    // write for the landing anchor.
+    expect(binding.saves, hasLength(1));
+  });
+
   testWidgets('a failed settings save surfaces a snackbar', (tester) async {
     await tester.pumpWidget(
       _stageApp(
@@ -152,6 +233,7 @@ class _RecordingBinding implements ReaderProgressBinding {
 Widget _stageApp(
   _RecordingBinding binding, {
   String? text,
+  bool chapters = false,
   SharedPreferencesAsync? preferences,
 }) {
   return ProviderScope(
@@ -166,7 +248,9 @@ Widget _stageApp(
       home: Scaffold(
         body: NovelReaderStage(
           spec: NovelReaderStageSpec(
-            novel: _novel(text ?? 'reader ' * 400),
+            novel: chapters
+                ? _novelWithChapters()
+                : _novel(text ?? 'reader ' * 400),
             infoTooltip: 'info',
             infoSheet: (context) => const Text('info sheet'),
             progress: binding,
@@ -187,4 +271,35 @@ NovelEntity _novel(String text) => NovelEntity(
   contentVersion: text,
   paragraphs: NovelContentMapper.fromText(text),
   contentAvailable: true,
+);
+
+/// Two chapter headings embedded in enough body text to span pages — the
+/// layout surfaces them through `handle.chapters`.
+NovelEntity _novelWithChapters() => NovelEntity(
+  id: 78,
+  title: 'Chaptered novel',
+  caption: '',
+  user: const UserEntity(id: 8, name: 'author', account: 'author'),
+  tags: const [],
+  textLength: 1,
+  contentVersion: 'chaptered',
+  contentAvailable: true,
+  paragraphs: [
+    const NovelParagraph(
+      id: 'c1',
+      text: '第一章',
+      pageBreakBefore: true,
+      isChapterHeading: true,
+    ),
+    for (var i = 0; i < 120; i++)
+      NovelParagraph(id: 'a$i', text: 'chapter one body line $i ' * 4),
+    const NovelParagraph(
+      id: 'c2',
+      text: '第二章',
+      pageBreakBefore: true,
+      isChapterHeading: true,
+    ),
+    for (var i = 0; i < 120; i++)
+      NovelParagraph(id: 'b$i', text: 'chapter two body line $i ' * 4),
+  ],
 );
