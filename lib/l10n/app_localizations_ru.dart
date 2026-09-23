@@ -943,6 +943,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get translateCredentialsClear => 'Очистить учётные данные';
 
   @override
+  String get translateCredentialsClearConfirm =>
+      'Сохранённые учётные данные будут удалены; для перевода их придётся ввести заново.';
+
+  @override
   String get translateCredentialsSaved => 'Сохранено в защищённое хранилище';
 
   @override

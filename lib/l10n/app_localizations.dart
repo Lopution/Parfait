@@ -1800,6 +1800,12 @@ abstract class AppLocalizations {
   /// **'清除凭据'**
   String get translateCredentialsClear;
 
+  /// No description provided for @translateCredentialsClearConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'将删除安全存储中的凭据；翻译前需要重新输入。'**
+  String get translateCredentialsClearConfirm;
+
   /// No description provided for @translateCredentialsSaved.
   ///
   /// In zh, this message translates to:

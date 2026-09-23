@@ -73,6 +73,21 @@ Widget _app(TranslationCredentialStore store, {bool baidu = true}) {
   );
 }
 
+/// The clear action is confirm-gated: page button → dialog → filled
+/// "Clear credentials" button. [confirm]=false exercises the cancel branch.
+Future<void> _tapClear(WidgetTester tester, {bool confirm = true}) async {
+  await tester.tap(find.widgetWithText(OutlinedButton, 'Clear credentials'));
+  await tester.pump();
+  await tester.pump();
+  if (confirm) {
+    await tester.tap(find.widgetWithText(FilledButton, 'Clear credentials'));
+  } else {
+    await tester.tap(find.text('Cancel'));
+  }
+  await tester.pump();
+  await tester.pump();
+}
+
 String _fieldText(WidgetTester tester, int index) =>
     tester.widget<TextField>(find.byType(TextField).at(index)).controller!.text;
 
@@ -86,9 +101,7 @@ void main() {
     expect(_fieldText(tester, 0), 'a');
     expect(_fieldText(tester, 1), 's');
 
-    await tester.tap(find.text('Clear credentials'));
-    await tester.pump();
-    await tester.pump();
+    await _tapClear(tester);
 
     expect(_fieldText(tester, 0), isEmpty);
     expect(_fieldText(tester, 1), isEmpty);
@@ -109,9 +122,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField).at(0), 'typed-app-id');
       await tester.enterText(find.byType(TextField).at(1), 'typed-secret');
-      await tester.tap(find.text('Clear credentials'));
-      await tester.pump();
-      await tester.pump();
+      await _tapClear(tester);
 
       // Failed deletes must not eat the user's input.
       expect(_fieldText(tester, 0), 'typed-app-id');
@@ -134,7 +145,10 @@ void main() {
     await tester.pumpWidget(_app(store));
     await tester.pump();
 
-    await tester.tap(find.text('Clear credentials'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Clear credentials'));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Clear credentials'));
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -152,5 +166,80 @@ void main() {
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Credentials cleared'), findsOneWidget);
+  });
+
+  testWidgets('a dirty draft asks before leaving, a clean one pops', (
+    tester,
+  ) async {
+    final store = _FakeStore();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          translationCredentialStoreProvider.overrideWithValue(store),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en', 'US'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          const TranslationCredentialsPage(baidu: true),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // A clean form pops straight through without a prompt.
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(TranslationCredentialsPage), findsNothing);
+
+    // Dirty: system back opens the discard dialog; Discard leaves.
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'draft-app-id');
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Discard unsaved changes?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TranslationCredentialsPage), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard changes'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TranslationCredentialsPage), findsNothing);
+  });
+
+  testWidgets('cancelling the confirm keeps credentials and fields', (
+    tester,
+  ) async {
+    final store = _FakeStore()
+      ..baidu = const BaiduTranslationCredentials(appId: 'a', secret: 's');
+    await tester.pumpWidget(_app(store));
+    await tester.pump();
+
+    await _tapClear(tester, confirm: false);
+
+    expect(store.baidu, isNotNull);
+    expect(_fieldText(tester, 0), 'a');
+    expect(_fieldText(tester, 1), 's');
+    expect(find.text('Credentials cleared'), findsNothing);
   });
 }

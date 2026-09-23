@@ -916,6 +916,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get translateCredentialsClear => '認証情報を削除';
 
   @override
+  String get translateCredentialsClearConfirm =>
+      '安全ストレージ内の認証情報を削除します。翻訳するには再入力が必要です。';
+
+  @override
   String get translateCredentialsSaved => '安全なストレージに保存しました';
 
   @override
