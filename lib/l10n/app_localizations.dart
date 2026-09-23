@@ -4086,6 +4086,12 @@ abstract class AppLocalizations {
   /// **'删除「{title}」？本地文件会一并删除。'**
   String localNovelsDeleteConfirm(String title);
 
+  /// No description provided for @novelChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录'**
+  String get novelChapters;
+
   /// No description provided for @localNovelFileInfo.
   ///
   /// In zh, this message translates to:

@@ -1008,6 +1008,7 @@
       }
     }
   },
+  "novelChapters": "Главы",
   "localNovelFileInfo": "Информация о файле",
   "localNovelFileEncoding": "Кодировка: {encoding}",
   "@localNovelFileEncoding": {

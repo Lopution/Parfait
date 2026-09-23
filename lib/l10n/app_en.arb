@@ -1008,6 +1008,7 @@
       }
     }
   },
+  "novelChapters": "Chapters",
   "localNovelFileInfo": "File info",
   "localNovelFileEncoding": "Encoding: {encoding}",
   "@localNovelFileEncoding": {

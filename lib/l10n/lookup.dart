@@ -332,6 +332,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'next' => l10n.next,
   'noAccounts' => l10n.noAccounts,
   'notConfigured' => l10n.notConfigured,
+  'novelChapters' => l10n.novelChapters,
   'novelContentUnavailable' => l10n.novelContentUnavailable,
   'novelDecreaseFont' => l10n.novelDecreaseFont,
   'novelFontSize' => l10n.novelFontSize,

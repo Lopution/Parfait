@@ -2174,6 +2174,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get novelChapters => 'Chapters';
+
+  @override
   String get localNovelFileInfo => 'File info';
 
   @override

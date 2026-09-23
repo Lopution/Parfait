@@ -1008,6 +1008,7 @@
       }
     }
   },
+  "novelChapters": "目次",
   "localNovelFileInfo": "ファイル情報",
   "localNovelFileEncoding": "エンコーディング: {encoding}",
   "@localNovelFileEncoding": {
