@@ -143,89 +143,33 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
         body: settingsNarrowBody(
           ListView(
             children: [
-              SettingsSection(title: Text(context.l10n.imageSource)),
-              for (final mode in _presets)
-                ListTile(
-                  title: Text(imageSourceLabel(context, mode)),
-                  subtitle: switch (mode) {
-                    ImageSourceMode.pixivCat => Text(
-                      context.l10n.imageSourceUnreachableMainland,
-                    ),
-                    ImageSourceMode.auto => Text(
-                      autoWinner == null
-                          ? context.l10n.imageSourceAutoPending
-                          : context.l10n.imageSourceAutoWinner(autoWinner),
-                    ),
-                    _ => null,
-                  },
-                  trailing: settings.imageSource == mode.host
-                      ? Icon(
-                          Icons.check,
-                          color: Theme.of(context).colorScheme.primary,
-                        )
-                      : null,
-                  onTap: () => _selectSource(mode.host),
-                ),
-              ListTile(
-                title: Text(context.l10n.imageSourceCustom),
-                subtitle: Text(
-                  settings.customImageSource ??
-                      context.l10n.imageSourceCustomUnset,
-                ),
-                trailing: isCustom
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () {
-                  final saved = settings.customImageSource;
-                  if (saved != null) {
-                    _selectSource(saved);
-                  } else {
-                    _customFocusNode.requestFocus();
-                  }
-                },
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: TextField(
-                  controller: _customController,
-                  focusNode: _customFocusNode,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.imageSourceCustom,
-                    helperText: context.l10n.imageSourceCustomHint,
-                    border: const OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => setState(() => _customDirty = true),
+              SettingsControl(
+                title: Text(context.l10n.blockR18),
+                value: settings.enableLocalBlockR18,
+                onChanged: (value) => persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .setLocalBlockR18(value),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Wrap(
-                    spacing: 8,
-                    children: [
-                      FilledButton.tonal(
-                        onPressed: _testingMirror ? null : _saveCustomSource,
-                        child: Text(context.l10n.save),
-                      ),
-                      FilledButton.tonalIcon(
-                        onPressed: _testingMirror ? null : _testMirror,
-                        icon: _testingMirror
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.network_check, size: 18),
-                        label: Text(context.l10n.imageSourceApplyAndTest),
-                      ),
-                    ],
-                  ),
+              SettingsControl(
+                title: Text(context.l10n.blockAI),
+                value: settings.enableLocalBlockAI,
+                onChanged: (value) => persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .setLocalBlockAI(value),
+                ),
+              ),
+              SettingsControl(
+                title: Text(context.l10n.hideMuted),
+                subtitle: Text(context.l10n.hideMutedHint),
+                value: settings.hideMuted,
+                onChanged: (value) => persistSettings(
+                  context,
+                  () => ref.read(settingsProvider.notifier).setHideMuted(value),
                 ),
               ),
               const Divider(),
@@ -326,46 +270,6 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
               ),
               const Divider(),
               SettingsControl(
-                title: Text(context.l10n.pixivHistory),
-                value: settings.enablePixivHistory,
-                onChanged: (value) => persistSettings(
-                  context,
-                  () => ref
-                      .read(settingsProvider.notifier)
-                      .setPixivHistoryEnabled(value),
-                ),
-              ),
-              SettingsControl(
-                title: Text(context.l10n.blockR18),
-                value: settings.enableLocalBlockR18,
-                onChanged: (value) => persistSettings(
-                  context,
-                  () => ref
-                      .read(settingsProvider.notifier)
-                      .setLocalBlockR18(value),
-                ),
-              ),
-              SettingsControl(
-                title: Text(context.l10n.blockAI),
-                value: settings.enableLocalBlockAI,
-                onChanged: (value) => persistSettings(
-                  context,
-                  () => ref
-                      .read(settingsProvider.notifier)
-                      .setLocalBlockAI(value),
-                ),
-              ),
-              SettingsControl(
-                title: Text(context.l10n.hideMuted),
-                subtitle: Text(context.l10n.hideMutedHint),
-                value: settings.hideMuted,
-                onChanged: (value) => persistSettings(
-                  context,
-                  () => ref.read(settingsProvider.notifier).setHideMuted(value),
-                ),
-              ),
-              const Divider(),
-              SettingsControl(
                 title: Text(context.l10n.reduceMotion),
                 subtitle: Text(context.l10n.reduceMotionHint),
                 value: settings.reduceMotion,
@@ -385,6 +289,92 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                   () => ref
                       .read(settingsProvider.notifier)
                       .setHapticsEnabled(value),
+                ),
+              ),
+              const Divider(),
+              SettingsSection(title: Text(context.l10n.imageSource)),
+              for (final mode in _presets)
+                ListTile(
+                  title: Text(imageSourceLabel(context, mode)),
+                  subtitle: switch (mode) {
+                    ImageSourceMode.pixivCat => Text(
+                      context.l10n.imageSourceUnreachableMainland,
+                    ),
+                    ImageSourceMode.auto => Text(
+                      autoWinner == null
+                          ? context.l10n.imageSourceAutoPending
+                          : context.l10n.imageSourceAutoWinner(autoWinner),
+                    ),
+                    _ => null,
+                  },
+                  trailing: settings.imageSource == mode.host
+                      ? Icon(
+                          Icons.check,
+                          color: Theme.of(context).colorScheme.primary,
+                        )
+                      : null,
+                  onTap: () => _selectSource(mode.host),
+                ),
+              ListTile(
+                title: Text(context.l10n.imageSourceCustom),
+                subtitle: Text(
+                  settings.customImageSource ??
+                      context.l10n.imageSourceCustomUnset,
+                ),
+                trailing: isCustom
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () {
+                  final saved = settings.customImageSource;
+                  if (saved != null) {
+                    _selectSource(saved);
+                  } else {
+                    _customFocusNode.requestFocus();
+                  }
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: TextField(
+                  controller: _customController,
+                  focusNode: _customFocusNode,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.imageSourceCustom,
+                    helperText: context.l10n.imageSourceCustomHint,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setState(() => _customDirty = true),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      FilledButton.tonal(
+                        onPressed: _testingMirror ? null : _saveCustomSource,
+                        child: Text(context.l10n.save),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed: _testingMirror ? null : _testMirror,
+                        icon: _testingMirror
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.network_check, size: 18),
+                        label: Text(context.l10n.imageSourceApplyAndTest),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
