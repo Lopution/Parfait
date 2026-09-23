@@ -2146,4 +2146,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get viewerFitScreen => '画面に合わせる';
+
+  @override
+  String get viewerSavePage => 'このページを保存';
+
+  @override
+  String get viewerJumpToPage => 'ページへ移動';
+
+  @override
+  String get viewerInfo => '作品情報';
+
+  @override
+  String get viewerOpenDetail => '詳細ページを開く';
+
+  @override
+  String illustPagesTotal(int count) {
+    return '全 $count ページ';
+  }
 }

@@ -1003,5 +1003,17 @@
   },
   "viewerEnterFullscreen": "Enter fullscreen",
   "viewerExitFullscreen": "Exit fullscreen",
-  "viewerFitScreen": "Fit to screen"
+  "viewerFitScreen": "Fit to screen",
+  "viewerSavePage": "Save current page",
+  "viewerJumpToPage": "Jump to page",
+  "viewerInfo": "Artwork info",
+  "viewerOpenDetail": "Open detail page",
+  "illustPagesTotal": "{count} pages",
+  "@illustPagesTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

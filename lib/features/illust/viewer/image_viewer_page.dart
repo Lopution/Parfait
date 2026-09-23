@@ -6,13 +6,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/motion/drag_to_dismiss.dart';
+import '../../../app/haptics/app_haptics.dart';
+import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/motion_tokens.dart';
+import '../../../app/navigation/routes.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/illust/illust_download_controller.dart';
+import '../../../core/share/share_service.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
+import '../../../app/widgets/app_snack_bar.dart';
 import '../../../l10n/context.dart';
 
 /// Whether the viewer chrome (top bar + bottom bar) is visible. This is
@@ -234,6 +240,154 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     target.value = tween.evaluate(_zoomCurve);
   }
 
+  /// Explicit "fit to screen" reset — the bottom-bar button and the `0`
+  /// key both land here (same result as the zoom cycle's fit leg).
+  void _resetZoom() =>
+      _animateZoom(_transformationFor(_activePage), Matrix4.identity());
+
+  /// Save the active page through the same controller as the detail
+  /// badges: in-flight disables the button, done/error keep visible state.
+  Future<void> _saveActivePage(IllustEntity entity) async {
+    final download = ref.read(illustDownloadControllerProvider);
+    try {
+      await download.download(entity, _activePage);
+    } catch (error) {
+      if (!mounted) return;
+      AppHaptics.error();
+      showAppSnackBar(
+        context,
+        context.l10n.downloadSubmissionFailed(error.toString()),
+      );
+      return;
+    }
+    if (!mounted) return;
+    AppHaptics.success();
+    showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+  }
+
+  Future<void> _share(IllustEntity entity) async {
+    final outcome = await ref
+        .read(shareServiceProvider)
+        .share(
+          SharePayload.illust(
+            id: entity.id,
+            title: entity.title,
+            author: entity.user.name,
+          ),
+          sharePositionOrigin: shareOriginOf(context),
+        );
+    if (outcome == ShareOutcome.copiedToClipboard && mounted) {
+      showAppSnackBar(context, context.l10n.linkCopied);
+    }
+  }
+
+  /// Page counter → jump sheet: same destination as a swipe, routed through
+  /// PageController so `onPageChanged` still replaces the route.
+  void _openPageSheet() {
+    unawaited(
+      showAppBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return SafeArea(
+            child: GridView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(16),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 72,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+              ),
+              itemCount: _pageCount,
+              itemBuilder: (context, index) {
+                final active = index == _activePage;
+                return InkWell(
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _pageController.jumpToPage(index);
+                  },
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        fontWeight: active
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Info sheet — the viewer stays put; meta (title/author/date/id/pages)
+  /// plus the same save-all / open-detail actions as the detail page.
+  void _showInfo(IllustEntity entity) {
+    unawaited(
+      showAppBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          final l10n = context.l10n;
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  title: Text(entity.title),
+                  subtitle: Text(
+                    '${entity.user.name}'
+                    '${entity.createDate == null ? '' : ' · ${entity.createDate}'}'
+                    ' · #${entity.id} · '
+                    '${l10n.illustPagesTotal(entity.pageCount)}',
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.download_outlined),
+                  title: Text(l10n.downloadAll),
+                  onTap: () async {
+                    Navigator.of(sheetContext).pop();
+                    try {
+                      await ref
+                          .read(illustDownloadControllerProvider)
+                          .downloadAll(entity);
+                    } catch (error) {
+                      if (!mounted) return;
+                      AppHaptics.error();
+                      showAppSnackBar(
+                        context,
+                        l10n.downloadSubmissionFailed(error.toString()),
+                      );
+                      return;
+                    }
+                    if (!mounted) return;
+                    AppHaptics.success();
+                    showAppSnackBar(context, l10n.downloadQueuedMessage);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.open_in_new),
+                  title: Text(l10n.viewerOpenDetail),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    openIllust(context, entity.id);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   TransformationController _transformationFor(int page) {
     return _transformations.putIfAbsent(page, TransformationController.new);
   }
@@ -245,6 +399,15 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   @override
   Widget build(BuildContext context) {
     String text(String key) => l10nLookup(context.l10n, key);
+    final entity = widget.entity;
+    // The save action mirrors the detail-page badge semantics through the
+    // same controller: in-flight disables the button, done/error keep
+    // visible state.
+    final saveState = entity == null
+        ? null
+        : ref
+              .watch(illustDownloadControllerProvider)
+              .stateFor(entity.id, _activePage);
     // The fullscreen viewer deliberately keeps an opaque black canvas so
     // artwork and its white chrome match the replica surface.
     return DragToDismiss(
@@ -293,7 +456,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             _ChromeEdgeBar(
               visible: _chromeVisible,
               edge: _ChromeEdge.bottom,
-              child: _buildBottomBar(context),
+              child: _buildBottomBar(context, saveState),
             ),
           ],
         ),
@@ -387,27 +550,88 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     );
   }
 
-  /// Bottom chrome. The fullscreen toggle is one of the three chrome
-  /// channels (media tap / this button / keyboard F); the rest of the
-  /// toolbar lands with the action row (stage C13).
-  Widget _buildBottomBar(BuildContext context) {
+  /// Bottom chrome: page counter (jump sheet) on the left; fit / fullscreen
+  /// / save / share / info on the right. Entity-bound actions render only
+  /// when the route resolved an entity (deep-link snapshot case skips them).
+  Widget _buildBottomBar(BuildContext context, IllustPageSaveState? saveState) {
+    final entity = widget.entity;
+    final l10n = context.l10n;
+    final hasPages = _pageCount > 0;
+    final color = FuncTokens.lightBackground;
     return Material(
       color: Colors.transparent,
       child: SafeArea(
         top: false,
         child: Row(
           children: [
-            const Spacer(),
-            IconButton(
-              tooltip: _chromeVisible
-                  ? context.l10n.viewerEnterFullscreen
-                  : context.l10n.viewerExitFullscreen,
-              onPressed: _toggleChrome,
-              icon: Icon(
-                _chromeVisible ? Icons.fullscreen : Icons.fullscreen_exit,
-                color: FuncTokens.lightBackground,
+            Tooltip(
+              message: l10n.viewerJumpToPage,
+              child: InkWell(
+                onTap: hasPages ? _openPageSheet : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Text(
+                    '${_activePage + 1} / $_pageCount',
+                    style: TextStyle(color: color),
+                  ),
+                ),
               ),
             ),
+            const Spacer(),
+            IconButton(
+              tooltip: l10n.viewerFitScreen,
+              onPressed: hasPages ? _resetZoom : null,
+              icon: Icon(Icons.fit_screen, color: color),
+            ),
+            IconButton(
+              tooltip: _chromeVisible
+                  ? l10n.viewerEnterFullscreen
+                  : l10n.viewerExitFullscreen,
+              onPressed: hasPages ? _toggleChrome : null,
+              icon: Icon(
+                _chromeVisible ? Icons.fullscreen : Icons.fullscreen_exit,
+                color: color,
+              ),
+            ),
+            if (entity != null) ...[
+              IconButton(
+                tooltip: l10n.viewerSavePage,
+                onPressed: switch (saveState) {
+                  IllustPageSaveState.downloading ||
+                  IllustPageSaveState.exist => null,
+                  _ => () => unawaited(_saveActivePage(entity)),
+                },
+                icon: switch (saveState) {
+                  IllustPageSaveState.downloading => const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  IllustPageSaveState.exist => Icon(
+                    Icons.check_circle,
+                    color: color,
+                  ),
+                  IllustPageSaveState.error => Icon(
+                    Icons.error_outline,
+                    color: color,
+                  ),
+                  _ => Icon(Icons.download_outlined, color: color),
+                },
+              ),
+              IconButton(
+                tooltip: l10n.cardActionShare,
+                onPressed: () => unawaited(_share(entity)),
+                icon: Icon(Icons.share_outlined, color: color),
+              ),
+              IconButton(
+                tooltip: l10n.viewerInfo,
+                onPressed: () => _showInfo(entity),
+                icon: Icon(Icons.info_outline, color: color),
+              ),
+            ],
           ],
         ),
       ),

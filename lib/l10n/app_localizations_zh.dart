@@ -2128,4 +2128,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get viewerFitScreen => '适应屏幕';
+
+  @override
+  String get viewerSavePage => '保存当前页';
+
+  @override
+  String get viewerJumpToPage => '跳转到页码';
+
+  @override
+  String get viewerInfo => '作品信息';
+
+  @override
+  String get viewerOpenDetail => '打开详情页';
+
+  @override
+  String illustPagesTotal(int count) {
+    return '共 $count 页';
+  }
 }

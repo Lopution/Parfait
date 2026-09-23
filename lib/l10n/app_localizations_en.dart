@@ -2194,4 +2194,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get viewerFitScreen => 'Fit to screen';
+
+  @override
+  String get viewerSavePage => 'Save current page';
+
+  @override
+  String get viewerJumpToPage => 'Jump to page';
+
+  @override
+  String get viewerInfo => 'Artwork info';
+
+  @override
+  String get viewerOpenDetail => 'Open detail page';
+
+  @override
+  String illustPagesTotal(int count) {
+    return '$count pages';
+  }
 }
