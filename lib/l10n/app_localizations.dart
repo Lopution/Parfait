@@ -3636,6 +3636,12 @@ abstract class AppLocalizations {
   /// **'小说加载失败'**
   String get novelLoadFailed;
 
+  /// No description provided for @novelLayoutFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说排版失败'**
+  String get novelLayoutFailed;
+
   /// No description provided for @novelRetry.
   ///
   /// In zh, this message translates to:
@@ -3713,6 +3719,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'阅读设置'**
   String get novelReaderSettings;
+
+  /// No description provided for @novelSettingsSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'阅读设置保存失败'**
+  String get novelSettingsSaveFailed;
 
   /// No description provided for @novelFontSize.
   ///
@@ -4073,6 +4085,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'删除「{title}」？本地文件会一并删除。'**
   String localNovelsDeleteConfirm(String title);
+
+  /// No description provided for @novelChapters.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录'**
+  String get novelChapters;
+
+  /// No description provided for @localNovelFileInfo.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件信息'**
+  String get localNovelFileInfo;
+
+  /// No description provided for @localNovelFileEncoding.
+  ///
+  /// In zh, this message translates to:
+  /// **'编码：{encoding}'**
+  String localNovelFileEncoding(String encoding);
+
+  /// No description provided for @localNovelFileImportedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'导入时间 {date}'**
+  String localNovelFileImportedAt(String date);
 
   /// No description provided for @localNovelsChars.
   ///

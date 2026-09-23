@@ -891,6 +891,7 @@
   "novelRestricted": "该小说受限，无法阅读",
   "novelContentUnavailable": "当前 API 未提供小说正文",
   "novelLoadFailed": "小说加载失败",
+  "novelLayoutFailed": "小说排版失败",
   "novelRetry": "重试",
   "novelNoContent": "暂无正文",
   "novelWords": "字",
@@ -904,6 +905,7 @@
   "novelIncreaseFont": "增大字号",
   "novelReadingProgress": "阅读进度",
   "novelReaderSettings": "阅读设置",
+  "novelSettingsSaveFailed": "阅读设置保存失败",
   "novelFontSize": "字号",
   "novelLineHeight": "行距",
   "novelThemeSystem": "跟随系统",
@@ -1002,6 +1004,24 @@
   "@localNovelsDeleteConfirm": {
     "placeholders": {
       "title": {
+        "type": "String"
+      }
+    }
+  },
+  "novelChapters": "目录",
+  "localNovelFileInfo": "文件信息",
+  "localNovelFileEncoding": "编码：{encoding}",
+  "@localNovelFileEncoding": {
+    "placeholders": {
+      "encoding": {
+        "type": "String"
+      }
+    }
+  },
+  "localNovelFileImportedAt": "导入时间 {date}",
+  "@localNovelFileImportedAt": {
+    "placeholders": {
+      "date": {
         "type": "String"
       }
     }

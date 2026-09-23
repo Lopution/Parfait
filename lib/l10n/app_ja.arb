@@ -891,6 +891,7 @@
   "novelRestricted": "この小説は制限されています",
   "novelContentUnavailable": "現在の API は小説本文を返しませんでした",
   "novelLoadFailed": "小説の読み込みに失敗しました",
+  "novelLayoutFailed": "小説の組版に失敗しました",
   "novelRetry": "再試行",
   "novelNoContent": "本文はありません",
   "novelWords": "文字",
@@ -904,6 +905,7 @@
   "novelIncreaseFont": "文字を大きく",
   "novelReadingProgress": "読書進捗",
   "novelReaderSettings": "読書設定",
+  "novelSettingsSaveFailed": "読書設定の保存に失敗しました",
   "novelFontSize": "文字サイズ",
   "novelLineHeight": "行間",
   "novelThemeSystem": "システム",
@@ -1002,6 +1004,24 @@
   "@localNovelsDeleteConfirm": {
     "placeholders": {
       "title": {
+        "type": "String"
+      }
+    }
+  },
+  "novelChapters": "目次",
+  "localNovelFileInfo": "ファイル情報",
+  "localNovelFileEncoding": "エンコーディング: {encoding}",
+  "@localNovelFileEncoding": {
+    "placeholders": {
+      "encoding": {
+        "type": "String"
+      }
+    }
+  },
+  "localNovelFileImportedAt": "インポート日時 {date}",
+  "@localNovelFileImportedAt": {
+    "placeholders": {
+      "date": {
         "type": "String"
       }
     }
