@@ -368,6 +368,53 @@ void main() {
     expect(geometryAt(1).collapsedOpacity, 1);
   });
 
+  testWidgets('collapsed chrome stays unmounted through the fade interval', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(
+          body: CustomScrollView(
+            controller: controller,
+            slivers: [
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: ReplicaProfileHeaderDelegate(
+                  user: _user(42),
+                  isMe: true,
+                  selectedTabIndex: 0,
+                  showRestrictSelector: false,
+                  restrict: UserRestrict.public,
+                  onRestrictChanged: (_) {},
+                  onShare: () {},
+                  expandedExtent: 320,
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    controller.jumpTo(210);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('profile-toolbar-title')), findsNothing);
+    controller.jumpTo(263.4);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('profile-toolbar-title')), findsNothing);
+    controller.jumpTo(264);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('profile-toolbar-title')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
   test('the pinned toolbar includes the status-bar inset', () {
     final geometry = geometryAt(0, topInset: 24);
     expect(geometry.minExtent, 80);
@@ -550,8 +597,9 @@ void main() {
   });
 
   testWidgets(
-    'current profile header keeps share inline and overflows into a menu',
+    'expanded and collapsed header actions use the same action list',
     (tester) async {
+      final controller = ScrollController();
       await tester.pumpWidget(
         MaterialApp(
           localizationsDelegates: appLocalizationsDelegates,
@@ -560,6 +608,7 @@ void main() {
 
           home: Scaffold(
             body: CustomScrollView(
+              controller: controller,
               slivers: [
                 SliverPersistentHeader(
                   pinned: true,
@@ -567,11 +616,13 @@ void main() {
                     user: _user(42),
                     isMe: true,
                     selectedTabIndex: 0,
-                    showRestrictSelector: false,
+                    showRestrictSelector: true,
                     restrict: UserRestrict.public,
                     onRestrictChanged: (_) {},
                     onShare: () {},
                     onEditProfile: () {},
+                    onOpenBookmarkTags: () {},
+                    onDownloadAll: () {},
                   ),
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 1000)),
@@ -581,13 +632,31 @@ void main() {
         ),
       );
       await tester.pump();
-      // Expanded header keeps share/edit inline; the collapsed toolbar carries
-      // the remaining actions in a single overflow menu.
-      expect(find.byIcon(Icons.share_outlined), findsWidgets);
+      expect(find.byTooltip('分享用户'), findsOneWidget);
+      expect(find.byTooltip('编辑个人资料'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('公开'), findsOneWidget);
+      expect(find.text('私密'), findsOneWidget);
+      expect(find.text('收藏标签'), findsOneWidget);
+      expect(find.text('下载全部作品'), findsOneWidget);
+      expect(find.text('分享用户'), findsNothing);
+      expect(find.text('编辑个人资料'), findsNothing);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
 
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      controller.jumpTo(264);
       await tester.pump();
       expect(find.byIcon(Icons.more_vert), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('分享用户'), findsOneWidget);
+      expect(find.text('编辑个人资料'), findsOneWidget);
+      expect(find.text('公开'), findsOneWidget);
+      expect(find.text('收藏标签'), findsOneWidget);
+      expect(find.text('下载全部作品'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
     },
   );
 

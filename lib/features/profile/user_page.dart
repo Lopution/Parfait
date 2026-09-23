@@ -11,6 +11,7 @@ import '../../app/widgets/replica_scaffold.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/download/author_works_enumerator.dart';
 import '../../core/network/api_error.dart';
+import '../../core/user/follow_actions.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import 'author_works_download_dialog.dart';
@@ -308,6 +309,9 @@ class _UserPageState extends ConsumerState<UserPage>
                   restrict: _restrict,
                   onRestrictChanged: _onRestrictChanged,
                   onShare: () => _showProfileShare(context, ref, user),
+                  onToggleFollow: widget.isMe
+                      ? null
+                      : () => ref.read(followActionsProvider).toggle(user.id),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                   // Bookmarks tab only: the tag collection entry sits in the
                   // collapsed toolbar next to the restrict selector.
