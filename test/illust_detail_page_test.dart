@@ -30,8 +30,12 @@ import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:pixiv_func/features/illust/detail/widgets/detail_image_pager.dart';
+import 'package:pixiv_func/features/illust/detail/ugoira_viewer.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
+import 'package:pixiv_func/features/search/tag_search_page.dart';
+import 'package:pixiv_func/app/widgets/tag_chips.dart';
+import 'package:pixiv_func/core/mute/mute_store.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'download_manager_test.dart';
@@ -49,6 +53,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   int scriptedResponses = 4,
   Map<int, Map<String, dynamic>>? detailOverrides,
   Map<int, List<Map<String, dynamic>>>? relatedOverrides,
+  Set<String> mutedTags = const {},
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
@@ -123,6 +128,20 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
           'illusts': relatedOverrides?[id] ?? [],
           'next_url': null,
         });
+      }
+      // The mute endpoints let tag-menu tests exercise the real
+      // MuteStore.toggleTag path (optimistic apply + server edit).
+      if (request.url.path == '/v1/mute/list') {
+        return okJson({
+          'muted_tags': [
+            for (final tag in mutedTags) {'tag': tag},
+          ],
+          'muted_users': <Map<String, dynamic>>[],
+          'mute_limit_count': 30,
+        });
+      }
+      if (request.url.path == '/v1/mute/edit') {
+        return okJson({});
       }
       return http.Response('unexpected', 404);
     }),
@@ -651,6 +670,66 @@ void main() {
       });
     });
 
+    testWidgets('the save icon tracks the live download state (manager events '
+        'subscription)', (tester) async {
+      final (container, _, _) = await makeWorld();
+      final entity = parseIllust(
+        illustJson(42, pageCount: 2, withMetaPages: true),
+      );
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+                entity: entity,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.download_outlined));
+        await tester.pump();
+
+        // The task completes over the scripted transport; the manager's
+        // event stream must rebuild the button into the exist-check —
+        // without the subscription the icon stays a download glyph.
+        final manager = container.read(downloadManagerProvider);
+        for (var i = 0; i < 30; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          if (manager.tasks.every(
+            (t) => t.status == DownloadStatus.succeeded,
+          )) {
+            break;
+          }
+        }
+        expect(manager.tasks.single.status, DownloadStatus.succeeded);
+        await tester.pump();
+        expect(find.byIcon(Icons.check_circle), findsOneWidget);
+        // The exist state also disables the button (detail-page badge
+        // semantics carried over).
+        expect(
+          tester
+              .widget<IconButton>(
+                find.ancestor(
+                  of: find.byIcon(Icons.check_circle),
+                  matching: find.byType(IconButton),
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+      });
+    });
+
     testWidgets(
       'explicit exits pop imperatively even while zoomed (Esc + back button)',
       (tester) async {
@@ -1055,6 +1134,46 @@ void main() {
       expect(find.text('Select pages to download'), findsNothing);
       expect(container.read(downloadManagerProvider).tasks, isEmpty);
     });
+
+    testWidgets(
+      'a ugoira work never enters selection mode and keeps the export '
+      'entry visible (W4 gate: Ugoira)',
+      (tester) async {
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {42: illustJson(42, type: 'ugoira')},
+        );
+        container.read(illustStoreProvider).mergeAll([
+          parseIllust(illustJson(42, type: 'ugoira')),
+        ]);
+        await pumpDetail(
+          tester,
+          container,
+          seedStore: false,
+          locale: const Locale('zh', 'CN'),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(find.byType(UgoiraViewer), findsOneWidget);
+        // The always-visible GIF export slot is the ugoira equivalent of
+        // the plain download entry (disabled until the asset loads).
+        expect(
+          find.descendant(
+            of: find.byType(UgoiraViewer),
+            matching: find.byType(IconButton),
+          ),
+          findsOneWidget,
+        );
+
+        // Ugoira has no pages to select — a long-press must not open the
+        // selection chrome.
+        await tester.longPress(find.byType(UgoiraViewer));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('Select pages to download'), findsNothing);
+        expect(find.text('选择要下载的页'), findsNothing);
+        expect(container.read(downloadManagerProvider).tasks, isEmpty);
+      },
+    );
 
     testWidgets('Download All enqueues every page once', (tester) async {
       final (container, transport, sinks) = await makeWorld(
@@ -1664,6 +1783,164 @@ void main() {
       expect(find.text('该作品已被删除或受限（ID: 42）'), findsOneWidget);
       expect(find.byTooltip('跳到作品信息区'), findsNothing);
     });
+
+    testWidgets(
+      'a long multi-page work keeps title/author pinned and the counter '
+      'tracks the scrolled page (W4 gate: 长多页)',
+      (tester) async {
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {
+            42: illustJson(42, pageCount: 6, withMetaPages: true),
+          },
+        );
+        container.read(illustStoreProvider).mergeAll([
+          parseIllust(illustJson(42, pageCount: 6, withMetaPages: true)),
+        ]);
+        await pumpDetail(
+          tester,
+          container,
+          seedStore: false,
+          locale: const Locale('zh', 'CN'),
+        );
+
+        expect(find.text('illust 42'), findsOneWidget);
+        expect(find.text('第 1 页，共 6 页'), findsOneWidget);
+
+        // Scroll two screenfuls down the page column — the pinned header
+        // stays put and the counter leaves page 1 behind.
+        for (var i = 0; i < 3; i++) {
+          await tester.drag(
+            find.byType(CustomScrollView),
+            const Offset(0, -500),
+          );
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        await tester.pumpAndSettle();
+
+        expect(find.text('illust 42'), findsOneWidget);
+        expect(find.text('author'), findsWidgets);
+        expect(find.text('第 1 页，共 6 页'), findsNothing);
+        expect(find.textContaining('共 6 页'), findsOneWidget);
+      },
+    );
+  });
+
+  group('tag action menu (R3)', () {
+    /// The tag row sits below the image slivers — scroll it into view
+    /// before the long-press (finders cannot reach unbuilt sliver
+    /// children). The predicate finder stays single-valued ('original' is
+    /// the fixture's first tag) without `.first`, which would throw while
+    /// the row is still unbuilt mid-scroll.
+    Finder originalTagChip() =>
+        find.byWidgetPredicate((w) => w is TagChip && w.label == 'original');
+
+    Future<void> longPressFirstTag(WidgetTester tester) async {
+      await tester.scrollUntilVisible(
+        originalTagChip(),
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.longPress(originalTagChip());
+      await tester.pumpAndSettle();
+    }
+
+    void mockClipboard(
+      List<String> captured,
+      TestWidgetsFlutterBinding binding,
+    ) {
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            captured.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+    }
+
+    testWidgets(
+      'long-press opens the menu with search/copy/mute/batch entries and '
+      'copy lands on the clipboard',
+      (tester) async {
+        final (container, _, _) = await makeWorld();
+        final captured = <String>[];
+        mockClipboard(captured, tester.binding);
+        await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+
+        await longPressFirstTag(tester);
+        expect(find.text('搜索该标签'), findsOneWidget);
+        expect(find.text('复制标签名'), findsOneWidget);
+        expect(find.text('屏蔽该标签'), findsOneWidget);
+        expect(find.text('批量屏蔽标签'), findsOneWidget);
+
+        await tester.tap(find.text('复制标签名'));
+        await tester.pumpAndSettle();
+        expect(captured, ['original']);
+        expect(find.text('已复制标签'), findsOneWidget);
+      },
+    );
+
+    testWidgets('mute writes MuteStore.tags and a muted tag offers 解除屏蔽', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+
+      // Mute: the menu item writes through the real MuteStore (the
+      // mock client answers /v1/mute/edit with 200).
+      await longPressFirstTag(tester);
+      await tester.tap(find.text('屏蔽该标签'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(container.read(muteStoreProvider).tags, contains('original'));
+
+      // The same long-press on a muted tag names the action 解除屏蔽.
+      await longPressFirstTag(tester);
+      expect(find.text('解除屏蔽该标签'), findsOneWidget);
+      await tester.tap(find.text('解除屏蔽该标签'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        container.read(muteStoreProvider).tags,
+        isNot(contains('original')),
+      );
+    });
+
+    testWidgets(
+      'the batch entry flips block mode and search opens the tag feed',
+      (tester) async {
+        final (container, _, _) = await makeWorld();
+        await pumpDetail(
+          tester,
+          container,
+          locale: const Locale('zh', 'CN'),
+          useRouter: true,
+        );
+
+        // 批量屏蔽标签 → chips enter block mode.
+        await longPressFirstTag(tester);
+        await tester.tap(find.text('批量屏蔽标签'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TagChip>(find.byType(TagChip).first).blockMode,
+          isTrue,
+        );
+
+        // 搜索该标签 → pushes the tag feed route over the detail page.
+        await longPressFirstTag(tester);
+        await tester.tap(find.text('搜索该标签'));
+        await tester.pumpAndSettle();
+        expect(find.byType(TagSearchPage), findsOneWidget);
+      },
+    );
   });
 
   group('two-pane layout (width >= 1200)', () {
