@@ -276,4 +276,20 @@ void main() {
       expect(find.byType(FittedBox), findsNWidgets(2));
     });
   });
+  group('user agreement', () {
+    testWidgets('body is selectable and width-capped on wide viewports', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await pumpPage(tester, const Size(1200, 800), const UserAgreementPage());
+      expect(tester.takeException(), isNull);
+
+      expect(find.byType(SelectableText), findsWidgets);
+      final list = tester.getRect(find.byType(ListView));
+      expect(list.width, lessThanOrEqualTo(700));
+    });
+  });
 }
