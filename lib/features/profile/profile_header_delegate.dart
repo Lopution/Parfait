@@ -740,7 +740,6 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileTabsDelegate({
     required this.controller,
     required this.isMe,
-    required this.expanded,
     required this.section,
     required this.onTabTap,
     required this.onSectionChanged,
@@ -748,16 +747,15 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
 
   final TabController controller;
   final bool isMe;
-  final bool expanded;
   final ProfileWorkSection section;
   final ValueChanged<int> onTabTap;
   final ValueChanged<ProfileWorkSection> onSectionChanged;
 
   @override
-  double get minExtent => kToolbarHeight;
+  double get minExtent => kToolbarHeight + (_isWorkTab ? 64 : 0);
 
   @override
-  double get maxExtent => kToolbarHeight + (expanded && _isWorkTab ? 64 : 0);
+  double get maxExtent => minExtent;
 
   bool get _isWorkTab => isMe ? controller.index == 4 : controller.index == 0;
 
@@ -855,7 +853,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
               },
             ),
           ),
-          if (expanded && isWorkTab)
+          if (isWorkTab)
             SizedBox(
               height: 64,
               child: SingleChildScrollView(
@@ -893,6 +891,5 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant ReplicaProfileTabsDelegate oldDelegate) =>
       oldDelegate.controller != controller ||
       oldDelegate.isMe != isMe ||
-      oldDelegate.expanded != expanded ||
       oldDelegate.section != section;
 }
