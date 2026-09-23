@@ -1457,6 +1457,10 @@ Future<void> openImageViewer(
   required ViewQuality quality,
   String? heroScope,
 }) async {
+  // Each viewer entry starts a fresh chrome session (default visible);
+  // in-session page swaps go through replaceImageViewerPage instead and
+  // keep the user's hidden-chrome choice.
+  beginImageViewerSession();
   // Warm the tapped page's viewer URL before the route mounts. precacheImage
   // shares the in-flight decode stream for the same provider key, so the
   // viewer's first frame lands on an already-resolving entry instead of a

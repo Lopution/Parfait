@@ -14,6 +14,8 @@ import '../../../app/navigation/routes.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/download/download_providers.dart';
+import '../../../core/download/download_task.dart' show DownloadEvent;
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/network/compat/network_providers.dart';
@@ -28,6 +30,14 @@ import '../../../l10n/context.dart';
 /// swaps — the user asked for an immersive view and it stays immersive
 /// until they ask otherwise. Per-page state (zoom/pan) resets normally.
 bool _viewerSessionChromeVisible = true;
+
+/// A fresh viewer session opens with the chrome visible (PRD R4's
+/// 「默认可见」; design §2.3 scopes the holder to the viewer entry).
+/// `openImageViewer` is the session entry — in-session page swaps go
+/// through `replaceImageViewerPage` and must not reset this.
+void beginImageViewerSession() {
+  _viewerSessionChromeVisible = true;
+}
 
 /// Test hook: resets the session-level viewer state so widget tests are
 /// independent of each other's chrome toggles.
@@ -97,6 +107,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// Focal point of the in-flight double tap, in viewport coordinates.
   Offset? _doubleTapFocal;
 
+  /// Download badges/spinners derive from live manager tasks; the manager
+  /// itself is not listenable, so this subscription is what makes the
+  /// save action reflect downloading/exist/error as they happen (same
+  /// contract as the detail page's `_ensureDownloadListener`).
+  StreamSubscription<DownloadEvent>? _downloadEvents;
+
   int get _pageCount => widget.urls.length;
 
   bool get _chromeVisible => _viewerSessionChromeVisible;
@@ -126,8 +142,22 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     if (!_viewerSessionChromeVisible) _setSystemChrome(visible: false);
   }
 
+  /// The download manager publishes task changes on a stream rather than
+  /// through listenable state — without this the save button's
+  /// `stateFor` badge (spinner/check/error) would only refresh when some
+  /// unrelated rebuild happens. Only installed once an entity exists —
+  /// the badge it feeds never renders without one (this also keeps the
+  /// viewer usable in ProviderScope-less harnesses, where no entity can
+  /// ever arrive).
+  void _ensureDownloadListener() {
+    _downloadEvents ??= ref.read(downloadManagerProvider).events.listen((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   @override
   void dispose() {
+    _downloadEvents?.cancel();
     for (final controller in _transformations.values) {
       controller.dispose();
     }
@@ -213,11 +243,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   void _toggleChrome() => _setChromeVisible(!_chromeVisible);
 
   /// fit → 2.5 (at the tap focal) → fit. The cycle is a Matrix4 tween so
-  /// the focal point stays pinned under the user's finger.
+  /// the focal point stays pinned under the user's finger. Per design
+  /// §2.3 the toggle threshold is 1.5: a double tap below it always zooms
+  /// in (even from a slight pinch), at/above it snaps back to fit.
   void _onDoubleTap() {
     final target = _transformationFor(_activePage);
-    final zoomed =
-        target.value.getMaxScaleOnAxis() > 1.0 + precisionErrorTolerance;
+    final zoomed = target.value.getMaxScaleOnAxis() >= 1.5;
     final focal =
         _doubleTapFocal ?? MediaQuery.sizeOf(context).center(Offset.zero);
     _animateZoom(target, zoomed ? Matrix4.identity() : _focalZoom(focal, 2.5));
@@ -335,6 +366,13 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         showDragHandle: true,
         builder: (sheetContext) {
           final l10n = context.l10n;
+          // Same date treatment as the detail page's InfoBlock: parse the
+          // ISO createDate into y/m/d instead of leaking the raw wire
+          // string into the sheet.
+          final createDate = DateTime.tryParse(entity.createDate ?? '');
+          final dateText = createDate == null
+              ? null
+              : '${createDate.year}/${createDate.month}/${createDate.day}';
           return SafeArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -344,7 +382,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   title: Text(entity.title),
                   subtitle: Text(
                     '${entity.user.name}'
-                    '${entity.createDate == null ? '' : ' · ${entity.createDate}'}'
+                    '${dateText == null ? '' : ' · $dateText'}'
                     ' · #${entity.id} · '
                     '${l10n.illustPagesTotal(entity.pageCount)}',
                   ),
@@ -401,6 +439,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   Widget build(BuildContext context) {
     String text(String key) => l10nLookup(context.l10n, key);
     final entity = widget.entity;
+    if (entity != null) _ensureDownloadListener();
     // The save action mirrors the detail-page badge semantics through the
     // same controller: in-flight disables the button, done/error keep
     // visible state.
@@ -605,30 +644,36 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     return Builder(
       builder: (context) {
         final heroTag = widget.heroTagForPage?.call(page);
-        final viewer = Listener(
-          onPointerSignal: _onPagePointerSignal,
-          child: InteractiveViewer(
-            key: ValueKey('viewer-page-$page'),
-            transformationController: _transformationFor(page),
-            minScale: ImageViewerPage.minScale,
-            maxScale: ImageViewerPage.maxScale,
-            panEnabled: _isZoomed(page),
-            // Tight constraints (U3): Center alone gives loose
-            // constraints, so RenderImage laid out at its intrinsic
-            // size (original pixels / DPR) and BoxFit.contain had
-            // nothing to fill. Expanding forces the image to fill
-            // the viewport, giving the zoom a real target.
-            child: SizedBox.expand(
-              // transitionKey hooks the viewer into the detail page's
-              // quality history — the last decoded tier paints as the
-              // placeholder while the requested tier resolves, so a
-              // large->original hand-off never shows a grey box.
-              child: PixivImage(
-                url: widget.urls[page],
-                fit: BoxFit.contain,
-                transitionKey: heroTag,
-                tierKey: widget.tierKeyForPage?.call(page),
-                tier: widget.tier,
+        // Screen readers get a per-page image node ("第 n 页，共 N 页") —
+        // without it the media surface announces nothing (PRD R4 a11y).
+        final viewer = Semantics(
+          image: true,
+          label: context.l10n.viewerPageLabel(page + 1, _pageCount),
+          child: Listener(
+            onPointerSignal: _onPagePointerSignal,
+            child: InteractiveViewer(
+              key: ValueKey('viewer-page-$page'),
+              transformationController: _transformationFor(page),
+              minScale: ImageViewerPage.minScale,
+              maxScale: ImageViewerPage.maxScale,
+              panEnabled: _isZoomed(page),
+              // Tight constraints (U3): Center alone gives loose
+              // constraints, so RenderImage laid out at its intrinsic
+              // size (original pixels / DPR) and BoxFit.contain had
+              // nothing to fill. Expanding forces the image to fill
+              // the viewport, giving the zoom a real target.
+              child: SizedBox.expand(
+                // transitionKey hooks the viewer into the detail page's
+                // quality history — the last decoded tier paints as the
+                // placeholder while the requested tier resolves, so a
+                // large->original hand-off never shows a grey box.
+                child: PixivImage(
+                  url: widget.urls[page],
+                  fit: BoxFit.contain,
+                  transitionKey: heroTag,
+                  tierKey: widget.tierKeyForPage?.call(page),
+                  tier: widget.tier,
+                ),
               ),
             ),
           ),
