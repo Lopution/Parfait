@@ -171,10 +171,7 @@ void main() {
         await tester.ensureVisible(target);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        expect(
-          tester.getRect(target).bottom,
-          lessThanOrEqualTo(568),
-        );
+        expect(tester.getRect(target).bottom, lessThanOrEqualTo(568));
       }
     });
 
