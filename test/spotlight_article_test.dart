@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
+import 'package:pixiv_func/core/share/share_service.dart';
 import 'package:pixiv_func/core/spotlight/article_parser.dart';
 import 'package:pixiv_func/core/spotlight/spotlight_article_controller.dart';
 import 'package:pixiv_func/core/spotlight/spotlight_models.dart';
@@ -57,6 +60,133 @@ const _featureHtml = '''
 </article>
 </body></html>
 ''';
+
+/// Records what the article page hands to the platform share boundary.
+class _RecordingShareService implements ShareService {
+  SharePayload? lastPayload;
+  Rect? lastOrigin;
+  ShareOutcome outcome = ShareOutcome.openedSheet;
+
+  @override
+  Future<ShareOutcome> share(
+    SharePayload payload, {
+    Rect? sharePositionOrigin,
+  }) async {
+    lastPayload = payload;
+    lastOrigin = sharePositionOrigin;
+    return outcome;
+  }
+}
+
+/// Captures outbound `launch` calls on the url_launcher method channel —
+/// the app calls `launchUrl`, which the platform interface forwards as a
+/// `launch` invocation carrying the resolved url.
+List<String> mockUrlLauncher(WidgetTester tester) {
+  const channel = MethodChannel('plugins.flutter.io/url_launcher');
+  final launched = <String>[];
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+    call,
+  ) async {
+    if (call.method == 'launch') {
+      launched.add((call.arguments as Map)['url'] as String);
+    }
+    return true;
+  });
+  addTearDown(
+    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      null,
+    ),
+  );
+  return launched;
+}
+
+/// `find.textRange`/`tapOnText` only index plain `RichText` — paragraph
+/// text inside `SelectableText.rich` lives in an `EditableText`. Resolve
+/// the link's selection boxes from the RenderEditable and tap its center.
+Future<void> tapSelectableLink(WidgetTester tester, String pattern) async {
+  final editables = find
+      .descendant(
+        of: find.byType(SelectableText),
+        matching: find.byType(EditableText),
+      )
+      .evaluate()
+      .map((element) => element.widget as EditableText)
+      .where((editable) => editable.controller.text.contains(pattern));
+  final editable = editables.single;
+  final start = editable.controller.text.indexOf(pattern);
+  final render = tester
+      .state<EditableTextState>(find.byWidget(editable))
+      .renderEditable;
+  final boxes = render.getBoxesForSelection(
+    TextSelection(baseOffset: start, extentOffset: start + pattern.length),
+  );
+  expect(boxes, isNotEmpty, reason: 'link "$pattern" must be laid out');
+  await tester.tapAt(render.localToGlobal(boxes.first.toRect().center));
+}
+
+Future<GoRouter> pumpArticle(
+  WidgetTester tester, {
+  Size size = const Size(390, 844),
+  String html = _articleHtml,
+  List<Override> extraOverrides = const [],
+}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
+  final router = GoRouter(
+    initialLocation: '/recommended',
+    routes: [
+      GoRoute(
+        path: '/recommended',
+        builder: (_, _) => const SpotlightArticlePage(articleId: 101),
+      ),
+      GoRoute(
+        path: '/recommended/illust/:illustId',
+        builder: (_, state) =>
+            Scaffold(body: Text('illust ${state.pathParameters['illustId']}')),
+      ),
+      GoRoute(
+        path: '/recommended/user/:userId',
+        builder: (_, state) =>
+            Scaffold(body: Text('user ${state.pathParameters['userId']}')),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+
+  final webClient = MockClient(
+    (request) async => http.Response.bytes(
+      utf8.encode(html),
+      200,
+      headers: {'content-type': 'text/html; charset=utf-8'},
+    ),
+  );
+  final (container, _) = await makeSpotlightWorld(webClient: webClient);
+  addTearDown(container.dispose);
+
+  await mockNetworkImagesFor(() async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        // A nested scope carries test-only overrides (e.g. the share
+        // boundary) without rebuilding the fixture container.
+        child: ProviderScope(
+          overrides: extraOverrides,
+          child: MaterialApp.router(
+            routerConfig: router,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  });
+  return router;
+}
 
 void main() {
   setUp(() {
@@ -245,9 +375,81 @@ void main() {
       expect(find.text('小节标题'), findsOneWidget);
       expect(find.text('作品标题'), findsOneWidget);
 
-      await tester.tapOnText(find.textRange.ofSubstring('作品链接'));
+      await tapSelectableLink(tester, '作品链接');
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended/illust/12345');
+    });
+  });
+
+  group('article layout and selection', () {
+    testWidgets('body blocks render as SelectableText', (tester) async {
+      await pumpArticle(tester);
+
+      // Title, description, heading and paragraphs are selectable per
+      // block; the illust card stays plain text (it is a navigation tile).
+      expect(find.byType(SelectableText), findsWidgets);
+      expect(find.widgetWithText(SelectableText, '特辑标题'), findsOneWidget);
+      expect(find.widgetWithText(SelectableText, '小节标题'), findsOneWidget);
+      expect(find.widgetWithText(SelectableText, '作品标题'), findsNothing);
+      expect(find.text('作品标题'), findsOneWidget);
+      expect(find.byType(SelectionArea), findsNothing);
+    });
+
+    for (final width in const [840.0, 1200.0]) {
+      testWidgets('body column is capped and centered at ${width}dp', (
+        tester,
+      ) async {
+        await pumpArticle(tester, size: Size(width, 800));
+
+        final list = tester.getRect(find.byType(ListView));
+        expect(list.width, lessThanOrEqualTo(700));
+        expect(list.left, greaterThan(0));
+        expect(list.center.dx, closeTo(width / 2, 0.5));
+      });
+    }
+
+    testWidgets('paragraph artwork links still route natively', (tester) async {
+      final router = await pumpArticle(tester);
+      await tapSelectableLink(tester, '作品链接');
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/recommended/illust/12345');
+    });
+  });
+
+  group('article actions', () {
+    testWidgets('share hands the canonical payload to the share service', (
+      tester,
+    ) async {
+      final share = _RecordingShareService()
+        ..outcome = ShareOutcome.copiedToClipboard;
+      await pumpArticle(
+        tester,
+        extraOverrides: [shareServiceProvider.overrideWithValue(share)],
+      );
+
+      await tester.tap(find.byTooltip('分享'));
+      await tester.pumpAndSettle();
+
+      final payload = share.lastPayload;
+      expect(payload, isNotNull);
+      expect(payload!.url, 'https://www.pixivision.net/a/101');
+      expect(payload.author, 'pixivision');
+      // No feed entry is seeded, so the title resolves to the page title.
+      expect(payload.title, '特辑');
+      // The clipboard fallback is surfaced, never silent.
+      expect(find.text('链接已复制'), findsOneWidget);
+    });
+
+    testWidgets('open-in-browser launches the canonical url externally', (
+      tester,
+    ) async {
+      final launched = mockUrlLauncher(tester);
+
+      await pumpArticle(tester);
+      await tester.tap(find.byTooltip('在浏览器打开'));
+      await tester.pumpAndSettle();
+
+      expect(launched, ['https://www.pixivision.net/a/101']);
     });
   });
 }

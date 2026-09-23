@@ -1971,6 +1971,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cardActionShare => '共有';
 
   @override
+  String get share => '共有';
+
+  @override
+  String get openInBrowser => 'ブラウザで開く';
+
+  @override
   String get linkCopied => 'リンクをコピーしました';
 
   @override
