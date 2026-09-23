@@ -105,6 +105,11 @@ void main() {
       find.descendant(of: groupCard, matching: find.text('批量下载 · 2 项')),
       findsOneWidget,
     );
+    // Children nest indented under the group card — exactly one group
+    // header plus two child cards, none duplicated at the top level.
+    expect(find.byType(Card), findsNWidgets(3));
+    final childRect = tester.getRect(find.byType(Card).at(1));
+    expect(childRect.left, greaterThan(tester.getRect(groupCard).left));
     expect(
       find.descendant(of: groupCard, matching: find.byIcon(Icons.pause)),
       findsOneWidget,

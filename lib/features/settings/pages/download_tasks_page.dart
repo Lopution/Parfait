@@ -45,6 +45,10 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   Widget build(BuildContext context) {
     final tasks = _manager.tasks;
     final groups = _manager.groups;
+    // Grouped children render under their group card (indented); only
+    // ungrouped tasks stay in the flat list — a child must not appear at
+    // both levels.
+    final groupedJobIds = {for (final group in groups) ...group.jobIds};
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.downloaderSettings)),
       body: tasks.isEmpty
@@ -60,7 +64,8 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                   for (final group in groups)
                     _DownloadGroupSection(group: group, manager: _manager),
                   for (final task in tasks)
-                    _DownloadTaskTile(task: task, manager: _manager),
+                    if (!groupedJobIds.contains(task.id))
+                      _DownloadTaskTile(task: task, manager: _manager),
                 ],
               ),
             ),
@@ -99,60 +104,81 @@ class _DownloadGroupSection extends StatelessWidget {
         group.status == DownloadGroupStatus.retryable ||
         group.status == DownloadGroupStatus.failed ||
         group.status == DownloadGroupStatus.canceled;
-    return Card(
-      child: ListTile(
-        title: Text(l10n.downloadGroupTitle(group.childCount)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_statusText(context)),
-            LinearProgressIndicator(value: group.progress),
-            Text(
-              l10n.downloadGroupProgress(
-                group.succeededCount,
-                group.childCount,
-              ),
+    final children = [for (final id in group.jobIds) ?manager.taskById(id)];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+          child: ListTile(
+            title: Text(l10n.downloadGroupTitle(group.childCount)),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_statusText(context)),
+                LinearProgressIndicator(value: group.progress),
+                Text(
+                  l10n.downloadGroupProgress(
+                    group.succeededCount,
+                    group.childCount,
+                  ),
+                ),
+              ],
             ),
-          ],
+            trailing: canAct
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: l10n.pauseDownload,
+                        icon: const Icon(Icons.pause),
+                        onPressed: () =>
+                            unawaited(manager.pauseGroup(group.id)),
+                      ),
+                      IconButton(
+                        tooltip: l10n.cancelDownload,
+                        icon: const Icon(Icons.close),
+                        onPressed: () =>
+                            unawaited(manager.cancelGroup(group.id)),
+                      ),
+                    ],
+                  )
+                : canResume
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: l10n.resumeDownload,
+                        icon: const Icon(Icons.play_arrow),
+                        onPressed: () => manager.resumeGroup(group.id),
+                      ),
+                      IconButton(
+                        tooltip: l10n.cancelDownload,
+                        icon: const Icon(Icons.close),
+                        onPressed: () =>
+                            unawaited(manager.cancelGroup(group.id)),
+                      ),
+                    ],
+                  )
+                : Icon(
+                    group.status == DownloadGroupStatus.succeeded
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
+                  ),
+          ),
         ),
-        trailing: canAct
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: l10n.pauseDownload,
-                    icon: const Icon(Icons.pause),
-                    onPressed: () => unawaited(manager.pauseGroup(group.id)),
-                  ),
-                  IconButton(
-                    tooltip: l10n.cancelDownload,
-                    icon: const Icon(Icons.close),
-                    onPressed: () => unawaited(manager.cancelGroup(group.id)),
-                  ),
-                ],
-              )
-            : canResume
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: l10n.resumeDownload,
-                    icon: const Icon(Icons.play_arrow),
-                    onPressed: () => manager.resumeGroup(group.id),
-                  ),
-                  IconButton(
-                    tooltip: l10n.cancelDownload,
-                    icon: const Icon(Icons.close),
-                    onPressed: () => unawaited(manager.cancelGroup(group.id)),
-                  ),
-                ],
-              )
-            : Icon(
-                group.status == DownloadGroupStatus.succeeded
-                    ? Icons.check_circle_outline
-                    : Icons.info_outline,
-              ),
-      ),
+        // Child rows indent under the group header — the parent/child
+        // hierarchy is spatial, not just textual.
+        if (children.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Column(
+              children: [
+                for (final child in children)
+                  _DownloadTaskTile(task: child, manager: manager),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
