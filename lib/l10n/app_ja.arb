@@ -213,6 +213,7 @@
   "accountManagement": "アカウント管理",
   "addAccount": "アカウントを追加",
   "switchAccount": "アカウントを切り替え",
+  "accountSwitching": "切り替え中…",
   "removeAccount": "アカウントを削除",
   "removeAccountConfirm": "このアカウントを削除しますか？",
   "noAccounts": "アカウントがありません",

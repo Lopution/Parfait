@@ -213,6 +213,7 @@
   "accountManagement": "Account management",
   "addAccount": "Add account",
   "switchAccount": "Switch account",
+  "accountSwitching": "Switching…",
   "removeAccount": "Remove account",
   "removeAccountConfirm": "Remove this account?",
   "noAccounts": "No accounts",

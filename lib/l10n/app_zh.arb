@@ -213,6 +213,7 @@
   "accountManagement": "账号管理",
   "addAccount": "添加账号",
   "switchAccount": "切换账号",
+  "accountSwitching": "正在切换…",
   "removeAccount": "移除账号",
   "removeAccountConfirm": "确定移除这个账号？",
   "noAccounts": "暂无账号",

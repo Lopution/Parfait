@@ -570,6 +570,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get switchAccount => 'Сменить аккаунт';
 
   @override
+  String get accountSwitching => 'Переключение…';
+
+  @override
   String get removeAccount => 'Удалить аккаунт';
 
   @override

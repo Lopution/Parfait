@@ -1128,6 +1128,12 @@ abstract class AppLocalizations {
   /// **'切换账号'**
   String get switchAccount;
 
+  /// No description provided for @accountSwitching.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在切换…'**
+  String get accountSwitching;
+
   /// No description provided for @removeAccount.
   ///
   /// In zh, this message translates to:

@@ -546,6 +546,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get switchAccount => '切换账号';
 
   @override
+  String get accountSwitching => '正在切换…';
+
+  @override
   String get removeAccount => '移除账号';
 
   @override

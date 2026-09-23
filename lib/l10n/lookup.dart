@@ -47,6 +47,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'accountProfile' => l10n.accountProfile,
   'accountReadFailed' => l10n.accountReadFailed,
   'accountSettings' => l10n.accountSettings,
+  'accountSwitching' => l10n.accountSwitching,
   'accountTransferClipboardReplaced' => l10n.accountTransferClipboardReplaced,
   'accountTransferClipboardUnavailable' =>
     l10n.accountTransferClipboardUnavailable,
