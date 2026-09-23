@@ -2189,4 +2189,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get viewerExitFullscreen => 'Выйти из полноэкранного';
+
+  @override
+  String get viewerFitScreen => 'По размеру экрана';
 }

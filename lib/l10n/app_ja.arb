@@ -1002,5 +1002,6 @@
     }
   },
   "viewerEnterFullscreen": "全画面表示",
-  "viewerExitFullscreen": "全画面を終了"
+  "viewerExitFullscreen": "全画面を終了",
+  "viewerFitScreen": "画面に合わせる"
 }

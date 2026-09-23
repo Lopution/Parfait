@@ -2125,4 +2125,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get viewerExitFullscreen => '退出全屏';
+
+  @override
+  String get viewerFitScreen => '适应屏幕';
 }
