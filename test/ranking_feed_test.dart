@@ -14,6 +14,7 @@ import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -289,5 +290,40 @@ void main() {
     });
     expect(fixture.requests, hasLength(2));
     expect(fixture.requests.last.queryParameters['mode'], 'day_r18');
+  });
+
+  testWidgets('rank badges land on the ranked entries', (tester) async {
+    final (container, fixture) = await _makeWorld();
+    addTearDown(container.dispose);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+
+            home: const RankingPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The first day-mode page carries works 1 and 2; each card pins its
+      // rank pill to the top-left badge cluster (O5).
+      final cards = find.byType(IllustCard);
+      expect(cards, findsNWidgets(2));
+      expect(
+        find.descendant(of: cards.at(0), matching: find.text('1')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: cards.at(1), matching: find.text('2')),
+        findsOneWidget,
+      );
+      expect(fixture.requests, isNotEmpty);
+    });
   });
 }

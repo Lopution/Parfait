@@ -4,7 +4,7 @@ import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
-import '../../app/widgets/novel_card.dart';
+import '../../app/widgets/novel_entry.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/new/new_feed_controller.dart';
 import '../../core/new/new_feed_models.dart';
@@ -441,7 +441,7 @@ class _NewFeedBody extends ConsumerWidget {
     return [
       SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, index) => NovelCard(entity: entities[index]),
+          (context, index) => NovelEntry.regular(entity: entities[index]),
           childCount: entities.length,
         ),
       ),

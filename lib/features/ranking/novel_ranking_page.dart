@@ -6,7 +6,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/novel_row.dart';
+import '../../app/widgets/novel_entry.dart';
 import '../../app/widgets/replica_empty_state.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
@@ -250,7 +250,10 @@ class _NovelRankingModeBody extends ConsumerWidget {
                         index: index,
                         id: entities[index].id,
                         played: entrancePlayed,
-                        child: NovelRow(entity: entities[index]),
+                        child: NovelEntry.ranking(
+                          entity: entities[index],
+                          rank: index + 1,
+                        ),
                       ),
                     ),
                   ),
