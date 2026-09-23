@@ -242,6 +242,7 @@ class _RankingModeBody extends ConsumerWidget {
                     itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],
                       heroScope: 'ranking:${mode.name}',
+                      rank: index + 1,
                     ),
                   ),
                   SliverToBoxAdapter(
