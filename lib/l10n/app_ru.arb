@@ -281,6 +281,26 @@
   "backupImportOverwriteNote": "Замена сначала очищает локальную историю и заменяет скрытые работы; серверный список скрытого только пополняется и импортом не удаляется.",
   "backupMerge": "Объединить",
   "backupOverwrite": "Заменить",
+  "backupMergeHint": "Сохранить текущие данные и добавить содержимое файла",
+  "backupOverwriteHint": "Заменить локальные данные содержимым файла",
+  "backupImportMergeConfirmTitle": "Будет добавлено: меток {tags}, пользователей {users}, работ {works}, записей истории {history}",
+  "@backupImportMergeConfirmTitle": {
+    "placeholders": {
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      }
+    }
+  },
+  "backupImportOverwriteConfirmTitle": "Локальная история будет очищена; заблокированные работы и настройки будут заменены данными из файла",
   "backupImportDone": "Импортировано: теги +{tags}, пользователи +{users}, изменений скрытых работ: {works}, история: {history}",
   "@backupImportDone": {
     "placeholders": {
@@ -642,6 +662,7 @@
   "relatedWorks": "Похожие работы",
   "cancel": "Отмена",
   "confirm": "Подтвердить",
+  "continueAction": "Продолжить",
   "rankingDay": "Ежедневно",
   "rankingDayR18": "Ежедневно (R-18)",
   "rankingDayMale": "Ежедневно (Мужчины)",

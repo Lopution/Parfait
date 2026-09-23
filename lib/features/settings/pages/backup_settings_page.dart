@@ -92,31 +92,65 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     }
   }
 
-  /// Merge/overwrite is an explicit user choice — never implied. The
-  /// overwrite note must state that the server mute list is add-only, so
-  /// "overwrite" cannot be read as "delete everything remotely first".
-  Future<BackupImportStrategy?> _pickStrategy(BackupEnvelope envelope) {
+  /// Merge/overwrite is an explicit two-step choice — never implied (R7):
+  /// step 1 picks the strategy among equal-weight options (继续 stays
+  /// disabled until a pick), step 2 confirms against the consequence
+  /// restated in the title. Both strategies share the same confirm weight —
+  /// the old single dialog nudged towards overwrite with the only filled
+  /// action.
+  Future<BackupImportStrategy?> _pickStrategy(BackupEnvelope envelope) async {
+    final l10n = context.l10n;
+    final strategy = await showAppDialog<BackupImportStrategy>(
+      context: context,
+      builder: (dialogContext) => _BackupStrategyChoiceDialog(
+        summary: l10n.backupImportPrompt(
+          envelope.muteTags.length,
+          envelope.muteUsers.length,
+          envelope.muteWorkIds.length,
+          envelope.history.length,
+          envelope.accountId ?? '—',
+        ),
+      ),
+    );
+    if (strategy == null || !mounted) return null;
+    return _confirmStrategy(envelope, strategy);
+  }
+
+  /// Step 2 restates the picked consequence in the title; overwrite keeps
+  /// the add-only server-mute note as the body so "覆盖" cannot be read as
+  /// "delete everything remotely first".
+  Future<BackupImportStrategy?> _confirmStrategy(
+    BackupEnvelope envelope,
+    BackupImportStrategy strategy,
+  ) {
     final l10n = context.l10n;
     return showAppDialog<BackupImportStrategy>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.backupImportStrategyTitle),
-        content: Text(
-          '${l10n.backupImportPrompt(envelope.muteTags.length, envelope.muteUsers.length, envelope.muteWorkIds.length, envelope.history.length, envelope.accountId ?? '—')}\n\n${l10n.backupImportOverwriteNote}',
-        ),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(switch (strategy) {
+          BackupImportStrategy.merge => l10n.backupImportMergeConfirmTitle(
+            envelope.muteTags.length,
+            envelope.muteUsers.length,
+            envelope.muteWorkIds.length,
+            envelope.history.length,
+          ),
+          BackupImportStrategy.overwrite =>
+            l10n.backupImportOverwriteConfirmTitle,
+        }),
+        content: switch (strategy) {
+          BackupImportStrategy.merge => null,
+          BackupImportStrategy.overwrite => Text(
+            l10n.backupImportOverwriteNote,
+          ),
+        },
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text(l10n.cancel),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, BackupImportStrategy.merge),
-            child: Text(l10n.backupMerge),
-          ),
           FilledButton(
-            onPressed: () =>
-                Navigator.pop(context, BackupImportStrategy.overwrite),
-            child: Text(l10n.backupOverwrite),
+            onPressed: () => Navigator.pop(dialogContext, strategy),
+            child: Text(l10n.confirm),
           ),
         ],
       ),
@@ -156,6 +190,82 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Step 1 of the import flow: file summary plus the two equal-weight
+/// strategy options. The same [showAppDialog] presentation serves mobile
+/// and desktop, so the action order is identical on both.
+/// ListTile+check follows the project selection pattern — RadioListTile is
+/// deprecated on this Flutter version.
+class _BackupStrategyChoiceDialog extends StatefulWidget {
+  const _BackupStrategyChoiceDialog({required this.summary});
+
+  final String summary;
+
+  @override
+  State<_BackupStrategyChoiceDialog> createState() =>
+      _BackupStrategyChoiceDialogState();
+}
+
+class _BackupStrategyChoiceDialogState
+    extends State<_BackupStrategyChoiceDialog> {
+  BackupImportStrategy? _selected;
+
+  Widget _option({
+    required BackupImportStrategy value,
+    required String title,
+    required String hint,
+  }) {
+    final selected = _selected == value;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      selected: selected,
+      title: Text(title),
+      subtitle: Text(hint),
+      trailing: selected
+          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+          : null,
+      onTap: () => setState(() => _selected = value),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AlertDialog(
+      title: Text(l10n.backupImportStrategyTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.summary),
+          const SizedBox(height: 8),
+          _option(
+            value: BackupImportStrategy.merge,
+            title: l10n.backupMerge,
+            hint: l10n.backupMergeHint,
+          ),
+          _option(
+            value: BackupImportStrategy.overwrite,
+            title: l10n.backupOverwrite,
+            hint: l10n.backupOverwriteHint,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: _selected == null
+              ? null
+              : () => Navigator.pop(context, _selected),
+          child: Text(l10n.continueAction),
+        ),
+      ],
     );
   }
 }
