@@ -248,34 +248,50 @@ class CommentComposerState extends State<CommentComposer> {
         final crossAxisCount = isEmoji
             ? (constraints.maxWidth / 48).floor().clamp(3, 10).toInt()
             : (constraints.maxWidth / 96).floor().clamp(2, 5).toInt();
-        return GridView.builder(
-          padding: const EdgeInsets.all(8),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: isEmoji
-              ? commentEmojiNames.length
-              : commentStampIds.length,
-          itemBuilder: (context, index) {
-            if (isEmoji) {
-              final name = commentEmojiNames[index];
-              return InkResponse(
-                onTap: () => _insertEmoji(name),
-                child: Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: Image.asset(commentEmojiAsset(name)),
+        // One labelled button per cell — the images stay decorative-only.
+        return Semantics(
+          container: true,
+          child: GridView.builder(
+            padding: const EdgeInsets.all(8),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: isEmoji
+                ? commentEmojiNames.length
+                : commentStampIds.length,
+            itemBuilder: (context, index) {
+              if (isEmoji) {
+                final name = commentEmojiNames[index];
+                return Semantics(
+                  button: true,
+                  label: name,
+                  child: InkResponse(
+                    onTap: () => _insertEmoji(name),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: ExcludeSemantics(
+                        child: Image.asset(commentEmojiAsset(name)),
+                      ),
+                    ),
+                  ),
+                );
+              }
+              final id = commentStampIds[index];
+              return Semantics(
+                button: true,
+                label: context.l10n.commentStampLabel(id),
+                child: InkResponse(
+                  onTap: () => _sendStamp(id),
+                  child: ExcludeSemantics(
+                    child: Image.asset(commentStampAsset(id)),
+                  ),
                 ),
               );
-            }
-            final id = commentStampIds[index];
-            return InkResponse(
-              onTap: () => _sendStamp(id),
-              child: Image.asset(commentStampAsset(id)),
-            );
-          },
+            },
+          ),
         );
       },
     );
