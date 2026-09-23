@@ -4,7 +4,7 @@ import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/person_avatar.dart';
-import '../../app/widgets/novel_card.dart';
+import '../../app/widgets/novel_entry.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
@@ -316,7 +316,7 @@ class _NovelSearchFeed extends ConsumerWidget {
                 retryLabel: context.l10n.searchRetry,
               );
             }
-            return NovelCard(entity: entities[index]);
+            return NovelEntry.regular(entity: entities[index]);
           },
         ),
       ),

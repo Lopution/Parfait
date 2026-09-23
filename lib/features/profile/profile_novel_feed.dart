@@ -4,7 +4,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/novel_card.dart';
+import '../../app/widgets/novel_entry.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_feed_controller.dart';
 import '../../core/novel/novel_store.dart';
@@ -93,7 +93,7 @@ class ProfileNovelFeed extends ConsumerWidget {
                           retryLabel: context.l10n.profileRetry,
                         );
                       }
-                      return NovelCard(entity: novels[index]);
+                      return NovelEntry.regular(entity: novels[index]);
                     },
                   ),
               ],
