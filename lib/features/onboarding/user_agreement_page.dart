@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/layout/content_widths.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../l10n/context.dart';
 
@@ -14,40 +15,48 @@ class UserAgreementPage extends StatelessWidget {
     final l10n = context.l10n;
     return ReplicaScaffold(
       title: Text(l10n.agreementTitle),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        children: [
-          Text(
-            l10n.agreementIntro,
-            style: Theme.of(context).textTheme.bodyLarge,
+      child: Align(
+        alignment: Alignment.topCenter,
+        // Article-role width cap — a readable line length on wide
+        // surfaces. This is a content-width role, not a breakpoint.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: ContentWidths.article),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            children: [
+              SelectableText(
+                l10n.agreementIntro,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 24),
+              _AgreementSection(
+                title: l10n.agreementAccountTitle,
+                body: l10n.agreementAccountBody,
+              ),
+              _AgreementSection(
+                title: l10n.agreementContentTitle,
+                body: l10n.agreementContentBody,
+              ),
+              _AgreementSection(
+                title: l10n.agreementNetworkTitle,
+                body: l10n.agreementNetworkBody,
+              ),
+              _AgreementSection(
+                title: l10n.agreementPrivacyTitle,
+                body: l10n.agreementPrivacyBody,
+              ),
+              _AgreementSection(
+                title: l10n.agreementDisclaimerTitle,
+                body: l10n.agreementDisclaimerBody,
+              ),
+              const SizedBox(height: 8),
+              SelectableText(
+                l10n.agreementUpdates,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-          _AgreementSection(
-            title: l10n.agreementAccountTitle,
-            body: l10n.agreementAccountBody,
-          ),
-          _AgreementSection(
-            title: l10n.agreementContentTitle,
-            body: l10n.agreementContentBody,
-          ),
-          _AgreementSection(
-            title: l10n.agreementNetworkTitle,
-            body: l10n.agreementNetworkBody,
-          ),
-          _AgreementSection(
-            title: l10n.agreementPrivacyTitle,
-            body: l10n.agreementPrivacyBody,
-          ),
-          _AgreementSection(
-            title: l10n.agreementDisclaimerTitle,
-            body: l10n.agreementDisclaimerBody,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.agreementUpdates,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -66,14 +75,14 @@ class _AgreementSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          SelectableText(
             title,
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          Text(body, style: Theme.of(context).textTheme.bodyMedium),
+          SelectableText(body, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );
