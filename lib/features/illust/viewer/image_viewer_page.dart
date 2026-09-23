@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/motion/drag_to_dismiss.dart';
+import '../../../app/motion/motion_tokens.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../core/entity/illust_entity.dart';
@@ -12,6 +14,20 @@ import '../../../core/network/compat/network_providers.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
 import '../../../l10n/context.dart';
+
+/// Whether the viewer chrome (top bar + bottom bar) is visible. This is
+/// session-level state (revision ①): it deliberately survives page turns,
+/// keyboard turns, page-sheet jumps and `replaceImageViewerPage` route
+/// swaps — the user asked for an immersive view and it stays immersive
+/// until they ask otherwise. Per-page state (zoom/pan) resets normally.
+bool _viewerSessionChromeVisible = true;
+
+/// Test hook: resets the session-level viewer state so widget tests are
+/// independent of each other's chrome toggles.
+@visibleForTesting
+void debugResetViewerSession() {
+  _viewerSessionChromeVisible = true;
+}
 
 /// Fullscreen horizontal viewer replicating beta56 ImageScalePage
 /// (R3): `n / total` title, horizontal paging, per-page zoom clamped to
@@ -65,6 +81,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
 
   int get _pageCount => widget.urls.length;
 
+  bool get _chromeVisible => _viewerSessionChromeVisible;
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +97,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _prefetchNeighbours(_activePage),
     );
+    if (!_viewerSessionChromeVisible) _setSystemChrome(visible: false);
   }
 
   @override
@@ -87,6 +106,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
       controller.dispose();
     }
     _pageController.dispose();
+    if (!_viewerSessionChromeVisible) _setSystemChrome(visible: true);
     super.dispose();
   }
 
@@ -148,6 +168,23 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
 
   bool _activeZoomedSnapshot = false;
 
+  void _setSystemChrome({required bool visible}) {
+    unawaited(
+      SystemChrome.setEnabledSystemUIMode(
+        visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+      ).catchError((_) {}),
+    );
+  }
+
+  void _setChromeVisible(bool visible) {
+    if (_viewerSessionChromeVisible == visible) return;
+    _viewerSessionChromeVisible = visible;
+    _setSystemChrome(visible: visible);
+    setState(() {});
+  }
+
+  void _toggleChrome() => _setChromeVisible(!_chromeVisible);
+
   TransformationController _transformationFor(int page) {
     return _transformations.putIfAbsent(page, TransformationController.new);
   }
@@ -165,77 +202,161 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
       enabled: !_activeZoomed,
       onDismissed: () => Navigator.of(context).pop<void>(),
       child: Scaffold(
+        // primary: false — the media fills the whole screen edge to edge;
+        // each chrome bar SafeAreas its own controls.
+        primary: false,
         backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: FuncTokens.lightBackground,
-          title: Text('${_activePage + 1} / $_pageCount'),
-        ),
-        body: _pageCount == 0
-            ? Center(
-                child: Text(
-                  text('viewerNoImages'),
-                  style: TextStyle(color: FuncTokens.lightBackground),
-                ),
-              )
-            : PageView.builder(
-                controller: _pageController,
-                physics: _activeZoomed
-                    ? const NeverScrollableScrollPhysics()
-                    : const PageScrollPhysics(),
-                itemCount: _pageCount,
-                itemBuilder: (context, page) {
-                  final heroTag = widget.heroTagForPage?.call(page);
-                  final viewer = InteractiveViewer(
-                    key: ValueKey('viewer-page-$page'),
-                    transformationController: _transformationFor(page),
-                    minScale: ImageViewerPage.minScale,
-                    maxScale: ImageViewerPage.maxScale,
-                    panEnabled: _isZoomed(page),
-                    // Tight constraints (U3): Center alone gives loose
-                    // constraints, so RenderImage laid out at its intrinsic
-                    // size (original pixels / DPR) and BoxFit.contain had
-                    // nothing to fill. Expanding forces the image to fill
-                    // the viewport, giving the zoom a real target.
-                    child: SizedBox.expand(
-                      // transitionKey hooks the viewer into the detail page's
-                      // quality history — the last decoded tier paints as the
-                      // placeholder while the requested tier resolves, so a
-                      // large->original hand-off never shows a grey box.
-                      child: PixivImage(
-                        url: widget.urls[page],
-                        fit: BoxFit.contain,
-                        transitionKey: heroTag,
-                        tierKey: widget.tierKeyForPage?.call(page),
-                        tier: widget.tier,
-                      ),
-                    ),
-                  );
-                  if (heroTag == null) return viewer;
-                  return Hero(
-                    tag: heroTag,
-                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                    child: IllustHeroFlightChild(
-                      // The return shuttle paints the exact provider the
-                      // viewer is showing (same URL + uncapped decode =>
-                      // same decoded cache entry => identical pixels).
-                      // Painting the fixed detail tier here downgraded an
-                      // already-loaded original to large at flight start —
-                      // the flash seen when popping back to the detail page.
-                      popChild: SizedBox.expand(
-                        child: PixivImage(
-                          url: widget.urls[page],
-                          fit: BoxFit.contain,
-                          transitionKey: heroTag,
-                          tierKey: widget.tierKeyForPage?.call(page),
-                          tier: widget.tier,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                // A lone tap toggles the chrome; the gesture arena gives
+                // the media area priority over InteractiveViewer's pan
+                // recognizers only after the double-tap window resolves.
+                onTap: _toggleChrome,
+                child: _pageCount == 0
+                    ? Center(
+                        child: Text(
+                          text('viewerNoImages'),
+                          style: TextStyle(color: FuncTokens.lightBackground),
                         ),
+                      )
+                    : PageView.builder(
+                        controller: _pageController,
+                        physics: _activeZoomed
+                            ? const NeverScrollableScrollPhysics()
+                            : const PageScrollPhysics(),
+                        itemCount: _pageCount,
+                        itemBuilder: _buildPage,
                       ),
-                      child: viewer,
-                    ),
-                  );
-                },
               ),
+            ),
+            _ChromeEdgeBar(
+              visible: _chromeVisible,
+              edge: _ChromeEdge.top,
+              child: _buildTopBar(context),
+            ),
+            _ChromeEdgeBar(
+              visible: _chromeVisible,
+              edge: _ChromeEdge.bottom,
+              child: _buildBottomBar(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPage(BuildContext context, int page) {
+    return Builder(
+      builder: (context) {
+        final heroTag = widget.heroTagForPage?.call(page);
+        final viewer = InteractiveViewer(
+          key: ValueKey('viewer-page-$page'),
+          transformationController: _transformationFor(page),
+          minScale: ImageViewerPage.minScale,
+          maxScale: ImageViewerPage.maxScale,
+          panEnabled: _isZoomed(page),
+          // Tight constraints (U3): Center alone gives loose
+          // constraints, so RenderImage laid out at its intrinsic
+          // size (original pixels / DPR) and BoxFit.contain had
+          // nothing to fill. Expanding forces the image to fill
+          // the viewport, giving the zoom a real target.
+          child: SizedBox.expand(
+            // transitionKey hooks the viewer into the detail page's
+            // quality history — the last decoded tier paints as the
+            // placeholder while the requested tier resolves, so a
+            // large->original hand-off never shows a grey box.
+            child: PixivImage(
+              url: widget.urls[page],
+              fit: BoxFit.contain,
+              transitionKey: heroTag,
+              tierKey: widget.tierKeyForPage?.call(page),
+              tier: widget.tier,
+            ),
+          ),
+        );
+        if (heroTag == null) return viewer;
+        return Hero(
+          tag: heroTag,
+          flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+          child: IllustHeroFlightChild(
+            // The return shuttle paints the exact provider the
+            // viewer is showing (same URL + uncapped decode =>
+            // same decoded cache entry => identical pixels).
+            // Painting the fixed detail tier here downgraded an
+            // already-loaded original to large at flight start —
+            // the flash seen when popping back to the detail page.
+            popChild: SizedBox.expand(
+              child: PixivImage(
+                url: widget.urls[page],
+                fit: BoxFit.contain,
+                transitionKey: heroTag,
+                tierKey: widget.tierKeyForPage?.call(page),
+                tier: widget.tier,
+              ),
+            ),
+            child: viewer,
+          ),
+        );
+      },
+    );
+  }
+
+  /// Top chrome: back affordance + the `n / total` counter. The counter is
+  /// plain text here — it becomes a jump-to-page entry with the bottom
+  /// toolbar (stage C13).
+  Widget _buildTopBar(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            // Imperative pop: explicit exits never route through the
+            // system-back intercept chain (W1 split).
+            BackButton(
+              color: FuncTokens.lightBackground,
+              onPressed: () => Navigator.of(context).pop<void>(),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Text(
+                '${_activePage + 1} / $_pageCount',
+                style: TextStyle(color: FuncTokens.lightBackground),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bottom chrome. The fullscreen toggle is one of the three chrome
+  /// channels (media tap / this button / keyboard F); the rest of the
+  /// toolbar lands with the action row (stage C13).
+  Widget _buildBottomBar(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            const Spacer(),
+            IconButton(
+              tooltip: _chromeVisible
+                  ? context.l10n.viewerEnterFullscreen
+                  : context.l10n.viewerExitFullscreen,
+              onPressed: _toggleChrome,
+              icon: Icon(
+                _chromeVisible ? Icons.fullscreen : Icons.fullscreen_exit,
+                color: FuncTokens.lightBackground,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -243,4 +364,86 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
   bool _isZoomed(int page) =>
       _transformationFor(page).value.getMaxScaleOnAxis() >
       1.0 + precisionErrorTolerance;
+}
+
+enum _ChromeEdge { top, bottom }
+
+/// One chrome bar (top or bottom). Hidden chrome stays mounted — dropping
+/// the subtree raced the semantics flush ('!child.attached' in
+/// SemanticsNode._replaceChildren when a page turn lands mid-hide), so the
+/// bar fades via Opacity and drops out of semantics/hit-testing instead.
+class _ChromeEdgeBar extends StatefulWidget {
+  const _ChromeEdgeBar({
+    required this.visible,
+    required this.edge,
+    required this.child,
+  });
+
+  final bool visible;
+  final _ChromeEdge edge;
+  final Widget child;
+
+  @override
+  State<_ChromeEdgeBar> createState() => _ChromeEdgeBarState();
+}
+
+class _ChromeEdgeBarState extends State<_ChromeEdgeBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: MotionTokens.fast,
+      value: widget.visible ? 1 : 0,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChromeEdgeBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.visible != widget.visible) {
+      if (widget.visible) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: widget.edge == _ChromeEdge.top ? 0 : null,
+      bottom: widget.edge == _ChromeEdge.bottom ? 0 : null,
+      left: 0,
+      right: 0,
+      child: ExcludeSemantics(
+        excluding: !widget.visible,
+        child: IgnorePointer(
+          ignoring: !widget.visible,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) => Opacity(
+              opacity: _controller.value,
+              // alwaysIncludeSemantics: ExcludeSemantics owns the hidden
+              // state; the Opacity stays semantics-complete so the tree
+              // never sees a node vanish mid-flush.
+              alwaysIncludeSemantics: true,
+              child: child,
+            ),
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
 }

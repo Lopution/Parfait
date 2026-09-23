@@ -2183,4 +2183,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String ugoiraExporting(int percent) {
     return 'Экспорт GIF… $percent%';
   }
+
+  @override
+  String get viewerEnterFullscreen => 'Полный экран';
+
+  @override
+  String get viewerExitFullscreen => 'Выйти из полноэкранного';
 }
