@@ -468,6 +468,15 @@ void main() {
       ['old name', 'old bio', 'https://example.com'],
     );
 
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    final saveButton = find.text('Save profile');
+    expect(saveButton, findsOneWidget);
+    final saveButtonRect = tester.getRect(saveButton);
+    final scaffoldRect = tester.getRect(find.byType(Scaffold));
+    expect(saveButtonRect.top, greaterThanOrEqualTo(scaffoldRect.top));
+    expect(saveButtonRect.bottom, lessThanOrEqualTo(scaffoldRect.bottom));
+
     await tester.enterText(find.byType(TextFormField).first, 'changed');
     // The leading control is a back affordance, not a "cancel" action.
     await tester.tap(find.byIcon(Icons.arrow_back));
