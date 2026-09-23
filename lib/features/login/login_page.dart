@@ -405,6 +405,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         const SizedBox(width: 8),
         IconButton(
           onPressed: () => setState(() => _help = !_help),
+          tooltip: text('networkCompatibility'),
           icon: Icon(
             Icons.info_outline,
             color: Theme.of(context).colorScheme.primary,
