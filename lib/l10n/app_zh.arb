@@ -65,8 +65,6 @@
   },
   "networkCompatibility": "Pixiv 官方网络兼容",
   "networkCompatibilityHint": "默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。",
-  "getMoreHelp": "获取更多帮助 >>",
-  "useLoginWithClipboardHint": "或使用\\n长按头像复制账号数据",
   "useLoginWithClipboard": "使用剪贴板数据登录",
   "accountTransferExportTitle": "导出账号凭据",
   "accountTransferWarning": "剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。",

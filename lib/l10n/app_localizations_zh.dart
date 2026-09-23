@@ -112,12 +112,6 @@ class AppLocalizationsZh extends AppLocalizations {
       '默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。';
 
   @override
-  String get getMoreHelp => '获取更多帮助 >>';
-
-  @override
-  String get useLoginWithClipboardHint => '或使用\\n长按头像复制账号数据';
-
-  @override
   String get useLoginWithClipboard => '使用剪贴板数据登录';
 
   @override
