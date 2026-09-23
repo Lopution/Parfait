@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
-import '../../app/icons/app_icons.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../core/profile/profile_models.dart';
@@ -11,6 +10,121 @@ import '../../core/user/user_repository.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+
+@immutable
+class ProfileStatisticData {
+  const ProfileStatisticData({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
+
+  final String id;
+  final IconData icon;
+  final String label;
+  final int value;
+  final VoidCallback? onTap;
+}
+
+/// Shared stat control for the compact header chips and the about-page rows.
+/// A single semantic node announces the label and value together.
+class ProfileStatistic extends StatelessWidget {
+  const ProfileStatistic({
+    super.key,
+    required this.statistic,
+    this.compact = false,
+    this.foregroundColor,
+  });
+
+  final ProfileStatisticData statistic;
+  final bool compact;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final chipBackground = foregroundColor == null
+        ? colors.surfaceContainerHighest
+        : Colors.black.withValues(alpha: 0.25);
+    return Semantics(
+      key: ValueKey(
+        'profile-stat-${statistic.id}-${compact ? 'header' : 'about'}',
+      ),
+      container: true,
+      button: statistic.onTap != null,
+      label: '${statistic.label}, ${statistic.value}',
+      onTap: statistic.onTap,
+      child: ExcludeSemantics(
+        child: compact
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Material(
+                  color: chipBackground,
+                  shape: StadiumBorder(
+                    side: BorderSide(
+                      color: foregroundColor == null
+                          ? colors.outlineVariant
+                          : Colors.white.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: InkWell(
+                    onTap: statistic.onTap,
+                    customBorder: const StadiumBorder(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            statistic.icon,
+                            size: 17,
+                            color: foregroundColor,
+                          ),
+                          const SizedBox(width: 6),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${statistic.value}',
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: foregroundColor,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1,
+                                    ),
+                              ),
+                              Text(
+                                statistic.label,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: foregroundColor),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : ListTile(
+                dense: true,
+                leading: Icon(statistic.icon, size: 18),
+                title: Text(statistic.label),
+                trailing: Text('${statistic.value}'),
+                onTap: statistic.onTap,
+              ),
+      ),
+    );
+  }
+}
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
 @immutable
@@ -122,6 +236,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.restrict,
     required this.onRestrictChanged,
     required this.onShare,
+    this.statistics = const [],
     this.isFollowed = false,
     this.onEditProfile,
     this.onToggleFollow,
@@ -139,6 +254,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final UserRestrict restrict;
   final ValueChanged<UserRestrict> onRestrictChanged;
   final VoidCallback onShare;
+  final List<ProfileStatisticData> statistics;
   final bool isFollowed;
   final VoidCallback? onEditProfile;
   final VoidCallback? onToggleFollow;
@@ -286,6 +402,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                     backgroundHeight: backgroundHeight,
                     detailsOpacity: geometry.expandedDetailsOpacity,
                     actions: actions,
+                    statistics: statistics,
                   ),
                 ),
               // The pinned toolbar is mounted only after the flexible header
@@ -339,6 +456,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
         oldDelegate.onDownloadAll != onDownloadAll ||
         oldDelegate.onShare != onShare ||
+        oldDelegate.statistics != statistics ||
         oldDelegate.onRestrictChanged != onRestrictChanged ||
         oldDelegate.expandedExtent != expandedExtent ||
         oldDelegate.topInset != topInset;
@@ -351,12 +469,14 @@ class _ExpandedProfile extends StatelessWidget {
     required this.backgroundHeight,
     required this.detailsOpacity,
     required this.actions,
+    required this.statistics,
   });
 
   final UserEntity user;
   final double backgroundHeight;
   final double detailsOpacity;
   final List<_ProfileHeaderAction> actions;
+  final List<ProfileStatisticData> statistics;
 
   @override
   Widget build(BuildContext context) {
@@ -386,7 +506,11 @@ class _ExpandedProfile extends StatelessWidget {
               ignoring: detailsOpacity < 0.99,
               child: Opacity(
                 opacity: detailsOpacity,
-                child: _ExpandedProfileDetails(user: user, actions: actions),
+                child: _ExpandedProfileDetails(
+                  user: user,
+                  actions: actions,
+                  statistics: statistics,
+                ),
               ),
             ),
           ],
@@ -459,10 +583,15 @@ class _ProfileBackground extends StatelessWidget {
 }
 
 class _ExpandedProfileDetails extends StatelessWidget {
-  const _ExpandedProfileDetails({required this.user, required this.actions});
+  const _ExpandedProfileDetails({
+    required this.user,
+    required this.actions,
+    required this.statistics,
+  });
 
   final UserEntity user;
   final List<_ProfileHeaderAction> actions;
+  final List<ProfileStatisticData> statistics;
 
   @override
   Widget build(BuildContext context) {
@@ -504,24 +633,18 @@ class _ExpandedProfileDetails extends StatelessWidget {
             ).textTheme.bodySmall?.copyWith(color: secondaryColor),
           ),
         const SizedBox(height: 7),
-        Row(
-          children: [
-            _Stat(
-              icon: AppIcons.follow,
-              label: '${user.totalFollowUsers}',
-              color: textColor,
-            ),
-            _Stat(
-              icon: AppIcons.friend,
-              label: '${user.totalMyPixivUsers}',
-              color: textColor,
-            ),
-            _Stat(
-              icon: Icons.palette_outlined,
-              label: '${user.totalIllusts}',
-              color: textColor,
-            ),
-          ],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final statistic in statistics)
+                ProfileStatistic(
+                  statistic: statistic,
+                  compact: true,
+                  foregroundColor: textColor,
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         // One actions row under the stats — the share icon used to sit alone
@@ -709,33 +832,7 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.label, this.color});
-
-  final IconData icon;
-  final String label;
-
-  /// White over the dimmed artwork band; null keeps the theme colour for
-  /// the no-background variant.
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: color)),
-        ],
-      ),
-    );
-  }
-}
-
-/// Pinned profile tab bar and the beta56 re-tap type selector.
+/// Pinned profile tab bar and the persistent work-section selector.
 class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileTabsDelegate({
     required this.controller,

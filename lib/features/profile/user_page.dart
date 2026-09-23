@@ -97,6 +97,8 @@ class MePage extends ConsumerWidget {
 String _profileText(BuildContext context, String key) =>
     l10nLookup(context.l10n, key);
 
+enum _ProfileStatTarget { following, myPixiv, illust, manga, novel, series }
+
 class _UserPageState extends ConsumerState<UserPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
@@ -237,6 +239,98 @@ class _UserPageState extends ConsumerState<UserPage>
     setState(() => _restrict = restrict);
   }
 
+  List<ProfileStatisticData> _profileStatistics(UserEntity user) => [
+    ProfileStatisticData(
+      id: 'following',
+      icon: AppIcons.follow,
+      label: context.l10n.profileFollowing,
+      value: user.totalFollowUsers,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.following),
+    ),
+    ProfileStatisticData(
+      id: 'myPixiv',
+      icon: AppIcons.friend,
+      label: context.l10n.profileMyPixiv,
+      value: user.totalMyPixivUsers,
+      onTap: widget.isMe
+          ? () => _navigateToStatistic(_ProfileStatTarget.myPixiv)
+          : null,
+    ),
+    ProfileStatisticData(
+      id: 'illust',
+      icon: Icons.palette_outlined,
+      label: context.l10n.profileIllust,
+      value: user.totalIllusts,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.illust),
+    ),
+    ProfileStatisticData(
+      id: 'manga',
+      icon: Icons.menu_book_outlined,
+      label: context.l10n.profileManga,
+      value: user.totalManga,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.manga),
+    ),
+    ProfileStatisticData(
+      id: 'novel',
+      icon: Icons.auto_stories_outlined,
+      label: context.l10n.profileNovel,
+      value: user.totalNovels,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.novel),
+    ),
+    ProfileStatisticData(
+      id: 'series',
+      icon: Icons.collections_bookmark_outlined,
+      label: context.l10n.profileSeries,
+      value: user.totalIllustSeries + user.totalNovelSeries,
+      onTap: () => _navigateToStatistic(_ProfileStatTarget.series),
+    ),
+  ];
+
+  void _navigateToStatistic(_ProfileStatTarget target) {
+    switch (target) {
+      case _ProfileStatTarget.following:
+        _navigateToTab('profileFollowing');
+        break;
+      case _ProfileStatTarget.myPixiv:
+        _navigateToTab('profileMyPixiv');
+        break;
+      case _ProfileStatTarget.illust:
+        _navigateToWorkSection(ProfileWorkSection.illust);
+        break;
+      case _ProfileStatTarget.manga:
+        _navigateToWorkSection(ProfileWorkSection.manga);
+        break;
+      case _ProfileStatTarget.novel:
+        _navigateToWorkSection(ProfileWorkSection.novel);
+        break;
+      case _ProfileStatTarget.series:
+        _navigateToWorkSection(ProfileWorkSection.series);
+        break;
+    }
+  }
+
+  void _navigateToTab(String key) {
+    final index = _tabKeys.indexOf(key);
+    if (index < 0) return;
+    if (index == _selectedIndex) {
+      unawaited(_scrollActiveTabToTop());
+    } else {
+      _tabController.animateTo(index);
+    }
+  }
+
+  void _navigateToWorkSection(ProfileWorkSection section) {
+    final workIndex = _tabKeys.indexOf('profileWork');
+    if (workIndex < 0) return;
+    final sameSection = _workSection == section;
+    if (!sameSection) setState(() => _workSection = section);
+    if (workIndex == _selectedIndex) {
+      if (sameSection) unawaited(_scrollActiveTabToTop());
+    } else {
+      _tabController.animateTo(workIndex);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(userDetailControllerProvider(widget.userId));
@@ -301,6 +395,7 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   Widget _buildProfile(UserEntity user, {ApiError? staleError}) {
+    final statistics = _profileStatistics(user);
     final followed = widget.isMe
         ? user.isFollowed ?? false
         : ref.watch(
@@ -363,6 +458,7 @@ class _UserPageState extends ConsumerState<UserPage>
                             userAccount: user.account,
                           ),
                         ),
+                  statistics: statistics,
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                   // Bookmarks tab only: the tag collection entry sits in the
                   // collapsed toolbar next to the restrict selector.
@@ -396,6 +492,7 @@ class _UserPageState extends ConsumerState<UserPage>
                     tabIndex: index,
                     feedKey: _feedKeyFor(index),
                     workSection: _workSection,
+                    statistics: statistics,
                   ),
               ],
             ),
@@ -415,6 +512,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.tabIndex,
     required this.feedKey,
     required this.workSection,
+    required this.statistics,
   });
 
   final UserEntity user;
@@ -426,6 +524,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   /// The work-tab selector value; only meaningful when [feedKey] is a
   /// `ProfileFeedKind.work` key (other tabs ignore it).
   final ProfileWorkSection workSection;
+  final List<ProfileStatisticData> statistics;
 
   @override
   ConsumerState<_ProfileTabBody> createState() => _ProfileTabBodyState();
@@ -454,7 +553,9 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   Widget build(BuildContext context) {
     super.build(context);
     final feedKey = widget.feedKey;
-    if (feedKey == null) return _ProfileAbout(user: widget.user);
+    if (feedKey == null) {
+      return _ProfileAbout(user: widget.user, statistics: widget.statistics);
+    }
     if (feedKey.kind == ProfileFeedKind.work &&
         widget.workSection == ProfileWorkSection.series) {
       // The series section is a display selector over its own endpoint; the
@@ -477,9 +578,10 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
 }
 
 class _ProfileAbout extends StatelessWidget {
-  const _ProfileAbout({required this.user});
+  const _ProfileAbout({required this.user, required this.statistics});
 
   final UserEntity user;
+  final List<ProfileStatisticData> statistics;
 
   @override
   Widget build(BuildContext context) {
@@ -520,54 +622,9 @@ class _ProfileAbout extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        _ProfileStatRow(
-          icon: AppIcons.follow,
-          label: context.l10n.profileFollowing,
-          value: user.totalFollowUsers,
-        ),
-        _ProfileStatRow(
-          icon: AppIcons.friend,
-          label: context.l10n.profileMyPixiv,
-          value: user.totalMyPixivUsers,
-        ),
-        _ProfileStatRow(
-          icon: Icons.palette_outlined,
-          label: context.l10n.profileIllust,
-          value: user.totalIllusts,
-        ),
-        _ProfileStatRow(
-          icon: Icons.menu_book_outlined,
-          label: context.l10n.profileManga,
-          value: user.totalManga,
-        ),
-        _ProfileStatRow(
-          icon: Icons.auto_stories_outlined,
-          label: context.l10n.profileNovel,
-          value: user.totalNovels,
-        ),
+        for (final statistic in statistics)
+          ProfileStatistic(statistic: statistic),
       ],
-    );
-  }
-}
-
-class _ProfileStatRow extends StatelessWidget {
-  const _ProfileStatRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: Icon(icon, size: 18),
-      title: Text(label),
-      trailing: Text('$value'),
     );
   }
 }
