@@ -1104,6 +1104,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pauseDownload => 'Pause';
 
   @override
+  String get downloadProcessing => 'Processing';
+
+  @override
+  String get downloadViewResult => 'View';
+
+  @override
+  String get downloadRemoveRecord => 'Remove';
+
+  @override
   String get resumeDownload => 'Resume';
 
   @override

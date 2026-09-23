@@ -471,6 +471,9 @@
   "cancelDownload": "取消",
   "downloadPaused": "已暂停",
   "pauseDownload": "暂停",
+  "downloadProcessing": "处理中",
+  "downloadViewResult": "查看",
+  "downloadRemoveRecord": "移除",
   "resumeDownload": "继续",
   "downloadGroupTitle": "批量下载 · {count} 项",
   "@downloadGroupTitle": {
