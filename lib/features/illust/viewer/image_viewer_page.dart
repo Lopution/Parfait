@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
@@ -410,86 +411,202 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
               .stateFor(entity.id, _activePage);
     // The fullscreen viewer deliberately keeps an opaque black canvas so
     // artwork and its white chrome match the replica surface.
-    return DragToDismiss(
-      enabled: !_activeZoomed,
-      onDismissed: () => Navigator.of(context).pop<void>(),
-      child: Scaffold(
-        // primary: false — the media fills the whole screen edge to edge;
-        // each chrome bar SafeAreas its own controls.
-        primary: false,
-        backgroundColor: Colors.black,
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                // Tap toggles chrome; double-tap runs the zoom cycle.
-                // One detector registers both so the framework arena does
-                // the ~kDoubleTapTimeout disambiguation (risks R1 — no
-                // custom timer).
-                onTap: _toggleChrome,
-                onDoubleTapDown: (details) =>
-                    _doubleTapFocal = details.localPosition,
-                onDoubleTap: _onDoubleTap,
-                child: _pageCount == 0
-                    ? Center(
-                        child: Text(
-                          text('viewerNoImages'),
-                          style: TextStyle(color: FuncTokens.lightBackground),
-                        ),
-                      )
-                    : PageView.builder(
-                        controller: _pageController,
-                        physics: _activeZoomed
-                            ? const NeverScrollableScrollPhysics()
-                            : const PageScrollPhysics(),
-                        itemCount: _pageCount,
-                        itemBuilder: _buildPage,
-                      ),
-              ),
+    return CallbackShortcuts(
+      bindings: _shortcuts(),
+      child: Focus(
+        autofocus: true,
+        child: DragToDismiss(
+          enabled: !_activeZoomed,
+          onDismissed: () => Navigator.of(context).pop<void>(),
+          child: Scaffold(
+            // primary: false — the media fills the whole screen edge to edge;
+            // each chrome bar SafeAreas its own controls.
+            primary: false,
+            backgroundColor: Colors.black,
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    // Tap toggles chrome; double-tap runs the zoom cycle.
+                    // One detector registers both so the framework arena does
+                    // the ~kDoubleTapTimeout disambiguation (risks R1 — no
+                    // custom timer).
+                    onTap: _toggleChrome,
+                    onDoubleTapDown: (details) =>
+                        _doubleTapFocal = details.localPosition,
+                    onDoubleTap: _onDoubleTap,
+                    child: _pageCount == 0
+                        ? Center(
+                            child: Text(
+                              text('viewerNoImages'),
+                              style: TextStyle(
+                                color: FuncTokens.lightBackground,
+                              ),
+                            ),
+                          )
+                        : PageView.builder(
+                            controller: _pageController,
+                            physics: _activeZoomed
+                                ? const NeverScrollableScrollPhysics()
+                                : const PageScrollPhysics(),
+                            itemCount: _pageCount,
+                            itemBuilder: _buildPage,
+                          ),
+                  ),
+                ),
+                _ChromeEdgeBar(
+                  visible: _chromeVisible,
+                  edge: _ChromeEdge.top,
+                  child: _buildTopBar(context),
+                ),
+                _ChromeEdgeBar(
+                  visible: _chromeVisible,
+                  edge: _ChromeEdge.bottom,
+                  child: _buildBottomBar(context, saveState),
+                ),
+              ],
             ),
-            _ChromeEdgeBar(
-              visible: _chromeVisible,
-              edge: _ChromeEdge.top,
-              child: _buildTopBar(context),
-            ),
-            _ChromeEdgeBar(
-              visible: _chromeVisible,
-              edge: _ChromeEdge.bottom,
-              child: _buildBottomBar(context, saveState),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
+  /// Keyboard parity (desktop + hardware keyboards on mobile): every
+  /// toolbar/gesture action has a key. Esc/Backspace pops imperatively —
+  /// same contract as the back button and drag-dismiss (W1 split).
+  Map<ShortcutActivator, VoidCallback> _shortcuts() => {
+    const SingleActivator(LogicalKeyboardKey.arrowLeft): _pageBackward,
+    const SingleActivator(LogicalKeyboardKey.keyK): _pageBackward,
+    const SingleActivator(LogicalKeyboardKey.arrowRight): _pageForward,
+    const SingleActivator(LogicalKeyboardKey.keyJ): _pageForward,
+    const SingleActivator(LogicalKeyboardKey.equal): _zoomIn,
+    const SingleActivator(LogicalKeyboardKey.add): _zoomIn,
+    const SingleActivator(LogicalKeyboardKey.numpadAdd): _zoomIn,
+    const SingleActivator(LogicalKeyboardKey.minus): _zoomOut,
+    const SingleActivator(LogicalKeyboardKey.numpadSubtract): _zoomOut,
+    const SingleActivator(LogicalKeyboardKey.digit0): _resetZoom,
+    const SingleActivator(LogicalKeyboardKey.numpad0): _resetZoom,
+    const SingleActivator(LogicalKeyboardKey.keyF): _toggleChrome,
+    const SingleActivator(LogicalKeyboardKey.escape): _imperativePop,
+    const SingleActivator(LogicalKeyboardKey.backspace): _imperativePop,
+    const SingleActivator(LogicalKeyboardKey.keyS): _saveActivePageIfAny,
+    const SingleActivator(LogicalKeyboardKey.keyI): _showInfoIfAny,
+  };
+
+  void _pageForward() {
+    if (_activePage + 1 >= _pageCount) return;
+    _pageController.nextPage(
+      duration: MotionTokens.fast,
+      curve: MotionTokens.fastCurve,
+    );
+  }
+
+  void _pageBackward() {
+    if (_activePage <= 0) return;
+    _pageController.previousPage(
+      duration: MotionTokens.fast,
+      curve: MotionTokens.fastCurve,
+    );
+  }
+
+  void _zoomIn() => _zoomBy(1.25);
+
+  void _zoomOut() => _zoomBy(1 / 1.25);
+
+  /// Multiplicative zoom centered on the viewport — keyboard zooms have no
+  /// pointer focal, so the screen center is the honest anchor.
+  void _zoomBy(double factor) =>
+      _zoomAt(MediaQuery.sizeOf(context).center(Offset.zero), factor);
+
+  void _zoomAt(Offset focal, double factor) {
+    final target = _transformationFor(_activePage);
+    _animateZoom(target, _focalZoom(focal, factor)..multiply(target.value));
+  }
+
+  /// Imperative pop — PopScope (C16) only intercepts the *system* back.
+  /// Explicit exits (back button, drag-dismiss, Esc/Backspace) always pop.
+  void _imperativePop() => Navigator.of(context).pop<void>();
+
+  void _saveActivePageIfAny() {
+    final entity = widget.entity;
+    if (entity == null || _pageCount == 0) return;
+    unawaited(_saveActivePage(entity));
+  }
+
+  void _showInfoIfAny() {
+    final entity = widget.entity;
+    if (entity == null || _pageCount == 0) return;
+    _showInfo(entity);
+  }
+
+  /// Pointer-signal zoom: the wheel scales the active page around the
+  /// pointer position (same semantics as the pinch), Shift+wheel turns the
+  /// page instead. This Listener sits deeper than the PageView's own
+  /// scrollable, and the pointer-signal resolver is first-registered
+  /// first-served — a wheel tick never reaches the pager.
+  void _onPagePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || _pageCount == 0) return;
+    // Route through the pointer-signal resolver: this listener sits deeper in
+    // the hit-test path than the pager's Scrollable, so registering here wins
+    // the event outright. Acting synchronously would still let the Scrollable
+    // register afterwards and fire its own shift+wheel axis-flip scroll, which
+    // would goIdle() the page animation we just started.
+    GestureBinding.instance.pointerSignalResolver.register(
+      event,
+      _handlePagePointerSignal,
+    );
+  }
+
+  void _handlePagePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !mounted || _pageCount == 0) return;
+    if (_isShiftPressed()) {
+      if (event.scrollDelta.dy > 0) {
+        _pageForward();
+      } else if (event.scrollDelta.dy < 0) {
+        _pageBackward();
+      }
+      return;
+    }
+    _zoomAt(event.localPosition, event.scrollDelta.dy < 0 ? 1.2 : 1 / 1.2);
+  }
+
+  bool _isShiftPressed() => HardwareKeyboard.instance.logicalKeysPressed.any(
+    (key) =>
+        key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight,
+  );
+
   Widget _buildPage(BuildContext context, int page) {
     return Builder(
       builder: (context) {
         final heroTag = widget.heroTagForPage?.call(page);
-        final viewer = InteractiveViewer(
-          key: ValueKey('viewer-page-$page'),
-          transformationController: _transformationFor(page),
-          minScale: ImageViewerPage.minScale,
-          maxScale: ImageViewerPage.maxScale,
-          panEnabled: _isZoomed(page),
-          // Tight constraints (U3): Center alone gives loose
-          // constraints, so RenderImage laid out at its intrinsic
-          // size (original pixels / DPR) and BoxFit.contain had
-          // nothing to fill. Expanding forces the image to fill
-          // the viewport, giving the zoom a real target.
-          child: SizedBox.expand(
-            // transitionKey hooks the viewer into the detail page's
-            // quality history — the last decoded tier paints as the
-            // placeholder while the requested tier resolves, so a
-            // large->original hand-off never shows a grey box.
-            child: PixivImage(
-              url: widget.urls[page],
-              fit: BoxFit.contain,
-              transitionKey: heroTag,
-              tierKey: widget.tierKeyForPage?.call(page),
-              tier: widget.tier,
+        final viewer = Listener(
+          onPointerSignal: _onPagePointerSignal,
+          child: InteractiveViewer(
+            key: ValueKey('viewer-page-$page'),
+            transformationController: _transformationFor(page),
+            minScale: ImageViewerPage.minScale,
+            maxScale: ImageViewerPage.maxScale,
+            panEnabled: _isZoomed(page),
+            // Tight constraints (U3): Center alone gives loose
+            // constraints, so RenderImage laid out at its intrinsic
+            // size (original pixels / DPR) and BoxFit.contain had
+            // nothing to fill. Expanding forces the image to fill
+            // the viewport, giving the zoom a real target.
+            child: SizedBox.expand(
+              // transitionKey hooks the viewer into the detail page's
+              // quality history — the last decoded tier paints as the
+              // placeholder while the requested tier resolves, so a
+              // large->original hand-off never shows a grey box.
+              child: PixivImage(
+                url: widget.urls[page],
+                fit: BoxFit.contain,
+                transitionKey: heroTag,
+                tierKey: widget.tierKeyForPage?.call(page),
+                tier: widget.tier,
+              ),
             ),
           ),
         );

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
@@ -644,6 +645,164 @@ void main() {
         expect(manager.tasks.single.pageIndex, 0);
       });
     });
+
+    testWidgets(
+      'explicit exits pop imperatively even while zoomed (Esc + back button)',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ImageViewerPage(
+                        urls: ['https://i.pximg.net/1/original.jpg'],
+                      ),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.tap(find.text('open'));
+          await tester.pumpAndSettle();
+          expect(find.byType(ImageViewerPage), findsOneWidget);
+
+          // Zoom in, then Esc — the route pops directly (imperative pop
+          // does not reset zoom first; that is the system-back contract).
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(find.byType(ImageViewerPage), findsNothing);
+          expect(find.text('open'), findsOneWidget);
+        });
+      },
+    );
+
+    testWidgets(
+      'keyboard: arrows page, +/- zooms, 0 resets, F toggles chrome',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+              ),
+            ),
+          );
+          await tester.pump();
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          // Arrows page forward/back.
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expect(find.text('2 / 2'), findsNWidgets(2));
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+          await tester.pumpAndSettle();
+          expect(find.text('1 / 2'), findsNWidgets(2));
+
+          // +/- zoom in place, 0 resets.
+          await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+          await tester.pumpAndSettle();
+          expect(scale(), greaterThan(1.0));
+          await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(1.0, 0.01));
+
+          // F toggles the chrome.
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: true);
+        });
+      },
+    );
+
+    testWidgets(
+      'mouse wheel zooms the active page; shift+wheel turns the page',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+              ),
+            ),
+          );
+          await tester.pump();
+          final center = tester.getCenter(find.byType(PageView));
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          // Wheel-up zooms in around the pointer; wheel-down zooms back.
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: center,
+              scrollDelta: const Offset(0, -120),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(scale(), greaterThan(1.0));
+          // The pager must not consume the wheel event — still page 1.
+          expect(find.text('1 / 2'), findsNWidgets(2));
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: center,
+              scrollDelta: const Offset(0, 120),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(1.0, 0.01));
+
+          // Shift+wheel pages instead of zooming.
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: center,
+              scrollDelta: const Offset(0, 120),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('2 / 2'), findsNWidgets(2));
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        });
+      },
+    );
   });
 
   group('IllustDetailPage download mode (R4)', () {
