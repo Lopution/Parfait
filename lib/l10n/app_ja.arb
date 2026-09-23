@@ -65,8 +65,6 @@
   },
   "networkCompatibility": "Pixiv公式ネットワーク互換",
   "networkCompatibilityHint": "まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。",
-  "getMoreHelp": "詳細なヘルプ >>",
-  "useLoginWithClipboardHint": "もしくは\\nプロフィール画像を長押ししてアカウントデータをコピー",
   "useLoginWithClipboard": "クリップボードに保存されたデータでログイン",
   "accountTransferExportTitle": "アカウント認証情報をエクスポート",
   "accountTransferWarning": "クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。",

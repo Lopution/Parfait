@@ -282,18 +282,6 @@ abstract class AppLocalizations {
   /// **'默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。'**
   String get networkCompatibilityHint;
 
-  /// No description provided for @getMoreHelp.
-  ///
-  /// In zh, this message translates to:
-  /// **'获取更多帮助 >>'**
-  String get getMoreHelp;
-
-  /// No description provided for @useLoginWithClipboardHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'或使用\\n长按头像复制账号数据'**
-  String get useLoginWithClipboardHint;
-
   /// No description provided for @useLoginWithClipboard.
   ///
   /// In zh, this message translates to:

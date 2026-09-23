@@ -112,12 +112,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。';
 
   @override
-  String get getMoreHelp => '詳細なヘルプ >>';
-
-  @override
-  String get useLoginWithClipboardHint => 'もしくは\\nプロフィール画像を長押ししてアカウントデータをコピー';
-
-  @override
   String get useLoginWithClipboard => 'クリップボードに保存されたデータでログイン';
 
   @override
