@@ -411,61 +411,73 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
               .stateFor(entity.id, _activePage);
     // The fullscreen viewer deliberately keeps an opaque black canvas so
     // artwork and its white chrome match the replica surface.
-    return CallbackShortcuts(
-      bindings: _shortcuts(),
-      child: Focus(
-        autofocus: true,
-        child: DragToDismiss(
-          enabled: !_activeZoomed,
-          onDismissed: () => Navigator.of(context).pop<void>(),
-          child: Scaffold(
-            // primary: false — the media fills the whole screen edge to edge;
-            // each chrome bar SafeAreas its own controls.
-            primary: false,
-            backgroundColor: Colors.black,
-            body: Stack(
-              children: [
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    // Tap toggles chrome; double-tap runs the zoom cycle.
-                    // One detector registers both so the framework arena does
-                    // the ~kDoubleTapTimeout disambiguation (risks R1 — no
-                    // custom timer).
-                    onTap: _toggleChrome,
-                    onDoubleTapDown: (details) =>
-                        _doubleTapFocal = details.localPosition,
-                    onDoubleTap: _onDoubleTap,
-                    child: _pageCount == 0
-                        ? Center(
-                            child: Text(
-                              text('viewerNoImages'),
-                              style: TextStyle(
-                                color: FuncTokens.lightBackground,
+    return PopScope<void>(
+      // canPop carries only the zoom leg (revision ②): hidden chrome is a
+      // view state, not a gate — with chrome hidden the system back leaves
+      // the route directly. Sheets/menus pushed on top still intercept back
+      // themselves, and explicit exits pop imperatively below.
+      canPop: !_activeZoomed,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || !mounted) return;
+        // System back while zoomed: reset to fit and stay on the route.
+        _resetZoom();
+      },
+      child: CallbackShortcuts(
+        bindings: _shortcuts(),
+        child: Focus(
+          autofocus: true,
+          child: DragToDismiss(
+            enabled: !_activeZoomed,
+            onDismissed: () => Navigator.of(context).pop<void>(),
+            child: Scaffold(
+              // primary: false — the media fills the whole screen edge to edge;
+              // each chrome bar SafeAreas its own controls.
+              primary: false,
+              backgroundColor: Colors.black,
+              body: Stack(
+                children: [
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      // Tap toggles chrome; double-tap runs the zoom cycle.
+                      // One detector registers both so the framework arena does
+                      // the ~kDoubleTapTimeout disambiguation (risks R1 — no
+                      // custom timer).
+                      onTap: _toggleChrome,
+                      onDoubleTapDown: (details) =>
+                          _doubleTapFocal = details.localPosition,
+                      onDoubleTap: _onDoubleTap,
+                      child: _pageCount == 0
+                          ? Center(
+                              child: Text(
+                                text('viewerNoImages'),
+                                style: TextStyle(
+                                  color: FuncTokens.lightBackground,
+                                ),
                               ),
+                            )
+                          : PageView.builder(
+                              controller: _pageController,
+                              physics: _activeZoomed
+                                  ? const NeverScrollableScrollPhysics()
+                                  : const PageScrollPhysics(),
+                              itemCount: _pageCount,
+                              itemBuilder: _buildPage,
                             ),
-                          )
-                        : PageView.builder(
-                            controller: _pageController,
-                            physics: _activeZoomed
-                                ? const NeverScrollableScrollPhysics()
-                                : const PageScrollPhysics(),
-                            itemCount: _pageCount,
-                            itemBuilder: _buildPage,
-                          ),
+                    ),
                   ),
-                ),
-                _ChromeEdgeBar(
-                  visible: _chromeVisible,
-                  edge: _ChromeEdge.top,
-                  child: _buildTopBar(context),
-                ),
-                _ChromeEdgeBar(
-                  visible: _chromeVisible,
-                  edge: _ChromeEdge.bottom,
-                  child: _buildBottomBar(context, saveState),
-                ),
-              ],
+                  _ChromeEdgeBar(
+                    visible: _chromeVisible,
+                    edge: _ChromeEdge.top,
+                    child: _buildTopBar(context),
+                  ),
+                  _ChromeEdgeBar(
+                    visible: _chromeVisible,
+                    edge: _ChromeEdge.bottom,
+                    child: _buildBottomBar(context, saveState),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -525,9 +537,20 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     _animateZoom(target, _focalZoom(focal, factor)..multiply(target.value));
   }
 
-  /// Imperative pop — PopScope (C16) only intercepts the *system* back.
-  /// Explicit exits (back button, drag-dismiss, Esc/Backspace) always pop.
-  void _imperativePop() => Navigator.of(context).pop<void>();
+  /// Imperative pop — explicit exits (back button, Esc/Backspace) always
+  /// leave. PopScope's `canPop` is only re-registered on rebuild, so when a
+  /// zoom is still active we snap the transform back to fit and pop on the
+  /// next frame — one frame's delay beats re-arming the gate machinery.
+  void _imperativePop() {
+    if (!_activeZoomed) {
+      Navigator.of(context).pop<void>();
+      return;
+    }
+    _transformationFor(_activePage).value = Matrix4.identity();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop<void>();
+    });
+  }
 
   void _saveActivePageIfAny() {
     final entity = widget.entity;
@@ -651,7 +674,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             // system-back intercept chain (W1 split).
             BackButton(
               color: FuncTokens.lightBackground,
-              onPressed: () => Navigator.of(context).pop<void>(),
+              onPressed: _imperativePop,
             ),
             const Spacer(),
             if (_pageCount > 0)
