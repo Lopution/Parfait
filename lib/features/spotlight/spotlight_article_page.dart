@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/layout/content_widths.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -56,28 +57,38 @@ class SpotlightArticlePage extends ConsumerWidget {
             spotlightArticleBodyProvider((id: articleId, url: _url)),
           ),
         ),
-        data: (body) => ListView(
-          key: PageStorageKey('spotlight-article-$articleId'),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          children: [
-            if (body.title.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  body.title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-              ),
-            if (body.description != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  body.description!,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            for (final block in body.blocks) _SpotlightBlockView(block: block),
-          ],
+        // Article-width cap (a ContentWidths role, not a breakpoint): the
+        // column stays top-centered and readable on wide surfaces while
+        // narrow phones keep full width.
+        data: (body) => Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: ContentWidths.article),
+            child: ListView(
+              key: PageStorageKey('spotlight-article-$articleId'),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                if (body.title.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SelectableText(
+                      body.title,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                if (body.description != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: SelectableText(
+                      body.description!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                for (final block in body.blocks)
+                  _SpotlightBlockView(block: block),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -110,9 +121,12 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return switch (widget.block) {
+      // Paragraph-level selection (no SelectionArea — its AOT cost was
+      // rejected): heading and paragraph text is selectable per block, and
+      // span recognizers stay live inside SelectableText.
       SpotlightHeading(:final text, :final level) => Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 6),
-        child: Text(
+        child: SelectableText(
           text,
           style: switch (level) {
             2 => theme.textTheme.titleLarge,
@@ -123,7 +137,7 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
       ),
       SpotlightParagraph(:final segments) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Text.rich(
+        child: SelectableText.rich(
           TextSpan(
             style: theme.textTheme.bodyMedium,
             children: _linkSpans(context, segments, theme),
