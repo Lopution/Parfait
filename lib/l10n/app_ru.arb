@@ -1155,5 +1155,18 @@
   "illustInfoJump": "К информации о работе",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
+  },
+  "manage": "Управление",
+  "@manage": {
+    "description": "Enter the management/selection mode"
+  },
+  "selectedCount": "Выбрано: {n}",
+  "@selectedCount": {
+    "description": "AppBar title in selection mode",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

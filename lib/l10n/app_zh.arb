@@ -1155,5 +1155,18 @@
   "illustInfoJump": "跳到作品信息区",
   "@illustInfoJump": {
     "description": "Jump to the artwork info section"
+  },
+  "manage": "管理",
+  "@manage": {
+    "description": "Enter the management/selection mode"
+  },
+  "selectedCount": "已选 {n} 项",
+  "@selectedCount": {
+    "description": "AppBar title in selection mode",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

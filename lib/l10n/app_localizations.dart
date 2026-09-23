@@ -4492,6 +4492,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'跳到作品信息区'**
   String get illustInfoJump;
+
+  /// Enter the management/selection mode
+  ///
+  /// In zh, this message translates to:
+  /// **'管理'**
+  String get manage;
+
+  /// AppBar title in selection mode
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {n} 项'**
+  String selectedCount(int n);
 }
 
 class _AppLocalizationsDelegate

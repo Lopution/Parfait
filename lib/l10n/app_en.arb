@@ -1155,5 +1155,18 @@
   "illustInfoJump": "Jump to artwork info",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
+  },
+  "manage": "Manage",
+  "@manage": {
+    "description": "Enter the management/selection mode"
+  },
+  "selectedCount": "{n} selected",
+  "@selectedCount": {
+    "description": "AppBar title in selection mode",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
   }
 }

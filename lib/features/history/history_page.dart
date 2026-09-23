@@ -10,6 +10,7 @@ import '../../app/pixiv_image.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
+import '../../app/haptics/app_haptics.dart';
 import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
@@ -32,29 +33,142 @@ class HistoryPage extends ConsumerStatefulWidget {
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   int _clearGeneration = 0;
 
+  /// Selection mode is page-local state (design.md §二): nothing outside
+  /// this page consumes it, so it never leaves the widget tree.
+  bool _managing = false;
+  final Set<int> _selected = <int>{};
+
+  void _enterManaging([int? recordKey]) {
+    // Entering management mode is the explicit-vibration role (W4).
+    AppHaptics.confirm();
+    setState(() {
+      _managing = true;
+      if (recordKey != null) _selected.add(recordKey);
+    });
+  }
+
+  void _toggleSelected(int recordKey) {
+    AppHaptics.select();
+    setState(() {
+      if (!_selected.remove(recordKey)) _selected.add(recordKey);
+    });
+  }
+
+  void _exitManaging() {
+    setState(() {
+      _managing = false;
+      _selected.clear();
+    });
+  }
+
+  void _selectAll(String accountId) {
+    AppHaptics.select();
+    final ids = ref.read(historyFeedControllerProvider(accountId)).value?.ids;
+    if (ids == null || ids.isEmpty) return;
+    setState(() => _selected.addAll(ids));
+  }
+
   @override
   Widget build(BuildContext context) {
     final accountId = ref.watch(historyAccountIdProvider);
     final repository = ref.watch(historyRepositoryProvider);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(context.l10n.historySettings),
-        actions: [
-          if (accountId != null)
-            IconButton(
-              tooltip: context.l10n.historyDeleteAll,
-              onPressed: () => _deleteAll(context, repository, accountId),
-              icon: const Icon(Icons.delete_forever_outlined),
-            ),
-        ],
+    final colorScheme = Theme.of(context).colorScheme;
+    return PopScope(
+      // System back exits selection mode instead of popping the page.
+      canPop: !_managing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitManaging();
+      },
+      child: Scaffold(
+        appBar: _managing
+            ? AppBar(
+                backgroundColor: colorScheme.primaryContainer,
+                leading: IconButton(
+                  tooltip: context.l10n.cancel,
+                  icon: const Icon(Icons.close),
+                  onPressed: _exitManaging,
+                ),
+                title: Text(context.l10n.selectedCount(_selected.length)),
+                actions: [
+                  IconButton(
+                    tooltip: context.l10n.selectAll,
+                    onPressed: accountId == null
+                        ? null
+                        : () => _selectAll(accountId),
+                    icon: const Icon(Icons.select_all),
+                  ),
+                  IconButton(
+                    tooltip: context.l10n.historyDelete,
+                    onPressed: _selected.isEmpty || accountId == null
+                        ? null
+                        : () => _deleteSelected(repository, accountId),
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              )
+            : AppBar(
+                title: Text(context.l10n.historySettings),
+                actions: [
+                  if (accountId != null) ...[
+                    IconButton(
+                      tooltip: context.l10n.manage,
+                      onPressed: _enterManaging,
+                      icon: const Icon(Icons.checklist_outlined),
+                    ),
+                    IconButton(
+                      tooltip: context.l10n.historyDeleteAll,
+                      onPressed: () =>
+                          _deleteAll(context, repository, accountId),
+                      icon: const Icon(Icons.delete_forever_outlined),
+                    ),
+                  ],
+                ],
+              ),
+        body: accountId == null
+            ? Center(child: Text(context.l10n.signedOut))
+            : _HistoryBody(
+                key: ValueKey('$accountId-$_clearGeneration'),
+                accountId: accountId,
+                managing: _managing,
+                selectedKeys: _selected,
+                onToggle: _toggleSelected,
+                onEnterManaging: _enterManaging,
+              ),
       ),
-      body: accountId == null
-          ? Center(child: Text(context.l10n.signedOut))
-          : _HistoryBody(
-              key: ValueKey('$accountId-$_clearGeneration'),
-              accountId: accountId,
-            ),
     );
+  }
+
+  Future<void> _deleteSelected(
+    HistoryRepository repository,
+    String accountId,
+  ) async {
+    // Opening the destructive confirm surface is the explicit-vibration
+    // role; the row-level toggles stay on the light tick.
+    AppHaptics.confirm();
+    final confirmed = await _confirmDelete(
+      context,
+      title: context.l10n.historyDelete,
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final controller = ref.read(
+        historyFeedControllerProvider(accountId).notifier,
+      );
+      for (final key in List<int>.of(_selected)) {
+        final record = controller.recordFor(key);
+        if (record != null) await controller.removeRecord(record);
+      }
+      if (mounted) {
+        setState(() {
+          _managing = false;
+          _selected.clear();
+        });
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        showAppSnackBar(context, '$error');
+      }
+    }
   }
 
   Future<void> _deleteAll(
@@ -82,9 +196,22 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 }
 
 class _HistoryBody extends ConsumerStatefulWidget {
-  const _HistoryBody({super.key, required this.accountId});
+  const _HistoryBody({
+    super.key,
+    required this.accountId,
+    required this.managing,
+    required this.selectedKeys,
+    required this.onToggle,
+    required this.onEnterManaging,
+  });
 
+  /// Selection state is owned by the page — the AppBar renders the count
+  /// and reads the feed's ids for select-all; the body only reports taps.
   final String accountId;
+  final bool managing;
+  final Set<int> selectedKeys;
+  final ValueChanged<int> onToggle;
+  final ValueChanged<int> onEnterManaging;
 
   @override
   ConsumerState<_HistoryBody> createState() => _HistoryBodyState();
@@ -119,22 +246,6 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
     }
   }
 
-  Future<void> _delete(HistoryRecord record) async {
-    final confirmed = await _confirmDelete(
-      context,
-      title: context.l10n.historyDelete,
-    );
-    if (confirmed != true) return;
-    try {
-      await ref
-          .read(historyFeedControllerProvider(widget.accountId).notifier)
-          .removeRecord(record);
-    } on Object catch (error) {
-      if (!mounted) return;
-      showAppSnackBar(context, '$error');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(historyFeedControllerProvider(widget.accountId));
@@ -159,10 +270,12 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
             icon: Icons.history,
           );
         }
-        final records = [
+        final entries = [
           for (final key in state.ids)
-            if (_controllerRecord(key) != null) _controllerRecord(key)!,
+            if (_controllerRecord(key) != null)
+              (key: key, record: _controllerRecord(key)!),
         ];
+
         return PullToRefresh(
           onRefresh: () => ref
               .read(historyFeedControllerProvider(widget.accountId).notifier)
@@ -180,10 +293,14 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                   padding: const EdgeInsets.all(10),
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  itemCount: records.length,
+                  itemCount: entries.length,
                   itemBuilder: (context, index) => _HistoryEntry(
-                    record: records[index],
-                    onLongPress: () => _delete(records[index]),
+                    record: entries[index].record,
+                    recordKey: entries[index].key,
+                    managing: widget.managing,
+                    selected: widget.selectedKeys.contains(entries[index].key),
+                    onToggle: widget.onToggle,
+                    onEnterManaging: widget.onEnterManaging,
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -219,13 +336,29 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
 }
 
 class _HistoryEntry extends ConsumerWidget {
-  const _HistoryEntry({required this.record, required this.onLongPress});
+  const _HistoryEntry({
+    required this.record,
+    required this.recordKey,
+    required this.managing,
+    required this.selected,
+    required this.onToggle,
+    required this.onEnterManaging,
+  });
 
   final HistoryRecord record;
-  final VoidCallback onLongPress;
+
+  /// The encoded feed key (content type in the high bits) — selection
+  /// tracks records by it, so an illust and a novel sharing a numeric id
+  /// never collide.
+  final int recordKey;
+  final bool managing;
+  final bool selected;
+  final ValueChanged<int> onToggle;
+  final ValueChanged<int> onEnterManaging;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
     final child = switch (record.contentType) {
       HistoryContentType.illust => _IllustHistoryEntry(
         record: record,
@@ -237,9 +370,43 @@ class _HistoryEntry extends ConsumerWidget {
       ),
     };
     return GestureDetector(
-      onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
-      child: child,
+      // In selection mode the whole cell is the selection unit (M3: no
+      // nested secondary actions) — any press toggles, the card's own
+      // navigation is absorbed.
+      onTap: managing ? () => onToggle(recordKey) : null,
+      onLongPress: managing
+          ? () => onToggle(recordKey)
+          : () => onEnterManaging(recordKey),
+      child: Stack(
+        children: [
+          AbsorbPointer(absorbing: managing, child: child),
+          if (managing)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: selected
+                        ? Border.all(color: colorScheme.primary, width: 2)
+                        : null,
+                    color: selected
+                        ? colorScheme.primary.withValues(alpha: 0.14)
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          if (selected)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IgnorePointer(
+                child: Icon(Icons.check_circle, color: colorScheme.primary),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -462,36 +629,36 @@ Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
     context: context,
     builder: (sheetContext) {
       return SafeArea(
-        child: FractionallySizedBox(
-          heightFactor: 0.35,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                Text(context.l10n.historyDeleteHint),
-                const Spacer(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(false),
-                        child: Text(context.l10n.cancel),
-                      ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            // Wraps content: a fixed fraction of the sheet height overflowed
+            // on short surfaces and left the buttons partially unhit-testable.
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Text(context.l10n.historyDeleteHint),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(false),
+                      child: Text(context.l10n.cancel),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(true),
-                        child: Text(context.l10n.confirm),
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(true),
+                      child: Text(context.l10n.confirm),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       );

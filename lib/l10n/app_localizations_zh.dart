@@ -2334,4 +2334,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get illustInfoJump => '跳到作品信息区';
+
+  @override
+  String get manage => '管理';
+
+  @override
+  String selectedCount(int n) {
+    return '已选 $n 项';
+  }
 }

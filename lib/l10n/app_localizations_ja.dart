@@ -2361,4 +2361,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get illustInfoJump => '作品情報へ移動';
+
+  @override
+  String get manage => '管理';
+
+  @override
+  String selectedCount(int n) {
+    return '$n 件選択中';
+  }
 }
