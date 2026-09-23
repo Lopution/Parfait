@@ -2163,4 +2163,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String illustPagesTotal(int count) {
     return '全 $count ページ';
   }
+
+  @override
+  String get illustInfoJump => '作品情報へ移動';
 }

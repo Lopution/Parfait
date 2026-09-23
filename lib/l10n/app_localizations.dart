@@ -4157,6 +4157,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'共 {count} 页'**
   String illustPagesTotal(int count);
+
+  /// Jump to the artwork info section
+  ///
+  /// In zh, this message translates to:
+  /// **'跳到作品信息区'**
+  String get illustInfoJump;
 }
 
 class _AppLocalizationsDelegate
