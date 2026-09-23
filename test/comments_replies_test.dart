@@ -1037,4 +1037,73 @@ void main() {
     await tester.pump();
     expect(find.byType(FeedTail), findsOneWidget);
   });
+
+  testWidgets('reply pill pins the target and focuses the composer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          commentRepositoryProvider.overrideWithValue(_FakeCommentRepository()),
+        ],
+        child: composerApp(const CommentsPage(workId: 1)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    EditableText field() =>
+        tester.widget<EditableText>(find.byType(EditableText));
+    expect(field().focusNode.hasFocus, isFalse);
+
+    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.pump();
+
+    // The composer owns the keyboard leg and shows the pinned target.
+    expect(field().focusNode.hasFocus, isTrue);
+    expect(
+      find.descendant(
+        of: find.byType(CommentComposer),
+        matching: find.textContaining('user 10'),
+      ),
+      findsOneWidget,
+    );
+    // The reference row is one semantics container for screen readers —
+    // its nearest Semantics ancestor is a container.
+    final replyText = find.descendant(
+      of: find.byType(CommentComposer),
+      matching: find.textContaining('user 10'),
+    );
+    expect(
+      tester
+          .widget<Semantics>(
+            find.ancestor(of: replyText, matching: find.byType(Semantics)).first,
+          )
+          .container,
+      isTrue,
+    );
+  });
+
+  testWidgets('replies page primes the reference row with the root author', (
+    tester,
+  ) async {
+    await pumpRepliesPage(tester, _FakeCommentRepository());
+
+    // No explicit target yet — the composer still names the root author.
+    expect(
+      find.descendant(
+        of: find.byType(CommentComposer),
+        matching: find.textContaining('user 10'),
+      ),
+      findsOneWidget,
+    );
+
+    // Tapping the root's own reply pill focuses the composer too.
+    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isTrue,
+    );
+  });
 }
