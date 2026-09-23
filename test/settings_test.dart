@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -136,6 +137,20 @@ class _AccountRepository implements AccountMetadataRepository {
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
+}
+
+/// Save gate for the switch-busy test: `save` parks on [gate] so the
+/// widget layer's in-flight state is observable mid-switch.
+class _BlockingAccountRepository extends FakeAccountMetadataRepository {
+  _BlockingAccountRepository({required super.accounts, super.currentId});
+
+  final Completer<void> gate = Completer<void>();
+
+  @override
+  Future<void> save(List<Account> next, String? nextCurrentId) async {
+    await gate.future;
+    return super.save(next, nextCurrentId);
+  }
 }
 
 class _FakeProfileRepository implements UserRepository {
@@ -826,6 +841,86 @@ void main() {
     expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
     expect(find.text('无账号'), findsNothing);
   });
+
+  testWidgets(
+    'account switch spins the target row and disables the list mid-commit',
+    (tester) async {
+      final repository = _BlockingAccountRepository(
+        accounts: const [
+          Account(id: '1', userId: 1, name: 'first'),
+          Account(id: '2', userId: 2, name: 'second'),
+        ],
+        currentId: '1',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              _FakeRepository(_baseSettings()),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(repository),
+            credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: AccountSettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Current row: check icon + selected semantics, no tap target.
+      final currentTile = tester.widget<ListTile>(
+        find.widgetWithText(ListTile, 'first'),
+      );
+      expect(currentTile.onTap, isNull);
+      expect(currentTile.selected, isTrue);
+
+      await tester.tap(find.text('second'));
+      await tester.pump();
+
+      // Busy: the target row spins (semantics label reads 正在切换) and
+      // every row's tap/remove affordances are disabled while the
+      // metadata commit is in flight.
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(
+        tester.widget<ListTile>(find.widgetWithText(ListTile, 'first')).onTap,
+        isNull,
+      );
+      expect(
+        tester.widget<ListTile>(find.widgetWithText(ListTile, 'second')).onTap,
+        isNull,
+      );
+      expect(
+        tester
+            .widgetList<IconButton>(
+              find.widgetWithIcon(IconButton, Icons.delete_outline),
+            )
+            .map((button) => button.onPressed),
+        everyElement(isNull),
+      );
+
+      repository.gate.complete();
+      await tester.pumpAndSettle();
+
+      // After the commit the new current row carries the check and the
+      // other row is tappable again.
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(repository.currentId, '2');
+      expect(
+        tester
+            .widget<ListTile>(find.widgetWithText(ListTile, 'second'))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester.widget<ListTile>(find.widgetWithText(ListTile, 'first')).onTap,
+        isNotNull,
+      );
+    },
+  );
 
   testWidgets('settings home shows the beta56 route order', (tester) async {
     final repository = _FakeRepository(_baseSettings());

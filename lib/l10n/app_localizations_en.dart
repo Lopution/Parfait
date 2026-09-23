@@ -571,6 +571,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get switchAccount => 'Switch account';
 
   @override
+  String get accountSwitching => 'Switching…';
+
+  @override
   String get removeAccount => 'Remove account';
 
   @override

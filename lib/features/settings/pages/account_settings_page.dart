@@ -62,11 +62,37 @@ class _AccountAvatar extends StatelessWidget {
   }
 }
 
-class AccountSettingsPage extends ConsumerWidget {
+class AccountSettingsPage extends ConsumerStatefulWidget {
   const AccountSettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountSettingsPage> createState() =>
+      _AccountSettingsPageState();
+}
+
+class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
+  /// Id of the account a switch is committing to, or null when idle.
+  /// `switchAccount` is an action write (metadata save + network session
+  /// reset), not an instant toggle — the target row spins and every row's
+  /// tap/remove affordances disable while it runs so a second switch or a
+  /// remove cannot race the commit.
+  String? _switchingTo;
+
+  Future<void> _switchTo(Account account) async {
+    if (_switchingTo != null) return;
+    setState(() => _switchingTo = account.id);
+    try {
+      await persistSettings(
+        context,
+        () => ref.read(accountStoreProvider.notifier).switchAccount(account.id),
+      );
+    } finally {
+      if (mounted) setState(() => _switchingTo = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
       appBar: AppBar(
@@ -99,6 +125,10 @@ class AccountSettingsPage extends ConsumerWidget {
                   children: [
                     for (final account in state.accounts)
                       ListTile(
+                        // Same selected-state second channel as the
+                        // theme/language pickers (check icon for sighted
+                        // users, `selected` for assistive tech).
+                        selected: state.currentId == account.id,
                         leading: _AccountAvatar(account: account),
                         title: Text(account.name),
                         subtitle: Text(
@@ -108,7 +138,23 @@ class AccountSettingsPage extends ConsumerWidget {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (state.currentId == account.id)
+                            if (_switchingTo == account.id)
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      semanticsLabel:
+                                          context.l10n.accountSwitching,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else if (state.currentId == account.id)
                               Icon(
                                 Icons.check,
                                 color: Theme.of(context).colorScheme.primary,
@@ -116,19 +162,17 @@ class AccountSettingsPage extends ConsumerWidget {
                             IconButton(
                               tooltip: context.l10n.removeAccount,
                               icon: const Icon(Icons.delete_outline),
-                              onPressed: () =>
-                                  _confirmRemove(context, ref, account),
+                              onPressed: _switchingTo == null
+                                  ? () => _confirmRemove(account)
+                                  : null,
                             ),
                           ],
                         ),
-                        onTap: state.currentId == account.id
+                        onTap:
+                            state.currentId == account.id ||
+                                _switchingTo != null
                             ? null
-                            : () => persistSettings(
-                                context,
-                                () => ref
-                                    .read(accountStoreProvider.notifier)
-                                    .switchAccount(account.id),
-                              ),
+                            : () => _switchTo(account),
                       ),
                     // Server-side display preferences only exist for a
                     // usable account; a signed-out/re-auth state shows the
@@ -144,11 +188,7 @@ class AccountSettingsPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmRemove(
-    BuildContext context,
-    WidgetRef ref,
-    Account account,
-  ) async {
+  Future<void> _confirmRemove(Account account) async {
     final remove = await showAppDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -166,7 +206,7 @@ class AccountSettingsPage extends ConsumerWidget {
         ],
       ),
     );
-    if (remove != true || !context.mounted) return;
+    if (remove != true || !mounted) return;
     await persistSettings(
       context,
       () => ref.read(accountStoreProvider.notifier).removeAccount(account.id),
