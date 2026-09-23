@@ -1506,6 +1506,47 @@ void main() {
       expect(find.textContaining('镜像可达'), findsOneWidget);
     },
   );
+  testWidgets('theme and language pages expose Semantics selected state', (
+    tester,
+  ) async {
+    // R3: the check icon is the visual channel; Semantics(selected) is the
+    // assistive one — both must move together.
+    final repository = _FakeRepository(_baseSettings());
+    Widget host(Widget home) => ProviderScope(
+      overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+      child: MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: home,
+      ),
+    );
+
+    await tester.pumpWidget(host(const ThemeSettingsPage()));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, '明亮')),
+      isSemantics(isSelected: true),
+    );
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, '黑暗')),
+      isSemantics(isSelected: false),
+    );
+
+    await tester.pumpWidget(host(const LanguageSettingsPage()));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, 'English')),
+      isSemantics(isSelected: true),
+    );
+    expect(
+      tester.getSemantics(find.widgetWithText(ListTile, '简体中文')),
+      isSemantics(isSelected: false),
+    );
+  });
+
   test('enableHaptics defaults on and round-trips through JSON', () {
     final base = _baseSettings();
     expect(base.enableHaptics, isTrue);
