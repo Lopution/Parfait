@@ -1111,6 +1111,100 @@ void main() {
   });
 
   testWidgets(
+    'translation summary re-probes when the provider switches',
+    (tester) async {
+      final store = _FakeTranslationStore()
+        ..baidu = const BaiduTranslationCredentials(
+          appId: 'id',
+          secret: 'sec',
+        );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(
+              FakeAccountMetadataRepository(),
+            ),
+            credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+            translationCredentialStoreProvider.overrideWithValue(store),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('百度翻译 · 已配置'), findsOneWidget);
+
+      // A provider switch reuses the summary State — the probe must
+      // follow the new provider instead of showing baidu's stale 已配置
+      // under the llm label.
+      final element = tester.element(find.byType(SettingsPage));
+      await ProviderScope.containerOf(element)
+          .read(settingsProvider.notifier)
+          .selectTranslationProvider(TranslationProvider.translationLlm);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('自定义 LLM（OpenAI 兼容） · 未配置'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('已配置'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'translation summary re-probes when the root resurfaces',
+    (tester) async {
+      final store = _FakeTranslationStore()
+        ..baidu = const BaiduTranslationCredentials(
+          appId: 'id',
+          secret: 'sec',
+        );
+      final router = createPixivRouter(initialLocation: '/settings');
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(
+              FakeAccountMetadataRepository(),
+            ),
+            credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+            translationCredentialStoreProvider.overrideWithValue(store),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('百度翻译 · 已配置'), findsOneWidget);
+
+      // Cover the root with the credentials route, clear the key behind
+      // its back, then unwind: returning to the root must re-read
+      // existence instead of keeping the covered-time snapshot.
+      unawaited(router.push<void>('/settings/translate/credentials/baidu'));
+      await tester.pumpAndSettle();
+      store.baidu = null;
+      router.pop();
+      await tester.pumpAndSettle();
+
+      expect(find.text('百度翻译 · 未配置'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'translate page credential entry shows and refreshes configured state',
     (tester) async {
       final store = _FakeTranslationStore()
@@ -1233,6 +1327,75 @@ void main() {
       await tester.tap(find.text('放弃修改'));
       await tester.pumpAndSettle();
       expect(find.byType(DownloadSettingsPage), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'save location album name draft asks before leaving',
+    (tester) async {
+      final repository = _FakeRepository(_baseSettings());
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DownloadDestinationPage(),
+                      ),
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // A clean form pops straight through without a prompt.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadDestinationPage), findsNothing);
+
+      // Dirty draft: system back asks; 取消 keeps the page and the input.
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'my album');
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('放弃未保存的修改？'), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadDestinationPage), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'my album',
+      );
+
+      // Committing the draft clears the guard — leaving then pops
+      // without asking.
+      await tester.tap(find.text('保存'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadDestinationPage), findsNothing);
+      expect(
+        repository.value.downloadDestination.customAlbumName,
+        'my album',
+      );
     },
   );
 

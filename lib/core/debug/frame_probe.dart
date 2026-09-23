@@ -60,6 +60,10 @@ class FrameProbe {
   @visibleForTesting
   void debugRecordTimings(List<FrameTiming> timings) => _onTimings(timings);
 
+  /// Test seam: drop the recorded buffer without touching the scheduler.
+  @visibleForTesting
+  void debugClearTimings() => _frames.clear();
+
   /// Jank threshold: one 60Hz vsync interval. On 90/120Hz panels this is a
   /// lenient bar — frames are also bucketed by >2 intervals so high-refresh
   /// jank still surfaces in the >33ms bucket.
