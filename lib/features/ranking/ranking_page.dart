@@ -44,6 +44,7 @@ class _RankingPageState extends State<RankingPage>
   final _scrollControllers = <RankingMode, ScrollController>{};
   final _loadedModes = <int>{};
   int _selectedIndex = 0;
+  ReTapChannel? _reTapChannel;
 
   @override
   void initState() {
@@ -58,7 +59,18 @@ class _RankingPageState extends State<RankingPage>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final channel = BranchSlideStack.maybeOf(context)?.reTapEvents;
+    if (identical(channel, _reTapChannel)) return;
+    _reTapChannel?.removeListener(_onBranchReTap);
+    _reTapChannel = channel;
+    _reTapChannel?.addListener(_onBranchReTap);
+  }
+
+  @override
   void dispose() {
+    _reTapChannel?.removeListener(_onBranchReTap);
     _tabController
       ..removeListener(_handleTabChanged)
       ..dispose();
@@ -80,6 +92,24 @@ class _RankingPageState extends State<RankingPage>
 
   ScrollController _scrollControllerFor(RankingMode mode) {
     return _scrollControllers.putIfAbsent(mode, ScrollController.new);
+  }
+
+  /// Branch-level re-tap (bottom bar same-destination tap): the channel
+  /// fired after the branch stack popped, so the scroll lands post-frame
+  /// on the now-visible root — a vetoed pop leaves a pushed route on top
+  /// and `isCurrent` fails the scroll harmlessly.
+  void _onBranchReTap() {
+    if (_reTapChannel?.branch !=
+        BranchRootScope.maybeOf(context)?.branchIndex) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      reTapScrollToTop(
+        context,
+        _scrollControllerFor(RankingMode.values[_selectedIndex]),
+      );
+    });
   }
 
   @override
