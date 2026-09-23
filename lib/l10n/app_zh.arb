@@ -894,6 +894,7 @@
   "bookmarkTagSuggestions": "常用标签",
   "bookmarkTagsEmpty": "还没有收藏标签",
   "bookmarkTagsLoadFailed": "收藏标签加载失败",
+  "bookmarkTagsEnd": "已显示全部标签",
   "seriesTitle": "系列",
   "seriesLoadFailed": "系列加载失败",
   "seriesLoadMoreFailed": "加载更多失败",

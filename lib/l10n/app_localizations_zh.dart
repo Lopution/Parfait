@@ -1970,6 +1970,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bookmarkTagsLoadFailed => '收藏标签加载失败';
 
   @override
+  String get bookmarkTagsEnd => '已显示全部标签';
+
+  @override
   String get seriesTitle => '系列';
 
   @override

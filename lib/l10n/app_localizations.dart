@@ -3840,6 +3840,12 @@ abstract class AppLocalizations {
   /// **'收藏标签加载失败'**
   String get bookmarkTagsLoadFailed;
 
+  /// No description provided for @bookmarkTagsEnd.
+  ///
+  /// In zh, this message translates to:
+  /// **'已显示全部标签'**
+  String get bookmarkTagsEnd;
+
   /// No description provided for @seriesTitle.
   ///
   /// In zh, this message translates to:

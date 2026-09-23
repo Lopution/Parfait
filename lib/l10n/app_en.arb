@@ -894,6 +894,7 @@
   "bookmarkTagSuggestions": "Frequent tags",
   "bookmarkTagsEmpty": "No bookmark tags yet",
   "bookmarkTagsLoadFailed": "Failed to load bookmark tags",
+  "bookmarkTagsEnd": "All tags loaded",
   "seriesTitle": "Series",
   "seriesLoadFailed": "Failed to load series",
   "seriesLoadMoreFailed": "Failed to load more",

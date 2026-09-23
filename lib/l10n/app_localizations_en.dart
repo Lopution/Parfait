@@ -2033,6 +2033,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookmarkTagsLoadFailed => 'Failed to load bookmark tags';
 
   @override
+  String get bookmarkTagsEnd => 'All tags loaded';
+
+  @override
   String get seriesTitle => 'Series';
 
   @override
