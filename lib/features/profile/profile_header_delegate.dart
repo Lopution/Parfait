@@ -122,8 +122,10 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.restrict,
     required this.onRestrictChanged,
     required this.onShare,
+    this.isFollowed = false,
     this.onEditProfile,
     this.onToggleFollow,
+    this.onFollowPrivately,
     this.onOpenBookmarkTags,
     this.onDownloadAll,
     this.expandedExtent = 320,
@@ -137,8 +139,10 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final UserRestrict restrict;
   final ValueChanged<UserRestrict> onRestrictChanged;
   final VoidCallback onShare;
+  final bool isFollowed;
   final VoidCallback? onEditProfile;
   final VoidCallback? onToggleFollow;
+  final VoidCallback? onFollowPrivately;
 
   /// Own-profile bookmarks tab only: opens the bookmark-tag collection.
   final VoidCallback? onOpenBookmarkTags;
@@ -185,7 +189,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     if (!isMe && onToggleFollow != null)
       _ProfileHeaderAction(
         value: 'toggleFollow',
-        label: context.l10n.follow,
+        label: isFollowed ? context.l10n.unfollow : context.l10n.follow,
         icon: Icons.person_add_alt_1_outlined,
         primary: true,
         onSelected: onToggleFollow!,
@@ -194,6 +198,13 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
           userName: user.name,
           userAccount: user.account,
         ),
+      ),
+    if (!isMe && !isFollowed && onFollowPrivately != null)
+      _ProfileHeaderAction(
+        value: 'followPrivately',
+        label: context.l10n.followPrivately,
+        icon: Icons.lock_outline,
+        onSelected: onFollowPrivately!,
       ),
     if (isMe && showRestrictSelector) ...[
       _ProfileHeaderAction(
@@ -322,7 +333,9 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.showRestrictSelector != showRestrictSelector ||
         oldDelegate.restrict != restrict ||
         oldDelegate.onEditProfile != onEditProfile ||
+        oldDelegate.isFollowed != isFollowed ||
         oldDelegate.onToggleFollow != onToggleFollow ||
+        oldDelegate.onFollowPrivately != onFollowPrivately ||
         oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
         oldDelegate.onDownloadAll != onDownloadAll ||
         oldDelegate.onShare != onShare ||

@@ -1882,6 +1882,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get followUser => 'Follow user';
 
   @override
+  String get followPrivately => 'Follow privately';
+
+  @override
+  String get unfollow => 'Unfollow';
+
+  @override
   String get followFailed => 'Follow action failed';
 
   @override
@@ -1988,6 +1994,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copyLink => 'Copy link';
 
   @override
+  String get openLink => 'Open link';
+
+  @override
   String get watchLaterAdded => 'Added to Watch later';
 
   @override
@@ -2007,6 +2016,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookmarkTagNewHint => 'Type a tag and press enter';
+
+  @override
+  String get bookmarkTagFilterEmpty => 'No loaded works match';
+
+  @override
+  String get bookmarkTagFilterHint => 'Filter loaded works';
 
   @override
   String get bookmarkTagSuggestions => 'Frequent tags';

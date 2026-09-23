@@ -1837,6 +1837,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get followUser => 'ユーザーをフォロー';
 
   @override
+  String get followPrivately => '非公開でフォロー';
+
+  @override
+  String get unfollow => 'フォローを解除';
+
+  @override
   String get followFailed => 'フォロー操作に失敗しました';
 
   @override
@@ -1942,6 +1948,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get copyLink => 'リンクをコピー';
 
   @override
+  String get openLink => 'リンクを開く';
+
+  @override
   String get watchLaterAdded => 'あとで見るに追加しました';
 
   @override
@@ -1961,6 +1970,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bookmarkTagNewHint => 'タグを入力して確定';
+
+  @override
+  String get bookmarkTagFilterEmpty => '読み込み済み作品に一致するものはありません';
+
+  @override
+  String get bookmarkTagFilterHint => '読み込み済み作品を絞り込む';
 
   @override
   String get bookmarkTagSuggestions => 'よく使うタグ';

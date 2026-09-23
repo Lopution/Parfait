@@ -762,6 +762,49 @@ void main() {
       expect(find.text('小说'), findsNothing);
     },
   );
+
+  testWidgets(
+    'collapsed profile follow menu tracks state and opens shared sheet',
+    (tester) async {
+      final repository = _FakeFollowRepository();
+      final container = await _makeWorld(
+        follows: repository,
+        users: _FakeUserRepository(),
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(NestedScrollView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('关注'), findsWidgets);
+      expect(find.text('私密关注'), findsOneWidget);
+
+      await tester.tap(find.text('私密关注'));
+      await tester.pumpAndSettle();
+      expect(find.text('关注用户'), findsOneWidget);
+      expect(find.byType(SegmentedButton<FollowRestrict>), findsOneWidget);
+      await tester.tap(find.text('私密').last);
+      await tester.tap(find.text('确定'));
+      await tester.pumpAndSettle();
+      expect(repository.requests, contains('add:42:private'));
+
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      expect(find.text('取消关注'), findsOneWidget);
+      expect(find.text('私密关注'), findsNothing);
+    },
+  );
 }
 
 UserEntity _user(int id) =>
