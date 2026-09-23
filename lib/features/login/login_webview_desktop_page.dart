@@ -171,9 +171,14 @@ class _LoginWebViewDesktopPageState
 
   /// Reloads the current document in place. For a recoverable error this
   /// retries the failed page; in signup mode there is no PKCE session, so
-  /// it is also the fatal card's only restart action.
+  /// it is also the fatal card's only restart action. Clearing `_fatal`
+  /// with the card keeps `_reportRecoverable` reporting errors after the
+  /// reload — a stale fatal flag would swallow them silently.
   void _reload() {
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _fatal = false;
+    });
     unawaited(_controller?.reload());
   }
 
