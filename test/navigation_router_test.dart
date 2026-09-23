@@ -19,6 +19,7 @@ import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/tag_search_page.dart';
+import 'package:pixiv_func/features/settings/pages/download_tasks_page.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
@@ -224,6 +225,26 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/recommended');
     expect(find.byType(RecommendedHomePage), findsOneWidget);
+  });
+
+  testWidgets('openDownloadTasks lands on the settings tasks route', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = await pumpRouter(tester, '/recommended');
+
+    // The submission SnackBar's 查看 action pushes the tasks page
+    // directly, no matter which shell stack submitted the download.
+    unawaited(
+      openDownloadTasks(tester.element(find.byType(RecommendedHomePage))),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(router.state.uri.path, '/settings/tasks');
+    expect(find.byType(DownloadTasksPage), findsOneWidget);
   });
 
   testWidgets('pop slides the outgoing page as a snapshot texture', (

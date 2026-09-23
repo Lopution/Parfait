@@ -387,7 +387,14 @@ class _UserPageState extends ConsumerState<UserPage>
       ),
     );
     if (submitted != null && mounted) {
-      showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+      showAppSnackBar(
+        context,
+        context.l10n.downloadQueuedMessage,
+        action: SnackBarAction(
+          label: context.l10n.downloadViewResult,
+          onPressed: () => unawaited(openDownloadTasks(context)),
+        ),
+      );
     }
   }
 

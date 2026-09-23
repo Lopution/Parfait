@@ -29,6 +29,7 @@ import 'widgets/illust_series_section.dart';
 import 'widgets/info_block.dart';
 import 'widgets/page_image.dart';
 import 'ugoira_viewer.dart';
+import '../../../app/navigation/routes.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../l10n/context.dart';
 import '../../../app/layout/app_breakpoints.dart';
@@ -182,7 +183,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     }
     if (!mounted) return;
     AppHaptics.success();
-    showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+    showAppSnackBar(
+      context,
+      context.l10n.downloadQueuedMessage,
+      action: SnackBarAction(
+        label: context.l10n.downloadViewResult,
+        onPressed: () => unawaited(openDownloadTasks(context)),
+      ),
+    );
     setState(() => _selectedPages = null);
   }
 
@@ -308,7 +316,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               }
               if (!context.mounted) return;
               AppHaptics.success();
-              showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+              showAppSnackBar(
+                context,
+                context.l10n.downloadQueuedMessage,
+                action: SnackBarAction(
+                  label: context.l10n.downloadViewResult,
+                  onPressed: () => unawaited(openDownloadTasks(context)),
+                ),
+              );
             },
             icon: const Icon(Icons.file_download_outlined),
           ),
