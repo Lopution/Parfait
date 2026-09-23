@@ -15,6 +15,7 @@ import '../../core/platform/platform_caps.dart';
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
 import 'login_session_restart.dart';
+import 'login_webview_error_card.dart';
 
 /// OAuth login WebView for desktop (Windows via `flutter_inappwebview` /
 /// WebView2). Same contract as `login_webview_page.dart`: one PKCE session
@@ -300,49 +301,16 @@ class _LoginWebViewDesktopPageState
           if (_exchanging)
             // Opaque scrim identical to the mobile page's loading surface.
             const ColoredBox(color: Colors.black38, child: FeedLoading()),
+          // Shared error surface — same card and action-set contract as
+          // the mobile page.
           if (_error != null)
-            Align(
-              alignment: Alignment.bottomLeft,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Card(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(_error!)),
-                          // Fatal errors killed the PKCE session — restart it
-                          // in place rather than making the user reopen the
-                          // route. Signup mode has no session; it can only
-                          // reload the signup document.
-                          if (_fatal)
-                            widget.create
-                                ? TextButton(
-                                    onPressed: _reload,
-                                    child: Text(context.l10n.loginReload),
-                                  )
-                                : TextButton(
-                                    onPressed: _restartLogin,
-                                    child: Text(context.l10n.loginRestart),
-                                  )
-                          else ...[
-                            TextButton(
-                              onPressed: _reload,
-                              child: Text(context.l10n.loginReload),
-                            ),
-                            TextButton(
-                              onPressed: () => setState(() => _error = null),
-                              child: Text(context.l10n.dismiss),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            LoginWebViewErrorCard(
+              message: _error!,
+              fatal: _fatal,
+              signup: widget.create,
+              onReload: _reload,
+              onRestart: _restartLogin,
+              onDismiss: () => setState(() => _error = null),
             ),
         ],
       ),

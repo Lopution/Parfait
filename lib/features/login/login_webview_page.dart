@@ -10,6 +10,7 @@ import '../../core/auth/oauth_service.dart';
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
 import 'login_session_restart.dart';
+import 'login_webview_error_card.dart';
 
 /// OAuth login WebView.
 ///
@@ -305,49 +306,18 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
               color: Colors.black38,
               child: Center(child: CircularProgressIndicator()),
             ),
+          // Shared error surface — the card owns the action-set contract:
+          // recoverable → reload + dismiss; fatal → restart the dead PKCE
+          // session in place (signup mode has no session, so it can only
+          // reload the document).
           if (_error != null)
-            Align(
-              alignment: Alignment.bottomLeft,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Card(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(_error!)),
-                          // A fatal error killed the PKCE session, so the
-                          // action restarts it in place instead of making the
-                          // user reopen the route. Signup mode has no session
-                          // to restart — it can only reload the document.
-                          if (_fatal)
-                            widget.create
-                                ? TextButton(
-                                    onPressed: _reload,
-                                    child: Text(context.l10n.loginReload),
-                                  )
-                                : TextButton(
-                                    onPressed: _restartLogin,
-                                    child: Text(context.l10n.loginRestart),
-                                  )
-                          else ...[
-                            TextButton(
-                              onPressed: _reload,
-                              child: Text(context.l10n.loginReload),
-                            ),
-                            TextButton(
-                              onPressed: () => setState(() => _error = null),
-                              child: Text(context.l10n.dismiss),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+            LoginWebViewErrorCard(
+              message: _error!,
+              fatal: _fatal,
+              signup: widget.create,
+              onReload: _reload,
+              onRestart: _restartLogin,
+              onDismiss: () => setState(() => _error = null),
             ),
         ],
       ),
