@@ -704,6 +704,17 @@ void main() {
       'settingsDownloadTasksSummary',
       'settingsCredentialConfigured',
       'settingsCredentialNotConfigured',
+      'aboutUpdateOffline',
+      'aboutUpdateRateLimited',
+      'aboutUpdateInvalid',
+      'aboutUpdateBusy',
+      'aboutUpdateCanceled',
+      'backupMergeHint',
+      'backupOverwriteHint',
+      'backupImportOverwriteConfirmTitle',
+      'continueAction',
+      // 'backupImportMergeConfirmTitle' is parameterized — the four-language
+      // presence is compile-time enforced, l10nLookup skips placeholders.
     ];
     // Four-language presence is compile-time enforced by gen-l10n; this
     // smoke check keeps the transfer-error key list honest against zh.
