@@ -658,4 +658,175 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CommentRepliesPage), findsOneWidget);
   });
+
+  Widget composerApp(Widget home) => MaterialApp(
+    locale: const Locale('zh', 'CN'),
+    supportedLocales: const [Locale('zh', 'CN')],
+    localizationsDelegates: appLocalizationsDelegates,
+    home: home,
+  );
+
+  Widget bareComposer() => Scaffold(
+    body: CommentComposer(onSend: (_) async {}, onStampSend: (_) async {}),
+  );
+
+  testWidgets('composer keeps the keyboard and the panels mutually exclusive', (
+    tester,
+  ) async {
+    await tester.pumpWidget(composerApp(bareComposer()));
+    EditableText field() =>
+        tester.widget<EditableText>(find.byType(EditableText));
+
+    // none → emoji: opening the panel releases the field.
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+    expect(find.byType(GridView), findsOneWidget);
+    expect(field().focusNode.hasFocus, isFalse);
+
+    // Tapping the field while a panel is open converges to the keyboard leg:
+    // the panel closes instead of coexisting underneath the raised IME.
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(field().focusNode.hasFocus, isTrue);
+    expect(find.byType(GridView), findsNothing);
+
+    // Same convergence from the stamp leg.
+    await tester.tap(find.byTooltip('Stamp'));
+    await tester.pump();
+    expect(find.byType(GridView), findsOneWidget);
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(field().focusNode.hasFocus, isTrue);
+    expect(find.byType(GridView), findsNothing);
+  });
+
+  testWidgets('inserting an emoji closes the panel and refocuses the field', (
+    tester,
+  ) async {
+    await tester.pumpWidget(composerApp(bareComposer()));
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+
+    await tester.tap(find.byType(InkResponse).first);
+    await tester.pump();
+
+    final field = tester.widget<EditableText>(find.byType(EditableText));
+    expect(field.controller.text, '(${commentEmojiNames.first})');
+    expect(find.byType(GridView), findsNothing);
+    expect(field.focusNode.hasFocus, isTrue);
+  });
+
+  testWidgets('system back closes an open panel before leaving the page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      composerApp(
+        Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute<void>(builder: (_) => bareComposer())),
+                child: const Text('push'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('push'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+    expect(find.byType(GridView), findsOneWidget);
+
+    // Back collapses the transient panel; the route stays.
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(GridView), findsNothing);
+    expect(find.byType(CommentComposer), findsOneWidget);
+
+    // With the surface at rest the next back leaves normally.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(CommentComposer), findsNothing);
+  });
+
+  testWidgets('the keyboard leg does not intercept system back', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      composerApp(
+        Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute<void>(builder: (_) => bareComposer())),
+                child: const Text('push'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('push'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isTrue,
+    );
+
+    // The IME/system owns this back; the composer never vetoes it.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(CommentComposer), findsNothing);
+  });
+
+  testWidgets('composer input state covers the four-state matrix', (
+    tester,
+  ) async {
+    await tester.pumpWidget(composerApp(bareComposer()));
+    CommentComposerState state() =>
+        tester.state<CommentComposerState>(find.byType(CommentComposer));
+    EditableText field() =>
+        tester.widget<EditableText>(find.byType(EditableText));
+
+    expect(state().debugInputState, CommentComposerInputState.none);
+
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+    expect(state().debugInputState, CommentComposerInputState.emoji);
+
+    // Same-region swap: stamp replaces emoji directly, no intermediate none.
+    await tester.tap(find.byTooltip('Stamp'));
+    await tester.pump();
+    expect(state().debugInputState, CommentComposerInputState.stamp);
+    expect(find.byType(GridView), findsOneWidget);
+
+    // Toggling the active button rests the surface.
+    await tester.tap(find.byTooltip('Stamp'));
+    await tester.pump();
+    expect(state().debugInputState, CommentComposerInputState.none);
+    expect(find.byType(GridView), findsNothing);
+
+    // The reply-pill entry point lands on the keyboard leg with real focus.
+    state().focusForReply();
+    await tester.pump();
+    expect(state().debugInputState, CommentComposerInputState.keyboard);
+    expect(field().focusNode.hasFocus, isTrue);
+
+    // Focus loss converges keyboard back to the resting surface.
+    state().focusForReply();
+    await tester.pump();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
+    expect(state().debugInputState, CommentComposerInputState.none);
+  });
 }
