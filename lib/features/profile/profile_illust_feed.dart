@@ -6,6 +6,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
+import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/profile/profile_feed_controller.dart';
@@ -13,9 +14,10 @@ import '../../core/profile/profile_models.dart';
 import '../../l10n/context.dart';
 
 class ProfileIllustFeed extends ConsumerWidget {
-  const ProfileIllustFeed({super.key, required this.feedKey});
+  const ProfileIllustFeed({super.key, required this.feedKey, this.localFilter});
 
   final ProfileFeedKey feedKey;
+  final String? localFilter;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,6 +48,12 @@ class ProfileIllustFeed extends ConsumerWidget {
         }
         final store = ref.watch(illustStoreProvider);
         final entities = store.getAll(feed.ids);
+        final query = localFilter?.trim().toLowerCase() ?? '';
+        final visibleEntities = query.isEmpty
+            ? entities
+            : entities
+                  .where((entity) => _matchesLocalFilter(entity, query))
+                  .toList(growable: false);
         return PullToRefresh(
           isNested: true,
           onRefresh: () =>
@@ -73,12 +81,14 @@ class ProfileIllustFeed extends ConsumerWidget {
               scrollCacheExtent: kFeedCacheExtent,
               slivers: [
                 const HeaderLocator.sliver(),
-                if (entities.isEmpty)
+                if (visibleEntities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: FeedEmpty(
                       icon: Icons.inbox_outlined,
-                      title: context.l10n.profileItemsEmpty,
+                      title: query.isEmpty
+                          ? context.l10n.profileItemsEmpty
+                          : context.l10n.bookmarkTagFilterEmpty,
                       retryLabel: context.l10n.profileRetry,
                       onRefresh: () => ref
                           .read(profileIllustFeedProvider(feedKey).notifier)
@@ -90,17 +100,18 @@ class ProfileIllustFeed extends ConsumerWidget {
                     padding: const EdgeInsets.all(10),
                     mainAxisSpacing: 5,
                     crossAxisSpacing: 10,
-                    prefetchEntities: entities,
-                    itemIds: [for (final e in entities) e.id],
-                    itemCount: entities.length,
+                    prefetchEntities: visibleEntities,
+                    itemIds: [for (final e in visibleEntities) e.id],
+                    itemCount: visibleEntities.length,
                     pagerLoadMore: () => ref
                         .read(profileIllustFeedProvider(feedKey).notifier)
                         .loadMore(),
                     itemBuilder: (context, index) => IllustCard(
-                      entity: entities[index],
+                      entity: visibleEntities[index],
                       heroScope:
                           'profile:${feedKey.userId}:${feedKey.kind.name}:'
-                          '${feedKey.workType.name}:${feedKey.restrict.name}',
+                          '${feedKey.workType.name}:${feedKey.restrict.name}:'
+                          '${feedKey.bookmarkTag ?? ''}',
                     ),
                   ),
                 SliverToBoxAdapter(
@@ -121,3 +132,11 @@ class ProfileIllustFeed extends ConsumerWidget {
     );
   }
 }
+
+bool _matchesLocalFilter(IllustEntity entity, String query) =>
+    entity.title.toLowerCase().contains(query) ||
+    entity.tags.any(
+      (tag) =>
+          tag.name.toLowerCase().contains(query) ||
+          (tag.translatedName?.toLowerCase().contains(query) ?? false),
+    );

@@ -17,6 +17,9 @@ import 'package:pixiv_func/core/reverse_image/image_input.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_platform.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
+import 'package:pixiv_func/app/layout/content_widths.dart';
+import 'package:pixiv_func/app/person_avatar.dart';
+import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/features/profile/profile_edit_page.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -459,8 +462,6 @@ void main() {
     expect(find.text('Display name'), findsOneWidget);
     expect(find.text('Bio'), findsOneWidget);
     expect(find.text('Web page'), findsOneWidget);
-    expect(find.text('Avatar'), findsOneWidget);
-    expect(find.text('Background image'), findsOneWidget);
     expect(
       tester
           .widgetList<TextFormField>(find.byType(TextFormField))
@@ -468,6 +469,25 @@ void main() {
       ['old name', 'old bio', 'https://example.com'],
     );
 
+    // The image cards are taller than the old list tiles — the background
+    // field can sit below the lazy list's viewport, so scroll it in.
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(find.text('Avatar'), findsOneWidget);
+    expect(find.text('Background image'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pumpAndSettle();
+    final saveButton = find.text('Save profile');
+    expect(saveButton, findsOneWidget);
+    final saveButtonRect = tester.getRect(saveButton);
+    final scaffoldRect = tester.getRect(find.byType(Scaffold));
+    expect(saveButtonRect.top, greaterThanOrEqualTo(scaffoldRect.top));
+    expect(saveButtonRect.bottom, lessThanOrEqualTo(scaffoldRect.bottom));
+
+    // Scroll back to the top so a text field is built before dirtying it.
+    await tester.drag(find.byType(ListView), const Offset(0, 900));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, 'changed');
     // The leading control is a back affordance, not a "cancel" action.
     await tester.tap(find.byIcon(Icons.arrow_back));
@@ -532,6 +552,81 @@ void main() {
 
     expect(find.text('Discard unsaved changes?'), findsNothing);
     expect(find.byType(ProfileEditPage), findsNothing);
+  });
+
+  testWidgets('caps profile edit content and previews images by shape', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    final session = ProfileEditSession(
+      repository: _FakeRepository(
+        capabilities: ProfileCapabilities(
+          editableFields: ProfileField.values,
+          channel: ProfileEditChannel.appApi,
+        ),
+        outcome: ProfileEditConfirmed(_user()),
+      ),
+      owner: _owner(),
+      readOwner: () => _owner(),
+      initialUser: _user(),
+      onConfirmed: (_) async {},
+    );
+    final container = ProviderContainer(
+      overrides: [
+        profileEditControllerProvider.overrideWith2(
+          (arguments) => ProfileEditController(arguments),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(profileEditControllerProvider(session).notifier)
+        .load();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en', 'US'),
+          home: ProfileEditPage(userId: 42, session: session),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(find.byType(ListView)).width, ContentWidths.form);
+    final avatarFinder = find.byKey(
+      const ValueKey('profile-edit-avatar-preview'),
+    );
+    final avatar = tester.widget<PersonAvatar>(avatarFinder);
+    expect(avatar.ring, isTrue);
+    final avatarSize = tester.getSize(avatarFinder);
+    expect(avatarSize.width, avatarSize.height);
+
+    final backgroundFinder = find.byKey(
+      const ValueKey('profile-edit-background-preview'),
+    );
+    final backgroundSize = tester.getSize(backgroundFinder);
+    expect(backgroundSize.width, greaterThan(backgroundSize.height));
+    final backgroundImage = find.byWidgetPredicate(
+      (widget) =>
+          widget is PixivImage &&
+          widget.url == _user().backgroundImageUrl &&
+          widget.fit == BoxFit.cover,
+    );
+    expect(backgroundImage, findsOneWidget);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    final saveButtonRect = tester.getRect(find.text('Save profile'));
+    expect(saveButtonRect.bottom, lessThanOrEqualTo(700));
   });
 
   testWidgets('a dirty form confirms, discards, then pops', (tester) async {
