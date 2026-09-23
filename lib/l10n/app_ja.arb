@@ -350,11 +350,19 @@
   "saveLocationPixivAlbum": "PixivFunc アルバム（デフォルト）",
   "saveLocationCustomAlbum": "カスタムアルバム名",
   "saveLocationCustomAlbumHint": "英数字・日本語・アンダースコアのみ",
-  "saveLocationUseCustomAlbum": "カスタムアルバムを使用",
   "saveLocationAlbumInvalid": "アルバム名が無効です",
   "saveLocationSafFolder": "フォルダー（システムディレクトリ選択）",
   "saveLocationSafFolderHint": "システム SAF でフォルダーを選択し、権限を永続化",
-  "saveLocationSafPicked": "フォルダーを選択済み",
+  "safStorageInternal": "内部ストレージ",
+  "safStorageSdCard": "SD カード（{volume}）",
+  "@safStorageSdCard": {
+    "placeholders": {
+      "volume": {
+        "type": "String"
+      }
+    }
+  },
+  "saveLocationUriCopied": "フォルダ URI をコピーしました",
   "namingPreset": "ファイル名プリセット",
   "namingPresetId": "作品 ID（デフォルト）",
   "namingPresetArtistTitleId": "作者 - タイトル - ID",

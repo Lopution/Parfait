@@ -844,9 +844,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Letters, digits, CJK and underscore only';
 
   @override
-  String get saveLocationUseCustomAlbum => 'Use custom album';
-
-  @override
   String get saveLocationAlbumInvalid => 'Invalid album name';
 
   @override
@@ -857,7 +854,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Picks a directory via the system SAF and persists the grant';
 
   @override
-  String get saveLocationSafPicked => 'Folder selected';
+  String get safStorageInternal => 'Internal storage';
+
+  @override
+  String safStorageSdCard(String volume) {
+    return 'SD card ($volume)';
+  }
+
+  @override
+  String get saveLocationUriCopied => 'Folder URI copied';
 
   @override
   String get namingPreset => 'File naming preset';

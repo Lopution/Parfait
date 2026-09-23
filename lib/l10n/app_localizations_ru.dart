@@ -845,9 +845,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Только буквы, цифры, кириллица и _';
 
   @override
-  String get saveLocationUseCustomAlbum => 'Использовать альбом';
-
-  @override
   String get saveLocationAlbumInvalid => 'Недопустимое имя альбома';
 
   @override
@@ -858,7 +855,15 @@ class AppLocalizationsRu extends AppLocalizations {
       'Выбор каталога через системный SAF с сохранением прав';
 
   @override
-  String get saveLocationSafPicked => 'Папка выбрана';
+  String get safStorageInternal => 'Внутренняя память';
+
+  @override
+  String safStorageSdCard(String volume) {
+    return 'SD-карта ($volume)';
+  }
+
+  @override
+  String get saveLocationUriCopied => 'URI папки скопирован';
 
   @override
   String get namingPreset => 'Пресет имени файла';

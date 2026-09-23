@@ -350,11 +350,19 @@
   "saveLocationPixivAlbum": "Альбом PixivFunc (по умолчанию)",
   "saveLocationCustomAlbum": "Имя пользовательского альбома",
   "saveLocationCustomAlbumHint": "Только буквы, цифры, кириллица и _",
-  "saveLocationUseCustomAlbum": "Использовать альбом",
   "saveLocationAlbumInvalid": "Недопустимое имя альбома",
   "saveLocationSafFolder": "Папка (системный выбор каталога)",
   "saveLocationSafFolderHint": "Выбор каталога через системный SAF с сохранением прав",
-  "saveLocationSafPicked": "Папка выбрана",
+  "safStorageInternal": "Внутренняя память",
+  "safStorageSdCard": "SD-карта ({volume})",
+  "@safStorageSdCard": {
+    "placeholders": {
+      "volume": {
+        "type": "String"
+      }
+    }
+  },
+  "saveLocationUriCopied": "URI папки скопирован",
   "namingPreset": "Пресет имени файла",
   "namingPresetId": "ID работы (по умолчанию)",
   "namingPresetArtistTitleId": "Автор - название - ID",

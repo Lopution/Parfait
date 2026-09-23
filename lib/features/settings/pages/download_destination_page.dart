@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/app_snack_bar.dart';
@@ -6,6 +7,7 @@ import '../../../core/download/download_destination.dart';
 import '../../../core/platform/saf_tree.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
+import '../saf_tree_name.dart';
 import '../settings_helpers.dart';
 
 /// Single-entry save location chooser (D5): album vs SAF folder. Album
@@ -109,7 +111,7 @@ class _DownloadDestinationPageState
                     showAppSnackBar(context, context.l10n.saved);
                   }
                 },
-                child: Text(context.l10n.saveLocationUseCustomAlbum),
+                child: Text(context.l10n.save),
               ),
             ),
             const Divider(),
@@ -127,8 +129,22 @@ class _DownloadDestinationPageState
             if (destination.isSafFolder)
               ListTile(
                 leading: const Icon(Icons.check_circle),
-                title: Text(context.l10n.saveLocationSafPicked),
-                subtitle: Text(destination.safTreeUri ?? ''),
+                selected: true,
+                // Headline is the human-readable tree name; the raw
+                // `content://` URI drops to a truncated subtitle and stays
+                // reachable through long-press copy (R6).
+                title: Text(
+                  safTreeDisplayName(
+                    context.l10n,
+                    destination.safTreeUri ?? '',
+                  ),
+                ),
+                subtitle: Text(
+                  destination.safTreeUri ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onLongPress: () => _copySafUri(destination.safTreeUri),
               ),
           ],
         ),
@@ -147,6 +163,17 @@ class _DownloadDestinationPageState
     );
     if (saved && mounted) {
       showAppSnackBar(context, context.l10n.saved);
+    }
+  }
+
+  /// Long-press on the picked SAF tile copies the raw tree URI — the
+  /// truncated subtitle is enough to recognize the pick, copying keeps
+  /// the technical identifier reachable for support/debugging.
+  Future<void> _copySafUri(String? uri) async {
+    if (uri == null || uri.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: uri));
+    if (mounted) {
+      showAppSnackBar(context, context.l10n.saveLocationUriCopied);
     }
   }
 }
