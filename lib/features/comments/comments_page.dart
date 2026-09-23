@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/haptics/app_haptics.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -101,6 +102,9 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
         (identical(_replyTarget, target) || _replyTarget?.id == target?.id)) {
       setState(() => _replyTarget = null);
     }
+    // One completion pulse for the accepted send — text and stamp share
+    // this point, so both get the same success level from the W4 wrapper.
+    AppHaptics.success();
   }
 
   /// Reply pill on a feed row: pin the target and raise the keyboard so
@@ -259,6 +263,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
         (identical(_replyTarget, target) || _replyTarget?.id == target?.id)) {
       setState(() => _replyTarget = null);
     }
+    AppHaptics.success();
   }
 
   void _showMutationError(Object error) {
