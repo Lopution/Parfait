@@ -11,6 +11,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/replica_switch_tile.dart';
+import '../../app/widgets/scrollable_form_shell.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../core/auth/account.dart';
@@ -247,45 +248,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final onClipboardLogin = widget.onClipboardLogin ?? _importFromClipboard;
     final title = Text(
       text('loginTitle'),
+      textAlign: TextAlign.center,
       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
     );
 
-    return ReplicaScaffold(
+    return ScrollableFormShell(
       title: widget.isFirst ? null : title,
-      child: _buildBody(
-        context,
-        title: title,
-        text: text,
-        onClipboardLogin: onClipboardLogin,
+      // The first-run variant shows the title inside the scrollable body —
+      // same treatment as the onboarding pages sharing this shell.
+      header: widget.isFirst ? title : const SizedBox.shrink(),
+      content: _buildNetworkOptions(context, text: text),
+      primaryAction: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: _buildLoginActions(text, onClipboardLogin),
       ),
-    );
-  }
-
-  Widget _buildBody(
-    BuildContext context, {
-    required Text title,
-    required String Function(String) text,
-    required VoidCallback onClipboardLogin,
-  }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: MediaQuery.sizeOf(context).width * .1,
-      ),
-      child: Column(
+      secondary: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Spacer(),
-          if (widget.isFirst) title,
-          const Spacer(flex: 2),
-          SizedBox(
-            height: MediaQuery.sizeOf(context).height * .4,
-            child: _buildNetworkOptions(
-              context,
-              text: text,
-              onClipboardLogin: onClipboardLogin,
-            ),
+          Text(
+            text('loginAgree'),
+            textAlign: TextAlign.center,
+            style: FuncSemanticTokens.of(context).body,
           ),
-          const Spacer(),
-          Text(text('loginAgree'), style: FuncSemanticTokens.of(context).body),
           TextButton(
             onPressed: () => context.push<void>('/user-agreement'),
             style: TextButton.styleFrom(
@@ -301,7 +286,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Spacer(),
         ],
       ),
     );
@@ -310,9 +294,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget _buildNetworkOptions(
     BuildContext context, {
     required String Function(String) text,
-    required VoidCallback onClipboardLogin,
   }) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         ReplicaSwitchTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 6),
@@ -338,8 +322,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ],
             ),
           ),
-        const Spacer(),
-        ..._buildLoginActions(text, onClipboardLogin),
       ],
     );
   }
