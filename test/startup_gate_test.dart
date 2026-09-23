@@ -367,6 +367,9 @@ void main() {
 
     expect(find.text('读取账号状态失败'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
+    // Retry is the error page's primary action — a filled button, not a
+    // low-emphasis text button.
+    expect(find.widgetWithText(FilledButton, '重试'), findsOneWidget);
     expect(find.byType(LoginPage), findsNothing);
     expect(find.byType(HomePage), findsNothing);
   });
