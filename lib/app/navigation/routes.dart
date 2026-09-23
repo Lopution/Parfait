@@ -1286,6 +1286,13 @@ Future<void> openNovelRanking(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/novel-ranking');
 }
 
+/// Download tasks live under the settings shell — the SnackBar "查看"
+/// action lands there directly regardless of which stack submitted the
+/// download (prd.md R8).
+Future<void> openDownloadTasks(BuildContext context) async {
+  await _push(context, '/settings/tasks');
+}
+
 Future<void> openWatchLater(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/watchlater');
 }
