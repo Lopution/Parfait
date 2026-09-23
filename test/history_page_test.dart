@@ -202,10 +202,15 @@ void main() {
     expect(find.text('删除后将不可恢复'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pump();
-    await tester.runAsync(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      await tester.pump();
-    });
+    // The ffi-backed deletes run on the real event loop while the
+    // resulting rebuild rides fake-async pump — poll instead of trusting
+    // a fixed delay (300ms was enough locally but not on CI).
+    for (var i = 0; i < 120 && find.text('暂无浏览历史').evaluate().isEmpty; i++) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+      });
+    }
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('work 1'), findsNothing);
