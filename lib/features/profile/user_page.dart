@@ -7,11 +7,13 @@ import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/follow_switch_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/download/author_works_enumerator.dart';
 import '../../core/network/api_error.dart';
 import '../../core/user/follow_actions.dart';
+import '../../core/user/follow_store.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import 'author_works_download_dialog.dart';
@@ -271,6 +273,13 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   Widget _buildProfile(UserEntity user, {ApiError? staleError}) {
+    final followed = widget.isMe
+        ? user.isFollowed ?? false
+        : ref.watch(
+                followStoreProvider.select((state) => state[user.id]?.followed),
+              ) ??
+              user.isFollowed ??
+              false;
     final showRestrictSelector =
         widget.isMe && (_selectedIndex == 0 || _selectedIndex == 1);
     final workTabIndex = widget.isMe ? _tabKeys.length - 1 : 0;
@@ -309,9 +318,21 @@ class _UserPageState extends ConsumerState<UserPage>
                   restrict: _restrict,
                   onRestrictChanged: _onRestrictChanged,
                   onShare: () => _showProfileShare(context, ref, user),
+                  isFollowed: followed,
                   onToggleFollow: widget.isMe
                       ? null
                       : () => ref.read(followActionsProvider).toggle(user.id),
+                  onFollowPrivately: widget.isMe
+                      ? null
+                      : () async {
+                          await showFollowRestrictSheet(
+                            context,
+                            ref,
+                            userId: user.id,
+                            userName: user.name,
+                            userAccount: user.account,
+                          );
+                        },
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                   // Bookmarks tab only: the tag collection entry sits in the
                   // collapsed toolbar next to the restrict selector.

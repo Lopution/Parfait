@@ -34,87 +34,13 @@ class FollowSwitchButton extends ConsumerWidget {
       l10nLookup(context.l10n, key);
 
   Future<void> _showRestrictSheet(BuildContext context, WidgetRef ref) async {
-    var restrict = FollowRestrict.public;
-    final selected = await showAppBottomSheet<FollowRestrict>(
-      context: context,
-      backgroundColor: FuncTokens.transparent,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setState) {
-          final colors = Theme.of(sheetContext).colorScheme;
-          return Container(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _text(sheetContext, 'followUser'),
-                    style: Theme.of(sheetContext).textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    userName,
-                    style: FuncSemanticTokens.of(sheetContext).title,
-                  ),
-                  if (userAccount.isNotEmpty)
-                    Text(
-                      userAccount,
-                      style: FuncSemanticTokens.of(sheetContext).caption,
-                    ),
-                  const SizedBox(height: 16),
-                  SegmentedButton<FollowRestrict>(
-                    segments: [
-                      ButtonSegment(
-                        value: FollowRestrict.public,
-                        label: Text(_text(sheetContext, 'restrictPublic')),
-                      ),
-                      ButtonSegment(
-                        value: FollowRestrict.private,
-                        label: Text(_text(sheetContext, 'restrictPrivate')),
-                      ),
-                    ],
-                    selected: {restrict},
-                    onSelectionChanged: (value) =>
-                        setState(() => restrict = value.first),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                          child: Text(_text(sheetContext, 'cancel')),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () =>
-                              Navigator.of(sheetContext).pop(restrict),
-                          child: Text(_text(sheetContext, 'confirm')),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+    await showFollowRestrictSheet(
+      context,
+      ref,
+      userId: userId,
+      userName: userName,
+      userAccount: userAccount,
     );
-    if (selected != null && context.mounted) {
-      await ref.read(followActionsProvider).addWithRestrict(userId, selected);
-    }
   }
 
   @override
@@ -184,3 +110,97 @@ class FollowSwitchButton extends ConsumerWidget {
     );
   }
 }
+
+/// Opens the same public/private follow sheet used by [FollowSwitchButton].
+/// Profile header overflow actions use this entry point so a compact toolbar
+/// does not grow a second follow restriction implementation.
+Future<void> showFollowRestrictSheet(
+  BuildContext context,
+  WidgetRef ref, {
+  required int userId,
+  required String userName,
+  String userAccount = '',
+}) async {
+  var restrict = FollowRestrict.public;
+  final selected = await showAppBottomSheet<FollowRestrict>(
+    context: context,
+    backgroundColor: FuncTokens.transparent,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setState) {
+        final colors = Theme.of(sheetContext).colorScheme;
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _followText(sheetContext, 'followUser'),
+                  style: Theme.of(sheetContext).textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  userName,
+                  style: FuncSemanticTokens.of(sheetContext).title,
+                ),
+                if (userAccount.isNotEmpty)
+                  Text(
+                    userAccount,
+                    style: FuncSemanticTokens.of(sheetContext).caption,
+                  ),
+                const SizedBox(height: 16),
+                SegmentedButton<FollowRestrict>(
+                  segments: [
+                    ButtonSegment(
+                      value: FollowRestrict.public,
+                      label: Text(_followText(sheetContext, 'restrictPublic')),
+                    ),
+                    ButtonSegment(
+                      value: FollowRestrict.private,
+                      label: Text(_followText(sheetContext, 'restrictPrivate')),
+                    ),
+                  ],
+                  selected: {restrict},
+                  onSelectionChanged: (value) =>
+                      setState(() => restrict = value.first),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: Text(_followText(sheetContext, 'cancel')),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () =>
+                            Navigator.of(sheetContext).pop(restrict),
+                        child: Text(_followText(sheetContext, 'confirm')),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+  if (selected != null && context.mounted) {
+    await ref.read(followActionsProvider).addWithRestrict(userId, selected);
+  }
+}
+
+String _followText(BuildContext context, String key) =>
+    l10nLookup(context.l10n, key);

@@ -3540,6 +3540,18 @@ abstract class AppLocalizations {
   /// **'关注用户'**
   String get followUser;
 
+  /// No description provided for @followPrivately.
+  ///
+  /// In zh, this message translates to:
+  /// **'私密关注'**
+  String get followPrivately;
+
+  /// No description provided for @unfollow.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消关注'**
+  String get unfollow;
+
   /// No description provided for @followFailed.
   ///
   /// In zh, this message translates to:
@@ -3750,6 +3762,12 @@ abstract class AppLocalizations {
   /// **'复制链接'**
   String get copyLink;
 
+  /// No description provided for @openLink.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开链接'**
+  String get openLink;
+
   /// No description provided for @watchLaterAdded.
   ///
   /// In zh, this message translates to:
@@ -3791,6 +3809,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'输入新标签，回车添加'**
   String get bookmarkTagNewHint;
+
+  /// No description provided for @bookmarkTagFilterEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加载内容中无匹配'**
+  String get bookmarkTagFilterEmpty;
+
+  /// No description provided for @bookmarkTagFilterHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选已加载作品'**
+  String get bookmarkTagFilterHint;
 
   /// No description provided for @bookmarkTagSuggestions.
   ///
