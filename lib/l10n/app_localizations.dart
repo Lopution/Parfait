@@ -1128,6 +1128,12 @@ abstract class AppLocalizations {
   /// **'切换账号'**
   String get switchAccount;
 
+  /// No description provided for @accountSwitching.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在切换…'**
+  String get accountSwitching;
+
   /// No description provided for @removeAccount.
   ///
   /// In zh, this message translates to:
@@ -1560,6 +1566,12 @@ abstract class AppLocalizations {
   /// **'最大并行下载数'**
   String get maxDownloadCount;
 
+  /// No description provided for @maxDownloadCountHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖动预览数值，松手后生效'**
+  String get maxDownloadCountHint;
+
   /// No description provided for @namingRule.
   ///
   /// In zh, this message translates to:
@@ -1608,12 +1620,6 @@ abstract class AppLocalizations {
   /// **'仅字母、数字、中文与下划线'**
   String get saveLocationCustomAlbumHint;
 
-  /// No description provided for @saveLocationUseCustomAlbum.
-  ///
-  /// In zh, this message translates to:
-  /// **'使用自定义相册'**
-  String get saveLocationUseCustomAlbum;
-
   /// No description provided for @saveLocationAlbumInvalid.
   ///
   /// In zh, this message translates to:
@@ -1632,11 +1638,23 @@ abstract class AppLocalizations {
   /// **'通过系统 SAF 选择目录并持久授权'**
   String get saveLocationSafFolderHint;
 
-  /// No description provided for @saveLocationSafPicked.
+  /// No description provided for @safStorageInternal.
   ///
   /// In zh, this message translates to:
-  /// **'已选择文件夹'**
-  String get saveLocationSafPicked;
+  /// **'内部存储'**
+  String get safStorageInternal;
+
+  /// No description provided for @safStorageSdCard.
+  ///
+  /// In zh, this message translates to:
+  /// **'SD 卡（{volume}）'**
+  String safStorageSdCard(String volume);
+
+  /// No description provided for @saveLocationUriCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制目录 URI'**
+  String get saveLocationUriCopied;
 
   /// No description provided for @namingPreset.
   ///
@@ -1793,6 +1811,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'清除凭据'**
   String get translateCredentialsClear;
+
+  /// No description provided for @translateCredentialsClearConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'将删除安全存储中的凭据；翻译前需要重新输入。'**
+  String get translateCredentialsClearConfirm;
 
   /// No description provided for @translateCredentialsSaved.
   ///

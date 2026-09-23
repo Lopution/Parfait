@@ -213,6 +213,7 @@
   "accountManagement": "アカウント管理",
   "addAccount": "アカウントを追加",
   "switchAccount": "アカウントを切り替え",
+  "accountSwitching": "切り替え中…",
   "removeAccount": "アカウントを削除",
   "removeAccountConfirm": "このアカウントを削除しますか？",
   "noAccounts": "アカウントがありません",
@@ -340,6 +341,7 @@
   "reduceMotion": "視覚効果を減らす",
   "reduceMotionHint": "画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします",
   "maxDownloadCount": "同時ダウンロード数の上限",
+  "maxDownloadCountHint": "ドラッグでプレビュー、離すと適用",
   "namingRule": "ファイル名規則",
   "namingRuleHint": "空欄で標準の名前を使用",
   "saveFolder": "保存フォルダー",
@@ -348,11 +350,19 @@
   "saveLocationPixivAlbum": "PixivFunc アルバム（デフォルト）",
   "saveLocationCustomAlbum": "カスタムアルバム名",
   "saveLocationCustomAlbumHint": "英数字・日本語・アンダースコアのみ",
-  "saveLocationUseCustomAlbum": "カスタムアルバムを使用",
   "saveLocationAlbumInvalid": "アルバム名が無効です",
   "saveLocationSafFolder": "フォルダー（システムディレクトリ選択）",
   "saveLocationSafFolderHint": "システム SAF でフォルダーを選択し、権限を永続化",
-  "saveLocationSafPicked": "フォルダーを選択済み",
+  "safStorageInternal": "内部ストレージ",
+  "safStorageSdCard": "SD カード（{volume}）",
+  "@safStorageSdCard": {
+    "placeholders": {
+      "volume": {
+        "type": "String"
+      }
+    }
+  },
+  "saveLocationUriCopied": "フォルダ URI をコピーしました",
   "namingPreset": "ファイル名プリセット",
   "namingPresetId": "作品 ID（デフォルト）",
   "namingPresetArtistTitleId": "作者 - タイトル - ID",
@@ -404,6 +414,7 @@
   "translateLlmModel": "モデル名（任意）",
   "translateCredentialsSave": "安全なストレージに保存",
   "translateCredentialsClear": "認証情報を削除",
+  "translateCredentialsClearConfirm": "安全ストレージ内の認証情報を削除します。翻訳するには再入力が必要です。",
   "translateCredentialsSaved": "安全なストレージに保存しました",
   "translateCredentialsCleared": "認証情報を削除しました",
   "translateCredentialsStoreError": "安全なストレージの操作に失敗しました",

@@ -546,6 +546,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get switchAccount => '切换账号';
 
   @override
+  String get accountSwitching => '正在切换…';
+
+  @override
   String get removeAccount => '移除账号';
 
   @override
@@ -779,6 +782,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maxDownloadCount => '最大并行下载数';
 
   @override
+  String get maxDownloadCountHint => '拖动预览数值，松手后生效';
+
+  @override
   String get namingRule => '文件命名规则';
 
   @override
@@ -803,9 +809,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveLocationCustomAlbumHint => '仅字母、数字、中文与下划线';
 
   @override
-  String get saveLocationUseCustomAlbum => '使用自定义相册';
-
-  @override
   String get saveLocationAlbumInvalid => '相册名称无效';
 
   @override
@@ -815,7 +818,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveLocationSafFolderHint => '通过系统 SAF 选择目录并持久授权';
 
   @override
-  String get saveLocationSafPicked => '已选择文件夹';
+  String get safStorageInternal => '内部存储';
+
+  @override
+  String safStorageSdCard(String volume) {
+    return 'SD 卡（$volume）';
+  }
+
+  @override
+  String get saveLocationUriCopied => '已复制目录 URI';
 
   @override
   String get namingPreset => '文件命名预设';
@@ -901,6 +912,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get translateCredentialsClear => '清除凭据';
+
+  @override
+  String get translateCredentialsClearConfirm => '将删除安全存储中的凭据；翻译前需要重新输入。';
 
   @override
   String get translateCredentialsSaved => '已保存到安全存储';

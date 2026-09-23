@@ -15,6 +15,7 @@ import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import 'saf_tree_name.dart';
 
 String settingsText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -209,6 +210,9 @@ String downloadDestinationLabel(
     DownloadDestinationKind.customAlbum =>
       '${context.l10n.saveLocationCustomAlbum} '
           '(${destination.customAlbumName})',
-    DownloadDestinationKind.safFolder => context.l10n.saveLocationSafFolder,
+    DownloadDestinationKind.safFolder => switch (destination.safTreeUri) {
+      final uri? when uri.isNotEmpty => safTreeDisplayName(context.l10n, uri),
+      _ => context.l10n.saveLocationSafFolder,
+    },
   };
 }

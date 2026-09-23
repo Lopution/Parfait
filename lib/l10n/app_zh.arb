@@ -213,6 +213,7 @@
   "accountManagement": "账号管理",
   "addAccount": "添加账号",
   "switchAccount": "切换账号",
+  "accountSwitching": "正在切换…",
   "removeAccount": "移除账号",
   "removeAccountConfirm": "确定移除这个账号？",
   "noAccounts": "暂无账号",
@@ -340,6 +341,7 @@
   "reduceMotion": "减少动态效果",
   "reduceMotionHint": "关闭页面转场、列表进场与按压反馈等装饰性动画",
   "maxDownloadCount": "最大并行下载数",
+  "maxDownloadCountHint": "拖动预览数值，松手后生效",
   "namingRule": "文件命名规则",
   "namingRuleHint": "留空使用默认命名",
   "saveFolder": "保存目录",
@@ -348,11 +350,19 @@
   "saveLocationPixivAlbum": "PixivFunc 相册（默认）",
   "saveLocationCustomAlbum": "自定义相册名称",
   "saveLocationCustomAlbumHint": "仅字母、数字、中文与下划线",
-  "saveLocationUseCustomAlbum": "使用自定义相册",
   "saveLocationAlbumInvalid": "相册名称无效",
   "saveLocationSafFolder": "文件夹（系统目录选择）",
   "saveLocationSafFolderHint": "通过系统 SAF 选择目录并持久授权",
-  "saveLocationSafPicked": "已选择文件夹",
+  "safStorageInternal": "内部存储",
+  "safStorageSdCard": "SD 卡（{volume}）",
+  "@safStorageSdCard": {
+    "placeholders": {
+      "volume": {
+        "type": "String"
+      }
+    }
+  },
+  "saveLocationUriCopied": "已复制目录 URI",
   "namingPreset": "文件命名预设",
   "namingPresetId": "作品 ID（默认）",
   "namingPresetArtistTitleId": "作者 - 标题 - ID",
@@ -404,6 +414,7 @@
   "translateLlmModel": "模型名（可选）",
   "translateCredentialsSave": "保存到安全存储",
   "translateCredentialsClear": "清除凭据",
+  "translateCredentialsClearConfirm": "将删除安全存储中的凭据；翻译前需要重新输入。",
   "translateCredentialsSaved": "已保存到安全存储",
   "translateCredentialsCleared": "凭据已清除",
   "translateCredentialsStoreError": "安全存储操作失败",

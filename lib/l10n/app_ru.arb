@@ -213,6 +213,7 @@
   "accountManagement": "Управление аккаунтами",
   "addAccount": "Добавить аккаунт",
   "switchAccount": "Сменить аккаунт",
+  "accountSwitching": "Переключение…",
   "removeAccount": "Удалить аккаунт",
   "removeAccountConfirm": "Удалить этот аккаунт?",
   "noAccounts": "Нет аккаунтов",
@@ -340,6 +341,7 @@
   "reduceMotion": "Меньше анимаций",
   "reduceMotionHint": "Отключить декоративную анимацию: переходы страниц, появление списков и отклик на нажатие",
   "maxDownloadCount": "Максимум параллельных загрузок",
+  "maxDownloadCountHint": "Потяните для предпросмотра; отпустите — применится",
   "namingRule": "Правило имени файла",
   "namingRuleHint": "Пусто — использовать имя по умолчанию",
   "saveFolder": "Папка сохранения",
@@ -348,11 +350,19 @@
   "saveLocationPixivAlbum": "Альбом PixivFunc (по умолчанию)",
   "saveLocationCustomAlbum": "Имя пользовательского альбома",
   "saveLocationCustomAlbumHint": "Только буквы, цифры, кириллица и _",
-  "saveLocationUseCustomAlbum": "Использовать альбом",
   "saveLocationAlbumInvalid": "Недопустимое имя альбома",
   "saveLocationSafFolder": "Папка (системный выбор каталога)",
   "saveLocationSafFolderHint": "Выбор каталога через системный SAF с сохранением прав",
-  "saveLocationSafPicked": "Папка выбрана",
+  "safStorageInternal": "Внутренняя память",
+  "safStorageSdCard": "SD-карта ({volume})",
+  "@safStorageSdCard": {
+    "placeholders": {
+      "volume": {
+        "type": "String"
+      }
+    }
+  },
+  "saveLocationUriCopied": "URI папки скопирован",
   "namingPreset": "Пресет имени файла",
   "namingPresetId": "ID работы (по умолчанию)",
   "namingPresetArtistTitleId": "Автор - название - ID",
@@ -404,6 +414,7 @@
   "translateLlmModel": "Модель (необязательно)",
   "translateCredentialsSave": "Сохранить в защищённое хранилище",
   "translateCredentialsClear": "Очистить учётные данные",
+  "translateCredentialsClearConfirm": "Сохранённые учётные данные будут удалены; для перевода их придётся ввести заново.",
   "translateCredentialsSaved": "Сохранено в защищённое хранилище",
   "translateCredentialsCleared": "Учётные данные очищены",
   "translateCredentialsStoreError": "Ошибка защищённого хранилища",
