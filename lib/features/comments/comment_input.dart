@@ -217,7 +217,22 @@ class CommentComposerState extends State<CommentComposer> {
                       onPressed: _disabled || _controller.text.trim().isEmpty
                           ? null
                           : _sendText,
-                      icon: const Icon(Icons.send_outlined),
+                      // While a send is in flight the affordance becomes a
+                      // progress indicator — visible feedback for the
+                      // non-optimistic wait (R6). `_busy` covers the gap
+                      // where the store mutation key reports early false.
+                      icon: _disabled
+                          ? Semantics(
+                              label: context.l10n.commentSending,
+                              child: const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : const Icon(Icons.send_outlined),
                     ),
                   ],
                 ),

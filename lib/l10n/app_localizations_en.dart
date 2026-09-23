@@ -1721,6 +1721,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentEmoji => 'Emoji';
 
   @override
+  String get commentSending => 'Sending';
+
+  @override
   String commentStampLabel(int id) {
     return 'Stamp $id';
   }

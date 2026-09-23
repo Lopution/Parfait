@@ -791,6 +791,7 @@
   "commentTranslationInvalidCredentials": "Учётные данные перевода недействительны; проверьте настройки",
   "commentTranslationRateLimited": "Слишком много переводов или исчерпана квота",
   "commentEmoji": "Emoji",
+  "commentSending": "Отправка",
   "commentStampLabel": "Стикер {id}",
   "@commentStampLabel": {
     "placeholders": {
