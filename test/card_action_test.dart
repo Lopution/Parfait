@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -48,6 +49,11 @@ class _BookmarkApiFixture {
     'mute_limit_count': 500,
   };
 
+  /// `/v1/mute/edit` knobs: a non-2xx status fails the write; a gate
+  /// defers the response so tests can observe the in-flight pending row.
+  int muteEditStatus = 200;
+  Completer<void>? muteEditGate;
+
   http.Client build() {
     return MockClient((request) async {
       // The card watches MuteStore, whose hydrate fetches the server list.
@@ -60,6 +66,16 @@ class _BookmarkApiFixture {
         );
       }
       posts.add(request.url);
+      if (request.url.path.endsWith('/v1/mute/edit')) {
+        await muteEditGate?.future;
+        if (muteEditStatus != 200) {
+          return http.Response(
+            jsonEncode({'message': 'boom', 'is_success': false}),
+            muteEditStatus,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+      }
       Map<String, String> fields;
       try {
         fields = (jsonDecode(request.body) as Map).cast<String, String>();
@@ -403,7 +419,7 @@ void main() {
     await mockNetworkImagesFor(() async {
       await _openSheet(tester);
     });
-    expect(find.widgetWithText(ListTile, '取消屏蔽此作品'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, '解除屏蔽此作品'), findsOneWidget);
   });
 
   testWidgets('mute-author action sends add_user_ids to mute/edit', (
@@ -434,7 +450,7 @@ void main() {
     await mockNetworkImagesFor(() async {
       await _openSheet(tester);
     });
-    expect(find.widgetWithText(ListTile, '取消屏蔽作者'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, '解除屏蔽作者'), findsOneWidget);
   });
 
   testWidgets('muted card blurs the cover and tap reveals in place', (
@@ -496,7 +512,10 @@ void main() {
     // Unmute tag → server delete_tags[] request, row disappears.
     final tagTile = find.widgetWithText(ListTile, 'tagA');
     await tester.tap(
-      find.descendant(of: tagTile, matching: find.byIcon(Icons.delete_outline)),
+      find.descendant(
+        of: tagTile,
+        matching: find.byIcon(Icons.visibility_outlined),
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.text('tagA'), findsNothing);
@@ -512,7 +531,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: workTile,
-        matching: find.byIcon(Icons.delete_outline),
+        matching: find.byIcon(Icons.visibility_outlined),
       ),
     );
     await tester.pumpAndSettle();
@@ -522,5 +541,86 @@ void main() {
       container.read(muteStoreProvider.select((s) => s.isWorkMuted(41))),
       isFalse,
     );
+  });
+
+  testWidgets('muted items rows expose the release verb and icon', (
+    tester,
+  ) async {
+    final (container, fixture, _) = await _makeWorld();
+    fixture.muteList = {
+      'muted_tags': [
+        {'tag': 'tagA'},
+      ],
+      'muted_users': <dynamic>[],
+      'mute_limit_count': 500,
+    };
+    await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
+    await tester.pumpAndSettle();
+
+    // D6: removing a mute reads as 解除屏蔽 with a visibility icon.
+    expect(find.byTooltip('解除屏蔽'), findsOneWidget);
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+  });
+
+  testWidgets('failed tag add keeps the input for a retry', (tester) async {
+    final (container, fixture, _) = await _makeWorld();
+    await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
+    await tester.pumpAndSettle();
+
+    fixture.muteEditStatus = 500;
+    await tester.enterText(find.byType(TextField), 'tagFail');
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(
+      field.controller!.text,
+      'tagFail',
+      reason: 'a rejected write keeps the draft so it can be retried',
+    );
+    expect(
+      container.read(muteStoreProvider.select((s) => s.isTagMuted('tagFail'))),
+      isFalse,
+    );
+
+    // The same draft succeeds once the backend recovers.
+    fixture.muteEditStatus = 200;
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      isEmpty,
+    );
+    expect(
+      container.read(muteStoreProvider.select((s) => s.isTagMuted('tagFail'))),
+      isTrue,
+    );
+  });
+
+  testWidgets('a pending mute write shows a spinner on the new row', (
+    tester,
+  ) async {
+    // The store applies optimistically: an added tag lands in the list
+    // immediately and stays marked pending until the write resolves — the
+    // trailing slot swaps its button for a live spinner.
+    final (container, fixture, _) = await _makeWorld();
+    await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
+    await tester.pumpAndSettle();
+
+    fixture.muteEditGate = Completer<void>();
+    await tester.enterText(find.byType(TextField), 'tagNew');
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump();
+    expect(find.widgetWithText(ListTile, 'tagNew'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byTooltip('解除屏蔽'), findsNothing);
+
+    fixture.muteEditGate!.complete();
+    await tester.pumpAndSettle();
+    expect(
+      container.read(muteStoreProvider.select((s) => s.isTagMuted('tagNew'))),
+      isTrue,
+    );
+    expect(find.byTooltip('解除屏蔽'), findsOneWidget);
   });
 }
