@@ -654,6 +654,12 @@ abstract class AppLocalizations {
   /// **'恢复默认值'**
   String get networkAdvancedReset;
 
+  /// No description provided for @networkAdvancedResetConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'将 DoH 端点与 ECH 前置主机恢复为默认值。'**
+  String get networkAdvancedResetConfirm;
+
   /// No description provided for @networkDoh.
   ///
   /// In zh, this message translates to:

@@ -325,6 +325,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkAdvancedReset => 'Reset to defaults';
 
   @override
+  String get networkAdvancedResetConfirm =>
+      'Resets the DoH endpoints and the ECH front host to their defaults.';
+
+  @override
   String get networkDoh => 'Use DoH for strict fallback';
 
   @override

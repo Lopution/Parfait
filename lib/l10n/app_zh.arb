@@ -134,6 +134,7 @@
   "networkAdvanced": "高级设置",
   "networkAdvancedHint": "面向高级用户的底层选项。",
   "networkAdvancedReset": "恢复默认值",
+  "networkAdvancedResetConfirm": "将 DoH 端点与 ECH 前置主机恢复为默认值。",
   "networkDoh": "严格回退使用 DoH 解析",
   "networkDohHint": "启用后，回退阶梯使用 DoH 解析（默认 Cloudflare DoH：域名端点 + 静态 Anycast IP，免系统 DNS 投毒；自定义端点解析域名）；关闭则仅用系统 DNS。",
   "networkDohEndpoints": "DoH 端点（逗号分隔，https URL）",

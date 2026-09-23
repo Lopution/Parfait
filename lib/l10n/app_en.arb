@@ -134,6 +134,7 @@
   "networkAdvanced": "Advanced",
   "networkAdvancedHint": "Low-level options for advanced users.",
   "networkAdvancedReset": "Reset to defaults",
+  "networkAdvancedResetConfirm": "Resets the DoH endpoints and the ECH front host to their defaults.",
   "networkDoh": "Use DoH for strict fallback",
   "networkDohHint": "When enabled, the fallback tier resolves via DoH (default Cloudflare DoH: domain endpoints pinned to static anycast IPs — no poisoned system round trip; custom endpoints resolve their own hostnames); otherwise the system DNS is used.",
   "networkDohEndpoints": "DoH endpoints (comma-separated, https URLs)",
