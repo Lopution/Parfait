@@ -2375,4 +2375,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get watchLaterRemoved => 'あとで見るから削除しました';
+
+  @override
+  String get watchlistOpenContents => '目次を開く';
 }

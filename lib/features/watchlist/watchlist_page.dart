@@ -3,11 +3,15 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/series/series_recent_open_store.dart';
+import '../../core/watchlist/watchlist_actions.dart';
 import '../../core/watchlist/watchlist_feed_controller.dart';
 import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
@@ -162,7 +166,7 @@ class _WatchlistEntryTile extends ConsumerWidget {
         );
     final canOpen = entry.type == WatchlistType.manga || latest != null;
     final published = entry.lastPublishedContentDatetime;
-    return ListTile(
+    return EntityRow(
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: entry.coverUrl != null
@@ -174,51 +178,37 @@ class _WatchlistEntryTile extends ConsumerWidget {
               )
             : const SizedBox(width: 48, height: 48),
       ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(
-              entry.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (hasNew)
-            Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  context.l10n.watchlistNewContent,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onErrorContainer,
-                  ),
-                ),
+      title: entry.title,
+      meta: [
+        entry.userName,
+        if (published != null && published.length >= 10)
+          published.substring(0, 10),
+        if (entry.publishedContentCount != null)
+          context.l10n.seriesWorksCount(entry.publishedContentCount!),
+      ].join(' · '),
+      badge: hasNew
+          ? EntityBadge(
+              color: theme.colorScheme.error,
+              child: Text(
+                context.l10n.watchlistNewContent,
+                style: theme.textTheme.labelSmall,
               ),
-            ),
-        ],
+            )
+          : null,
+      semanticLabel: '${entry.title}, ${entry.userName}',
+      onTap: canOpen ? () => unawaited(_viewLatest(context, ref)) : null,
+      trailing: IconButton(
+        icon: const Icon(Icons.more_vert),
+        tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+        onPressed: () => _openActions(context, ref),
       ),
-      subtitle: Text(
-        [
-          entry.userName,
-          if (published != null && published.length >= 10)
-            published.substring(0, 10),
-          if (entry.publishedContentCount != null)
-            context.l10n.seriesWorksCount(entry.publishedContentCount!),
-        ].join(' · '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      enabled: canOpen,
-      onTap: canOpen ? () => _open(context, ref) : null,
     );
   }
 
-  Future<void> _open(BuildContext context, WidgetRef ref) async {
+  /// Primary action — "view updates": open the newest tracked content and
+  /// advance the read cursor. The cursor is an update marker only — it
+  /// never backs a "continue reading" affordance (prd.md R6).
+  Future<void> _viewLatest(BuildContext context, WidgetRef ref) async {
     final latest = entry.latestContentId;
     final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
     if (accountId != null && latest != null) {
@@ -231,8 +221,82 @@ class _WatchlistEntryTile extends ConsumerWidget {
     ref.invalidate(_watchlistSeenProvider(entry.key));
     if (entry.type == WatchlistType.novel) {
       await openNovel(context, latest!);
+    } else if (latest != null) {
+      await openIllust(context, latest);
     } else {
       await openIllustSeries(context, entry.id);
     }
+  }
+
+  Future<void> _openActions(BuildContext context, WidgetRef ref) async {
+    final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
+    // 「返回第 n 话」only exists when the session recorded an opened work —
+    // novels never have a record (the store keys manga series only), so the
+    // item simply does not render for them.
+    final recent = entry.type == WatchlistType.manga && accountId != null
+        ? ref.read(seriesRecentOpenStoreProvider)[SeriesRecentOpenStore.keyFor(
+            accountId,
+            entry.id,
+          )]
+        : null;
+    await showAppBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Contents only exist for manga series — D3: no novel series
+              // catalog route this round.
+              if (entry.type == WatchlistType.manga)
+                ListTile(
+                  leading: const Icon(Icons.collections_bookmark_outlined),
+                  title: Text(sheetContext.l10n.watchlistOpenContents),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(openIllustSeries(context, entry.id));
+                  },
+                ),
+              if (recent != null)
+                ListTile(
+                  leading: const Icon(Icons.history),
+                  title: Text(
+                    recent.contentOrder != null
+                        ? sheetContext.l10n.seriesBackToEpisode(
+                            recent.contentOrder!,
+                          )
+                        : sheetContext.l10n.seriesBackToLast,
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(openIllust(context, recent.illustId));
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.bookmark_remove_outlined),
+                title: Text(sheetContext.l10n.watchlistRemove),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  // The container outlives the tile — after the feed
+                  // invalidation rebuilds the list a defunct WidgetRef
+                  // would throw here.
+                  final container = ProviderScope.containerOf(
+                    context,
+                    listen: false,
+                  );
+                  unawaited(() async {
+                    await container
+                        .read(watchlistActionsProvider)
+                        .toggle(entry.key);
+                    container.invalidate(watchlistFeedProvider(entry.type));
+                  }());
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

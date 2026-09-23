@@ -2348,4 +2348,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get watchLaterRemoved => '已从稍后再看移除';
+
+  @override
+  String get watchlistOpenContents => '打开目录';
 }

@@ -2430,4 +2430,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchLaterRemoved => 'Удалено из «Посмотреть позже»';
+
+  @override
+  String get watchlistOpenContents => 'Открыть содержание';
 }

@@ -1176,5 +1176,9 @@
   "watchLaterRemoved": "Удалено из «Посмотреть позже»",
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
+  },
+  "watchlistOpenContents": "Открыть содержание",
+  "@watchlistOpenContents": {
+    "description": "Watchlist sheet action: open the manga series contents page"
   }
 }

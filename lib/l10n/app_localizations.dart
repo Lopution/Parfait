@@ -4516,6 +4516,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已从稍后再看移除'**
   String get watchLaterRemoved;
+
+  /// Watchlist sheet action: open the manga series contents page
+  ///
+  /// In zh, this message translates to:
+  /// **'打开目录'**
+  String get watchlistOpenContents;
 }
 
 class _AppLocalizationsDelegate
