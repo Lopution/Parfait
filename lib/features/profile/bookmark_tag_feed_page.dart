@@ -30,7 +30,21 @@ class BookmarkTagFeedPage extends ConsumerWidget {
       ),
     );
     return Scaffold(
-      appBar: AppBar(title: Text(tag)),
+      appBar: AppBar(
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tag, maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(
+              restrict == BookmarkRestrict.private
+                  ? l10n.restrictPrivate
+                  : l10n.restrictPublic,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
       body: userId == null
           ? FeedEmpty(icon: Icons.label_outline, title: l10n.bookmarkTagsEmpty)
           : ProfileIllustFeed(
