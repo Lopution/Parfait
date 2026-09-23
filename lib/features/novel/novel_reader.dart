@@ -327,6 +327,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       handle.currentPage = () => _reader.currentPage;
       handle.pageCount = () => _reader.pageCount;
       handle.goToPage = (page, {animate = true}) {
+        // The PageView is unmounted while the layout-error state is shown;
+        // driving a detached controller asserts/throws.
+        if (!_pageController.hasClients) return;
         final target = page.clamp(0, _reader.pageCount - 1);
         if (!animate) {
           _pageController.jumpToPage(target);

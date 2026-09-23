@@ -304,6 +304,37 @@ void main() {
     expect(find.byType(FeedError), findsOneWidget);
   });
 
+  testWidgets('goToPage is a no-op while the layout error state is shown', (
+    tester,
+  ) async {
+    final handle = NovelReaderHandle();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(
+          body: NovelReader(
+            novel: _novel('reader ' * 400),
+            handle: handle,
+            budget: const NovelLayoutBudget(maxTextUnits: 2),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(FeedError), findsOneWidget);
+    // The PageView is unmounted in the error state — a jump landing on the
+    // detached controller would assert in debug and throw in release.
+    handle.goToPage?.call(0, animate: false);
+    handle.goToPage?.call(0);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(FeedError), findsOneWidget);
+  });
+
   testWidgets('handle exposes ordered chapter entries from the layout', (
     tester,
   ) async {
