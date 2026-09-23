@@ -38,9 +38,12 @@ class _HistoryFeedController extends PagedFeedController {
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     try {
+      // Request pages are 1-based (the first context carries page=1), so
+      // the row offset is (page - 1) * size — the previous formula skipped
+      // the first page of history entirely.
       final result = await repository.page(
         accountId: accountId,
-        offset: context.page * pageSize,
+        offset: (context.page - 1) * pageSize,
         limit: pageSize,
       );
       for (final record in result.records) {
@@ -48,7 +51,7 @@ class _HistoryFeedController extends PagedFeedController {
       }
       return FeedPage(
         ids: [for (final record in result.records) keyOf(record)],
-        nextCursor: result.hasMore ? '${(context.page + 1) * pageSize}' : null,
+        nextCursor: result.hasMore ? '${context.page * pageSize}' : null,
       );
     } on Object catch (error) {
       // History storage failures are local, not server API errors; wrap so

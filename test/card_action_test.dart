@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/haptics/app_haptics.dart';
 import 'package:pixiv_func/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/app/widgets/feed/muted_cover.dart';
@@ -116,13 +118,17 @@ class _MemoryWatchLaterRepository extends WatchLaterRepository {
       List.unmodifiable(_account(accountId));
 
   @override
-  Future<void> add(String accountId, IllustEntity entity) async {
+  Future<void> add(
+    String accountId,
+    IllustEntity entity, {
+    int? addedAt,
+  }) async {
     final rows = _account(accountId);
     rows.removeWhere((entry) => entry.entity.id == entity.id);
     rows.insert(
       0,
       WatchLaterEntry(
-        addedAt: DateTime.now().millisecondsSinceEpoch,
+        addedAt: addedAt ?? DateTime.now().millisecondsSinceEpoch,
         entity: entity,
       ),
     );
@@ -288,6 +294,59 @@ void main() {
       await tester.pump();
     });
     expect(await repository.list('100'), isEmpty);
+  });
+
+  testWidgets('watch-later removal offers undo restoring the entry', (
+    tester,
+  ) async {
+    // Undo is the light-tick role — capture HapticFeedback.vibrate on the
+    // platform channel, the AppHaptics static owner's observable seam.
+    final haptics = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'HapticFeedback.vibrate') {
+          haptics.add(call.arguments as String);
+        }
+        return null;
+      },
+    );
+    AppHaptics.debugReset();
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+      AppHaptics.debugReset();
+    });
+    final (container, _, repository) = await _makeWorld();
+    final entity = parseIllust(illustJson(9));
+    const originalAddedAt = 1726800000000;
+    await repository.add('100', entity, addedAt: originalAddedAt);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
+      await tester.pump();
+      await _openSheet(tester);
+      await _tapEntry(tester, '从稍后再看移除');
+      await tester.pump();
+      await tester.pump();
+    });
+
+    // The removal snackbar carries the undo action.
+    expect(find.text('已从稍后再看移除'), findsOneWidget);
+    expect(find.text('撤销'), findsOneWidget);
+    expect(await repository.list('100'), isEmpty);
+
+    await tester.tap(find.text('撤销'));
+    expect(haptics, ['HapticFeedbackType.selectionClick']);
+    await mockNetworkImagesFor(() async {
+      await tester.pump();
+      await tester.pump();
+    });
+    final restored = await repository.list('100');
+    expect(restored.map((e) => e.entity.id), [9]);
+    // Undo pins the original timestamp — the row keeps its old position.
+    expect(restored.single.addedAt, originalAddedAt);
   });
 
   testWidgets('bookmark action sends a real add request', (tester) async {

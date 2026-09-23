@@ -1087,6 +1087,14 @@
       }
     }
   },
+  "localNovelContinue": "继续阅读 · {percent}%",
+  "@localNovelContinue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "系列",
   "spotlightTitle": "特辑",
   "spotlightArticleLoadFailed": "文章加载失败",
@@ -1155,5 +1163,30 @@
   "illustInfoJump": "跳到作品信息区",
   "@illustInfoJump": {
     "description": "Jump to the artwork info section"
+  },
+  "manage": "管理",
+  "@manage": {
+    "description": "Enter the management/selection mode"
+  },
+  "selectedCount": "已选 {n} 项",
+  "@selectedCount": {
+    "description": "AppBar title in selection mode",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "undo": "撤销",
+  "@undo": {
+    "description": "SnackBar action that restores a just-removed watch-later entry"
+  },
+  "watchLaterRemoved": "已从稍后再看移除",
+  "@watchLaterRemoved": {
+    "description": "SnackBar shown after removing a watch-later entry; offers undo"
+  },
+  "watchlistOpenContents": "打开目录",
+  "@watchlistOpenContents": {
+    "description": "Watchlist sheet action: open the manga series contents page"
   }
 }

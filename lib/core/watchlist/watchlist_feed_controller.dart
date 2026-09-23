@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/account_store.dart';
 import 'watchlist_models.dart';
 import 'watchlist_repository.dart';
+import 'watchlist_store.dart';
 
 @immutable
 class WatchlistFeedState {
@@ -92,6 +93,13 @@ class _WatchlistFeedController extends AsyncNotifier<WatchlistFeedState> {
     final page = await ref
         .read(watchlistRepositoryProvider)
         .fetchWatchlist(type, cursor: cursor);
+    // The feed is itself remote truth: every listed series is followed.
+    // Seeding the store lets `watchlistActionsProvider.toggle` resolve the
+    // delete direction — otherwise an unobserved row would re-add.
+    final store = ref.read(watchlistStoreProvider.notifier);
+    for (final entry in page.entries) {
+      store.observeRemote(entry.key, added: true);
+    }
     return WatchlistFeedState(entries: page.entries, nextUrl: page.nextUrl);
   }
 }

@@ -1087,6 +1087,14 @@
       }
     }
   },
+  "localNovelContinue": "Продолжить чтение · {percent}%",
+  "@localNovelContinue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "Серии",
   "spotlightTitle": "Спотлайт",
   "spotlightArticleLoadFailed": "Не удалось загрузить статью",
@@ -1155,5 +1163,30 @@
   "illustInfoJump": "К информации о работе",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
+  },
+  "manage": "Управление",
+  "@manage": {
+    "description": "Enter the management/selection mode"
+  },
+  "selectedCount": "Выбрано: {n}",
+  "@selectedCount": {
+    "description": "AppBar title in selection mode",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "undo": "Отменить",
+  "@undo": {
+    "description": "SnackBar action that restores a just-removed watch-later entry"
+  },
+  "watchLaterRemoved": "Удалено из «Посмотреть позже»",
+  "@watchLaterRemoved": {
+    "description": "SnackBar shown after removing a watch-later entry; offers undo"
+  },
+  "watchlistOpenContents": "Открыть содержание",
+  "@watchlistOpenContents": {
+    "description": "Watchlist sheet action: open the manga series contents page"
   }
 }

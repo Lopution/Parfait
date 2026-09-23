@@ -1087,6 +1087,14 @@
       }
     }
   },
+  "localNovelContinue": "Continue reading · {percent}%",
+  "@localNovelContinue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "Series",
   "spotlightTitle": "Spotlight",
   "spotlightArticleLoadFailed": "Failed to load article",
@@ -1155,5 +1163,30 @@
   "illustInfoJump": "Jump to artwork info",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
+  },
+  "manage": "Manage",
+  "@manage": {
+    "description": "Enter the management/selection mode"
+  },
+  "selectedCount": "{n} selected",
+  "@selectedCount": {
+    "description": "AppBar title in selection mode",
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "undo": "Undo",
+  "@undo": {
+    "description": "SnackBar action that restores a just-removed watch-later entry"
+  },
+  "watchLaterRemoved": "Removed from Watch later",
+  "@watchLaterRemoved": {
+    "description": "SnackBar shown after removing a watch-later entry; offers undo"
+  },
+  "watchlistOpenContents": "Open contents",
+  "@watchlistOpenContents": {
+    "description": "Watchlist sheet action: open the manga series contents page"
   }
 }

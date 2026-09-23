@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:pixiv_func/app/haptics/app_haptics.dart';
+import 'package:pixiv_func/app/widgets/entity_row.dart';
 import 'package:pixiv_func/core/localnovel/local_novel_database.dart';
 import 'package:pixiv_func/core/localnovel/local_novel_repository.dart';
 import 'package:pixiv_func/core/localnovel/local_novel_store.dart';
@@ -132,7 +135,220 @@ void main() {
     );
     await _pumpUntil(tester, find.text('My Story'));
     expect(find.text('My Story'), findsOneWidget);
+    // Delete moved into the overflow menu — the row itself only exposes
+    // the continue-reading tap and a more affordance.
+    expect(find.byIcon(Icons.more_vert), findsOneWidget);
+    expect(find.byIcon(Icons.delete_outline), findsNothing);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('tile tap pushes the local reader route', (tester) async {
+    await warmDatabase(tester);
+    final novel = await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .importBytes(
+            fileName: 'Tap Story.txt',
+            bytes: Uint8List.fromList(utf8.encode('Hello.')),
+            targetDir: dir,
+          ),
+    );
+    final router = GoRouter(
+      initialLocation: '/settings/local-novels',
+      routes: [
+        GoRoute(
+          path: '/settings/local-novels',
+          builder: (_, _) => const LocalNovelsPage(),
+        ),
+        GoRoute(
+          path: '/settings/local-novels/:localId',
+          builder: (_, state) =>
+              Scaffold(body: Text('reader ${state.pathParameters['localId']}')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ),
+    );
+    await _pumpUntil(tester, find.text('Tap Story'));
+
+    await tester.tap(find.text('Tap Story'));
+    await tester.pumpAndSettle();
+    // Continue reading = the reader route for this novel.
+    expect(find.text('reader ${novel!.id}'), findsOneWidget);
+  });
+
+  testWidgets('meta shows continue progress only with a stored cursor', (
+    tester,
+  ) async {
+    await warmDatabase(tester);
+    final novel = await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .importBytes(
+            fileName: 'Progress Book.txt',
+            bytes: Uint8List.fromList(utf8.encode('0123456789' * 10)),
+            targetDir: dir,
+          ),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(const LocalNovelsPage()),
+      ),
+    );
+    await _pumpUntil(tester, find.text('Progress Book'));
+    // null cursor = never opened — no progress text at all.
+    expect(find.textContaining('Continue reading'), findsNothing);
+
+    await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .updateReadOffset(novel!.id, 0),
+    );
+    container.invalidate(localNovelStoreProvider);
+    await _pumpUntil(tester, find.textContaining('Continue reading'));
+    // 0 is a real record at the start — it renders instead of hiding
+    // like null does.
+    expect(find.textContaining('0%'), findsOneWidget);
+
+    await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .updateReadOffset(novel!.id, 42),
+    );
+    container.invalidate(localNovelStoreProvider);
+    await _pumpUntil(tester, find.textContaining('42%'));
+    expect(find.textContaining('42%'), findsOneWidget);
+  });
+
+  testWidgets('delete lives in the more menu behind the shared dialog', (
+    tester,
+  ) async {
+    // The destructive confirm surface opening is the explicit-vibration
+    // role — capture HapticFeedback.vibrate on the platform channel.
+    final haptics = <String>[];
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'HapticFeedback.vibrate') {
+        haptics.add(call.arguments as String);
+      }
+      return null;
+    });
+    AppHaptics.debugReset();
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+      AppHaptics.debugReset();
+    });
+    await warmDatabase(tester);
+    await tester.runAsync(
+      () => container.read(localNovelStoreProvider.notifier).importPicked(),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(const LocalNovelsPage()),
+      ),
+    );
+    await _pumpUntil(tester, find.text('My Story'));
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    // The sheet popped and the shared confirm dialog (showAppDialog →
+    // AlertDialog) is up — its opening fired the explicit vibration;
+    // the neutral overflow menu itself stayed silent.
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(haptics, ['HapticFeedbackType.heavyImpact']);
+    expect(
+      find.text('Delete "My Story"? The local file will be removed too.'),
+      findsOneWidget,
+    );
+
+    // Cancel keeps the record.
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('My Story'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    // The store's delete is sqflite IO issued inside the fake-async zone:
+    // its lock queue advances on `pump` while `runAsync` buys real time —
+    // the same zone dance as `_pumpUntil`. Deleting the only row lands on
+    // the empty state.
+    await _pumpUntil(tester, find.text('No imported local novels yet'));
+    expect(find.text('My Story'), findsNothing);
+    final remaining = await tester.runAsync(
+      () => container.read(localNovelRepositoryProvider).list(),
+    );
+    expect(remaining, isEmpty);
+  });
+
+  testWidgets('list caps at the management content width', (tester) async {
+    await warmDatabase(tester);
+    await tester.runAsync(
+      () => container.read(localNovelStoreProvider.notifier).importPicked(),
+    );
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(const LocalNovelsPage()),
+      ),
+    );
+    await _pumpUntil(tester, find.text('My Story'));
+    final rowRect = tester.getRect(find.byType(EntityRow));
+    expect(rowRect.width, 840);
+    // Centered in the 1200dp viewport.
+    expect(rowRect.left, (1200 - 840) / 2);
+    // Drain the refresh indicator's settle timer before teardown.
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('320dp keeps every row action reachable', (tester) async {
+    await warmDatabase(tester);
+    await tester.runAsync(
+      () => container.read(localNovelStoreProvider.notifier).importPicked(),
+    );
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(const LocalNovelsPage()),
+      ),
+    );
+    await _pumpUntil(tester, find.text('My Story'));
+    // Below the cap the constraint is a no-op — the row fills the
+    // viewport and the overflow action stays on screen.
+    expect(tester.getRect(find.byType(EntityRow)).width, 320);
+    expect(
+      tester.getRect(find.byIcon(Icons.more_vert)).right,
+      lessThanOrEqualTo(320),
+    );
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    // Close the sheet and drain its settle timer before teardown.
+    await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
   });
 

@@ -2232,6 +2232,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String localNovelContinue(int percent) {
+    return '继续阅读 · $percent%';
+  }
+
+  @override
   String get profileSeries => '系列';
 
   @override
@@ -2334,4 +2339,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get illustInfoJump => '跳到作品信息区';
+
+  @override
+  String get manage => '管理';
+
+  @override
+  String selectedCount(int n) {
+    return '已选 $n 项';
+  }
+
+  @override
+  String get undo => '撤销';
+
+  @override
+  String get watchLaterRemoved => '已从稍后再看移除';
+
+  @override
+  String get watchlistOpenContents => '打开目录';
 }

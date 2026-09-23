@@ -4301,6 +4301,12 @@ abstract class AppLocalizations {
   /// **'{count} 字'**
   String localNovelsChars(int count);
 
+  /// No description provided for @localNovelContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续阅读 · {percent}%'**
+  String localNovelContinue(int percent);
+
   /// No description provided for @profileSeries.
   ///
   /// In zh, this message translates to:
@@ -4492,6 +4498,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'跳到作品信息区'**
   String get illustInfoJump;
+
+  /// Enter the management/selection mode
+  ///
+  /// In zh, this message translates to:
+  /// **'管理'**
+  String get manage;
+
+  /// AppBar title in selection mode
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {n} 项'**
+  String selectedCount(int n);
+
+  /// SnackBar action that restores a just-removed watch-later entry
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销'**
+  String get undo;
+
+  /// SnackBar shown after removing a watch-later entry; offers undo
+  ///
+  /// In zh, this message translates to:
+  /// **'已从稍后再看移除'**
+  String get watchLaterRemoved;
+
+  /// Watchlist sheet action: open the manga series contents page
+  ///
+  /// In zh, this message translates to:
+  /// **'打开目录'**
+  String get watchlistOpenContents;
 }
 
 class _AppLocalizationsDelegate
