@@ -13,6 +13,7 @@ import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/series/series_feed_controller.dart';
 import '../../core/series/series_models.dart';
+import '../../core/series/series_recent_open_store.dart';
 import '../../core/series/series_store.dart';
 import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
@@ -146,25 +147,30 @@ class _SeriesHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cover = detail.coverUrl;
+    final accountId = ref.watch(
+      accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
+    );
     // Opening the series marks the watchlist "new content" cursor at the
     // newest work the page knows about.
     final latest = detail.latestContentId;
-    if (latest != null) {
-      final accountId = ref.watch(
-        accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
-      );
-      if (accountId != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref
-              .read(watchlistReadCursorProvider)
-              .markSeen(
-                accountId,
-                WatchlistKey(WatchlistType.manga, detail.id),
-                latest,
-              );
-        });
-      }
+    if (latest != null && accountId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(watchlistReadCursorProvider)
+            .markSeen(
+              accountId,
+              WatchlistKey(WatchlistType.manga, detail.id),
+              latest,
+            );
+      });
     }
+    // 「返回第 n 话」honest variant: only what the session memory recorded —
+    // this is a different state source than the markSeen cursor above (W4
+    // gate: the two must not share one store).
+    final recentOpenMap = ref.watch(seriesRecentOpenStoreProvider);
+    final recent = accountId == null
+        ? null
+        : recentOpenMap[SeriesRecentOpenStore.keyFor(accountId, detail.id)];
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Column(
@@ -221,6 +227,49 @@ class _SeriesHeader extends ConsumerWidget {
             seriesKey: WatchlistKey(WatchlistType.manga, detail.id),
             detailAdded: detail.watchlistAdded,
           ),
+          // Action row: 开始阅读 → first work (parsed from
+          // illust_series_first_illust); 返回第 n 话 → the work this
+          // session last opened inside the series. Each button only
+          // renders when its own data source exists.
+          if (detail.firstContentId != null || recent != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                if (detail.firstContentId != null)
+                  FilledButton.tonalIcon(
+                    onPressed: () => openIllust(
+                      context,
+                      detail.firstContentId!,
+                      initialEntity: ref
+                          .read(illustStoreProvider)
+                          .get(detail.firstContentId!),
+                    ),
+                    icon: const Icon(Icons.play_arrow, size: 18),
+                    label: Text(context.l10n.seriesStartReading),
+                  ),
+                if (recent != null)
+                  FilledButton.tonalIcon(
+                    onPressed: () => openIllust(
+                      context,
+                      recent.illustId,
+                      initialEntity: ref
+                          .read(illustStoreProvider)
+                          .get(recent.illustId),
+                    ),
+                    icon: const Icon(Icons.history, size: 18),
+                    label: Text(
+                      recent.contentOrder != null
+                          ? context.l10n.seriesBackToEpisode(
+                              recent.contentOrder!,
+                            )
+                          : context.l10n.seriesBackToLast,
+                    ),
+                  ),
+              ],
+            ),
+          ],
           if (detail.caption.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(detail.caption, style: theme.textTheme.bodySmall),

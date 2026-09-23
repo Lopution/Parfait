@@ -2040,6 +2040,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get seriesStartReading => 'Start reading';
+
+  @override
+  String seriesBackToEpisode(int order) {
+    return 'Back to part $order';
+  }
+
+  @override
+  String get seriesBackToLast => 'Back to last opened';
+
+  @override
   String get seriesPrevious => 'Previous';
 
   @override

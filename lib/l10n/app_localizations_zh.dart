@@ -1977,6 +1977,17 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get seriesStartReading => '开始阅读';
+
+  @override
+  String seriesBackToEpisode(int order) {
+    return '返回第 $order 话';
+  }
+
+  @override
+  String get seriesBackToLast => '返回上次阅读的作品';
+
+  @override
   String get seriesPrevious => '上一话';
 
   @override

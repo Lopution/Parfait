@@ -909,6 +909,23 @@
       }
     }
   },
+  "seriesStartReading": "読み始める",
+  "@seriesStartReading": {
+    "description": "Opens the first work in this series"
+  },
+  "seriesBackToEpisode": "第 {order} 話へ戻る",
+  "@seriesBackToEpisode": {
+    "description": "Opens the most recently opened work in this series",
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesBackToLast": "前回開いた作品へ戻る",
+  "@seriesBackToLast": {
+    "description": "Opens the most recently opened work in this series (order unknown)"
+  },
   "seriesPrevious": "前の作品",
   "seriesNext": "次の作品",
   "watchlistTitle": "ウォッチリスト",

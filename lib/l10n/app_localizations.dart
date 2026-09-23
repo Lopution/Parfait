@@ -3846,6 +3846,24 @@ abstract class AppLocalizations {
   /// **'第 {order} 话'**
   String seriesEpisode(int order);
 
+  /// Opens the first work in this series
+  ///
+  /// In zh, this message translates to:
+  /// **'开始阅读'**
+  String get seriesStartReading;
+
+  /// Opens the most recently opened work in this series
+  ///
+  /// In zh, this message translates to:
+  /// **'返回第 {order} 话'**
+  String seriesBackToEpisode(int order);
+
+  /// Opens the most recently opened work in this series (order unknown)
+  ///
+  /// In zh, this message translates to:
+  /// **'返回上次阅读的作品'**
+  String get seriesBackToLast;
+
   /// No description provided for @seriesPrevious.
   ///
   /// In zh, this message translates to:
