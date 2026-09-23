@@ -41,6 +41,7 @@ import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/core/i18n/replica_language.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 /// Widget test host: real DownloadManager over a scripted transport +
 /// memory sinks, detail API over a MockClient — no platform channels.
@@ -222,6 +223,10 @@ void expectViewerChrome(WidgetTester tester, {required bool visible}) {
 
 void main() {
   installMemoryPreferences();
+  // The detail page tracks the visible image page through
+  // VisibilityDetector (compact-header page counter); a zero interval
+  // defers updates to post-frame callbacks so no Timer outlives a test.
+  VisibilityDetectorController.instance.updateInterval = Duration.zero;
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
@@ -1219,8 +1224,8 @@ void main() {
       // cards); it renders author, meta and tags.
       expect(
         find.text('author'),
-        findsNWidgets(2),
-        reason: 'author name + account render in the author block',
+        findsNWidgets(3),
+        reason: 'compact header + author block name + account',
       );
       expect(find.textContaining('800x600'), findsOneWidget);
       expect(find.textContaining('ID: 42'), findsOneWidget);
@@ -1264,7 +1269,9 @@ void main() {
             findsWidgets,
             reason: 'content renders from the card snapshot, not a spinner',
           );
-          expect(find.text('illust 42'), findsOneWidget);
+          // Two copies are expected: the persistent compact header carries
+          // the title too (C17); the snapshot proves out through either.
+          expect(find.text('illust 42'), findsNWidgets(2));
           expect(find.text('author'), findsWidgets);
           expect(
             tester.widget<PixivImage>(find.byType(PixivImage).first).url,
@@ -1390,7 +1397,9 @@ void main() {
       });
 
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.text('author').first);
+        // .last — the compact header carries a non-tappable copy first
+        // in tree order; the author block's InkWell is the last match.
+        await tester.tap(find.text('author').last);
         await tester.pumpAndSettle();
       });
       expect(find.byType(UserPage), findsOneWidget);
@@ -1536,6 +1545,69 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
       });
       expect(find.text('Related works'), findsNothing);
+    });
+  });
+
+  group('narrow compact header (C17)', () {
+    testWidgets(
+      'renders title/author/page context and the info jump on narrow '
+      'surfaces',
+      (tester) async {
+        final (container, _, _) = await makeWorld();
+        await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+
+        // Header shows the work context while the body is still on page 1.
+        expect(find.text('illust 42'), findsOneWidget);
+        expect(find.text('author'), findsOneWidget);
+        expect(find.text('第 1 页，共 2 页'), findsOneWidget);
+        expect(find.byTooltip('跳到作品信息区'), findsOneWidget);
+      },
+    );
+
+    testWidgets('the info button scrolls InfoBlock into view', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      // InfoBlock's caption sits below the fold — not built yet.
+      expect(find.text('作品说明文字'), findsNothing);
+
+      await tester.tap(find.byTooltip('跳到作品信息区'));
+      await tester.pumpAndSettle();
+      expect(find.text('作品说明文字'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('作品说明文字')).top,
+        lessThan(tester.view.physicalSize.height),
+      );
+    });
+
+    testWidgets('the header is absent in the two-pane layout', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+
+      expect(find.byType(TwoPane), findsOneWidget);
+      expect(find.byTooltip('跳到作品信息区'), findsNothing);
+      expect(find.text('第 1 页，共 2 页'), findsNothing);
+    });
+
+    testWidgets('the header is absent in the restricted state', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {42: illustJson(42, visible: false)},
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('该作品已被删除或受限（ID: 42）'), findsOneWidget);
+      expect(find.byTooltip('跳到作品信息区'), findsNothing);
     });
   });
 

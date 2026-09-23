@@ -2209,4 +2209,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String illustPagesTotal(int count) {
     return 'Всего страниц: $count';
   }
+
+  @override
+  String get illustInfoJump => 'К информации о работе';
 }

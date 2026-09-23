@@ -2145,4 +2145,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String illustPagesTotal(int count) {
     return '共 $count 页';
   }
+
+  @override
+  String get illustInfoJump => '跳到作品信息区';
 }

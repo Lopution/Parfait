@@ -2211,4 +2211,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String illustPagesTotal(int count) {
     return '$count pages';
   }
+
+  @override
+  String get illustInfoJump => 'Jump to artwork info';
 }

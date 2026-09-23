@@ -1015,5 +1015,9 @@
         "type": "int"
       }
     }
+  },
+  "illustInfoJump": "作品情報へ移動",
+  "@illustInfoJump": {
+    "description": "Scrolls to the artwork info section"
   }
 }
