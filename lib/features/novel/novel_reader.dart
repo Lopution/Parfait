@@ -12,6 +12,19 @@ import 'novel_layout.dart';
 
 enum NovelTapZone { previous, center, next }
 
+/// Why an anchor notification was emitted. Persistence binds only to
+/// [userTurn] — a layout echo re-asserts position without meaning the user
+/// read there (open/restore, settings relayout).
+enum NovelAnchorCause {
+  /// First-layout restore or a post-commit re-assert of the current page
+  /// (relayout after settings/viewport changes).
+  layoutEcho,
+
+  /// A user-committed page change: tap-zone/swipe turn, `goToPage`,
+  /// keyboard turn.
+  userTurn,
+}
+
 @immutable
 class NovelReaderLayoutContext {
   const NovelReaderLayoutContext({
@@ -240,7 +253,11 @@ class NovelReader extends StatefulWidget {
   /// ambient `colorScheme.onSurface`.
   final Color? textColor;
 
-  final ValueChanged<NovelAnchor>? onAnchorChanged;
+  /// Fires when the current page's start anchor is reported — either by a
+  /// layout commit re-asserting position ([NovelAnchorCause.layoutEcho]) or
+  /// by a user-committed turn settling ([NovelAnchorCause.userTurn]).
+  final void Function(NovelAnchor anchor, NovelAnchorCause cause)?
+  onAnchorChanged;
 
   /// Middle tap-zone hit — the hosting page toggles its reader chrome.
   final VoidCallback? onCenterTap;
@@ -266,6 +283,12 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   Brightness? _requestedBrightness;
   TextDirection? _requestedDirection;
   bool _layoutScheduled = false;
+
+  /// Set while a commit postFrame performs the programmatic restore
+  /// `jumpToPage`: that call dispatches `onPageChanged` synchronously, so
+  /// the flag turns its notification into a layout echo instead of a user
+  /// turn.
+  bool _layoutEchoPending = false;
 
   @override
   void initState() {
@@ -378,7 +401,11 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             itemCount: layout.pages.length,
             onPageChanged: (page) {
               setState(() => _reader.setPage(page));
-              _notifyAnchor();
+              _notifyAnchor(
+                _layoutEchoPending
+                    ? NovelAnchorCause.layoutEcho
+                    : NovelAnchorCause.userTurn,
+              );
               _notifyProgress();
             },
             itemBuilder: (context, index) => _NovelPage(
@@ -482,8 +509,13 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || !_pageController.hasClients) return;
             if (!_commitGate.isCurrent(layoutContext)) return;
+            _layoutEchoPending = true;
             _pageController.jumpToPage(restoredPage);
-            _notifyAnchor();
+            _layoutEchoPending = false;
+            // The explicit echo also covers the no-op jump where the
+            // restored page already equals the current one (no
+            // onPageChanged fires then).
+            _notifyAnchor(NovelAnchorCause.layoutEcho);
             _notifyProgress();
           });
         },
@@ -493,12 +525,12 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     }
   }
 
-  void _notifyAnchor() {
+  void _notifyAnchor(NovelAnchorCause cause) {
     final layout = _layout;
     if (layout == null || layout.pages.isEmpty) return;
     final page =
         layout.pages[_reader.currentPage.clamp(0, layout.pages.length - 1)];
-    widget.onAnchorChanged?.call(page.startAnchor);
+    widget.onAnchorChanged?.call(page.startAnchor, cause);
   }
 
   void _notifyProgress() {

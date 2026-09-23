@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/novel/novel_entity.dart';
+import 'package:pixiv_func/core/novel/reader_settings.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/features/novel/novel_layout.dart';
 import 'package:pixiv_func/features/novel/novel_reader.dart';
@@ -206,6 +207,62 @@ void main() {
     handle.goToPage?.call(0);
     await tester.pumpAndSettle();
     expect(handle.currentPage?.call(), 0);
+  });
+
+  testWidgets('anchor notifications distinguish echoes from user turns', (
+    tester,
+  ) async {
+    final causes = <NovelAnchorCause>[];
+    final handle = NovelReaderHandle();
+    final text = List.generate(
+      80,
+      (index) => 'paragraph $index body text body text',
+    ).join('\n\n');
+
+    Widget app(double fontSize) => MaterialApp(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('zh', 'CN'),
+      home: Scaffold(
+        body: NovelReader(
+          novel: _novel(text),
+          settings: NovelReaderSettings(fontSize: fontSize),
+          // A deep restore makes the first commit's programmatic jump
+          // observable on PageView.onPageChanged.
+          initialAnchor: const NovelAnchor(paragraphId: 'p60', offset: 0),
+          handle: handle,
+          onAnchorChanged: (anchor, cause) => causes.add(cause),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(app(17));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // First layout + restore jump: every notification is a layout echo.
+    expect(causes, isNotEmpty);
+    expect(
+      causes.where((cause) => cause == NovelAnchorCause.userTurn),
+      isEmpty,
+    );
+
+    // A tap turn is a user commit.
+    causes.clear();
+    await tester.tapAt(const Offset(780, 300));
+    await tester.pumpAndSettle();
+    expect(causes, contains(NovelAnchorCause.userTurn));
+
+    // A settings-driven relayout re-asserts position as an echo again.
+    causes.clear();
+    await tester.pumpWidget(app(20));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(causes, isNotEmpty);
+    expect(
+      causes.where((cause) => cause == NovelAnchorCause.userTurn),
+      isEmpty,
+    );
   });
 }
 

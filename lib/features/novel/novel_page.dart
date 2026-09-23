@@ -302,7 +302,7 @@ class _NovelReaderStageState extends ConsumerState<_NovelReaderStage> {
             _pageCount = pageCount;
           });
         },
-        onAnchorChanged: (anchor) {
+        onAnchorChanged: (anchor, cause) {
           if (_anchor == anchor) return;
           setState(() => _anchor = anchor);
           _persistAnchor(anchor);
