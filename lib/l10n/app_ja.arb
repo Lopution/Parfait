@@ -1087,6 +1087,14 @@
       }
     }
   },
+  "localNovelContinue": "続きを読む · {percent}%",
+  "@localNovelContinue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "シリーズ",
   "spotlightTitle": "スポットライト",
   "spotlightArticleLoadFailed": "記事の読み込みに失敗しました",

@@ -1087,6 +1087,14 @@
       }
     }
   },
+  "localNovelContinue": "Continue reading · {percent}%",
+  "@localNovelContinue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "Series",
   "spotlightTitle": "Spotlight",
   "spotlightArticleLoadFailed": "Failed to load article",

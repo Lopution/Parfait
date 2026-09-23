@@ -1087,6 +1087,14 @@
       }
     }
   },
+  "localNovelContinue": "Продолжить чтение · {percent}%",
+  "@localNovelContinue": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "profileSeries": "Серии",
   "spotlightTitle": "Спотлайт",
   "spotlightArticleLoadFailed": "Не удалось загрузить статью",
