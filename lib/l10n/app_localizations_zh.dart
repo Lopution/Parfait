@@ -2111,6 +2111,19 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get localNovelFileInfo => '文件信息';
+
+  @override
+  String localNovelFileEncoding(String encoding) {
+    return '编码：$encoding';
+  }
+
+  @override
+  String localNovelFileImportedAt(String date) {
+    return '导入时间 $date';
+  }
+
+  @override
   String localNovelsChars(int count) {
     return '$count 字';
   }

@@ -1008,6 +1008,23 @@
       }
     }
   },
+  "localNovelFileInfo": "文件信息",
+  "localNovelFileEncoding": "编码：{encoding}",
+  "@localNovelFileEncoding": {
+    "placeholders": {
+      "encoding": {
+        "type": "String"
+      }
+    }
+  },
+  "localNovelFileImportedAt": "导入时间 {date}",
+  "@localNovelFileImportedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsChars": "{count} 字",
   "@localNovelsChars": {
     "placeholders": {

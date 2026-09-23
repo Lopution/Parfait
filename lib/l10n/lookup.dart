@@ -214,6 +214,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'light' => l10n.light,
   'linkCopied' => l10n.linkCopied,
   'localHistory' => l10n.localHistory,
+  'localNovelFileInfo' => l10n.localNovelFileInfo,
   'localNovelsDelete' => l10n.localNovelsDelete,
   'localNovelsEmpty' => l10n.localNovelsEmpty,
   'localNovelsImport' => l10n.localNovelsImport,

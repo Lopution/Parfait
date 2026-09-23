@@ -1008,6 +1008,23 @@
       }
     }
   },
+  "localNovelFileInfo": "File info",
+  "localNovelFileEncoding": "Encoding: {encoding}",
+  "@localNovelFileEncoding": {
+    "placeholders": {
+      "encoding": {
+        "type": "String"
+      }
+    }
+  },
+  "localNovelFileImportedAt": "Imported {date}",
+  "@localNovelFileImportedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "localNovelsChars": "{count} chars",
   "@localNovelsChars": {
     "placeholders": {

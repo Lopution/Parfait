@@ -175,6 +175,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Slider), findsNWidgets(2));
 
+    // Dismiss the settings sheet via the barrier, then open the file-info
+    // sheet from the top bar.
+    await tester.tapAt(const Offset(400, 100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.info_outline));
+    await tester.pumpAndSettle();
+    expect(find.text('Read Me'), findsNWidgets(2)); // top bar + sheet
+    expect(find.text('18 chars'), findsOneWidget);
+    expect(find.text('Encoding: UTF-8'), findsOneWidget);
+    expect(find.textContaining('Imported '), findsOneWidget);
+    // Imports never carry an author — no author row renders (D9).
+    expect(find.text('local'), findsNothing);
+
     // The shared NovelReader lays out asynchronously across several frames;
     // extra pumps also drain Riverpod's zero-duration vsync timers before
     // the pending-timer invariant check.
