@@ -1566,6 +1566,12 @@ abstract class AppLocalizations {
   /// **'最大并行下载数'**
   String get maxDownloadCount;
 
+  /// No description provided for @maxDownloadCountHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'拖动预览数值，松手后生效'**
+  String get maxDownloadCountHint;
+
   /// No description provided for @namingRule.
   ///
   /// In zh, this message translates to:

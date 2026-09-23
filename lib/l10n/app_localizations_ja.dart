@@ -792,6 +792,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maxDownloadCount => '同時ダウンロード数の上限';
 
   @override
+  String get maxDownloadCountHint => 'ドラッグでプレビュー、離すと適用';
+
+  @override
   String get namingRule => 'ファイル名規則';
 
   @override

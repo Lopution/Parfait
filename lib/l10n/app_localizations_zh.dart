@@ -782,6 +782,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get maxDownloadCount => '最大并行下载数';
 
   @override
+  String get maxDownloadCountHint => '拖动预览数值，松手后生效';
+
+  @override
   String get namingRule => '文件命名规则';
 
   @override
