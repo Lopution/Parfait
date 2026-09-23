@@ -1987,6 +1987,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bookmarkTagsLoadFailed => 'ブックマークタグを読み込めませんでした';
 
   @override
+  String get bookmarkTagsEnd => 'すべてのタグを表示しました';
+
+  @override
   String get seriesTitle => 'シリーズ';
 
   @override

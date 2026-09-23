@@ -128,20 +128,44 @@ class _TagList extends ConsumerWidget {
         return false;
       },
       child: ListView.builder(
-        itemCount:
-            state.tags.length + (state.hasMore || state.loadingMore ? 1 : 0),
+        itemCount: state.tags.length + 1,
         itemBuilder: (context, index) {
           if (index >= state.tags.length) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+            if (state.loadingMore) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
-              ),
-            );
+              );
+            }
+            if (state.loadMoreError != null) {
+              return ListTile(
+                title: Text(l10n.profileLoadMoreFailed),
+                trailing: TextButton(
+                  onPressed: () => ref
+                      .read(userBookmarkTagsProvider(query).notifier)
+                      .loadMore(),
+                  child: Text(l10n.profileRetry),
+                ),
+              );
+            }
+            if (!state.hasMore) {
+              return Padding(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: Text(
+                    l10n.bookmarkTagsEnd,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              );
+            }
+            return const SizedBox.shrink();
           }
           final tag = state.tags[index];
           return ListTile(

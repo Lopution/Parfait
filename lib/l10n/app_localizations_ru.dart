@@ -2033,6 +2033,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bookmarkTagsLoadFailed => 'Не удалось загрузить теги закладок';
 
   @override
+  String get bookmarkTagsEnd => 'Все теги загружены';
+
+  @override
   String get seriesTitle => 'Серия';
 
   @override

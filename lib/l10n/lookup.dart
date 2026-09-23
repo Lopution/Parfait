@@ -102,6 +102,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'bookmarkTagSuggestions' => l10n.bookmarkTagSuggestions,
   'bookmarkTags' => l10n.bookmarkTags,
   'bookmarkTagsEmpty' => l10n.bookmarkTagsEmpty,
+  'bookmarkTagsEnd' => l10n.bookmarkTagsEnd,
   'bookmarkTagsLoadFailed' => l10n.bookmarkTagsLoadFailed,
   'browseSettings' => l10n.browseSettings,
   'cancel' => l10n.cancel,

@@ -383,6 +383,57 @@ void main() {
 
     expect(find.text('hidden'), findsOneWidget);
     expect(repository.requests.last, 'tags:100:private');
+    expect(find.text('已显示全部标签'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('BookmarkTagsPage retries a failed load-more request', (
+    tester,
+  ) async {
+    final repository = _FakeTagRepository()
+      ..page = const UserBookmarkTagPage(
+        tags: [UserBookmarkTag(name: 'procreate', count: 5)],
+        nextUrl:
+            'https://app-api.pixiv.net/v1/user/bookmark-tags/illust'
+            '?user_id=100&restrict=public&offset=30',
+      )
+      ..loadMoreFailure = StateError('temporary failure');
+    final container = ProviderContainer(
+      overrides: [
+        accountStoreProvider.overrideWith(_StubAccountStore.new),
+        bookmarkRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    const query = (BookmarkEntityType.illust, BookmarkRestrict.public);
+
+    await container.read(userBookmarkTagsProvider(query).future);
+    await container.read(userBookmarkTagsProvider(query).notifier).loadMore();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: appLocalizationsDelegates,
+          home: BookmarkTagsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('加载更多失败'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+    expect(repository.requests, ['tags:100:public', 'tags:100:public:next']);
+
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(repository.requests, [
+      'tags:100:public',
+      'tags:100:public:next',
+      'tags:100:public:next',
+    ]);
   });
 }
 
@@ -397,6 +448,7 @@ class _StubAccountStore extends AccountStore {
 
 class _FakeTagRepository implements BookmarkRepository {
   final requests = <String>[];
+  Object? loadMoreFailure;
   UserBookmarkTagPage page = const UserBookmarkTagPage(
     tags: [UserBookmarkTag(name: 'procreate', count: 5)],
     nextUrl: null,
@@ -410,7 +462,13 @@ class _FakeTagRepository implements BookmarkRepository {
     String? cursor,
     CancelToken? cancelToken,
   }) async {
-    requests.add('tags:$userId:${restrict.name}');
+    requests.add(
+      'tags:$userId:${restrict.name}${cursor == null ? '' : ':next'}',
+    );
+    if (cursor != null) {
+      final error = loadMoreFailure;
+      if (error != null) throw error;
+    }
     return page;
   }
 
