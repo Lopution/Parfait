@@ -2342,4 +2342,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String selectedCount(int n) {
     return '已选 $n 项';
   }
+
+  @override
+  String get undo => '撤销';
+
+  @override
+  String get watchLaterRemoved => '已从稍后再看移除';
 }
