@@ -839,37 +839,36 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets(
-      'system back while zoomed resets to fit and keeps the route',
-      (tester) async {
-        await mockNetworkImagesFor(() async {
-          await pumpPushedViewer(tester);
+    testWidgets('system back while zoomed resets to fit and keeps the route', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await pumpPushedViewer(tester);
 
-          double scale() => tester
-              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
-              .transformationController!
-              .value
-              .getMaxScaleOnAxis();
+        double scale() => tester
+            .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+            .transformationController!
+            .value
+            .getMaxScaleOnAxis();
 
-          await tester.tap(find.byType(PageView));
-          await tester.pump(const Duration(milliseconds: 80));
-          await tester.tap(find.byType(PageView));
-          await tester.pumpAndSettle();
-          expect(scale(), greaterThan(1.0));
+        await tester.tap(find.byType(PageView));
+        await tester.pump(const Duration(milliseconds: 80));
+        await tester.tap(find.byType(PageView));
+        await tester.pumpAndSettle();
+        expect(scale(), greaterThan(1.0));
 
-          await tester.binding.handlePopRoute();
-          await tester.pumpAndSettle();
-          // Zoom reset; the route stayed.
-          expect(scale(), closeTo(1.0, 0.01));
-          expect(find.byType(ImageViewerPage), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        // Zoom reset; the route stayed.
+        expect(scale(), closeTo(1.0, 0.01));
+        expect(find.byType(ImageViewerPage), findsOneWidget);
 
-          // Now at fit — the next system back leaves the route.
-          await tester.binding.handlePopRoute();
-          await tester.pumpAndSettle();
-          expect(find.byType(ImageViewerPage), findsNothing);
-        });
-      },
-    );
+        // Now at fit — the next system back leaves the route.
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(ImageViewerPage), findsNothing);
+      });
+    });
 
     testWidgets(
       'system back with hidden chrome leaves directly — no restore step '
@@ -1614,24 +1613,19 @@ void main() {
   });
 
   group('narrow compact header (C17)', () {
-    testWidgets(
-      'renders title/author/page context and the info jump on narrow '
-      'surfaces',
-      (tester) async {
-        final (container, _, _) = await makeWorld();
-        await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+    testWidgets('renders title/author/page context and the info jump on narrow '
+        'surfaces', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
 
-        // Header shows the work context while the body is still on page 1.
-        expect(find.text('illust 42'), findsOneWidget);
-        expect(find.text('author'), findsOneWidget);
-        expect(find.text('第 1 页，共 2 页'), findsOneWidget);
-        expect(find.byTooltip('跳到作品信息区'), findsOneWidget);
-      },
-    );
+      // Header shows the work context while the body is still on page 1.
+      expect(find.text('illust 42'), findsOneWidget);
+      expect(find.text('author'), findsOneWidget);
+      expect(find.text('第 1 页，共 2 页'), findsOneWidget);
+      expect(find.byTooltip('跳到作品信息区'), findsOneWidget);
+    });
 
-    testWidgets('the info button scrolls InfoBlock into view', (
-      tester,
-    ) async {
+    testWidgets('the info button scrolls InfoBlock into view', (tester) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
       await tester.pumpAndSettle();
@@ -1648,9 +1642,7 @@ void main() {
       );
     });
 
-    testWidgets('the header is absent in the two-pane layout', (
-      tester,
-    ) async {
+    testWidgets('the header is absent in the two-pane layout', (tester) async {
       tester.view.physicalSize = const Size(1400, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -1662,9 +1654,7 @@ void main() {
       expect(find.text('第 1 页，共 2 页'), findsNothing);
     });
 
-    testWidgets('the header is absent in the restricted state', (
-      tester,
-    ) async {
+    testWidgets('the header is absent in the restricted state', (tester) async {
       final (container, _, _) = await makeWorld(
         detailOverrides: {42: illustJson(42, visible: false)},
       );

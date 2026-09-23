@@ -43,10 +43,7 @@ class SeriesRecentOpenStore
         existing.contentOrder == contentOrder) {
       return;
     }
-    state = {
-      ...state,
-      key: (illustId: illustId, contentOrder: contentOrder),
-    };
+    state = {...state, key: (illustId: illustId, contentOrder: contentOrder)};
   }
 }
 

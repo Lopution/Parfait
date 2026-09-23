@@ -123,8 +123,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     // latest persisted setting on each trigger, so the settings toggle
     // applies immediately without a restart.
     AppHaptics.configure(
-      isEnabled: () =>
-          ref.read(settingsProvider).value?.enableHaptics ?? true,
+      isEnabled: () => ref.read(settingsProvider).value?.enableHaptics ?? true,
     );
     return settings.when(
       loading: () => _materialApp(

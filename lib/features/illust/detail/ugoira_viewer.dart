@@ -746,11 +746,7 @@ class _ExportButton extends StatelessWidget {
     return Material(
       color: Theme.of(context).colorScheme.surface,
       shape: const CircleBorder(),
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: icon,
-      ),
+      child: IconButton(tooltip: tooltip, onPressed: onPressed, icon: icon),
     );
   }
 }
