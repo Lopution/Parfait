@@ -1103,6 +1103,33 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsWriteFailed => '設定の保存に失敗しました';
 
   @override
+  String get settingsSummaryOn => 'オン';
+
+  @override
+  String get settingsSummaryOff => 'オフ';
+
+  @override
+  String settingsHistorySummary(String local, String pixiv) {
+    return 'ローカル $local · Pixiv $pixiv';
+  }
+
+  @override
+  String settingsMutedSummary(int count) {
+    return 'ミュート項目 $count 件';
+  }
+
+  @override
+  String settingsDownloadTasksSummary(int count) {
+    return 'アクティブなタスク $count 件';
+  }
+
+  @override
+  String get settingsCredentialConfigured => '設定済み';
+
+  @override
+  String get settingsCredentialNotConfigured => '未設定';
+
+  @override
   String get add => '追加';
 
   @override

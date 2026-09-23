@@ -29,6 +29,12 @@ class _FakeCredentials implements TranslationCredentialStore {
   }
 
   @override
+  Future<bool> hasBaidu() async => baidu != null;
+
+  @override
+  Future<bool> hasLlm() async => llm != null;
+
+  @override
   Future<void> deleteBaidu() async {
     baidu = null;
   }

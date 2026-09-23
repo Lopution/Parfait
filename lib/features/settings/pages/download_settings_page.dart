@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/widgets/app_snack_bar.dart';
-import '../../../core/download/download_destination.dart';
 import '../../../core/download/naming_rule.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
@@ -78,7 +77,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(context.l10n.saveLocation),
-            subtitle: Text(_destinationText(context, destination)),
+            subtitle: Text(downloadDestinationLabel(context, destination)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push<void>('/settings/download/destination'),
           ),
@@ -104,7 +103,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
           ),
           for (final preset in NamingPreset.values)
             ListTile(
-              title: Text(_namingPresetText(context, preset)),
+              title: Text(namingPresetLabel(context, preset)),
               trailing: namingRule.preset == preset
                   ? Icon(
                       Icons.check,
@@ -196,23 +195,4 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
       setState(() => _draftMaxDownloads = committed ?? previous);
     }
   }
-}
-
-String _destinationText(BuildContext context, DownloadDestination destination) {
-  return switch (destination.kind) {
-    DownloadDestinationKind.pixivAlbum => context.l10n.saveLocationPixivAlbum,
-    DownloadDestinationKind.customAlbum =>
-      '${context.l10n.saveLocationCustomAlbum} '
-          '(${destination.customAlbumName})',
-    DownloadDestinationKind.safFolder => context.l10n.saveLocationSafFolder,
-  };
-}
-
-String _namingPresetText(BuildContext context, NamingPreset preset) {
-  return switch (preset) {
-    NamingPreset.id => context.l10n.namingPresetId,
-    NamingPreset.artistTitleId => context.l10n.namingPresetArtistTitleId,
-    NamingPreset.titleId => context.l10n.namingPresetTitleId,
-    NamingPreset.custom => context.l10n.namingPresetCustom,
-  };
 }
