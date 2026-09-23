@@ -474,6 +474,22 @@
   "downloadProcessing": "Processing",
   "downloadViewResult": "View",
   "downloadRemoveRecord": "Remove",
+  "downloadBatchCancelConfirm": "Cancel the {count} selected download(s)? Unfinished progress will be discarded.",
+  "@downloadBatchCancelConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadBatchRemoveConfirm": "Remove the {count} selected record(s)? Only the records are removed — downloaded files stay.",
+  "@downloadBatchRemoveConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "resumeDownload": "Resume",
   "downloadGroupTitle": "Batch download · {count} items",
   "@downloadGroupTitle": {
