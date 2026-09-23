@@ -1938,6 +1938,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelLoadFailed => 'Не удалось загрузить новеллу';
 
   @override
+  String get novelLayoutFailed => 'Не удалось сверстать новеллу';
+
+  @override
   String get novelRetry => 'Повторить';
 
   @override

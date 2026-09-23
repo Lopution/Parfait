@@ -1893,6 +1893,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelLoadFailed => '小説の読み込みに失敗しました';
 
   @override
+  String get novelLayoutFailed => '小説の組版に失敗しました';
+
+  @override
   String get novelRetry => '再試行';
 
   @override

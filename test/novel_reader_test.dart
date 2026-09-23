@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
+
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/novel/novel_entity.dart';
@@ -264,6 +266,77 @@ void main() {
       isEmpty,
     );
   });
+
+  testWidgets('layout budget overflow renders a retryable error state', (
+    tester,
+  ) async {
+    final engine = _CountingLayoutEngine();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(
+          body: NovelReader(
+            novel: _novel('reader ' * 400),
+            layoutEngine: engine,
+            budget: const NovelLayoutBudget(maxTextUnits: 2),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // The budget failure lands on the committed error state instead of
+    // escaping as an unhandled async exception.
+    expect(find.byType(FeedError), findsOneWidget);
+    expect(find.byType(PageView), findsNothing);
+    expect(engine.calls, 1);
+
+    await tester.tap(find.byType(FilledButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Retry forces another layout pass; the deterministic failure keeps
+    // the error state visible.
+    expect(engine.calls, 2);
+    expect(find.byType(FeedError), findsOneWidget);
+  });
+}
+
+/// Records each document-layout invocation so tests can assert a retry
+/// really re-enters the engine.
+class _CountingLayoutEngine extends NovelLayoutEngine {
+  var calls = 0;
+
+  @override
+  Future<NovelLayout> layoutDocumentCancellable({
+    required NovelMarkupDocument document,
+    required String contentVersion,
+    required Size viewport,
+    required NovelLayoutStyle style,
+    required Color textColor,
+    required Brightness brightness,
+    TextDirection textDirection = TextDirection.ltr,
+    CancelToken? cancelToken,
+    NovelLayoutBudget budget = const NovelLayoutBudget(),
+    NovelLayoutProgressCallback? onProgress,
+  }) {
+    calls += 1;
+    return super.layoutDocumentCancellable(
+      document: document,
+      contentVersion: contentVersion,
+      viewport: viewport,
+      style: style,
+      textColor: textColor,
+      brightness: brightness,
+      textDirection: textDirection,
+      cancelToken: cancelToken,
+      budget: budget,
+      onProgress: onProgress,
+    );
+  }
 }
 
 NovelEntity _novel(String text) => NovelEntity(

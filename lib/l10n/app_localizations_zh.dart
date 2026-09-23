@@ -1876,6 +1876,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelLoadFailed => '小说加载失败';
 
   @override
+  String get novelLayoutFailed => '小说排版失败';
+
+  @override
   String get novelRetry => '重试';
 
   @override
