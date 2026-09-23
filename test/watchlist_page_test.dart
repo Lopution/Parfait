@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -13,6 +14,7 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/series/series_recent_open_store.dart';
 import 'package:pixiv_func/core/watchlist/watchlist_models.dart';
 import 'package:pixiv_func/core/watchlist/watchlist_store.dart';
 import 'package:pixiv_func/app/widgets/watchlist_toggle.dart';
@@ -231,4 +233,130 @@ void main() {
     // The detail payload was observed into the store.
     expect(container.read(watchlistStoreProvider)[key]!.added, isTrue);
   });
+
+  testWidgets('tiles split view-updates, contents, return and unwatch', (
+    tester,
+  ) async {
+    final fixture = _Fixture()
+      ..mangaSeries = [
+        {
+          'id': 9,
+          'title': 'Series Nine',
+          'user': {'id': 5, 'name': 'author-a'},
+          'latest_content_id': 777,
+          'published_content_count': 3,
+          'url': null,
+        },
+      ]
+      ..novelSeries = [
+        {
+          'id': 21,
+          'title': 'Novel Series',
+          'user': {'id': 7, 'name': 'author-b'},
+          'latest_content_id': 900,
+        },
+      ];
+    final (container, _) = await _makeWorld(fixture: fixture);
+    addTearDown(container.dispose);
+    // Session memory: the user last opened part 4 of series 9.
+    container
+        .read(seriesRecentOpenStoreProvider.notifier)
+        .record(accountId: '100', seriesId: 9, illustId: 555, contentOrder: 4);
+
+    final router = _stubRouter();
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _routerApp(router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Tap = view updates: manga opens the latest work and advances the
+    // read cursor (cursor = update marker, not a reading position).
+    await tester.tap(find.text('Series Nine'));
+    await tester.pumpAndSettle();
+    expect(find.text('illust 777'), findsOneWidget);
+    expect(
+      await container
+          .read(watchlistReadCursorProvider)
+          .read('100', const WatchlistKey(WatchlistType.manga, 9)),
+      777,
+    );
+    router.pop();
+    await tester.pumpAndSettle();
+
+    // Overflow menu: contents (manga only) + return-to-last-opened +
+    // unwatch.
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('Open contents'), findsOneWidget);
+    expect(find.text('Back to part 4'), findsOneWidget);
+    expect(find.text('Unfollow series'), findsOneWidget);
+
+    await tester.tap(find.text('Back to part 4'));
+    await tester.pumpAndSettle();
+    expect(find.text('illust 555'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open contents'));
+    await tester.pumpAndSettle();
+    expect(find.text('series 9'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+
+    // Novel tab: tap opens the latest novel; the menu has no contents
+    // entry (D3) and no return item (no recent-open record for novels).
+    await tester.tap(find.text('Novel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novel Series'));
+    await tester.pumpAndSettle();
+    expect(find.text('novel 900'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('Open contents'), findsNothing);
+    expect(find.text('Unfollow series'), findsOneWidget);
+
+    await tester.tap(find.text('Unfollow series'));
+    await tester.pumpAndSettle();
+    expect(
+      fixture.requests.map((r) => r.url.path),
+      contains('/v1/watchlist/novel/delete'),
+    );
+  });
 }
+
+GoRouter _stubRouter() => GoRouter(
+  initialLocation: '/recommended',
+  routes: [
+    GoRoute(path: '/recommended', builder: (_, _) => const WatchlistPage()),
+    GoRoute(
+      path: '/recommended/illust/:id',
+      builder: (_, state) =>
+          Scaffold(body: Text('illust ${state.pathParameters['id']}')),
+    ),
+    GoRoute(
+      path: '/recommended/novel/:id',
+      builder: (_, state) =>
+          Scaffold(body: Text('novel ${state.pathParameters['id']}')),
+    ),
+    GoRoute(
+      path: '/recommended/series/:id',
+      builder: (_, state) =>
+          Scaffold(body: Text('series ${state.pathParameters['id']}')),
+    ),
+  ],
+);
+
+Widget _routerApp(GoRouter router) => MaterialApp.router(
+  localizationsDelegates: appLocalizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  routerConfig: router,
+);

@@ -702,6 +702,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'watchlistManga' => l10n.watchlistManga,
   'watchlistNewContent' => l10n.watchlistNewContent,
   'watchlistNovel' => l10n.watchlistNovel,
+  'watchlistOpenContents' => l10n.watchlistOpenContents,
   'watchlistRemove' => l10n.watchlistRemove,
   'watchlistTitle' => l10n.watchlistTitle,
   'welcome1' => l10n.welcome1,

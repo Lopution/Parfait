@@ -2431,4 +2431,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get watchLaterRemoved => 'Removed from Watch later';
+
+  @override
+  String get watchlistOpenContents => 'Open contents';
 }
