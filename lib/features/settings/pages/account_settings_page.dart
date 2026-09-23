@@ -5,7 +5,6 @@ import '../../../app/motion/app_overlays.dart';
 import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
-import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_section.dart';
@@ -95,49 +94,51 @@ class AccountSettingsPage extends ConsumerWidget {
               )
             : state.accounts.isEmpty
             ? Center(child: Text(context.l10n.noAccounts))
-            : ListView(
-                children: [
-                  for (final account in state.accounts)
-                    ListTile(
-                      leading: _AccountAvatar(account: account),
-                      title: Text(account.name),
-                      subtitle: Text(
-                        account.mailAddress ??
-                            '${context.l10n.accountId}: ${account.id}',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (state.currentId == account.id)
-                            Icon(
-                              Icons.check,
-                              color: Theme.of(context).colorScheme.primary,
+            : settingsNarrowBody(
+                ListView(
+                  children: [
+                    for (final account in state.accounts)
+                      ListTile(
+                        leading: _AccountAvatar(account: account),
+                        title: Text(account.name),
+                        subtitle: Text(
+                          account.mailAddress ??
+                              '${context.l10n.accountId}: ${account.id}',
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (state.currentId == account.id)
+                              Icon(
+                                Icons.check,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            IconButton(
+                              tooltip: context.l10n.removeAccount,
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () =>
+                                  _confirmRemove(context, ref, account),
                             ),
-                          IconButton(
-                            tooltip: context.l10n.removeAccount,
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () =>
-                                _confirmRemove(context, ref, account),
-                          ),
-                        ],
+                          ],
+                        ),
+                        onTap: state.currentId == account.id
+                            ? null
+                            : () => persistSettings(
+                                context,
+                                () => ref
+                                    .read(accountStoreProvider.notifier)
+                                    .switchAccount(account.id),
+                              ),
                       ),
-                      onTap: state.currentId == account.id
-                          ? null
-                          : () => persistSettings(
-                              context,
-                              () => ref
-                                  .read(accountStoreProvider.notifier)
-                                  .switchAccount(account.id),
-                            ),
-                    ),
-                  // Server-side display preferences only exist for a
-                  // usable account; a signed-out/re-auth state shows the
-                  // account rows alone.
-                  if (state.usableCurrent != null) ...[
-                    const Divider(),
-                    const _ServerDisplaySection(),
+                    // Server-side display preferences only exist for a
+                    // usable account; a signed-out/re-auth state shows the
+                    // account rows alone.
+                    if (state.usableCurrent != null) ...[
+                      const Divider(),
+                      const _ServerDisplaySection(),
+                    ],
                   ],
-                ],
+                ),
               ),
       ),
     );
@@ -183,17 +184,12 @@ class _ServerDisplaySection extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     Future<void> Function(ServerDisplaySettingsController) action,
-  ) async {
-    try {
-      await action(ref.read(serverDisplaySettingsProvider.notifier));
-    } on Object catch (error) {
-      if (context.mounted) {
-        showAppSnackBar(
-          context,
-          '${context.l10n.serverDisplayWriteFailed}: $error',
-        );
-      }
-    }
+  ) {
+    return persistSettings(
+      context,
+      () => action(ref.read(serverDisplaySettingsProvider.notifier)),
+      failureMessageKey: 'serverDisplayWriteFailed',
+    );
   }
 
   @override

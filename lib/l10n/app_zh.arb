@@ -509,6 +509,37 @@
   "aboutAttributionText": "版权所有及维护：Lopution。",
   "settingsReadFailed": "读取设置失败",
   "settingsWriteFailed": "设置保存失败",
+  "settingsSummaryOn": "开",
+  "settingsSummaryOff": "关",
+  "settingsHistorySummary": "本地 {local} · Pixiv {pixiv}",
+  "@settingsHistorySummary": {
+    "placeholders": {
+      "local": {
+        "type": "String"
+      },
+      "pixiv": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMutedSummary": "{count} 个屏蔽项",
+  "@settingsMutedSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsDownloadTasksSummary": "{count} 个活动任务",
+  "@settingsDownloadTasksSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsCredentialConfigured": "已配置",
+  "settingsCredentialNotConfigured": "未配置",
   "add": "添加",
   "viewerNoImages": "没有可显示的图片",
   "downloadAll": "下载全部",

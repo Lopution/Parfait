@@ -8,6 +8,7 @@ import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart';
 import '../../../l10n/context.dart';
+import '../settings_helpers.dart';
 
 class DownloadTasksPage extends ConsumerStatefulWidget {
   const DownloadTasksPage({super.key});
@@ -48,18 +49,20 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
       appBar: AppBar(title: Text(context.l10n.downloaderSettings)),
       body: tasks.isEmpty
           ? FeedEmpty(title: context.l10n.downloadTasksEmpty)
-          : ListView(
-              padding: const EdgeInsets.all(12),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(context.l10n.downloaderSettingsHint),
-                ),
-                for (final group in groups)
-                  _DownloadGroupSection(group: group, manager: _manager),
-                for (final task in tasks)
-                  _DownloadTaskTile(task: task, manager: _manager),
-              ],
+          : settingsNarrowBody(
+              ListView(
+                padding: const EdgeInsets.all(12),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(context.l10n.downloaderSettingsHint),
+                  ),
+                  for (final group in groups)
+                    _DownloadGroupSection(group: group, manager: _manager),
+                  for (final task in tasks)
+                    _DownloadTaskTile(task: task, manager: _manager),
+                ],
+              ),
             ),
     );
   }

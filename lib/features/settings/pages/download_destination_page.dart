@@ -52,84 +52,86 @@ class _DownloadDestinationPageState
     }
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.saveLocation)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          ListTile(
-            title: Text(context.l10n.saveLocationAlbum),
-            trailing: !destination.isSafFolder
-                ? Icon(
-                    Icons.check,
-                    color: Theme.of(context).colorScheme.primary,
-                  )
-                : null,
-            onTap: () => persistSettings(
-              context,
-              () => ref
-                  .read(settingsProvider.notifier)
-                  .setDownloadDestination(DownloadDestination.builtin),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(32, 0, 0, 0),
-            child: TextField(
-              controller: _albumController,
-              focusNode: _albumFocusNode,
-              decoration: InputDecoration(
-                labelText: context.l10n.saveLocationCustomAlbum,
-                helperText: context.l10n.saveLocationCustomAlbumHint,
-              ),
-              maxLength: 64,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(32, 4, 0, 0),
-            child: FilledButton.tonal(
-              onPressed: () async {
-                final name = DownloadDestination.normalizeAlbumName(
-                  _albumController.text,
-                );
-                if (name == null) {
-                  showAppSnackBar(
-                    context,
-                    context.l10n.saveLocationAlbumInvalid,
-                  );
-                  return;
-                }
-                final saved = await persistSettings(
-                  context,
-                  () => ref
-                      .read(settingsProvider.notifier)
-                      .setDownloadDestination(
-                        DownloadDestination.customAlbum(name),
-                      ),
-                );
-                if (saved && context.mounted) {
-                  showAppSnackBar(context, context.l10n.saved);
-                }
-              },
-              child: Text(context.l10n.saveLocationUseCustomAlbum),
-            ),
-          ),
-          const Divider(),
-          ListTile(
-            title: Text(context.l10n.saveLocationSafFolder),
-            subtitle: Text(context.l10n.saveLocationSafFolderHint),
-            trailing: destination.isSafFolder
-                ? Icon(
-                    Icons.check,
-                    color: Theme.of(context).colorScheme.primary,
-                  )
-                : null,
-            onTap: () => _pickSafFolder(),
-          ),
-          if (destination.isSafFolder)
+      body: settingsNarrowBody(
+        ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
             ListTile(
-              leading: const Icon(Icons.check_circle),
-              title: Text(context.l10n.saveLocationSafPicked),
-              subtitle: Text(destination.safTreeUri ?? ''),
+              title: Text(context.l10n.saveLocationAlbum),
+              trailing: !destination.isSafFolder
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                  : null,
+              onTap: () => persistSettings(
+                context,
+                () => ref
+                    .read(settingsProvider.notifier)
+                    .setDownloadDestination(DownloadDestination.builtin),
+              ),
             ),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 0, 0, 0),
+              child: TextField(
+                controller: _albumController,
+                focusNode: _albumFocusNode,
+                decoration: InputDecoration(
+                  labelText: context.l10n.saveLocationCustomAlbum,
+                  helperText: context.l10n.saveLocationCustomAlbumHint,
+                ),
+                maxLength: 64,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 4, 0, 0),
+              child: FilledButton.tonal(
+                onPressed: () async {
+                  final name = DownloadDestination.normalizeAlbumName(
+                    _albumController.text,
+                  );
+                  if (name == null) {
+                    showAppSnackBar(
+                      context,
+                      context.l10n.saveLocationAlbumInvalid,
+                    );
+                    return;
+                  }
+                  final saved = await persistSettings(
+                    context,
+                    () => ref
+                        .read(settingsProvider.notifier)
+                        .setDownloadDestination(
+                          DownloadDestination.customAlbum(name),
+                        ),
+                  );
+                  if (saved && context.mounted) {
+                    showAppSnackBar(context, context.l10n.saved);
+                  }
+                },
+                child: Text(context.l10n.saveLocationUseCustomAlbum),
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              title: Text(context.l10n.saveLocationSafFolder),
+              subtitle: Text(context.l10n.saveLocationSafFolderHint),
+              trailing: destination.isSafFolder
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(context).colorScheme.primary,
+                    )
+                  : null,
+              onTap: () => _pickSafFolder(),
+            ),
+            if (destination.isSafFolder)
+              ListTile(
+                leading: const Icon(Icons.check_circle),
+                title: Text(context.l10n.saveLocationSafPicked),
+                subtitle: Text(destination.safTreeUri ?? ''),
+              ),
+          ],
+        ),
       ),
     );
   }

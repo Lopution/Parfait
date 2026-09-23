@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -13,6 +14,8 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/account_transfer.dart';
 import 'package:pixiv_func/core/auth/account_transfer_service.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
+import 'package:pixiv_func/core/comments/comment_translation.dart';
+import 'package:pixiv_func/core/comments/translation_credentials.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/network/compat/network_contracts.dart'
     show
@@ -32,6 +35,7 @@ import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
+import 'package:pixiv_func/features/history/history_page.dart' as history;
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:pixiv_func/app/widgets/settings/settings_control.dart';
@@ -68,6 +72,48 @@ class _FakeRepository implements SettingsRepository {
     if (failWrites) throw StateError('settings disk full');
     value = settings;
     saved.add(settings);
+  }
+}
+
+/// In-memory credential store — the root-page summary only exercises the
+/// `hasX()` existence probes, but the full surface is implemented so the
+/// fake stays usable if more assertions appear.
+class _FakeTranslationStore implements TranslationCredentialStore {
+  BaiduTranslationCredentials? baidu;
+  LlmTranslationCredentials? llm;
+
+  @override
+  Future<BaiduTranslationCredentials?> readBaidu() async => baidu;
+
+  @override
+  Future<void> writeBaidu(BaiduTranslationCredentials credentials) async {
+    baidu = credentials;
+  }
+
+  @override
+  Future<LlmTranslationCredentials?> readLlm() async => llm;
+
+  @override
+  Future<void> writeLlm(LlmTranslationCredentials credentials) async {
+    llm = credentials;
+  }
+
+  @override
+  Future<bool> hasBaidu() async => baidu != null;
+
+  @override
+  Future<bool> hasLlm() async => llm != null;
+
+  @override
+  Future<void> deleteBaidu() async => baidu = null;
+
+  @override
+  Future<void> deleteLlm() async => llm = null;
+
+  @override
+  Future<void> deleteAll() async {
+    baidu = null;
+    llm = null;
   }
 }
 
@@ -617,6 +663,13 @@ void main() {
       'accountTransferCredentialUnavailable',
       'accountTransferClipboardUnavailable',
       'accountTransferStorageFailure',
+      'settingsSummaryOn',
+      'settingsSummaryOff',
+      'settingsHistorySummary',
+      'settingsMutedSummary',
+      'settingsDownloadTasksSummary',
+      'settingsCredentialConfigured',
+      'settingsCredentialNotConfigured',
     ];
     // Four-language presence is compile-time enforced by gen-l10n; this
     // smoke check keeps the transfer-error key list honest against zh.
@@ -809,11 +862,181 @@ void main() {
     );
     await tester.pump();
     expect(find.text('我的内容', skipOffstage: false), findsOneWidget);
+    // The content route sits in the library group while the 历史记录 tile
+    // remains the configuration entry under 浏览 (D5).
+    expect(find.text('查看浏览历史', skipOffstage: false), findsOneWidget);
     expect(find.text('网络与下载'), findsOneWidget);
     expect(find.text('数据'), findsOneWidget);
     expect(find.text('下载任务'), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);
     expect(find.text('新作'), findsNothing);
+  });
+
+  testWidgets('settings home shows current-value summaries', (tester) async {
+    PackageInfo.setMockInitialValues(
+      appName: 'Pixiv Func',
+      packageName: 'works.lopution.pixiv_func',
+      version: '9.9.9',
+      buildNumber: '99',
+      buildSignature: '',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            _FakeRepository(_baseSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: SettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Every configuration entry shows its current value (D- summaries):
+    // the signed-out state appears on the card and the account tile.
+    expect(find.text('未登录'), findsNWidgets(2));
+    expect(find.text('明亮'), findsOneWidget);
+    expect(find.text('English'), findsOneWidget);
+    // translateIndex=1 → disabled; credential-less providers show the
+    // provider label alone.
+    expect(find.text('关闭'), findsOneWidget);
+    // Lower groups are below the fold — scroll each summary into view.
+    for (final summary in [
+      '官方源（默认）',
+      '暂无屏蔽条目',
+      '本地 开 · Pixiv 开',
+      '自动',
+      '作品 ID（默认） · PixivFunc 相册（默认）',
+      '0 个活动任务',
+      '导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。',
+      '9.9.9+99',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.text(summary),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(summary), findsOneWidget);
+    }
+  });
+
+  testWidgets('translation entry reports the credential configured state', (
+    tester,
+  ) async {
+    final store = _FakeTranslationStore()
+      ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+          translationCredentialStoreProvider.overrideWithValue(store),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: SettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('百度翻译 · 已配置'), findsOneWidget);
+
+    store.baidu = null;
+    // The summary re-reads existence on the next build — rebuild the page
+    // the same way returning from the credentials page would.
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+          translationCredentialStoreProvider.overrideWithValue(store),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: SettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('百度翻译 · 未配置'), findsOneWidget);
+  });
+
+  testWidgets('history config and content entries open distinct routes', (
+    tester,
+  ) async {
+    final router = createPixivRouter(initialLocation: '/settings');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            _FakeRepository(_baseSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpAndSettle();
+
+    // Content entry under 我的内容 → the history view route directly (D5).
+    await tester.scrollUntilVisible(
+      find.text('查看浏览历史'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('查看浏览历史'));
+    await tester.pumpAndSettle();
+    expect(find.byType(history.HistoryPage), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+
+    // The 浏览-group tile remains the configuration entry.
+    await tester.scrollUntilVisible(
+      find.text('历史记录'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('历史记录'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HistorySettingsPage), findsOneWidget);
   });
 
   testWidgets('account card opens one profile route without a settings entry', (
@@ -851,7 +1074,9 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('tester'));
+    // The account name also renders as the account-tile summary — tap the
+    // card itself, not the ambiguous text.
+    await tester.tap(find.byType(AccountCard));
     await tester.pumpAndSettle();
 
     expect(find.byType(profile.MePage), findsOneWidget);
