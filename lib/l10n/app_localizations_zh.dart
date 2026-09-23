@@ -30,7 +30,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get next => '下一步';
 
   @override
-  String get later => '稍后您可以在设置中进行相应变更';
+  String get setupLater => '稍后设置';
 
   @override
   String get dark => '黑暗';

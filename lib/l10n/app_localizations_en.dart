@@ -30,7 +30,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get next => 'Next';
 
   @override
-  String get later => 'You can change it later in the settings';
+  String get setupLater => 'Set up later';
 
   @override
   String get dark => 'Dark';

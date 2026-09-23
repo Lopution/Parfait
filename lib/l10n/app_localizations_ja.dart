@@ -30,7 +30,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get next => '次へ';
 
   @override
-  String get later => '後で設定を変更できます';
+  String get setupLater => 'あとで設定する';
 
   @override
   String get dark => 'ダーク';
