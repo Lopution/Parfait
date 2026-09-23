@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../core/debug/frame_probe.dart';
 import '../../../l10n/context.dart';
+import '../settings_helpers.dart';
 
 /// Dev-only frame probe page: record timings while scrolling a feed, then
 /// copy the build/raster percentile report for offline analysis. Only
@@ -53,46 +54,48 @@ class _FrameProbePageState extends State<FrameProbePage> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.frameProbeTitle)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(context.l10n.frameProbeHint, style: theme.textTheme.bodySmall),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _toggle,
-            icon: Icon(_recording ? Icons.stop : Icons.fiber_manual_record),
-            label: Text(
-              _recording
-                  ? context.l10n.frameProbeStop
-                  : context.l10n.frameProbeStart,
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_recording)
-            Text(
-              '${FrameProbe.instance.frameCount} frames',
-              style: theme.textTheme.bodyMedium,
-            ),
-          if (_report != null) ...[
-            SelectableText(
-              _report!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
+      body: settingsNarrowBody(
+        ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(context.l10n.frameProbeHint, style: theme.textTheme.bodySmall),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _toggle,
+              icon: Icon(_recording ? Icons.stop : Icons.fiber_manual_record),
+              label: Text(
+                _recording
+                    ? context.l10n.frameProbeStop
+                    : context.l10n.frameProbeStart,
               ),
             ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: _report!));
-                  showAppSnackBar(context, context.l10n.networkProbeCopied);
-                },
-                icon: const Icon(Icons.copy, size: 16),
-                label: Text(context.l10n.copy),
+            const SizedBox(height: 16),
+            if (_recording)
+              Text(
+                '${FrameProbe.instance.frameCount} frames',
+                style: theme.textTheme.bodyMedium,
               ),
-            ),
+            if (_report != null) ...[
+              SelectableText(
+                _report!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: _report!));
+                    showAppSnackBar(context, context.l10n.networkProbeCopied);
+                  },
+                  icon: const Icon(Icons.copy, size: 16),
+                  label: Text(context.l10n.copy),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

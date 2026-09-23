@@ -15,6 +15,7 @@ import '../../../core/settings/shared_preferences.dart';
 import '../../../core/updater/update_providers.dart';
 import '../../../core/updater/update_service.dart';
 import '../../../l10n/context.dart';
+import '../settings_helpers.dart';
 
 class AboutSettingsPage extends ConsumerStatefulWidget {
   const AboutSettingsPage({super.key});
@@ -52,88 +53,93 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
     final updateService = ref.watch(updateServiceProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.aboutSettings)),
-      body: ListView(
-        children: [
-          const ListTile(leading: Icon(Icons.apps), title: Text('Pixiv Func')),
-          // Version comes from the platform package, not a literal — the
-          // pubspec `version:` line is the single source of truth (R1).
-          FutureBuilder<PackageInfo>(
-            future: PackageInfo.fromPlatform(),
-            builder: (context, snapshot) {
-              final info = snapshot.data;
-              final label = info == null
-                  ? '—'
-                  : '${info.version}+${info.buildNumber}';
-              return Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.info_outline),
-                    title: Text(context.l10n.aboutVersion),
-                    trailing: Text(label),
-                    onTap: _onVersionTap,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.menu_book_outlined),
-                    title: Text(context.l10n.aboutLicense),
-                    subtitle: Text(context.l10n.aboutLicenseText),
-                    onTap: () => showLicensePage(
-                      context: context,
-                      applicationName: appName,
-                      applicationVersion: info?.version,
+      body: settingsNarrowBody(
+        ListView(
+          children: [
+            const ListTile(
+              leading: Icon(Icons.apps),
+              title: Text('Pixiv Func'),
+            ),
+            // Version comes from the platform package, not a literal — the
+            // pubspec `version:` line is the single source of truth (R1).
+            FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                final info = snapshot.data;
+                final label = info == null
+                    ? '—'
+                    : '${info.version}+${info.buildNumber}';
+                return Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.info_outline),
+                      title: Text(context.l10n.aboutVersion),
+                      trailing: Text(label),
+                      onTap: _onVersionTap,
                     ),
+                    ListTile(
+                      leading: const Icon(Icons.menu_book_outlined),
+                      title: Text(context.l10n.aboutLicense),
+                      subtitle: Text(context.l10n.aboutLicenseText),
+                      onTap: () => showLicensePage(
+                        context: context,
+                        applicationName: appName,
+                        applicationVersion: info?.version,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.people_outline),
+              title: Text(context.l10n.aboutAttribution),
+              subtitle: Text(context.l10n.aboutAttributionText),
+            ),
+            ListTile(
+              leading: const Icon(Icons.code),
+              title: Text(context.l10n.aboutSource),
+              subtitle: const Text('github.com/Lopution/Pixiv-func'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.bug_report_outlined),
+              title: Text(context.l10n.aboutExportLogs),
+              onTap: () => _exportCrashLog(context),
+            ),
+            // Read-back of the display mode the engine actually got —
+            // OEM ROMs (MIUI/HyperOS, ColorOS) can keep a third-party app at
+            // 60Hz despite the preferred-mode request, which looks exactly
+            // like a uniform low-fps app. This is the only user-visible way
+            // to check it without adb.
+            if (Platform.isAndroid)
+              FutureBuilder<DisplayMode>(
+                future: FlutterDisplayMode.active,
+                builder: (context, snapshot) => ListTile(
+                  leading: const Icon(Icons.speed_outlined),
+                  title: Text(context.l10n.aboutDisplayRefreshRate),
+                  trailing: Text(
+                    snapshot.hasData
+                        ? '${snapshot.data!.refreshRate.toStringAsFixed(0)} Hz'
+                        : '—',
                   ),
-                ],
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.people_outline),
-            title: Text(context.l10n.aboutAttribution),
-            subtitle: Text(context.l10n.aboutAttributionText),
-          ),
-          ListTile(
-            leading: const Icon(Icons.code),
-            title: Text(context.l10n.aboutSource),
-            subtitle: const Text('github.com/Lopution/Pixiv-func'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.bug_report_outlined),
-            title: Text(context.l10n.aboutExportLogs),
-            onTap: () => _exportCrashLog(context),
-          ),
-          // Read-back of the display mode the engine actually got —
-          // OEM ROMs (MIUI/HyperOS, ColorOS) can keep a third-party app at
-          // 60Hz despite the preferred-mode request, which looks exactly
-          // like a uniform low-fps app. This is the only user-visible way
-          // to check it without adb.
-          if (Platform.isAndroid)
-            FutureBuilder<DisplayMode>(
-              future: FlutterDisplayMode.active,
-              builder: (context, snapshot) => ListTile(
-                leading: const Icon(Icons.speed_outlined),
-                title: Text(context.l10n.aboutDisplayRefreshRate),
-                trailing: Text(
-                  snapshot.hasData
-                      ? '${snapshot.data!.refreshRate.toStringAsFixed(0)} Hz'
-                      : '—',
                 ),
               ),
+            const Divider(),
+            updateService.when(
+              loading: () => ListTile(
+                leading: const Icon(Icons.system_update_outlined),
+                title: Text(context.l10n.aboutCheckUpdate),
+                subtitle: Text(context.l10n.aboutCheckingUpdate),
+              ),
+              error: (_, _) => ListTile(
+                leading: const Icon(Icons.warning_amber_outlined),
+                title: Text(context.l10n.aboutCheckUpdate),
+                subtitle: Text(context.l10n.aboutUpdateUnavailable),
+              ),
+              data: (service) => _AboutUpdateSection(service: service),
             ),
-          const Divider(),
-          updateService.when(
-            loading: () => ListTile(
-              leading: const Icon(Icons.system_update_outlined),
-              title: Text(context.l10n.aboutCheckUpdate),
-              subtitle: Text(context.l10n.aboutCheckingUpdate),
-            ),
-            error: (_, _) => ListTile(
-              leading: const Icon(Icons.warning_amber_outlined),
-              title: Text(context.l10n.aboutCheckUpdate),
-              subtitle: Text(context.l10n.aboutUpdateUnavailable),
-            ),
-            data: (service) => _AboutUpdateSection(service: service),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

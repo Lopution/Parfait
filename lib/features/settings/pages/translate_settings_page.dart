@@ -30,53 +30,55 @@ class TranslateSettingsPage extends ConsumerWidget {
     ];
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.translateSettings)),
-      body: ListView(
-        children: [
-          for (final item in items)
-            ListTile(
-              title: Text(item.$2),
-              trailing: settings.translationProvider == item.$1
-                  ? Icon(
-                      Icons.check,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  : null,
-              onTap: () => persistSettings(
-                context,
-                () => ref
-                    .read(settingsProvider.notifier)
-                    .selectTranslationProvider(item.$1),
+      body: settingsNarrowBody(
+        ListView(
+          children: [
+            for (final item in items)
+              ListTile(
+                title: Text(item.$2),
+                trailing: settings.translationProvider == item.$1
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.primary,
+                      )
+                    : null,
+                onTap: () => persistSettings(
+                  context,
+                  () => ref
+                      .read(settingsProvider.notifier)
+                      .selectTranslationProvider(item.$1),
+                ),
               ),
-            ),
-          if (settings.translationProvider == TranslationProvider.baidu)
-            ListTile(
-              leading: const Icon(Icons.key_outlined),
-              title: Text(context.l10n.translateBaiduCredential),
-              onTap: () => _openTranslationCredentials(context, ref, true),
-            ),
-          if (settings.translationProvider ==
-              TranslationProvider.translationLlm)
-            ListTile(
-              leading: const Icon(Icons.key_outlined),
-              title: Text(context.l10n.translateLlmCredential),
-              onTap: () => _openTranslationCredentials(context, ref, false),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              context.l10n.translateCredentialHint,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-          if (settings.translationProvider == TranslationProvider.baidu)
+            if (settings.translationProvider == TranslationProvider.baidu)
+              ListTile(
+                leading: const Icon(Icons.key_outlined),
+                title: Text(context.l10n.translateBaiduCredential),
+                onTap: () => _openTranslationCredentials(context, ref, true),
+              ),
+            if (settings.translationProvider ==
+                TranslationProvider.translationLlm)
+              ListTile(
+                leading: const Icon(Icons.key_outlined),
+                title: Text(context.l10n.translateLlmCredential),
+                onTap: () => _openTranslationCredentials(context, ref, false),
+              ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.all(16),
               child: Text(
-                context.l10n.translateBaiduHint,
+                context.l10n.translateCredentialHint,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
-        ],
+            if (settings.translationProvider == TranslationProvider.baidu)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Text(
+                  context.l10n.translateBaiduHint,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
