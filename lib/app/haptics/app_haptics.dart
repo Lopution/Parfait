@@ -78,7 +78,15 @@ abstract final class AppHaptics {
     required Future<void> Function() action,
     required Duration interval,
   }) {
-    if (!_isEnabled()) return;
+    // An enabled-reader failure (settings not ready, a throwing closure)
+    // defaults to on — matching the enableHaptics default (design §2.1).
+    bool enabled;
+    try {
+      enabled = _isEnabled();
+    } catch (_) {
+      enabled = true;
+    }
+    if (!enabled) return;
     final now = DateTime.now();
     // Throttling is per physical level, not per role: `confirm` and `error`
     // share the heavy channel so back-to-back vibrations of the same
@@ -100,11 +108,16 @@ abstract final class AppHaptics {
     // Platforms without haptics (desktop, missing plugin) must never break
     // the visual feedback path — haptics are a redundant channel, so both
     // sync throws and async platform errors are swallowed here.
-    unawaited(
-      action().catchError((Object _) {
-        // ignore — see above
-      }),
-    );
+    try {
+      unawaited(
+        action().catchError((Object _) {
+          // ignore — see above
+        }),
+      );
+    } catch (_) {
+      // A synchronous throw (e.g. a non-async action) is swallowed too —
+      // haptics must never propagate into the visual feedback path.
+    }
   }
 
   /// Test hook: restores the default enabled reader and clears throttling

@@ -615,9 +615,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   }
 }
 
-/// Bottom chrome of the explicit download-selection mode (R2): mode
-/// title + selected/total count + select-all + done + cancel. "Done" is
-/// semantically disabled while nothing is selected.
 /// Narrow-layout (<1200) persistent header under the AppBar: the detail
 /// body keeps title/author/page-context visible while the user scrolls
 /// through pages, and the 「信息」 button jumps straight to InfoBlock.
@@ -685,6 +682,9 @@ class _CompactDetailHeader extends StatelessWidget {
   }
 }
 
+/// Bottom chrome of the explicit download-selection mode (R2): mode
+/// title + selected/total count + select-all + done + cancel. "Done" is
+/// semantically disabled while nothing is selected.
 class _DownloadSelectionBar extends StatelessWidget {
   const _DownloadSelectionBar({
     required this.selected,
