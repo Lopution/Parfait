@@ -909,6 +909,23 @@
       }
     }
   },
+  "seriesStartReading": "Start reading",
+  "@seriesStartReading": {
+    "description": "Opens the first work in this series"
+  },
+  "seriesBackToEpisode": "Back to part {order}",
+  "@seriesBackToEpisode": {
+    "description": "Opens the most recently opened work in this series",
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesBackToLast": "Back to last opened",
+  "@seriesBackToLast": {
+    "description": "Opens the most recently opened work in this series (order unknown)"
+  },
   "seriesPrevious": "Previous",
   "seriesNext": "Next",
   "watchlistTitle": "Watchlist",

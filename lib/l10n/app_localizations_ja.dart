@@ -1994,6 +1994,17 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get seriesStartReading => '読み始める';
+
+  @override
+  String seriesBackToEpisode(int order) {
+    return '第 $order 話へ戻る';
+  }
+
+  @override
+  String get seriesBackToLast => '前回開いた作品へ戻る';
+
+  @override
   String get seriesPrevious => '前の作品';
 
   @override

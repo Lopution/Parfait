@@ -2040,6 +2040,17 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get seriesStartReading => 'Начать чтение';
+
+  @override
+  String seriesBackToEpisode(int order) {
+    return 'К части $order';
+  }
+
+  @override
+  String get seriesBackToLast => 'К последней открытой';
+
+  @override
   String get seriesPrevious => 'Предыдущая';
 
   @override

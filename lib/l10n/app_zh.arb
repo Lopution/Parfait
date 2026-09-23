@@ -909,6 +909,23 @@
       }
     }
   },
+  "seriesStartReading": "开始阅读",
+  "@seriesStartReading": {
+    "description": "Opens the first work in this series"
+  },
+  "seriesBackToEpisode": "返回第 {order} 话",
+  "@seriesBackToEpisode": {
+    "description": "Opens the most recently opened work in this series",
+    "placeholders": {
+      "order": {
+        "type": "int"
+      }
+    }
+  },
+  "seriesBackToLast": "返回上次阅读的作品",
+  "@seriesBackToLast": {
+    "description": "Opens the most recently opened work in this series (order unknown)"
+  },
   "seriesPrevious": "上一话",
   "seriesNext": "下一话",
   "watchlistTitle": "追更",
