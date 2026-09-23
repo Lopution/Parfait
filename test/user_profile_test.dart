@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
@@ -11,6 +12,7 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/user/follow_actions.dart';
 import 'package:pixiv_func/core/user/follow_models.dart';
 import 'package:pixiv_func/core/user/follow_repository.dart';
@@ -147,10 +149,23 @@ class _FakeUserRepository implements UserRepository {
   bool validateRecommendedCursor({required String cursor}) => false;
 }
 
+class _FakeOutboundUrlOpener implements OutboundUrlOpener {
+  final requests = <String>[];
+  Object? failure;
+
+  @override
+  Future<void> openExternal(String url) async {
+    requests.add(url);
+    final error = failure;
+    if (error != null) throw error;
+  }
+}
+
 Future<ProviderContainer> _makeWorld({
   bool twoAccounts = false,
   _FakeFollowRepository? follows,
   UserRepository? users,
+  OutboundUrlOpener? outboundUrlOpener,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = FakeCredentialStore(
@@ -175,6 +190,8 @@ Future<ProviderContainer> _makeWorld({
       followRepositoryProvider.overrideWithValue(
         follows ?? _FakeFollowRepository(),
       ),
+      if (outboundUrlOpener != null)
+        outboundUrlOpenerProvider.overrideWithValue(outboundUrlOpener),
       if (users != null) userRepositoryProvider.overrideWithValue(users),
     ],
   );
@@ -957,6 +974,68 @@ void main() {
       });
     },
   );
+
+  testWidgets('profile social links open, report failures, and copy', (
+    tester,
+  ) async {
+    final opener = _FakeOutboundUrlOpener();
+    final clipboardWrites = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboardWrites.add((call.arguments as Map)['text'] as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final user = _user(42).copyWith(
+      webpage: 'https://example.test/portfolio',
+      twitterUrl: 'https://social.test/sample',
+      pawooUrl: 'https://pawoo.test/sample',
+    );
+    final container = await _makeWorld(
+      users: _FakeUserRepository(detail: user),
+      outboundUrlOpener: opener,
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: const UserPage(userId: 42),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+    );
+    await tester.pumpAndSettle();
+
+    final openWebsite = find.byKey(const ValueKey('profile-link-open-website'));
+    await tester.ensureVisible(openWebsite);
+    await tester.tap(openWebsite);
+    await tester.pumpAndSettle();
+    expect(opener.requests, contains('https://example.test/portfolio'));
+
+    opener.failure = StateError('no activity');
+    final openTwitter = find.byKey(const ValueKey('profile-link-open-twitter'));
+    await tester.ensureVisible(openTwitter);
+    await tester.tap(openTwitter);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('无法打开链接'), findsOneWidget);
+
+    final copyPawoo = find.byKey(const ValueKey('profile-link-copy-pawoo'));
+    await tester.ensureVisible(copyPawoo);
+    await tester.tap(copyPawoo);
+    await tester.pumpAndSettle();
+    expect(clipboardWrites, contains('https://pawoo.test/sample'));
+  });
 
   testWidgets(
     'collapsed profile follow menu tracks state and opens shared sheet',
