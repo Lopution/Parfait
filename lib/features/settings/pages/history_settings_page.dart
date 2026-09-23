@@ -47,9 +47,22 @@ class HistorySettingsPage extends ConsumerWidget {
                     .setPixivHistoryEnabled(value),
               ),
             ),
+            // The content view sits inside the configuration page it
+            // belongs to; its subtitle reports the current switch states
+            // so the entry also answers "is this recording anything".
             ListTile(
               leading: const Icon(Icons.history_outlined),
               title: Text(context.l10n.historyView),
+              subtitle: Text(
+                context.l10n.settingsHistorySummary(
+                  settings.enableHistory
+                      ? context.l10n.settingsSummaryOn
+                      : context.l10n.settingsSummaryOff,
+                  settings.enablePixivHistory
+                      ? context.l10n.settingsSummaryOn
+                      : context.l10n.settingsSummaryOff,
+                ),
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => openHistory(context),
             ),
