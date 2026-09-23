@@ -1168,5 +1168,13 @@
         "type": "int"
       }
     }
+  },
+  "undo": "Отменить",
+  "@undo": {
+    "description": "SnackBar action that restores a just-removed watch-later entry"
+  },
+  "watchLaterRemoved": "Удалено из «Посмотреть позже»",
+  "@watchLaterRemoved": {
+    "description": "SnackBar shown after removing a watch-later entry; offers undo"
   }
 }

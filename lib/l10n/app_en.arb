@@ -1168,5 +1168,13 @@
         "type": "int"
       }
     }
+  },
+  "undo": "Undo",
+  "@undo": {
+    "description": "SnackBar action that restores a just-removed watch-later entry"
+  },
+  "watchLaterRemoved": "Removed from Watch later",
+  "@watchLaterRemoved": {
+    "description": "SnackBar shown after removing a watch-later entry; offers undo"
   }
 }

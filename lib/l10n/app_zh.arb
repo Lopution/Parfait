@@ -1168,5 +1168,13 @@
         "type": "int"
       }
     }
+  },
+  "undo": "撤销",
+  "@undo": {
+    "description": "SnackBar action that restores a just-removed watch-later entry"
+  },
+  "watchLaterRemoved": "已从稍后再看移除",
+  "@watchLaterRemoved": {
+    "description": "SnackBar shown after removing a watch-later entry; offers undo"
   }
 }

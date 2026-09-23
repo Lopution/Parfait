@@ -4504,6 +4504,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已选 {n} 项'**
   String selectedCount(int n);
+
+  /// SnackBar action that restores a just-removed watch-later entry
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销'**
+  String get undo;
+
+  /// SnackBar shown after removing a watch-later entry; offers undo
+  ///
+  /// In zh, this message translates to:
+  /// **'已从稍后再看移除'**
+  String get watchLaterRemoved;
 }
 
 class _AppLocalizationsDelegate

@@ -49,13 +49,19 @@ class WatchLaterRepository {
   }
 
   /// Idempotent: re-adding an existing work refreshes `added_at` and the
-  /// stored payload instead of failing.
-  Future<void> add(String accountId, IllustEntity entity) async {
+  /// stored payload instead of failing. Passing [addedAt] pins the
+  /// timestamp — the watch-later undo path uses it so a restored entry
+  /// lands back at its old position instead of jumping to the front.
+  Future<void> add(
+    String accountId,
+    IllustEntity entity, {
+    int? addedAt,
+  }) async {
     final db = await _database.database;
     await db.insert(WatchLaterDatabase.table, {
       'account_id': accountId,
       'illust_id': entity.id,
-      'added_at': _now().millisecondsSinceEpoch,
+      'added_at': addedAt ?? _now().millisecondsSinceEpoch,
       'payload': jsonEncode(entity.toJson()),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }

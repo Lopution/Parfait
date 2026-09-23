@@ -42,6 +42,20 @@ class WatchLaterStore extends AsyncNotifier<List<WatchLaterEntry>> {
     return true;
   }
 
+  /// Undo for the remove flow: re-inserts [entry] with its original
+  /// `addedAt` so the row lands back at its old position instead of
+  /// jumping to the front like a fresh [add] would. Returns false when no
+  /// account is logged in.
+  Future<bool> restore(WatchLaterEntry entry) async {
+    final accountId = _accountId;
+    if (accountId == null) return false;
+    await ref
+        .read(watchLaterRepositoryProvider)
+        .add(accountId, entry.entity, addedAt: entry.addedAt);
+    ref.invalidateSelf();
+    return true;
+  }
+
   Future<void> remove(int illustId) async {
     final accountId = _accountId;
     if (accountId == null) return;

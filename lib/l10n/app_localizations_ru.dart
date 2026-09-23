@@ -2424,4 +2424,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String selectedCount(int n) {
     return 'Выбрано: $n';
   }
+
+  @override
+  String get undo => 'Отменить';
+
+  @override
+  String get watchLaterRemoved => 'Удалено из «Посмотреть позже»';
 }

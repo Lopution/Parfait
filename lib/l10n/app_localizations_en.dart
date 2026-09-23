@@ -2425,4 +2425,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String selectedCount(int n) {
     return '$n selected';
   }
+
+  @override
+  String get undo => 'Undo';
+
+  @override
+  String get watchLaterRemoved => 'Removed from Watch later';
 }

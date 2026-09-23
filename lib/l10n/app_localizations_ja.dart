@@ -2369,4 +2369,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String selectedCount(int n) {
     return '$n 件選択中';
   }
+
+  @override
+  String get undo => '元に戻す';
+
+  @override
+  String get watchLaterRemoved => 'あとで見るから削除しました';
 }

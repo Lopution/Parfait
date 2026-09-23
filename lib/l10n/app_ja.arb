@@ -1168,5 +1168,13 @@
         "type": "int"
       }
     }
+  },
+  "undo": "元に戻す",
+  "@undo": {
+    "description": "SnackBar action that restores a just-removed watch-later entry"
+  },
+  "watchLaterRemoved": "あとで見るから削除しました",
+  "@watchLaterRemoved": {
+    "description": "SnackBar shown after removing a watch-later entry; offers undo"
   }
 }
