@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/app/navigation/routes.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -128,6 +129,7 @@ CommentEntity _comment(
   int? parentCommentId,
   int? rootCommentId,
   int replyCount = 0,
+  String? content,
 }) => CommentEntity(
   id: id,
   workId: workId,
@@ -135,7 +137,7 @@ CommentEntity _comment(
   parentCommentId: parentCommentId,
   rootCommentId: rootCommentId ?? id,
   user: UserEntity(id: userId, name: 'user $userId', account: 'user_$userId'),
-  content: 'comment $id',
+  content: content ?? 'comment $id',
   createdAt: DateTime.utc(2026, 8, 27),
   hasReplies: replyCount > 0,
   replyCount: replyCount,
@@ -145,6 +147,9 @@ class _FakeCommentRepository implements CommentRepository {
   final requests = <CommentFeedQuery>[];
   int deleteCalls = 0;
   Completer<CommentEntity>? addCompleter;
+  List<CommentEntity>? rootComments;
+  List<CommentEntity>? replies;
+  Object? addError;
 
   @override
   Future<CommentPage> fetchComments(
@@ -156,7 +161,7 @@ class _FakeCommentRepository implements CommentRepository {
     final query = CommentFeedQuery.root(workId: workId, kind: kind);
     requests.add(query);
     return CommentPage(
-      comments: [_comment(11, workId: workId, replyCount: 1)],
+      comments: rootComments ?? [_comment(11, workId: workId, replyCount: 1)],
       nextUrl: null,
     );
   }
@@ -176,14 +181,16 @@ class _FakeCommentRepository implements CommentRepository {
     );
     requests.add(query);
     return CommentPage(
-      comments: [
-        _comment(
-          12,
-          workId: workId,
-          parentCommentId: rootCommentId,
-          rootCommentId: rootCommentId,
-        ),
-      ],
+      comments:
+          replies ??
+          [
+            _comment(
+              12,
+              workId: workId,
+              parentCommentId: rootCommentId,
+              rootCommentId: rootCommentId,
+            ),
+          ],
       nextUrl: null,
     );
   }
@@ -195,7 +202,13 @@ class _FakeCommentRepository implements CommentRepository {
   Future<CommentEntity> addComment(
     CommentAddRequest request, {
     CancelToken? cancelToken,
-  }) => addCompleter?.future ?? Future.value(_comment(20));
+  }) {
+    final completer = addCompleter;
+    if (completer != null) return completer.future;
+    final error = addError;
+    if (error != null) return Future.error(error);
+    return Future.value(_comment(20));
+  }
 
   @override
   Future<void> deleteComment(
@@ -848,9 +861,7 @@ void main() {
       ProviderScope(
         overrides: [
           accountStoreProvider.overrideWith(_StubAccountStore.new),
-          commentRepositoryProvider.overrideWithValue(
-            _FakeCommentRepository(),
-          ),
+          commentRepositoryProvider.overrideWithValue(_FakeCommentRepository()),
         ],
         child: composerApp(const CommentsPage(workId: 1)),
       ),
@@ -869,40 +880,37 @@ void main() {
     );
   });
 
-  testWidgets(
-    'replies page opts out of Scaffold resizeToAvoidBottomInset',
-    (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            accountStoreProvider.overrideWith(_StubAccountStore.new),
-            commentRepositoryProvider.overrideWithValue(
-              _FakeCommentRepository(),
-            ),
-          ],
-          child: composerApp(
-            CommentRepliesPage(
-              workId: 1,
-              rootCommentId: 11,
-              rootComment: _comment(11, replyCount: 1),
-            ),
+  testWidgets('replies page opts out of Scaffold resizeToAvoidBottomInset', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          commentRepositoryProvider.overrideWithValue(_FakeCommentRepository()),
+        ],
+        child: composerApp(
+          CommentRepliesPage(
+            workId: 1,
+            rootCommentId: 11,
+            rootComment: _comment(11, replyCount: 1),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<Scaffold>(
-              find.descendant(
-                of: find.byType(CommentRepliesPage),
-                matching: find.byType(Scaffold),
-              ),
-            )
-            .resizeToAvoidBottomInset,
-        isFalse,
-      );
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Scaffold>(
+            find.descendant(
+              of: find.byType(CommentRepliesPage),
+              matching: find.byType(Scaffold),
+            ),
+          )
+          .resizeToAvoidBottomInset,
+      isFalse,
+    );
+  });
 
   testWidgets('composer input state covers the four-state matrix', (
     tester,
@@ -943,5 +951,90 @@ void main() {
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
     expect(state().debugInputState, CommentComposerInputState.none);
+  });
+
+  Future<void> pumpRepliesPage(
+    WidgetTester tester,
+    _FakeCommentRepository repo, {
+    CommentEntity? root,
+  }) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          commentRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: composerApp(
+          CommentRepliesPage(
+            workId: 1,
+            rootCommentId: 11,
+            rootComment: root ?? _comment(11, replyCount: 1),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('replies page scrolls the root comment with the reply list', (
+    tester,
+  ) async {
+    final repo = _FakeCommentRepository()
+      ..replies = [
+        for (var i = 0; i < 15; i++)
+          _comment(100 + i, parentCommentId: 11, rootCommentId: 11, userId: 20),
+      ];
+    await pumpRepliesPage(tester, repo);
+
+    expect(find.text('comment 11'), findsOneWidget);
+    final before = tester.getTopLeft(find.text('comment 11')).dy;
+    // SmoothWheelScroll boots in wheel mode on the desktop test host — the
+    // list sits on NeverScrollableScrollPhysics until the first pointer
+    // down drops it, so this priming drag only unlocks touch scrolling.
+    await tester.drag(find.byType(ListView), const Offset(0, -60));
+    await tester.pump();
+    await tester.drag(find.byType(ListView), const Offset(0, -60));
+    await tester.pump();
+    // The root is part of the scrollable feed now — it must move with it.
+    expect(tester.getTopLeft(find.text('comment 11')).dy, lessThan(before));
+  });
+
+  testWidgets('replies page keeps a reply visible under a long root', (
+    tester,
+  ) async {
+    await pumpRepliesPage(
+      tester,
+      _FakeCommentRepository(),
+      root: _comment(
+        11,
+        replyCount: 1,
+        content: 'long root comment line\n' * 12,
+      ),
+    );
+
+    // First frame: the feed's leading slot holds the root, and the first
+    // reply's row already peeks into the viewport — the old fixed header
+    // squeezed the list into an overflowing sliver instead.
+    final feedBottom = tester.getRect(find.byType(ListView)).bottom;
+    expect(find.byKey(const ValueKey(12)), findsOneWidget);
+    expect(
+      tester.getRect(find.byKey(const ValueKey(12))).top,
+      lessThan(feedBottom),
+    );
+    // The header CommentItem (tree order first) is the root, leading the
+    // reply rows.
+    expect(
+      tester.getRect(find.byType(CommentItem).first).top,
+      lessThan(tester.getRect(find.byKey(const ValueKey(12))).top),
+    );
+
+    // The FeedTail slot still terminates the list after the replies —
+    // scroll the long root out of the way to reach it. The first drag
+    // only unlocks SmoothWheelScroll's desktop wheel mode.
+    await tester.drag(find.byType(ListView), const Offset(0, -60));
+    await tester.pump();
+    await tester.drag(find.byType(ListView), const Offset(0, -160));
+    await tester.pump();
+    expect(find.byType(FeedTail), findsOneWidget);
   });
 }
