@@ -303,6 +303,51 @@ void main() {
     expect(engine.calls, 2);
     expect(find.byType(FeedError), findsOneWidget);
   });
+
+  testWidgets('handle exposes ordered chapter entries from the layout', (
+    tester,
+  ) async {
+    final handle = NovelReaderHandle();
+    const source =
+        'intro paragraph\n[[chapter:第一章]]\nchapter one body\n'
+        '[[chapter:第二章]]\nchapter two body';
+    final markup = NovelContentMapper.parse(source);
+    final novel = NovelEntity(
+      id: 77,
+      title: 'A novel',
+      caption: '',
+      user: const UserEntity(id: 8, name: 'author', account: 'author'),
+      tags: const [],
+      textLength: source.length,
+      contentVersion: source,
+      paragraphs: markup.paragraphs,
+      markup: markup,
+      contentAvailable: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(body: NovelReader(novel: novel, handle: handle)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final chapters = handle.chapters!.call();
+    expect(chapters.map((entry) => entry.title), ['第一章', '第二章']);
+    // Page indices are ordered and inside the laid-out range.
+    expect(chapters.first.pageIndex, greaterThan(0));
+    expect(chapters[0].pageIndex, lessThan(chapters[1].pageIndex));
+    expect(chapters.last.pageIndex, lessThan(handle.pageCount!.call()));
+
+    // Jumping to a chapter lands on its page.
+    handle.goToPage?.call(chapters[1].pageIndex, animate: false);
+    await tester.pump();
+    expect(handle.currentPage?.call(), chapters[1].pageIndex);
+  });
 }
 
 /// Records each document-layout invocation so tests can assert a retry
