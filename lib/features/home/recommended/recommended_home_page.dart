@@ -20,7 +20,7 @@ import '../../../app/widgets/branch_slide_stack.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
 import '../../../app/widgets/root_swipe_switcher.dart';
 import '../../../app/widgets/author_summary.dart';
-import '../../../app/widgets/novel_row.dart';
+import '../../../app/widgets/novel_entry.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
@@ -446,7 +446,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
             index: index,
             id: novels[index].id,
             played: entrancePlayed,
-            child: NovelRow(entity: novels[index]),
+            child: NovelEntry.compact(entity: novels[index]),
           ),
         ),
       ),
