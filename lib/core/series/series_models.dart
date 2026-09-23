@@ -22,6 +22,7 @@ class IllustSeriesEntity {
     this.watchlistAdded,
     this.isConcluded,
     this.latestContentId,
+    this.firstContentId,
   });
 
   final int id;
@@ -45,6 +46,11 @@ class IllustSeriesEntity {
   /// Id of the newest work in the series (`illust_series_latest_illust.id`).
   final int? latestContentId;
 
+  /// Id of the first work in the series (`illust_series_first_illust.id`) —
+  /// the series page's「开始阅读」target. Only the series-works payload
+  /// carries it; user-series entries omit it and keep the merged value.
+  final int? firstContentId;
+
   /// Merge rule for the shared store: incoming non-empty values win, while
   /// fields the payload did not carry keep the previously observed value.
   IllustSeriesEntity mergeOver(IllustSeriesEntity previous) {
@@ -59,15 +65,17 @@ class IllustSeriesEntity {
       watchlistAdded: watchlistAdded ?? previous.watchlistAdded,
       isConcluded: isConcluded ?? previous.isConcluded,
       latestContentId: latestContentId ?? previous.latestContentId,
+      firstContentId: firstContentId ?? previous.firstContentId,
     );
   }
 
   /// Parses one `illust_series_detail` / `illust_series_details[]` object.
-  /// [latestContentId] is supplied by the caller when the payload carries
-  /// the newest work as a sibling object rather than a detail field.
+  /// [latestContentId] and [firstContentId] are supplied by the caller when
+  /// the payload carries them as sibling objects rather than detail fields.
   factory IllustSeriesEntity.fromJson(
     Map<String, dynamic> json, {
     int? latestContentId,
+    int? firstContentId,
   }) {
     final id = readPositiveInt(json['id']);
     final title = readOptionalString(json['title']);
@@ -100,6 +108,8 @@ class IllustSeriesEntity {
           : null,
       latestContentId:
           latestContentId ?? readPositiveInt(json['latest_content_id']),
+      firstContentId:
+          firstContentId ?? readPositiveInt(json['first_content_id']),
     );
   }
 }

@@ -98,6 +98,7 @@ void main() {
         expect(page.detail?.workCount, 12);
         expect(page.detail?.coverUrl, 'https://i.pximg.net/s55/360.jpg');
         expect(page.detail?.latestContentId, 912);
+        expect(page.detail?.firstContentId, 901);
         expect(page.illusts.map((e) => e.id), [912, 911]);
         expect(page.nextUrl, isNull);
       },

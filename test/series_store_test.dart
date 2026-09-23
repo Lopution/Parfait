@@ -32,6 +32,7 @@ IllustSeriesEntity _series(
   bool? watchlistAdded,
   bool? isConcluded,
   int? latestContentId,
+  int? firstContentId,
 }) => IllustSeriesEntity(
   id: id,
   title: '$title $id',
@@ -43,6 +44,7 @@ IllustSeriesEntity _series(
   watchlistAdded: watchlistAdded,
   isConcluded: isConcluded,
   latestContentId: latestContentId,
+  firstContentId: firstContentId,
 );
 
 void main() {
@@ -76,6 +78,7 @@ void main() {
         watchlistAdded: true,
         isConcluded: false,
         latestContentId: 912,
+        firstContentId: 901,
       ),
     ]);
 
@@ -90,6 +93,7 @@ void main() {
     expect(merged.watchlistAdded, isTrue);
     expect(merged.isConcluded, isFalse);
     expect(merged.latestContentId, 912);
+    expect(merged.firstContentId, 901);
   });
 
   test('a richer payload overwrites fields it carries', () {

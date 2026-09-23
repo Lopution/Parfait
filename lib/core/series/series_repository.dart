@@ -220,10 +220,14 @@ class PixivSeriesRepository {
       IllustSeriesEntity? detail;
       if (detailJson is Map<String, dynamic>) {
         final latest = json['illust_series_latest_illust'];
+        final first = json['illust_series_first_illust'];
         detail = IllustSeriesEntity.fromJson(
           detailJson,
           latestContentId: latest is Map<String, dynamic>
               ? readPositiveInt(latest['id'])
+              : null,
+          firstContentId: first is Map<String, dynamic>
+              ? readPositiveInt(first['id'])
               : null,
         );
       }
