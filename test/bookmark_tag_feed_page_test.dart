@@ -161,4 +161,41 @@ void main() {
     expect(untaggedScope, endsWith(':'));
     expect(untaggedScope, isNot(taggedScope));
   });
+
+  testWidgets('bookmark tag filter only changes loaded works locally', (
+    tester,
+  ) async {
+    final repository = _RecordingUserRepository();
+    final container = _makeContainer(repository);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _testApp(
+        container,
+        const BookmarkTagFeedPage(
+          tag: 'draw',
+          restrict: BookmarkRestrict.private,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final filter = find.byType(TextField);
+    await tester.enterText(filter, 'BLUE');
+    await tester.pump();
+    expect(find.text('Blue Sky'), findsOneWidget);
+    expect(find.text('Sakura'), findsNothing);
+    expect(repository.requests, hasLength(1));
+
+    await tester.enterText(filter, 'no matching work');
+    await tester.pump();
+    expect(find.text('已加载内容中无匹配'), findsOneWidget);
+    expect(repository.requests, hasLength(1));
+
+    await tester.enterText(filter, '');
+    await tester.pump();
+    expect(find.text('Blue Sky'), findsOneWidget);
+    expect(find.text('Sakura'), findsOneWidget);
+    expect(repository.requests, hasLength(1));
+  });
 }
