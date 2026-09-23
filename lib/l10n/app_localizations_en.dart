@@ -112,13 +112,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Direct HTTPS is tried first; only official Pixiv destinations may try a strict HTTPS candidate after an explicit transport failure. Other traffic is never proxied and certificate checks stay enabled.';
 
   @override
-  String get getMoreHelp => 'Get more help >>';
-
-  @override
-  String get useLoginWithClipboardHint =>
-      'Or use\\nlong press on the avatar to copy account data';
-
-  @override
   String get useLoginWithClipboard => 'Login with clipboard data';
 
   @override

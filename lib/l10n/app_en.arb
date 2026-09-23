@@ -65,8 +65,6 @@
   },
   "networkCompatibility": "Pixiv official network compatibility",
   "networkCompatibilityHint": "Direct HTTPS is tried first; only official Pixiv destinations may try a strict HTTPS candidate after an explicit transport failure. Other traffic is never proxied and certificate checks stay enabled.",
-  "getMoreHelp": "Get more help >>",
-  "useLoginWithClipboardHint": "Or use\\nlong press on the avatar to copy account data",
   "useLoginWithClipboard": "Login with clipboard data",
   "accountTransferExportTitle": "Export account credential",
   "accountTransferWarning": "The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.",

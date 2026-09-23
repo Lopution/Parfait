@@ -112,13 +112,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Сначала используется прямой HTTPS; только официальные адреса Pixiv могут попробовать строгий HTTPS-маршрут после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификата не отключается.';
 
   @override
-  String get getMoreHelp => 'Получить дополнительную помощь >>';
-
-  @override
-  String get useLoginWithClipboardHint =>
-      'Или используйте длинное нажатие на аватаре,\\n чтобы скопировать данные аккаунта';
-
-  @override
   String get useLoginWithClipboard => 'Войти с данными из буфера обмена';
 
   @override
