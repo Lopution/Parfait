@@ -685,7 +685,7 @@ class _ErrorOverlay extends StatelessWidget {
 }
 
 /// Always-visible GIF export entry (R5). One slot presents three states:
-/// preparing (asset not loaded → disabled spinner), exporting (progress
+/// preparing (asset not loaded → disabled icon), exporting (progress
 /// spinner with percent tooltip), failed (error icon, tap retries).
 class _ExportButton extends StatelessWidget {
   const _ExportButton({
