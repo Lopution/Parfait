@@ -752,15 +752,15 @@ void main() {
       );
       expect(find.text('关于'), findsOneWidget);
       expect(find.text('sample user'), findsOneWidget);
-      expect(find.text('插画'), findsOneWidget);
-      expect(find.text('漫画'), findsOneWidget);
-      expect(find.text('小说'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '插画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '漫画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '小说'), findsOneWidget);
 
       await tester.tap(find.text('作品'));
       await tester.pumpAndSettle();
-      expect(find.text('插画'), findsOneWidget);
-      expect(find.text('漫画'), findsOneWidget);
-      expect(find.text('小说'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '插画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '漫画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '小说'), findsOneWidget);
       expect(find.byType(EasyRefresh), findsOneWidget);
       expect(find.byType(HeaderLocator), findsOneWidget);
 
@@ -769,9 +769,116 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('收藏'));
       await tester.pumpAndSettle();
-      expect(find.text('插画'), findsNothing);
-      expect(find.text('漫画'), findsNothing);
-      expect(find.text('小说'), findsNothing);
+      expect(find.widgetWithText(ChoiceChip, '插画'), findsNothing);
+      expect(find.widgetWithText(ChoiceChip, '漫画'), findsNothing);
+      expect(find.widgetWithText(ChoiceChip, '小说'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'profile stats navigate to their sections and keep myPixiv read-only',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        detail: _user(42).copyWith(
+          totalFollowUsers: 11,
+          totalMyPixivUsers: 12,
+          totalIllusts: 13,
+          totalManga: 14,
+          totalNovels: 15,
+          totalIllustSeries: 3,
+          totalNovelSeries: 4,
+        ),
+      );
+      final container = await _makeWorld(users: repository);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final seriesStat = find.byKey(
+        const ValueKey('profile-stat-series-header'),
+      );
+      expect(
+        tester.getSemantics(seriesStat),
+        isSemantics(label: '系列, 7', isButton: true, hasTapAction: true),
+      );
+      final myPixivStat = find.byKey(
+        const ValueKey('profile-stat-myPixiv-header'),
+      );
+      expect(
+        tester.getSemantics(myPixivStat),
+        isSemantics(isButton: false, hasTapAction: false),
+      );
+
+      final mangaStat = find.byKey(const ValueKey('profile-stat-manga-header'));
+      await tester.ensureVisible(mangaStat);
+      await tester.tap(mangaStat);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '漫画'))
+            .selected,
+        isTrue,
+      );
+      expect(repository.requests, contains('works:42:manga:first'));
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+      );
+      await tester.pumpAndSettle();
+      final aboutSeriesStat = find.byKey(
+        const ValueKey('profile-stat-series-about'),
+      );
+      await tester.ensureVisible(aboutSeriesStat);
+      await tester.tap(aboutSeriesStat);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '系列'))
+            .selected,
+        isTrue,
+      );
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+      );
+      await tester.pumpAndSettle();
+      final aboutFollowingStat = find.byKey(
+        const ValueKey('profile-stat-following-about'),
+      );
+      await tester.ensureVisible(aboutFollowingStat);
+      await tester.tap(aboutFollowingStat);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 2);
+      expect(repository.requests, contains('relation:42:following'));
+
+      await tester.tap(
+        find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+      );
+      await tester.pumpAndSettle();
+      final aboutMangaStat = find.byKey(
+        const ValueKey('profile-stat-manga-about'),
+      );
+      await tester.ensureVisible(aboutMangaStat);
+      await tester.tap(aboutMangaStat);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+      expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '漫画'))
+            .selected,
+        isTrue,
+      );
     },
   );
 
