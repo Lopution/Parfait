@@ -819,9 +819,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get saveLocationCustomAlbumHint => '英数字・日本語・アンダースコアのみ';
 
   @override
-  String get saveLocationUseCustomAlbum => 'カスタムアルバムを使用';
-
-  @override
   String get saveLocationAlbumInvalid => 'アルバム名が無効です';
 
   @override
@@ -831,7 +828,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get saveLocationSafFolderHint => 'システム SAF でフォルダーを選択し、権限を永続化';
 
   @override
-  String get saveLocationSafPicked => 'フォルダーを選択済み';
+  String get safStorageInternal => '内部ストレージ';
+
+  @override
+  String safStorageSdCard(String volume) {
+    return 'SD カード（$volume）';
+  }
+
+  @override
+  String get saveLocationUriCopied => 'フォルダ URI をコピーしました';
 
   @override
   String get namingPreset => 'ファイル名プリセット';

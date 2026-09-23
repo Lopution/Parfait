@@ -350,11 +350,19 @@
   "saveLocationPixivAlbum": "PixivFunc album (default)",
   "saveLocationCustomAlbum": "Custom album name",
   "saveLocationCustomAlbumHint": "Letters, digits, CJK and underscore only",
-  "saveLocationUseCustomAlbum": "Use custom album",
   "saveLocationAlbumInvalid": "Invalid album name",
   "saveLocationSafFolder": "Folder (system directory picker)",
   "saveLocationSafFolderHint": "Picks a directory via the system SAF and persists the grant",
-  "saveLocationSafPicked": "Folder selected",
+  "safStorageInternal": "Internal storage",
+  "safStorageSdCard": "SD card ({volume})",
+  "@safStorageSdCard": {
+    "placeholders": {
+      "volume": {
+        "type": "String"
+      }
+    }
+  },
+  "saveLocationUriCopied": "Folder URI copied",
   "namingPreset": "File naming preset",
   "namingPresetId": "Work ID (default)",
   "namingPresetArtistTitleId": "Artist - title - ID",

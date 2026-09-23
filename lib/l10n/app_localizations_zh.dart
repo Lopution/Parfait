@@ -809,9 +809,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveLocationCustomAlbumHint => '仅字母、数字、中文与下划线';
 
   @override
-  String get saveLocationUseCustomAlbum => '使用自定义相册';
-
-  @override
   String get saveLocationAlbumInvalid => '相册名称无效';
 
   @override
@@ -821,7 +818,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveLocationSafFolderHint => '通过系统 SAF 选择目录并持久授权';
 
   @override
-  String get saveLocationSafPicked => '已选择文件夹';
+  String get safStorageInternal => '内部存储';
+
+  @override
+  String safStorageSdCard(String volume) {
+    return 'SD 卡（$volume）';
+  }
+
+  @override
+  String get saveLocationUriCopied => '已复制目录 URI';
 
   @override
   String get namingPreset => '文件命名预设';

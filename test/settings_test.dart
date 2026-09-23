@@ -27,6 +27,7 @@ import 'package:pixiv_func/core/network/compat/network_contracts.dart'
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
+import 'package:pixiv_func/core/download/download_destination.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_engine.dart';
 import 'package:pixiv_func/core/search/search_models.dart';
@@ -37,6 +38,7 @@ import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/features/history/history_page.dart' as history;
+import 'package:pixiv_func/features/settings/saf_tree_name.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:pixiv_func/app/widgets/settings/settings_control.dart';
@@ -648,11 +650,11 @@ void main() {
       'saveLocationPixivAlbum',
       'saveLocationCustomAlbum',
       'saveLocationCustomAlbumHint',
-      'saveLocationUseCustomAlbum',
       'saveLocationAlbumInvalid',
       'saveLocationSafFolder',
       'saveLocationSafFolderHint',
-      'saveLocationSafPicked',
+      'safStorageInternal',
+      'saveLocationUriCopied',
       'namingPreset',
       'namingPresetId',
       'namingPresetArtistTitleId',
@@ -1205,6 +1207,104 @@ void main() {
       expect(find.byType(DownloadSettingsPage), findsNothing);
     },
   );
+
+  test('safTreeDisplayName decodes volumes and falls back honestly', () {
+    final zh = AppLocalizationsZh();
+    expect(
+      safTreeDisplayName(
+        zh,
+        'content://com.android.externalstorage.documents/tree/primary%3ADownload%2Fpixiv',
+      ),
+      '内部存储/Download/pixiv',
+    );
+    expect(
+      safTreeDisplayName(
+        zh,
+        'content://com.android.externalstorage.documents/tree/1234-5678%3ADCIM',
+      ),
+      'SD 卡（1234-5678）/DCIM',
+    );
+    // Storage root: no path suffix after the volume colon.
+    expect(
+      safTreeDisplayName(
+        zh,
+        'content://com.android.externalstorage.documents/tree/primary%3A',
+      ),
+      '内部存储',
+    );
+    // Desktop pickers return plain filesystem paths — verbatim.
+    expect(
+      safTreeDisplayName(zh, '/home/user/Pictures'),
+      '/home/user/Pictures',
+    );
+    // Unparseable content URIs degrade to the raw string, never blank.
+    expect(safTreeDisplayName(zh, 'content://x/tree'), 'content://x/tree');
+    expect(safTreeDisplayName(zh, ''), '');
+  });
+
+  testWidgets('save location headlines the decoded SAF name, URI demoted', (
+    tester,
+  ) async {
+    const uri =
+        'content://com.android.externalstorage.documents/tree/primary%3ADownload%2Fpixiv';
+    final repository = _FakeRepository(
+      _baseSettings().copyWith(
+        downloadDestination: const DownloadDestination.safFolder(uri),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: DownloadDestinationPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The headline is the decoded name; the tile is the selected row.
+    final tile = tester.widget<ListTile>(
+      find.widgetWithText(ListTile, '内部存储/Download/pixiv'),
+    );
+    expect(tile.selected, isTrue);
+
+    // The raw `content://` identifier survives only in the truncated
+    // subtitle (maxLines 1 + ellipsis), never as the headline.
+    final subtitle = tester.widget<Text>(find.text(uri));
+    expect(subtitle.maxLines, 1);
+    expect(subtitle.overflow, TextOverflow.ellipsis);
+  });
+
+  testWidgets('download settings summary shows the decoded SAF name too', (
+    tester,
+  ) async {
+    const uri =
+        'content://com.android.externalstorage.documents/tree/1234-5678%3ADCIM';
+    final repository = _FakeRepository(
+      _baseSettings().copyWith(
+        downloadDestination: const DownloadDestination.safFolder(uri),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: DownloadSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The save-location tile summary is the human name, not the URI.
+    expect(find.text('SD 卡（1234-5678）/DCIM'), findsOneWidget);
+    expect(find.textContaining('content://'), findsNothing);
+  });
 
   testWidgets('history config and content entries open distinct routes', (
     tester,
