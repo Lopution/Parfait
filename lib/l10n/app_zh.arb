@@ -281,6 +281,26 @@
   "backupImportOverwriteNote": "覆盖会先清空本地历史并替换作品屏蔽；服务端屏蔽列表只增不删，覆盖不会删除服务器上的屏蔽项。",
   "backupMerge": "合并",
   "backupOverwrite": "覆盖",
+  "backupMergeHint": "保留现有数据，添加文件内容",
+  "backupOverwriteHint": "以文件内容替换本地数据",
+  "backupImportMergeConfirmTitle": "将添加 {tags} 个屏蔽标签、{users} 个屏蔽用户、{works} 个屏蔽作品和 {history} 条历史记录",
+  "@backupImportMergeConfirmTitle": {
+    "placeholders": {
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      }
+    }
+  },
+  "backupImportOverwriteConfirmTitle": "将清空本地历史，屏蔽作品与设置以文件为准",
   "backupImportDone": "导入完成：新增 {tags} 个标签、{users} 个用户、{works} 项作品屏蔽变更、{history} 条历史",
   "@backupImportDone": {
     "placeholders": {
@@ -529,6 +549,11 @@
   "aboutUpdateStore": "此构建由 F-Droid 管理更新。",
   "aboutUpdateUnavailable": "更新检查当前不可用",
   "aboutUpdateFailed": "更新检查或安装失败，请稍后重试",
+  "aboutUpdateOffline": "无法连接更新服务，请检查网络后重试",
+  "aboutUpdateRateLimited": "GitHub 限流，请稍后重试",
+  "aboutUpdateInvalid": "更新清单无效，请向开发者反馈",
+  "aboutUpdateBusy": "已有更新任务进行中",
+  "aboutUpdateCanceled": "已取消更新安装",
   "aboutLicense": "许可证",
   "aboutAttribution": "归属",
   "aboutSource": "项目源码",
@@ -637,6 +662,7 @@
   "relatedWorks": "相关作品",
   "cancel": "取消",
   "confirm": "确定",
+  "continueAction": "继续",
   "rankingDay": "每日",
   "rankingDayR18": "每日(R-18)",
   "rankingDayMale": "每日(男性欢迎)",

@@ -281,6 +281,26 @@
   "backupImportOverwriteNote": "上書きはローカル履歴を消去して作品ミュートを置き換えます。サーバー側のミュートは追加のみで、読み込みで削除されることはありません。",
   "backupMerge": "マージ",
   "backupOverwrite": "上書き",
+  "backupMergeHint": "既存データを残し、ファイルの内容を追加します",
+  "backupOverwriteHint": "ファイルの内容でローカルデータを置き換えます",
+  "backupImportMergeConfirmTitle": "ミュートタグ {tags} 件、ミュートユーザー {users} 件、ミュート作品 {works} 件、履歴 {history} 件を追加します",
+  "@backupImportMergeConfirmTitle": {
+    "placeholders": {
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      }
+    }
+  },
+  "backupImportOverwriteConfirmTitle": "ローカル履歴を消去し、ミュート作品と設定をファイルに合わせます",
   "backupImportDone": "読み込み完了：タグ +{tags}、ユーザー +{users}、作品ミュート変更 {works} 件、履歴 {history} 件",
   "@backupImportDone": {
     "placeholders": {
@@ -529,6 +549,11 @@
   "aboutUpdateStore": "このビルドの更新は F-Droid が管理します。",
   "aboutUpdateUnavailable": "現在、更新を確認できません",
   "aboutUpdateFailed": "更新の確認またはインストールに失敗しました。後でもう一度お試しください",
+  "aboutUpdateOffline": "更新サーバーに接続できません。ネットワークを確認して再試行してください",
+  "aboutUpdateRateLimited": "GitHub のレート制限に達しました。しばらくしてから再試行してください",
+  "aboutUpdateInvalid": "更新マニフェストが無効です。開発者に報告してください",
+  "aboutUpdateBusy": "別の更新タスクが進行中です",
+  "aboutUpdateCanceled": "更新のインストールはキャンセルされました",
   "aboutLicense": "ライセンス",
   "aboutAttribution": "帰属表示",
   "aboutSource": "ソースコード",
@@ -637,6 +662,7 @@
   "relatedWorks": "関連作品",
   "cancel": "キャンセル",
   "confirm": "確認",
+  "continueAction": "続行",
   "rankingDay": "デイリー",
   "rankingDayR18": "デイリー (R-18)",
   "rankingDayMale": "デイリー (男子に人気)",

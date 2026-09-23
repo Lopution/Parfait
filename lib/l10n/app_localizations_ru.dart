@@ -725,6 +725,28 @@ class AppLocalizationsRu extends AppLocalizations {
   String get backupOverwrite => 'Заменить';
 
   @override
+  String get backupMergeHint =>
+      'Сохранить текущие данные и добавить содержимое файла';
+
+  @override
+  String get backupOverwriteHint =>
+      'Заменить локальные данные содержимым файла';
+
+  @override
+  String backupImportMergeConfirmTitle(
+    int tags,
+    int users,
+    int works,
+    int history,
+  ) {
+    return 'Будет добавлено: меток $tags, пользователей $users, работ $works, записей истории $history';
+  }
+
+  @override
+  String get backupImportOverwriteConfirmTitle =>
+      'Локальная история будет очищена; заблокированные работы и настройки будут заменены данными из файла';
+
+  @override
   String backupImportDone(int tags, int users, int works, int history) {
     return 'Импортировано: теги +$tags, пользователи +$users, изменений скрытых работ: $works, история: $history';
   }
@@ -1188,6 +1210,24 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось проверить или установить обновление. Повторите позже.';
 
   @override
+  String get aboutUpdateOffline =>
+      'Не удалось связаться с сервером обновлений — проверьте сеть и повторите попытку';
+
+  @override
+  String get aboutUpdateRateLimited =>
+      'Достигнут лимит запросов GitHub — повторите позже';
+
+  @override
+  String get aboutUpdateInvalid =>
+      'Манифест обновления недействителен — сообщите разработчику';
+
+  @override
+  String get aboutUpdateBusy => 'Задача обновления уже выполняется';
+
+  @override
+  String get aboutUpdateCanceled => 'Установка обновления отменена';
+
+  @override
   String get aboutLicense => 'Лицензия';
 
   @override
@@ -1332,6 +1372,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get confirm => 'Подтвердить';
+
+  @override
+  String get continueAction => 'Продолжить';
 
   @override
   String get rankingDay => 'Ежедневно';

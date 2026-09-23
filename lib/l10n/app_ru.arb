@@ -281,6 +281,26 @@
   "backupImportOverwriteNote": "Замена сначала очищает локальную историю и заменяет скрытые работы; серверный список скрытого только пополняется и импортом не удаляется.",
   "backupMerge": "Объединить",
   "backupOverwrite": "Заменить",
+  "backupMergeHint": "Сохранить текущие данные и добавить содержимое файла",
+  "backupOverwriteHint": "Заменить локальные данные содержимым файла",
+  "backupImportMergeConfirmTitle": "Будет добавлено: меток {tags}, пользователей {users}, работ {works}, записей истории {history}",
+  "@backupImportMergeConfirmTitle": {
+    "placeholders": {
+      "tags": {
+        "type": "int"
+      },
+      "users": {
+        "type": "int"
+      },
+      "works": {
+        "type": "int"
+      },
+      "history": {
+        "type": "int"
+      }
+    }
+  },
+  "backupImportOverwriteConfirmTitle": "Локальная история будет очищена; заблокированные работы и настройки будут заменены данными из файла",
   "backupImportDone": "Импортировано: теги +{tags}, пользователи +{users}, изменений скрытых работ: {works}, история: {history}",
   "@backupImportDone": {
     "placeholders": {
@@ -529,6 +549,11 @@
   "aboutUpdateStore": "Обновления этой сборки управляются F-Droid.",
   "aboutUpdateUnavailable": "Проверка обновлений сейчас недоступна",
   "aboutUpdateFailed": "Не удалось проверить или установить обновление. Повторите позже.",
+  "aboutUpdateOffline": "Не удалось связаться с сервером обновлений — проверьте сеть и повторите попытку",
+  "aboutUpdateRateLimited": "Достигнут лимит запросов GitHub — повторите позже",
+  "aboutUpdateInvalid": "Манифест обновления недействителен — сообщите разработчику",
+  "aboutUpdateBusy": "Задача обновления уже выполняется",
+  "aboutUpdateCanceled": "Установка обновления отменена",
   "aboutLicense": "Лицензия",
   "aboutAttribution": "Атрибуция",
   "aboutSource": "Исходный код",
@@ -637,6 +662,7 @@
   "relatedWorks": "Похожие работы",
   "cancel": "Отмена",
   "confirm": "Подтвердить",
+  "continueAction": "Продолжить",
   "rankingDay": "Ежедневно",
   "rankingDayR18": "Ежедневно (R-18)",
   "rankingDayMale": "Ежедневно (Мужчины)",
