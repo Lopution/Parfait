@@ -433,6 +433,49 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkProbeConclusionInconclusive => '不明';
 
   @override
+  String get networkProbeOverview => '概要';
+
+  @override
+  String get networkProbeWorst => '最悪';
+
+  @override
+  String get networkProbeDetails => '詳細';
+
+  @override
+  String get networkProbeNotPersisted => '結果は保存されません。このページを離れると破棄されます。';
+
+  @override
+  String get networkProbeAdviceAllReachable => 'すべてのホストに到達可能。調整は不要です。';
+
+  @override
+  String get networkProbeAdviceEchAvailable =>
+      'ECH が利用可能——「自動」または「互換優先」モードで使われます。';
+
+  @override
+  String get networkProbeAdviceNoSniAvailable =>
+      '空 SNI が利用可能——「互換優先」モードで使われます。';
+
+  @override
+  String get networkProbeAdviceSniBlocked =>
+      '実 SNI が遮断されています——「互換優先」モードを試してください。';
+
+  @override
+  String get networkProbeAdviceDnsPolluted =>
+      'システム DNS が汚染されています——DoH を有効のままにすれば回避できます。';
+
+  @override
+  String get networkProbeAdviceIpBlackholed =>
+      'IP がブラックホール化——アプリでは回避できません。ネットワークを変えてください。';
+
+  @override
+  String get networkProbeAdviceAppLayer =>
+      '伝送層は正常。問題はアプリ層です——レポートをコピーして報告してください。';
+
+  @override
+  String get networkProbeAdviceInconclusive =>
+      '結論が出ません——別のネットワークか、後で再試行してください。';
+
+  @override
   String get copy => 'コピー';
 
   @override

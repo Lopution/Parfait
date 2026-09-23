@@ -445,6 +445,51 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkProbeConclusionInconclusive => 'Неопределённо';
 
   @override
+  String get networkProbeOverview => 'Обзор';
+
+  @override
+  String get networkProbeWorst => 'Худший';
+
+  @override
+  String get networkProbeDetails => 'Подробности';
+
+  @override
+  String get networkProbeNotPersisted =>
+      'Результаты не сохраняются — при выходе со страницы они теряются.';
+
+  @override
+  String get networkProbeAdviceAllReachable =>
+      'Все хосты доступны — менять ничего не нужно.';
+
+  @override
+  String get networkProbeAdviceEchAvailable =>
+      'ECH доступен — режим «Авто» или «Совместимость» его использует.';
+
+  @override
+  String get networkProbeAdviceNoSniAvailable =>
+      'Пустой SNI доступен — режим «Совместимость» будет его использовать.';
+
+  @override
+  String get networkProbeAdviceSniBlocked =>
+      'Реальный SNI заблокирован — попробуйте режим «Совместимость».';
+
+  @override
+  String get networkProbeAdviceDnsPolluted =>
+      'Системный DNS загрязнён — включённый DoH это обходит.';
+
+  @override
+  String get networkProbeAdviceIpBlackholed =>
+      'IP-адреса в чёрной дыре — приложение это не обойдёт; смените сеть.';
+
+  @override
+  String get networkProbeAdviceAppLayer =>
+      'Транспорт в порядке — сбой на уровне приложения; скопируйте отчёт для отзыва.';
+
+  @override
+  String get networkProbeAdviceInconclusive =>
+      'Не удалось определить — попробуйте другую сеть или повторите позже.';
+
+  @override
   String get copy => 'Копировать';
 
   @override

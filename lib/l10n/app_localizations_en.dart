@@ -446,6 +446,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkProbeConclusionInconclusive => 'Inconclusive';
 
   @override
+  String get networkProbeOverview => 'Overview';
+
+  @override
+  String get networkProbeWorst => 'Worst';
+
+  @override
+  String get networkProbeDetails => 'Details';
+
+  @override
+  String get networkProbeNotPersisted =>
+      'Results are not kept — leaving this page discards them.';
+
+  @override
+  String get networkProbeAdviceAllReachable =>
+      'All hosts reachable — nothing to change.';
+
+  @override
+  String get networkProbeAdviceEchAvailable =>
+      'ECH works here — Automatic or Compatibility-first mode will use it.';
+
+  @override
+  String get networkProbeAdviceNoSniAvailable =>
+      'Empty-SNI works here — Compatibility-first mode will use it.';
+
+  @override
+  String get networkProbeAdviceSniBlocked =>
+      'Real SNI is blocked — try Compatibility-first mode.';
+
+  @override
+  String get networkProbeAdviceDnsPolluted =>
+      'System DNS is poisoned — keeping DoH on bypasses it.';
+
+  @override
+  String get networkProbeAdviceIpBlackholed =>
+      'IPs are blackholed — the app cannot bypass this; switch networks.';
+
+  @override
+  String get networkProbeAdviceAppLayer =>
+      'Transport is fine — the failure is at the app layer; copy the report for feedback.';
+
+  @override
+  String get networkProbeAdviceInconclusive =>
+      'Inconclusive — try another network or retry later.';
+
+  @override
   String get copy => 'Copy';
 
   @override

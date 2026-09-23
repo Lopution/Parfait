@@ -882,6 +882,78 @@ abstract class AppLocalizations {
   /// **'不确定'**
   String get networkProbeConclusionInconclusive;
 
+  /// No description provided for @networkProbeOverview.
+  ///
+  /// In zh, this message translates to:
+  /// **'探测总览'**
+  String get networkProbeOverview;
+
+  /// No description provided for @networkProbeWorst.
+  ///
+  /// In zh, this message translates to:
+  /// **'最劣'**
+  String get networkProbeWorst;
+
+  /// No description provided for @networkProbeDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'明细'**
+  String get networkProbeDetails;
+
+  /// No description provided for @networkProbeNotPersisted.
+  ///
+  /// In zh, this message translates to:
+  /// **'结果不保存——离开本页即丢失。'**
+  String get networkProbeNotPersisted;
+
+  /// No description provided for @networkProbeAdviceAllReachable.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部可达，无需调整。'**
+  String get networkProbeAdviceAllReachable;
+
+  /// No description provided for @networkProbeAdviceEchAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'ECH 可用——「自动」或「兼容优先」模式都会用它。'**
+  String get networkProbeAdviceEchAvailable;
+
+  /// No description provided for @networkProbeAdviceNoSniAvailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'空 SNI 通道可用——「兼容优先」模式会用它。'**
+  String get networkProbeAdviceNoSniAvailable;
+
+  /// No description provided for @networkProbeAdviceSniBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'真实 SNI 被封——建议把网络模式设为「兼容优先」。'**
+  String get networkProbeAdviceSniBlocked;
+
+  /// No description provided for @networkProbeAdviceDnsPolluted.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统 DNS 被污染——保持 DoH 开启即可绕过。'**
+  String get networkProbeAdviceDnsPolluted;
+
+  /// No description provided for @networkProbeAdviceIpBlackholed.
+  ///
+  /// In zh, this message translates to:
+  /// **'IP 被黑洞，客户端无法绕过——请更换网络。'**
+  String get networkProbeAdviceIpBlackholed;
+
+  /// No description provided for @networkProbeAdviceAppLayer.
+  ///
+  /// In zh, this message translates to:
+  /// **'传输层正常，问题在应用层——可复制报告反馈。'**
+  String get networkProbeAdviceAppLayer;
+
+  /// No description provided for @networkProbeAdviceInconclusive.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法得出结论——换个网络或稍后重试。'**
+  String get networkProbeAdviceInconclusive;
+
   /// No description provided for @copy.
   ///
   /// In zh, this message translates to:

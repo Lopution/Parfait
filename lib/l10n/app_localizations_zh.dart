@@ -423,6 +423,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkProbeConclusionInconclusive => '不确定';
 
   @override
+  String get networkProbeOverview => '探测总览';
+
+  @override
+  String get networkProbeWorst => '最劣';
+
+  @override
+  String get networkProbeDetails => '明细';
+
+  @override
+  String get networkProbeNotPersisted => '结果不保存——离开本页即丢失。';
+
+  @override
+  String get networkProbeAdviceAllReachable => '全部可达，无需调整。';
+
+  @override
+  String get networkProbeAdviceEchAvailable => 'ECH 可用——「自动」或「兼容优先」模式都会用它。';
+
+  @override
+  String get networkProbeAdviceNoSniAvailable => '空 SNI 通道可用——「兼容优先」模式会用它。';
+
+  @override
+  String get networkProbeAdviceSniBlocked => '真实 SNI 被封——建议把网络模式设为「兼容优先」。';
+
+  @override
+  String get networkProbeAdviceDnsPolluted => '系统 DNS 被污染——保持 DoH 开启即可绕过。';
+
+  @override
+  String get networkProbeAdviceIpBlackholed => 'IP 被黑洞，客户端无法绕过——请更换网络。';
+
+  @override
+  String get networkProbeAdviceAppLayer => '传输层正常，问题在应用层——可复制报告反馈。';
+
+  @override
+  String get networkProbeAdviceInconclusive => '无法得出结论——换个网络或稍后重试。';
+
+  @override
   String get copy => '复制';
 
   @override
