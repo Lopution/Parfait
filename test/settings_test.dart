@@ -1124,6 +1124,88 @@ void main() {
     },
   );
 
+  testWidgets(
+    'download custom template disables save while invalid and guards drafts',
+    (tester) async {
+      final repository = _FakeRepository(
+        _baseSettings().copyWith(
+          namingRule: const NamingRule(
+            preset: NamingPreset.custom,
+            template: '{id}',
+          ),
+        ),
+      );
+      // Tall surface so the lazily-built template section exists.
+      tester.view.physicalSize = const Size(800, 4000);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DownloadSettingsPage(),
+                      ),
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // The persisted valid template keeps save enabled; breaking it
+      // disables the button and shows the error text.
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存'))
+            .onPressed,
+        isNotNull,
+      );
+      await tester.enterText(find.byType(TextField), 'plain-text');
+      await tester.pump();
+      expect(find.text('模板包含不支持的变量或非法字符'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存'))
+            .onPressed,
+        isNull,
+      );
+
+      // Dirty draft: system back asks before leaving; 取消 keeps editing
+      // and the uncommitted input survives the round trip.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('放弃未保存的修改？'), findsOneWidget);
+      await tester.tap(find.text('取消').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadSettingsPage), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'plain-text',
+      );
+
+      // 放弃 leaves the page and drops the draft.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('放弃修改'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadSettingsPage), findsNothing);
+    },
+  );
+
   testWidgets('history config and content entries open distinct routes', (
     tester,
   ) async {

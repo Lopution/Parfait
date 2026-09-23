@@ -341,6 +341,7 @@
   "reduceMotion": "視覚効果を減らす",
   "reduceMotionHint": "画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします",
   "maxDownloadCount": "同時ダウンロード数の上限",
+  "maxDownloadCountHint": "ドラッグでプレビュー、離すと適用",
   "namingRule": "ファイル名規則",
   "namingRuleHint": "空欄で標準の名前を使用",
   "saveFolder": "保存フォルダー",

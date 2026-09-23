@@ -341,6 +341,7 @@
   "reduceMotion": "Reduce motion",
   "reduceMotionHint": "Turn off decorative animation: page transitions, list entrances and press feedback",
   "maxDownloadCount": "Maximum concurrent downloads",
+  "maxDownloadCountHint": "Drag to preview; release to apply",
   "namingRule": "File naming rule",
   "namingRuleHint": "Leave empty to use the default name",
   "saveFolder": "Save folder",

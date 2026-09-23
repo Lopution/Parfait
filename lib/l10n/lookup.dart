@@ -236,6 +236,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'loginTitle' => l10n.loginTitle,
   'loginWebView2Missing' => l10n.loginWebView2Missing,
   'maxDownloadCount' => l10n.maxDownloadCount,
+  'maxDownloadCountHint' => l10n.maxDownloadCountHint,
   'muteAuthor' => l10n.muteAuthor,
   'muteTagInputHint' => l10n.muteTagInputHint,
   'muteWork' => l10n.muteWork,

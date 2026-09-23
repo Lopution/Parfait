@@ -816,6 +816,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get maxDownloadCount => 'Максимум параллельных загрузок';
 
   @override
+  String get maxDownloadCountHint =>
+      'Потяните для предпросмотра; отпустите — применится';
+
+  @override
   String get namingRule => 'Правило имени файла';
 
   @override

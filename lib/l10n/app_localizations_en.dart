@@ -816,6 +816,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maxDownloadCount => 'Maximum concurrent downloads';
 
   @override
+  String get maxDownloadCountHint => 'Drag to preview; release to apply';
+
+  @override
   String get namingRule => 'File naming rule';
 
   @override
