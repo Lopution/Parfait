@@ -11,6 +11,7 @@ import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
+import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
 import 'package:pixiv_func/core/share/share_service.dart';
@@ -65,11 +66,13 @@ class _FakeUserRepository implements UserRepository {
     UserEntity? detail,
     this.works = const [],
     this.bookmarks = const [],
+    this.worksFailure,
   }) : detail = detail ?? _user(42);
 
   final UserEntity detail;
   final List<IllustEntity> works;
   final List<IllustEntity> bookmarks;
+  final Object? worksFailure;
   final requests = <String>[];
 
   @override
@@ -88,6 +91,8 @@ class _FakeUserRepository implements UserRepository {
     requests.add(
       'works:$userId:${type.name}:${cursor == null ? 'first' : 'next'}',
     );
+    final error = worksFailure;
+    if (error != null) throw error;
     return UserIllustPage(
       illusts: type == UserWorkType.illust ? works : const [],
       nextUrl: null,
@@ -921,9 +926,11 @@ void main() {
       final seriesStat = find.byKey(
         const ValueKey('profile-stat-series-header'),
       );
+      // The series stat counts illust series only: that is what the work
+      // tab's series section can display (novel series has no section).
       expect(
         tester.getSemantics(seriesStat),
-        isSemantics(label: '系列, 7', isButton: true, hasTapAction: true),
+        isSemantics(label: '系列, 3', isButton: true, hasTapAction: true),
       );
       final myPixivStat = find.byKey(
         const ValueKey('profile-stat-myPixiv-header'),
@@ -1422,6 +1429,95 @@ void main() {
       );
       expect(fittedBoxes(), findsNothing);
     });
+  });
+
+  testWidgets(
+    'header tabs and actions stay mounted while the work feed fails',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        worksFailure: ApiNetworkError(StateError('offline')),
+      );
+      final container = await _makeWorld(users: repository);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The work feed's first page request failed, but the query context —
+      // tabs, section chips, and the header action row — stays mounted
+      // (parent §6 gate: chrome survives loading/error/empty).
+      expect(repository.requests, contains('works:42:illust:first'));
+      expect(find.byType(TabBar), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '插画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '漫画'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '小说'), findsOneWidget);
+      expect(find.byIcon(Icons.share_outlined), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-stat-following-header')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('tab labels stay on one line at 1.3x text scale', (tester) async {
+    final controller = TabController(length: 4, vsync: tester);
+    addTearDown(controller.dispose);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+          child: Scaffold(
+            body: NestedScrollView(
+              headerSliverBuilder: (_, _) => [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: ReplicaProfileTabsDelegate(
+                    controller: controller,
+                    isMe: false,
+                    section: ProfileWorkSection.illust,
+                    onTabTap: (_) {},
+                    onSectionChanged: (_) {},
+                  ),
+                ),
+              ],
+              body: const SizedBox(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Bounded scaling or scroll handover (B4 slot contract): nothing
+    // overflows and no label wraps to a second line even at 1.3x
+    // (parent §6 / D10).
+    expect(tester.takeException(), isNull);
+    final tabBar = find.byType(TabBar);
+    expect(tabBar, findsOneWidget);
+    for (final label in ['作品', '收藏', '关注', '关于']) {
+      final text = tester.widget<Text>(
+        find.descendant(of: tabBar, matching: find.text(label)),
+      );
+      // The scrollable path leaves maxLines unset — null and 1 both
+      // render single-line.
+      expect(text.maxLines ?? 1, 1);
+    }
   });
 }
 
