@@ -906,6 +906,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translateCredentialsClear => '清除凭据';
 
   @override
+  String get translateCredentialsClearConfirm => '将删除安全存储中的凭据；翻译前需要重新输入。';
+
+  @override
   String get translateCredentialsSaved => '已保存到安全存储';
 
   @override

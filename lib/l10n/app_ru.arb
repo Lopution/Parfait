@@ -405,6 +405,7 @@
   "translateLlmModel": "Модель (необязательно)",
   "translateCredentialsSave": "Сохранить в защищённое хранилище",
   "translateCredentialsClear": "Очистить учётные данные",
+  "translateCredentialsClearConfirm": "Сохранённые учётные данные будут удалены; для перевода их придётся ввести заново.",
   "translateCredentialsSaved": "Сохранено в защищённое хранилище",
   "translateCredentialsCleared": "Учётные данные очищены",
   "translateCredentialsStoreError": "Ошибка защищённого хранилища",

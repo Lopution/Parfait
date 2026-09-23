@@ -943,6 +943,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get translateCredentialsClear => 'Clear credentials';
 
   @override
+  String get translateCredentialsClearConfirm =>
+      'Deletes the stored credentials; they must be entered again before translation works.';
+
+  @override
   String get translateCredentialsSaved => 'Saved to secure storage';
 
   @override

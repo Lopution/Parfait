@@ -405,6 +405,7 @@
   "translateLlmModel": "Model (optional)",
   "translateCredentialsSave": "Save to secure storage",
   "translateCredentialsClear": "Clear credentials",
+  "translateCredentialsClearConfirm": "Deletes the stored credentials; they must be entered again before translation works.",
   "translateCredentialsSaved": "Saved to secure storage",
   "translateCredentialsCleared": "Credentials cleared",
   "translateCredentialsStoreError": "Secure storage operation failed",

@@ -405,6 +405,7 @@
   "translateLlmModel": "模型名（可选）",
   "translateCredentialsSave": "保存到安全存储",
   "translateCredentialsClear": "清除凭据",
+  "translateCredentialsClearConfirm": "将删除安全存储中的凭据；翻译前需要重新输入。",
   "translateCredentialsSaved": "已保存到安全存储",
   "translateCredentialsCleared": "凭据已清除",
   "translateCredentialsStoreError": "安全存储操作失败",

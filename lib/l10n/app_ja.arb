@@ -405,6 +405,7 @@
   "translateLlmModel": "モデル名（任意）",
   "translateCredentialsSave": "安全なストレージに保存",
   "translateCredentialsClear": "認証情報を削除",
+  "translateCredentialsClearConfirm": "安全ストレージ内の認証情報を削除します。翻訳するには再入力が必要です。",
   "translateCredentialsSaved": "安全なストレージに保存しました",
   "translateCredentialsCleared": "認証情報を削除しました",
   "translateCredentialsStoreError": "安全なストレージの操作に失敗しました",
