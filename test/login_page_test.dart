@@ -86,11 +86,13 @@ void main() {
   Future<void> pumpLogin(
     WidgetTester tester, {
     Size size = const Size(390, 844),
+    double textScale = 1,
     bool isFirst = false,
     VoidCallback? onRegister,
     VoidCallback? onLogin,
     VoidCallback? onClipboardLogin,
     SettingsRepository? repository,
+    Locale? locale,
     List<Override> extraOverrides = const [],
   }) async {
     tester.view.physicalSize = size;
@@ -105,15 +107,18 @@ void main() {
           ),
           ...extraOverrides,
         ],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: LoginPage(
-            isFirst: isFirst,
-            onRegister: onRegister,
-            onLogin: onLogin,
-            onClipboardLogin: onClipboardLogin,
+        child: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: locale ?? const Locale('zh', 'CN'),
+            home: LoginPage(
+              isFirst: isFirst,
+              onRegister: onRegister,
+              onLogin: onLogin,
+              onClipboardLogin: onClipboardLogin,
+            ),
           ),
         ),
       ),
@@ -138,6 +143,40 @@ void main() {
         }
       });
     }
+
+    testWidgets('long ru translations keep the main actions reachable', (
+      tester,
+    ) async {
+      // The login page resolves strings from the persisted settings tag,
+      // so ru coverage comes from the repository, not the app locale.
+      await pumpLogin(
+        tester,
+        size: const Size(320, 568),
+        textScale: 1.3,
+        isFirst: true,
+        repository: _StubSettingsRepository(
+          const AppSettings(
+            guideCompleted: true,
+            languageTag: 'ru-RU',
+            themeCode: AppSettings.systemTheme,
+          ),
+        ),
+        locale: const Locale('ru'),
+      );
+      expect(tester.takeException(), isNull, reason: 'no overflow');
+
+      for (final label in ['Регистрация', 'Вход']) {
+        final target = find.widgetWithText(ReplicaButton, label);
+        expect(target, findsOneWidget, reason: '$label present');
+        await tester.ensureVisible(target);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.getRect(target).bottom,
+          lessThanOrEqualTo(568),
+        );
+      }
+    });
 
     testWidgets('wide viewports cap the form column at the form role width', (
       tester,
