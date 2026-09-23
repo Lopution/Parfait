@@ -38,6 +38,7 @@ import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/features/history/history_page.dart' as history;
+import 'package:pixiv_func/features/settings/network_settings_page.dart';
 import 'package:pixiv_func/features/settings/saf_tree_name.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
@@ -601,6 +602,7 @@ void main() {
       'networkRouteKindDirect',
       'networkRouteKindCompat',
       'networkThirdParty',
+      'networkThirdPartyAuto',
       'networkThirdPartyHint',
       'networkReachable',
       'networkUnreachable',
@@ -608,6 +610,7 @@ void main() {
       'networkAdvanced',
       'networkAdvancedHint',
       'networkAdvancedReset',
+      'networkAdvancedResetConfirm',
       'networkDoh',
       'networkDohHint',
       'networkDohEndpoints',
@@ -617,10 +620,24 @@ void main() {
       'networkProbeRunning',
       'networkProbeNotRun',
       'networkProbeCopied',
+      'networkProbeOverview',
+      'networkProbeWorst',
+      'networkProbeDetails',
+      'networkProbeNotPersisted',
+      'networkProbeAdviceAllReachable',
+      'networkProbeAdviceEchAvailable',
+      'networkProbeAdviceNoSniAvailable',
+      'networkProbeAdviceSniBlocked',
+      'networkProbeAdviceDnsPolluted',
+      'networkProbeAdviceIpBlackholed',
+      'networkProbeAdviceAppLayer',
+      'networkProbeAdviceInconclusive',
       'frameProbeTitle',
       'frameProbeHint',
       'frameProbeStart',
       'frameProbeStop',
+      'frameProbeRecording',
+      'frameProbeCapHint',
       'themeSettings',
       'languageSettings',
       'translateSettings',
@@ -1580,6 +1597,167 @@ void main() {
     await tester.pump();
     expect(find.textContaining('Invalid'), findsNothing);
     expect(find.textContaining('格式'), findsNothing);
+  });
+
+  testWidgets('network advanced saves both fields with one button', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    final router = createPixivRouter(initialLocation: '/settings/network');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(repository),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _scrollCentered(tester, find.text('高级设置', skipOffstage: false));
+    await tester.tap(find.text('高级设置'));
+    await tester.pumpAndSettle();
+
+    // Page-level draft: a single Save commits whichever fields changed, and
+    // stays disabled while nothing is dirty.
+    final saveButton = find.widgetWithText(FilledButton, '保存');
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNull);
+    await tester.enterText(
+      find.byType(TextField).at(0),
+      'https://dns.alidns.com/dns-query',
+    );
+    await tester.enterText(find.byType(TextField).at(1), 'ech.example.com');
+    await tester.pump();
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+    expect(
+      repository.value.dohEndpointOverride,
+      'https://dns.alidns.com/dns-query',
+    );
+    expect(repository.value.echFrontHost, 'ech.example.com');
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNull);
+  });
+
+  testWidgets('network advanced reset asks before restoring defaults', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(
+      _baseSettings().copyWith(
+        dohEndpointOverride: 'https://9.9.9.9/dns-query',
+        echFrontHost: 'custom-ech.example.com',
+      ),
+    );
+    final router = createPixivRouter(initialLocation: '/settings/network');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(repository),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _scrollCentered(tester, find.text('高级设置', skipOffstage: false));
+    await tester.tap(find.text('高级设置'));
+    await tester.pumpAndSettle();
+
+    // Reset rewrites two stored fields at once, so it asks first; cancelling
+    // must not touch the stored values.
+    await _scrollCentered(tester, find.text('恢复默认值', skipOffstage: false));
+    await tester.tap(find.text('恢复默认值'));
+    await tester.pumpAndSettle();
+    expect(find.text('将 DoH 端点与 ECH 前置主机恢复为默认值。'), findsOneWidget);
+    final savedBefore = repository.saved.length;
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(repository.saved, hasLength(savedBefore));
+
+    await tester.tap(find.text('恢复默认值'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, '恢复默认值'));
+    await tester.pumpAndSettle();
+    expect(repository.value.dohEndpointOverride, isNull);
+    expect(repository.value.enableDoh, isTrue);
+    expect(repository.value.echFrontHost, AppSettings.defaultEchFrontHost);
+    expect(repository.saved.length, greaterThan(savedBefore));
+  });
+
+  testWidgets('network advanced dirty draft asks before leaving', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NetworkAdvancedSettingsPage(),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // A clean form pops straight through without a prompt.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(NetworkAdvancedSettingsPage), findsNothing);
+
+    // A dirty draft asks; cancel keeps editing, discard leaves.
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).first,
+      'https://dns.alidns.com/dns-query',
+    );
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NetworkAdvancedSettingsPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byType(NetworkAdvancedSettingsPage), findsNothing);
   });
 
   testWidgets('browse image source selects a preset and a custom proxy', (

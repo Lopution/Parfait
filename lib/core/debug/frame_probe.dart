@@ -22,8 +22,18 @@ class FrameProbe {
   final List<FrameTiming> _frames = [];
   bool _attached = false;
 
+  /// Recording survives the control page closing (dispose does not stop), so
+  /// a forgotten session must not grow memory without bound: keep at most
+  /// [maxFrames] samples and drop the oldest (FIFO). At ~120fps this still
+  /// covers ~80s of scrolling — far longer than a meaningful sample pass.
+  static const int maxFrames = 10000;
+
   bool get recording => _attached;
   int get frameCount => _frames.length;
+
+  /// True once the buffer hit [maxFrames]; the status bar uses this to show
+  /// that the oldest frames are being dropped.
+  bool get isFull => _frames.length >= maxFrames;
 
   void start() {
     if (_attached) return;
@@ -40,7 +50,15 @@ class FrameProbe {
 
   void _onTimings(List<FrameTiming> timings) {
     _frames.addAll(timings);
+    final overflow = _frames.length - maxFrames;
+    if (overflow > 0) {
+      _frames.removeRange(0, overflow);
+    }
   }
+
+  /// Test seam: feed timings without scheduling real frames.
+  @visibleForTesting
+  void debugRecordTimings(List<FrameTiming> timings) => _onTimings(timings);
 
   /// Jank threshold: one 60Hz vsync interval. On 90/120Hz panels this is a
   /// lenient bar — frames are also bucketed by >2 intervals so high-refresh
