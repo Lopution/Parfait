@@ -225,6 +225,11 @@ class NovelReaderHandle {
   /// target in the same frame — far jumps from the progress sheet skip the
   /// page-turn animation entirely.
   void Function(int page, {bool animate})? goToPage;
+
+  /// Chapter entries of the committed layout — `(title, pageIndex)` pairs
+  /// in document order. Empty for chapter-less documents and before the
+  /// first layout lands.
+  List<({String title, int pageIndex})> Function()? chapters;
 }
 
 /// Horizontal, non-scrolling body reader with a cancellable relayout path.
@@ -328,6 +333,11 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           curve: MotionTokens.fastCurve,
         );
       };
+      handle.chapters = () => [
+        for (final page in _layout?.pages ?? const <NovelLayoutPage>[])
+          if (page.chapterTitle != null)
+            (title: page.chapterTitle!, pageIndex: page.index),
+      ];
     }
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -367,6 +377,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       handle.currentPage = null;
       handle.pageCount = null;
       handle.goToPage = null;
+      handle.chapters = null;
     }
     _commitGate.dispose();
     _pageController.dispose();
