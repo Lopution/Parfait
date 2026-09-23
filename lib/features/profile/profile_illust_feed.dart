@@ -100,7 +100,8 @@ class ProfileIllustFeed extends ConsumerWidget {
                       entity: entities[index],
                       heroScope:
                           'profile:${feedKey.userId}:${feedKey.kind.name}:'
-                          '${feedKey.workType.name}:${feedKey.restrict.name}',
+                          '${feedKey.workType.name}:${feedKey.restrict.name}:'
+                          '${feedKey.bookmarkTag ?? ''}',
                     ),
                   ),
                 SliverToBoxAdapter(
