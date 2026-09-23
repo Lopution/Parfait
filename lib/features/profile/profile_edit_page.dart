@@ -55,6 +55,7 @@ class ProfileEditPage extends ConsumerStatefulWidget {
 }
 
 class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
+  final _bodyKey = GlobalKey<_ProfileEditBodyState>();
   ProfileEditSession? _session;
   ProviderSubscription<AsyncValue<AccountState>>? _accountSubscription;
   ProviderSubscription<ProfileEditState>? _editSubscription;
@@ -175,11 +176,20 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
-    final hasUnsaved =
-        session != null &&
-        ref.watch(profileEditControllerProvider(session)).hasUnsavedChanges;
+    final state = session == null
+        ? null
+        : ref.watch(profileEditControllerProvider(session));
+    final hasUnsaved = state?.hasUnsavedChanges ?? false;
+    final draft = state?.draft;
+    final editingEnabled =
+        state != null &&
+        draft != null &&
+        draft.capabilities.isAvailable &&
+        state.status != ProfileEditStatus.submitting &&
+        state.status != ProfileEditStatus.confirmed;
+    final isSubmitting = state?.status == ProfileEditStatus.submitting;
     return PopScope(
-      canPop: session == null || !hasUnsaved,
+      canPop: !hasUnsaved,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_attemptPop());
       },
@@ -197,12 +207,40 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
                   ? const FeedLoading()
                   : _InitializationFailure(error: _initializationError!)
             : _ProfileEditBody(
+                key: _bodyKey,
                 session: session,
                 imagePlatform:
                     widget.imagePlatform ??
                     (PlatformCaps.system().isAndroid
                         ? MethodChannelReverseImageInputPlatform()
                         : const DesktopReverseImageInputPlatform()),
+              ),
+        bottomNavigationBar: draft == null
+            ? null
+            : SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: editingEnabled
+                          ? () {
+                              final bodyState = _bodyKey.currentState;
+                              if (bodyState != null) {
+                                unawaited(bodyState._submit());
+                              }
+                            }
+                          : null,
+                      icon: isSubmitting
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(context.l10n.profileEditSave),
+                    ),
+                  ),
+                ),
               ),
       ),
     );
@@ -235,7 +273,11 @@ class _InitializationFailure extends StatelessWidget {
 }
 
 class _ProfileEditBody extends ConsumerStatefulWidget {
-  const _ProfileEditBody({required this.session, required this.imagePlatform});
+  const _ProfileEditBody({
+    super.key,
+    required this.session,
+    required this.imagePlatform,
+  });
 
   final ProfileEditSession session;
   final ReverseImageInputPlatform imagePlatform;
@@ -325,7 +367,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
         state.status != ProfileEditStatus.confirmed;
     return Form(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         children: [
           if (!capabilities.isAvailable)
             _Notice(
@@ -426,17 +468,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
               ),
             ),
           ],
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: editingEnabled ? _submit : null,
-            icon: state.status == ProfileEditStatus.submitting
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save_outlined),
-            label: Text(context.l10n.profileEditSave),
-          ),
         ],
       ),
     );
