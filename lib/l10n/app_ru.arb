@@ -126,6 +126,7 @@
   "networkRouteKindDirect": "Напрямую",
   "networkRouteKindCompat": "Совместимый канал",
   "networkThirdParty": "Доступность сторонних сервисов",
+  "networkThirdPartyAuto": "Проверяется автоматически при открытии страницы.",
   "networkThirdPartyHint": "Обычное системное подключение — ваш VPN/прокси применяется.",
   "networkReachable": "Доступно",
   "networkUnreachable": "Недоступно",

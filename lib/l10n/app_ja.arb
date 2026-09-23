@@ -126,6 +126,7 @@
   "networkRouteKindDirect": "直连",
   "networkRouteKindCompat": "互換ルート",
   "networkThirdParty": "サードパーティ到達性",
+  "networkThirdPartyAuto": "このページを開くと自動で一度チェックします。",
   "networkThirdPartyHint": "システムのネットワークを使用。VPN/プロキシがそのまま有効です。",
   "networkReachable": "到達可能",
   "networkUnreachable": "到達不能",

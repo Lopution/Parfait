@@ -298,6 +298,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkThirdParty => 'Доступность сторонних сервисов';
 
   @override
+  String get networkThirdPartyAuto =>
+      'Проверяется автоматически при открытии страницы.';
+
+  @override
   String get networkThirdPartyHint =>
       'Обычное системное подключение — ваш VPN/прокси применяется.';
 

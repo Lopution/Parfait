@@ -126,6 +126,7 @@
   "networkRouteKindDirect": "Direct",
   "networkRouteKindCompat": "Compat route",
   "networkThirdParty": "Third-party reachability",
+  "networkThirdPartyAuto": "Checks once automatically when this page opens.",
   "networkThirdPartyHint": "Uses your system network — your VPN/proxy applies.",
   "networkReachable": "Reachable",
   "networkUnreachable": "Unreachable",

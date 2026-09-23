@@ -126,6 +126,7 @@
   "networkRouteKindDirect": "直连",
   "networkRouteKindCompat": "兼容通道",
   "networkThirdParty": "第三方服务可达性",
+  "networkThirdPartyAuto": "进入本页时自动检测一次。",
   "networkThirdPartyHint": "走系统网络，你的 VPN/代理会照常生效。",
   "networkReachable": "可达",
   "networkUnreachable": "不可达",
