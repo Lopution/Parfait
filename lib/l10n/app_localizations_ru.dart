@@ -30,7 +30,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get next => 'Далее';
 
   @override
-  String get later => 'Позже вы сможете изменить в настройках';
+  String get setupLater => 'Настроить позже';
 
   @override
   String get dark => 'Тёмный';
