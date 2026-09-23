@@ -156,10 +156,7 @@ void main() {
           await tester.ensureVisible(cta);
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
-          expect(
-            tester.getRect(cta).bottom,
-            lessThanOrEqualTo(size.height),
-          );
+          expect(tester.getRect(cta).bottom, lessThanOrEqualTo(size.height));
         });
       }
     }
