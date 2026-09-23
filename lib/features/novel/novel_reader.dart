@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
@@ -230,6 +231,10 @@ class NovelReaderHandle {
   /// in document order. Empty for chapter-less documents and before the
   /// first layout lands.
   List<({String title, int pageIndex})> Function()? chapters;
+
+  /// The committed layout — tests read `key.viewport` to verify which
+  /// measure width actually fed the layout cache key.
+  NovelLayout? Function()? layout;
 }
 
 /// Horizontal, non-scrolling body reader with a cancellable relayout path.
@@ -338,6 +343,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           if (page.chapterTitle != null)
             (title: page.chapterTitle!, pageIndex: page.index),
       ];
+      handle.layout = () => _layout;
     }
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -378,6 +384,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       handle.pageCount = null;
       handle.goToPage = null;
       handle.chapters = null;
+      handle.layout = null;
     }
     _commitGate.dispose();
     _pageController.dispose();
@@ -389,7 +396,14 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final viewport = Size(constraints.maxWidth, constraints.maxHeight);
+        // WCAG 1.4.8 line-length cap: ~40 CJK glyphs per line, relative to
+        // the font slider so the cap scales with settings and only bites
+        // on wide screens (a 390dp phone is narrower than 17*40+48).
+        final layoutWidth = math.min(
+          constraints.maxWidth,
+          _style.fontSize * 40 + _style.horizontalPadding * 2,
+        );
+        final viewport = Size(layoutWidth, constraints.maxHeight);
         _scheduleLayout(
           viewport: viewport,
           brightness: theme.brightness,
@@ -449,6 +463,10 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
               page: layout.pages[index],
               style: _style,
               color: widget.textColor ?? theme.colorScheme.onSurface,
+              // The layout viewport already carries the line-length cap —
+              // the text column centers inside it while tap zones keep the
+              // full width.
+              maxWidth: layout.key.viewport.width,
             ),
           ),
         );
@@ -595,14 +613,28 @@ class _NovelPage extends StatelessWidget {
     required this.page,
     required this.style,
     required this.color,
+    required this.maxWidth,
   });
 
   final NovelLayoutPage page;
   final NovelLayoutStyle style;
   final Color color;
 
+  /// Width of the layout viewport that measured this page — the text
+  /// column centers inside the (possibly wider) page slot.
+  final double maxWidth;
+
   @override
   Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: _buildColumn(),
+      ),
+    );
+  }
+
+  Widget _buildColumn() {
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: style.horizontalPadding,
