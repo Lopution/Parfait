@@ -30,6 +30,11 @@ class EntityRow extends StatelessWidget {
   }) : assert(
          progress == null || (progress >= 0 && progress <= 1),
          'progress is a 0..1 fraction; null means "no record"',
+       ),
+       assert(
+         !selected || trailing == null,
+         'a selected row is a single selection unit — it cannot carry a '
+         'secondary action (M3); leave trailing null',
        );
 
   /// Identification slot — cover image, icon tile, any visual anchor.
@@ -106,7 +111,9 @@ class EntityRow extends StatelessWidget {
           type: selected ? MaterialType.canvas : MaterialType.transparency,
           color: selected ? colorScheme.secondaryContainer : null,
           borderRadius: radius,
-          clipBehavior: Clip.antiAlias,
+          // Only the selection surface needs the rounded clip — paying a
+          // saveLayer per unselected feed row is wasted raster work.
+          clipBehavior: selected ? Clip.antiAlias : Clip.none,
           child: InkWell(
             // The outer Semantics already exposes the actions — the ink
             // response must not announce a second unlabeled button.
@@ -192,6 +199,24 @@ class EntityMetaText extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: FuncSemanticTokens.of(context).caption,
+    );
+  }
+}
+
+/// Rank pill shared by the ranked variants — the [EntityBadge] container
+/// filled with the primary color. Both `NovelEntry.ranking` and the
+/// `IllustCard(rank:)` top-left cluster render through this one widget so
+/// the marker cannot drift into two look-alikes.
+class EntityRankBadge extends StatelessWidget {
+  const EntityRankBadge(this.rank, {super.key});
+
+  final int rank;
+
+  @override
+  Widget build(BuildContext context) {
+    return EntityBadge(
+      color: Theme.of(context).colorScheme.primary,
+      child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.bold)),
     );
   }
 }

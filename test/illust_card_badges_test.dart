@@ -137,7 +137,7 @@ void main() {
     expect(find.text('AI'), findsOneWidget);
   });
 
-  testWidgets('rank badge joins the top-left cluster ahead of R-18', (
+  testWidgets('rank badge stacks above R-18 in the top-left cluster', (
     tester,
   ) async {
     final container = await _makeWorld();
@@ -149,14 +149,24 @@ void main() {
     );
     expect(find.text('7'), findsOneWidget);
     expect(find.text('R-18'), findsOneWidget);
-    // Both pills share the primary semantic fill.
-    final rankBadge = tester.widget<EntityBadge>(
-      find.ancestor(of: find.text('7'), matching: find.byType(EntityBadge)),
+    // Both pills share the primary semantic fill, staggered vertically:
+    // the rank sits directly above R-18 on the same left edge (PRD R2).
+    final rankBadge = find.ancestor(
+      of: find.text('7'),
+      matching: find.byType(EntityBadge),
+    );
+    final r18Badge = find.ancestor(
+      of: find.text('R-18'),
+      matching: find.byType(EntityBadge),
     );
     expect(
-      rankBadge.color,
+      tester.widget<EntityBadge>(rankBadge).color,
       Theme.of(tester.element(find.byType(IllustCard))).colorScheme.primary,
     );
+    final rankTopLeft = tester.getTopLeft(rankBadge);
+    final r18TopLeft = tester.getTopLeft(r18Badge);
+    expect(rankTopLeft.dx, r18TopLeft.dx);
+    expect(rankTopLeft.dy, lessThan(r18TopLeft.dy));
   });
 
   testWidgets('meta slot renders a line under the author', (tester) async {

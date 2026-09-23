@@ -59,6 +59,47 @@ void main() {
     expect(find.textContaining('4321'), findsNWidgets(2));
   });
 
+  testWidgets('variants pin their contracted cover size and radius', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        Column(
+          children: [
+            NovelEntry.compact(entity: _novel(1)),
+            NovelEntry.regular(entity: _novel(2)),
+            NovelEntry.ranking(entity: _novel(3), rank: 3),
+          ],
+        ),
+      ),
+    );
+
+    ({Size size, BorderRadius radius}) coverOf(String key) {
+      final clip = tester.widget<ClipRRect>(
+        find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.byType(ClipRRect),
+        ),
+      );
+      // The cover box is the ClipRRect's direct child — deeper SizedBoxes
+      // (e.g. the placeholder Icon's own) must not leak into the lookup.
+      final box = clip.child! as SizedBox;
+      return (
+        size: Size(box.width!, box.height!),
+        radius: clip.borderRadius as BorderRadius,
+      );
+    }
+
+    // compact & ranking share the 56×72 r4 cover; regular is 68×88 r6 —
+    // the density contract is the only difference between variants.
+    expect(coverOf('novel-1').size, const Size(56, 72));
+    expect(coverOf('novel-1').radius, BorderRadius.circular(4));
+    expect(coverOf('novel-2').size, const Size(68, 88));
+    expect(coverOf('novel-2').radius, BorderRadius.circular(6));
+    expect(coverOf('novel-3').size, const Size(56, 72));
+    expect(coverOf('novel-3').radius, BorderRadius.circular(4));
+  });
+
   testWidgets('work id lands in the default key', (tester) async {
     await tester.pumpWidget(_host(NovelEntry.compact(entity: _novel(42))));
     expect(find.byKey(const ValueKey('novel-42')), findsOneWidget);
