@@ -2174,6 +2174,19 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get localNovelFileInfo => 'Информация о файле';
+
+  @override
+  String localNovelFileEncoding(String encoding) {
+    return 'Кодировка: $encoding';
+  }
+
+  @override
+  String localNovelFileImportedAt(String date) {
+    return 'Импортировано $date';
+  }
+
+  @override
   String localNovelsChars(int count) {
     return '$count символов';
   }

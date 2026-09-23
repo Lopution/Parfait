@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/widgets/feed/feed_states.dart';
+import '../../core/localnovel/local_novel_decoder.dart';
 import '../../core/localnovel/local_novel_repository.dart';
 import '../../core/localnovel/read_offset_anchor.dart';
 import '../../core/novel/novel_entity.dart';
@@ -63,7 +64,7 @@ class LocalNovelReaderPage extends ConsumerWidget {
     return NovelReaderStage(
       spec: NovelReaderStageSpec(
         novel: entity,
-        infoTooltip: context.l10n.localNovelsTitle,
+        infoTooltip: context.l10n.localNovelFileInfo,
         infoSheet: (_) => _LocalNovelInfoSheet(novel: novel),
         progress: _LocalProgressBinding(
           ProviderScope.containerOf(context, listen: false),
@@ -96,7 +97,8 @@ class LocalNovelReaderPage extends ConsumerWidget {
 }
 
 /// File-info sheet content — the stage owns presentation; this owns the
-/// fields a local TXT file can describe.
+/// fields a local TXT file can describe. `path` is deliberately omitted:
+/// it is a technical detail the user cannot act on (D9).
 class _LocalNovelInfoSheet extends StatelessWidget {
   const _LocalNovelInfoSheet({required this.novel});
 
@@ -104,6 +106,7 @@ class _LocalNovelInfoSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Column(
@@ -111,11 +114,41 @@ class _LocalNovelInfoSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(novel.title, style: Theme.of(context).textTheme.titleLarge),
+          // No author row when the import recorded none — local TXT
+          // imports never carry one today, so the row is conditional.
+          if (novel.author != null) ...[
+            const SizedBox(height: 8),
+            Text(novel.author!),
+          ],
           const SizedBox(height: 8),
-          Text(context.l10n.localNovelsChars(novel.charCount)),
+          Text(l10n.localNovelsChars(novel.charCount)),
+          const SizedBox(height: 4),
+          Text(l10n.localNovelFileEncoding(_encodingLabel(novel.encoding))),
+          const SizedBox(height: 4),
+          Text(l10n.localNovelFileImportedAt(_formatDate(novel.importedAt))),
         ],
       ),
     );
+  }
+
+  static String _encodingLabel(LocalNovelEncoding? encoding) =>
+      switch (encoding) {
+        LocalNovelEncoding.utf8 => 'UTF-8',
+        LocalNovelEncoding.utf16 => 'UTF-16',
+        LocalNovelEncoding.gbk => 'GBK',
+        // Decoding fell back to lossy UTF-8 — say so instead of letting
+        // the label pretend the file was clean.
+        LocalNovelEncoding.utf8Lossy => 'UTF-8 (lossy)',
+        // Rows imported before the column existed have no value; the
+        // decoder defaults to UTF-8, which is also what the file contains.
+        null => 'UTF-8',
+      };
+
+  static String _formatDate(DateTime value) {
+    final local = value.toLocal();
+    String two(int number) => number.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
   }
 }
 

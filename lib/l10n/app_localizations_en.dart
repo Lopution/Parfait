@@ -2174,6 +2174,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get localNovelFileInfo => 'File info';
+
+  @override
+  String localNovelFileEncoding(String encoding) {
+    return 'Encoding: $encoding';
+  }
+
+  @override
+  String localNovelFileImportedAt(String date) {
+    return 'Imported $date';
+  }
+
+  @override
   String localNovelsChars(int count) {
     return '$count chars';
   }
