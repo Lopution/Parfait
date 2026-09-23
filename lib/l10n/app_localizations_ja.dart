@@ -1935,6 +1935,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelReaderSettings => '読書設定';
 
   @override
+  String get novelSettingsSaveFailed => '読書設定の保存に失敗しました';
+
+  @override
   String get novelFontSize => '文字サイズ';
 
   @override

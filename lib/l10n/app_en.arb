@@ -905,6 +905,7 @@
   "novelIncreaseFont": "Increase font size",
   "novelReadingProgress": "Reading progress",
   "novelReaderSettings": "Reading settings",
+  "novelSettingsSaveFailed": "Failed to save reading settings",
   "novelFontSize": "Font size",
   "novelLineHeight": "Line height",
   "novelThemeSystem": "System",

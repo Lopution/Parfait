@@ -1980,6 +1980,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelReaderSettings => 'Reading settings';
 
   @override
+  String get novelSettingsSaveFailed => 'Failed to save reading settings';
+
+  @override
   String get novelFontSize => 'Font size';
 
   @override

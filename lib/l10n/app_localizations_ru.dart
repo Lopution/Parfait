@@ -1980,6 +1980,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelReaderSettings => 'Настройки чтения';
 
   @override
+  String get novelSettingsSaveFailed => 'Не удалось сохранить настройки чтения';
+
+  @override
   String get novelFontSize => 'Размер шрифта';
 
   @override
