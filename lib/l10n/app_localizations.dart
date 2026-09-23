@@ -606,6 +606,12 @@ abstract class AppLocalizations {
   /// **'第三方服务可达性'**
   String get networkThirdParty;
 
+  /// No description provided for @networkThirdPartyAuto.
+  ///
+  /// In zh, this message translates to:
+  /// **'进入本页时自动检测一次。'**
+  String get networkThirdPartyAuto;
+
   /// No description provided for @networkThirdPartyHint.
   ///
   /// In zh, this message translates to:

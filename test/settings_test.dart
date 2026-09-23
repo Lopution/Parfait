@@ -601,6 +601,7 @@ void main() {
       'networkRouteKindDirect',
       'networkRouteKindCompat',
       'networkThirdParty',
+      'networkThirdPartyAuto',
       'networkThirdPartyHint',
       'networkReachable',
       'networkUnreachable',

@@ -283,6 +283,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkThirdParty => '第三方服务可达性';
 
   @override
+  String get networkThirdPartyAuto => '进入本页时自动检测一次。';
+
+  @override
   String get networkThirdPartyHint => '走系统网络，你的 VPN/代理会照常生效。';
 
   @override

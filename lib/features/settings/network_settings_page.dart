@@ -95,8 +95,6 @@ class NetworkSettingsPage extends ConsumerWidget {
                   .setNetworkMode(NetworkMode.directOnly),
             ),
             const Divider(),
-            const _EffectiveRoutesSection(),
-            const Divider(),
             ListTile(
               leading: const Icon(Icons.network_check),
               title: Text(context.l10n.networkProbe),
@@ -106,6 +104,8 @@ class NetworkSettingsPage extends ConsumerWidget {
             ),
             const Divider(),
             const _ThirdPartyReachabilitySection(),
+            const Divider(),
+            const _EffectiveRoutesSection(),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.tune),
@@ -521,9 +521,20 @@ class _ThirdPartyReachabilitySectionState
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-          child: Text(
-            context.l10n.networkThirdPartyHint,
-            style: Theme.of(context).textTheme.bodySmall,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // D7: the check still fires on page entry; the note tells the
+              // user so the "checking" state is not mistaken for a manual tap.
+              Text(
+                context.l10n.networkThirdPartyAuto,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              Text(
+                context.l10n.networkThirdPartyHint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ),
         ),
         for (final entry in _targets.entries)

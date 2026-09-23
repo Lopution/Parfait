@@ -317,6 +317,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'networkRouteKindDirect' => l10n.networkRouteKindDirect,
   'networkSettings' => l10n.networkSettings,
   'networkThirdParty' => l10n.networkThirdParty,
+  'networkThirdPartyAuto' => l10n.networkThirdPartyAuto,
   'networkThirdPartyHint' => l10n.networkThirdPartyHint,
   'networkUnreachable' => l10n.networkUnreachable,
   'newEmpty' => l10n.newEmpty,

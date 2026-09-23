@@ -299,6 +299,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkThirdParty => 'Third-party reachability';
 
   @override
+  String get networkThirdPartyAuto =>
+      'Checks once automatically when this page opens.';
+
+  @override
   String get networkThirdPartyHint =>
       'Uses your system network — your VPN/proxy applies.';
 

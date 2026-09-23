@@ -291,6 +291,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkThirdParty => 'サードパーティ到達性';
 
   @override
+  String get networkThirdPartyAuto => 'このページを開くと自動で一度チェックします。';
+
+  @override
   String get networkThirdPartyHint => 'システムのネットワークを使用。VPN/プロキシがそのまま有効です。';
 
   @override
