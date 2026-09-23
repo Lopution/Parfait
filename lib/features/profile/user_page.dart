@@ -30,7 +30,6 @@ import '../../core/profile/profile_models.dart';
 import '../../core/share/share_service.dart';
 import '../../core/user/user_detail_controller.dart';
 import '../../l10n/context.dart';
-import '../../l10n/lookup.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
@@ -94,9 +93,6 @@ class MePage extends ConsumerWidget {
     );
   }
 }
-
-String _profileText(BuildContext context, String key) =>
-    l10nLookup(context.l10n, key);
 
 enum _ProfileStatTarget { following, myPixiv, illust, manga, novel, series }
 
@@ -443,7 +439,8 @@ class _UserPageState extends ConsumerState<UserPage>
                   showRestrictSelector: showRestrictSelector,
                   restrict: _restrict,
                   onRestrictChanged: _onRestrictChanged,
-                  onShare: () => _showProfileShare(context, ref, user),
+                  onShare: (originContext) =>
+                      unawaited(_shareProfile(originContext, ref, user)),
                   isFollowed: followed,
                   onToggleFollow: widget.isMe
                       ? null
@@ -459,6 +456,7 @@ class _UserPageState extends ConsumerState<UserPage>
                             userAccount: user.account,
                           ),
                         ),
+                  onCopyLink: () => unawaited(_copyProfileLink(context, user)),
                   statistics: statistics,
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                   // Bookmarks tab only: the tag collection entry sits in the
@@ -763,45 +761,23 @@ class _ProfileStatusPage extends StatelessWidget {
   }
 }
 
-void _showProfileShare(BuildContext context, WidgetRef ref, UserEntity user) {
-  final url = 'https://www.pixiv.net/users/${user.id}';
+Future<void> _shareProfile(
+  BuildContext originContext,
+  WidgetRef ref,
+  UserEntity user,
+) async {
   final payload = SharePayload.user(id: user.id, name: user.name);
-  showAppDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(_profileText(dialogContext, 'profileShare')),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(_profileText(dialogContext, 'profileShareHint')),
-          const SizedBox(height: 10),
-          SelectableText('$url\n${user.name}'),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            await Clipboard.setData(ClipboardData(text: payload.text));
-            if (!dialogContext.mounted || !context.mounted) return;
-            Navigator.of(dialogContext).pop();
-            showAppSnackBar(context, context.l10n.linkCopied);
-          },
-          child: Text(_profileText(dialogContext, 'copyLink')),
-        ),
-        FilledButton(
-          onPressed: () async {
-            Navigator.of(dialogContext).pop();
-            final outcome = await ref
-                .read(shareServiceProvider)
-                .share(payload, sharePositionOrigin: shareOriginOf(context));
-            if (outcome == ShareOutcome.copiedToClipboard && context.mounted) {
-              showAppSnackBar(context, context.l10n.linkCopied);
-            }
-          },
-          child: Text(_profileText(dialogContext, 'cardActionShare')),
-        ),
-      ],
-    ),
-  );
+  final outcome = await ref
+      .read(shareServiceProvider)
+      .share(payload, sharePositionOrigin: shareOriginOf(originContext));
+  if (outcome == ShareOutcome.copiedToClipboard && originContext.mounted) {
+    showAppSnackBar(originContext, originContext.l10n.linkCopied);
+  }
+}
+
+Future<void> _copyProfileLink(BuildContext context, UserEntity user) async {
+  final payload = SharePayload.user(id: user.id, name: user.name);
+  await Clipboard.setData(ClipboardData(text: payload.text));
+  if (!context.mounted) return;
+  showAppSnackBar(context, context.l10n.linkCopied);
 }

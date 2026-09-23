@@ -13,6 +13,7 @@ import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/platform/android_intent_channel.dart';
+import 'package:pixiv_func/core/share/share_service.dart';
 import 'package:pixiv_func/core/user/follow_actions.dart';
 import 'package:pixiv_func/core/user/follow_models.dart';
 import 'package:pixiv_func/core/user/follow_repository.dart';
@@ -161,11 +162,28 @@ class _FakeOutboundUrlOpener implements OutboundUrlOpener {
   }
 }
 
+class _FakeShareService implements ShareService {
+  ShareOutcome outcome = ShareOutcome.openedSheet;
+  SharePayload? lastPayload;
+  Rect? lastOrigin;
+
+  @override
+  Future<ShareOutcome> share(
+    SharePayload payload, {
+    Rect? sharePositionOrigin,
+  }) async {
+    lastPayload = payload;
+    lastOrigin = sharePositionOrigin;
+    return outcome;
+  }
+}
+
 Future<ProviderContainer> _makeWorld({
   bool twoAccounts = false,
   _FakeFollowRepository? follows,
   UserRepository? users,
   OutboundUrlOpener? outboundUrlOpener,
+  ShareService? shareService,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = FakeCredentialStore(
@@ -192,6 +210,8 @@ Future<ProviderContainer> _makeWorld({
       ),
       if (outboundUrlOpener != null)
         outboundUrlOpenerProvider.overrideWithValue(outboundUrlOpener),
+      if (shareService != null)
+        shareServiceProvider.overrideWithValue(shareService),
       if (users != null) userRepositoryProvider.overrideWithValue(users),
     ],
   );
@@ -414,7 +434,7 @@ void main() {
                   showRestrictSelector: false,
                   restrict: UserRestrict.public,
                   onRestrictChanged: (_) {},
-                  onShare: () {},
+                  onShare: (_) {},
                   expandedExtent: 320,
                 ),
               ),
@@ -483,7 +503,7 @@ void main() {
                         showRestrictSelector: false,
                         restrict: UserRestrict.public,
                         onRestrictChanged: (_) {},
-                        onShare: () {},
+                        onShare: (_) {},
                       ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 2000)),
@@ -547,7 +567,7 @@ void main() {
                   showRestrictSelector: false,
                   restrict: UserRestrict.public,
                   onRestrictChanged: (_) {},
-                  onShare: () {},
+                  onShare: (_) {},
                   topInset: 24,
                 ),
               ),
@@ -593,7 +613,7 @@ void main() {
                   showRestrictSelector: true,
                   restrict: UserRestrict.public,
                   onRestrictChanged: (_) {},
-                  onShare: () {},
+                  onShare: (_) {},
                   onEditProfile: () {},
                   onOpenBookmarkTags: () {},
                   onDownloadAll: () {},
@@ -645,7 +665,7 @@ void main() {
                     showRestrictSelector: true,
                     restrict: UserRestrict.public,
                     onRestrictChanged: (_) {},
-                    onShare: () {},
+                    onShare: (_) {},
                     onEditProfile: () {},
                     onOpenBookmarkTags: () {},
                     onDownloadAll: () {},
@@ -701,7 +721,7 @@ void main() {
               showRestrictSelector: false,
               restrict: UserRestrict.public,
               onRestrictChanged: (_) {},
-              onShare: () {},
+              onShare: (_) {},
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 1000)),
@@ -1091,6 +1111,66 @@ void main() {
       expect(find.text('私密关注'), findsNothing);
     },
   );
+
+  testWidgets('profile share calls the share service and exposes copy link', (
+    tester,
+  ) async {
+    final share = _FakeShareService()..outcome = ShareOutcome.copiedToClipboard;
+    final clipboardWrites = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboardWrites.add((call.arguments as Map)['text'] as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final container = await _makeWorld(
+      users: _FakeUserRepository(),
+      shareService: share,
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: const UserPage(userId: 42),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final shareButton = find.byTooltip('分享用户');
+    final buttonRect = tester.getRect(shareButton);
+    await tester.tap(shareButton);
+    await tester.pumpAndSettle();
+    expect(share.lastPayload?.text, contains('https://www.pixiv.net/users/42'));
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(share.lastOrigin, isNotNull);
+    expect(share.lastOrigin!.width, lessThan(100));
+    expect(share.lastOrigin!.height, lessThan(100));
+    expect(share.lastOrigin!.center.dx, closeTo(buttonRect.center.dx, 10));
+    expect(share.lastOrigin!.center.dy, closeTo(buttonRect.center.dy, 10));
+    expect(find.text('链接已复制'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('复制链接'), findsOneWidget);
+    await tester.tap(find.text('复制链接'));
+    await tester.pumpAndSettle();
+    expect(
+      clipboardWrites,
+      contains(
+        'sample user | sample user #Pixiv https://www.pixiv.net/users/42',
+      ),
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+  });
 }
 
 UserEntity _user(int id) =>
