@@ -207,8 +207,10 @@ class NovelReaderHandle {
   int Function()? currentPage;
   int Function()? pageCount;
 
-  /// Jump the PageView to [page] (clamped).
-  void Function(int page)? goToPage;
+  /// Jump the PageView to [page] (clamped). `animate: false` lands on the
+  /// target in the same frame — far jumps from the progress sheet skip the
+  /// page-turn animation entirely.
+  void Function(int page, {bool animate})? goToPage;
 }
 
 /// Horizontal, non-scrolling body reader with a cancellable relayout path.
@@ -274,8 +276,12 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (handle != null) {
       handle.currentPage = () => _reader.currentPage;
       handle.pageCount = () => _reader.pageCount;
-      handle.goToPage = (page) {
+      handle.goToPage = (page, {animate = true}) {
         final target = page.clamp(0, _reader.pageCount - 1);
+        if (!animate) {
+          _pageController.jumpToPage(target);
+          return;
+        }
         _pageController.animateToPage(
           target,
           duration: MotionTokens.fast,

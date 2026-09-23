@@ -174,6 +174,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(handle.currentPage?.call(), 0);
   });
+
+  testWidgets('goToPage(animate:false) lands in a single frame', (
+    tester,
+  ) async {
+    final handle = NovelReaderHandle();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(
+          body: NovelReader(novel: _novel('reader ' * 400), handle: handle),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final pageCount = handle.pageCount!.call();
+    expect(pageCount, greaterThan(2));
+
+    // jumpToPage applies the position synchronously — one frame after the
+    // call the reader must already report the target page. An animated jump
+    // would still be mid-flight at this point.
+    handle.goToPage?.call(pageCount - 1, animate: false);
+    await tester.pump();
+    expect(handle.currentPage?.call(), pageCount - 1);
+
+    // The animated path still works for short hops.
+    handle.goToPage?.call(0);
+    await tester.pumpAndSettle();
+    expect(handle.currentPage?.call(), 0);
+  });
 }
 
 NovelEntity _novel(String text) => NovelEntity(
