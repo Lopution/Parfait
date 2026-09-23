@@ -320,7 +320,9 @@ class _UserPageState extends ConsumerState<UserPage>
       id: 'series',
       icon: Icons.collections_bookmark_outlined,
       label: context.l10n.profileSeries,
-      value: user.totalIllustSeries + user.totalNovelSeries,
+      // The series section hosts illust series only, so the count mirrors
+      // what the destination lists (W3 D4: novel series stays unlisted).
+      value: user.totalIllustSeries,
       onTap: () => _navigateToStatistic(_ProfileStatTarget.series),
     ),
   ];
