@@ -700,6 +700,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get backupOverwrite => '上書き';
 
   @override
+  String get backupMergeHint => '既存データを残し、ファイルの内容を追加します';
+
+  @override
+  String get backupOverwriteHint => 'ファイルの内容でローカルデータを置き換えます';
+
+  @override
+  String backupImportMergeConfirmTitle(
+    int tags,
+    int users,
+    int works,
+    int history,
+  ) {
+    return 'ミュートタグ $tags 件、ミュートユーザー $users 件、ミュート作品 $works 件、履歴 $history 件を追加します';
+  }
+
+  @override
+  String get backupImportOverwriteConfirmTitle =>
+      'ローカル履歴を消去し、ミュート作品と設定をファイルに合わせます';
+
+  @override
   String backupImportDone(int tags, int users, int works, int history) {
     return '読み込み完了：タグ +$tags、ユーザー +$users、作品ミュート変更 $works 件、履歴 $history 件';
   }
@@ -1310,6 +1330,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get confirm => '確認';
+
+  @override
+  String get continueAction => '続行';
 
   @override
   String get rankingDay => 'デイリー';

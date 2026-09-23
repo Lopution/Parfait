@@ -1386,6 +1386,35 @@ abstract class AppLocalizations {
   /// **'覆盖'**
   String get backupOverwrite;
 
+  /// No description provided for @backupMergeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'保留现有数据，添加文件内容'**
+  String get backupMergeHint;
+
+  /// No description provided for @backupOverwriteHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'以文件内容替换本地数据'**
+  String get backupOverwriteHint;
+
+  /// No description provided for @backupImportMergeConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'将添加 {tags} 个屏蔽标签、{users} 个屏蔽用户、{works} 个屏蔽作品和 {history} 条历史记录'**
+  String backupImportMergeConfirmTitle(
+    int tags,
+    int users,
+    int works,
+    int history,
+  );
+
+  /// No description provided for @backupImportOverwriteConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'将清空本地历史，屏蔽作品与设置以文件为准'**
+  String get backupImportOverwriteConfirmTitle;
+
   /// No description provided for @backupImportDone.
   ///
   /// In zh, this message translates to:
@@ -2495,6 +2524,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'确定'**
   String get confirm;
+
+  /// No description provided for @continueAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get continueAction;
 
   /// No description provided for @rankingDay.
   ///
