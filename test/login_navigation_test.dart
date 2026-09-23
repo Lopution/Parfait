@@ -562,6 +562,22 @@ void main() {
     await tester.tap(find.text('重新加载'));
     await tester.pump();
     expect(controller.reloadCount, 1);
+
+    // After the reload the fatal flag must be gone too — otherwise a
+    // follow-up main-frame failure is swallowed by _reportRecoverable's
+    // `if (_fatal) return` guard and the WebView fails silently.
+    final delegate = _FakeNavigationDelegate.latest!;
+    delegate.webResourceError?.call(
+      WebResourceError(
+        errorCode: -2,
+        description: 'host lookup failed',
+        isForMainFrame: true,
+        errorType: WebResourceErrorType.hostLookup,
+        url: 'https://accounts.pixiv.net/signup',
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining('页面加载失败'), findsOneWidget);
   });
 
   testWidgets('signup mode reports page progress like the desktop page', (
