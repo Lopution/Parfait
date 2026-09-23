@@ -15,6 +15,7 @@ import '../../app/widgets/follow_switch_button.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/download/author_works_enumerator.dart';
 import '../../core/network/api_error.dart';
+import '../../core/platform/android_intent_channel.dart';
 import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_store.dart';
 import '../../core/user/user_entity.dart';
@@ -577,24 +578,38 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   }
 }
 
-class _ProfileAbout extends StatelessWidget {
+class _ProfileAbout extends ConsumerWidget {
   const _ProfileAbout({required this.user, required this.statistics});
 
   final UserEntity user;
   final List<ProfileStatisticData> statistics;
 
   @override
-  Widget build(BuildContext context) {
-    final entries = <({String label, String value})>[
-      (label: context.l10n.profileId, value: '${user.id}'),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entries = <({String label, String value, String? socialId})>[
+      (label: context.l10n.profileId, value: '${user.id}', socialId: null),
       if (user.account.isNotEmpty)
-        (label: context.l10n.profileAccount, value: user.account),
+        (
+          label: context.l10n.profileAccount,
+          value: user.account,
+          socialId: null,
+        ),
       if (user.comment != null)
-        (label: context.l10n.profileIntroduction, value: user.comment!),
+        (
+          label: context.l10n.profileIntroduction,
+          value: user.comment!,
+          socialId: null,
+        ),
       if (user.webpage != null)
-        (label: context.l10n.profileWebsite, value: user.webpage!),
-      if (user.twitterUrl != null) (label: 'Twitter', value: user.twitterUrl!),
-      if (user.pawooUrl != null) (label: 'Pawoo', value: user.pawooUrl!),
+        (
+          label: context.l10n.profileWebsite,
+          value: user.webpage!,
+          socialId: 'website',
+        ),
+      if (user.twitterUrl != null)
+        (label: 'Twitter', value: user.twitterUrl!, socialId: 'twitter'),
+      if (user.pawooUrl != null)
+        (label: 'Pawoo', value: user.pawooUrl!, socialId: 'pawoo'),
     ];
     return ListView(
       key: PageStorageKey('profile-about-${user.id}'),
@@ -602,20 +617,19 @@ class _ProfileAbout extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
       children: [
         for (final entry in entries)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.label,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                SelectableText(entry.value),
-              ],
+          if (entry.socialId == null)
+            _ProfileAboutTextEntry(label: entry.label, value: entry.value)
+          else
+            _ProfileSocialLinkRow(
+              key: ValueKey('profile-link-${entry.socialId}'),
+              id: entry.socialId!,
+              label: entry.label,
+              value: entry.value,
+              onOpen: () =>
+                  unawaited(_openProfileSocialLink(context, ref, entry.value)),
+              onCopy: () =>
+                  unawaited(_copyProfileSocialLink(context, entry.value)),
             ),
-          ),
         const Divider(),
         Text(
           context.l10n.profileStats,
@@ -627,6 +641,94 @@ class _ProfileAbout extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ProfileAboutTextEntry extends StatelessWidget {
+  const _ProfileAboutTextEntry({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        SelectableText(value),
+      ],
+    ),
+  );
+}
+
+class _ProfileSocialLinkRow extends StatelessWidget {
+  const _ProfileSocialLinkRow({
+    super.key,
+    required this.id,
+    required this.label,
+    required this.value,
+    required this.onOpen,
+    required this.onCopy,
+  });
+
+  final String id;
+  final String label;
+  final String value;
+  final VoidCallback onOpen;
+  final VoidCallback onCopy;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(child: SelectableText(value)),
+            IconButton(
+              key: ValueKey('profile-link-open-$id'),
+              tooltip: context.l10n.openLink,
+              onPressed: onOpen,
+              icon: const Icon(Icons.open_in_new),
+            ),
+            IconButton(
+              key: ValueKey('profile-link-copy-$id'),
+              tooltip: context.l10n.copyLink,
+              onPressed: onCopy,
+              icon: const Icon(Icons.copy_outlined),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _openProfileSocialLink(
+  BuildContext context,
+  WidgetRef ref,
+  String url,
+) async {
+  try {
+    await ref.read(outboundUrlOpenerProvider).openExternal(url);
+  } on Object catch (error) {
+    if (!context.mounted) return;
+    showAppSnackBar(
+      context,
+      context.l10n.illustDetailOpenLinkFailed(error.toString()),
+    );
+  }
+}
+
+Future<void> _copyProfileSocialLink(BuildContext context, String url) async {
+  await Clipboard.setData(ClipboardData(text: url));
+  if (!context.mounted) return;
+  showAppSnackBar(context, context.l10n.linkCopied);
 }
 
 class _ProfileStatusPage extends StatelessWidget {
