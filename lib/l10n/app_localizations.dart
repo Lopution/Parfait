@@ -723,7 +723,7 @@ abstract class AppLocalizations {
   /// No description provided for @frameProbeHint.
   ///
   /// In zh, this message translates to:
-  /// **'滚动时记录帧耗时。快速滑动一段后停止，再复制报告。仅 debug/profile 构建可见。'**
+  /// **'滚动时记录帧耗时。可离开本页去目标页面滚动，回来停止并复制报告。仅 debug/profile 构建可见。'**
   String get frameProbeHint;
 
   /// No description provided for @frameProbeStart.
@@ -731,6 +731,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'开始记录'**
   String get frameProbeStart;
+
+  /// No description provided for @frameProbeRecording.
+  ///
+  /// In zh, this message translates to:
+  /// **'录制中'**
+  String get frameProbeRecording;
+
+  /// No description provided for @frameProbeCapHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'已达帧数上限，正在丢弃最旧帧。'**
+  String get frameProbeCapHint;
 
   /// No description provided for @frameProbeStop.
   ///

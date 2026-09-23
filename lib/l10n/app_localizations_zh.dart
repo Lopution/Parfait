@@ -342,10 +342,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get frameProbeTitle => '帧探针';
 
   @override
-  String get frameProbeHint => '滚动时记录帧耗时。快速滑动一段后停止，再复制报告。仅 debug/profile 构建可见。';
+  String get frameProbeHint =>
+      '滚动时记录帧耗时。可离开本页去目标页面滚动，回来停止并复制报告。仅 debug/profile 构建可见。';
 
   @override
   String get frameProbeStart => '开始记录';
+
+  @override
+  String get frameProbeRecording => '录制中';
+
+  @override
+  String get frameProbeCapHint => '已达帧数上限，正在丢弃最旧帧。';
 
   @override
   String get frameProbeStop => '停止';

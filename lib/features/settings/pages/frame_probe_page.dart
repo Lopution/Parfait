@@ -25,27 +25,42 @@ class _FrameProbePageState extends State<FrameProbePage> {
   bool get _recording => FrameProbe.instance.recording;
 
   @override
+  void initState() {
+    super.initState();
+    // Re-entering while a recording is still live: resume the ticker so the
+    // status bar keeps refreshing — the probe itself never stopped.
+    if (_recording) _startTicker();
+  }
+
+  @override
   void dispose() {
     _ticker?.cancel();
-    FrameProbe.instance.stop();
+    // Deliberately no FrameProbe.stop(): the recording's whole point is to
+    // sample a different page, so leaving this page must not end it.
     super.dispose();
   }
 
-  void _toggle() {
+  void _startTicker() {
+    _ticker ??= Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => setState(() {}),
+    );
+  }
+
+  void _start() {
     setState(() {
-      if (_recording) {
-        _ticker?.cancel();
-        _ticker = null;
-        FrameProbe.instance.stop();
-        _report = FrameProbe.instance.report();
-      } else {
-        _report = null;
-        FrameProbe.instance.start();
-        _ticker = Timer.periodic(
-          const Duration(milliseconds: 500),
-          (_) => setState(() {}),
-        );
-      }
+      _report = null;
+      FrameProbe.instance.start();
+      _startTicker();
+    });
+  }
+
+  void _stop() {
+    setState(() {
+      _ticker?.cancel();
+      _ticker = null;
+      FrameProbe.instance.stop();
+      _report = FrameProbe.instance.report();
     });
   }
 
@@ -60,21 +75,55 @@ class _FrameProbePageState extends State<FrameProbePage> {
           children: [
             Text(context.l10n.frameProbeHint, style: theme.textTheme.bodySmall),
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _toggle,
-              icon: Icon(_recording ? Icons.stop : Icons.fiber_manual_record),
-              label: Text(
-                _recording
-                    ? context.l10n.frameProbeStop
-                    : context.l10n.frameProbeStart,
-              ),
-            ),
-            const SizedBox(height: 16),
             if (_recording)
-              Text(
-                '${FrameProbe.instance.frameCount} frames',
-                style: theme.textTheme.bodyMedium,
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.fiber_manual_record,
+                        size: 16,
+                        color: theme.colorScheme.error,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${context.l10n.frameProbeRecording} · '
+                              '${FrameProbe.instance.frameCount} frames',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            if (FrameProbe.instance.isFull)
+                              Text(
+                                context.l10n.frameProbeCapHint,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.error,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _stop,
+                        child: Text(context.l10n.frameProbeStop),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              FilledButton.icon(
+                onPressed: _start,
+                icon: const Icon(Icons.fiber_manual_record),
+                label: Text(context.l10n.frameProbeStart),
               ),
+            const SizedBox(height: 16),
             if (_report != null) ...[
               SelectableText(
                 _report!,

@@ -636,6 +636,8 @@ void main() {
       'frameProbeHint',
       'frameProbeStart',
       'frameProbeStop',
+      'frameProbeRecording',
+      'frameProbeCapHint',
       'themeSettings',
       'languageSettings',
       'translateSettings',

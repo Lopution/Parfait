@@ -352,10 +352,16 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get frameProbeHint =>
-      'スクロール中のフレーム時間を記録します。フリックで一通りスクロールして停止し、レポートをコピーしてください。debug/profile ビルド限定。';
+      'スクロール中のフレーム時間を記録します。このページを離れて対象画面をスクロールし、戻って停止してレポートをコピーできます。debug/profile ビルドのみ。';
 
   @override
   String get frameProbeStart => '記録開始';
+
+  @override
+  String get frameProbeRecording => '記録中';
+
+  @override
+  String get frameProbeCapHint => 'フレーム上限に達しました。最古のフレームを破棄しています。';
 
   @override
   String get frameProbeStop => '停止';

@@ -364,10 +364,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get frameProbeHint =>
-      'Records frame timings while you scroll. Stop after a fling-heavy pass, then copy the report. Dev/profile builds only.';
+      'Records frame timings while you scroll. You can leave this page, scroll the target screen, then come back to stop and copy the report. Dev/profile builds only.';
 
   @override
   String get frameProbeStart => 'Start recording';
+
+  @override
+  String get frameProbeRecording => 'Recording';
+
+  @override
+  String get frameProbeCapHint =>
+      'Frame cap reached — the oldest frames are being dropped.';
 
   @override
   String get frameProbeStop => 'Stop';

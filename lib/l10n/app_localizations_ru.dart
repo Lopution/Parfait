@@ -363,10 +363,17 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get frameProbeHint =>
-      'Записывает тайминги кадров во время прокрутки. Прокрутите с резкими свайпами, остановите и скопируйте отчёт. Только debug/profile-сборки.';
+      'Записывает время кадров при прокрутке. Можно уйти со страницы, прокрутить нужный экран, вернуться и остановить запись, затем скопировать отчёт. Только debug/profile-сборки.';
 
   @override
   String get frameProbeStart => 'Начать запись';
+
+  @override
+  String get frameProbeRecording => 'Запись';
+
+  @override
+  String get frameProbeCapHint =>
+      'Достигнут лимит кадров — самые старые отбрасываются.';
 
   @override
   String get frameProbeStop => 'Стоп';
