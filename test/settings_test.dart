@@ -1080,6 +1080,50 @@ void main() {
     expect(find.text('百度翻译 · 未配置'), findsOneWidget);
   });
 
+  testWidgets(
+    'translate page credential entry shows and refreshes configured state',
+    (tester) async {
+      final store = _FakeTranslationStore()
+        ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
+      final router = createPixivRouter(initialLocation: '/settings/translate');
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(
+              FakeAccountMetadataRepository(),
+            ),
+            credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+            translationCredentialStoreProvider.overrideWithValue(store),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The 凭据 entry under the selected provider reads 已配置.
+      expect(find.text('已配置'), findsOneWidget);
+      expect(find.text('未配置'), findsNothing);
+
+      // Entering the credentials page and coming back re-reads existence:
+      // a clear on the sub-page flips the entry to 未配置.
+      await tester.tap(find.text('百度 AppID / 密钥'));
+      await tester.pumpAndSettle();
+      store.baidu = null;
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('未配置'), findsOneWidget);
+    },
+  );
+
   testWidgets('history config and content entries open distinct routes', (
     tester,
   ) async {
