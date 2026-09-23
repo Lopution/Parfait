@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/motion/app_overlays.dart';
 import '../../../core/comments/comment_translation.dart';
 import '../../../core/comments/translation_credentials.dart';
 import '../../../l10n/context.dart';
@@ -30,9 +31,37 @@ class _TranslationCredentialsPageState
   String? _status;
   bool _statusIsError = false;
 
+  /// Pristine snapshot of what the secure store last committed (or the
+  /// empty form). While a controller diverges the page is dirty and
+  /// leaving asks to discard the draft instead of dropping it silently.
+  List<String> _pristine = const [];
+
+  List<TextEditingController> get _controllers => widget.baidu
+      ? [_appIdController, _secretController]
+      : [_baseUrlController, _apiKeyController, _modelController];
+
+  List<String> _snapshot() => [for (final c in _controllers) c.text];
+
+  bool get _dirty {
+    for (var i = 0; i < _controllers.length; i++) {
+      if (_controllers[i].text != _pristine[i]) return true;
+    }
+    return false;
+  }
+
+  void _onFieldChanged() {
+    // Keep `_dirty` (and therefore PopScope's canPop) current on every
+    // keystroke.
+    setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    _pristine = List.filled(_controllers.length, '');
+    for (final controller in _controllers) {
+      controller.addListener(_onFieldChanged);
+    }
     unawaited(_load());
   }
 
@@ -66,6 +95,7 @@ class _TranslationCredentialsPageState
           _modelController.text = credentials.model ?? '';
         }
       }
+      if (mounted) _pristine = _snapshot();
     } on Object {
       if (mounted) {
         setState(() {
@@ -117,6 +147,7 @@ class _TranslationCredentialsPageState
       }
       if (mounted) {
         setState(() {
+          _pristine = _snapshot();
           _status = context.l10n.translateCredentialsSaved;
           _statusIsError = false;
         });
@@ -149,6 +180,26 @@ class _TranslationCredentialsPageState
 
   Future<void> _clear() async {
     if (_busy) return;
+    // Destructive-lite: the stored secret is gone for good and must be
+    // re-entered before translation works again, so it asks first.
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(context.l10n.translateCredentialsClear),
+        content: Text(context.l10n.translateCredentialsClearConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.l10n.translateCredentialsClear),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     setState(() {
       _busy = true;
       _clearing = true;
@@ -174,6 +225,7 @@ class _TranslationCredentialsPageState
           _modelController.clear();
         }
         setState(() {
+          _pristine = _snapshot();
           _status = context.l10n.translateCredentialsCleared;
           _statusIsError = false;
         });
@@ -194,101 +246,104 @@ class _TranslationCredentialsPageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          settingsText(
-            context,
-            widget.baidu
-                ? 'translateBaiduCredential'
-                : 'translateLlmCredential',
+    return guardDraft(
+      dirty: _dirty,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            settingsText(
+              context,
+              widget.baidu
+                  ? 'translateBaiduCredential'
+                  : 'translateLlmCredential',
+            ),
           ),
         ),
-      ),
-      body: settingsNarrowBody(
-        ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (widget.baidu)
-              _credentialField(
-                controller: _appIdController,
-                label: context.l10n.translateBaiduAppId,
-                obscure: false,
-              )
-            else
-              _credentialField(
-                controller: _baseUrlController,
-                label: context.l10n.translateLlmBaseUrl,
-                obscure: false,
-                hint: 'https://api.example.com/v1',
-              ),
-            if (widget.baidu)
-              _credentialField(
-                controller: _secretController,
-                label: context.l10n.translateBaiduSecret,
-                obscure: true,
-              )
-            else
-              _credentialField(
-                controller: _apiKeyController,
-                label: context.l10n.translateLlmApiKey,
-                obscure: true,
-              ),
-            if (!widget.baidu)
-              _credentialField(
-                controller: _modelController,
-                label: context.l10n.translateLlmModel,
-                obscure: false,
-              ),
-            const SizedBox(height: 8),
-            if (_status != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _status!,
-                  style: TextStyle(
-                    color: _statusIsError
-                        ? Theme.of(context).colorScheme.error
-                        : Theme.of(context).colorScheme.primary,
+        body: settingsNarrowBody(
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (widget.baidu)
+                _credentialField(
+                  controller: _appIdController,
+                  label: context.l10n.translateBaiduAppId,
+                  obscure: false,
+                )
+              else
+                _credentialField(
+                  controller: _baseUrlController,
+                  label: context.l10n.translateLlmBaseUrl,
+                  obscure: false,
+                  hint: 'https://api.example.com/v1',
+                ),
+              if (widget.baidu)
+                _credentialField(
+                  controller: _secretController,
+                  label: context.l10n.translateBaiduSecret,
+                  obscure: true,
+                )
+              else
+                _credentialField(
+                  controller: _apiKeyController,
+                  label: context.l10n.translateLlmApiKey,
+                  obscure: true,
+                ),
+              if (!widget.baidu)
+                _credentialField(
+                  controller: _modelController,
+                  label: context.l10n.translateLlmModel,
+                  obscure: false,
+                ),
+              const SizedBox(height: 8),
+              if (_status != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    _status!,
+                    style: TextStyle(
+                      color: _statusIsError
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
+              FilledButton.icon(
+                onPressed: _busy ? null : _save,
+                icon: _busy && !_clearing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: Text(context.l10n.translateCredentialsSave),
               ),
-            FilledButton.icon(
-              onPressed: _busy ? null : _save,
-              icon: _busy && !_clearing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(context.l10n.translateCredentialsSave),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _clear,
-              icon: _busy && _clearing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_outline),
-              label: Text(context.l10n.translateCredentialsClear),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text(
-                settingsText(
-                  context,
-                  widget.baidu
-                      ? 'translateBaiduHint'
-                      : 'translateLlmCredentialHint',
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _clear,
+                icon: _busy && _clearing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_outline),
+                label: Text(context.l10n.translateCredentialsClear),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Text(
+                  settingsText(
+                    context,
+                    widget.baidu
+                        ? 'translateBaiduHint'
+                        : 'translateLlmCredentialHint',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

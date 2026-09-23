@@ -571,6 +571,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get switchAccount => 'Switch account';
 
   @override
+  String get accountSwitching => 'Switching…';
+
+  @override
   String get removeAccount => 'Remove account';
 
   @override
@@ -813,6 +816,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get maxDownloadCount => 'Maximum concurrent downloads';
 
   @override
+  String get maxDownloadCountHint => 'Drag to preview; release to apply';
+
+  @override
   String get namingRule => 'File naming rule';
 
   @override
@@ -838,9 +844,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Letters, digits, CJK and underscore only';
 
   @override
-  String get saveLocationUseCustomAlbum => 'Use custom album';
-
-  @override
   String get saveLocationAlbumInvalid => 'Invalid album name';
 
   @override
@@ -851,7 +854,15 @@ class AppLocalizationsEn extends AppLocalizations {
       'Picks a directory via the system SAF and persists the grant';
 
   @override
-  String get saveLocationSafPicked => 'Folder selected';
+  String get safStorageInternal => 'Internal storage';
+
+  @override
+  String safStorageSdCard(String volume) {
+    return 'SD card ($volume)';
+  }
+
+  @override
+  String get saveLocationUriCopied => 'Folder URI copied';
 
   @override
   String get namingPreset => 'File naming preset';
@@ -938,6 +949,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get translateCredentialsClear => 'Clear credentials';
+
+  @override
+  String get translateCredentialsClearConfirm =>
+      'Deletes the stored credentials; they must be entered again before translation works.';
 
   @override
   String get translateCredentialsSaved => 'Saved to secure storage';

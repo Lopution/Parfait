@@ -213,6 +213,7 @@
   "accountManagement": "Account management",
   "addAccount": "Add account",
   "switchAccount": "Switch account",
+  "accountSwitching": "Switching…",
   "removeAccount": "Remove account",
   "removeAccountConfirm": "Remove this account?",
   "noAccounts": "No accounts",
@@ -340,6 +341,7 @@
   "reduceMotion": "Reduce motion",
   "reduceMotionHint": "Turn off decorative animation: page transitions, list entrances and press feedback",
   "maxDownloadCount": "Maximum concurrent downloads",
+  "maxDownloadCountHint": "Drag to preview; release to apply",
   "namingRule": "File naming rule",
   "namingRuleHint": "Leave empty to use the default name",
   "saveFolder": "Save folder",
@@ -348,11 +350,19 @@
   "saveLocationPixivAlbum": "PixivFunc album (default)",
   "saveLocationCustomAlbum": "Custom album name",
   "saveLocationCustomAlbumHint": "Letters, digits, CJK and underscore only",
-  "saveLocationUseCustomAlbum": "Use custom album",
   "saveLocationAlbumInvalid": "Invalid album name",
   "saveLocationSafFolder": "Folder (system directory picker)",
   "saveLocationSafFolderHint": "Picks a directory via the system SAF and persists the grant",
-  "saveLocationSafPicked": "Folder selected",
+  "safStorageInternal": "Internal storage",
+  "safStorageSdCard": "SD card ({volume})",
+  "@safStorageSdCard": {
+    "placeholders": {
+      "volume": {
+        "type": "String"
+      }
+    }
+  },
+  "saveLocationUriCopied": "Folder URI copied",
   "namingPreset": "File naming preset",
   "namingPresetId": "Work ID (default)",
   "namingPresetArtistTitleId": "Artist - title - ID",
@@ -404,6 +414,7 @@
   "translateLlmModel": "Model (optional)",
   "translateCredentialsSave": "Save to secure storage",
   "translateCredentialsClear": "Clear credentials",
+  "translateCredentialsClearConfirm": "Deletes the stored credentials; they must be entered again before translation works.",
   "translateCredentialsSaved": "Saved to secure storage",
   "translateCredentialsCleared": "Credentials cleared",
   "translateCredentialsStoreError": "Secure storage operation failed",

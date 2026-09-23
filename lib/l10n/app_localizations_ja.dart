@@ -555,6 +555,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get switchAccount => 'アカウントを切り替え';
 
   @override
+  String get accountSwitching => '切り替え中…';
+
+  @override
   String get removeAccount => 'アカウントを削除';
 
   @override
@@ -789,6 +792,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get maxDownloadCount => '同時ダウンロード数の上限';
 
   @override
+  String get maxDownloadCountHint => 'ドラッグでプレビュー、離すと適用';
+
+  @override
   String get namingRule => 'ファイル名規則';
 
   @override
@@ -813,9 +819,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get saveLocationCustomAlbumHint => '英数字・日本語・アンダースコアのみ';
 
   @override
-  String get saveLocationUseCustomAlbum => 'カスタムアルバムを使用';
-
-  @override
   String get saveLocationAlbumInvalid => 'アルバム名が無効です';
 
   @override
@@ -825,7 +828,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get saveLocationSafFolderHint => 'システム SAF でフォルダーを選択し、権限を永続化';
 
   @override
-  String get saveLocationSafPicked => 'フォルダーを選択済み';
+  String get safStorageInternal => '内部ストレージ';
+
+  @override
+  String safStorageSdCard(String volume) {
+    return 'SD カード（$volume）';
+  }
+
+  @override
+  String get saveLocationUriCopied => 'フォルダ URI をコピーしました';
 
   @override
   String get namingPreset => 'ファイル名プリセット';
@@ -911,6 +922,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get translateCredentialsClear => '認証情報を削除';
+
+  @override
+  String get translateCredentialsClearConfirm =>
+      '安全ストレージ内の認証情報を削除します。翻訳するには再入力が必要です。';
 
   @override
   String get translateCredentialsSaved => '安全なストレージに保存しました';

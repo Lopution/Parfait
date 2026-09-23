@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -26,6 +27,7 @@ import 'package:pixiv_func/core/network/compat/network_contracts.dart'
 import 'package:pixiv_func/core/network/compat/network_policy.dart';
 import 'package:pixiv_func/core/network/compat/network_providers.dart';
 import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
+import 'package:pixiv_func/core/download/download_destination.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/reverse_image/reverse_image_engine.dart';
 import 'package:pixiv_func/core/search/search_models.dart';
@@ -36,6 +38,7 @@ import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/features/history/history_page.dart' as history;
+import 'package:pixiv_func/features/settings/saf_tree_name.dart';
 import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:pixiv_func/app/widgets/settings/settings_control.dart';
@@ -136,6 +139,20 @@ class _AccountRepository implements AccountMetadataRepository {
 
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {}
+}
+
+/// Save gate for the switch-busy test: `save` parks on [gate] so the
+/// widget layer's in-flight state is observable mid-switch.
+class _BlockingAccountRepository extends FakeAccountMetadataRepository {
+  _BlockingAccountRepository({required super.accounts, super.currentId});
+
+  final Completer<void> gate = Completer<void>();
+
+  @override
+  Future<void> save(List<Account> next, String? nextCurrentId) async {
+    await gate.future;
+    return super.save(next, nextCurrentId);
+  }
 }
 
 class _FakeProfileRepository implements UserRepository {
@@ -633,11 +650,11 @@ void main() {
       'saveLocationPixivAlbum',
       'saveLocationCustomAlbum',
       'saveLocationCustomAlbumHint',
-      'saveLocationUseCustomAlbum',
       'saveLocationAlbumInvalid',
       'saveLocationSafFolder',
       'saveLocationSafFolderHint',
-      'saveLocationSafPicked',
+      'safStorageInternal',
+      'saveLocationUriCopied',
       'namingPreset',
       'namingPresetId',
       'namingPresetArtistTitleId',
@@ -827,6 +844,86 @@ void main() {
     expect(find.text('无账号'), findsNothing);
   });
 
+  testWidgets(
+    'account switch spins the target row and disables the list mid-commit',
+    (tester) async {
+      final repository = _BlockingAccountRepository(
+        accounts: const [
+          Account(id: '1', userId: 1, name: 'first'),
+          Account(id: '2', userId: 2, name: 'second'),
+        ],
+        currentId: '1',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              _FakeRepository(_baseSettings()),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(repository),
+            credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: AccountSettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Current row: check icon + selected semantics, no tap target.
+      final currentTile = tester.widget<ListTile>(
+        find.widgetWithText(ListTile, 'first'),
+      );
+      expect(currentTile.onTap, isNull);
+      expect(currentTile.selected, isTrue);
+
+      await tester.tap(find.text('second'));
+      await tester.pump();
+
+      // Busy: the target row spins (semantics label reads 正在切换) and
+      // every row's tap/remove affordances are disabled while the
+      // metadata commit is in flight.
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(
+        tester.widget<ListTile>(find.widgetWithText(ListTile, 'first')).onTap,
+        isNull,
+      );
+      expect(
+        tester.widget<ListTile>(find.widgetWithText(ListTile, 'second')).onTap,
+        isNull,
+      );
+      expect(
+        tester
+            .widgetList<IconButton>(
+              find.widgetWithIcon(IconButton, Icons.delete_outline),
+            )
+            .map((button) => button.onPressed),
+        everyElement(isNull),
+      );
+
+      repository.gate.complete();
+      await tester.pumpAndSettle();
+
+      // After the commit the new current row carries the check and the
+      // other row is tappable again.
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(repository.currentId, '2');
+      expect(
+        tester
+            .widget<ListTile>(find.widgetWithText(ListTile, 'second'))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester.widget<ListTile>(find.widgetWithText(ListTile, 'first')).onTap,
+        isNotNull,
+      );
+    },
+  );
+
   testWidgets('settings home shows the beta56 route order', (tester) async {
     final repository = _FakeRepository(_baseSettings());
     await tester.pumpWidget(
@@ -983,6 +1080,230 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('百度翻译 · 未配置'), findsOneWidget);
+  });
+
+  testWidgets(
+    'translate page credential entry shows and refreshes configured state',
+    (tester) async {
+      final store = _FakeTranslationStore()
+        ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
+      final router = createPixivRouter(initialLocation: '/settings/translate');
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(
+              FakeAccountMetadataRepository(),
+            ),
+            credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+            translationCredentialStoreProvider.overrideWithValue(store),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The 凭据 entry under the selected provider reads 已配置.
+      expect(find.text('已配置'), findsOneWidget);
+      expect(find.text('未配置'), findsNothing);
+
+      // Entering the credentials page and coming back re-reads existence:
+      // a clear on the sub-page flips the entry to 未配置.
+      await tester.tap(find.text('百度 AppID / 密钥'));
+      await tester.pumpAndSettle();
+      store.baidu = null;
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('未配置'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'download custom template disables save while invalid and guards drafts',
+    (tester) async {
+      final repository = _FakeRepository(
+        _baseSettings().copyWith(
+          namingRule: const NamingRule(
+            preset: NamingPreset.custom,
+            template: '{id}',
+          ),
+        ),
+      );
+      // Tall surface so the lazily-built template section exists.
+      tester.view.physicalSize = const Size(800, 4000);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DownloadSettingsPage(),
+                      ),
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // The persisted valid template keeps save enabled; breaking it
+      // disables the button and shows the error text.
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存'))
+            .onPressed,
+        isNotNull,
+      );
+      await tester.enterText(find.byType(TextField), 'plain-text');
+      await tester.pump();
+      expect(find.text('模板包含不支持的变量或非法字符'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存'))
+            .onPressed,
+        isNull,
+      );
+
+      // Dirty draft: system back asks before leaving; 取消 keeps editing
+      // and the uncommitted input survives the round trip.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('放弃未保存的修改？'), findsOneWidget);
+      await tester.tap(find.text('取消').last);
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadSettingsPage), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'plain-text',
+      );
+
+      // 放弃 leaves the page and drops the draft.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('放弃修改'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DownloadSettingsPage), findsNothing);
+    },
+  );
+
+  test('safTreeDisplayName decodes volumes and falls back honestly', () {
+    final zh = AppLocalizationsZh();
+    expect(
+      safTreeDisplayName(
+        zh,
+        'content://com.android.externalstorage.documents/tree/primary%3ADownload%2Fpixiv',
+      ),
+      '内部存储/Download/pixiv',
+    );
+    expect(
+      safTreeDisplayName(
+        zh,
+        'content://com.android.externalstorage.documents/tree/1234-5678%3ADCIM',
+      ),
+      'SD 卡（1234-5678）/DCIM',
+    );
+    // Storage root: no path suffix after the volume colon.
+    expect(
+      safTreeDisplayName(
+        zh,
+        'content://com.android.externalstorage.documents/tree/primary%3A',
+      ),
+      '内部存储',
+    );
+    // Desktop pickers return plain filesystem paths — verbatim.
+    expect(
+      safTreeDisplayName(zh, '/home/user/Pictures'),
+      '/home/user/Pictures',
+    );
+    // Unparseable content URIs degrade to the raw string, never blank.
+    expect(safTreeDisplayName(zh, 'content://x/tree'), 'content://x/tree');
+    expect(safTreeDisplayName(zh, ''), '');
+  });
+
+  testWidgets('save location headlines the decoded SAF name, URI demoted', (
+    tester,
+  ) async {
+    const uri =
+        'content://com.android.externalstorage.documents/tree/primary%3ADownload%2Fpixiv';
+    final repository = _FakeRepository(
+      _baseSettings().copyWith(
+        downloadDestination: const DownloadDestination.safFolder(uri),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: DownloadDestinationPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The headline is the decoded name; the tile is the selected row.
+    final tile = tester.widget<ListTile>(
+      find.widgetWithText(ListTile, '内部存储/Download/pixiv'),
+    );
+    expect(tile.selected, isTrue);
+
+    // The raw `content://` identifier survives only in the truncated
+    // subtitle (maxLines 1 + ellipsis), never as the headline.
+    final subtitle = tester.widget<Text>(find.text(uri));
+    expect(subtitle.maxLines, 1);
+    expect(subtitle.overflow, TextOverflow.ellipsis);
+  });
+
+  testWidgets('download settings summary shows the decoded SAF name too', (
+    tester,
+  ) async {
+    const uri =
+        'content://com.android.externalstorage.documents/tree/1234-5678%3ADCIM';
+    final repository = _FakeRepository(
+      _baseSettings().copyWith(
+        downloadDestination: const DownloadDestination.safFolder(uri),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: DownloadSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The save-location tile summary is the human name, not the URI.
+    expect(find.text('SD 卡（1234-5678）/DCIM'), findsOneWidget);
+    expect(find.textContaining('content://'), findsNothing);
   });
 
   testWidgets('history config and content entries open distinct routes', (

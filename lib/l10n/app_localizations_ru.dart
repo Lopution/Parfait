@@ -570,6 +570,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get switchAccount => 'Сменить аккаунт';
 
   @override
+  String get accountSwitching => 'Переключение…';
+
+  @override
   String get removeAccount => 'Удалить аккаунт';
 
   @override
@@ -813,6 +816,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get maxDownloadCount => 'Максимум параллельных загрузок';
 
   @override
+  String get maxDownloadCountHint =>
+      'Потяните для предпросмотра; отпустите — применится';
+
+  @override
   String get namingRule => 'Правило имени файла';
 
   @override
@@ -838,9 +845,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Только буквы, цифры, кириллица и _';
 
   @override
-  String get saveLocationUseCustomAlbum => 'Использовать альбом';
-
-  @override
   String get saveLocationAlbumInvalid => 'Недопустимое имя альбома';
 
   @override
@@ -851,7 +855,15 @@ class AppLocalizationsRu extends AppLocalizations {
       'Выбор каталога через системный SAF с сохранением прав';
 
   @override
-  String get saveLocationSafPicked => 'Папка выбрана';
+  String get safStorageInternal => 'Внутренняя память';
+
+  @override
+  String safStorageSdCard(String volume) {
+    return 'SD-карта ($volume)';
+  }
+
+  @override
+  String get saveLocationUriCopied => 'URI папки скопирован';
 
   @override
   String get namingPreset => 'Пресет имени файла';
@@ -938,6 +950,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get translateCredentialsClear => 'Очистить учётные данные';
+
+  @override
+  String get translateCredentialsClearConfirm =>
+      'Сохранённые учётные данные будут удалены; для перевода их придётся ввести заново.';
 
   @override
   String get translateCredentialsSaved => 'Сохранено в защищённое хранилище';
