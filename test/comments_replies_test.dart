@@ -574,40 +574,59 @@ void main() {
     expect(await service.translate('hello', targetLanguage: 'zh'), '你好');
   });
 
-  testWidgets('composer exposes the fixed 10 and 5 column grids', (
+  testWidgets('composer grids size columns to the available width', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('zh', 'CN'),
-        supportedLocales: const [Locale('zh', 'CN')],
-        localizationsDelegates: appLocalizationsDelegates,
-        home: Scaffold(
-          body: CommentComposer(
-            onSend: (_) async {},
-            onStampSend: (_) async {},
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    int crossAxisCount() =>
+        (tester.widget<GridView>(find.byType(GridView)).gridDelegate
+                as SliverGridDelegateWithFixedCrossAxisCount)
+            .crossAxisCount;
+
+    Future<void> openPanelAt(double width, String tooltip) async {
+      tester.view.physicalSize = Size(width, 600);
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN')],
+          localizationsDelegates: appLocalizationsDelegates,
+          home: Scaffold(
+            // A fresh subtree per width — otherwise the composer's State
+            // survives pumpWidget and the tap toggles the still-open panel
+            // back to none.
+            key: ValueKey(width),
+            resizeToAvoidBottomInset: false,
+            body: CommentComposer(
+              onSend: (_) async {},
+              onStampSend: (_) async {},
+            ),
           ),
         ),
-      ),
-    );
-    await tester.tap(find.byTooltip('Emoji'));
-    await tester.pump();
-    final emojiGrid = tester.widget<GridView>(find.byType(GridView));
-    expect(
-      (emojiGrid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
-          .crossAxisCount,
-      10,
-    );
-    await tester.tap(find.byTooltip('Emoji'));
-    await tester.pump();
-    await tester.tap(find.byTooltip('Stamp'));
-    await tester.pump();
-    final stampGrid = tester.widget<GridView>(find.byType(GridView));
-    expect(
-      (stampGrid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
-          .crossAxisCount,
-      5,
-    );
+      );
+      await tester.tap(find.byTooltip(tooltip));
+      await tester.pump();
+    }
+
+    // 320dp: floor(320/48)=6 emoji columns — a fixed 10 would shrink cells
+    // below the ~48dp touch target.
+    await openPanelAt(320, 'Emoji');
+    expect(crossAxisCount(), 6);
+
+    // 390dp: floor(390/48)=8.
+    await openPanelAt(390, 'Emoji');
+    expect(crossAxisCount(), 8);
+
+    // 840dp: floor(840/48)=17 — capped at the densest useful 10.
+    await openPanelAt(840, 'Emoji');
+    expect(crossAxisCount(), 10);
+
+    // Stamps use ~96dp cells: floor(320/96)=3; floor(840/96)=8 → cap 5.
+    await openPanelAt(320, 'Stamp');
+    expect(crossAxisCount(), 3);
+    await openPanelAt(840, 'Stamp');
+    expect(crossAxisCount(), 5);
+
     expect(commentEmojiNames, hasLength(38));
     expect(commentStampIds, hasLength(40));
   });

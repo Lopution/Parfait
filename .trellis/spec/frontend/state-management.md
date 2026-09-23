@@ -299,8 +299,9 @@ root comment; a root's `rootCommentId` is its own `id`.
   mutation state by an operation key plus monotonically increasing revision.
   Send/delete state is pending until the API succeeds; no optimistic entity
   is published.
-- Only `assets/emojis/` (10 columns) and `assets/stamps/` (5 columns) are
-  used by the composer. Translation is a transient overlay and never
+- Only `assets/emojis/` and `assets/stamps/` are used by the composer; grid
+  columns are width-driven (emoji ≈48dp cells clamped 3–10, stamps ≈96dp
+  cells clamped 2–5) so narrow screens keep minimum touch targets. Translation is a transient overlay and never
   replaces or persists the original comment text.
 
 #### 4. Validation & Error Matrix
@@ -335,8 +336,8 @@ root comment; a root's `rootCommentId` is its own `id`.
   root descendant removal, duplicate suppression and late revision drops.
 - Action tests assert no entity appears before API success and non-owner delete
   makes zero repository calls.
-- Widget tests assert explicit reply/translate/delete actions, 10/5 grids and
-  the initial/load-more retry states. A device check must distinguish API
+- Widget tests assert explicit reply/translate/delete actions, width-driven
+  emoji/stamp grid columns and the initial/load-more retry states. A device check must distinguish API
   read success from unperformed real-account mutations.
 
 #### 7. Wrong vs Correct
