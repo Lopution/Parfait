@@ -9,6 +9,9 @@ import 'helpers/test_preferences.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/platform/platform_caps.dart';
+import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
+import 'package:pixiv_func/core/user/user_repository.dart';
+import 'package:pixiv_func/features/bookmark/bookmark_tags_page.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/new/new_page.dart';
@@ -256,6 +259,42 @@ void main() {
     final router = await pumpRouter(tester, '/settings/theme');
     expect(router.state.uri.path, '/settings/theme');
     expect(find.byType(SettingsPage), findsNothing);
+  });
+
+  testWidgets('bookmark tag route restores and writes its restrict query', (
+    tester,
+  ) async {
+    final router = await pumpRouter(
+      tester,
+      '/recommended/bookmarks/tags?restrict=private',
+    );
+    expect(router.state.uri.queryParameters['restrict'], 'private');
+    expect(find.byType(BookmarkTagsPage), findsOneWidget);
+    expect(
+      tester
+          .widget<SegmentedButton<BookmarkRestrict>>(
+            find.byType(SegmentedButton<BookmarkRestrict>),
+          )
+          .selected,
+      {BookmarkRestrict.private},
+    );
+
+    unawaited(
+      openBookmarkTags(
+        tester.element(find.byType(BookmarkTagsPage)),
+        restrict: UserRestrict.public,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(router.state.uri.queryParameters['restrict'], 'public');
+    expect(
+      tester
+          .widget<SegmentedButton<BookmarkRestrict>>(
+            find.byType(SegmentedButton<BookmarkRestrict>),
+          )
+          .selected,
+      {BookmarkRestrict.public},
+    );
   });
 
   testWidgets('wide layout uses a rail with settings as a peer entry', (
