@@ -270,9 +270,8 @@ void main() {
     // and confirm is disabled — confirming here would overwrite a private
     // bookmark with the default public+empty-tags values.
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    FilledButton confirm() => tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, '确定'),
-    );
+    FilledButton confirm() =>
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, '确定'));
     expect(confirm().onPressed, isNull);
     await tester.tap(find.text('确定'));
     await tester.pump();
@@ -331,10 +330,7 @@ void main() {
 
     // Global control set: segmented restrict, outlined cancel, filled
     // confirm — same as the follow sheet and the bookmark tags page.
-    expect(
-      find.byType(SegmentedButton<BookmarkRestrict>),
-      findsOneWidget,
-    );
+    expect(find.byType(SegmentedButton<BookmarkRestrict>), findsOneWidget);
     expect(find.byType(OutlinedButton), findsOneWidget);
     expect(find.byType(FilledButton), findsOneWidget);
 
@@ -368,9 +364,7 @@ void main() {
     expect(tester.getCenter(capped).dx, 700);
   });
 
-  testWidgets('edit sheet uses full width on compact surfaces', (
-    tester,
-  ) async {
+  testWidgets('edit sheet uses full width on compact surfaces', (tester) async {
     await _pump(tester);
     await tester.longPress(find.byType(BookmarkSwitchButton));
     await tester.pumpAndSettle();
@@ -381,6 +375,149 @@ void main() {
       ),
       findsNothing,
     );
+  });
+
+  testWidgets('dirty draft asks before closing via cancel button', (
+    tester,
+  ) async {
+    final (_, repository) = await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    // Clean draft: cancel closes directly.
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsNothing);
+
+    // Dirty draft: cancel asks first.
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('私密'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    expect(find.text('收藏插画'), findsOneWidget);
+    expect(repository.adds, isEmpty);
+
+    // Stay: dialog cancel keeps the sheet and its draft.
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsOneWidget);
+    expect(
+      tester
+          .widget<SegmentedButton<BookmarkRestrict>>(
+            find.byType(SegmentedButton<BookmarkRestrict>),
+          )
+          .selected,
+      {BookmarkRestrict.private},
+    );
+
+    // Leave: discard confirms and pops the sheet.
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsNothing);
+    expect(repository.adds, isEmpty);
+  });
+
+  testWidgets('dirty draft asks before closing via drag dismiss and '
+      'system back', (tester) async {
+    await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('私密'));
+    await tester.pumpAndSettle();
+
+    // Downward fling on the sheet chrome is claimed by the draft guard.
+    await tester.fling(find.text('收藏插画'), const Offset(0, 300), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsOneWidget);
+
+    // System back (maybePop path) hits the same confirmation.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsNothing);
+  });
+
+  testWidgets('clean drag dismiss and cancel close without a prompt', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    await tester.fling(find.text('收藏插画'), const Offset(0, 300), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsNothing);
+  });
+
+  testWidgets('failed confirm keeps the sheet open and preserves the draft', (
+    tester,
+  ) async {
+    final (_, repository) = await _pump(tester);
+    repository.addError = StateError('boom');
+
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('私密'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '新タグ');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    // Sheet stays open, the inline error is visible, and the draft is
+    // untouched — nothing was submitted.
+    expect(find.text('收藏插画'), findsOneWidget);
+    expect(find.textContaining('收藏操作失败'), findsWidgets);
+    expect(repository.adds, isEmpty);
+    expect(
+      tester
+          .widget<SegmentedButton<BookmarkRestrict>>(
+            find.byType(SegmentedButton<BookmarkRestrict>),
+          )
+          .selected,
+      {BookmarkRestrict.private},
+    );
+    expect(find.text('新タグ'), findsOneWidget);
+
+    // Retrying after the repository recovers submits the same draft.
+    repository.addError = null;
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsNothing);
+    expect(repository.adds, hasLength(1));
+    expect(repository.adds.single.$2, 'private');
+    expect(repository.adds.single.$3, ['新タグ']);
+  });
+
+  testWidgets('residual tag input text merges into the submitted tags', (
+    tester,
+  ) async {
+    final (_, repository) = await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    // Type but never commit via the keyboard: confirm still folds the
+    // pending text into the tag list.
+    await tester.enterText(find.byType(TextField), '途中タグ');
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('收藏插画'), findsNothing);
+    expect(repository.adds, hasLength(1));
+    expect(repository.adds.single.$3, ['途中タグ']);
   });
 
   testWidgets('failure surfaces a snackbar and restores the icon (R5)', (
