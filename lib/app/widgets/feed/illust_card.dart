@@ -37,6 +37,7 @@ class IllustCard extends ConsumerWidget {
     this.heroScope = 'feed',
     this.rank,
     this.meta,
+    this.onLongPress,
   }) : super(key: key ?? ValueKey('illust-$heroScope-${entity.id}'));
 
   final IllustEntity entity;
@@ -49,6 +50,11 @@ class IllustCard extends ConsumerWidget {
   /// Optional meta line under the author (the history page's date row).
   /// Rendered as the caller hands it over — typically [EntityMetaText].
   final Widget? meta;
+
+  /// Long-press override; defaults to the shared card action sheet.
+  /// Management pages (history selection mode) supply their own so the
+  /// gesture enters selection instead of opening actions.
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -174,6 +180,7 @@ class IllustCard extends ConsumerWidget {
       ref.read(revealedMuteIdsProvider.notifier).reveal(entity.id);
     }
 
+    final longPress = onLongPress ?? () => showCardActionSheet(context, entity);
     return PressScale(
       child: Semantics(
         container: true,
@@ -183,7 +190,7 @@ class IllustCard extends ConsumerWidget {
             ? '${context.l10n.mutedContent}: ${entity.title}, ${entity.user.name}'
             : '${entity.title}, ${entity.user.name}',
         onTap: muted ? reveal : openDetail,
-        onLongPress: () => showCardActionSheet(context, entity),
+        onLongPress: longPress,
         child: GestureDetector(
           excludeFromSemantics: true,
           onTapDown: muted
@@ -196,7 +203,7 @@ class IllustCard extends ConsumerWidget {
                   cardDecodeWidth,
                 ),
           onTap: muted ? reveal : openDetail,
-          onLongPress: () => showCardActionSheet(context, entity),
+          onLongPress: longPress,
           // No outer ClipRRect: the Hero child already clips the image to
           // the same 12px radius and every badge sits 7px inside the
           // bounds, so the extra clip only cost a saveLayer per card per
