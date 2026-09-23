@@ -1138,6 +1138,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsWriteFailed => 'Failed to save settings';
 
   @override
+  String get settingsSummaryOn => 'On';
+
+  @override
+  String get settingsSummaryOff => 'Off';
+
+  @override
+  String settingsHistorySummary(String local, String pixiv) {
+    return 'Local $local · Pixiv $pixiv';
+  }
+
+  @override
+  String settingsMutedSummary(int count) {
+    return '$count muted items';
+  }
+
+  @override
+  String settingsDownloadTasksSummary(int count) {
+    return '$count active tasks';
+  }
+
+  @override
+  String get settingsCredentialConfigured => 'Configured';
+
+  @override
+  String get settingsCredentialNotConfigured => 'Not configured';
+
+  @override
   String get add => 'Add';
 
   @override

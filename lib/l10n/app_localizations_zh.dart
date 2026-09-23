@@ -1088,6 +1088,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsWriteFailed => '设置保存失败';
 
   @override
+  String get settingsSummaryOn => '开';
+
+  @override
+  String get settingsSummaryOff => '关';
+
+  @override
+  String settingsHistorySummary(String local, String pixiv) {
+    return '本地 $local · Pixiv $pixiv';
+  }
+
+  @override
+  String settingsMutedSummary(int count) {
+    return '$count 个屏蔽项';
+  }
+
+  @override
+  String settingsDownloadTasksSummary(int count) {
+    return '$count 个活动任务';
+  }
+
+  @override
+  String get settingsCredentialConfigured => '已配置';
+
+  @override
+  String get settingsCredentialNotConfigured => '未配置';
+
+  @override
   String get add => '添加';
 
   @override

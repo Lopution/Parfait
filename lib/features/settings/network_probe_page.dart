@@ -18,6 +18,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../core/log.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import 'settings_helpers.dart';
 
 /// Same string as the About page (pubspec `version: 0.1.0`).
 const _kAppVersion = '0.1.0';
@@ -250,38 +251,40 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.networkProbeTitle)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            context.l10n.networkProbeHint,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _running ? null : _runAll,
-            icon: _running
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.play_arrow),
-            label: Text(
-              _running
-                  ? context.l10n.networkProbeRunning
-                  : context.l10n.networkProbeRun,
+      body: settingsNarrowBody(
+        ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              context.l10n.networkProbeHint,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-          ),
-          const SizedBox(height: 16),
-          for (final target in _targets)
-            _HostProbePanel(
-              host: target.host,
-              report: _finished[target.host],
-              error: _errors[target.host],
-              running: _running,
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _running ? null : _runAll,
+              icon: _running
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.play_arrow),
+              label: Text(
+                _running
+                    ? context.l10n.networkProbeRunning
+                    : context.l10n.networkProbeRun,
+              ),
             ),
-        ],
+            const SizedBox(height: 16),
+            for (final target in _targets)
+              _HostProbePanel(
+                host: target.host,
+                report: _finished[target.host],
+                error: _errors[target.host],
+                running: _running,
+              ),
+          ],
+        ),
       ),
     );
   }

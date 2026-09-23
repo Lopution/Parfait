@@ -8,6 +8,7 @@ import '../../../app/widgets/settings/settings_section.dart';
 import '../../../core/backup/backup_envelope.dart';
 import '../../../core/backup/backup_service.dart';
 import '../../../l10n/context.dart';
+import '../settings_helpers.dart';
 
 /// Platform file open for backup import. Behind a provider so widget tests
 /// can inject bytes without a platform file picker.
@@ -127,31 +128,33 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(title: Text(l10n.backupSettings)),
-      body: ListView(
-        children: [
-          SettingsSection(title: Text(l10n.backupSettings)),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text(
-              l10n.backupHint,
-              style: Theme.of(context).textTheme.bodySmall,
+      body: settingsNarrowBody(
+        ListView(
+          children: [
+            SettingsSection(title: Text(l10n.backupSettings)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                l10n.backupHint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.file_upload_outlined),
-            title: Text(l10n.backupExport),
-            subtitle: Text(l10n.backupExportHint),
-            enabled: !_busy,
-            onTap: _export,
-          ),
-          ListTile(
-            leading: const Icon(Icons.file_open_outlined),
-            title: Text(l10n.backupImport),
-            subtitle: Text(l10n.backupImportHint),
-            enabled: !_busy,
-            onTap: _import,
-          ),
-        ],
+            ListTile(
+              leading: const Icon(Icons.file_upload_outlined),
+              title: Text(l10n.backupExport),
+              subtitle: Text(l10n.backupExportHint),
+              enabled: !_busy,
+              onTap: _export,
+            ),
+            ListTile(
+              leading: const Icon(Icons.file_open_outlined),
+              title: Text(l10n.backupImport),
+              subtitle: Text(l10n.backupImportHint),
+              enabled: !_busy,
+              onTap: _import,
+            ),
+          ],
+        ),
       ),
     );
   }
