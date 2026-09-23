@@ -636,6 +636,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'viewQuality' => l10n.viewQuality,
   'viewerEnterFullscreen' => l10n.viewerEnterFullscreen,
   'viewerExitFullscreen' => l10n.viewerExitFullscreen,
+  'viewerFitScreen' => l10n.viewerFitScreen,
   'viewerNoImages' => l10n.viewerNoImages,
   'watchLaterAdded' => l10n.watchLaterAdded,
   'watchLaterEmpty' => l10n.watchLaterEmpty,

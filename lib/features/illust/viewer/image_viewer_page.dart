@@ -74,10 +74,21 @@ class ImageViewerPage extends ConsumerStatefulWidget {
   ConsumerState<ImageViewerPage> createState() => _ImageViewerPageState();
 }
 
-class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
+class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
+    with SingleTickerProviderStateMixin {
   late final PageController _pageController;
+  late final AnimationController _zoomController;
   final _transformations = <int, TransformationController>{};
   int _activePage = 0;
+
+  /// The page controller currently being zoom-animated and the tween
+  /// driving it (focal zoom → Matrix4, not a scalar scale).
+  TransformationController? _zoomTarget;
+  Tween<Matrix4>? _zoomTween;
+  late final Animation<double> _zoomCurve;
+
+  /// Focal point of the in-flight double tap, in viewport coordinates.
+  Offset? _doubleTapFocal;
 
   int get _pageCount => widget.urls.length;
 
@@ -92,6 +103,14 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
         ? 0
         : widget.initialPage.clamp(0, _pageCount - 1);
     _pageController = PageController(initialPage: _activePage);
+    _zoomController = AnimationController(
+      vsync: this,
+      duration: MotionTokens.fast,
+    )..addListener(_applyZoomFrame);
+    _zoomCurve = CurvedAnimation(
+      parent: _zoomController,
+      curve: MotionTokens.fastCurve,
+    );
     _pageController.addListener(_onPageChanged);
     _transformationFor(_activePage).addListener(_onTransformed);
     WidgetsBinding.instance.addPostFrameCallback(
@@ -105,6 +124,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
     for (final controller in _transformations.values) {
       controller.dispose();
     }
+    _zoomController.dispose();
     _pageController.dispose();
     if (!_viewerSessionChromeVisible) _setSystemChrome(visible: true);
     super.dispose();
@@ -185,6 +205,35 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
 
   void _toggleChrome() => _setChromeVisible(!_chromeVisible);
 
+  /// fit → 2.5 (at the tap focal) → fit. The cycle is a Matrix4 tween so
+  /// the focal point stays pinned under the user's finger.
+  void _onDoubleTap() {
+    final target = _transformationFor(_activePage);
+    final zoomed =
+        target.value.getMaxScaleOnAxis() > 1.0 + precisionErrorTolerance;
+    final focal =
+        _doubleTapFocal ?? MediaQuery.sizeOf(context).center(Offset.zero);
+    _animateZoom(target, zoomed ? Matrix4.identity() : _focalZoom(focal, 2.5));
+  }
+
+  Matrix4 _focalZoom(Offset focal, double scale) => Matrix4.identity()
+    ..translateByDouble(focal.dx, focal.dy, 0, 1)
+    ..scaleByDouble(scale, scale, scale, 1)
+    ..translateByDouble(-focal.dx, -focal.dy, 0, 1);
+
+  void _animateZoom(TransformationController target, Matrix4 end) {
+    _zoomTarget = target;
+    _zoomTween = Matrix4Tween(begin: target.value, end: end);
+    _zoomController.forward(from: 0);
+  }
+
+  void _applyZoomFrame() {
+    final tween = _zoomTween;
+    final target = _zoomTarget;
+    if (tween == null || target == null) return;
+    target.value = tween.evaluate(_zoomCurve);
+  }
+
   TransformationController _transformationFor(int page) {
     return _transformations.putIfAbsent(page, TransformationController.new);
   }
@@ -211,10 +260,14 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage> {
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                // A lone tap toggles the chrome; the gesture arena gives
-                // the media area priority over InteractiveViewer's pan
-                // recognizers only after the double-tap window resolves.
+                // Tap toggles chrome; double-tap runs the zoom cycle.
+                // One detector registers both so the framework arena does
+                // the ~kDoubleTapTimeout disambiguation (risks R1 — no
+                // custom timer).
                 onTap: _toggleChrome,
+                onDoubleTapDown: (details) =>
+                    _doubleTapFocal = details.localPosition,
+                onDoubleTap: _onDoubleTap,
                 child: _pageCount == 0
                     ? Center(
                         child: Text(

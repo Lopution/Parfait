@@ -4121,6 +4121,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'退出全屏'**
   String get viewerExitFullscreen;
+
+  /// No description provided for @viewerFitScreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'适应屏幕'**
+  String get viewerFitScreen;
 }
 
 class _AppLocalizationsDelegate

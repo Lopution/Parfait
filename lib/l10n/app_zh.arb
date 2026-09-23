@@ -1002,5 +1002,6 @@
     }
   },
   "viewerEnterFullscreen": "进入全屏",
-  "viewerExitFullscreen": "退出全屏"
+  "viewerExitFullscreen": "退出全屏",
+  "viewerFitScreen": "适应屏幕"
 }

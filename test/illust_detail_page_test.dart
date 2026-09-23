@@ -388,11 +388,15 @@ void main() {
         expectViewerChrome(tester, visible: true);
 
         // Tap the media area — chrome fades out (mounted but opacity 0).
+        // The tap resolves only after the double-tap window: pump past
+        // ~kDoubleTapTimeout before asserting.
         await tester.tap(find.byType(PageView));
+        await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
         expectViewerChrome(tester, visible: false);
 
         await tester.tap(find.byType(PageView));
+        await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
         expectViewerChrome(tester, visible: true);
       });
@@ -420,6 +424,7 @@ void main() {
           await tester.pump();
 
           await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 400));
           await tester.pumpAndSettle();
           expectViewerChrome(tester, visible: false);
 
@@ -452,6 +457,99 @@ void main() {
           );
           await tester.pumpAndSettle();
           expectViewerChrome(tester, visible: false);
+        });
+      },
+    );
+
+    testWidgets(
+      'double-tap runs the fit<->2.5 zoom cycle without toggling chrome',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: ['https://i.pximg.net/1/original.jpg'],
+              ),
+            ),
+          );
+          await tester.pump();
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+          expect(scale(), 1.0);
+
+          // fit → 2.5. The second tap must land inside the double-tap
+          // window (>= kDoubleTapMinTime, < kDoubleTapTimeout).
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(2.5, 0.01));
+          expectViewerChrome(tester, visible: true);
+
+          // 2.5 → fit
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(1.0, 0.01));
+        });
+      },
+    );
+
+    testWidgets(
+      'tap/double-tap disambiguation: tap waits out the window, double-tap '
+      'zooms, the next tap toggles chrome again',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: ImageViewerPage(
+                urls: ['https://i.pximg.net/1/original.jpg'],
+              ),
+            ),
+          );
+          await tester.pump();
+
+          double scale() => tester
+              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+              .transformationController!
+              .value
+              .getMaxScaleOnAxis();
+
+          // A lone tap resolves only after the double-tap window; pump past
+          // ~kDoubleTapTimeout before asserting the chrome toggle.
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: false);
+          expect(scale(), 1.0);
+
+          // Double-tap zooms without touching the chrome.
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 80));
+          await tester.tap(find.byType(PageView));
+          await tester.pumpAndSettle();
+          expect(scale(), closeTo(2.5, 0.01));
+          expectViewerChrome(tester, visible: false);
+
+          // The following lone tap toggles chrome again — the disambiguation
+          // resolved cleanly instead of swallowing the tap.
+          await tester.tap(find.byType(PageView));
+          await tester.pump(const Duration(milliseconds: 400));
+          await tester.pumpAndSettle();
+          expectViewerChrome(tester, visible: true);
         });
       },
     );

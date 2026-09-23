@@ -1002,5 +1002,6 @@
     }
   },
   "viewerEnterFullscreen": "Enter fullscreen",
-  "viewerExitFullscreen": "Exit fullscreen"
+  "viewerExitFullscreen": "Exit fullscreen",
+  "viewerFitScreen": "Fit to screen"
 }
