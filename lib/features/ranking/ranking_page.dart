@@ -10,6 +10,7 @@ import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
 
+import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
@@ -108,6 +109,19 @@ class _RankingPageState extends State<RankingPage>
           indicatorSize: TabBarIndicatorSize.label,
           indicatorPadding: const EdgeInsets.only(bottom: 5),
           labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+          onTap: (index) {
+            // TabBar already ran controller.animateTo before this
+            // callback — and TabController._changeIndex early-returns on
+            // a same-index tap, so indexIsChanging is still false only
+            // for a re-tap. That is the in-page re-tap contract: scroll
+            // the current mode's feed to top, nothing else.
+            if (!_tabController.indexIsChanging) {
+              reTapScrollToTop(
+                context,
+                _scrollControllerFor(RankingMode.values[index]),
+              );
+            }
+          },
           tabs: [
             for (final item in RankingMode.values)
               Tab(text: l10nLookupFor(language.locale, item.labelKey)),

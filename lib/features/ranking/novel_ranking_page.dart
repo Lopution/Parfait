@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/motion/feed_entrance.dart';
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/novel_row.dart';
 import '../../app/widgets/replica_empty_state.dart';
+import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
@@ -17,11 +19,18 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 
 /// Novel ranking page mirroring [RankingPage]: a horizontally scrollable
-/// 9-mode tab bar with one keyed feed body per mode.
+/// 9-mode tab bar with one keyed feed body per mode. The active mode is
+/// route-durable (`?mode=`) — `initialMode` seeds the controller and the
+/// route writes echo back through [onModeChanged].
 class NovelRankingPage extends StatefulWidget {
-  const NovelRankingPage({super.key, this.initialMode = NovelRankingMode.day});
+  const NovelRankingPage({
+    super.key,
+    this.initialMode = NovelRankingMode.day,
+    this.onModeChanged,
+  });
 
   final NovelRankingMode initialMode;
+  final ValueChanged<NovelRankingMode>? onModeChanged;
 
   @override
   State<NovelRankingPage> createState() => _NovelRankingPageState();
@@ -32,7 +41,9 @@ class _NovelRankingPageState extends State<NovelRankingPage>
   late final TabController _tabController;
   final _scrollControllers = <NovelRankingMode, ScrollController>{};
   final _entrancePlayed = <int>{};
+  final _loadedModes = <int>{};
   int _selectedIndex = 0;
+  bool _suppressRouteEcho = false;
 
   @override
   void initState() {
@@ -43,6 +54,29 @@ class _NovelRankingPageState extends State<NovelRankingPage>
       initialIndex: NovelRankingMode.values.indexOf(widget.initialMode),
     )..addListener(_handleTabChanged);
     _selectedIndex = _tabController.index;
+    _loadedModes.add(_selectedIndex);
+  }
+
+  @override
+  void didUpdateWidget(NovelRankingPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // context.replace keeps the page key, so a route write lands here as
+    // a widget update. Self-echoes (the write that just ran onModeChanged)
+    // carry the current mode and no-op; only an externally changed param
+    // moves the strip — the controller is never reset.
+    final index = NovelRankingMode.values.indexOf(widget.initialMode);
+    if (widget.initialMode != oldWidget.initialMode &&
+        index != _tabController.index) {
+      // The controller listener would echo this move back through
+      // onModeChanged → context.replace — suppress it: the route already
+      // carries this mode.
+      _suppressRouteEcho = true;
+      try {
+        _tabController.index = index;
+      } finally {
+        _suppressRouteEcho = false;
+      }
+    }
   }
 
   @override
@@ -58,7 +92,13 @@ class _NovelRankingPageState extends State<NovelRankingPage>
 
   void _handleTabChanged() {
     if (_selectedIndex == _tabController.index) return;
-    setState(() => _selectedIndex = _tabController.index);
+    setState(() {
+      _selectedIndex = _tabController.index;
+      _loadedModes.add(_selectedIndex);
+    });
+    if (!_suppressRouteEcho) {
+      widget.onModeChanged?.call(NovelRankingMode.values[_selectedIndex]);
+    }
   }
 
   ScrollController _scrollControllerFor(NovelRankingMode mode) {
@@ -70,7 +110,6 @@ class _NovelRankingPageState extends State<NovelRankingPage>
     final language = ReplicaLanguage.fromTag(
       Localizations.localeOf(context).toLanguageTag(),
     );
-    final mode = NovelRankingMode.values[_selectedIndex];
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
@@ -81,17 +120,48 @@ class _NovelRankingPageState extends State<NovelRankingPage>
           indicatorSize: TabBarIndicatorSize.label,
           indicatorPadding: const EdgeInsets.only(bottom: 5),
           labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+          onTap: (index) {
+            // Same-index taps never reach _changeIndex (it early-returns),
+            // so indexIsChanging is false exactly for a re-tap: scroll the
+            // current mode's feed to top, nothing else.
+            if (!_tabController.indexIsChanging) {
+              reTapScrollToTop(
+                context,
+                _scrollControllerFor(NovelRankingMode.values[index]),
+              );
+            }
+          },
           tabs: [
             for (final item in NovelRankingMode.values)
               Tab(text: l10nLookupFor(language.locale, item.labelKey)),
           ],
         ),
       ),
-      body: _NovelRankingModeBody(
-        key: ValueKey(mode),
-        mode: mode,
-        scrollController: _scrollControllerFor(mode),
-        entrancePlayed: _entrancePlayed,
+      body: RootSwipeSwitcher(
+        tabController: _tabController,
+        // Warm the neighbor slots before a drag uncovers them.
+        onPrepareAdjacent: (index) => setState(() {
+          _loadedModes
+            ..add((index - 1).clamp(0, NovelRankingMode.values.length - 1))
+            ..add((index + 1).clamp(0, NovelRankingMode.values.length - 1));
+        }),
+        child: TabSlideStack(
+          controller: _tabController,
+          children: [
+            for (var i = 0; i < NovelRankingMode.values.length; i++)
+              if (_loadedModes.contains(i))
+                _NovelRankingModeBody(
+                  key: ValueKey(NovelRankingMode.values[i]),
+                  mode: NovelRankingMode.values[i],
+                  scrollController: _scrollControllerFor(
+                    NovelRankingMode.values[i],
+                  ),
+                  entrancePlayed: _entrancePlayed,
+                )
+              else
+                const SizedBox.shrink(),
+          ],
+        ),
       ),
     );
   }

@@ -672,6 +672,17 @@
     }
   },
   "searchReverseIntro": "Выбранное изображение отправляется в выбранный движок; страница результатов открывается в приложении.",
+  "searchReverseFailed": "Ошибка поиска",
+  "searchReverseDone": "Готово",
+  "searchReverseResultCount": "Результатов: {count}",
+  "@searchReverseResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseEngineSwitch": "Сменить сервис",
   "searchNoRepresentative": "У этого тега нет представительной работы",
   "searchFilters": "Фильтры",
   "searchReset": "Сбросить",
@@ -717,6 +728,9 @@
   "searchInvalidDateRange": "Дата начала не может быть позже даты окончания",
   "searchPopularPreviewHint": "Без Premium сортировка по популярности использует предпросмотр",
   "searchNoSuggestions": "Нет подходящих вариантов",
+  "searchSuggestionFill": "Подставить в строку поиска",
+  "searchSuggestionSearch": "Искать сразу",
+  "searchModifyQuery": "Изменить запрос",
   "searchUserAccount": "Аккаунт",
   "illustDetailTitle": "Работа",
   "illustDetailCreateDateUnknown": "Дата публикации неизвестна",
@@ -801,6 +815,7 @@
   "newLoadMoreFailed": "Не удалось загрузить ещё",
   "newRetry": "Повторить",
   "newRefreshFailed": "Не удалось обновить",
+  "recommendedRefreshFailed": "Не удалось обновить",
   "profileId": "ID пользователя",
   "profileAccount": "Аккаунт",
   "profileIntroduction": "Описание",

@@ -111,6 +111,8 @@ class FeedEmpty extends StatelessWidget {
     this.detail,
     this.onRefresh,
     this.retryLabel,
+    this.actionLabel,
+    this.onAction,
   }) : assert(
          onRefresh == null || retryLabel != null,
          'retryLabel is required when onRefresh is provided',
@@ -125,6 +127,11 @@ class FeedEmpty extends StatelessWidget {
   /// is provided — a hardcoded default is how English 'Refresh' leaked into
   /// every locale.
   final String? retryLabel;
+
+  /// Optional secondary action rendered under the refresh button (e.g.
+  /// "modify search" on an empty result page).
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -144,12 +151,26 @@ class FeedEmpty extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ],
-          if (onRefresh != null) ...[
+          if (onRefresh != null || onAction != null) ...[
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onRefresh,
-              icon: const Icon(Icons.refresh),
-              label: Text(retryLabel!),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                if (onRefresh != null)
+                  OutlinedButton.icon(
+                    onPressed: onRefresh,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(retryLabel!),
+                  ),
+                if (onAction != null)
+                  OutlinedButton.icon(
+                    onPressed: onAction,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: Text(actionLabel!),
+                  ),
+              ],
             ),
           ],
         ],

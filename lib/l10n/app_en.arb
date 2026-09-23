@@ -672,6 +672,17 @@
     }
   },
   "searchReverseIntro": "The selected image is uploaded to the chosen engine; the result page opens inside the app.",
+  "searchReverseFailed": "Search failed",
+  "searchReverseDone": "Done",
+  "searchReverseResultCount": "{count} results",
+  "@searchReverseResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseEngineSwitch": "Switch engine",
   "searchNoRepresentative": "This tag has no representative work",
   "searchFilters": "Filters",
   "searchReset": "Reset",
@@ -717,6 +728,9 @@
   "searchInvalidDateRange": "Start date cannot be after end date",
   "searchPopularPreviewHint": "Without Pixiv Premium, popular sort uses preview results",
   "searchNoSuggestions": "No suggestions",
+  "searchSuggestionFill": "Fill into search box",
+  "searchSuggestionSearch": "Search now",
+  "searchModifyQuery": "Edit search",
   "searchUserAccount": "Account",
   "illustDetailTitle": "Artwork",
   "illustDetailCreateDateUnknown": "Upload date unknown",
@@ -801,6 +815,7 @@
   "newLoadMoreFailed": "Failed to load more",
   "newRetry": "Retry",
   "newRefreshFailed": "Refresh failed",
+  "recommendedRefreshFailed": "Refresh failed",
   "profileId": "User ID",
   "profileAccount": "Account",
   "profileIntroduction": "Introduction",

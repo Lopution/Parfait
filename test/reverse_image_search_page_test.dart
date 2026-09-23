@@ -60,7 +60,7 @@ void main() {
       expect(find.text('选择图片'), findsOneWidget);
       await tester.tap(find.text('选择图片'));
       await _pumpUntilVisible(tester, find.text('图片已准备好'));
-      expect(find.text('图片已准备好'), findsOneWidget);
+      expect(find.text('图片已准备好'), findsWidgets);
       expect(find.text('开始反向搜图'), findsOneWidget);
 
       await tester.ensureVisible(find.text('开始反向搜图'));
@@ -124,7 +124,7 @@ void main() {
     );
     await _pumpUntilVisible(tester, find.text('图片已准备好'));
 
-    expect(find.text('图片已准备好'), findsOneWidget);
+    expect(find.text('图片已准备好'), findsWidgets);
     expect(find.text('开始反向搜图'), findsOneWidget);
   });
 
@@ -172,7 +172,7 @@ void main() {
     await tester.tap(find.text('开始反向搜图'));
     await _pumpUntilVisible(tester, find.text('没有找到匹配结果'));
 
-    expect(find.text('没有找到匹配结果'), findsOneWidget);
+    expect(find.text('没有找到匹配结果'), findsWidgets);
     expect(find.byIcon(Icons.error_outline), findsNothing);
   });
 
@@ -429,7 +429,7 @@ void main() {
     await _pumpUntilVisible(tester, find.text('图片已准备好'));
 
     expect(find.byType(ReverseImageSearchPage), findsOneWidget);
-    expect(find.text('图片已准备好'), findsOneWidget);
+    expect(find.text('图片已准备好'), findsWidgets);
     expect(find.text('开始反向搜图'), findsOneWidget);
     expect(platform.deletedPaths, isEmpty);
   });
@@ -459,6 +459,203 @@ void main() {
     expect(find.text('open reverse search'), findsOneWidget);
     expect(find.byType(ReverseImageSearchPage), findsNothing);
     expect(platform.deletedPaths, isNotEmpty);
+  });
+
+  group('task header', () {
+    final header = find.byKey(const ValueKey('reverseTaskHeader'));
+    Finder headerText(String text) =>
+        find.descendant(of: header, matching: find.text(text));
+    Finder thumb() => find.descendant(of: header, matching: find.byType(Image));
+
+    testWidgets('ready/searching/failure keep image, engine and phase', (
+      tester,
+    ) async {
+      final provider = _BlockingProvider();
+      await _pumpPage(
+        tester,
+        platform: platform,
+        providers: {ReverseImageEngine.sauceNao: provider},
+      );
+      await tester.pumpAndSettle();
+
+      // No image context yet — the strip stays out of the idle picker.
+      expect(header, findsNothing);
+
+      await tester.tap(find.text('选择图片'));
+      await _pumpUntilVisible(tester, find.text('图片已准备好'));
+      expect(header, findsOneWidget);
+      expect(thumb(), findsOneWidget);
+      expect(headerText('SauceNAO'), findsOneWidget);
+      expect(headerText('图片已准备好'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('开始反向搜图'));
+      await tester.tap(find.text('开始反向搜图'));
+      await _pumpUntilVisible(tester, find.text('正在搜索…'));
+      // In-flight: same image, same engine, searching phase.
+      expect(header, findsOneWidget);
+      expect(thumb(), findsOneWidget);
+      expect(headerText('SauceNAO'), findsOneWidget);
+      expect(headerText('正在搜索…'), findsOneWidget);
+      // The chip is inert while a search owns the engine slot — bounded
+      // pumps only, the in-flight spinner never lets the tree settle.
+      await tester.tap(headerText('SauceNAO'), warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('IQDB'), findsNothing);
+
+      provider.blocker.complete(
+        const ReverseImageSearchFailure(
+          code: ReverseImageProviderFailureCode.providerUnavailable,
+          message: 'unavailable',
+        ),
+      );
+      await _pumpUntilVisible(tester, find.text('搜索失败'));
+      expect(header, findsOneWidget);
+      expect(thumb(), findsOneWidget);
+      expect(headerText('SauceNAO'), findsOneWidget);
+      expect(headerText('搜索失败'), findsOneWidget);
+    });
+
+    testWidgets('the engine chip switches engines from the header', (
+      tester,
+    ) async {
+      await _pumpPage(
+        tester,
+        platform: platform,
+        providers: {
+          ReverseImageEngine.sauceNao: const _OutcomeProvider(
+            ReverseImageSearchSuccess([]),
+          ),
+          ReverseImageEngine.iqdb: const _OutcomeProvider(
+            ReverseImageSearchSuccess([]),
+          ),
+        },
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择图片'));
+      await _pumpUntilVisible(tester, find.text('图片已准备好'));
+
+      await tester.tap(headerText('SauceNAO'));
+      await tester.pumpAndSettle();
+      // The popup item, not the body's engine ChoiceChip of the same name.
+      await tester.tap(
+        find.widgetWithText(PopupMenuItem<ReverseImageEngine>, 'IQDB'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(headerText('IQDB'), findsOneWidget);
+      expect(find.text('图片已准备好'), findsWidgets);
+      expect(platform.deletedPaths, isEmpty);
+    });
+
+    testWidgets('empty/native/webview/upload successes keep the strip', (
+      tester,
+    ) async {
+      // Empty result list.
+      await _pumpPage(
+        tester,
+        platform: platform,
+        pageKey: const ValueKey('phase-empty'),
+        providers: {
+          ReverseImageEngine.sauceNao: const _OutcomeProvider(
+            ReverseImageSearchSuccess([]),
+          ),
+        },
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择图片'));
+      await _pumpUntilVisible(tester, find.text('开始反向搜图'));
+      await tester.ensureVisible(find.text('开始反向搜图'));
+      await tester.tap(find.text('开始反向搜图'));
+      await _pumpUntilVisible(tester, find.text('没有找到匹配结果'));
+      // The released file's cached decode keeps the thumbnail alive.
+      expect(header, findsOneWidget);
+      expect(thumb(), findsOneWidget);
+      expect(headerText('SauceNAO'), findsOneWidget);
+      expect(headerText('没有找到匹配结果'), findsOneWidget);
+
+      // Native result list.
+      await _pumpPage(
+        tester,
+        platform: platform,
+        pageKey: const ValueKey('phase-native'),
+        providers: {
+          ReverseImageEngine.sauceNao: const _OutcomeProvider(
+            ReverseImageSearchSuccess([
+              ReverseImageHit(similarity: 91.4, pixivId: 5, title: 'hit'),
+            ]),
+          ),
+        },
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择图片'));
+      await _pumpUntilVisible(tester, find.text('开始反向搜图'));
+      await tester.ensureVisible(find.text('开始反向搜图'));
+      await tester.tap(find.text('开始反向搜图'));
+      await _pumpUntilVisible(tester, find.text('hit'));
+      expect(header, findsOneWidget);
+      expect(thumb(), findsOneWidget);
+      expect(headerText('1 个结果'), findsOneWidget);
+      expect(headerText('SauceNAO'), findsOneWidget);
+
+      // WebView success (IQDB) — the InAppWebView fake renders nothing,
+      // but the strip still describes the task above it.
+      await _pumpPage(
+        tester,
+        platform: platform,
+        pageKey: const ValueKey('phase-webview'),
+        providers: {
+          ReverseImageEngine.iqdb: _OutcomeProvider(
+            ReverseImageSearchWebView(
+              html: '<html></html>',
+              observedAt: 'test',
+            ),
+          ),
+        },
+        initialEngine: ReverseImageEngine.iqdb,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择图片'));
+      await _pumpUntilVisible(tester, find.text('开始反向搜图'));
+      await tester.ensureVisible(find.text('开始反向搜图'));
+      await tester.tap(find.text('开始反向搜图'));
+      await _pumpUntilVisible(tester, find.text('已完成'));
+      expect(header, findsOneWidget);
+      expect(thumb(), findsOneWidget);
+      expect(headerText('IQDB'), findsOneWidget);
+      expect(headerText('已完成'), findsOneWidget);
+
+      // WebUpload success (Ascii2D) — file stays owned through the flow.
+      final armer = _FakeArmer('content://armed/1');
+      await _pumpPage(
+        tester,
+        platform: platform,
+        pageKey: const ValueKey('phase-upload'),
+        providers: {
+          ReverseImageEngine.ascii2d: _OutcomeProvider(
+            ReverseImageSearchWebUpload(
+              engine: ReverseImageEngine.ascii2d,
+              uploadPageUrl: Uri.parse('https://ascii2d.net/'),
+              imagePath: image.path,
+              imageMimeType: 'image/png',
+              observedAt: 'test',
+            ),
+          ),
+        },
+        initialEngine: ReverseImageEngine.ascii2d,
+        uploadArmer: armer,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('选择图片'));
+      await _pumpUntilVisible(tester, find.text('开始反向搜图'));
+      await tester.ensureVisible(find.text('开始反向搜图'));
+      await tester.tap(find.text('开始反向搜图'));
+      await _pumpUntilVisible(tester, find.text('点按页面中的上传按钮开始搜索，已选图片会自动填入。'));
+      expect(header, findsOneWidget);
+      expect(thumb(), findsOneWidget);
+      expect(headerText('Ascii2D'), findsOneWidget);
+      expect(headerText('已完成'), findsOneWidget);
+    });
   });
 }
 
@@ -516,6 +713,7 @@ Future<void> _pumpPage(
   ReverseImageInputReference? initialReference,
   ReverseImageEngine? initialEngine,
   ReverseImageUploadArmer? uploadArmer,
+  Key? pageKey,
 }) {
   return tester.pumpWidget(
     ProviderScope(
@@ -525,6 +723,10 @@ Future<void> _pumpPage(
         locale: const Locale('zh', 'CN'),
 
         home: ReverseImageSearchPage(
+          // A distinct key forces a fresh State+session — re-pumping the
+          // same runtimeType otherwise lands in didUpdateWidget and the
+          // old flow survives.
+          key: pageKey,
           initialReference: initialReference,
           platform: platform,
           providers: providers,

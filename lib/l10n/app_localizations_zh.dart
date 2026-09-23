@@ -1408,6 +1408,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseIntro => '选择图片后将上传到所选引擎进行反向检索；结果页在应用内打开。';
 
   @override
+  String get searchReverseFailed => '搜索失败';
+
+  @override
+  String get searchReverseDone => '已完成';
+
+  @override
+  String searchReverseResultCount(int count) {
+    return '$count 个结果';
+  }
+
+  @override
+  String get searchReverseEngineSwitch => '切换引擎';
+
+  @override
   String get searchNoRepresentative => '该标签暂无代表作品';
 
   @override
@@ -1541,6 +1555,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchNoSuggestions => '没有匹配建议';
+
+  @override
+  String get searchSuggestionFill => '填入搜索框';
+
+  @override
+  String get searchSuggestionSearch => '立即搜索';
+
+  @override
+  String get searchModifyQuery => '修改搜索';
 
   @override
   String get searchUserAccount => '账号';
@@ -1708,6 +1731,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get newRefreshFailed => '刷新失败';
+
+  @override
+  String get recommendedRefreshFailed => '刷新失败';
 
   @override
   String get profileId => '用户 ID';

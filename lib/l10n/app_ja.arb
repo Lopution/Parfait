@@ -672,6 +672,17 @@
     }
   },
   "searchReverseIntro": "選択した画像は選択中のエンジンにアップロードされ、結果ページがアプリ内で開きます。",
+  "searchReverseFailed": "検索に失敗しました",
+  "searchReverseDone": "完了",
+  "searchReverseResultCount": "{count} 件の結果",
+  "@searchReverseResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchReverseEngineSwitch": "エンジンを切り替え",
   "searchNoRepresentative": "このタグには代表作品がありません",
   "searchFilters": "フィルター",
   "searchReset": "リセット",
@@ -717,6 +728,9 @@
   "searchInvalidDateRange": "開始日は終了日より後にできません",
   "searchPopularPreviewHint": "プレミアム未加入のため、人気順はプレビュー結果を使用します",
   "searchNoSuggestions": "候補はありません",
+  "searchSuggestionFill": "検索欄に入力",
+  "searchSuggestionSearch": "今すぐ検索",
+  "searchModifyQuery": "検索を編集",
   "searchUserAccount": "アカウント",
   "illustDetailTitle": "作品詳細",
   "illustDetailCreateDateUnknown": "投稿日不明",
@@ -801,6 +815,7 @@
   "newLoadMoreFailed": "追加読み込みに失敗しました",
   "newRetry": "再試行",
   "newRefreshFailed": "更新に失敗しました",
+  "recommendedRefreshFailed": "更新に失敗しました",
   "profileId": "ユーザー ID",
   "profileAccount": "アカウント",
   "profileIntroduction": "紹介",
