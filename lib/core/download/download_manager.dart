@@ -338,6 +338,34 @@ class DownloadManager {
     }
   }
 
+  /// Removes a terminal task from the list along with its durable record.
+  /// In-flight work is not history — dismissing a non-terminal task is a
+  /// no-op; [cancel] must land first. Returns whether anything was removed.
+  bool dismiss(String taskId) {
+    final job = _findById(taskId);
+    if (job == null || !isTerminal(job.snapshot.status)) return false;
+    _jobs.remove(job.key);
+    final groupId = job.snapshot.groupId;
+    final group = groupId == null ? null : _groups[groupId];
+    if (group != null) {
+      group.jobIds.remove(job.id);
+      if (group.jobIds.isEmpty) _groups.remove(groupId);
+    }
+    _persistRemove(job.id);
+    _notifyChange();
+    return true;
+  }
+
+  /// Drops every terminal task — the "clear finished" affordance. Running
+  /// work is untouched. Returns how many tasks were removed.
+  int clearTerminal() {
+    var removed = 0;
+    for (final job in List.of(_jobs.values)) {
+      if (dismiss(job.id)) removed++;
+    }
+    return removed;
+  }
+
   /// Scans durable metadata after process start. Only a complete record whose
   /// account and destination still match the current context becomes
   /// [DownloadStatus.retryable]. Recovery

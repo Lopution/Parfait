@@ -580,6 +580,162 @@ void main() {
     });
   });
 
+  group('dismiss / clearTerminal (D2)', () {
+    test(
+      'dismiss removes a terminal task, its group slot and record',
+      () async {
+        final transport = FakeTransport()
+          ..responses.addAll([
+            ScriptedResponse(
+              contentLength: 1,
+              chunks: [
+                [1],
+              ],
+            ),
+            ScriptedResponse(
+              contentLength: 1,
+              chunks: [
+                [2],
+              ],
+            ),
+          ]);
+        final recovery = MemoryDownloadRecoveryStore();
+        final manager = DownloadManager(
+          transport: transport,
+          sinkFactory: MemorySinkFactory(),
+          recoveryStore: recovery,
+        );
+        addTearDown(manager.dispose);
+        final group = manager.submitGroup([
+          request(pageIndex: 0),
+          request(pageIndex: 1),
+        ]);
+        await _Watcher(manager).pumpUntilTerminal();
+        await manager.flushPersistence();
+        expect(manager.groups.single.jobIds, hasLength(2));
+        expect(recovery.records, isNotEmpty);
+
+        var notifications = 0;
+        final sub = manager.changes.listen((_) => notifications++);
+        addTearDown(sub.cancel);
+
+        // Dismiss one child: the task leaves the list and the group
+        // shrinks in place; the durable record is cleaned.
+        final firstId = group.jobIds.first;
+        expect(manager.dismiss(firstId), isTrue);
+        expect(manager.taskById(firstId), isNull);
+        expect(manager.groups.single.jobIds, hasLength(1));
+        // `changes` is a broadcast stream — the notification lands on a
+        // microtask, not synchronously inside dismiss().
+        await Future<void>.delayed(Duration.zero);
+        expect(notifications, 1);
+        await manager.flushPersistence();
+        expect(
+          recovery.records.where((record) => record.jobId == firstId),
+          isEmpty,
+        );
+
+        // Dismissing the last child drops the now-empty group as well.
+        final lastId = manager.tasks.single.id;
+        expect(manager.dismiss(lastId), isTrue);
+        expect(manager.tasks, isEmpty);
+        expect(manager.groups, isEmpty);
+      },
+    );
+
+    test('dismiss on non-terminal work is a no-op', () async {
+      final gate = Completer<void>();
+      final transport = FakeTransport()
+        ..responses.add(
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [1],
+            ],
+            completers: [gate],
+          ),
+        );
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: MemorySinkFactory(),
+      );
+      addTearDown(manager.dispose);
+      final snapshot = manager.submit(request());
+      for (
+        var i = 0;
+        i < 500 && manager.tasks.single.status != DownloadStatus.running;
+        i++
+      ) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(manager.tasks.single.status, DownloadStatus.running);
+
+      // In-flight work is not history — dismiss refuses.
+      expect(manager.dismiss(snapshot.id), isFalse);
+      expect(manager.tasks, hasLength(1));
+
+      gate.complete();
+      await _Watcher(manager).pumpUntilTerminal();
+      expect(manager.dismiss(snapshot.id), isTrue);
+      expect(manager.tasks, isEmpty);
+    });
+
+    test('clearTerminal drops only finished tasks', () async {
+      final gate = Completer<void>();
+      final transport = FakeTransport()
+        ..responses.addAll([
+          // First submission fails fast (scripted stream error).
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [1],
+            ],
+            error: const DownloadCancelledException(),
+          ),
+          // Second stays running behind its gate.
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [2],
+            ],
+            completers: [gate],
+          ),
+        ]);
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: MemorySinkFactory(),
+      );
+      addTearDown(manager.dispose);
+      manager.submit(request(pageIndex: 0));
+      manager.submit(request(pageIndex: 1));
+      for (
+        var i = 0;
+        i < 500 &&
+            !manager.tasks.any((t) => t.status == DownloadStatus.running);
+        i++
+      ) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      // Wait for the failure to land too.
+      for (
+        var i = 0;
+        i < 500 && !manager.tasks.any((t) => isTerminal(t.status));
+        i++
+      ) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      expect(manager.clearTerminal(), 1);
+      expect(manager.tasks, hasLength(1));
+      expect(manager.tasks.single.status, DownloadStatus.running);
+
+      gate.complete();
+      await _Watcher(manager).pumpUntilTerminal();
+      expect(manager.clearTerminal(), 1);
+      expect(manager.tasks, isEmpty);
+    });
+  });
+
   group('IllustDownloadCoordinator', () {
     test('single page and download-all map to typed requests', () async {
       final transport = FakeTransport();
