@@ -37,6 +37,7 @@ class CommentsPage extends ConsumerStatefulWidget {
 
 class _CommentsPageState extends ConsumerState<CommentsPage> {
   CommentEntity? _replyTarget;
+  final _composerKey = GlobalKey<CommentComposerState>();
 
   CommentFeedQuery get _query =>
       CommentFeedQuery.root(workId: widget.workId, kind: widget.kind);
@@ -57,12 +58,13 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
           Expanded(
             child: _CommentFeedView(
               query: _query,
-              onReply: (comment) => setState(() => _replyTarget = comment),
+              onReply: _replyTo,
               onOpenReplies: (comment) => openCommentReplies(context, comment),
               onDelete: _deleteComment,
             ),
           ),
           CommentComposer(
+            key: _composerKey,
             replyTo: _replyTarget?.user.name,
             onCancelReply: () => setState(() => _replyTarget = null),
             sending: sending,
@@ -93,6 +95,13 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
             stampId: stampId,
           ),
         );
+  }
+
+  /// Reply pill on a feed row: pin the target and raise the keyboard so
+  /// typing lands in the composer without a second tap.
+  void _replyTo(CommentEntity comment) {
+    setState(() => _replyTarget = comment);
+    _composerKey.currentState?.focusForReply();
   }
 
   void _showMutationError(Object error) {
@@ -155,6 +164,7 @@ class CommentRepliesPage extends ConsumerStatefulWidget {
 
 class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   CommentEntity? _replyTarget;
+  final _composerKey = GlobalKey<CommentComposerState>();
 
   CommentFeedQuery get _query => CommentFeedQuery.replies(
     workId: widget.workId,
@@ -187,7 +197,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
                   if (root != null)
                     CommentItem(
                       comment: root,
-                      onReply: () => setState(() => _replyTarget = root),
+                      onReply: () => _replyTo(root),
                       onDelete: () => _deleteComment(root),
                     ),
                   Padding(
@@ -202,11 +212,12 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
                   ),
                 ],
               ),
-              onReply: (comment) => setState(() => _replyTarget = comment),
+              onReply: _replyTo,
               onDelete: _deleteComment,
             ),
           ),
           CommentComposer(
+            key: _composerKey,
             replyTo: replyTarget?.user.name,
             onCancelReply: () => setState(() => _replyTarget = root),
             sending: sending,
@@ -217,6 +228,11 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
         ],
       ),
     );
+  }
+
+  void _replyTo(CommentEntity comment) {
+    setState(() => _replyTarget = comment);
+    _composerKey.currentState?.focusForReply();
   }
 
   Future<void> _send({String? text, int? stampId}) async {

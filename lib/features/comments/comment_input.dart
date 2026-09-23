@@ -129,25 +129,31 @@ class CommentComposerState extends State<CommentComposer> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (widget.replyTo != null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${context.l10n.commentReplyTo}: ${widget.replyTo}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall,
+                Semantics(
+                  // The reply context is one announcement unit — screen
+                  // readers read "Reply to <name>" + the close affordance
+                  // as a single block.
+                  container: true,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${context.l10n.commentReplyTo}: ${widget.replyTo}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: context.l10n.commentCancelReply,
-                        onPressed: _disabled ? null : widget.onCancelReply,
-                        icon: const Icon(Icons.close, size: 18),
-                      ),
-                    ],
+                        IconButton(
+                          tooltip: context.l10n.commentCancelReply,
+                          onPressed: _disabled ? null : widget.onCancelReply,
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               Padding(
