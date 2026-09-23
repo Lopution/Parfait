@@ -193,45 +193,46 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
         autofocus: true,
         onKeyEvent: _onKeyEvent,
         child: ColoredBox(
-        color: palette.background ?? Theme.of(context).scaffoldBackgroundColor,
-        child: Stack(
-          children: [
-            Positioned.fill(child: _buildStage(context, palette)),
-            // legado-style footer tip: title · page · percent, always on
-            // the page edge independent of the chrome bars. The baseline
-            // sits just above the gesture strip — a fixed bottom:4 placed
-            // the line inside it, where the system nav area clipped it.
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
-              child: IgnorePointer(
-                child: Text(
-                  '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 11,
-                    color:
-                        (palette.foreground ??
-                                Theme.of(context).colorScheme.onSurface)
-                            .withValues(alpha: 0.45),
+          color:
+              palette.background ?? Theme.of(context).scaffoldBackgroundColor,
+          child: Stack(
+            children: [
+              Positioned.fill(child: _buildStage(context, palette)),
+              // legado-style footer tip: title · page · percent, always on
+              // the page edge independent of the chrome bars. The baseline
+              // sits just above the gesture strip — a fixed bottom:4 placed
+              // the line inside it, where the system nav area clipped it.
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
+                child: IgnorePointer(
+                  child: Text(
+                    '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                      color:
+                          (palette.foreground ??
+                                  Theme.of(context).colorScheme.onSurface)
+                              .withValues(alpha: 0.45),
+                    ),
                   ),
                 ),
               ),
-            ),
-            _ChromeBar(
-              visible: _chromeVisible,
-              edge: _ChromeEdge.top,
-              child: _buildTopBar(context, palette),
-            ),
-            _ChromeBar(
-              visible: _chromeVisible,
-              edge: _ChromeEdge.bottom,
-              child: _buildBottomBar(context, l10n, palette),
-            ),
-          ],
-        ),
+              _ChromeBar(
+                visible: _chromeVisible,
+                edge: _ChromeEdge.top,
+                child: _buildTopBar(context, palette),
+              ),
+              _ChromeBar(
+                visible: _chromeVisible,
+                edge: _ChromeEdge.bottom,
+                child: _buildBottomBar(context, l10n, palette),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -286,8 +287,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
         },
       ),
     );
-    return widget.spec.bodyWrapper?.call(context, _anchor, content) ??
-        content;
+    return widget.spec.bodyWrapper?.call(context, _anchor, content) ?? content;
   }
 
   Widget _buildTopBar(BuildContext context, NovelReaderPalette palette) {
@@ -356,8 +356,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
             children: [
               if (novel.seriesId != null)
                 _NovelSeriesBar(seriesId: novel.seriesId!, novelId: novel.id)
-              else if (novel.seriesPrevId != null ||
-                  novel.seriesNextId != null)
+              else if (novel.seriesPrevId != null || novel.seriesNextId != null)
                 _NovelAdjacentBar(
                   prevId: novel.seriesPrevId,
                   nextId: novel.seriesNextId,
@@ -459,16 +458,16 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
                       children: [
                         Expanded(
                           child: Slider(
-                            value: preview
-                                .toDouble()
-                                .clamp(0.0, (pageCount - 1).toDouble()),
+                            value: preview.toDouble().clamp(
+                              0.0,
+                              (pageCount - 1).toDouble(),
+                            ),
                             min: 0,
                             max: (pageCount - 1).toDouble(),
                             onChanged: pageCount <= 1
                                 ? null
-                                : (v) => setSheetState(
-                                    () => preview = v.round(),
-                                  ),
+                                : (v) =>
+                                      setSheetState(() => preview = v.round()),
                           ),
                         ),
                         SizedBox(
