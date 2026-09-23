@@ -240,30 +240,42 @@ class CommentComposerState extends State<CommentComposer> {
 
   Widget _buildPanel(BuildContext context) {
     final isEmoji = _inputState == CommentComposerInputState.emoji;
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isEmoji ? 10 : 5,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: isEmoji ? commentEmojiNames.length : commentStampIds.length,
-      itemBuilder: (context, index) {
-        if (isEmoji) {
-          final name = commentEmojiNames[index];
-          return InkResponse(
-            onTap: () => _insertEmoji(name),
-            child: Padding(
-              padding: const EdgeInsets.all(2),
-              child: Image.asset(commentEmojiAsset(name)),
-            ),
-          );
-        }
-        final id = commentStampIds[index];
-        return InkResponse(
-          onTap: () => _sendStamp(id),
-          child: Image.asset(commentStampAsset(id)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Width-driven columns: emoji cells keep a ~48dp touch target,
+        // stamps ~96dp — clamped so narrow panes never shrink below a
+        // usable grid and wide panes cap at the densest useful count.
+        final crossAxisCount = isEmoji
+            ? (constraints.maxWidth / 48).floor().clamp(3, 10).toInt()
+            : (constraints.maxWidth / 96).floor().clamp(2, 5).toInt();
+        return GridView.builder(
+          padding: const EdgeInsets.all(8),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: isEmoji
+              ? commentEmojiNames.length
+              : commentStampIds.length,
+          itemBuilder: (context, index) {
+            if (isEmoji) {
+              final name = commentEmojiNames[index];
+              return InkResponse(
+                onTap: () => _insertEmoji(name),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Image.asset(commentEmojiAsset(name)),
+                ),
+              );
+            }
+            final id = commentStampIds[index];
+            return InkResponse(
+              onTap: () => _sendStamp(id),
+              child: Image.asset(commentStampAsset(id)),
+            );
+          },
         );
       },
     );
