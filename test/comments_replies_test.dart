@@ -1173,6 +1173,55 @@ void main() {
     expect(replyRef(), findsNothing);
   });
 
+  testWidgets(
+    'replies send success returns the reference row to the root author',
+    (tester) async {
+      final repo = _FakeCommentRepository()
+        ..replies = [
+          _comment(12, parentCommentId: 11, rootCommentId: 11, userId: 20),
+        ];
+      await pumpRepliesPage(tester, repo);
+
+      // Pin a non-root target: the reply row's pill trails the header
+      // root's pill in tree order.
+      await tester.tap(find.byIcon(Icons.reply_outlined).last);
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: find.byType(CommentComposer),
+          matching: find.textContaining('user 20'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.enterText(find.byType(TextField), 'hi');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.send_outlined));
+      await tester.pumpAndSettle();
+
+      // Success drops the explicit target — the reference row falls back
+      // to the root author (`_replyTarget ?? root`), and the draft clears.
+      expect(
+        find.descendant(
+          of: find.byType(CommentComposer),
+          matching: find.textContaining('user 20'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(CommentComposer),
+          matching: find.textContaining('user 10'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+        isEmpty,
+      );
+    },
+  );
+
   testWidgets('a mid-flight retarget is not cleared by the old send', (
     tester,
   ) async {
