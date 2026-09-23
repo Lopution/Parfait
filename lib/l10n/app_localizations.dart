@@ -3792,6 +3792,18 @@ abstract class AppLocalizations {
   /// **'分享'**
   String get cardActionShare;
 
+  /// No description provided for @share.
+  ///
+  /// In zh, this message translates to:
+  /// **'分享'**
+  String get share;
+
+  /// No description provided for @openInBrowser.
+  ///
+  /// In zh, this message translates to:
+  /// **'在浏览器打开'**
+  String get openInBrowser;
+
   /// No description provided for @linkCopied.
   ///
   /// In zh, this message translates to:

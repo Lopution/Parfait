@@ -917,6 +917,8 @@
   "cardActionWatchLater": "Watch later",
   "cardActionRemoveWatchLater": "Remove from Watch later",
   "cardActionShare": "Share",
+  "share": "Share",
+  "openInBrowser": "Open in browser",
   "linkCopied": "Link copied",
   "copyLink": "Copy link",
   "openLink": "Open link",

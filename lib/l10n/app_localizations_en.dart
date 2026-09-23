@@ -2016,6 +2016,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cardActionShare => 'Share';
 
   @override
+  String get share => 'Share';
+
+  @override
+  String get openInBrowser => 'Open in browser';
+
+  @override
   String get linkCopied => 'Link copied';
 
   @override
