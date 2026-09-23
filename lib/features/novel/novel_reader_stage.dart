@@ -239,9 +239,11 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
           });
         },
         onAnchorChanged: (anchor, cause) {
-          if (_anchor == anchor) return;
-          setState(() => _anchor = anchor);
-          _persistAnchor(anchor);
+          if (_anchor != anchor) setState(() => _anchor = anchor);
+          // D1: only a user-committed turn persists progress. Layout
+          // echoes (open/restore, settings relayout) are not reads —
+          // opening and closing the book leaves no record behind.
+          if (cause == NovelAnchorCause.userTurn) _persistAnchor(anchor);
         },
       ),
     );
