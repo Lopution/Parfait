@@ -157,8 +157,31 @@ void main() {
     // the card in AbsorbPointer — the action is tappable immediately.
     await tester.pump();
     expect(find.byType(SnackBar), findsOneWidget);
+    final controller =
+        tester.widget<SnackBar>(find.byType(SnackBar)).animation!
+            as AnimationController;
+    expect(controller.duration, Duration.zero);
+    expect(controller.reverseDuration, Duration.zero);
     await tester.tap(find.text('打开'));
     expect(tapped, isTrue);
+  });
+
+  testWidgets('the shared entrance flight is the mounted animation style', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_branchHost(child: _triggerButton()));
+    await tester.tap(find.text('show'));
+    await tester.pump();
+
+    // showSnackBar mounts the style onto the entrance controller itself —
+    // the SnackBar's `animation` IS that controller. Asserting its
+    // durations pins appSnackBarAnimationStyle as the mounted style rather
+    // than AnimationStyle.noAnimation or the ~120ms M2 default.
+    final controller =
+        tester.widget<SnackBar>(find.byType(SnackBar)).animation!
+            as AnimationController;
+    expect(controller.duration, MotionTokens.medium);
+    expect(controller.reverseDuration, MotionTokens.fast);
   });
 
   testWidgets('wide layout without a bottom bar still shows the snackbar', (
