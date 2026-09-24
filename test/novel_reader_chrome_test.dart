@@ -173,6 +173,44 @@ void main() {
     expect(find.text('novel 1'), findsNothing);
   });
 
+  testWidgets('system back pops the page when the chrome is hidden', (
+    tester,
+  ) async {
+    // §5.4 ordering leg three: canPop = !chromeVisible, so with the bars
+    // already hidden a system back must leave the page outright (the
+    // chrome-first interception only applies while chrome is visible).
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: _Host(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      // Detail + webview fetches, then the first layout pass.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    expect(find.byType(PageView), findsOneWidget);
+    // Chrome starts hidden — the back affordance is not on screen.
+    expect(find.byIcon(Icons.arrow_back), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(NovelPage), findsNothing);
+    expect(find.text('open'), findsOneWidget);
+  });
+
   testWidgets('explicit back leaves the page even while chrome is visible', (
     tester,
   ) async {
