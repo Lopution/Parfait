@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/app/haptics/app_haptics.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
+import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/download/download_providers.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
@@ -65,12 +66,15 @@ Future<void> _drain(
   }
 }
 
-DownloadRequest _req(int id) => DownloadRequest(
-  illustId: id,
-  pageIndex: 0,
-  url: Uri.parse('https://i.pximg.net/$id/p0.jpg'),
-  target: DownloadTarget.illustPage,
-);
+DownloadRequest _req(int id, {String? title, NamingRule? namingRule}) =>
+    DownloadRequest(
+      illustId: id,
+      pageIndex: 0,
+      url: Uri.parse('https://i.pximg.net/$id/p0.jpg'),
+      target: DownloadTarget.illustPage,
+      title: title,
+      namingRule: namingRule,
+    );
 
 ScriptedResponse _gated(Completer<void> gate, {int byte = 1}) =>
     ScriptedResponse(
@@ -540,4 +544,84 @@ void main() {
     // Let the completed download's stream drain finish before teardown.
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets(
+    'narrow download row stacks long names and keeps actions usable',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final gate = Completer<void>();
+      final longTitle = List.filled(80, '长').join();
+      final (container, manager, _) = await _world(
+        maxConcurrent: 1,
+        responses: [
+          _gated(gate),
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [2],
+            ],
+          ),
+        ],
+      );
+      manager.submitGroup([
+        _req(
+          42,
+          title: longTitle,
+          namingRule: const NamingRule(preset: NamingPreset.titleId),
+        ),
+        _req(43),
+      ]);
+      await _pumpPage(tester, container);
+      await _drain(
+        tester,
+        () => manager.tasks.first.status == DownloadStatus.running,
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(Card), findsNWidgets(3));
+      final groupCard = find.byType(Card).first;
+      final longNameTaskCard = find.byType(Card).at(1);
+      expect(
+        find.descendant(of: groupCard, matching: find.byIcon(Icons.more_vert)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: longNameTaskCard,
+          matching: find.byIcon(Icons.more_vert),
+        ),
+        findsOneWidget,
+      );
+      final taskTitle = tester.widget<Text>(
+        find.text(manager.tasks.first.displayName),
+      );
+      expect(taskTitle.maxLines, 2);
+      expect(taskTitle.overflow, TextOverflow.ellipsis);
+      expect(find.byTooltip('暂停'), findsNWidgets(2));
+      await tester.tap(
+        find.descendant(
+          of: longNameTaskCard,
+          matching: find.byTooltip(
+            MaterialLocalizations.of(
+              tester.element(find.byType(DownloadTasksPage)),
+            ).showMenuTooltip,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('取消'), findsOneWidget);
+
+      gate.complete();
+      await _drain(
+        tester,
+        () => manager.tasks.every(
+          (task) => task.status == DownloadStatus.succeeded,
+        ),
+      );
+    },
+  );
 }
