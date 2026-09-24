@@ -306,22 +306,37 @@ class _DownloadGroupSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Card(
-          child: ListTile(
-            title: Text(l10n.downloadGroupTitle(group.childCount)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_statusText(context)),
-                LinearProgressIndicator(value: progress),
-                Text(
-                  l10n.downloadGroupProgress(
-                    group.succeededCount,
-                    group.childCount,
-                  ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 420;
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DownloadCardHeading(
+                      title: l10n.downloadGroupTitle(group.childCount),
+                      compact: compact,
+                      actions: _DownloadActionStrip(
+                        actions: _groupActions(context, children),
+                        compact: compact,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_statusText(context)),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.downloadGroupProgress(
+                        group.succeededCount,
+                        group.childCount,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            trailing: _groupActions(context, children),
+              );
+            },
           ),
         ),
         // Child rows indent under the group header — the parent/child
@@ -351,7 +366,7 @@ class _DownloadGroupSection extends StatelessWidget {
   /// pause+cancel, retryable/failed/canceled resume+cancel, succeeded
   /// offers 查看 (first succeeded work) + 移除; a fully-terminal orphaned
   /// group can only be removed.
-  Widget _groupActions(
+  List<_DownloadAction> _groupActions(
     BuildContext context,
     List<DownloadTaskSnapshot> children,
   ) {
@@ -363,74 +378,65 @@ class _DownloadGroupSection extends StatelessWidget {
     }
 
     return switch (group.status) {
-      DownloadGroupStatus.queued || DownloadGroupStatus.running => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: l10n.pauseDownload,
-            icon: const Icon(Icons.pause),
-            onPressed: () => unawaited(manager.pauseGroup(group.id)),
-          ),
-          IconButton(
-            tooltip: l10n.cancelDownload,
-            icon: const Icon(Icons.close),
-            onPressed: () => unawaited(manager.cancelGroup(group.id)),
-          ),
-        ],
-      ),
+      DownloadGroupStatus.queued || DownloadGroupStatus.running => [
+        _DownloadAction(
+          label: l10n.pauseDownload,
+          icon: Icons.pause,
+          onPressed: () => unawaited(manager.pauseGroup(group.id)),
+        ),
+        _DownloadAction(
+          label: l10n.cancelDownload,
+          icon: Icons.close,
+          onPressed: () => unawaited(manager.cancelGroup(group.id)),
+        ),
+      ],
       DownloadGroupStatus.retryable ||
       DownloadGroupStatus.failed ||
-      DownloadGroupStatus.canceled => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            // A paused group continues (resume anchors); a failed or
-            // canceled group retries — same resumeGroup entry, the verb
-            // follows the dominant child state.
-            tooltip: group.status == DownloadGroupStatus.retryable
-                ? l10n.resumeDownload
-                : l10n.retryDownload,
-            icon: Icon(
-              group.status == DownloadGroupStatus.retryable
-                  ? Icons.play_arrow
-                  : Icons.refresh,
-            ),
-            onPressed: () => manager.resumeGroup(group.id),
-          ),
-          IconButton(
-            tooltip: l10n.cancelDownload,
-            icon: const Icon(Icons.close),
-            onPressed: () => unawaited(manager.cancelGroup(group.id)),
-          ),
-        ],
-      ),
-      DownloadGroupStatus.succeeded => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: l10n.downloadViewResult,
-            icon: const Icon(Icons.open_in_new),
-            onPressed: () {
-              final first = children.firstWhere(
-                (child) => child.status == DownloadStatus.succeeded,
-              );
-              unawaited(openIllust(context, first.illustId));
-            },
-          ),
-          IconButton(
-            tooltip: l10n.downloadRemoveRecord,
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: dismissChildren,
-          ),
-        ],
-      ),
-      DownloadGroupStatus.orphaned => IconButton(
-        tooltip: l10n.downloadRemoveRecord,
-        icon: const Icon(Icons.remove_circle_outline),
-        onPressed: dismissChildren,
-      ),
+      DownloadGroupStatus.canceled => [
+        _DownloadAction(
+          // A paused group continues (resume anchors); a failed or canceled
+          // group retries — same resumeGroup entry, the verb follows the
+          // dominant child state.
+          label: group.status == DownloadGroupStatus.retryable
+              ? l10n.resumeDownload
+              : l10n.retryDownload,
+          icon: group.status == DownloadGroupStatus.retryable
+              ? Icons.play_arrow
+              : Icons.refresh,
+          onPressed: () => manager.resumeGroup(group.id),
+        ),
+        _DownloadAction(
+          label: l10n.cancelDownload,
+          icon: Icons.close,
+          onPressed: () => unawaited(manager.cancelGroup(group.id)),
+        ),
+      ],
+      DownloadGroupStatus.succeeded => [
+        _DownloadAction(
+          label: l10n.downloadViewResult,
+          icon: Icons.open_in_new,
+          onPressed: () {
+            final first = children.firstWhere(
+              (child) => child.status == DownloadStatus.succeeded,
+            );
+            unawaited(openIllust(context, first.illustId));
+          },
+        ),
+        _DownloadAction(
+          label: l10n.downloadRemoveRecord,
+          icon: Icons.remove_circle_outline,
+          onPressed: dismissChildren,
+        ),
+      ],
+      DownloadGroupStatus.orphaned => [
+        _DownloadAction(
+          label: l10n.downloadRemoveRecord,
+          icon: Icons.remove_circle_outline,
+          onPressed: dismissChildren,
+        ),
+      ],
       // finalizing/canceling are in-flight teardown — no actions.
-      _ => const SizedBox.shrink(),
+      _ => const [],
     };
   }
 
@@ -449,6 +455,104 @@ class _DownloadGroupSection extends StatelessWidget {
         _everyRetryablePaused ? l10n.downloadPaused : l10n.downloadFailed,
       DownloadGroupStatus.orphaned => l10n.downloadFailed,
     };
+  }
+}
+
+@immutable
+class _DownloadAction {
+  const _DownloadAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+}
+
+class _DownloadActionStrip extends StatelessWidget {
+  const _DownloadActionStrip({required this.actions, required this.compact});
+
+  final List<_DownloadAction> actions;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    if (actions.isEmpty) return const SizedBox.shrink();
+    if (!compact || actions.length == 1) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [for (final action in actions) _button(action)],
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _button(actions.first),
+        PopupMenuButton<_DownloadAction>(
+          tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+          onSelected: (action) => action.onPressed(),
+          itemBuilder: (context) => [
+            for (final action in actions.skip(1))
+              PopupMenuItem<_DownloadAction>(
+                value: action,
+                child: Row(
+                  children: [
+                    Icon(action.icon, size: 20),
+                    const SizedBox(width: 12),
+                    Text(action.label),
+                  ],
+                ),
+              ),
+          ],
+          icon: const Icon(Icons.more_vert),
+        ),
+      ],
+    );
+  }
+
+  Widget _button(_DownloadAction action) => IconButton(
+    tooltip: action.label,
+    onPressed: action.onPressed,
+    icon: Icon(action.icon),
+  );
+}
+
+class _DownloadCardHeading extends StatelessWidget {
+  const _DownloadCardHeading({
+    required this.title,
+    required this.compact,
+    required this.actions,
+  });
+
+  final String title;
+  final bool compact;
+  final Widget actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      title,
+      maxLines: compact ? 2 : 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.titleMedium,
+    );
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          text,
+          Align(alignment: Alignment.centerRight, child: actions),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: text),
+        actions,
+      ],
+    );
   }
 }
 
@@ -480,27 +584,54 @@ class _DownloadTaskTile extends StatelessWidget {
         ? 1.0
         : task.progress;
     return Card(
-      child: ListTile(
-        selected: managing && selected,
-        onTap: managing ? onToggle : null,
-        onLongPress: managing ? null : onEnterManaging,
-        title: Text(task.displayName, overflow: TextOverflow.ellipsis),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_downloadStatusText(context)),
-            LinearProgressIndicator(value: progress),
-            if (task.error != null &&
-                task.failureKind != DownloadFailureKind.paused)
-              Text(task.error!),
-          ],
-        ),
-        trailing: managing
-            ? Icon(
-                selected ? Icons.check_circle : Icons.radio_button_unchecked,
-                color: selected ? Theme.of(context).colorScheme.primary : null,
-              )
-            : _trailingActions(context),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 420;
+          final actions = managing
+              ? Icon(
+                  selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                )
+              : _DownloadActionStrip(
+                  actions: _taskActions(context),
+                  compact: compact,
+                );
+          return InkWell(
+            onTap: managing ? onToggle : null,
+            onLongPress: managing ? null : onEnterManaging,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _DownloadCardHeading(
+                    title: task.displayName,
+                    compact: compact && !managing,
+                    actions: actions,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(_downloadStatusText(context)),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(value: progress),
+                  if (task.error != null &&
+                      task.failureKind != DownloadFailureKind.paused) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      task.error!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -508,90 +639,79 @@ class _DownloadTaskTile extends StatelessWidget {
   /// §5.7/§8.2 action mapping: 取消 only terminates in-flight work, 移除
   /// drops a terminal record, 继续 resumes a paused anchor (not the retry
   /// icon), 重试 re-attempts a real failure, 查看 opens the finished work.
-  Widget _trailingActions(BuildContext context) {
+  List<_DownloadAction> _taskActions(BuildContext context) {
     final l10n = context.l10n;
     final pausedRetryable =
         task.status == DownloadStatus.retryable &&
         task.failureKind == DownloadFailureKind.paused;
     return switch (task.status) {
-      DownloadStatus.queued => IconButton(
-        tooltip: l10n.cancelDownload,
-        icon: const Icon(Icons.close),
-        onPressed: () => unawaited(manager.cancel(task.id)),
-      ),
-      DownloadStatus.running => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: l10n.pauseDownload,
-            icon: const Icon(Icons.pause),
-            onPressed: () => unawaited(manager.pause(task.id)),
-          ),
-          IconButton(
-            tooltip: l10n.cancelDownload,
-            icon: const Icon(Icons.close),
-            onPressed: () => unawaited(manager.cancel(task.id)),
-          ),
-        ],
-      ),
+      DownloadStatus.queued => [
+        _DownloadAction(
+          label: l10n.cancelDownload,
+          icon: Icons.close,
+          onPressed: () => unawaited(manager.cancel(task.id)),
+        ),
+      ],
+      DownloadStatus.running => [
+        _DownloadAction(
+          label: l10n.pauseDownload,
+          icon: Icons.pause,
+          onPressed: () => unawaited(manager.pause(task.id)),
+        ),
+        _DownloadAction(
+          label: l10n.cancelDownload,
+          icon: Icons.close,
+          onPressed: () => unawaited(manager.cancel(task.id)),
+        ),
+      ],
       // In-flight teardown (finalizing/canceling) takes no further
       // action — the status text carries the state.
-      DownloadStatus.finalizing ||
-      DownloadStatus.canceling => const SizedBox.shrink(),
-      DownloadStatus.retryable => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            // A paused task continues from its preserved resume anchor —
-            // semantically 继续, not 重试.
-            tooltip: pausedRetryable ? l10n.resumeDownload : l10n.retryDownload,
-            icon: Icon(pausedRetryable ? Icons.play_arrow : Icons.refresh),
-            onPressed: () => manager.retry(task.id),
-          ),
-          // A paused (retryable) task may still be canceled — cancel is
-          // what discards the preserved partial output.
-          IconButton(
-            tooltip: l10n.cancelDownload,
-            icon: const Icon(Icons.close),
-            onPressed: () => unawaited(manager.cancel(task.id)),
-          ),
-        ],
-      ),
-      DownloadStatus.failed || DownloadStatus.canceled => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: l10n.retryDownload,
-            icon: const Icon(Icons.refresh),
-            onPressed: () => manager.retry(task.id),
-          ),
-          IconButton(
-            tooltip: l10n.downloadRemoveRecord,
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: () => manager.dismiss(task.id),
-          ),
-        ],
-      ),
-      DownloadStatus.succeeded => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: l10n.downloadViewResult,
-            icon: const Icon(Icons.open_in_new),
-            onPressed: () => unawaited(openIllust(context, task.illustId)),
-          ),
-          IconButton(
-            tooltip: l10n.downloadRemoveRecord,
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: () => manager.dismiss(task.id),
-          ),
-        ],
-      ),
-      DownloadStatus.orphaned => IconButton(
-        tooltip: l10n.downloadRemoveRecord,
-        icon: const Icon(Icons.remove_circle_outline),
-        onPressed: () => manager.dismiss(task.id),
-      ),
+      DownloadStatus.finalizing || DownloadStatus.canceling => const [],
+      DownloadStatus.retryable => [
+        _DownloadAction(
+          // A paused task continues from its preserved resume anchor —
+          // semantically 继续, not 重试.
+          label: pausedRetryable ? l10n.resumeDownload : l10n.retryDownload,
+          icon: pausedRetryable ? Icons.play_arrow : Icons.refresh,
+          onPressed: () => manager.retry(task.id),
+        ),
+        _DownloadAction(
+          label: l10n.cancelDownload,
+          icon: Icons.close,
+          onPressed: () => unawaited(manager.cancel(task.id)),
+        ),
+      ],
+      DownloadStatus.failed || DownloadStatus.canceled => [
+        _DownloadAction(
+          label: l10n.retryDownload,
+          icon: Icons.refresh,
+          onPressed: () => manager.retry(task.id),
+        ),
+        _DownloadAction(
+          label: l10n.downloadRemoveRecord,
+          icon: Icons.remove_circle_outline,
+          onPressed: () => manager.dismiss(task.id),
+        ),
+      ],
+      DownloadStatus.succeeded => [
+        _DownloadAction(
+          label: l10n.downloadViewResult,
+          icon: Icons.open_in_new,
+          onPressed: () => unawaited(openIllust(context, task.illustId)),
+        ),
+        _DownloadAction(
+          label: l10n.downloadRemoveRecord,
+          icon: Icons.remove_circle_outline,
+          onPressed: () => manager.dismiss(task.id),
+        ),
+      ],
+      DownloadStatus.orphaned => [
+        _DownloadAction(
+          label: l10n.downloadRemoveRecord,
+          icon: Icons.remove_circle_outline,
+          onPressed: () => manager.dismiss(task.id),
+        ),
+      ],
     };
   }
 
