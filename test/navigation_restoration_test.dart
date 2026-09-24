@@ -13,13 +13,19 @@ import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
+import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
+import 'package:pixiv_func/core/illust/recommended_repository.dart';
+import 'package:pixiv_func/core/new/new_feed_models.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/novel/novel_repository.dart';
 import 'package:pixiv_func/core/search/search_models.dart';
 import 'package:pixiv_func/core/search/search_repository.dart';
 import 'package:pixiv_func/core/search/search_trending_controller.dart';
+import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
+import 'package:pixiv_func/features/new/new_page.dart';
+import 'package:pixiv_func/features/profile/bookmark_tag_feed_page.dart';
 import 'package:pixiv_func/features/ranking/novel_ranking_page.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
@@ -270,6 +276,136 @@ void main() {
           .initialMode,
       NovelRankingMode.day,
     );
+  });
+
+  testWidgets('replaces and restores the recommended content type', (
+    tester,
+  ) async {
+    final router = createPixivRouter(
+      initialLocation: '/recommended?type=manga',
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _routerApp(
+        router,
+        httpHandler: (_) async =>
+            _json({'illusts': <Object?>[], 'next_url': null}),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      tester
+          .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
+          .initialType,
+      RecommendedContentType.manga,
+    );
+
+    // A type tap writes the durable value back through context.replace.
+    await tester.tap(find.text('插画'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended');
+    expect(router.state.uri.queryParameters['type'], 'illust');
+    expect(
+      tester
+          .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
+          .initialType,
+      RecommendedContentType.illust,
+    );
+
+    await tester.restartAndRestore();
+    await tester.pump();
+
+    expect(router.state.uri.path, '/recommended');
+    expect(router.state.uri.queryParameters['type'], 'illust');
+    expect(
+      tester
+          .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
+          .initialType,
+      RecommendedContentType.illust,
+    );
+  });
+
+  testWidgets('replaces and restores the new feed scope and type', (
+    tester,
+  ) async {
+    final router = createPixivRouter(
+      initialLocation: '/new?scope=everyone&type=novel',
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _routerApp(
+        router,
+        httpHandler: (_) async =>
+            _json({'novels': <Object?>[], 'next_url': null}),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    var page = tester.widget<NewPage>(find.byType(NewPage));
+    expect(page.initialScope, NewFeedScope.everyone);
+    expect(page.initialType, NewFeedType.novel);
+
+    // A scope tap writes scope+type back through context.replace — the
+    // pair stays one durable unit.
+    await tester.tap(find.text('关注'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/new');
+    expect(router.state.uri.queryParameters['scope'], 'following');
+    expect(router.state.uri.queryParameters['type'], 'novel');
+    page = tester.widget<NewPage>(find.byType(NewPage));
+    expect(page.initialScope, NewFeedScope.following);
+    expect(page.initialType, NewFeedType.novel);
+
+    await tester.restartAndRestore();
+    await tester.pump();
+
+    expect(router.state.uri.path, '/new');
+    expect(router.state.uri.queryParameters['scope'], 'following');
+    expect(router.state.uri.queryParameters['type'], 'novel');
+    page = tester.widget<NewPage>(find.byType(NewPage));
+    expect(page.initialScope, NewFeedScope.following);
+    expect(page.initialType, NewFeedType.novel);
+  });
+
+  testWidgets('restores the bookmark tag feed tag and restrict', (
+    tester,
+  ) async {
+    final router = createPixivRouter(
+      initialLocation: '/recommended/bookmarks/tag?tag=cat&restrict=private',
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _routerApp(
+        router,
+        httpHandler: (_) async =>
+            _json({'illusts': <Object?>[], 'next_url': null}),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    var page = tester.widget<BookmarkTagFeedPage>(
+      find.byType(BookmarkTagFeedPage),
+    );
+    expect(page.tag, 'cat');
+    expect(page.restrict, BookmarkRestrict.private);
+    expect(router.state.uri.queryParameters['tag'], 'cat');
+    expect(router.state.uri.queryParameters['restrict'], 'private');
+
+    // Drain the branch landing-ink timer before tearing the tree down.
+    await tester.pumpAndSettle();
+    await tester.restartAndRestore();
+    await tester.pumpAndSettle();
+
+    page = tester.widget<BookmarkTagFeedPage>(find.byType(BookmarkTagFeedPage));
+    expect(page.tag, 'cat');
+    expect(page.restrict, BookmarkRestrict.private);
   });
 
   testWidgets('restores a representative feed offset', (tester) async {
