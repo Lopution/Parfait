@@ -302,6 +302,16 @@ class _TrendingTagTile extends StatelessWidget {
                     ),
                   ),
                 ),
+              if (representative != null)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: IconButton.filledTonal(
+                    tooltip: context.l10n.viewerOpenDetail,
+                    onPressed: () => _openRepresentative(context),
+                    icon: const Icon(Icons.open_in_new),
+                  ),
+                ),
               Align(
                 alignment: representative == null
                     ? Alignment.center

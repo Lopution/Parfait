@@ -1000,6 +1000,16 @@ class _UploadInAppWebView extends StatefulWidget {
 class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
   String? _error;
   double? _progress;
+  bool _showUploadHint = true;
+
+  @override
+  void didUpdateWidget(covariant _UploadInAppWebView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.upload.uploadPageUrl != widget.upload.uploadPageUrl ||
+        oldWidget.upload.imagePath != widget.upload.imagePath) {
+      _showUploadHint = true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1020,15 +1030,22 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
     }
     return Column(
       children: [
-        MaterialBanner(
-          leading: const Icon(Icons.upload_file_outlined),
-          content: Text(
-            widget.upload.armedUri == null
-                ? context.l10n.searchReverseUploadPickHint
-                : context.l10n.searchReverseUploadTapHint,
+        if (_showUploadHint)
+          MaterialBanner(
+            leading: const Icon(Icons.upload_file_outlined),
+            content: Text(
+              widget.upload.armedUri == null
+                  ? context.l10n.searchReverseUploadPickHint
+                  : context.l10n.searchReverseUploadTapHint,
+            ),
+            actions: [
+              IconButton(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: () => setState(() => _showUploadHint = false),
+                icon: const Icon(Icons.close),
+              ),
+            ],
           ),
-          actions: const [SizedBox.shrink()],
-        ),
         Expanded(
           child: Stack(
             children: [
