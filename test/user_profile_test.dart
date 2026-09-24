@@ -1330,6 +1330,99 @@ void main() {
     );
     expect(find.byType(AlertDialog), findsNothing);
   });
+
+  group('profile tab label slots', () {
+    const baseSize = 14.0;
+    const scaleFloor = 0.55;
+
+    Future<void> pumpTabs(
+      WidgetTester tester, {
+      required Locale locale,
+      required bool isMe,
+      double width = 390,
+    }) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = TabController(length: isMe ? 5 : 4, vsync: tester);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: locale,
+          home: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: ReplicaProfileTabsDelegate(
+                    controller: controller,
+                    isMe: isMe,
+                    section: ProfileWorkSection.illust,
+                    onTabTap: (_) {},
+                    onSectionChanged: (_) {},
+                  ),
+                ),
+                const SliverFillRemaining(),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    Finder fittedBoxes() => find.descendant(
+      of: find.byType(TabBar),
+      matching: find.byType(FittedBox),
+    );
+
+    testWidgets('fitting labels keep equal-width slots at natural size', (
+      tester,
+    ) async {
+      // zh 5-tab isMe: the widest label (3 glyphs ~ 42px) fits the 62px
+      // slot — the five-slot mirror stays, labels at full size.
+      await pumpTabs(tester, locale: const Locale('zh', 'CN'), isMe: true);
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(bar.isScrollable, isFalse);
+      expect(bar.labelStyle!.fontSize, baseSize);
+      // The unbounded scaler that used to crush labels is gone entirely.
+      expect(fittedBoxes(), findsNothing);
+    });
+
+    testWidgets('long labels scale down but never below the floor', (
+      tester,
+    ) async {
+      // en 4-tab: "Bookmarked" ~ 140px in an 81.5px slot -> scale ~ 0.58,
+      // inside the bounded range — equal slots stay, font >= floor.
+      await pumpTabs(tester, locale: const Locale('en'), isMe: false);
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(bar.isScrollable, isFalse);
+      expect(bar.labelStyle!.fontSize, lessThan(baseSize));
+      expect(
+        bar.labelStyle!.fontSize,
+        greaterThanOrEqualTo(baseSize * scaleFloor),
+      );
+      expect(fittedBoxes(), findsNothing);
+    });
+
+    testWidgets('narrow surface + long translation + five tabs scroll instead '
+        'of shrinking', (tester) async {
+      // ru 5-tab isMe @390: "Подписчики" ~ 140px vs a 62px slot — even
+      // the 0.55 floor cannot hold it, so the slot hands over to
+      // horizontal scrolling (discovery-page parity) with labels back
+      // at full size.
+      await pumpTabs(tester, locale: const Locale('ru'), isMe: true);
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(bar.isScrollable, isTrue);
+      expect(
+        bar.labelStyle!.fontSize,
+        greaterThanOrEqualTo(baseSize * scaleFloor),
+      );
+      expect(fittedBoxes(), findsNothing);
+    });
+  });
 }
 
 UserEntity _user(int id) =>

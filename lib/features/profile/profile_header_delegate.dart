@@ -920,11 +920,15 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
             height: kToolbarHeight,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Uniform label scale: all tabs share one font size, shrunk
-                // until the widest translation fits its equal-width slot.
-                // Same layout in every locale — longer languages just render
-                // at a smaller size instead of crowding or truncating.
+                // Same decision order as the discovery TabBars: reasonable
+                // copy → enough space → horizontal scroll → bounded scale
+                // as the last resort. Equal-width slots (the five-slot
+                // bottom-bar mirror) only apply while the widest label
+                // still fits at a readable scale; a translation that would
+                // shrink below the floor scrolls at full size instead —
+                // nothing ever lets FittedBox crush the text.
                 const baseSize = 14.0;
+                const scaleFloor = 0.55;
                 final slotWidth =
                     constraints.maxWidth / labels.length -
                     16; // labelPadding horizontal 8 x2
@@ -946,37 +950,32 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
                     maxLabelWidth = painter.width;
                   }
                 }
-                final scale = slotWidth > 0 && maxLabelWidth > 0
-                    ? (slotWidth / maxLabelWidth).clamp(0.55, 1.0)
+                final natural = slotWidth > 0 && maxLabelWidth > 0
+                    ? slotWidth / maxLabelWidth
                     : 1.0;
+                // Below the floor equal slots can no longer keep the label
+                // readable — hand the slot to the scrollable bar the
+                // discovery pages use, labels back at natural size.
+                final scrollable = natural < scaleFloor;
+                final scale = scrollable ? 1.0 : natural.clamp(scaleFloor, 1.0);
                 final labelStyle = TextStyle(
                   fontSize: baseSize * scale,
                   fontWeight: FontWeight.w500,
                 );
                 return TabBar(
                   controller: controller,
-                  // Profile tabs mirror the five-slot bottom navigation. Keep
-                  // every tab in an equal-width slot; the shared scaled font
-                  // keeps long translations inside the header without
-                  // horizontal scrolling.
-                  isScrollable: false,
+                  isScrollable: scrollable,
+                  tabAlignment: scrollable ? TabAlignment.start : null,
                   indicatorSize: TabBarIndicatorSize.label,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  labelPadding: EdgeInsets.symmetric(
+                    horizontal: scrollable ? 12 : 8,
+                  ),
                   labelStyle: labelStyle,
                   unselectedLabelStyle: labelStyle,
                   onTap: onTabTap,
                   tabs: [
                     for (final label in labels)
-                      Tab(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            _text(context, label),
-                            maxLines: 1,
-                            softWrap: false,
-                          ),
-                        ),
-                      ),
+                      Tab(text: _text(context, label)),
                   ],
                 );
               },
