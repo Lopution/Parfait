@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
 import 'package:pixiv_func/app/widgets/app_snack_bar.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
@@ -134,6 +135,29 @@ void main() {
 
     await tester.tap(find.text('打开'));
     await tester.pump();
+    expect(tapped, isTrue);
+  });
+
+  testWidgets('reduced motion drops the entrance flight, not the message', (
+    tester,
+  ) async {
+    var tapped = false;
+    await tester.pumpWidget(
+      MotionScope(
+        reduce: true,
+        child: _branchHost(
+          child: _triggerButton(
+            action: SnackBarAction(label: '打开', onPressed: () => tapped = true),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('show'));
+    // One frame: AnimationStyle.noAnimation means no entrance flight wraps
+    // the card in AbsorbPointer — the action is tappable immediately.
+    await tester.pump();
+    expect(find.byType(SnackBar), findsOneWidget);
+    await tester.tap(find.text('打开'));
     expect(tapped, isTrue);
   });
 
