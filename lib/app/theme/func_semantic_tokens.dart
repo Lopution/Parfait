@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../motion/motion_tokens.dart';
 import 'func_tokens.dart';
 
 /// Fixed spacing scale. Pages must pick from this ladder instead of
@@ -52,9 +51,6 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     required this.label,
     required this.caption,
     required this.numeric,
-    required this.motionShort,
-    required this.motionStandard,
-    required this.motionEmphasized,
   });
 
   factory FuncSemanticTokens.fromBrightness(Brightness brightness) {
@@ -100,9 +96,6 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
         color: text,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
-      motionShort: MotionTokens.fast,
-      motionStandard: MotionTokens.medium,
-      motionEmphasized: MotionTokens.pageTransition,
     );
   }
 
@@ -133,12 +126,6 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   final TextStyle caption;
   final TextStyle numeric;
 
-  // Motion ramp. Gate through [MotionTokens.resolve] so reduced-motion
-  // settings collapse them instead of hiding state.
-  final Duration motionShort;
-  final Duration motionStandard;
-  final Duration motionEmphasized;
-
   /// Reads the ambient extension; falls back to brightness-derived defaults
   /// so shared widgets also render under test harnesses and plugin subtrees
   /// that do not install `replicaTheme`.
@@ -168,9 +155,6 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     TextStyle? label,
     TextStyle? caption,
     TextStyle? numeric,
-    Duration? motionShort,
-    Duration? motionStandard,
-    Duration? motionEmphasized,
   }) {
     return FuncSemanticTokens(
       canvas: canvas ?? this.canvas,
@@ -192,19 +176,12 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       label: label ?? this.label,
       caption: caption ?? this.caption,
       numeric: numeric ?? this.numeric,
-      motionShort: motionShort ?? this.motionShort,
-      motionStandard: motionStandard ?? this.motionStandard,
-      motionEmphasized: motionEmphasized ?? this.motionEmphasized,
     );
   }
 
   @override
   FuncSemanticTokens lerp(FuncSemanticTokens? other, double t) {
     if (other == null) return this;
-    Duration lerpDuration(Duration a, Duration b) => Duration(
-      microseconds:
-          (a.inMicroseconds * (1 - t)).round() + (b.inMicroseconds * t).round(),
-    );
     return FuncSemanticTokens(
       canvas: Color.lerp(canvas, other.canvas, t)!,
       surface: Color.lerp(surface, other.surface, t)!,
@@ -229,9 +206,6 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       label: TextStyle.lerp(label, other.label, t)!,
       caption: TextStyle.lerp(caption, other.caption, t)!,
       numeric: TextStyle.lerp(numeric, other.numeric, t)!,
-      motionShort: lerpDuration(motionShort, other.motionShort),
-      motionStandard: lerpDuration(motionStandard, other.motionStandard),
-      motionEmphasized: lerpDuration(motionEmphasized, other.motionEmphasized),
     );
   }
 }
