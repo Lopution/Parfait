@@ -15,6 +15,8 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
+import 'package:pixiv_func/app/widgets/root_swipe_switcher.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
@@ -336,6 +338,75 @@ void main() {
       expect(fixture.requests, isNotEmpty);
     });
   });
+
+  // C6 — the sibling-category contract: a TabBar tap and a horizontal
+  // strip drag are two injections of the same switch; both must land on
+  // the same mode with the same route write, under both motion gates.
+  for (final reduce in [false, true]) {
+    testWidgets('category tap and drag land identically (reduce: $reduce)', (
+      tester,
+    ) async {
+      final (container, fixture) = await _makeWorld(
+        fixture: _RankingFixture(itemsPerPage: 4),
+      );
+      addTearDown(container.dispose);
+      final router = createPixivRouter(initialLocation: '/ranking');
+      addTearDown(router.dispose);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              routerConfig: router,
+              builder: (context, child) =>
+                  MotionScope(reduce: reduce, child: child!),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        // Neighbour warm-up can interleave requests, so assert on the
+        // request the landing produced (not merely the last one).
+        int requestsFor(String apiMode) => fixture.requests
+            .where((u) => u.queryParameters['mode'] == apiMode)
+            .length;
+
+        // Tap path: day → dayR18. The strip animates (or snaps under
+        // reduce) — either way the same mode lands and the durable
+        // route value is written.
+        final dayR18Before = requestsFor('day_r18');
+        await tester.tap(find.byType(Tab).at(1));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.queryParameters['mode'], 'dayR18');
+        expect(requestsFor('day_r18'), greaterThan(dayR18Before));
+
+        // Drag path back: a committed rightward fling lands on the same
+        // slot a tap would — same mode, same route write. The day feed
+        // stays mounted across the switch (lazy first load only), so the
+        // landing is asserted on index + uri, not a refetch.
+        final strip = find.byType(TabSlideStack);
+        await tester.fling(strip, const Offset(300, 0), 1200);
+        await tester.pumpAndSettle();
+        expect(tester.widget<TabSlideStack>(strip).controller.index, 0);
+        expect(router.state.uri.queryParameters['mode'], 'day');
+
+        // And forward again by drag — identical landing to the tap.
+        await tester.fling(strip, const Offset(-300, 0), 1200);
+        await tester.pumpAndSettle();
+        expect(tester.widget<TabSlideStack>(strip).controller.index, 1);
+        expect(router.state.uri.queryParameters['mode'], 'dayR18');
+      });
+    });
+  }
 
   testWidgets('branch re-tap scrolls the active ranking feed to top', (
     tester,
