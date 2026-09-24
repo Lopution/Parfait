@@ -78,13 +78,25 @@ class _DragToDismissState extends State<DragToDismiss>
       widget.onDismissed();
       return;
     }
-    _returnFrom = _dragOffset;
-    _returnAnimation.forward(from: 0);
+    _settleReturn();
   }
 
   void _onVerticalDragCancel() {
+    _settleReturn();
+  }
+
+  /// The canceled-drag return flight is the only decorative motion here.
+  /// The controller is created in initState (no context), so the
+  /// [MotionTokens] gate lives at the call site: reduced motion lands the
+  /// end state — `_dragOffset` back to zero via the completed-status
+  /// listener — without the flight.
+  void _settleReturn() {
     _returnFrom = _dragOffset;
-    _returnAnimation.forward(from: 0);
+    if (MotionTokens.enabled(context)) {
+      _returnAnimation.forward(from: 0);
+    } else {
+      _returnAnimation.value = 1;
+    }
   }
 
   @override
