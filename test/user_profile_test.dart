@@ -67,17 +67,21 @@ class _FakeUserRepository implements UserRepository {
     this.works = const [],
     this.bookmarks = const [],
     this.worksFailure,
+    this.detailFailure,
   }) : detail = detail ?? _user(42);
 
   final UserEntity detail;
   final List<IllustEntity> works;
   final List<IllustEntity> bookmarks;
   final Object? worksFailure;
+  final Object? detailFailure;
   final requests = <String>[];
 
   @override
   Future<UserEntity> fetchDetail(int userId, {CancelToken? cancelToken}) async {
     requests.add('detail:$userId');
+    final error = detailFailure;
+    if (error != null) throw error;
     return detail.copyWith(id: userId);
   }
 
@@ -842,6 +846,48 @@ void main() {
       }
       await tester.pumpWidget(const SizedBox.shrink());
       controller.dispose();
+    },
+  );
+
+  testWidgets(
+    'stale profile error banner can be dismissed without hiding the snapshot',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        detailFailure: const ApiNetworkError('offline'),
+      );
+      final container = await _makeWorld(
+        users: repository,
+      );
+      container.read(userStoreProvider.notifier).mergeAll([_user(42)]);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MaterialBanner), findsOneWidget);
+      expect(find.byKey(const ValueKey('profile-stale-error-retry')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-stale-error-dismiss')),
+        findsOneWidget,
+      );
+      expect(find.text('ApiNetworkError(network error)'), findsNothing);
+      expect(find.text('sample user'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('profile-stale-error-dismiss')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MaterialBanner), findsNothing);
+      expect(find.text('sample user'), findsOneWidget);
     },
   );
 
