@@ -327,6 +327,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             },
             icon: const Icon(Icons.file_download_outlined),
           ),
+        if (entity != null && entity.pageCount > 1 && !entity.isUgoira)
+          IconButton(
+            tooltip: context.l10n.downloadSelectPages,
+            onPressed: _enterDownloadMode,
+            icon: const Icon(Icons.checklist_outlined),
+          ),
         // Beta56 keeps the bookmark heart in the app bar actions at all
         // times (isButton: false variant, tap toggles / long-press sheet
         // only while unbookmarked).
