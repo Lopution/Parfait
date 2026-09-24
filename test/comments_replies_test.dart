@@ -694,6 +694,83 @@ void main() {
     expect(find.byType(CommentRepliesPage), findsOneWidget);
   });
 
+  testWidgets(
+    'keyboard open pads only the composer — page chrome holds still',
+    (tester) async {
+      // §5.6/§4.10 form geometry: the shell opts out of Scaffold insets, so
+      // a focused field + IME must never translate the page's main
+      // controls — the composer reserves the keyboard extent itself.
+      installMemoryPreferences();
+      tester.view.physicalSize = const Size(600, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final router = createPixivRouter(
+        initialLocation: '/recommended/illust/1/comments',
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            accountStoreProvider.overrideWith(_StubAccountStore.new),
+            commentRepositoryProvider.overrideWithValue(
+              _FakeCommentRepository(),
+            ),
+          ],
+          child: MaterialApp.router(
+            locale: const Locale('zh', 'CN'),
+            supportedLocales: const [Locale('zh', 'CN')],
+            localizationsDelegates: appLocalizationsDelegates,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('comment 11'), findsOneWidget);
+
+      // The pushed page's own Scaffold is the one that must stay out of
+      // insets — assert the contract, not just the geometry.
+      final pageScaffold = find.ancestor(
+        of: find.byType(CommentComposer),
+        matching: find.byType(Scaffold),
+      );
+      expect(
+        tester.widget<Scaffold>(pageScaffold.first).resizeToAvoidBottomInset,
+        isFalse,
+      );
+
+      final titleTop = tester.getTopLeft(find.text('评论')).dy;
+      final commentTop = tester.getTopLeft(find.text('comment 11')).dy;
+      final sendTop = tester.getTopLeft(find.byIcon(Icons.send_outlined)).dy;
+
+      // Focus the composer field, then the IME reports its height — the
+      // composer reserves the keyboard extent in its own bottom slot.
+      await tester.tap(find.byType(TextField).first);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      // The feed's easy_refresh ballistic defers one notifyListeners via a
+      // zero-delay Future when its axis first resolves — settle it out.
+      await tester.pumpAndSettle();
+
+      // Page chrome and feed did not translate — only the feed's Expanded
+      // slot shrank while the composer grew upward into it.
+      expect(tester.getTopLeft(find.text('评论')).dy, titleTop);
+      expect(tester.getTopLeft(find.text('comment 11')).dy, commentTop);
+
+      // The input row (and its send affordance) rides up by exactly the
+      // keyboard height and lands fully above the IME.
+      expect(
+        tester.getTopLeft(find.byIcon(Icons.send_outlined)).dy,
+        sendTop - 300,
+      );
+      expect(
+        tester.getBottomLeft(find.byIcon(Icons.send_outlined)).dy,
+        lessThanOrEqualTo(844 - 300),
+      );
+    },
+  );
+
   Widget composerApp(Widget home) => MaterialApp(
     locale: const Locale('zh', 'CN'),
     supportedLocales: const [Locale('zh', 'CN')],
