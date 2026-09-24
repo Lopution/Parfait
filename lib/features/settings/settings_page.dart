@@ -338,6 +338,7 @@ class _SettingsList extends ConsumerWidget {
             context,
             context.l10n.accountTransferSensitiveWarning,
             duration: const Duration(seconds: 5),
+            replaceCurrent: false,
           );
         }
       } on AccountTransferException catch (error) {

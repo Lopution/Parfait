@@ -108,7 +108,7 @@ class _HomePageState extends State<HomePage>
         // the window closed, so it was describing a state that was
         // already false.
         showAppSnackBarOn(
-          ScaffoldMessenger.of(context)..hideCurrentSnackBar(),
+          ScaffoldMessenger.of(context),
           context.l10n.homeExitHint,
           duration: RootBackCoordinator.exitWindow,
           margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),

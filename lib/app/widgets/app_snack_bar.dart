@@ -60,6 +60,7 @@ void showAppSnackBar(
   String message, {
   Duration duration = const Duration(seconds: 4),
   SnackBarAction? action,
+  bool replaceCurrent = true,
 }) {
   var margin = const EdgeInsets.fromLTRB(16, 0, 16, 16);
   if (BranchRootScope.maybeOf(context) != null) {
@@ -86,6 +87,7 @@ void showAppSnackBar(
     message,
     duration: duration,
     action: action,
+    replaceCurrent: replaceCurrent,
     margin: margin,
     animationStyle: snackBarAnimationStyleFor(context),
   );
@@ -104,9 +106,11 @@ void showAppSnackBarOn(
   String message, {
   Duration duration = const Duration(seconds: 4),
   SnackBarAction? action,
+  bool replaceCurrent = true,
   EdgeInsets margin = const EdgeInsets.fromLTRB(16, 0, 16, 16),
   AnimationStyle? animationStyle,
 }) {
+  if (replaceCurrent) messenger?.clearSnackBars();
   messenger?.showSnackBar(
     buildAppSnackBar(
       message,

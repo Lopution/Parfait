@@ -135,6 +135,20 @@ The shell continues to publish the rendered bar bounds through
 `homeShellMetricsProvider`. Motion and Hero code uses those measured bounds,
 not a copied navigation-bar height.
 
+## SnackBar Feedback Contract
+
+`showAppSnackBar` and `showAppSnackBarOn` are the only app SnackBar
+presentation helpers. An ordinary new message clears stale queued messages,
+lets the current message use its standard exit animation, then presents the
+new message. Callers that communicate ordered steps must pass
+`replaceCurrent: false`; for example, the account-transfer clipboard warning
+follows its copy confirmation. Keep duration, action, shell-bar margin, and
+reduced-motion behavior within the shared helpers.
+
+Widget tests for this contract pump `material_ui`'s `MaterialApp` and query
+`material_ui`'s `SnackBar` and `ScaffoldMessenger` types. Cover both stale
+queue replacement and an explicit ordered sequence.
+
 ## Route Restoration Contract
 
 `MaterialApp.router`, `GoRouter`, the shell, and each branch use stable
