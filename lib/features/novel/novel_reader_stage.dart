@@ -457,9 +457,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            // Same formula as the footer/bottom-bar readout — the sheet
+            // and the bar must report the same percent for the same
+            // page, not position-over-range.
             final percent = pageCount <= 1
                 ? 100
-                : (preview / (pageCount - 1) * 100).round();
+                : ((preview + 1) / pageCount * 100).round();
             void jumpTo(int page) {
               Navigator.of(sheetContext).pop();
               _readerHandle.goToPage?.call(page, animate: false);
