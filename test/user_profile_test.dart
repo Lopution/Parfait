@@ -61,11 +61,15 @@ class _FakeFollowRepository implements FollowRepository {
 }
 
 class _FakeUserRepository implements UserRepository {
-  _FakeUserRepository({UserEntity? detail, this.works = const []})
-    : detail = detail ?? _user(42);
+  _FakeUserRepository({
+    UserEntity? detail,
+    this.works = const [],
+    this.bookmarks = const [],
+  }) : detail = detail ?? _user(42);
 
   final UserEntity detail;
   final List<IllustEntity> works;
+  final List<IllustEntity> bookmarks;
   final requests = <String>[];
 
   @override
@@ -99,7 +103,7 @@ class _FakeUserRepository implements UserRepository {
     CancelToken? cancelToken,
   }) async {
     requests.add('bookmarks:$userId:${restrict.name}:${tag ?? ''}');
-    return const UserIllustPage(illusts: [], nextUrl: null);
+    return UserIllustPage(illusts: bookmarks, nextUrl: null);
   }
 
   @override
@@ -1065,6 +1069,87 @@ void main() {
         await tester.pumpAndSettle();
         expect(outer.pixels, 0);
         expect(inner.pixels, 0);
+      });
+    },
+  );
+
+  testWidgets(
+    're-tap scrolls only the active tab; keep-alive siblings keep their '
+    'offset',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        works: List.generate(36, (index) => _illust(index + 1)),
+        bookmarks: List.generate(36, (index) => _illust(100 + index)),
+      );
+      final container = await _makeWorld(users: repository);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: const UserPage(userId: 42),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        ScrollPosition innerOf(ProfileFeedKey key) {
+          final scrollable = find
+              .descendant(
+                of: find.byKey(PageStorageKey(key)),
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable &&
+                      widget.axisDirection == AxisDirection.down,
+                ),
+              )
+              .first;
+          return tester.state<ScrollableState>(scrollable).position;
+        }
+
+        const workKey = ProfileFeedKey(
+          userId: 42,
+          kind: ProfileFeedKind.work,
+          workType: UserWorkType.illust,
+        );
+        const bookmarkKey = ProfileFeedKey(
+          userId: 42,
+          kind: ProfileFeedKind.bookmarks,
+          restrict: UserRestrict.public,
+        );
+        final workPosition = innerOf(workKey);
+        expect(workPosition.maxScrollExtent, greaterThan(0));
+
+        // Scroll tab A (作品), then switch to tab B (收藏) — the TabBarView
+        // builds a page on first visit, so B's position only exists after
+        // the switch — and scroll it.
+        workPosition.jumpTo(150);
+        await tester.pump();
+        await tester.tap(
+          find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
+        );
+        await tester.pumpAndSettle();
+        final bookmarkPosition = innerOf(bookmarkKey);
+        expect(bookmarkPosition.maxScrollExtent, greaterThan(0));
+        bookmarkPosition.jumpTo(140);
+        await tester.pump();
+        expect(bookmarkPosition.pixels, 140);
+        // NestedScrollView semantics: inner positions are coordinated —
+        // user-scroll deltas and position jumps broadcast to every
+        // attached keep-alive tab, so A follows B's offset once both are
+        // mounted. What must NOT happen is a re-tap rewinding A *again*:
+        // the old controller-level animateTo zeroed every position.
+        expect(workPosition.pixels, 140);
+
+        await tester.tap(
+          find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
+        );
+        await tester.pumpAndSettle();
+        expect(bookmarkPosition.pixels, 0);
+        expect(workPosition.pixels, 140);
       });
     },
   );
