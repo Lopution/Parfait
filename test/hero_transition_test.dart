@@ -1,7 +1,20 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
+import 'package:pixiv_func/core/entity/illust_store.dart';
+import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
+import 'package:pixiv_func/features/illust/detail/widgets/page_image.dart';
+import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
+import 'package:visibility_detector/visibility_detector.dart';
+
+import 'helpers/illust_fixtures.dart';
+import 'illust_detail_page_test.dart';
 import 'package:pixiv_func/app/motion/hero_rect_clip.dart';
 import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
@@ -67,6 +80,81 @@ void main() {
 
     expect(dismissed, isTrue);
     expect(find.byKey(const Key('dismissible-surface')), findsNothing);
+  });
+
+  testWidgets('feed → detail → viewer keeps one hero tag family', (
+    tester,
+  ) async {
+    // The spatial contract: one illustHeroTag(scope, id) base flows feed
+    // card → detail page-0 → viewer page-0; only the page suffix differs.
+    // Asserted through the real route glue (openIllust / openImageViewer /
+    // heroTagForPage), so a second tag family or a lost scope fails here.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // Detail pages embed VisibilityDetector trackers — zero interval uses
+    // post-frame callbacks instead of a periodic timer.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+    final (container, _, _) = await makeWorld();
+    final entity = parseIllust(
+      illustJson(42, pageCount: 2, withMetaPages: true),
+    );
+    container.read(illustStoreProvider).mergeAll([entity]);
+    final router = createPixivRouter(initialLocation: '/recommended');
+    addTearDown(router.dispose);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final baseTag = illustHeroTag('feed', 42);
+      unawaited(
+        router.push<void>(
+          '/recommended/illust/42',
+          extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byType(IllustDetailPage), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is Hero && w.tag == baseTag),
+        findsOneWidget,
+        reason: 'detail page-0 must fly with the feed card tag',
+      );
+
+      // Tap the page image → the viewer continues the same tag base.
+      await tester.tap(find.byType(DetailPageImage).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ImageViewerPage), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is Hero && w.tag == baseTag),
+        findsOneWidget,
+        reason: 'viewer page-0 continues the same spatial chain',
+      );
+      // Page 1 derives from the same base — no second family appears.
+      expect(
+        find.byWidgetPredicate((w) => w is Hero && w.tag == '$baseTag-1'),
+        findsNothing,
+        reason: 'other pages mount only inside the pager when visited',
+      );
+    });
   });
 
   testWidgets('Hero pop onto a user page matches its own chrome', (
