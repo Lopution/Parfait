@@ -16,6 +16,7 @@ import '../../../core/watchlater/watch_later_store.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
 import '../../haptics/app_haptics.dart';
+import '../../navigation/routes.dart';
 import '../app_snack_bar.dart';
 import 'card_action.dart';
 
@@ -92,7 +93,14 @@ class _DownloadAction extends CardAction {
       await ref.read(illustDownloadControllerProvider).downloadAll(entity);
       AppHaptics.success();
       if (context.mounted) {
-        showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+        showAppSnackBar(
+          context,
+          context.l10n.downloadQueuedMessage,
+          action: SnackBarAction(
+            label: context.l10n.downloadViewResult,
+            onPressed: () => unawaited(openDownloadTasks(context)),
+          ),
+        );
       }
     } catch (error) {
       AppHaptics.error();

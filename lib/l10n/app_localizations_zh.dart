@@ -1047,6 +1047,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pauseDownload => '暂停';
 
   @override
+  String get downloadProcessing => '处理中';
+
+  @override
+  String get downloadViewResult => '查看';
+
+  @override
+  String get downloadRemoveRecord => '移除';
+
+  @override
+  String downloadBatchCancelConfirm(int count) {
+    return '取消选中的 $count 项下载？未完成的进度会被丢弃。';
+  }
+
+  @override
+  String downloadBatchRemoveConfirm(int count) {
+    return '移除选中的 $count 项记录？仅移除记录，已下载文件保留。';
+  }
+
+  @override
   String get resumeDownload => '继续';
 
   @override

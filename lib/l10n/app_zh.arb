@@ -471,6 +471,25 @@
   "cancelDownload": "取消",
   "downloadPaused": "已暂停",
   "pauseDownload": "暂停",
+  "downloadProcessing": "处理中",
+  "downloadViewResult": "查看",
+  "downloadRemoveRecord": "移除",
+  "downloadBatchCancelConfirm": "取消选中的 {count} 项下载？未完成的进度会被丢弃。",
+  "@downloadBatchCancelConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadBatchRemoveConfirm": "移除选中的 {count} 项记录？仅移除记录，已下载文件保留。",
+  "@downloadBatchRemoveConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "resumeDownload": "继续",
   "downloadGroupTitle": "批量下载 · {count} 项",
   "@downloadGroupTitle": {
