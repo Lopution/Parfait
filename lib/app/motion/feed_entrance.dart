@@ -3,7 +3,8 @@ import 'package:flutter/widgets.dart';
 import 'motion_tokens.dart';
 
 /// Feed entrance: item fades in and rises [MotionTokens.listEntranceOffset]
-/// over [MotionTokens.listEntrance], delayed by a bounded per-index stagger.
+/// over [MotionTokens.listEntrance], delayed by a bounded per-index stagger
+/// for the first-screen batch only.
 ///
 /// The trigger is *first viewport exposure*, not mount: the list's
 /// `cacheExtent` mounts cards half a viewport below the fold, and a
@@ -69,6 +70,18 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   var _done = false;
   ScrollableState? _scrollable;
 
+  /// Scroll offset captured when the position listener attached. A card
+  /// that has seen any scroll since then is scroll-exposed, not part of
+  /// the first-screen batch.
+  double _attachPixels = 0;
+
+  /// Whether the per-index stagger delay applies to this entrance. Only
+  /// the first-screen batch staggers: a card surfaced by continued
+  /// scrolling plays the same rise/fade with `delayUs = 0` — holding it
+  /// at Opacity(0) for a wait sized for the opening screen reads as a
+  /// hole in a feed already in motion.
+  var _staggered = true;
+
   /// Self-measured scroll velocity — `ScrollPosition.activity` is a
   /// protected API, so px/s is derived from position-listener deltas.
   /// Unknown means "assume fast": a card that can't prove the scroll is
@@ -101,6 +114,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     if (oldWidget.id == widget.id) return;
     _detachScrollable();
     _controller.stop();
+    _staggered = true;
     _syncDuration();
     _done = false;
     _evaluate();
@@ -119,8 +133,20 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
         MotionTokens.listStaggerStep * _staggerIndex;
   }
 
-  int get _staggerIndex =>
-      widget.index < 0 ? 0 : widget.index.clamp(0, _maxStaggeredIndex);
+  int get _staggerIndex => !_staggered
+      ? 0
+      : (widget.index < 0 ? 0 : widget.index.clamp(0, _maxStaggeredIndex));
+
+  /// First-screen batch = mounted inside an idle viewport with no scroll
+  /// since attach — the static opening frame the stagger was choreographed
+  /// for. Any scroll activity after attach (a moved pixel, or a scroll
+  /// still running) makes the card scroll-exposed instead.
+  bool get _firstScreenBatch {
+    final position = _scrollable?.position;
+    if (position == null) return true;
+    return !position.isScrollingNotifier.value &&
+        position.pixels == _attachPixels;
+  }
 
   void _evaluate() {
     if (_done) return;
@@ -149,7 +175,8 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     if (_scrollable != scrollable) {
       _detachScrollable();
       _scrollable = scrollable;
-      _lastPixels = scrollable.position.pixels;
+      _attachPixels = scrollable.position.pixels;
+      _lastPixels = _attachPixels;
       _lastSampleMicros = DateTime.now().microsecondsSinceEpoch;
       // Below the fold (cacheExtent) or mid-fling: wait for exposure. The
       // position listener catches every scroll frame; the scrolling
@@ -206,6 +233,12 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   }
 
   void _play() {
+    // Decided at exposure, not at mount: first-screen batch keeps the
+    // per-index wait; scroll-exposed cards start the same entrance
+    // immediately. Duration and the build-time delay both derive from
+    // _staggerIndex, so they are synced together here.
+    _staggered = _firstScreenBatch;
+    _syncDuration();
     _detachScrollable();
     _controller.forward();
   }
