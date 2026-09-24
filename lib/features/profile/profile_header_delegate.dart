@@ -431,11 +431,27 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                       padding: EdgeInsets.only(top: topInset),
                       child: SizedBox(
                         height: kToolbarHeight,
-                        child: _CollapsedProfile(user: user, actions: actions),
+                        child: _CollapsedProfile(user: user),
                       ),
                     ),
                   ),
                 ),
+              // Critical actions live on a persistent layer that spans the
+              // whole collapse interval: the expanded details leave at
+              // 0.78 (and are IgnorePointer'd from the fade start) while
+              // the collapsed toolbar only mounts at the end, so an
+              // action that lived in either state had an untappable dead
+              // zone through the hand-off. The two states now swap only
+              // identity content; back and the overflow stay reachable.
+              Positioned(
+                top: topInset + 4,
+                right: 8,
+                child: _ProfileHeaderMoreButton(
+                  actions: actions,
+                  includePrimary: true,
+                  filled: true,
+                ),
+              ),
               // One persistent back button for both header states: the
               // collapsed row reserves the same 48px slot underneath, so
               // the affordance never jumps when the header folds — and it
@@ -661,14 +677,14 @@ class _ExpandedProfileDetails extends StatelessWidget {
         const SizedBox(height: 8),
         // One actions row under the stats — the share icon used to sit alone
         // at the name row's trailing edge while edit/settings lived here,
-        // which scattered the controls across two spots.
+        // which scattered the controls across two spots. Overflow lives on
+        // the header's persistent top-right affordance so it stays
+        // reachable while this block fades out during collapse.
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final action in actions.where((action) => action.primary))
               if (action.buildInline != null) action.buildInline!(context),
-            if (actions.any((action) => !action.primary))
-              _ProfileHeaderMoreButton(actions: actions),
           ],
         ),
       ],
@@ -701,10 +717,15 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
   const _ProfileHeaderMoreButton({
     required this.actions,
     this.includePrimary = false,
+    this.filled = false,
   });
 
   final List<_ProfileHeaderAction> actions;
   final bool includePrimary;
+
+  /// Tonal fill matching the persistent [IconButton.filledTonal] back
+  /// affordance, so the always-on overflow stays legible over artwork.
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
@@ -712,8 +733,15 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
         .where((action) => includePrimary || !action.primary)
         .toList();
     if (entries.isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
     return PopupMenuButton<String>(
       tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+      style: filled
+          ? IconButton.styleFrom(
+              foregroundColor: colors.onSecondaryContainer,
+              backgroundColor: colors.secondaryContainer,
+            )
+          : null,
       onSelected: (value) {
         for (final action in entries) {
           if (action.value == value) {
@@ -757,17 +785,16 @@ class _ProfileHeaderMenuLabel extends StatelessWidget {
 }
 
 class _CollapsedProfile extends StatelessWidget {
-  const _CollapsedProfile({required this.user, required this.actions});
+  const _CollapsedProfile({required this.user});
 
   final UserEntity user;
-  final List<_ProfileHeaderAction> actions;
 
   @override
   Widget build(BuildContext context) {
-    // Three-section toolbar: leading spacer / centred title / a single
-    // overflow button. The persistent _HeaderBackButton overlays the
-    // leading 48px slot, so both ends reserve identical 56px chrome and
-    // the title stays centred on screen.
+    // Three-section toolbar: leading spacer / centred title / trailing
+    // spacer. The persistent back and overflow buttons overlay the two
+    // 48px slots, so both ends reserve identical 56px chrome and the
+    // title stays centred on screen.
     return Row(
       children: [
         const SizedBox(width: 8),
@@ -782,14 +809,7 @@ class _CollapsedProfile extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: _ProfileHeaderMoreButton(
-            actions: actions,
-            includePrimary: true,
-          ),
-        ),
+        const SizedBox(width: 48, height: 48),
         const SizedBox(width: 8),
       ],
     );

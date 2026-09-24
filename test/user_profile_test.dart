@@ -680,14 +680,15 @@ void main() {
       await tester.pump();
       expect(find.byTooltip('分享用户'), findsOneWidget);
       expect(find.byTooltip('编辑个人资料'), findsOneWidget);
+      // The persistent overflow carries the full list in every state.
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
+      expect(find.text('分享用户'), findsOneWidget);
+      expect(find.text('编辑个人资料'), findsOneWidget);
       expect(find.text('公开'), findsOneWidget);
       expect(find.text('私密'), findsOneWidget);
       expect(find.text('收藏标签'), findsOneWidget);
       expect(find.text('下载全部作品'), findsOneWidget);
-      expect(find.text('分享用户'), findsNothing);
-      expect(find.text('编辑个人资料'), findsNothing);
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
@@ -761,6 +762,79 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
   });
+
+  testWidgets(
+    'back and overflow actions fire through the whole collapse interval',
+    (tester) async {
+      var shareCount = 0;
+      final controller = ScrollController();
+      Widget header() => Scaffold(
+        body: CustomScrollView(
+          controller: controller,
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: ReplicaProfileHeaderDelegate(
+                user: _user(42),
+                isMe: true,
+                selectedTabIndex: 0,
+                showRestrictSelector: false,
+                restrict: UserRestrict.public,
+                onRestrictChanged: (_) {},
+                onShare: (_) => shareCount++,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+          ],
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute<void>(builder: (_) => header())),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // expandedExtent 320 - minExtent 56 = 264dp collapse range.
+      for (final progress in [0.60, 0.80, 0.95]) {
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        controller.jumpTo(264 * progress);
+        await tester.pump();
+
+        // The overflow fires even inside the fade hand-off: the expanded
+        // row used to be IgnorePointer'd from 0.55 and unmounted at 0.78,
+        // while the collapsed toolbar only mounted at the very end.
+        await tester.tap(find.byIcon(Icons.more_vert));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('分享用户'));
+        await tester.pumpAndSettle();
+        expect(shareCount, 1, reason: 'progress $progress');
+        shareCount = 0;
+
+        // Back actually pops the pushed route.
+        await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+        await tester.pumpAndSettle();
+        expect(find.text('open'), findsOneWidget);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    },
+  );
 
   testWidgets(
     'UserPage keeps work types visible and re-tapping never toggles them',
