@@ -186,6 +186,33 @@ void main() {
     expect(binding.saves, hasLength(2));
   });
 
+  testWidgets('a failed anchor save stays observable via the debug log', (
+    tester,
+  ) async {
+    final binding = _RecordingBinding()..saveError = StateError('disk full');
+    final printed = <String>[];
+    final prevDebugPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) {
+      if (message != null) printed.add(message);
+    };
+    await tester.pumpWidget(_stageApp(binding));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // A user-committed turn still routes through save — the failure is
+    // logged, not swallowed silently and not surfaced as a snackbar
+    // (anchor loss is non-fatal; a spammed snackbar would be worse).
+    await tester.tapAt(const Offset(780, 300));
+    await tester.pumpAndSettle();
+    // debugPrint is a foundation debug variable: restore it inside the
+    // test body — the invariant check runs before addTearDown.
+    debugPrint = prevDebugPrint;
+    expect(binding.saveCalls, 1);
+    expect(binding.saves, isEmpty);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(printed, contains(contains('novel anchor persist failed')));
+  });
+
   testWidgets('a failed prefs read surfaces an error with retry', (
     tester,
   ) async {
@@ -304,7 +331,9 @@ class _RecordingBinding implements ReaderProgressBinding {
   final NovelAnchor? restore;
   final List<NovelAnchor> saves = [];
   var loadCalls = 0;
+  var saveCalls = 0;
   Object? loadError;
+  Object? saveError;
 
   @override
   Future<NovelAnchor?> load() async {
@@ -316,6 +345,9 @@ class _RecordingBinding implements ReaderProgressBinding {
 
   @override
   Future<void> save(NovelAnchor anchor) async {
+    saveCalls += 1;
+    final error = saveError;
+    if (error != null) throw error;
     saves.add(anchor);
   }
 }
