@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/context.dart';
+import '../icons/app_icons.dart';
 import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
 import 'func_bottom_nav.dart';
@@ -15,9 +17,10 @@ import 'root_swipe_switcher.dart';
 ///
 /// Index changes forward to `goBranch` (ViewPager `onPageSelected` parity:
 /// the branch commits the moment the drag crosses the midpoint), while
-/// external moves — bottom-bar taps, rail selections, deep links — land
-/// through [syncIndex], which suppresses that callback so a deep link into
-/// a covered branch never pops the pushed route.
+/// external moves — deep links, restoration — land through [syncIndex],
+/// which suppresses that callback so a deep link into a covered branch
+/// never pops the pushed route. Chrome taps (bottom bar, NavigationRail)
+/// are not external: both controls funnel into [selectIndex].
 class BranchSlidePager extends ChangeNotifier {
   BranchSlidePager({
     required TickerProvider vsync,
@@ -135,8 +138,9 @@ class BranchSlidePager extends ChangeNotifier {
     tab.animateTo(target, duration: _motionEnabled() ? null : Duration.zero);
   }
 
-  /// Bottom-bar tap. A same-destination tap is the re-tap gesture: the
-  /// branch stack returns to its root and [reTapEvents] fires so the
+  /// Chrome tap — the single action entry the bottom bar and the
+  /// NavigationRail share. A same-destination tap is the re-tap gesture:
+  /// the branch stack returns to its root and [reTapEvents] fires so the
   /// revealed root page can scroll to top. Other slots slide over like
   /// Shaft's `viewPager.setCurrentItem` (smooth scroll).
   void selectIndex(int index) {
@@ -170,8 +174,8 @@ class BranchSlidePager extends ChangeNotifier {
     tab.animateTo(index, duration: _motionEnabled() ? null : Duration.zero);
   }
 
-  /// The shell's index moved outside a drag (deep link, restoration, rail
-  /// tap): slide the strip to wherever it landed — without re-entering
+  /// The shell's index moved outside a drag (deep link, restoration):
+  /// slide the strip to wherever it landed — without re-entering
   /// goBranch, which would navigateToRoot and drop a pushed route.
   void syncIndex() {
     if (_dragging || count == 0) return;
@@ -283,8 +287,12 @@ void reTapScrollToTop(BuildContext context, ScrollController controller) {
 
 /// Drop-in for `StatefulShellRoute.indexedStack`'s container, rebuilt as
 /// Shaft's `activity_cover.xml`: the branch Navigators are the ViewPager
-/// pages laid out side by side, and the bottom bar is their **sibling** —
-/// it floats over the strip and never moves with the page underneath.
+/// pages laid out side by side, and the navigation chrome is their
+/// **sibling** — the bottom bar floats over the strip and never moves
+/// with the page underneath; on wide surfaces a NavigationRail sits to
+/// the side instead. Both controls are the same gesture source: taps
+/// reach [BranchSlidePager.selectIndex], so a same-destination rail tap
+/// re-taps exactly like the bar's.
 ///
 /// Offstage keeps every branch alive (same contract as IndexedStack); only
 /// the one-page window around the current position lays out. The scroll-hide
@@ -471,6 +479,54 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     );
   }
 
+  /// The wide-surface rail — the bottom bar's peer, fed by the same
+  /// [_pager]. `selectedIndex` listens on the pager so the highlight hops
+  /// at the drag midpoint in step with the bar, and every tap lands on
+  /// [BranchSlidePager.selectIndex]: same index re-taps (pop to root +
+  /// scroll to top), different index slides over.
+  Widget _buildRail(BuildContext context) {
+    // Three chrome tiers on the same width ladder: bottom bar (<600),
+    // compact rail (600-1199), labelled extended rail (>=1200). The rail
+    // animates the extended transition itself, so a window resize across
+    // the boundary swaps forms without a flash.
+    final extended = AppBreakpoints.useExtendedRail(
+      MediaQuery.sizeOf(context).width,
+    );
+    final labels = [
+      context.l10n.homeRecommended,
+      context.l10n.homeRanking,
+      context.l10n.newTitle,
+      context.l10n.searchTitle,
+      context.l10n.settingsTitle,
+    ];
+    return ListenableBuilder(
+      listenable: _pager,
+      builder: (context, _) => NavigationRail(
+        selectedIndex: _pager.tab.index,
+        onDestinationSelected: _pager.selectIndex,
+        extended: extended,
+        // `extended` requires labelType null/none; the compact rail keeps
+        // labels under every icon.
+        labelType: extended ? null : NavigationRailLabelType.all,
+        destinations: [
+          for (var i = 0; i < _railIcons.length; i++)
+            NavigationRailDestination(
+              icon: Icon(_railIcons[i], size: 26),
+              label: Text(labels[i]),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static const _railIcons = [
+    AppIcons.home,
+    AppIcons.ranking,
+    AppIcons.n,
+    AppIcons.search,
+    Icons.settings_outlined,
+  ];
+
   @override
   Widget build(BuildContext context) {
     final rtl = Directionality.of(context) == TextDirection.rtl;
@@ -480,73 +536,82 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     final rail = AppBreakpoints.useNavigationRail(
       MediaQuery.sizeOf(context).width,
     );
-    return _BranchSlideScope(
-      pager: _pager,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: _onScrollNotification,
-        child: Stack(
-          fit: StackFit.expand,
-          clipBehavior: Clip.hardEdge,
-          children: [
-            AnimatedBuilder(
-              animation: _pager.tab.animation ?? _pager.tab,
-              builder: (context, _) {
-                final pos = _pager.position;
-                return Stack(
-                  fit: StackFit.expand,
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    for (var i = 0; i < widget.children.length; i++)
-                      // IndexedStack only publishes the current child's
-                      // semantics; match that — a slot more than half a
-                      // page out is not the screen the user is looking at.
-                      ExcludeSemantics(
-                        excluding: (i - pos).abs() > 0.5,
-                        child: Offstage(
-                          // `>=` not `>`: at rest the neighbour sits
-                          // exactly one page out — fully offscreen — so it
-                          // stays offstage and out of hit tests/finders
-                          // until a drag pulls pos off the integer and it
-                          // genuinely enters the window.
-                          offstage: (i - pos).abs() >= 1.0,
-                          child: FractionalTranslation(
-                            translation: Offset(rtl ? pos - i : i - pos, 0),
-                            // An offscreen slot keeps the bare proxy —
-                            // unvisited branches stay unbuilt (the
-                            // cold-start contract); the stand-in Navigator
-                            // is only built once the slot genuinely
-                            // enters the window.
-                            child: _branchChild(
-                              i,
-                              offscreen: (i - pos).abs() >= 1.0,
-                            ),
+    final strip = NotificationListener<ScrollNotification>(
+      onNotification: _onScrollNotification,
+      child: Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.hardEdge,
+        children: [
+          AnimatedBuilder(
+            animation: _pager.tab.animation ?? _pager.tab,
+            builder: (context, _) {
+              final pos = _pager.position;
+              return Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  for (var i = 0; i < widget.children.length; i++)
+                    // IndexedStack only publishes the current child's
+                    // semantics; match that — a slot more than half a
+                    // page out is not the screen the user is looking at.
+                    ExcludeSemantics(
+                      excluding: (i - pos).abs() > 0.5,
+                      child: Offstage(
+                        // `>=` not `>`: at rest the neighbour sits
+                        // exactly one page out — fully offscreen — so it
+                        // stays offstage and out of hit tests/finders
+                        // until a drag pulls pos off the integer and it
+                        // genuinely enters the window.
+                        offstage: (i - pos).abs() >= 1.0,
+                        child: FractionalTranslation(
+                          translation: Offset(rtl ? pos - i : i - pos, 0),
+                          // An offscreen slot keeps the bare proxy —
+                          // unvisited branches stay unbuilt (the
+                          // cold-start contract); the stand-in Navigator
+                          // is only built once the slot genuinely
+                          // enters the window.
+                          child: _branchChild(
+                            i,
+                            offscreen: (i - pos).abs() >= 1.0,
                           ),
                         ),
                       ),
-                  ],
-                );
-              },
-            ),
-            // The bar is the ViewPager's sibling, not a child of a page —
-            // it never translates with the strip underneath.
-            if (!rail)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: ListenableBuilder(
-                  listenable: _pager,
-                  builder: (context, _) => FuncShellBottomNav(
-                    selectedIndex: _pager.tab.index,
-                    onSelected: _pager.selectIndex,
-                    scrollVisibility: _navVisibility,
-                    indicatorAnimation:
-                        _pager.tab.animation ??
-                        AlwaysStoppedAnimation(_pager.position),
-                  ),
+                    ),
+                ],
+              );
+            },
+          ),
+          // The bar is the ViewPager's sibling, not a child of a page —
+          // it never translates with the strip underneath.
+          if (!rail)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: ListenableBuilder(
+                listenable: _pager,
+                builder: (context, _) => FuncShellBottomNav(
+                  selectedIndex: _pager.tab.index,
+                  onSelected: _pager.selectIndex,
+                  scrollVisibility: _navVisibility,
+                  indicatorAnimation:
+                      _pager.tab.animation ??
+                      AlwaysStoppedAnimation(_pager.position),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
+    );
+    return _BranchSlideScope(
+      pager: _pager,
+      child: rail
+          ? Row(
+              children: [
+                _buildRail(context),
+                const VerticalDivider(thickness: 1, width: 1),
+                Expanded(child: strip),
+              ],
+            )
+          : strip,
     );
   }
 }
