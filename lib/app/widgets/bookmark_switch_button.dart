@@ -402,8 +402,18 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                             ),
                           ],
                           selected: {_restrict},
-                          onSelectionChanged: (selection) =>
-                              setState(() => _restrict = selection.first),
+                          // The whole edit area is inert while an existing
+                          // bookmark's detail is still in flight: the tag
+                          // editor is replaced by the spinner and the
+                          // selector locks too — a mid-load restrict change
+                          // would dirty the draft so the arriving prefill
+                          // kept the empty tag list and overwrote the
+                          // persisted tags.
+                          onSelectionChanged:
+                              (awaitingPrefill && !prefillFailed)
+                              ? null
+                              : (selection) =>
+                                    setState(() => _restrict = selection.first),
                         ),
                       ],
                     ),
