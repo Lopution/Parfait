@@ -855,9 +855,7 @@ void main() {
       final repository = _FakeUserRepository(
         detailFailure: const ApiNetworkError('offline'),
       );
-      final container = await _makeWorld(
-        users: repository,
-      );
+      final container = await _makeWorld(users: repository);
       container.read(userStoreProvider.notifier).mergeAll([_user(42)]);
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -873,7 +871,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(MaterialBanner), findsOneWidget);
-      expect(find.byKey(const ValueKey('profile-stale-error-retry')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-stale-error-retry')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('profile-stale-error-dismiss')),
         findsOneWidget,
