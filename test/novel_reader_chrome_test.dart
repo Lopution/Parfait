@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +14,9 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/novel/novel_page.dart';
+import 'package:pixiv_func/features/novel/novel_reader_stage.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -298,6 +301,55 @@ void main() {
     expect(router.state.uri.path, '/search/results');
     expect(router.state.uri.queryParameters['q'], 'tag1');
     expect(router.state.uri.queryParameters['type'], 'novel');
+  });
+
+  testWidgets('reduced motion: chrome and page turns land in one frame', (
+    tester,
+  ) async {
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MotionScope(
+            reduce: true,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: Locale('zh', 'CN'),
+              home: NovelPage(novelId: 1),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    expect(find.byType(PageView), findsOneWidget);
+    // Center tap reveals the chrome: one pump lands both bars at full
+    // opacity — an ungated controller would still be mid-slide here.
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    final stage = find.byType(NovelReaderStage);
+    expect(stage, findsOneWidget);
+    final fades = tester.widgetList<FadeTransition>(
+      find.descendant(of: stage, matching: find.byType(FadeTransition)),
+    );
+    expect(fades, isNotEmpty);
+    expect(fades.every((f) => f.opacity.value == 1.0), isTrue);
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+
+    // Hide the chrome again, then an arrow-key page turn: the footer
+    // reports the new page on the very next frame (jump, not flight).
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    expect(find.byIcon(Icons.arrow_back), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(find.textContaining('· 2/'), findsOneWidget);
   });
 
   testWidgets('chrome surfaces paint through the system-bar insets', (

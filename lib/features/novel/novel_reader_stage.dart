@@ -689,7 +689,11 @@ class _ChromeBarState extends State<_ChromeBar>
   void didUpdateWidget(covariant _ChromeBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.visible != oldWidget.visible) {
-      if (widget.visible) {
+      if (!MotionTokens.enabled(context)) {
+        // Reduced motion: land the end state — a zeroed controller still
+        // drives the hittable/dismissed boundary correctly.
+        _controller.value = widget.visible ? 1 : 0;
+      } else if (widget.visible) {
         _controller.forward();
       } else {
         _controller.reverse();

@@ -331,7 +331,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         // driving a detached controller asserts/throws.
         if (!_pageController.hasClients) return;
         final target = page.clamp(0, _reader.pageCount - 1);
-        if (!animate) {
+        // ScrollActivity asserts duration > 0: reduced motion jumps instead
+        // of animating, the same collapse as an explicit animate:false.
+        if (!animate || !MotionTokens.enabled(context)) {
           _pageController.jumpToPage(target);
           return;
         }
@@ -443,11 +445,15 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             final target =
                 _reader.currentPage + (zone == NovelTapZone.next ? 1 : -1);
             if (target < 0 || target >= _reader.pageCount) return;
-            _pageController.animateToPage(
-              target,
-              duration: MotionTokens.fast,
-              curve: MotionTokens.fastCurve,
-            );
+            if (MotionTokens.enabled(context)) {
+              _pageController.animateToPage(
+                target,
+                duration: MotionTokens.fast,
+                curve: MotionTokens.fastCurve,
+              );
+            } else {
+              _pageController.jumpToPage(target);
+            }
           },
           child: PageView.builder(
             controller: _pageController,
