@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/app/motion/feed_entrance.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/app/motion/press_scale.dart';
@@ -454,6 +455,81 @@ void main() {
       expect(_animatedScale(tester).scale, 1.0);
       expect(_animatedScale(tester).duration, Duration.zero);
       await gesture.up();
+    });
+  });
+
+  group('DragToDismiss', () {
+    double dragOffset(WidgetTester tester) {
+      // The outer Transform is the translate; the inner one is the scale.
+      final transform = tester.widget<Transform>(
+        find
+            .descendant(
+              of: find.byType(DragToDismiss),
+              matching: find.byType(Transform),
+            )
+            .first,
+      );
+      return transform.transform.getTranslation().y;
+    }
+
+    /// A short downward pull released with a decayed velocity: below both
+    /// dismissDistance and dismissVelocity, so the surface cancels back.
+    Future<void> dragDownAndRelease(WidgetTester tester) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(DragToDismiss)),
+      );
+      await gesture.moveBy(const Offset(0, 80));
+      await tester.pump();
+      // Let the release velocity decay under dismissVelocity so the drag
+      // returns instead of dismissing.
+      await tester.pump(const Duration(milliseconds: 300));
+      await gesture.up();
+    }
+
+    testWidgets('default motion returns the surface with a flight', (
+      tester,
+    ) async {
+      var dismissed = false;
+      await tester.pumpWidget(
+        _wrap(
+          DragToDismiss(
+            onDismissed: () => dismissed = true,
+            child: const SizedBox.expand(child: Text('viewer')),
+          ),
+        ),
+      );
+      await dragDownAndRelease(tester);
+      // Release frame: the return flight is armed but has not ticked yet —
+      // the offset still sits at the released 80.
+      await tester.pump();
+      expect(dragOffset(tester), 80);
+      // Mid-flight: the offset is between the released 80 and the 0 target.
+      await tester.pump(const Duration(milliseconds: 90));
+      final mid = dragOffset(tester);
+      expect(mid, greaterThan(0));
+      expect(mid, lessThan(80));
+      expect(dismissed, isFalse);
+      await tester.pumpAndSettle();
+      expect(dragOffset(tester), 0);
+    });
+
+    testWidgets('reduced motion lands the canceled drag without a flight', (
+      tester,
+    ) async {
+      var dismissed = false;
+      await tester.pumpWidget(
+        _wrap(
+          DragToDismiss(
+            onDismissed: () => dismissed = true,
+            child: const SizedBox.expand(child: Text('viewer')),
+          ),
+          reduce: true,
+        ),
+      );
+      await dragDownAndRelease(tester);
+      await tester.pump();
+      expect(dragOffset(tester), 0);
+      expect(dismissed, isFalse);
     });
   });
 
