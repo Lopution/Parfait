@@ -126,6 +126,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
   NovelReaderSettings _settings = const NovelReaderSettings();
   NovelAnchor? _initialAnchor;
   bool _prefsReady = false;
+  Object? _loadError;
 
   NovelEntity get novel => widget.spec.novel;
 
@@ -136,14 +137,22 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
   }
 
   Future<void> _loadPrefs() async {
-    final settings = await ref.read(novelReaderSettingsStoreProvider).load();
-    final saved = await widget.spec.progress.load();
-    if (!mounted) return;
-    setState(() {
-      _settings = settings;
-      _initialAnchor = saved;
-      _prefsReady = true;
-    });
+    try {
+      final settings = await ref.read(novelReaderSettingsStoreProvider).load();
+      final saved = await widget.spec.progress.load();
+      if (!mounted) return;
+      setState(() {
+        _settings = settings;
+        _initialAnchor = saved;
+        _prefsReady = true;
+      });
+    } catch (error) {
+      // A failed read must not leave the stage spinning forever — surface
+      // the error with a retry instead of silently defaulting (the saved
+      // anchor may still be there).
+      if (!mounted) return;
+      setState(() => _loadError = error);
+    }
   }
 
   void _toggleChrome() => setState(() => _chromeVisible = !_chromeVisible);
@@ -257,6 +266,19 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
   }
 
   Widget _buildStage(BuildContext context, NovelReaderPalette palette) {
+    final loadError = _loadError;
+    if (loadError != null) {
+      return FeedError(
+        title: context.l10n.settingsReadFailed,
+        error: loadError,
+        retryLabel: context.l10n.retry,
+        scrollable: false,
+        onRetry: () {
+          setState(() => _loadError = null);
+          unawaited(_loadPrefs());
+        },
+      );
+    }
     // Hold the reader until prefs resolve — mounting early would lay the
     // document out twice (defaults, then the saved settings/anchor).
     if (!_prefsReady) {
