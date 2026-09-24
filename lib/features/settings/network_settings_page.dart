@@ -247,7 +247,8 @@ class _NetworkAdvancedSettingsPageState
     return true;
   }
 
-  /// Resetting rewrites two stored fields at once, so it asks first —
+  /// Resetting rewrites three stored fields at once (DoH toggle, DoH
+  /// endpoint override, ECH front host), so it asks first —
   /// destructive-lite like the credentials clear.
   Future<void> _resetDefaults() async {
     final confirmed = await showAppDialog<bool>(
