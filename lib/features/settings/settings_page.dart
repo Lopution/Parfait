@@ -22,6 +22,7 @@ import '../../core/comments/comment_translation.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/download/download_task.dart' show isTerminal;
 import '../../core/mute/mute_store.dart';
+import '../../core/navigation/route_observer.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/settings/shared_preferences.dart';
@@ -377,18 +378,75 @@ class _TranslationSummary extends ConsumerStatefulWidget {
       _TranslationSummaryState();
 }
 
-class _TranslationSummaryState extends ConsumerState<_TranslationSummary> {
+class _TranslationSummaryState extends ConsumerState<_TranslationSummary>
+    with RouteAware {
   Future<bool>? _configured;
+  RouteObserver<ModalRoute<dynamic>>? _observer;
+  ModalRoute<dynamic>? _route;
 
   @override
   void initState() {
     super.initState();
+    _configured = _probe();
+  }
+
+  /// Key-existence probe for the *current* provider (D8) — answers
+  /// "configured?" without loading secret values.
+  Future<bool>? _probe() {
     final store = ref.read(translationCredentialStoreProvider);
-    _configured = switch (widget.provider) {
+    return switch (widget.provider) {
       TranslationProvider.baidu => store.hasBaidu(),
       TranslationProvider.translationLlm => store.hasLlm(),
       _ => null,
     };
+  }
+
+  @override
+  void didUpdateWidget(_TranslationSummary oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A provider switch must not keep showing the previous provider's
+    // credential state under the new label.
+    if (oldWidget.provider != widget.provider) {
+      _configured = _probe();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final observer = RouteObserverScope.maybeOf(context);
+    final route = ModalRoute.of(context);
+    if (identical(observer, _observer) && identical(route, _route)) return;
+    _unsubscribe();
+    _observer = observer;
+    _route = route;
+    if (observer != null && route != null) {
+      observer.subscribe(this, route);
+    }
+  }
+
+  void _unsubscribe() {
+    final observer = _observer;
+    final route = _route;
+    if (observer != null && route != null) observer.unsubscribe(this);
+  }
+
+  /// The credentials page may have written or cleared keys while it
+  /// covered this route — re-probe when the settings root resurfaces.
+  @override
+  void didPopNext() {
+    final probe = _probe();
+    // Block body: an arrow closure would return the Future to setState,
+    // which asserts against exactly that.
+    setState(() {
+      _configured = probe;
+    });
+  }
+
+  @override
+  void dispose() {
+    _unsubscribe();
+    super.dispose();
   }
 
   @override

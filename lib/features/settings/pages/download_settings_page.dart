@@ -142,7 +142,16 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                   focusNode: _templateFocusNode,
                   decoration: InputDecoration(
                     labelText: context.l10n.namingTemplate,
-                    hintText: settingsText(context, 'namingTemplateHint'),
+                    // The hint is the template syntax itself: the
+                    // parameterized getter can't go through the key-based
+                    // `settingsText` lookup (it would return the raw key).
+                    hintText: context.l10n.namingTemplateHint(
+                      '{artist}',
+                      '{title}',
+                      '{id}',
+                      '{page}',
+                      '{ext}',
+                    ),
                     errorText:
                         !NamingRule.isValidTemplate(_templateController.text)
                         ? context.l10n.namingTemplateInvalid
