@@ -216,29 +216,30 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
           child: Stack(
             children: [
               Positioned.fill(child: _buildStage(context, palette)),
-              // legado-style footer tip: title · page · percent, always on
-              // the page edge independent of the chrome bars. The baseline
-              // sits just above the gesture strip — a fixed bottom:4 placed
-              // the line inside it, where the system nav area clipped it.
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
-                child: IgnorePointer(
-                  child: Text(
-                    '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontSize: 11,
-                      color:
-                          (palette.foreground ??
-                                  Theme.of(context).colorScheme.onSurface)
-                              .withValues(alpha: 0.45),
+              // Keep the passive progress hint out of the bottom chrome's
+              // paint and semantics tree. The chrome owns the interactive
+              // progress readout while it is visible; the hint returns when
+              // the reader is immersive again.
+              if (!_chromeVisible)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
+                  child: IgnorePointer(
+                    child: Text(
+                      '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                        color:
+                            (palette.foreground ??
+                                    Theme.of(context).colorScheme.onSurface)
+                                .withValues(alpha: 0.45),
+                      ),
                     ),
                   ),
                 ),
-              ),
               _ChromeBar(
                 visible: _chromeVisible,
                 edge: _ChromeEdge.top,
