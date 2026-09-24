@@ -1104,6 +1104,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pauseDownload => 'Pause';
 
   @override
+  String get downloadProcessing => 'Processing';
+
+  @override
+  String get downloadViewResult => 'View';
+
+  @override
+  String get downloadRemoveRecord => 'Remove';
+
+  @override
+  String downloadBatchCancelConfirm(int count) {
+    return 'Cancel the $count selected download(s)? Unfinished progress will be discarded.';
+  }
+
+  @override
+  String downloadBatchRemoveConfirm(int count) {
+    return 'Remove the $count selected record(s)? Only the records are removed — downloaded files stay.';
+  }
+
+  @override
   String get resumeDownload => 'Resume';
 
   @override

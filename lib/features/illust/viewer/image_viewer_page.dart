@@ -294,7 +294,14 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     }
     if (!mounted) return;
     AppHaptics.success();
-    showAppSnackBar(context, context.l10n.downloadQueuedMessage);
+    showAppSnackBar(
+      context,
+      context.l10n.downloadQueuedMessage,
+      action: SnackBarAction(
+        label: context.l10n.downloadViewResult,
+        onPressed: () => unawaited(openDownloadTasks(context)),
+      ),
+    );
   }
 
   Future<void> _share(IllustEntity entity) async {
@@ -408,7 +415,14 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                     }
                     if (!mounted) return;
                     AppHaptics.success();
-                    showAppSnackBar(context, l10n.downloadQueuedMessage);
+                    showAppSnackBar(
+                      context,
+                      l10n.downloadQueuedMessage,
+                      action: SnackBarAction(
+                        label: l10n.downloadViewResult,
+                        onPressed: () => unawaited(openDownloadTasks(context)),
+                      ),
+                    );
                   },
                 ),
                 ListTile(

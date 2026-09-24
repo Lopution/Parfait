@@ -471,6 +471,25 @@
   "cancelDownload": "キャンセル",
   "downloadPaused": "一時停止",
   "pauseDownload": "一時停止",
+  "downloadProcessing": "処理中",
+  "downloadViewResult": "表示",
+  "downloadRemoveRecord": "一覧から削除",
+  "downloadBatchCancelConfirm": "選択した {count} 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。",
+  "@downloadBatchCancelConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "downloadBatchRemoveConfirm": "選択した {count} 件のレコードを一覧から削除しますか？ダウンロード済みファイルは残ります。",
+  "@downloadBatchRemoveConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "resumeDownload": "再開",
   "downloadGroupTitle": "一括ダウンロード · {count}件",
   "@downloadGroupTitle": {

@@ -1068,6 +1068,25 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pauseDownload => '一時停止';
 
   @override
+  String get downloadProcessing => '処理中';
+
+  @override
+  String get downloadViewResult => '表示';
+
+  @override
+  String get downloadRemoveRecord => '一覧から削除';
+
+  @override
+  String downloadBatchCancelConfirm(int count) {
+    return '選択した $count 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。';
+  }
+
+  @override
+  String downloadBatchRemoveConfirm(int count) {
+    return '選択した $count 件のレコードを一覧から削除しますか？ダウンロード済みファイルは残ります。';
+  }
+
+  @override
   String get resumeDownload => '再開';
 
   @override
