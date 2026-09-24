@@ -100,6 +100,55 @@ void main() {
     expect(cardBottom, lessThanOrEqualTo(barTop));
   });
 
+  testWidgets('snackbar follows the visible shell overlap during bar motion', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Stack(
+            children: [
+              BranchRootScaffold(branchIndex: 0, child: _triggerButton()),
+              const Align(
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(key: Key('shellBar'), height: 64),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> showAt(double barTop, double expectedOverlap) async {
+      container.read(homeShellMetricsProvider.notifier).publish(barTop, 64);
+      await tester.tap(find.text('show'));
+      await tester.pump();
+      expect(
+        tester.widget<SnackBar>(find.byType(SnackBar)).margin,
+        EdgeInsets.fromLTRB(16, 0, 16, 16 + expectedOverlap),
+      );
+      ScaffoldMessenger.of(
+        tester.element(find.text('show')),
+      ).removeCurrentSnackBar();
+      await tester.pumpAndSettle();
+    }
+
+    await showAt(780, 64); // fully visible: 844 - 780
+    await showAt(812, 32); // halfway through the hide transition
+    await showAt(844, 0); // fully slid below the viewport
+  });
+
   testWidgets('shared snackbar shape is floating with a uniform margin', (
     tester,
   ) async {
