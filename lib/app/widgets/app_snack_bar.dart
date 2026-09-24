@@ -63,12 +63,22 @@ void showAppSnackBar(
 }) {
   var margin = const EdgeInsets.fromLTRB(16, 0, 16, 16);
   if (BranchRootScope.maybeOf(context) != null) {
-    final barHeight = ProviderScope.containerOf(
+    final metrics = ProviderScope.containerOf(
       context,
       listen: false,
-    ).read(homeShellMetricsProvider).bottomNavHeight;
+    ).read(homeShellMetricsProvider);
+    final barHeight = metrics.bottomNavHeight;
     if (barHeight != null) {
-      margin = margin.copyWith(bottom: margin.bottom + barHeight);
+      // The shell bar is a transformed overlay. During auto-hide its render
+      // box still has the full height, so use its measured screen top when it
+      // is available and only fall back to the full height before measurement.
+      final visibleOverlap = metrics.bottomNavTop == null
+          ? barHeight
+          : (MediaQuery.sizeOf(context).height - metrics.bottomNavTop!).clamp(
+              0.0,
+              barHeight,
+            );
+      margin = margin.copyWith(bottom: margin.bottom + visibleOverlap);
     }
   }
   showAppSnackBarOn(
