@@ -84,6 +84,32 @@ void main() {
         Duration.zero,
       );
     });
+
+    testWidgets('collapses under platform reduceMotion (iOS hole)', (
+      tester,
+    ) async {
+      // iOS "Reduce Motion" sets AccessibilityFeatures.reduceMotion WITHOUT
+      // raising disableAnimations — the gate must read it directly or those
+      // users get full animation.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(reduceMotion: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      bool? gate;
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) {
+              gate = MotionTokens.enabled(context);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      expect(gate, isFalse);
+      expect(await resolve(tester), Duration.zero);
+    });
   });
 
   group('StaggeredEntrance', () {
