@@ -199,8 +199,13 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
     super.dispose();
   }
 
+  /// [_tagInput] text not yet added counts as draft content: `_confirm`
+  /// folds it into the submitted tags, so closing over pending text must
+  /// go through the same discard prompt as an added tag.
   bool get _isDirty =>
-      _restrict != _initialRestrict || !listEquals(_tags, _initialTags);
+      _restrict != _initialRestrict ||
+      !listEquals(_tags, _initialTags) ||
+      _tagInput.text.trim().isNotEmpty;
 
   /// Closing is safe without a prompt when the draft matches the baseline or
   /// a submit is already in flight — the in-flight mutation keeps running
