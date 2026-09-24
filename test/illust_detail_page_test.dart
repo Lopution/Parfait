@@ -1029,6 +1029,35 @@ void main() {
   });
 
   group('IllustDetailPage download mode (R4)', () {
+    testWidgets('multi-page works expose an explicit selection action', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+
+      expect(find.byTooltip('Select pages to download'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Select pages to download'));
+      await tester.pump();
+
+      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+      expect(find.text('Select all'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+    });
+
+    testWidgets('single-page works keep only the download-all action', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {42: illustJson(42, pageCount: 1)},
+      );
+      await pumpDetail(tester, container, seedStore: false);
+
+      expect(find.byTooltip('Download All'), findsOneWidget);
+      expect(find.byTooltip('Select pages to download'), findsNothing);
+    });
+
     testWidgets(
       'long-press enters explicit selection mode; Done submits only the '
       'selected pages',
@@ -1166,6 +1195,7 @@ void main() {
           ),
           findsOneWidget,
         );
+        expect(find.byTooltip('选择要下载的页'), findsNothing);
 
         // Ugoira has no pages to select — a long-press must not open the
         // selection chrome.
