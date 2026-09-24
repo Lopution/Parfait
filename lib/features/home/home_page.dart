@@ -113,6 +113,9 @@ class _HomePageState extends State<HomePage>
           context.l10n.homeExitHint,
           duration: RootBackCoordinator.exitWindow,
           margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
+          // The resolved messenger is the root one — it sits above
+          // MotionScope, so the gate must come from this page's context.
+          animationStyle: snackBarAnimationStyleFor(context),
         );
       case RootBackAction.exit:
         SystemNavigator.pop();
