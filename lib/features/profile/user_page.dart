@@ -105,6 +105,7 @@ class _UserPageState extends ConsumerState<UserPage>
   ProfileWorkSection _workSection = ProfileWorkSection.illust;
   UserRestrict _restrict = UserRestrict.public;
   int _selectedIndex = 0;
+  bool _staleBannerVisible = true;
 
   @override
   void initState() {
@@ -422,6 +423,15 @@ class _UserPageState extends ConsumerState<UserPage>
     };
   }
 
+  Future<void> _reloadProfile() async {
+    if (mounted && !_staleBannerVisible) {
+      setState(() => _staleBannerVisible = true);
+    }
+    await ref
+        .read(userDetailControllerProvider(widget.userId).notifier)
+        .reload();
+  }
+
   Future<void> _downloadAuthorWorks() async {
     final submitted = await showAppDialog<int>(
       context: context,
@@ -460,15 +470,20 @@ class _UserPageState extends ConsumerState<UserPage>
             _workSection == ProfileWorkSection.manga);
     return Column(
       children: [
-        if (staleError != null)
+        if (staleError != null && _staleBannerVisible)
           MaterialBanner(
-            content: Text('${context.l10n.profileLoadFailed}: $staleError'),
+            content: Text(context.l10n.profileLoadFailed),
             actions: [
               TextButton(
-                onPressed: () => ref
-                    .read(userDetailControllerProvider(widget.userId).notifier)
-                    .reload(),
+                key: const ValueKey('profile-stale-error-retry'),
+                onPressed: _reloadProfile,
                 child: Text(context.l10n.profileRetry),
+              ),
+              IconButton(
+                key: const ValueKey('profile-stale-error-dismiss'),
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: () => setState(() => _staleBannerVisible = false),
+                icon: const Icon(Icons.close),
               ),
             ],
           ),
