@@ -38,7 +38,60 @@ Widget _triggerButton({SnackBarAction? action}) {
   );
 }
 
+Widget _messageButtons({required Duration duration}) => Scaffold(
+  body: Builder(
+    builder: (context) => Column(
+      children: [
+        TextButton(
+          onPressed: () => showAppSnackBar(context, '旧提示', duration: duration),
+          child: const Text('show old'),
+        ),
+        TextButton(
+          onPressed: () => showAppSnackBar(context, '最新提示'),
+          child: const Text('show latest'),
+        ),
+        TextButton(
+          onPressed: () => showAppSnackBar(
+            context,
+            '排队旧提示',
+            duration: duration,
+            replaceCurrent: false,
+          ),
+          child: const Text('queue stale'),
+        ),
+        TextButton(
+          onPressed: ScaffoldMessenger.of(context).hideCurrentSnackBar,
+          child: const Text('dismiss'),
+        ),
+      ],
+    ),
+  ),
+);
+
 void main() {
+  testWidgets('new ordinary snackbar replaces stale queued messages', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(_messageButtons(duration: const Duration(seconds: 30))),
+    );
+    await tester.tap(find.text('show old'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('queue stale'));
+    await tester.pump();
+    await tester.tap(find.text('show latest'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('旧提示'), findsNothing);
+    expect(find.text('最新提示'), findsOneWidget);
+    expect(find.byType(SnackBar), findsOneWidget);
+    await tester.tap(find.text('dismiss'));
+    await tester.pumpAndSettle();
+    expect(find.text('旧提示'), findsNothing);
+    expect(find.text('排队旧提示'), findsNothing);
+    expect(find.text('最新提示'), findsNothing);
+  });
+
   testWidgets('snackbar inside a branch clears the floating shell bottom bar', (
     tester,
   ) async {
