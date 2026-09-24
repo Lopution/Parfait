@@ -977,7 +977,7 @@
   "novelIncreaseFont": "Увеличить шрифт",
   "novelReadingProgress": "Прогресс чтения",
   "novelReaderSettings": "Настройки чтения",
-  "novelSettingsSaveFailed": "Не удалось сохранить настройки чтения",
+  "novelSettingsSaveFailed": "Не удалось сохранить настройки чтения — они действуют только в этом сеансе",
   "novelFontSize": "Размер шрифта",
   "novelLineHeight": "Межстрочный интервал",
   "novelThemeSystem": "Системная",

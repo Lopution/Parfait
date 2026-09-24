@@ -247,6 +247,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.byType(SnackBar), findsOneWidget);
+    // The copy must say the change applied for this session only — the
+    // old "保存失败" wording hid that the on-screen values were live.
+    expect(find.text('阅读设置未能保存，仅本次生效'), findsOneWidget);
 
     // The in-memory value still applied — the snackbar reports the
     // persistence failure rather than silently dropping it. Dismiss it
