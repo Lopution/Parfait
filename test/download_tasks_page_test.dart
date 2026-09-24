@@ -216,6 +216,46 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      tester
+          .widget<LinearProgressIndicator>(
+            find.descendant(
+              of: groupCard,
+              matching: find.byType(LinearProgressIndicator),
+            ),
+          )
+          .value,
+      1.0,
+    );
+  });
+
+  testWidgets('completed unknown-length task renders a full progress bar', (
+    tester,
+  ) async {
+    final (container, manager, _) = await _world(
+      responses: [
+        // No contentLength: active progress is indeterminate, but completion
+        // must still render as 100% in the task list.
+        ScriptedResponse(
+          chunks: const [
+            <int>[1, 2, 3],
+          ],
+        ),
+      ],
+    );
+    manager.submit(_req(1));
+    await _pumpPage(tester, container);
+    await _drain(
+      tester,
+      () => manager.tasks.single.status == DownloadStatus.succeeded,
+    );
+    await tester.pump();
+
+    final tile = find.byType(Card).first;
+    final indicator = tester.widget<LinearProgressIndicator>(
+      find.descendant(of: tile, matching: find.byType(LinearProgressIndicator)),
+    );
+    expect(indicator.value, 1.0);
   });
 
   testWidgets('paused tile shows paused status with retry and cancel', (
