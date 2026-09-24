@@ -299,6 +299,9 @@ class _DownloadGroupSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final children = [for (final id in group.jobIds) ?manager.taskById(id)];
+    final progress = group.status == DownloadGroupStatus.succeeded
+        ? 1.0
+        : group.progress;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -309,7 +312,7 @@ class _DownloadGroupSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(_statusText(context)),
-                LinearProgressIndicator(value: group.progress),
+                LinearProgressIndicator(value: progress),
                 Text(
                   l10n.downloadGroupProgress(
                     group.succeededCount,
@@ -471,7 +474,11 @@ class _DownloadTaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = task.progress;
+    // Unknown content lengths are indeterminate while active, but a terminal
+    // success is still visually complete even when no byte total was known.
+    final progress = task.status == DownloadStatus.succeeded
+        ? 1.0
+        : task.progress;
     return Card(
       child: ListTile(
         selected: managing && selected,
