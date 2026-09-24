@@ -150,14 +150,17 @@ void main() {
 
     expect(find.byType(PageView), findsOneWidget);
     // Chrome is hidden by default: the title lives only in the chrome bar,
-    // so it must not be on screen yet (no duplicate title either).
+    // so it must not be on screen yet. The passive footer is the only
+    // title-bearing readout in the hidden state.
     expect(find.text('novel 1'), findsNothing);
+    expect(find.textContaining('novel 1 ·'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back), findsNothing);
 
     // Center tap reveals the chrome; the title appears exactly once.
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();
     expect(find.text('novel 1'), findsOneWidget);
+    expect(find.textContaining('novel 1 ·'), findsNothing);
     expect(find.byIcon(Icons.arrow_back), findsOneWidget);
     expect(find.byIcon(Icons.info_outline), findsOneWidget);
     expect(find.byIcon(Icons.share_outlined), findsOneWidget);
@@ -171,6 +174,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(PageView), findsOneWidget);
     expect(find.text('novel 1'), findsNothing);
+    expect(find.textContaining('novel 1 ·'), findsOneWidget);
   });
 
   testWidgets('system back pops the page when the chrome is hidden', (
