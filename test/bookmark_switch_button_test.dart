@@ -432,6 +432,36 @@ void main() {
     );
   });
 
+  testWidgets('edit sheet lifts above the keyboard and keeps confirm '
+      'reachable', (tester) async {
+    // Phone-tall surface so the shrunken band still fits the fixed header
+    // and the action row above a mid-size IME.
+    tester.view.physicalSize = const Size(900, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final (_, repository) = await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    const keyboardTop = 800 - 300;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+
+    // The modal route does not consume viewInsets: the sheet lifts above
+    // the IME via its own bottom padding and shrinks into the remaining
+    // height, so the confirm row ends above the keyboard and still taps.
+    final confirmRect = tester.getRect(find.widgetWithText(FilledButton, '确定'));
+    expect(confirmRect.bottom, lessThanOrEqualTo(keyboardTop));
+    expect(find.byType(TextField), findsOneWidget);
+
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(repository.adds, hasLength(1));
+  });
+
   testWidgets('dirty draft asks before closing via cancel button', (
     tester,
   ) async {

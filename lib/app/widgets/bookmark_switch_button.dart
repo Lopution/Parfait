@@ -335,6 +335,12 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
         MediaQuery.widthOf(context) >= AppBreakpoints.expanded
         ? ContentWidths.form
         : double.infinity;
+    // The modal route does not consume viewInsets: the sheet lifts above
+    // the IME via a transparent bottom margin and its height band is
+    // measured against the remaining visible height, so the field and the
+    // confirm row stay reachable instead of sliding under the keyboard.
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final availableHeight = MediaQuery.heightOf(context) - keyboardInset;
     Widget sheet = Align(
       // heightFactor shrink-wraps vertically: a bare Center would expand to
       // the sheet slot's max height. On expanded surfaces the form column
@@ -344,6 +350,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: contentMaxWidth),
         child: Container(
+          margin: EdgeInsets.only(bottom: keyboardInset),
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(24),
@@ -355,8 +362,8 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
             top: false,
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: MediaQuery.heightOf(context) * 0.35,
-                maxHeight: MediaQuery.heightOf(context) * 0.75,
+                minHeight: availableHeight * 0.35,
+                maxHeight: availableHeight * 0.75,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
