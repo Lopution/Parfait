@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
 import 'package:pixiv_func/app/widgets/app_snack_bar.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
@@ -135,6 +136,52 @@ void main() {
     await tester.tap(find.text('打开'));
     await tester.pump();
     expect(tapped, isTrue);
+  });
+
+  testWidgets('reduced motion drops the entrance flight, not the message', (
+    tester,
+  ) async {
+    var tapped = false;
+    await tester.pumpWidget(
+      MotionScope(
+        reduce: true,
+        child: _branchHost(
+          child: _triggerButton(
+            action: SnackBarAction(label: '打开', onPressed: () => tapped = true),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('show'));
+    // One frame: AnimationStyle.noAnimation means no entrance flight wraps
+    // the card in AbsorbPointer — the action is tappable immediately.
+    await tester.pump();
+    expect(find.byType(SnackBar), findsOneWidget);
+    final controller =
+        tester.widget<SnackBar>(find.byType(SnackBar)).animation!
+            as AnimationController;
+    expect(controller.duration, Duration.zero);
+    expect(controller.reverseDuration, Duration.zero);
+    await tester.tap(find.text('打开'));
+    expect(tapped, isTrue);
+  });
+
+  testWidgets('the shared entrance flight is the mounted animation style', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_branchHost(child: _triggerButton()));
+    await tester.tap(find.text('show'));
+    await tester.pump();
+
+    // showSnackBar mounts the style onto the entrance controller itself —
+    // the SnackBar's `animation` IS that controller. Asserting its
+    // durations pins appSnackBarAnimationStyle as the mounted style rather
+    // than AnimationStyle.noAnimation or the ~120ms M2 default.
+    final controller =
+        tester.widget<SnackBar>(find.byType(SnackBar)).animation!
+            as AnimationController;
+    expect(controller.duration, MotionTokens.medium);
+    expect(controller.reverseDuration, MotionTokens.fast);
   });
 
   testWidgets('wide layout without a bottom bar still shows the snackbar', (

@@ -75,14 +75,20 @@ abstract final class MotionTokens {
   /// for exactly this reason.
   static const imageFadeOut = Duration(milliseconds: 1000);
 
-  /// Whether motion should play. Two sources, one gate: the platform's
-  /// `disableAnimations` (a11y) OR the in-app reduce-motion setting. Either
-  /// one collapses decorative motion; neither drops the state it
-  /// communicates.
+  /// Whether motion should play. Three sources, one gate: the platform's
+  /// `disableAnimations` (a11y) OR the platform's `reduceMotion`
+  /// (iOS "Reduce Motion" does NOT raise `disableAnimations` — reading only
+  /// MediaQuery misses it) OR the in-app reduce-motion setting. Any one
+  /// collapses decorative motion; none drops the state it communicates.
   static bool enabled(BuildContext context) {
     final disabled = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final reduced = MotionScope.maybeOf(context) ?? false;
-    return !disabled && !reduced;
+    final platformReduce =
+        View.maybeOf(
+          context,
+        )?.platformDispatcher.accessibilityFeatures.reduceMotion ??
+        false;
+    return !disabled && !reduced && !platformReduce;
   }
 
   /// Reduced-motion gate: collapses [base] to zero when either source asks

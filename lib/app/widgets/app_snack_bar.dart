@@ -14,6 +14,15 @@ const appSnackBarAnimationStyle = AnimationStyle(
   reverseDuration: MotionTokens.fast,
 );
 
+/// The snackbar's in/out flight resolved through the reduced-motion gate —
+/// the same [AnimationStyle.noAnimation] collapse the overlays use. The
+/// message, dwell duration and action are the feedback and always land;
+/// only the slide/fade flight is decoration.
+AnimationStyle snackBarAnimationStyleFor(BuildContext context) =>
+    MotionTokens.enabled(context)
+    ? appSnackBarAnimationStyle
+    : AnimationStyle.noAnimation;
+
 /// Builds the one in-app SnackBar shape: floating, a consistent margin and
 /// an optional action. Keeping construction in one place is what makes the
 /// position identical on every page — call sites must not hand-roll
@@ -68,17 +77,25 @@ void showAppSnackBar(
     duration: duration,
     action: action,
     margin: margin,
+    animationStyle: snackBarAnimationStyleFor(context),
   );
 }
 
 /// Messenger-direct variant for call sites that hold a messenger key
 /// instead of a context (e.g. the app-level update prompt).
+///
+/// [animationStyle] defaults to [snackBarAnimationStyleFor] resolved on the
+/// messenger's own context — a branch messenger sits below `MotionScope`,
+/// so the gate is complete there. Callers whose messenger lives ABOVE the
+/// scope (the root messenger used by the update prompt / exit hint) must
+/// pass an explicitly resolved style or the in-app setting is missed.
 void showAppSnackBarOn(
   ScaffoldMessengerState? messenger,
   String message, {
   Duration duration = const Duration(seconds: 4),
   SnackBarAction? action,
   EdgeInsets margin = const EdgeInsets.fromLTRB(16, 0, 16, 16),
+  AnimationStyle? animationStyle,
 }) {
   messenger?.showSnackBar(
     buildAppSnackBar(
@@ -87,6 +104,7 @@ void showAppSnackBarOn(
       action: action,
       margin: margin,
     ),
-    snackBarAnimationStyle: appSnackBarAnimationStyle,
+    snackBarAnimationStyle:
+        animationStyle ?? snackBarAnimationStyleFor(messenger.context),
   );
 }

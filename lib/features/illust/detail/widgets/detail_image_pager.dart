@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../app/motion/hero_transition.dart';
+import '../../../../app/motion/motion_tokens.dart';
 import '../../../../core/entity/illust_entity.dart';
 import 'page_image.dart';
 import '../ugoira_viewer.dart';
@@ -69,11 +70,16 @@ class _DetailImagePagerState extends State<DetailImagePager> {
     };
     if (next == null) return KeyEventResult.ignored;
     if (next < 0 || next >= entity.pageCount) return KeyEventResult.handled;
-    _controller.animateToPage(
-      next,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-    );
+    if (MotionTokens.enabled(context)) {
+      _controller.animateToPage(
+        next,
+        duration: MotionTokens.fast,
+        curve: MotionTokens.fastCurve,
+      );
+    } else {
+      // ScrollActivity asserts duration > 0 — reduced motion jumps instead.
+      _controller.jumpToPage(next);
+    }
     return KeyEventResult.handled;
   }
 
