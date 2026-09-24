@@ -186,6 +186,26 @@ void main() {
     expect(binding.saves, hasLength(2));
   });
 
+  testWidgets('a failed prefs read surfaces an error with retry', (
+    tester,
+  ) async {
+    final binding = _RecordingBinding()..loadError = StateError('prefs gone');
+    await tester.pumpWidget(_stageApp(binding));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Error surface instead of an endless loading spinner.
+    expect(find.text('读取设置失败'), findsOneWidget);
+    expect(find.byType(PageView), findsNothing);
+
+    // Retry recovers once the store is healthy again.
+    binding.loadError = null;
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(PageView), findsOneWidget);
+  });
+
   testWidgets('a failed settings save surfaces a snackbar', (tester) async {
     await tester.pumpWidget(
       _stageApp(_RecordingBinding(), preferences: _FailingPreferences()),
@@ -228,10 +248,13 @@ class _RecordingBinding implements ReaderProgressBinding {
   final NovelAnchor? restore;
   final List<NovelAnchor> saves = [];
   var loadCalls = 0;
+  Object? loadError;
 
   @override
   Future<NovelAnchor?> load() async {
     loadCalls += 1;
+    final error = loadError;
+    if (error != null) throw error;
     return restore;
   }
 

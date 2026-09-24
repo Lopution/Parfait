@@ -85,6 +85,12 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     }
     final version = result.release?.manifest.version ?? '';
     final l10n = messengerContext.l10n;
+    // The root ScaffoldMessenger sits above MotionScope, so the in-app
+    // reduce-motion setting is read from the provider directly (the same
+    // source the scope publishes); the platform half of the gate is still
+    // reachable through the messenger's context.
+    final reduceMotion =
+        ref.read(settingsProvider).value?.reduceMotion ?? false;
     showAppSnackBarOn(
       messenger,
       '${l10n.aboutUpdateAvailable}: $version',
@@ -92,6 +98,9 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
         label: l10n.aboutUpdateOpen,
         onPressed: () => _router.push<void>('/settings/about'),
       ),
+      animationStyle: !reduceMotion
+          ? appSnackBarAnimationStyle
+          : AnimationStyle.noAnimation,
     );
   }
 

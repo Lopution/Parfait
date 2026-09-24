@@ -448,6 +448,28 @@ void main() {
     expect(find.text('收藏插画'), findsNothing);
   });
 
+  testWidgets('pending tag input text counts as draft and asks before '
+      'closing', (tester) async {
+    await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    // Type but never commit — restrict and tags are untouched, yet the
+    // pending text would be folded into the submit, so it is draft.
+    await tester.enterText(find.byType(TextField), '途中タグ');
+    await tester.pump();
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的修改？'), findsOneWidget);
+
+    // Staying keeps the sheet and its pending text.
+    await tester.tap(find.text('取消').last);
+    await tester.pumpAndSettle();
+    expect(find.text('收藏插画'), findsOneWidget);
+    expect(find.text('途中タグ'), findsOneWidget);
+  });
+
   testWidgets('clean drag dismiss and cancel close without a prompt', (
     tester,
   ) async {

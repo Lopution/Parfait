@@ -27,6 +27,7 @@ import 'package:pixiv_func/core/illust/illust_detail_controller.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
+import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:pixiv_func/features/illust/detail/widgets/detail_image_pager.dart';
@@ -168,6 +169,7 @@ Future<void> pumpDetail(
   int illustId = 42,
   Locale? locale,
   bool useRouter = false,
+  bool reduceMotion = false,
 }) async {
   if (seedStore) {
     container.read(illustStoreProvider).mergeAll([
@@ -178,34 +180,35 @@ Future<void> pumpDetail(
       ? createPixivRouter(initialLocation: '/recommended/illust/$illustId')
       : null;
   if (router != null) addTearDown(router.dispose);
+  Widget app = router == null
+      ? MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: const [
+            Locale('zh', 'CN'),
+            Locale('en', 'US'),
+            Locale('ja', 'JP'),
+            Locale('ru', 'RU'),
+          ],
+          locale: locale,
+          home: IllustDetailPage(illustId: illustId),
+        )
+      : MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: const [
+            Locale('zh', 'CN'),
+            Locale('en', 'US'),
+            Locale('ja', 'JP'),
+            Locale('ru', 'RU'),
+          ],
+          locale: locale,
+          routerConfig: router,
+        );
+  if (reduceMotion) {
+    app = MotionScope(reduce: true, child: app);
+  }
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: router == null
-            ? MaterialApp(
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: const [
-                  Locale('zh', 'CN'),
-                  Locale('en', 'US'),
-                  Locale('ja', 'JP'),
-                  Locale('ru', 'RU'),
-                ],
-                locale: locale,
-                home: IllustDetailPage(illustId: illustId),
-              )
-            : MaterialApp.router(
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: const [
-                  Locale('zh', 'CN'),
-                  Locale('en', 'US'),
-                  Locale('ja', 'JP'),
-                  Locale('ru', 'RU'),
-                ],
-                locale: locale,
-                routerConfig: router,
-              ),
-      ),
+      UncontrolledProviderScope(container: container, child: app),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
@@ -1972,6 +1975,21 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('1 / 2'), findsOneWidget);
+    });
+
+    testWidgets('reduced motion lands the key page-turn in one frame', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, reduceMotion: true);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      // The resolved zero duration lands the target page on the next frame —
+      // a still-animating pager would still report '1 / 2' here.
+      await tester.pump();
+      expect(find.text('2 / 2'), findsOneWidget);
     });
 
     testWidgets('narrow surface keeps the single scroll view', (tester) async {
