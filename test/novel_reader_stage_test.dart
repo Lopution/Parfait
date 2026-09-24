@@ -232,6 +232,62 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('16'), findsOneWidget);
   });
+
+  testWidgets('progress sheet percent matches the footer formula at 1/2/N '
+      'boundaries', (tester) async {
+    // pageBreakBefore makes the page count deterministic — one short
+    // paragraph per page regardless of layout metrics.
+    NovelEntity paged(int pages) => NovelEntity(
+      id: 77,
+      title: 'A novel',
+      caption: '',
+      user: const UserEntity(id: 8, name: 'author', account: 'author'),
+      tags: const [],
+      textLength: 1,
+      contentVersion: 'paged-$pages',
+      contentAvailable: true,
+      paragraphs: [
+        for (var i = 0; i < pages; i++)
+          NovelParagraph(id: 'pg$i', text: 'page $i', pageBreakBefore: i > 0),
+      ],
+    );
+
+    Future<void> openSheet(int pages) async {
+      // pumpWidget reuses the stage's Element across identical trees —
+      // drop to an empty tree first so each page count mounts a fresh
+      // stage with hidden chrome.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        _stageApp(_RecordingBinding(), novel: paged(pages)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('阅读进度'));
+      await tester.pumpAndSettle();
+    }
+
+    // One page: 100% regardless of formula.
+    await openSheet(1);
+    expect(find.text('1/1 · 100%'), findsWidgets);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    // Two pages: the preview starts on page 1 — the footer formula
+    // reads 50% where the old position-over-range formula read 0%.
+    await openSheet(2);
+    expect(find.text('1/2 · 50%'), findsWidgets);
+    await tester.drag(find.byType(Slider), const Offset(400, 0));
+    await tester.pump();
+    expect(find.text('2/2 · 100%'), findsWidgets);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    // N pages: page 1 of 4 shows the same 25% the footer reports.
+    await openSheet(4);
+    expect(find.text('1/4 · 25%'), findsWidgets);
+  });
 }
 
 /// setString always fails — the in-memory platform still backs getString
@@ -268,6 +324,7 @@ Widget _stageApp(
   _RecordingBinding binding, {
   String? text,
   bool chapters = false,
+  NovelEntity? novel,
   SharedPreferencesAsync? preferences,
 }) {
   return ProviderScope(
@@ -282,9 +339,11 @@ Widget _stageApp(
       home: Scaffold(
         body: NovelReaderStage(
           spec: NovelReaderStageSpec(
-            novel: chapters
-                ? _novelWithChapters()
-                : _novel(text ?? 'reader ' * 400),
+            novel:
+                novel ??
+                (chapters
+                    ? _novelWithChapters()
+                    : _novel(text ?? 'reader ' * 400)),
             infoTooltip: 'info',
             infoSheet: (context) => const Text('info sheet'),
             progress: binding,
