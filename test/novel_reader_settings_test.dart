@@ -123,6 +123,30 @@ void main() {
       expect(await store.read('acct', 4), isNull);
       expect(await store.read('acct', 204), isNotNull);
     });
+
+    test('re-writing an existing entry renews its recency position', () async {
+      installMemoryPreferences();
+      final prefs = SharedPreferencesAsync();
+      final store = NovelProgressStore(prefs);
+
+      // Fill the map to the cap, then re-read the oldest entry — the
+      // rewrite must reinsert it at the recency tail, not leave it at
+      // the eviction front.
+      for (var index = 0; index < 200; index++) {
+        await store.write('acct', index, paragraphId: 'p0', offset: 0);
+      }
+      await store.write('acct', 0, paragraphId: 'p9', offset: 42);
+
+      // One more novel pushes past the cap: novel 1 is now the stalest,
+      // not the just-reread novel 0.
+      await store.write('acct', 200, paragraphId: 'p0', offset: 0);
+
+      final renewed = await store.read('acct', 0);
+      expect(renewed?.paragraphId, 'p9');
+      expect(renewed?.offset, 42);
+      expect(await store.read('acct', 1), isNull);
+      expect(await store.read('acct', 200), isNotNull);
+    });
   });
 
   testWidgets('NovelReader restores the persisted anchor on first layout', (
