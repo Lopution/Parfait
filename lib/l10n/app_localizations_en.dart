@@ -2117,7 +2117,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelReaderSettings => 'Reading settings';
 
   @override
-  String get novelSettingsSaveFailed => 'Failed to save reading settings';
+  String get novelSettingsSaveFailed =>
+      'Couldn\'t save reading settings — applied for this session only';
 
   @override
   String get novelFontSize => 'Font size';

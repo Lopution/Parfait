@@ -2063,7 +2063,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelReaderSettings => '読書設定';
 
   @override
-  String get novelSettingsSaveFailed => '読書設定の保存に失敗しました';
+  String get novelSettingsSaveFailed => '読書設定を保存できませんでした。今回のみ有効です';
 
   @override
   String get novelFontSize => '文字サイズ';
