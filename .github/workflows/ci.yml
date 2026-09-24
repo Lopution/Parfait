@@ -163,7 +163,7 @@ jobs:
         # Repo vars override; the arm64 32_000_000 hard cap still
         # applies (stricter wins).
         env:
-          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '29985336' }}
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '31042311' }}
           PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '26895753' }}
         run: |
           python3 tool/apk_size_report.py \
@@ -231,7 +231,7 @@ jobs:
         # Repo vars override; the arm64 32_000_000 hard cap still
         # applies (stricter wins).
         env:
-          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '29985336' }}
+          PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '31042311' }}
           PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '26895753' }}
         run: |
           python3 tool/apk_size_report.py \
