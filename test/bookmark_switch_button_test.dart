@@ -283,6 +283,61 @@ void main() {
     expect(confirm().onPressed, isNotNull);
   });
 
+  testWidgets('edit sheet locks the whole form while the detail prefills', (
+    tester,
+  ) async {
+    final (container, repository) = await _pump(tester);
+    const key = BookmarkKey(BookmarkEntityType.illust, 1);
+    repository.detailGate = Completer<BookmarkDetail>();
+    repository.detail = const BookmarkDetail(
+      isBookmarked: true,
+      restrict: BookmarkRestrict.private,
+      tags: [
+        BookmarkTagFacet(name: 'procreate', isRegistered: true),
+        BookmarkTagFacet(name: 'らくがき', isRegistered: false),
+      ],
+    );
+    container
+        .read(bookmarkStoreProvider.notifier)
+        .observeRemote(key, bookmarked: true, snapshotRevision: 0);
+    await tester.pump();
+
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Detail still in flight: every editable control is inert — the tag
+    // editor is replaced by the spinner and the restrict selector is
+    // disabled. A mid-load restrict change used to flip the draft dirty,
+    // which made the arriving prefill keep the empty tag list.
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    SegmentedButton<BookmarkRestrict> segmented() =>
+        tester.widget<SegmentedButton<BookmarkRestrict>>(
+          find.byType(SegmentedButton<BookmarkRestrict>),
+        );
+    expect(segmented().onSelectionChanged, isNull);
+    await tester.tap(find.text('私密'));
+    await tester.pump();
+    expect(segmented().selected, {BookmarkRestrict.public});
+
+    // The arriving detail fully populates the persisted state and editing
+    // resumes.
+    repository.detailGate!.complete(repository.detail);
+    await tester.pumpAndSettle();
+    expect(segmented().onSelectionChanged, isNotNull);
+    expect(segmented().selected, {BookmarkRestrict.private});
+    expect(find.text('procreate'), findsOneWidget);
+    expect(find.text('らくがき'), findsOneWidget);
+
+    // Submission stays possible afterwards with the prefilled values.
+    await tester.ensureVisible(find.text('确定'));
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(repository.adds, hasLength(1));
+    expect(repository.adds.single.$2, 'private');
+    expect(repository.adds.single.$3, ['procreate', 'らくがき']);
+  });
+
   testWidgets('tag input and suggestion chips reach the add call', (
     tester,
   ) async {
@@ -375,6 +430,36 @@ void main() {
       ),
       findsNothing,
     );
+  });
+
+  testWidgets('edit sheet lifts above the keyboard and keeps confirm '
+      'reachable', (tester) async {
+    // Phone-tall surface so the shrunken band still fits the fixed header
+    // and the action row above a mid-size IME.
+    tester.view.physicalSize = const Size(900, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final (_, repository) = await _pump(tester);
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+
+    const keyboardTop = 800 - 300;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+
+    // The modal route does not consume viewInsets: the sheet lifts above
+    // the IME via its own bottom padding and shrinks into the remaining
+    // height, so the confirm row ends above the keyboard and still taps.
+    final confirmRect = tester.getRect(find.widgetWithText(FilledButton, '确定'));
+    expect(confirmRect.bottom, lessThanOrEqualTo(keyboardTop));
+    expect(find.byType(TextField), findsOneWidget);
+
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+    expect(repository.adds, hasLength(1));
   });
 
   testWidgets('dirty draft asks before closing via cancel button', (

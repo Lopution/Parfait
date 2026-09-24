@@ -186,6 +186,33 @@ void main() {
     expect(binding.saves, hasLength(2));
   });
 
+  testWidgets('a failed anchor save stays observable via the debug log', (
+    tester,
+  ) async {
+    final binding = _RecordingBinding()..saveError = StateError('disk full');
+    final printed = <String>[];
+    final prevDebugPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) {
+      if (message != null) printed.add(message);
+    };
+    await tester.pumpWidget(_stageApp(binding));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // A user-committed turn still routes through save — the failure is
+    // logged, not swallowed silently and not surfaced as a snackbar
+    // (anchor loss is non-fatal; a spammed snackbar would be worse).
+    await tester.tapAt(const Offset(780, 300));
+    await tester.pumpAndSettle();
+    // debugPrint is a foundation debug variable: restore it inside the
+    // test body — the invariant check runs before addTearDown.
+    debugPrint = prevDebugPrint;
+    expect(binding.saveCalls, 1);
+    expect(binding.saves, isEmpty);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(printed, contains(contains('novel anchor persist failed')));
+  });
+
   testWidgets('a failed prefs read surfaces an error with retry', (
     tester,
   ) async {
@@ -220,6 +247,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.byType(SnackBar), findsOneWidget);
+    // The copy must say the change applied for this session only — the
+    // old "保存失败" wording hid that the on-screen values were live.
+    expect(find.text('阅读设置未能保存，仅本次生效'), findsOneWidget);
 
     // The in-memory value still applied — the snackbar reports the
     // persistence failure rather than silently dropping it. Dismiss it
@@ -231,6 +261,62 @@ void main() {
     await tester.tap(find.byIcon(Icons.tune_outlined));
     await tester.pumpAndSettle();
     expect(find.text('16'), findsOneWidget);
+  });
+
+  testWidgets('progress sheet percent matches the footer formula at 1/2/N '
+      'boundaries', (tester) async {
+    // pageBreakBefore makes the page count deterministic — one short
+    // paragraph per page regardless of layout metrics.
+    NovelEntity paged(int pages) => NovelEntity(
+      id: 77,
+      title: 'A novel',
+      caption: '',
+      user: const UserEntity(id: 8, name: 'author', account: 'author'),
+      tags: const [],
+      textLength: 1,
+      contentVersion: 'paged-$pages',
+      contentAvailable: true,
+      paragraphs: [
+        for (var i = 0; i < pages; i++)
+          NovelParagraph(id: 'pg$i', text: 'page $i', pageBreakBefore: i > 0),
+      ],
+    );
+
+    Future<void> openSheet(int pages) async {
+      // pumpWidget reuses the stage's Element across identical trees —
+      // drop to an empty tree first so each page count mounts a fresh
+      // stage with hidden chrome.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        _stageApp(_RecordingBinding(), novel: paged(pages)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('阅读进度'));
+      await tester.pumpAndSettle();
+    }
+
+    // One page: 100% regardless of formula.
+    await openSheet(1);
+    expect(find.text('1/1 · 100%'), findsWidgets);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    // Two pages: the preview starts on page 1 — the footer formula
+    // reads 50% where the old position-over-range formula read 0%.
+    await openSheet(2);
+    expect(find.text('1/2 · 50%'), findsWidgets);
+    await tester.drag(find.byType(Slider), const Offset(400, 0));
+    await tester.pump();
+    expect(find.text('2/2 · 100%'), findsWidgets);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    // N pages: page 1 of 4 shows the same 25% the footer reports.
+    await openSheet(4);
+    expect(find.text('1/4 · 25%'), findsWidgets);
   });
 }
 
@@ -248,7 +334,9 @@ class _RecordingBinding implements ReaderProgressBinding {
   final NovelAnchor? restore;
   final List<NovelAnchor> saves = [];
   var loadCalls = 0;
+  var saveCalls = 0;
   Object? loadError;
+  Object? saveError;
 
   @override
   Future<NovelAnchor?> load() async {
@@ -260,6 +348,9 @@ class _RecordingBinding implements ReaderProgressBinding {
 
   @override
   Future<void> save(NovelAnchor anchor) async {
+    saveCalls += 1;
+    final error = saveError;
+    if (error != null) throw error;
     saves.add(anchor);
   }
 }
@@ -268,6 +359,7 @@ Widget _stageApp(
   _RecordingBinding binding, {
   String? text,
   bool chapters = false,
+  NovelEntity? novel,
   SharedPreferencesAsync? preferences,
 }) {
   return ProviderScope(
@@ -282,9 +374,11 @@ Widget _stageApp(
       home: Scaffold(
         body: NovelReaderStage(
           spec: NovelReaderStageSpec(
-            novel: chapters
-                ? _novelWithChapters()
-                : _novel(text ?? 'reader ' * 400),
+            novel:
+                novel ??
+                (chapters
+                    ? _novelWithChapters()
+                    : _novel(text ?? 'reader ' * 400)),
             infoTooltip: 'info',
             infoSheet: (context) => const Text('info sheet'),
             progress: binding,

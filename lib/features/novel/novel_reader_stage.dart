@@ -11,6 +11,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/watchlist_toggle.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/log.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_repository.dart';
@@ -180,7 +181,15 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
   }
 
   void _persistAnchor(NovelAnchor anchor) {
-    unawaited(widget.spec.progress.save(anchor));
+    // Anchor writes stay fire-and-forget — a lost position is non-fatal —
+    // but a broken store must still be observable. Log instead of a
+    // snackbar: this fires on every page turn, so a persistently failing
+    // write would spam the UI far worse than it informs.
+    unawaited(
+      widget.spec.progress.save(anchor).catchError((Object error, _) {
+        log('novel anchor persist failed: $error');
+      }),
+    );
   }
 
   @override
@@ -457,9 +466,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            // Same formula as the footer/bottom-bar readout — the sheet
+            // and the bar must report the same percent for the same
+            // page, not position-over-range.
             final percent = pageCount <= 1
                 ? 100
-                : (preview / (pageCount - 1) * 100).round();
+                : ((preview + 1) / pageCount * 100).round();
             void jumpTo(int page) {
               Navigator.of(sheetContext).pop();
               _readerHandle.goToPage?.call(page, animate: false);

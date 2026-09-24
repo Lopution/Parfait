@@ -178,6 +178,60 @@ void main() {
       expect(played, contains(3));
     });
 
+    testWidgets('scroll-exposed card skips the first-screen stagger wait', (
+      tester,
+    ) async {
+      final played = <int>{};
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            height: 300,
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (var i = 0; i < 30; i++)
+                    StaggeredEntrance(
+                      index: i,
+                      id: i,
+                      played: played,
+                      child: SizedBox(height: 200, child: Text('card $i')),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      // First-screen batch still staggers: card 1 (index 1 -> 30ms delay)
+      // holds opacity 0 through its delay window before rising.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      final card1Opacity = find.descendant(
+        of: find.widgetWithText(StaggeredEntrance, 'card 1'),
+        matching: find.byType(Opacity),
+      );
+      expect(tester.widget<Opacity>(card1Opacity).opacity, 0);
+      await tester.pumpAndSettle();
+
+      // A calm scroll exposes card 9 — a continued-scrolling reveal, not
+      // the opening batch. The 8x30ms wait must be gone: once the gate
+      // fires, the entrance rises immediately (the old code still held
+      // 0.0 inside its 240ms delay window at this point).
+      tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .jumpTo(1700);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      final card9Opacity = find.descendant(
+        of: find.widgetWithText(StaggeredEntrance, 'card 9'),
+        matching: find.byType(Opacity),
+      );
+      expect(tester.widget<Opacity>(card9Opacity).opacity, greaterThan(0.2));
+      await tester.pumpAndSettle();
+      expect(played, contains(9));
+    });
+
     testWidgets('a card exposed mid-fling appears static immediately', (
       tester,
     ) async {

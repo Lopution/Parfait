@@ -977,7 +977,7 @@
   "novelIncreaseFont": "增大字号",
   "novelReadingProgress": "阅读进度",
   "novelReaderSettings": "阅读设置",
-  "novelSettingsSaveFailed": "阅读设置保存失败",
+  "novelSettingsSaveFailed": "阅读设置未能保存，仅本次生效",
   "novelFontSize": "字号",
   "novelLineHeight": "行距",
   "novelThemeSystem": "跟随系统",

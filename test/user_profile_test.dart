@@ -61,11 +61,15 @@ class _FakeFollowRepository implements FollowRepository {
 }
 
 class _FakeUserRepository implements UserRepository {
-  _FakeUserRepository({UserEntity? detail, this.works = const []})
-    : detail = detail ?? _user(42);
+  _FakeUserRepository({
+    UserEntity? detail,
+    this.works = const [],
+    this.bookmarks = const [],
+  }) : detail = detail ?? _user(42);
 
   final UserEntity detail;
   final List<IllustEntity> works;
+  final List<IllustEntity> bookmarks;
   final requests = <String>[];
 
   @override
@@ -99,7 +103,7 @@ class _FakeUserRepository implements UserRepository {
     CancelToken? cancelToken,
   }) async {
     requests.add('bookmarks:$userId:${restrict.name}:${tag ?? ''}');
-    return const UserIllustPage(illusts: [], nextUrl: null);
+    return UserIllustPage(illusts: bookmarks, nextUrl: null);
   }
 
   @override
@@ -680,14 +684,15 @@ void main() {
       await tester.pump();
       expect(find.byTooltip('分享用户'), findsOneWidget);
       expect(find.byTooltip('编辑个人资料'), findsOneWidget);
+      // The persistent overflow carries the full list in every state.
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
+      expect(find.text('分享用户'), findsOneWidget);
+      expect(find.text('编辑个人资料'), findsOneWidget);
       expect(find.text('公开'), findsOneWidget);
       expect(find.text('私密'), findsOneWidget);
       expect(find.text('收藏标签'), findsOneWidget);
       expect(find.text('下载全部作品'), findsOneWidget);
-      expect(find.text('分享用户'), findsNothing);
-      expect(find.text('编辑个人资料'), findsNothing);
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
@@ -761,6 +766,79 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
   });
+
+  testWidgets(
+    'back and overflow actions fire through the whole collapse interval',
+    (tester) async {
+      var shareCount = 0;
+      final controller = ScrollController();
+      Widget header() => Scaffold(
+        body: CustomScrollView(
+          controller: controller,
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: ReplicaProfileHeaderDelegate(
+                user: _user(42),
+                isMe: true,
+                selectedTabIndex: 0,
+                showRestrictSelector: false,
+                restrict: UserRestrict.public,
+                onRestrictChanged: (_) {},
+                onShare: (_) => shareCount++,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+          ],
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute<void>(builder: (_) => header())),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // expandedExtent 320 - minExtent 56 = 264dp collapse range.
+      for (final progress in [0.60, 0.80, 0.95]) {
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        controller.jumpTo(264 * progress);
+        await tester.pump();
+
+        // The overflow fires even inside the fade hand-off: the expanded
+        // row used to be IgnorePointer'd from 0.55 and unmounted at 0.78,
+        // while the collapsed toolbar only mounted at the very end.
+        await tester.tap(find.byIcon(Icons.more_vert));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('分享用户'));
+        await tester.pumpAndSettle();
+        expect(shareCount, 1, reason: 'progress $progress');
+        shareCount = 0;
+
+        // Back actually pops the pushed route.
+        await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+        await tester.pumpAndSettle();
+        expect(find.text('open'), findsOneWidget);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    },
+  );
 
   testWidgets(
     'UserPage keeps work types visible and re-tapping never toggles them',
@@ -995,6 +1073,87 @@ void main() {
     },
   );
 
+  testWidgets(
+    're-tap scrolls only the active tab; keep-alive siblings keep their '
+    'offset',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        works: List.generate(36, (index) => _illust(index + 1)),
+        bookmarks: List.generate(36, (index) => _illust(100 + index)),
+      );
+      final container = await _makeWorld(users: repository);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: const UserPage(userId: 42),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        ScrollPosition innerOf(ProfileFeedKey key) {
+          final scrollable = find
+              .descendant(
+                of: find.byKey(PageStorageKey(key)),
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable &&
+                      widget.axisDirection == AxisDirection.down,
+                ),
+              )
+              .first;
+          return tester.state<ScrollableState>(scrollable).position;
+        }
+
+        const workKey = ProfileFeedKey(
+          userId: 42,
+          kind: ProfileFeedKind.work,
+          workType: UserWorkType.illust,
+        );
+        const bookmarkKey = ProfileFeedKey(
+          userId: 42,
+          kind: ProfileFeedKind.bookmarks,
+          restrict: UserRestrict.public,
+        );
+        final workPosition = innerOf(workKey);
+        expect(workPosition.maxScrollExtent, greaterThan(0));
+
+        // Scroll tab A (作品), then switch to tab B (收藏) — the TabBarView
+        // builds a page on first visit, so B's position only exists after
+        // the switch — and scroll it.
+        workPosition.jumpTo(150);
+        await tester.pump();
+        await tester.tap(
+          find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
+        );
+        await tester.pumpAndSettle();
+        final bookmarkPosition = innerOf(bookmarkKey);
+        expect(bookmarkPosition.maxScrollExtent, greaterThan(0));
+        bookmarkPosition.jumpTo(140);
+        await tester.pump();
+        expect(bookmarkPosition.pixels, 140);
+        // NestedScrollView semantics: inner positions are coordinated —
+        // user-scroll deltas and position jumps broadcast to every
+        // attached keep-alive tab, so A follows B's offset once both are
+        // mounted. What must NOT happen is a re-tap rewinding A *again*:
+        // the old controller-level animateTo zeroed every position.
+        expect(workPosition.pixels, 140);
+
+        await tester.tap(
+          find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
+        );
+        await tester.pumpAndSettle();
+        expect(bookmarkPosition.pixels, 0);
+        expect(workPosition.pixels, 140);
+      });
+    },
+  );
+
   testWidgets('profile social links open, report failures, and copy', (
     tester,
   ) async {
@@ -1170,6 +1329,99 @@ void main() {
       ),
     );
     expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  group('profile tab label slots', () {
+    const baseSize = 14.0;
+    const scaleFloor = 0.55;
+
+    Future<void> pumpTabs(
+      WidgetTester tester, {
+      required Locale locale,
+      required bool isMe,
+      double width = 390,
+    }) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = TabController(length: isMe ? 5 : 4, vsync: tester);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: locale,
+          home: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: ReplicaProfileTabsDelegate(
+                    controller: controller,
+                    isMe: isMe,
+                    section: ProfileWorkSection.illust,
+                    onTabTap: (_) {},
+                    onSectionChanged: (_) {},
+                  ),
+                ),
+                const SliverFillRemaining(),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    Finder fittedBoxes() => find.descendant(
+      of: find.byType(TabBar),
+      matching: find.byType(FittedBox),
+    );
+
+    testWidgets('fitting labels keep equal-width slots at natural size', (
+      tester,
+    ) async {
+      // zh 5-tab isMe: the widest label (3 glyphs ~ 42px) fits the 62px
+      // slot — the five-slot mirror stays, labels at full size.
+      await pumpTabs(tester, locale: const Locale('zh', 'CN'), isMe: true);
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(bar.isScrollable, isFalse);
+      expect(bar.labelStyle!.fontSize, baseSize);
+      // The unbounded scaler that used to crush labels is gone entirely.
+      expect(fittedBoxes(), findsNothing);
+    });
+
+    testWidgets('long labels scale down but never below the floor', (
+      tester,
+    ) async {
+      // en 4-tab: "Bookmarked" ~ 140px in an 81.5px slot -> scale ~ 0.58,
+      // inside the bounded range — equal slots stay, font >= floor.
+      await pumpTabs(tester, locale: const Locale('en'), isMe: false);
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(bar.isScrollable, isFalse);
+      expect(bar.labelStyle!.fontSize, lessThan(baseSize));
+      expect(
+        bar.labelStyle!.fontSize,
+        greaterThanOrEqualTo(baseSize * scaleFloor),
+      );
+      expect(fittedBoxes(), findsNothing);
+    });
+
+    testWidgets('narrow surface + long translation + five tabs scroll instead '
+        'of shrinking', (tester) async {
+      // ru 5-tab isMe @390: "Подписчики" ~ 140px vs a 62px slot — even
+      // the 0.55 floor cannot hold it, so the slot hands over to
+      // horizontal scrolling (discovery-page parity) with labels back
+      // at full size.
+      await pumpTabs(tester, locale: const Locale('ru'), isMe: true);
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(bar.isScrollable, isTrue);
+      expect(
+        bar.labelStyle!.fontSize,
+        greaterThanOrEqualTo(baseSize * scaleFloor),
+      );
+      expect(fittedBoxes(), findsNothing);
+    });
   });
 }
 

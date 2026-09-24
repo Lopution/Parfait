@@ -2118,7 +2118,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelReaderSettings => 'Настройки чтения';
 
   @override
-  String get novelSettingsSaveFailed => 'Не удалось сохранить настройки чтения';
+  String get novelSettingsSaveFailed =>
+      'Не удалось сохранить настройки чтения — они действуют только в этом сеансе';
 
   @override
   String get novelFontSize => 'Размер шрифта';
