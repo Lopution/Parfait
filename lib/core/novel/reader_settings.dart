@@ -184,9 +184,14 @@ class NovelProgressStore {
     required int offset,
   }) async {
     final all = await _readAll();
-    all[_entryKey(accountId, novelId)] = {'p': paragraphId, 'o': offset};
-    // Insertion order is recency order for our purposes: re-saving an entry
-    // moves it to the end, so trimming from the front evicts the stalest.
+    final key = _entryKey(accountId, novelId);
+    // Insertion order is recency order for our purposes: re-saving an
+    // entry must reinsert it at the end — a plain `all[key] =` keeps the
+    // original position, so an often-reread novel would still be evicted
+    // first. Removing before the write makes trimming from the front
+    // genuinely drop the stalest.
+    all.remove(key);
+    all[key] = {'p': paragraphId, 'o': offset};
     while (all.length > _maxEntries) {
       all.remove(all.keys.first);
     }

@@ -97,7 +97,7 @@ class MePage extends ConsumerWidget {
 enum _ProfileStatTarget { following, myPixiv, illust, manga, novel, series }
 
 class _UserPageState extends ConsumerState<UserPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final TabController _tabController;
   late final List<String> _tabKeys;
   late final ScrollController _outerScrollController;
@@ -151,31 +151,73 @@ class _UserPageState extends ConsumerState<UserPage>
 
   void _onTabTap(int index) {
     if (index == _selectedIndex && !_tabController.indexIsChanging) {
-      unawaited(_scrollActiveTabToTop());
+      _scrollActiveTabToTop();
     }
   }
 
-  Future<void> _scrollActiveTabToTop() async {
+  void _scrollActiveTabToTop() {
     final animated = MotionTokens.enabled(context);
     final duration = MotionTokens.resolve(context, MotionTokens.fast);
-    final curve = Curves.easeOutCubic;
-    await _bodyKeys[_selectedIndex].currentState?.scrollToTop(
+    const curve = Curves.easeOutCubic;
+    _bodyKeys[_selectedIndex].currentState?.scrollToTop(
       animated: animated,
       duration: duration,
       curve: curve,
     );
-    if (!mounted) return;
+    // The outer controller's position is a _NestedScrollPosition too:
+    // animateTo would broadcast through the nested coordinator and rewind
+    // every keep-alive inner tab. Drive each attached position locally so
+    // only the header expands.
     if (_outerScrollController.hasClients) {
-      if (animated) {
-        await _outerScrollController.animateTo(
-          0,
+      for (final position in _outerScrollController.positions) {
+        _drivePositionToTop(
+          this,
+          position,
+          animated: animated,
           duration: duration,
           curve: curve,
         );
-      } else {
-        _outerScrollController.jumpTo(0);
       }
     }
+  }
+
+  /// Drives [position] to offset 0 through a local scroll activity. The
+  /// profile feeds share the NestedScrollView's inner controller, whose
+  /// positions route jumpTo/animateTo through the nested coordinator —
+  /// and the coordinator broadcasts the motion to EVERY attached inner
+  /// position, keep-alive sibling tabs included. A [DrivenScrollActivity]
+  /// begun directly on the position touches only that offset.
+  static void _drivePositionToTop(
+    TickerProvider vsync,
+    ScrollPosition position, {
+    required bool animated,
+    required Duration duration,
+    required Curve curve,
+  }) {
+    // Every Scrollable position in this app is a
+    // ScrollPositionWithSingleContext, which implements the delegate.
+    final delegate = position is ScrollActivityDelegate
+        ? position as ScrollActivityDelegate
+        : null;
+    if (delegate == null || !position.hasPixels) return;
+    if (animated && duration > Duration.zero && position.pixels != 0) {
+      position.beginActivity(
+        DrivenScrollActivity(
+          delegate,
+          from: position.pixels,
+          to: 0,
+          duration: duration,
+          curve: curve,
+          vsync: vsync,
+        ),
+      );
+      return;
+    }
+    // Local jumpTo(0): stop any in-flight activity, then write the offset
+    // through the position's own setPixels — minus the coordinator
+    // fan-out. setPixels still emits the scroll-position notification.
+    position.beginActivity(IdleScrollActivity(delegate));
+    position.setPixels(0);
   }
 
   ProfileFeedKey? _feedKeyFor(int index) {
@@ -226,7 +268,7 @@ class _UserPageState extends ConsumerState<UserPage>
 
   void _onSectionChanged(ProfileWorkSection section) {
     if (section == _workSection) {
-      unawaited(_scrollActiveTabToTop());
+      _scrollActiveTabToTop();
       return;
     }
     setState(() => _workSection = section);
@@ -310,7 +352,7 @@ class _UserPageState extends ConsumerState<UserPage>
     final index = _tabKeys.indexOf(key);
     if (index < 0) return;
     if (index == _selectedIndex) {
-      unawaited(_scrollActiveTabToTop());
+      _scrollActiveTabToTop();
     } else {
       _tabController.animateTo(index);
     }
@@ -322,7 +364,7 @@ class _UserPageState extends ConsumerState<UserPage>
     final sameSection = _workSection == section;
     if (!sameSection) setState(() => _workSection = section);
     if (workIndex == _selectedIndex) {
-      if (sameSection) unawaited(_scrollActiveTabToTop());
+      if (sameSection) _scrollActiveTabToTop();
     } else {
       _tabController.animateTo(workIndex);
     }
@@ -541,18 +583,43 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   @override
   bool get wantKeepAlive => true;
 
-  Future<void> scrollToTop({
+  void scrollToTop({
     required bool animated,
     required Duration duration,
     required Curve curve,
-  }) async {
-    final controller = PrimaryScrollController.maybeOf(context);
-    if (controller == null || !controller.hasClients) return;
-    if (animated) {
-      await controller.animateTo(0, duration: duration, curve: curve);
-    } else {
-      controller.jumpTo(0);
+  }) {
+    // The feed's own Scrollable position is one of several attached to the
+    // shared inner controller — driving it with a local activity rewinds
+    // only this tab while sibling positions keep their offsets.
+    final scrollable = _tabScrollable();
+    final position = scrollable?.position;
+    if (scrollable == null || position == null || !position.hasPixels) {
+      return;
     }
+    _UserPageState._drivePositionToTop(
+      scrollable.vsync,
+      position,
+      animated: animated,
+      duration: duration,
+      curve: curve,
+    );
+  }
+
+  /// The feed's own scroll view — the first Scrollable below this tab
+  /// body.
+  ScrollableState? _tabScrollable() {
+    ScrollableState? found;
+    void visit(Element element) {
+      if (found != null) return;
+      if (element is StatefulElement && element.state is ScrollableState) {
+        found = element.state as ScrollableState;
+        return;
+      }
+      element.visitChildElements(visit);
+    }
+
+    context.visitChildElements(visit);
+    return found;
   }
 
   @override

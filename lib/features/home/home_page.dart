@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/icons/app_icons.dart';
 import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../app/navigation/home_shell_metrics.dart';
@@ -122,33 +121,16 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  static const icons = [
-    AppIcons.home,
-    AppIcons.ranking,
-    AppIcons.n,
-    AppIcons.search,
-    Icons.settings_outlined,
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final wide = AppBreakpoints.useNavigationRail(width);
-    // Three chrome tiers on the same width ladder: bottom bar (<600),
-    // compact rail (600-1199), labelled extended rail (>=1200). The rail
-    // animates the extended transition itself, so a window resize across
-    // the boundary swaps forms without a flash.
-    final extendedRail = AppBreakpoints.useExtendedRail(width);
-    final index = widget.navigationShell.currentIndex;
-    final labels = [
-      context.l10n.homeRecommended,
-      context.l10n.homeRanking,
-      context.l10n.newTitle,
-      context.l10n.searchTitle,
-      context.l10n.settingsTitle,
-    ];
-    // Narrow layout: the shell-level bar floats over the branch strip —
-    // a pushed route slides it away via the covered provider.
+    final wide = AppBreakpoints.useNavigationRail(
+      MediaQuery.sizeOf(context).width,
+    );
+    // The navigation chrome — bottom bar or NavigationRail, whichever the
+    // width ladder selects — is owned by the shell's BranchSlideStack so
+    // both controls share one action entry (BranchSlidePager.selectIndex).
+    // Narrow layout: the bar floats over the branch strip and a pushed
+    // route slides it away via the covered provider.
     // Wide layout: no bar at all; clear the metric so Hero flights do not
     // clip against a phantom edge.
     if (wide) _scheduleChromeClear();
@@ -161,31 +143,7 @@ class _HomePageState extends State<HomePage>
         // of the leaf page's own resizeToAvoidBottomInset (the search
         // input page's `false` was previously defeated here).
         resizeToAvoidBottomInset: false,
-        body: wide
-            ? Row(
-                children: [
-                  NavigationRail(
-                    selectedIndex: index,
-                    onDestinationSelected: widget.navigationShell.goBranch,
-                    extended: extendedRail,
-                    // `extended` requires labelType null/none; the compact
-                    // rail keeps labels under every icon.
-                    labelType: extendedRail
-                        ? null
-                        : NavigationRailLabelType.all,
-                    destinations: [
-                      for (var i = 0; i < icons.length; i++)
-                        NavigationRailDestination(
-                          icon: Icon(icons[i], size: 26),
-                          label: Text(labels[i]),
-                        ),
-                    ],
-                  ),
-                  const VerticalDivider(thickness: 1, width: 1),
-                  Expanded(child: widget.navigationShell),
-                ],
-              )
-            : widget.navigationShell,
+        body: widget.navigationShell,
       ),
     );
   }

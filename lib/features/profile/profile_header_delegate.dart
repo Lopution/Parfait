@@ -431,11 +431,27 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                       padding: EdgeInsets.only(top: topInset),
                       child: SizedBox(
                         height: kToolbarHeight,
-                        child: _CollapsedProfile(user: user, actions: actions),
+                        child: _CollapsedProfile(user: user),
                       ),
                     ),
                   ),
                 ),
+              // Critical actions live on a persistent layer that spans the
+              // whole collapse interval: the expanded details leave at
+              // 0.78 (and are IgnorePointer'd from the fade start) while
+              // the collapsed toolbar only mounts at the end, so an
+              // action that lived in either state had an untappable dead
+              // zone through the hand-off. The two states now swap only
+              // identity content; back and the overflow stay reachable.
+              Positioned(
+                top: topInset + 4,
+                right: 8,
+                child: _ProfileHeaderMoreButton(
+                  actions: actions,
+                  includePrimary: true,
+                  filled: true,
+                ),
+              ),
               // One persistent back button for both header states: the
               // collapsed row reserves the same 48px slot underneath, so
               // the affordance never jumps when the header folds — and it
@@ -661,14 +677,14 @@ class _ExpandedProfileDetails extends StatelessWidget {
         const SizedBox(height: 8),
         // One actions row under the stats — the share icon used to sit alone
         // at the name row's trailing edge while edit/settings lived here,
-        // which scattered the controls across two spots.
+        // which scattered the controls across two spots. Overflow lives on
+        // the header's persistent top-right affordance so it stays
+        // reachable while this block fades out during collapse.
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final action in actions.where((action) => action.primary))
               if (action.buildInline != null) action.buildInline!(context),
-            if (actions.any((action) => !action.primary))
-              _ProfileHeaderMoreButton(actions: actions),
           ],
         ),
       ],
@@ -701,10 +717,15 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
   const _ProfileHeaderMoreButton({
     required this.actions,
     this.includePrimary = false,
+    this.filled = false,
   });
 
   final List<_ProfileHeaderAction> actions;
   final bool includePrimary;
+
+  /// Tonal fill matching the persistent [IconButton.filledTonal] back
+  /// affordance, so the always-on overflow stays legible over artwork.
+  final bool filled;
 
   @override
   Widget build(BuildContext context) {
@@ -712,8 +733,15 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
         .where((action) => includePrimary || !action.primary)
         .toList();
     if (entries.isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
     return PopupMenuButton<String>(
       tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+      style: filled
+          ? IconButton.styleFrom(
+              foregroundColor: colors.onSecondaryContainer,
+              backgroundColor: colors.secondaryContainer,
+            )
+          : null,
       onSelected: (value) {
         for (final action in entries) {
           if (action.value == value) {
@@ -757,17 +785,16 @@ class _ProfileHeaderMenuLabel extends StatelessWidget {
 }
 
 class _CollapsedProfile extends StatelessWidget {
-  const _CollapsedProfile({required this.user, required this.actions});
+  const _CollapsedProfile({required this.user});
 
   final UserEntity user;
-  final List<_ProfileHeaderAction> actions;
 
   @override
   Widget build(BuildContext context) {
-    // Three-section toolbar: leading spacer / centred title / a single
-    // overflow button. The persistent _HeaderBackButton overlays the
-    // leading 48px slot, so both ends reserve identical 56px chrome and
-    // the title stays centred on screen.
+    // Three-section toolbar: leading spacer / centred title / trailing
+    // spacer. The persistent back and overflow buttons overlay the two
+    // 48px slots, so both ends reserve identical 56px chrome and the
+    // title stays centred on screen.
     return Row(
       children: [
         const SizedBox(width: 8),
@@ -782,14 +809,7 @@ class _CollapsedProfile extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: _ProfileHeaderMoreButton(
-            actions: actions,
-            includePrimary: true,
-          ),
-        ),
+        const SizedBox(width: 48, height: 48),
         const SizedBox(width: 8),
       ],
     );
@@ -900,11 +920,15 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
             height: kToolbarHeight,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Uniform label scale: all tabs share one font size, shrunk
-                // until the widest translation fits its equal-width slot.
-                // Same layout in every locale — longer languages just render
-                // at a smaller size instead of crowding or truncating.
+                // Same decision order as the discovery TabBars: reasonable
+                // copy → enough space → horizontal scroll → bounded scale
+                // as the last resort. Equal-width slots (the five-slot
+                // bottom-bar mirror) only apply while the widest label
+                // still fits at a readable scale; a translation that would
+                // shrink below the floor scrolls at full size instead —
+                // nothing ever lets FittedBox crush the text.
                 const baseSize = 14.0;
+                const scaleFloor = 0.55;
                 final slotWidth =
                     constraints.maxWidth / labels.length -
                     16; // labelPadding horizontal 8 x2
@@ -926,37 +950,32 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
                     maxLabelWidth = painter.width;
                   }
                 }
-                final scale = slotWidth > 0 && maxLabelWidth > 0
-                    ? (slotWidth / maxLabelWidth).clamp(0.55, 1.0)
+                final natural = slotWidth > 0 && maxLabelWidth > 0
+                    ? slotWidth / maxLabelWidth
                     : 1.0;
+                // Below the floor equal slots can no longer keep the label
+                // readable — hand the slot to the scrollable bar the
+                // discovery pages use, labels back at natural size.
+                final scrollable = natural < scaleFloor;
+                final scale = scrollable ? 1.0 : natural.clamp(scaleFloor, 1.0);
                 final labelStyle = TextStyle(
                   fontSize: baseSize * scale,
                   fontWeight: FontWeight.w500,
                 );
                 return TabBar(
                   controller: controller,
-                  // Profile tabs mirror the five-slot bottom navigation. Keep
-                  // every tab in an equal-width slot; the shared scaled font
-                  // keeps long translations inside the header without
-                  // horizontal scrolling.
-                  isScrollable: false,
+                  isScrollable: scrollable,
+                  tabAlignment: scrollable ? TabAlignment.start : null,
                   indicatorSize: TabBarIndicatorSize.label,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  labelPadding: EdgeInsets.symmetric(
+                    horizontal: scrollable ? 12 : 8,
+                  ),
                   labelStyle: labelStyle,
                   unselectedLabelStyle: labelStyle,
                   onTap: onTabTap,
                   tabs: [
                     for (final label in labels)
-                      Tab(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            _text(context, label),
-                            maxLines: 1,
-                            softWrap: false,
-                          ),
-                        ),
-                      ),
+                      Tab(text: _text(context, label)),
                   ],
                 );
               },

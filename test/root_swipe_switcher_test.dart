@@ -29,9 +29,10 @@ const _account = Account(id: '100', userId: 100, name: 'tester');
 Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   String location = '/recommended',
+  double width = 390,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = Size(width, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final router = createPixivRouter(initialLocation: location);
@@ -78,6 +79,13 @@ TabController _tabController(WidgetTester tester, Finder page) => tester
 
 int _tabIndex(WidgetTester tester, Finder page) =>
     _tabController(tester, page).index;
+
+List<int> _recordReTaps(WidgetTester tester, Finder page) {
+  final pager = BranchSlideStack.maybeOf(tester.element(page))!;
+  final events = <int>[];
+  pager.reTapEvents.addListener(() => events.add(pager.reTapEvents.branch));
+  return events;
+}
 
 void main() {
   testWidgets('sideways fling steps the top tabs first, then the branch', (
@@ -360,18 +368,11 @@ void main() {
   });
 
   group('re-tap channel', () {
-    List<int> record(WidgetTester tester, Finder page) {
-      final pager = BranchSlideStack.maybeOf(tester.element(page))!;
-      final events = <int>[];
-      pager.reTapEvents.addListener(() => events.add(pager.reTapEvents.branch));
-      return events;
-    }
-
     testWidgets('a same-destination tap emits one event per tap', (
       tester,
     ) async {
       await _pumpHome(tester);
-      final events = record(tester, find.byType(RecommendedHomePage));
+      final events = _recordReTaps(tester, find.byType(RecommendedHomePage));
 
       await tester.tap(
         find.descendant(
@@ -400,7 +401,7 @@ void main() {
       final pager = BranchSlideStack.maybeOf(
         tester.element(find.byType(RecommendedHomePage)),
       )!;
-      final events = record(tester, find.byType(RecommendedHomePage));
+      final events = _recordReTaps(tester, find.byType(RecommendedHomePage));
 
       // Imperative pushes do not update the URL
       // (GoRouter.optionURLReflectsImperativeAPIs stays off), so the
@@ -426,7 +427,7 @@ void main() {
 
     testWidgets('a different-destination tap does not emit', (tester) async {
       await _pumpHome(tester);
-      final events = record(tester, find.byType(RecommendedHomePage));
+      final events = _recordReTaps(tester, find.byType(RecommendedHomePage));
 
       await tester.tap(
         find.descendant(
@@ -443,7 +444,7 @@ void main() {
       final pager = BranchSlideStack.maybeOf(
         tester.element(find.byType(SearchHomePage)),
       )!;
-      final events = record(tester, find.byType(SearchHomePage));
+      final events = _recordReTaps(tester, find.byType(SearchHomePage));
 
       // A committed drag settle crosses to the neighbour branch without
       // ever being a tap. Search has no top tabs, so the sideways drag is
@@ -474,6 +475,61 @@ void main() {
       pager.syncIndex();
       await tester.pumpAndSettle();
       expect(events, isEmpty);
+    });
+  });
+
+  group('NavigationRail shares the bar action entry', () {
+    // Wide surfaces swap the bottom bar for a NavigationRail; both
+    // controls must funnel into BranchSlidePager.selectIndex, so each
+    // check mirrors a bar case above.
+    testWidgets('a different-destination rail tap slides over and does '
+        'not emit', (tester) async {
+      final router = await _pumpHome(tester, width: 900);
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(FuncShellBottomNav), findsNothing);
+      final events = _recordReTaps(tester, find.byType(RecommendedHomePage));
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationRail),
+          matching: find.byIcon(AppIcons.ranking),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(_path(router), '/ranking');
+      expect(find.byType(RankingPage), findsOneWidget);
+      expect(events, isEmpty);
+    });
+
+    testWidgets('a same-destination rail tap pops the branch stack and '
+        'emits re-tap', (tester) async {
+      final router = await _pumpHome(tester, width: 900);
+      final events = _recordReTaps(tester, find.byType(RecommendedHomePage));
+
+      unawaited(router.push<void>('/recommended/history'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(HistoryPage), findsOneWidget);
+
+      // The rail stays mounted while a pushed route covers the branch —
+      // a tap here used to die on goBranch's same-index no-op. Through
+      // the shared entry it is the bar's re-tap: pop to root + emit.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationRail),
+          matching: find.byIcon(AppIcons.home),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(find.byType(HistoryPage), findsNothing);
+      expect(find.byType(RecommendedHomePage), findsOneWidget);
+      expect(events, [0]);
     });
   });
 }
