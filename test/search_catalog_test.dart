@@ -1034,6 +1034,9 @@ void main() {
     // The tagless card keeps the plain text form, no broken-image slot.
     expect(find.text('#猫'), findsOneWidget);
     expect(find.text('#风景'), findsOneWidget);
+    // The representative work has a visible secondary action; the tag-only
+    // card does not pretend that it can open a work.
+    expect(find.byTooltip('打开详情页'), findsOneWidget);
   });
 
   testWidgets('trending grid renders every tag including a partial row', (

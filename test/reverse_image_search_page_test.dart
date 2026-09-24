@@ -655,6 +655,14 @@ void main() {
       expect(thumb(), findsOneWidget);
       expect(headerText('Ascii2D'), findsOneWidget);
       expect(headerText('已完成'), findsOneWidget);
+
+      // The upload hint is persistent guidance, but it must have a visible
+      // escape hatch. Dismissing it leaves the upload WebView mounted.
+      expect(find.byTooltip('关闭'), findsOneWidget);
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pump();
+      expect(find.text('点按页面中的上传按钮开始搜索，已选图片会自动填入。'), findsNothing);
+      expect(find.byType(InAppWebView), findsOneWidget);
     });
   });
 }
