@@ -12,6 +12,7 @@ import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
@@ -176,20 +177,12 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         titleSpacing: 0,
-        title: TabBar(
+        title: AppTabBar(
           controller: _tabController,
-          // Scrollable instead of equal-width slots + FittedBox: labels
-          // stay at full size in every locale (long translations used to
-          // shrink to unreadable).
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          indicatorSize: TabBarIndicatorSize.label,
-          indicatorPadding: const EdgeInsets.only(bottom: 5),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           onTap: _onTabTap,
-          tabs: [
+          labels: [
             for (final scope in _scopes)
-              Tab(text: _newText(context, _scopeLabelKey(scope))),
+              _newText(context, _scopeLabelKey(scope)),
           ],
         ),
         // Feature entries (watchlist, local novels) live in settings'

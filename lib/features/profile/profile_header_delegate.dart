@@ -7,6 +7,7 @@ import '../../app/pixiv_image.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
+import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
@@ -918,67 +919,10 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
         children: [
           SizedBox(
             height: kToolbarHeight,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Same decision order as the discovery TabBars: reasonable
-                // copy → enough space → horizontal scroll → bounded scale
-                // as the last resort. Equal-width slots (the five-slot
-                // bottom-bar mirror) only apply while the widest label
-                // still fits at a readable scale; a translation that would
-                // shrink below the floor scrolls at full size instead —
-                // nothing ever lets FittedBox crush the text.
-                const baseSize = 14.0;
-                const scaleFloor = 0.55;
-                final slotWidth =
-                    constraints.maxWidth / labels.length -
-                    16; // labelPadding horizontal 8 x2
-                var maxLabelWidth = 0.0;
-                for (final key in labels) {
-                  final painter = TextPainter(
-                    text: TextSpan(
-                      text: _text(context, key),
-                      style: const TextStyle(
-                        fontSize: baseSize,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    textDirection: Directionality.of(context),
-                    maxLines: 1,
-                    textScaler: MediaQuery.textScalerOf(context),
-                  )..layout();
-                  if (painter.width > maxLabelWidth) {
-                    maxLabelWidth = painter.width;
-                  }
-                }
-                final natural = slotWidth > 0 && maxLabelWidth > 0
-                    ? slotWidth / maxLabelWidth
-                    : 1.0;
-                // Below the floor equal slots can no longer keep the label
-                // readable — hand the slot to the scrollable bar the
-                // discovery pages use, labels back at natural size.
-                final scrollable = natural < scaleFloor;
-                final scale = scrollable ? 1.0 : natural.clamp(scaleFloor, 1.0);
-                final labelStyle = TextStyle(
-                  fontSize: baseSize * scale,
-                  fontWeight: FontWeight.w500,
-                );
-                return TabBar(
-                  controller: controller,
-                  isScrollable: scrollable,
-                  tabAlignment: scrollable ? TabAlignment.start : null,
-                  indicatorSize: TabBarIndicatorSize.label,
-                  labelPadding: EdgeInsets.symmetric(
-                    horizontal: scrollable ? 12 : 8,
-                  ),
-                  labelStyle: labelStyle,
-                  unselectedLabelStyle: labelStyle,
-                  onTap: onTabTap,
-                  tabs: [
-                    for (final label in labels)
-                      Tab(text: _text(context, label)),
-                  ],
-                );
-              },
+            child: AppTabBar(
+              controller: controller,
+              onTap: onTabTap,
+              labels: [for (final label in labels) _text(context, label)],
             ),
           ),
           if (isWorkTab)

@@ -10,6 +10,7 @@ import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
 
+import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
@@ -132,13 +133,8 @@ class _RankingPageState extends State<RankingPage>
             icon: const Icon(Icons.menu_book_outlined),
           ),
         ],
-        title: TabBar(
+        title: AppTabBar(
           controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          indicatorSize: TabBarIndicatorSize.label,
-          indicatorPadding: const EdgeInsets.only(bottom: 5),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           onTap: (index) {
             // TabBar already ran controller.animateTo before this
             // callback — and TabController._changeIndex early-returns on
@@ -152,9 +148,9 @@ class _RankingPageState extends State<RankingPage>
               );
             }
           },
-          tabs: [
+          labels: [
             for (final item in RankingMode.values)
-              Tab(text: l10nLookupFor(language.locale, item.labelKey)),
+              l10nLookupFor(language.locale, item.labelKey),
           ],
         ),
       ),

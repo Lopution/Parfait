@@ -8,6 +8,7 @@ import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
@@ -31,11 +32,8 @@ class WatchlistPage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(context.l10n.watchlistTitle),
-          bottom: TabBar(
-            tabs: [
-              Tab(text: context.l10n.watchlistManga),
-              Tab(text: context.l10n.watchlistNovel),
-            ],
+          bottom: AppTabBar(
+            labels: [context.l10n.watchlistManga, context.l10n.watchlistNovel],
           ),
         ),
         body: const TabBarView(

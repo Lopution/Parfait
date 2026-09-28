@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
+import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
@@ -551,11 +552,10 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
         ),
         titleSpacing: 0,
         title: _buildSearchBar(context),
-        bottom: TabBar(
+        bottom: AppTabBar(
           controller: _tabController,
-          tabs: [
-            for (final type in _types)
-              Tab(text: searchText(context, type.labelKey)),
+          labels: [
+            for (final type in _types) searchText(context, type.labelKey),
           ],
         ),
       ),
