@@ -301,4 +301,82 @@ void main() {
     await tester.pump();
     expect(find.byType(SnackBar), findsOneWidget);
   });
+
+  testWidgets('a snackbar with an action times out like any other', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _branchHost(
+        child: _triggerButton(
+          action: SnackBarAction(label: '打开', onPressed: () {}),
+        ),
+      ),
+    );
+    await tester.tap(find.text('show'));
+    await tester.pump();
+    // pumpAndSettle lands right after the entrance completes — the dwell
+    // timer is armed there and schedules no frames, so settle returns
+    // without waiting it out.
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsOneWidget);
+
+    // An action no longer pins the message: the dwell timer fires during
+    // this elapse and starts the exit flight, which the settle runs to
+    // completion — the snackbar leaves the tree.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text('提示内容'), findsNothing);
+  });
+
+  testWidgets('accessible navigation pins only the action snackbar', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    await tester.pumpWidget(
+      _branchHost(
+        child: Scaffold(
+          body: Builder(
+            builder: (context) => Column(
+              children: [
+                TextButton(
+                  onPressed: () => showAppSnackBar(
+                    context,
+                    '带按钮提示',
+                    action: SnackBarAction(label: '打开', onPressed: () {}),
+                  ),
+                  child: const Text('show action'),
+                ),
+                TextButton(
+                  onPressed: () => showAppSnackBar(context, '无按钮提示'),
+                  child: const Text('show plain'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('show action'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    // Past the dwell duration the message stays put: with accessible
+    // navigation on, an action snackbar keeps its action reachable.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(find.text('带按钮提示'), findsOneWidget);
+
+    // A plain message still times out under accessible navigation —
+    // the timer fires during the elapse and a11y dismissal is instant.
+    await tester.tap(find.text('show plain'));
+    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(find.text('无按钮提示'), findsNothing);
+  });
 }
