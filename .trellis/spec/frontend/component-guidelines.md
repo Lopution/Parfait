@@ -132,8 +132,53 @@ builder for legacy plugin subtrees; feature pages do not add another bridge.
 does not create a second tab controller or animation.
 
 The shell continues to publish the rendered bar bounds through
-`homeShellMetricsProvider`. Motion and Hero code uses those measured bounds,
-not a copied navigation-bar height.
+`homeShellMetricsProvider`. The bar publishes at the end of its first frame
+after mount — consumers never see a permanent null gap between layout and
+the first measurement. `bottomNavTop` and `bottomNavHeight` are the bar's
+resting positions, sampled while it is settled rather than mid-slide. Motion
+and Hero code uses those measured bounds, not a copied navigation-bar
+height.
+
+## Top Tab Contract
+
+`AppTabBar` is the single entry point for top-of-page tab rows; feature
+pages do not instantiate a raw `TabBar`. It measures the widest label in
+both label styles at the ambient text scale: when that label plus its
+horizontal padding fits an equal share of the row width, the tabs divide
+the width evenly (`TabAlignment.fill`); otherwise the row switches to
+`isScrollable` and aligns from the start edge. Labels render at the themed
+14sp (`replicaTheme` sets the `TabBarTheme` label styles) and are never
+shrunk to fit — overflow always resolves through scrolling, not smaller
+text. `onTap` is passed through to `TabBar.onTap` unchanged; per the Tab
+Navigation Animation Contract a re-tap handler must not `animateTo` the
+already-selected index.
+
+## Compact Type Switch Contract
+
+`AppTypeSwitch` is the shared compact segmented selector for a feed's
+content type. The box form is a left-aligned row capped at the minimum
+interactive height whose segments scroll horizontally when they overflow.
+The sliver form, `SliverAppTypeSwitch`, is the same row wrapped for use as
+the first sliver of a feed: it scrolls away with the content and floats
+back in on an upward drag, animating with the bottom-bar show/hide
+`MotionTokens` (or `AnimationStyle.noAnimation` under reduced motion).
+
+The sliver form clamps `constraints.overlap` at zero before handing it to
+`SliverFloatingHeader`. `PullToRefresh` lays out non-clamping, so an
+overscroll hands the first sliver a negative overlap; unclamped, the header
+parks at the viewport top while the list overshoots and the refresh
+indicator paints over the switch row. The clamp keeps the row traveling
+with the list while positive overlaps — which the Hero return clip reads —
+pass through untouched. `app_type_switch_test.dart` owns the geometry
+proof: during a pull the row's top edge tracks the first card's, and the
+indicator bottom stays at or above the row top.
+
+`AppTypeSwitch` enables `emptySelectionAllowed` and reports an empty
+selection as the current value, so a tap on the active segment reaches
+`onSelected` as a re-tap — hosts map it to scroll-to-top, matching the
+Branch Re-tap Contract. Loading, error, and empty feed states keep the
+selector reachable by rendering the box form as a fixed header above the
+status widget; only a loaded feed uses the floating sliver.
 
 ## SnackBar Feedback Contract
 
@@ -144,6 +189,15 @@ new message. Callers that communicate ordered steps must pass
 `replaceCurrent: false`; for example, the account-transfer clipboard warning
 follows its copy confirmation. Keep duration, action, shell-bar margin, and
 reduced-motion behavior within the shared helpers.
+
+An action button no longer implies a persistent snackbar — `material_ui`
+defaults `SnackBar.persist` to `action != null`, so the helpers pass an
+explicit `persist` that is true only when
+`MediaQuery.accessibleNavigationOf` reports assistive navigation. Every
+other message, action or not, times out on its `duration`. Bottom-bar
+clearance is computed once by `appSnackBarShellMargin` from
+`homeShellMetricsProvider`; branch snackbars and app-level snackbars on the
+root messenger share the same margin so both rest above the bar.
 
 Widget tests for this contract pump `material_ui`'s `MaterialApp` and query
 `material_ui`'s `SnackBar` and `ScaffoldMessenger` types. Cover both stale
@@ -393,9 +447,10 @@ fires `reTapEvents`.
   controller)` helper: `MotionTokens`-gated `animateTo(0)`, `jumpTo(0)`
   under reduced motion. Re-tap is pure scroll-to-top — never a refresh,
   a selector toggle, or a selection change.
-- In-page re-taps (a `TabBar`/chip for the already-selected index) follow
-  the same rule locally: `onTap` with `!controller.indexIsChanging` calls
-  `reTapScrollToTop` on that slot's own `ScrollController`.
+- In-page re-taps (a `TabBar` index or `AppTypeSwitch` segment that is
+  already selected) follow the same rule locally: `onTap` with
+  `!controller.indexIsChanging` calls `reTapScrollToTop` on that slot's
+  own `ScrollController`.
 
 Owning tests: the `re-tap channel` group in
 `test/root_swipe_switcher_test.dart` (emit-once-per-tap, pop-to-root,
