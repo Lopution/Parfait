@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../motion/motion_tokens.dart';
 import '../navigation/home_shell_metrics.dart';
+import '../theme/func_semantic_tokens.dart';
 import 'func_bottom_nav.dart';
 
 /// Shared SnackBar in/out motion (U4): the M2 default only animates a
@@ -23,6 +24,15 @@ AnimationStyle snackBarAnimationStyleFor(BuildContext context) =>
     ? appSnackBarAnimationStyle
     : AnimationStyle.noAnimation;
 
+/// The margin every in-app SnackBar starts from; presenters grow its
+/// bottom edge when the floating shell bar occupies the same space.
+const _baseMargin = EdgeInsets.fromLTRB(
+  FuncSpacing.lg,
+  0,
+  FuncSpacing.lg,
+  FuncSpacing.lg,
+);
+
 /// Builds the one in-app SnackBar shape: floating, a consistent margin and
 /// an optional action. Keeping construction in one place is what makes the
 /// position identical on every page — call sites must not hand-roll
@@ -31,7 +41,8 @@ SnackBar buildAppSnackBar(
   String message, {
   Duration duration = const Duration(seconds: 4),
   SnackBarAction? action,
-  EdgeInsets margin = const EdgeInsets.fromLTRB(16, 0, 16, 16),
+  EdgeInsets margin = _baseMargin,
+  bool persist = false,
 }) {
   return SnackBar(
     content: Text(message),
@@ -39,6 +50,7 @@ SnackBar buildAppSnackBar(
     behavior: SnackBarBehavior.floating,
     margin: margin,
     action: action,
+    persist: persist,
   );
 }
 
@@ -62,7 +74,7 @@ void showAppSnackBar(
   SnackBarAction? action,
   bool replaceCurrent = true,
 }) {
-  var margin = const EdgeInsets.fromLTRB(16, 0, 16, 16);
+  var margin = _baseMargin;
   if (BranchRootScope.maybeOf(context) != null) {
     final metrics = ProviderScope.containerOf(
       context,
@@ -107,16 +119,23 @@ void showAppSnackBarOn(
   Duration duration = const Duration(seconds: 4),
   SnackBarAction? action,
   bool replaceCurrent = true,
-  EdgeInsets margin = const EdgeInsets.fromLTRB(16, 0, 16, 16),
+  EdgeInsets margin = _baseMargin,
   AnimationStyle? animationStyle,
 }) {
-  if (replaceCurrent) messenger?.clearSnackBars();
-  messenger?.showSnackBar(
+  if (messenger == null) return;
+  if (replaceCurrent) messenger.clearSnackBars();
+  messenger.showSnackBar(
     buildAppSnackBar(
       message,
       duration: duration,
       action: action,
       margin: margin,
+      // material_ui defaults `persist` to `action != null`, so a snackbar
+      // with a button used to stay forever. Only accessible navigation
+      // still pins it — screen-reader users need the action reachable.
+      persist:
+          action != null &&
+          MediaQuery.accessibleNavigationOf(messenger.context),
     ),
     snackBarAnimationStyle:
         animationStyle ?? snackBarAnimationStyleFor(messenger.context),
