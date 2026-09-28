@@ -33,6 +33,14 @@ const _baseMargin = EdgeInsets.fromLTRB(
   FuncSpacing.lg,
 );
 
+/// The margin for a floating SnackBar that must clear the home shell's
+/// bottom bar: base margin plus the bar's **resting** height. The bar
+/// slides under the screen edge as an overlay while the snackbar dwells;
+/// lifting by the resting height keeps the message clear of the bar both
+/// when it is shown and when it slides back mid-dwell.
+EdgeInsets appSnackBarShellMargin(HomeShellMetrics metrics) => _baseMargin
+    .copyWith(bottom: _baseMargin.bottom + (metrics.bottomNavHeight ?? 0));
+
 /// Builds the one in-app SnackBar shape: floating, a consistent margin and
 /// an optional action. Keeping construction in one place is what makes the
 /// position identical on every page — call sites must not hand-roll
@@ -76,23 +84,12 @@ void showAppSnackBar(
 }) {
   var margin = _baseMargin;
   if (BranchRootScope.maybeOf(context) != null) {
-    final metrics = ProviderScope.containerOf(
-      context,
-      listen: false,
-    ).read(homeShellMetricsProvider);
-    final barHeight = metrics.bottomNavHeight;
-    if (barHeight != null) {
-      // The shell bar is a transformed overlay. During auto-hide its render
-      // box still has the full height, so use its measured screen top when it
-      // is available and only fall back to the full height before measurement.
-      final visibleOverlap = metrics.bottomNavTop == null
-          ? barHeight
-          : (MediaQuery.sizeOf(context).height - metrics.bottomNavTop!).clamp(
-              0.0,
-              barHeight,
-            );
-      margin = margin.copyWith(bottom: margin.bottom + visibleOverlap);
-    }
+    margin = appSnackBarShellMargin(
+      ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(homeShellMetricsProvider),
+    );
   }
   showAppSnackBarOn(
     ScaffoldMessenger.maybeOf(context),

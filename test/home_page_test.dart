@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/external_intent_bridge.dart';
+import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
@@ -104,6 +105,11 @@ void main() {
   testWidgets(
     'U4: exit hint snackbar lifetime equals the root back exit window',
     (tester) async {
+      // Pin a compact surface so the shell renders the bottom bar whose
+      // measured height the hint's margin is asserted against.
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -147,6 +153,25 @@ void main() {
       expect(snackBar.duration, RootBackCoordinator.exitWindow);
       expect(snackBar.behavior, SnackBarBehavior.floating);
       expect(find.text('再按一次退出'), findsOneWidget);
+
+      // The hint clears the shell bottom bar: the floating margin grows by
+      // the bar's measured resting height, and the rendered card never
+      // touches the bar.
+      final metrics = ProviderScope.containerOf(
+        tester.element(find.byType(FuncBottomNav)),
+      ).read(homeShellMetricsProvider);
+      expect(
+        snackBar.margin,
+        EdgeInsets.fromLTRB(16, 0, 16, 16 + metrics.bottomNavHeight!),
+      );
+      final card = tester.getRect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.byType(Material),
+        ),
+      );
+      final bar = tester.getRect(find.byType(FuncBottomNav));
+      expect(card.overlaps(bar), isFalse);
 
       // A second press inside the window exits via SystemNavigator.pop; in
       // the test environment that is a no-op that must not throw.
