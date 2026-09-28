@@ -62,8 +62,18 @@ void main() {
     final bar = tester.widget<TabBar>(find.byType(TabBar));
     expect(bar.isScrollable, isFalse);
     expect(bar.tabAlignment, TabAlignment.fill);
+    // Slots live in the Expanded wrappers; a Tab's own box keeps its
+    // natural label size even when the bar fills the row.
     final widths = [
-      for (var i = 0; i < 4; i++) tester.getRect(find.byType(Tab).at(i)).width,
+      for (var i = 0; i < 4; i++)
+        tester
+            .getRect(
+              find.ancestor(
+                of: find.byType(Tab).at(i),
+                matching: find.byType(Expanded),
+              ),
+            )
+            .width,
     ];
     for (final width in widths) {
       expect(width, moreOrLessEquals(widths.first, epsilon: 0.01));

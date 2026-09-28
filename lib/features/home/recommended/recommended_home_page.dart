@@ -16,6 +16,7 @@ import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/app_tab_bar.dart';
 import '../../../app/widgets/branch_slide_stack.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
 import '../../../app/widgets/root_swipe_switcher.dart';
@@ -215,22 +216,15 @@ class _RecommendedTypeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Same chrome as Ranking/New/Search: a bare TabBar inside the AppBar
-    // title (no extra Material/SizedBox — the AppBar constrains height and
-    // provides the surface). Scrollable instead of equal-width slots +
-    // FittedBox: labels stay at full size in every locale (long Russian
-    // translations used to shrink to unreadable).
-    return TabBar(
+    // Same chrome as Ranking/New/Search: a bare AppTabBar inside the
+    // AppBar title (no extra Material/SizedBox — the AppBar constrains
+    // height and provides the surface).
+    return AppTabBar(
       controller: controller,
-      isScrollable: true,
-      tabAlignment: TabAlignment.start,
-      indicatorSize: TabBarIndicatorSize.label,
-      indicatorPadding: const EdgeInsets.only(bottom: 5),
-      labelPadding: const EdgeInsets.symmetric(horizontal: 12),
       onTap: onTap,
-      tabs: [
+      labels: [
         for (final value in RecommendedContentType.values)
-          Tab(text: _recommendedText(context, _labelKey(value))),
+          _recommendedText(context, _labelKey(value)),
       ],
     );
   }
