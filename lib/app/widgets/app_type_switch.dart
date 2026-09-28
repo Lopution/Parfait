@@ -28,23 +28,34 @@ class AppTypeSwitch<T> extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: kMinInteractiveDimension),
         child: Align(
           alignment: AlignmentDirectional.centerStart,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
-            child: SegmentedButton<T>(
-              selected: {selected},
-              emptySelectionAllowed: true,
-              // Tapping the selected segment reports an empty set; turn it
-              // back into the current value so the host sees a re-tap.
-              onSelectionChanged: (selection) =>
-                  onSelected(selection.isEmpty ? selected : selection.single),
-              segments: [
-                for (final option in options)
-                  ButtonSegment<T>(
-                    value: option.value,
-                    label: Text(option.label),
-                  ),
-              ],
+          // The row scrolls on its own physics. Inherited ones leak: inside
+          // PullToRefresh a sideways drag would feed EasyRefresh's physics
+          // and arm a refresh, and the app's always-scrollable parent makes
+          // a row that fits claim the drag, so a swipe starting on it never
+          // reaches RootSwipeSwitcher. Parentless bouncing only takes drags
+          // when the segments overflow.
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(physics: const BouncingScrollPhysics()),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
+              child: SegmentedButton<T>(
+                selected: {selected},
+                emptySelectionAllowed: true,
+                // Tapping the selected segment reports an empty set; turn it
+                // back into the current value so the host sees a re-tap.
+                onSelectionChanged: (selection) =>
+                    onSelected(selection.isEmpty ? selected : selection.single),
+                segments: [
+                  for (final option in options)
+                    ButtonSegment<T>(
+                      value: option.value,
+                      label: Text(option.label),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

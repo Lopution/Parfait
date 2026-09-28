@@ -651,4 +651,68 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  /// A swipe that starts on the type row must act like one that starts
+  /// anywhere else on the feed: the two segments fit, so the row has
+  /// nothing to scroll — it must neither overscroll into a refresh nor
+  /// keep the swipe from RootSwipeSwitcher.
+  group('a sideways swipe from the type row', () {
+    /// Mounts the loaded feed the way a phone starts it: out of wheel
+    /// mode, with the row at the top.
+    Future<void> pumpLoadedFeed(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) async {
+      await tester.pumpWidget(_app(container));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      // The warm-up drag scrolls the row partly away; jump back.
+      final feedView = find.byType(CustomScrollView).hitTestable();
+      await _dropWheelMode(tester, feedView);
+      tester.widget<CustomScrollView>(feedView).controller!.jumpTo(0);
+      await tester.pumpAndSettle();
+    }
+
+    Finder segments() => find.descendant(
+      of: find.byType(AppTypeSwitch<NewFeedType>).hitTestable(),
+      matching: find.byType(SegmentedButton<NewFeedType>),
+    );
+
+    testWidgets('never refreshes the visible feed', (tester) async {
+      const activeKey = NewFeedKey(
+        scope: NewFeedScope.following,
+        type: NewFeedType.illust,
+      );
+      final (container, repository) = await _makeWorld(illustCount: 24);
+      addTearDown(container.dispose);
+      await mockNetworkImagesFor(() async {
+        await pumpLoadedFeed(tester, container);
+        expect(segments(), findsOneWidget);
+        int activeRequests() =>
+            repository.requests.where((key) => key == activeKey).length;
+        final requestsBefore = activeRequests();
+
+        // Rightward on the first scope: there is no tab to turn back to,
+        // so the drag has nowhere to go.
+        await tester.drag(segments(), const Offset(300, 0));
+        await tester.pumpAndSettle();
+        expect(activeRequests(), requestsBefore);
+      });
+    });
+
+    testWidgets('turns the scope tab', (tester) async {
+      final (container, _) = await _makeWorld(illustCount: 24);
+      addTearDown(container.dispose);
+      await mockNetworkImagesFor(() async {
+        await pumpLoadedFeed(tester, container);
+        expect(segments(), findsOneWidget);
+        final tabs = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+
+        await tester.drag(segments(), const Offset(-300, 0));
+        await tester.pumpAndSettle();
+        expect(tabs.index, 1);
+      });
+    });
+  });
 }
