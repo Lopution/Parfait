@@ -459,7 +459,6 @@
   "translateLlmCredentialHint": "HTTPS endpoints only; translation uses a fixed prompt without model/advanced knobs. Comment text and translations are never persisted.",
   "translateCredentialHint": "Translation credentials are never written to ordinary settings; secure storage owns them when needed.",
   "historySettingsHint": "The history module reads these switches; disabled histories do not receive new records.",
-  "downloaderSettingsHint": "Download tasks are maintained live by the shared DownloadManager.",
   "downloadTasksEmpty": "No download tasks",
   "downloadQueued": "Queued",
   "downloadRunning": "Downloading",
