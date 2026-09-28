@@ -135,9 +135,10 @@ The shell continues to publish the rendered bar bounds through
 `homeShellMetricsProvider`. The bar publishes at the end of its first frame
 after mount — consumers never see a permanent null gap between layout and
 the first measurement. `bottomNavTop` and `bottomNavHeight` are the bar's
-resting positions, sampled while it is settled rather than mid-slide. Motion
-and Hero code uses those measured bounds, not a copied navigation-bar
-height.
+resting position: the measured box sits outside both `SlideTransition`s,
+whose offsets only move its child, so a sample taken mid-slide still reads
+the resting geometry. Motion and Hero code uses those measured bounds, not
+a copied navigation-bar height.
 
 ## Top Tab Contract
 
@@ -156,12 +157,26 @@ already-selected index.
 ## Compact Type Switch Contract
 
 `AppTypeSwitch` is the shared compact segmented selector for a feed's
-content type. The box form is a left-aligned row capped at the minimum
-interactive height whose segments scroll horizontally when they overflow.
+content type. The box form is a left-aligned row at least the minimum
+interactive height tall (48dp at the default text scale; larger text grows
+it) whose segments scroll horizontally when they overflow.
 The sliver form, `SliverAppTypeSwitch`, is the same row wrapped for use as
 the first sliver of a feed: it scrolls away with the content and floats
 back in on an upward drag, animating with the bottom-bar show/hide
 `MotionTokens` (or `AnimationStyle.noAnimation` under reduced motion).
+
+The row scrolls on its own parentless `BouncingScrollPhysics`, installed
+with `ScrollConfiguration.of(context).copyWith(physics: ...)`, so it takes
+horizontal drags only when its segments overflow. Inherited physics would
+break two things: inside `PullToRefresh` a sideways drag would arm a
+refresh (see the Shared Pull-to-Refresh Contract), and
+`FuncScrollBehavior`'s always-scrollable parent would let a row that fits
+claim the drag, so a swipe starting on it would never reach
+`RootSwipeSwitcher`. `app_type_switch_test.dart` proves both — a fitting
+row under `FuncScrollBehavior` hands the swipe to an enclosing horizontal
+drag detector, and sideways drags on fitting and overflowing rows never
+call `onRefresh` — and the `a sideways swipe from the type row` group in
+`new_content_feed_test.dart` repeats them on the real feed.
 
 The sliver form clamps `constraints.overlap` at zero before handing it to
 `SliverFloatingHeader`. `PullToRefresh` lays out non-clamping, so an
@@ -169,9 +184,10 @@ overscroll hands the first sliver a negative overlap; unclamped, the header
 parks at the viewport top while the list overshoots and the refresh
 indicator paints over the switch row. The clamp keeps the row traveling
 with the list while positive overlaps — which the Hero return clip reads —
-pass through untouched. `app_type_switch_test.dart` owns the geometry
-proof: during a pull the row's top edge tracks the first card's, and the
-indicator bottom stays at or above the row top.
+pass through untouched. `app_type_switch_test.dart` proves the row's top
+edge tracks the first card's during a pull; `new_content_feed_test.dart`
+repeats that on the real feed and adds that the indicator bottom stays at
+or above the row top.
 
 `AppTypeSwitch` enables `emptySelectionAllowed` and reports an empty
 selection as the current value, so a tap on the active segment reaches
@@ -447,10 +463,10 @@ fires `reTapEvents`.
   controller)` helper: `MotionTokens`-gated `animateTo(0)`, `jumpTo(0)`
   under reduced motion. Re-tap is pure scroll-to-top — never a refresh,
   a selector toggle, or a selection change.
-- In-page re-taps (a `TabBar` index or `AppTypeSwitch` segment that is
-  already selected) follow the same rule locally: `onTap` with
-  `!controller.indexIsChanging` calls `reTapScrollToTop` on that slot's
-  own `ScrollController`.
+- In-page re-taps follow the same rule locally, calling
+  `reTapScrollToTop` on that slot's own `ScrollController`: a `TabBar`
+  `onTap` on the selected index while `!controller.indexIsChanging`, or an
+  `AppTypeSwitch` `onSelected` that reports the current value.
 
 Owning tests: the `re-tap channel` group in
 `test/root_swipe_switcher_test.dart` (emit-once-per-tap, pop-to-root,
@@ -500,6 +516,14 @@ const PullToRefresh({
   inside `PullToRefresh` subtrees, so non-feed pages (detail, settings,
   search) and `NestedScrollView` outer scrolls share the feed's feel. Do not
   reintroduce a `ClampingScrollPhysics` region.
+- The wrapper hands `EasyRefresh` a `child`, so EasyRefresh makes
+  `ERScrollBehavior(_ERScrollPhysics)` the `ScrollConfiguration` of that
+  whole subtree, on every axis. A horizontal scrollable inside a feed opts
+  out with `ScrollConfiguration.of(context).copyWith(physics: ...)`;
+  otherwise a sideways drag past its start edge arms the refresh header.
+  An explicit `physics:` on the scrollable is not enough — `Scrollable`
+  applies it on top of the inherited physics. `AppTypeSwitch` is the
+  reference.
 - Indicator behavior, stated as observable outcomes:
   - A pull that reverses before release moves the indicator back with the
     finger; releasing below the threshold cancels without calling `onRefresh`.
@@ -530,6 +554,7 @@ const PullToRefresh({
 | Reverse gesture continues past the indicator | Indicator retracts fully before the list scrolls; the two never move together. |
 | Scroll motion continues after the pointer lifts | No pull starts or resumes; indicator stays hidden. |
 | Refresh completes or cancels | Indicator returns to hidden; nothing residual on screen. |
+| Sideways drag on a horizontal scrollable inside the feed | Never calls `onRefresh`. |
 
 ### 5. Tests Required
 
