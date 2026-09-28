@@ -231,10 +231,6 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                     restorationId: 'download-tasks',
                     padding: const EdgeInsets.all(12),
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Text(context.l10n.downloaderSettingsHint),
-                      ),
                       for (final group in groups)
                         _DownloadGroupSection(
                           group: group,

@@ -459,7 +459,6 @@
   "translateLlmCredentialHint": "HTTPS エンドポイントのみ。翻訳は固定プロンプトで、モデルや詳細パラメータは変更できません。コメント本文と翻訳は保存されません。",
   "translateCredentialHint": "翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。",
   "historySettingsHint": "履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。",
-  "downloaderSettingsHint": "ダウンロード状況は共有 DownloadManager がリアルタイムで管理します。",
   "downloadTasksEmpty": "ダウンロードタスクはありません",
   "downloadQueued": "待機中",
   "downloadRunning": "ダウンロード中",

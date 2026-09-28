@@ -459,7 +459,6 @@
   "translateLlmCredentialHint": "仅允许 HTTPS 接口；翻译使用固定提示词，不开放模型与高级参数。评论正文与译文不会持久化。",
   "translateCredentialHint": "翻译凭据不会写入普通设置；需要时由安全存储管理。",
   "historySettingsHint": "历史记录开关由历史模块读取；关闭后不会新增对应记录。",
-  "downloaderSettingsHint": "下载任务由共享 DownloadManager 实时维护。",
   "downloadTasksEmpty": "暂无下载任务",
   "downloadQueued": "排队中",
   "downloadRunning": "下载中",

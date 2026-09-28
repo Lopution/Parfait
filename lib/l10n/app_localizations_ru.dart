@@ -1066,10 +1066,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Модуль истории читает эти переключатели; отключённая история не получает новые записи.';
 
   @override
-  String get downloaderSettingsHint =>
-      'Задачи загрузки в реальном времени ведёт общий DownloadManager.';
-
-  @override
   String get downloadTasksEmpty => 'Нет задач загрузки';
 
   @override

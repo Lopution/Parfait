@@ -177,6 +177,28 @@ void main() {
     );
   });
 
+  testWidgets('the developer note about DownloadManager is gone', (
+    tester,
+  ) async {
+    final (container, manager, _) = await _world(
+      responses: [
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [1],
+          ],
+        ),
+      ],
+    );
+    manager.submit(_req(1));
+    await _pumpPage(tester, container);
+    await _drain(tester, () => manager.tasks.isNotEmpty);
+
+    // R4: the live-list header was an implementation note, not UI copy.
+    expect(find.textContaining('DownloadManager'), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('group card shows aggregate succeeded count', (tester) async {
     final (container, manager, _) = await _world(
       responses: [

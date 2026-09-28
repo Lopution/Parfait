@@ -1991,12 +1991,6 @@ abstract class AppLocalizations {
   /// **'历史记录开关由历史模块读取；关闭后不会新增对应记录。'**
   String get historySettingsHint;
 
-  /// No description provided for @downloaderSettingsHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'下载任务由共享 DownloadManager 实时维护。'**
-  String get downloaderSettingsHint;
-
   /// No description provided for @downloadTasksEmpty.
   ///
   /// In zh, this message translates to:

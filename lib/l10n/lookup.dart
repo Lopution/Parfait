@@ -178,7 +178,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'downloadTasksEmpty' => l10n.downloadTasksEmpty,
   'downloadViewResult' => l10n.downloadViewResult,
   'downloaderSettings' => l10n.downloaderSettings,
-  'downloaderSettingsHint' => l10n.downloaderSettingsHint,
   'enableHaptics' => l10n.enableHaptics,
   'enableHapticsHint' => l10n.enableHapticsHint,
   'follow' => l10n.follow,
