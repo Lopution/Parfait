@@ -38,6 +38,64 @@ Widget _triggerButton({SnackBarAction? action}) {
   );
 }
 
+/// Branch page that ends with the shared nav-bar spacer, like every real
+/// branch-root scrollable does.
+Widget _shellPage() => Scaffold(
+  body: Builder(
+    builder: (context) => Column(
+      children: [
+        const Spacer(),
+        TextButton(
+          onPressed: () => showAppSnackBar(context, '提示内容'),
+          child: const Text('show'),
+        ),
+        const Spacer(),
+        const FuncNavBarSpacer(),
+      ],
+    ),
+  ),
+);
+
+/// Mounts the real shell bar as an overlay sibling of the branch strip —
+/// the same layering the home shell uses, so the bar publishes its real
+/// measured geometry instead of a test-injected number.
+Future<({ProviderContainer container, AnimationController scrollVisibility})>
+_pumpShell(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
+  final container = ProviderContainer();
+  addTearDown(container.dispose);
+  final scrollVisibility = AnimationController(vsync: tester, value: 1);
+  addTearDown(scrollVisibility.dispose);
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Stack(
+          children: [
+            BranchRootScaffold(branchIndex: 0, child: _shellPage()),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: FuncShellBottomNav(
+                selectedIndex: 0,
+                onSelected: (_) {},
+                scrollVisibility: scrollVisibility,
+                indicatorAnimation: const AlwaysStoppedAnimation(0),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  return (container: container, scrollVisibility: scrollVisibility);
+}
+
 Widget _messageButtons({required Duration duration}) => Scaffold(
   body: Builder(
     builder: (context) => Column(
@@ -92,40 +150,23 @@ void main() {
     expect(find.text('最新提示'), findsNothing);
   });
 
-  testWidgets('snackbar inside a branch clears the floating shell bottom bar', (
+  testWidgets('the shell bar publishes its resting bounds on mount', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    final (:container, :scrollVisibility) = await _pumpShell(tester);
 
-    // The shell bar is an overlay sibling of the branch strip, so the
-    // test reproduces that layering: a 64px bar floating at the bottom,
-    // and the measured height published exactly like FuncShellBottomNav
-    // does on a real shell.
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: Stack(
-            children: [
-              BranchRootScaffold(branchIndex: 0, child: _triggerButton()),
-              const Align(
-                alignment: Alignment.bottomCenter,
-                child: SizedBox(key: Key('shellBar'), height: 64),
-              ),
-            ],
-          ),
-        ),
-      ),
+    // The bar measures itself on mount — after the first frame the shell
+    // metrics already hold its resting geometry.
+    final metrics = container.read(homeShellMetricsProvider);
+    expect(metrics.bottomNavHeight, isNotNull);
+    expect(metrics.bottomNavTop, isNotNull);
+
+    // The trailing spacer picks the published height up on the next frame.
+    await tester.pump();
+    expect(
+      tester.getSize(find.byType(FuncNavBarSpacer)).height,
+      metrics.bottomNavHeight,
     );
-    container.read(homeShellMetricsProvider.notifier).publish(null, 64);
-    await tester.pumpAndSettle();
 
     await tester.tap(find.text('show'));
     await tester.pump();
@@ -135,12 +176,14 @@ void main() {
     expect(find.text('提示内容'), findsOneWidget);
 
     // The overlay bar owns no bottomNavigationBar slot, so Scaffold
-    // geometry cannot lift the SnackBar — showAppSnackBar grows the
-    // floating margin by the measured bar height instead. The margin
-    // lives inside the SnackBar's own box (Padding around the card), so
-    // assert on both the margin and the rendered Material card.
+    // geometry cannot lift the SnackBar — the margin grows by the measured
+    // resting height instead. Assert on both the margin and the rendered
+    // Material card.
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snackBar.margin, const EdgeInsets.fromLTRB(16, 0, 16, 80));
+    expect(
+      snackBar.margin,
+      EdgeInsets.fromLTRB(16, 0, 16, 16 + metrics.bottomNavHeight!),
+    );
     final cardBottom = tester
         .getBottomLeft(
           find.descendant(
@@ -149,57 +192,58 @@ void main() {
           ),
         )
         .dy;
-    final barTop = tester.getTopLeft(find.byKey(const Key('shellBar'))).dy;
-    expect(cardBottom, lessThanOrEqualTo(barTop));
+    expect(cardBottom, lessThanOrEqualTo(metrics.bottomNavTop!));
   });
 
-  testWidgets('snackbar follows the visible shell overlap during bar motion', (
+  testWidgets('snackbar keeps clearing the shell bar while it slides', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    final (:container, :scrollVisibility) = await _pumpShell(tester);
+    final restingTop = container.read(homeShellMetricsProvider).bottomNavTop!;
+    expect(restingTop, lessThan(844));
 
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: Stack(
-            children: [
-              BranchRootScaffold(branchIndex: 0, child: _triggerButton()),
-              const Align(
-                alignment: Alignment.bottomCenter,
-                child: SizedBox(key: Key('shellBar'), height: 64),
-              ),
-            ],
-          ),
+    await tester.tap(find.text('show'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    void expectClear() {
+      final card = tester.getRect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.byType(Material),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    Future<void> showAt(double barTop, double expectedOverlap) async {
-      container.read(homeShellMetricsProvider.notifier).publish(barTop, 64);
-      await tester.tap(find.text('show'));
-      await tester.pump();
-      expect(
-        tester.widget<SnackBar>(find.byType(SnackBar)).margin,
-        EdgeInsets.fromLTRB(16, 0, 16, 16 + expectedOverlap),
       );
-      ScaffoldMessenger.of(
-        tester.element(find.text('show')),
-      ).removeCurrentSnackBar();
-      await tester.pumpAndSettle();
+      final bar = tester.getRect(find.byType(FuncBottomNav));
+      expect(
+        card.overlaps(bar),
+        isFalse,
+        reason: 'snackbar must not intersect the shell bar mid-slide',
+      );
+      // The measured box sits outside the slide transform, so the
+      // published top edge stays at the resting position through the
+      // whole flight — the margin never tracks the moving bar.
+      expect(container.read(homeShellMetricsProvider).bottomNavTop, restingTop);
     }
 
-    await showAt(780, 64); // fully visible: 844 - 780
-    await showAt(812, 32); // halfway through the hide transition
-    await showAt(844, 0); // fully slid below the viewport
+    // Slide out under scroll, then back in — sampled mid-flight both ways.
+    final hidden = scrollVisibility.animateTo(
+      0,
+      duration: MotionTokens.navBarHide,
+    );
+    while (scrollVisibility.isAnimating) {
+      await tester.pump(const Duration(milliseconds: 40));
+      expectClear();
+    }
+    await hidden;
+    final shown = scrollVisibility.animateTo(
+      1,
+      duration: MotionTokens.navBarShow,
+    );
+    while (scrollVisibility.isAnimating) {
+      await tester.pump(const Duration(milliseconds: 40));
+      expectClear();
+    }
+    await shown;
   });
 
   testWidgets('shared snackbar shape is floating with a uniform margin', (
