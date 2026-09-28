@@ -47,7 +47,7 @@ ThemeData replicaTheme(Brightness brightness) {
         onError: FuncTokens.lightBackground,
       );
 
-  return ThemeData(
+  final theme = ThemeData(
     brightness: brightness,
     // Latin/digits render in Montserrat; missing glyphs (CJK, emoji) resolve
     // through the engine's system fallback chain.
@@ -226,6 +226,18 @@ ThemeData replicaTheme(Brightness brightness) {
             ? FuncTokens.transparent
             : colorScheme.outline;
       }),
+    ),
+  );
+
+  // D3: tab labels render at 14sp. The style is built off the *resolved*
+  // textTheme so it carries the Montserrat family — a TextStyle written
+  // directly into TabBarThemeData above would fall back to the platform
+  // font for Latin text.
+  final tabLabelStyle = theme.textTheme.titleSmall!.copyWith(fontSize: 14);
+  return theme.copyWith(
+    tabBarTheme: theme.tabBarTheme.copyWith(
+      labelStyle: tabLabelStyle,
+      unselectedLabelStyle: tabLabelStyle,
     ),
   );
 }
