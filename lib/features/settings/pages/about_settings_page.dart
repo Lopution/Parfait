@@ -210,6 +210,9 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
   void initState() {
     super.initState();
     _capability = widget.service.capability();
+    // The service remembers the most recent check — surface it so the
+    // auto-check result is already visible when the user opens About.
+    _checkResult = widget.service.lastCheck;
   }
 
   @override
@@ -217,7 +220,7 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.service, widget.service)) {
       _capability = widget.service.capability();
-      _checkResult = null;
+      _checkResult = widget.service.lastCheck;
       _applyResult = null;
     }
   }

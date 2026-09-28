@@ -191,6 +191,9 @@ void main() {
       final result = await service.check();
 
       expect(result.status, UpdateCheckStatus.available);
+      // The service remembers the outcome — About renders lastCheck
+      // without a fresh check.
+      expect(service.lastCheck, same(result));
       expect(
         result.release!.manifest.asset.packageName,
         'io.github.lopution.pixivfunc',
