@@ -2,11 +2,20 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/app/pull_to_refresh.dart';
+import 'package:pixiv_func/app/scroll_behavior.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 const _two = [(value: 'illust', label: '插画'), (value: 'novel', label: '小说')];
+
+/// Overflows a 360dp row at 2x text.
+const _four = [
+  (value: 'a', label: '每日排行'),
+  (value: 'b', label: '每周排行'),
+  (value: 'c', label: '每月排行'),
+  (value: 'd', label: '新人排行'),
+];
 
 Widget _boxHost({
   List<({String value, String label})> options = _two,
@@ -14,27 +23,36 @@ Widget _boxHost({
   ValueChanged<String>? onSelected,
   double width = 411,
   double textScale = 1,
+  ScrollBehavior? scrollBehavior,
+  GestureDragEndCallback? onPageSwipe,
 }) {
   return MaterialApp(
     theme: replicaTheme(Brightness.light),
     locale: const Locale('zh'),
     localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: const [Locale('zh')],
+    scrollBehavior: scrollBehavior,
     home: MediaQuery(
       data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
       child: Scaffold(
-        body: SizedBox(
-          width: width,
-          // Same vertical placement as the feed's state branches: the row
-          // in a Column above the scrollable content.
-          child: Column(
-            children: [
-              AppTypeSwitch<String>(
-                options: options,
-                selected: selected,
-                onSelected: onSelected ?? (_) {},
-              ),
-            ],
+        // Stands in for RootSwipeSwitcher: a translucent horizontal drag
+        // detector around the page.
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragEnd: onPageSwipe,
+          child: SizedBox(
+            width: width,
+            // Same vertical placement as the feed's state branches: the row
+            // in a Column above the scrollable content.
+            child: Column(
+              children: [
+                AppTypeSwitch<String>(
+                  options: options,
+                  selected: selected,
+                  onSelected: onSelected ?? (_) {},
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -42,21 +60,29 @@ Widget _boxHost({
   );
 }
 
-Widget _sliverHost({bool disableAnimations = false}) {
+Widget _sliverHost({
+  List<({String value, String label})> options = _two,
+  double textScale = 1,
+  bool disableAnimations = false,
+  RefreshCallback? onRefresh,
+}) {
   return MaterialApp(
     theme: replicaTheme(Brightness.light),
     locale: const Locale('zh'),
     localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: const [Locale('zh')],
     home: MediaQuery(
-      data: MediaQueryData(disableAnimations: disableAnimations),
+      data: MediaQueryData(
+        textScaler: TextScaler.linear(textScale),
+        disableAnimations: disableAnimations,
+      ),
       child: Scaffold(
         body: PullToRefresh(
-          onRefresh: () async {},
+          onRefresh: onRefresh ?? () async {},
           child: CustomScrollView(
             slivers: [
               SliverAppTypeSwitch<String>(
-                options: _two,
+                options: options,
                 selected: 'illust',
                 onSelected: (_) {},
               ),
@@ -93,15 +119,13 @@ void main() {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    var pageSwipes = 0;
     await tester.pumpWidget(
       _boxHost(
-        options: const [
-          (value: 'a', label: '每日排行'),
-          (value: 'b', label: '每周排行'),
-          (value: 'c', label: '每月排行'),
-          (value: 'd', label: '新人排行'),
-        ],
+        options: _four,
         textScale: 2,
+        scrollBehavior: const FuncScrollBehavior(),
+        onPageSwipe: (_) => pageSwipes++,
       ),
     );
     await tester.pump();
@@ -116,6 +140,31 @@ void main() {
     );
     await tester.pump();
     expect(scrollable.position.pixels, greaterThan(0));
+    // An overflowing row owns the drag, like any deeper horizontal
+    // scrollable under RootSwipeSwitcher.
+    expect(pageSwipes, 0);
+  });
+
+  testWidgets('a row that fits leaves sideways drags to the page', (
+    tester,
+  ) async {
+    // FuncScrollBehavior gives every scrollable an always-scrollable
+    // parent; inherited, it would make the fitting row claim the drag.
+    var pageSwipes = 0;
+    await tester.pumpWidget(
+      _boxHost(
+        scrollBehavior: const FuncScrollBehavior(),
+        onPageSwipe: (_) => pageSwipes++,
+      ),
+    );
+    await tester.pump();
+
+    await tester.drag(
+      find.byType(SegmentedButton<String>),
+      const Offset(-200, 0),
+    );
+    await tester.pump();
+    expect(pageSwipes, 1);
   });
 
   testWidgets('tapping another option reports it; tapping the current '
@@ -147,11 +196,25 @@ void main() {
   });
 
   group('sliver form inside PullToRefresh', () {
-    Future<void> pumpFeed(WidgetTester tester, {bool noMotion = false}) async {
-      tester.view.physicalSize = const Size(411, 800);
+    Future<void> pumpFeed(
+      WidgetTester tester, {
+      double width = 411,
+      List<({String value, String label})> options = _two,
+      double textScale = 1,
+      bool noMotion = false,
+      RefreshCallback? onRefresh,
+    }) async {
+      tester.view.physicalSize = Size(width, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(_sliverHost(disableAnimations: noMotion));
+      await tester.pumpWidget(
+        _sliverHost(
+          options: options,
+          textScale: textScale,
+          disableAnimations: noMotion,
+          onRefresh: onRefresh,
+        ),
+      );
       await tester.pump();
     }
 
@@ -204,6 +267,57 @@ void main() {
       );
       await gesture.up();
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('a sideways drag on the row never pulls to refresh', (
+      tester,
+    ) async {
+      var refreshes = 0;
+      await pumpFeed(
+        tester,
+        onRefresh: () async {
+          refreshes++;
+        },
+      );
+
+      // EasyRefresh hands its physics to every descendant scrollable.
+      // Inherited, a rightward drag would overscroll the row and arm the
+      // refresh header.
+      await tester.drag(
+        find.byType(SegmentedButton<String>),
+        const Offset(300, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(refreshes, 0);
+    });
+
+    testWidgets('an overflowing row scrolls on its own, not into a refresh', (
+      tester,
+    ) async {
+      var refreshes = 0;
+      await pumpFeed(
+        tester,
+        width: 360,
+        options: _four,
+        textScale: 2,
+        onRefresh: () async {
+          refreshes++;
+        },
+      );
+      final segments = find.byType(SegmentedButton<String>);
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(of: _switchRow(), matching: find.byType(Scrollable)),
+      );
+
+      // Past the start edge from rest: the bounce stays on the row.
+      await tester.drag(segments, const Offset(300, 0));
+      await tester.pumpAndSettle();
+      expect(refreshes, 0);
+      expect(scrollable.position.pixels, 0);
+
+      await tester.drag(segments, const Offset(-120, 0));
+      await tester.pumpAndSettle();
+      expect(scrollable.position.pixels, greaterThan(0));
     });
 
     testWidgets('with animations disabled the snap lands on the next frame', (
