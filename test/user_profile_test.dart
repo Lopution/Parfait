@@ -20,10 +20,12 @@ import 'package:pixiv_func/core/user/follow_models.dart';
 import 'package:pixiv_func/core/user/follow_repository.dart';
 import 'package:pixiv_func/core/user/follow_store.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
+import 'package:pixiv_func/core/user/user_detail_controller.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:pixiv_func/core/profile/profile_models.dart';
+import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
 import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
@@ -121,7 +123,8 @@ class _FakeUserRepository implements UserRepository {
     this.detailFailure,
   }) : detail = detail ?? _user(42);
 
-  final UserEntity detail;
+  // Mutable so a refresh scenario can change what fetchDetail returns.
+  UserEntity detail;
   final List<IllustEntity> works;
   final List<IllustEntity> bookmarks;
   final Object? worksFailure;
@@ -296,6 +299,47 @@ Future<ProviderContainer> _makeWorld({
   return container;
 }
 
+/// Mounts the profile header sliver exactly the way `UserPage` does: the
+/// expanded extent starts unset, the identity block reports its measured
+/// height after the first layout, and the delegate is rebuilt with it.
+/// Tests read [collapseRange] for scroll distances instead of hard-coding
+/// the old fixed-extent dp values.
+class _MeasuredProfileHeader extends StatefulWidget {
+  const _MeasuredProfileHeader({required this.delegateFor});
+
+  final ReplicaProfileHeaderDelegate Function(
+    double? expandedExtent,
+    ValueChanged<double> onMeasured,
+  )
+  delegateFor;
+
+  @override
+  State<_MeasuredProfileHeader> createState() => _MeasuredProfileHeaderState();
+}
+
+class _MeasuredProfileHeaderState extends State<_MeasuredProfileHeader> {
+  double? _extent;
+  ReplicaProfileHeaderDelegate? _delegate;
+
+  double get collapseRange => _delegate!.maxExtent - _delegate!.minExtent;
+
+  @override
+  Widget build(BuildContext context) {
+    final delegate = widget.delegateFor(_extent, (extent) {
+      if (_extent == null || (extent - _extent!).abs() > 0.5) {
+        setState(() => _extent = extent);
+      }
+    });
+    _delegate = delegate;
+    return SliverPersistentHeader(pinned: true, delegate: delegate);
+  }
+}
+
+/// Scroll distance that fully collapses the mounted measured header.
+double _headerCollapseRange(WidgetTester tester) => tester
+    .state<_MeasuredProfileHeaderState>(find.byType(_MeasuredProfileHeader))
+    .collapseRange;
+
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -432,60 +476,111 @@ void main() {
   });
 
   ReplicaProfileHeaderGeometry geometryAt(
-    double progress, {
-    double topInset = 0,
+    double shrinkOffset, {
+    double minExtent = 56,
+    double maxExtent = 430,
   }) => ReplicaProfileHeaderGeometry(
-    shrinkOffset: (430 - (56 + topInset)) * progress,
-    minExtent: 56 + topInset,
-    maxExtent: 430,
+    shrinkOffset: shrinkOffset,
+    minExtent: minExtent,
+    maxExtent: maxExtent,
   );
 
-  test(
-    'the expanded identity has one fixed avatar and a separated exit path',
-    () {
-      expect(ReplicaProfileHeaderGeometry.expandedAvatarRadius * 2, 104);
+  test('the banner keeps a fixed band while the identity scrolls out', () {
+    expect(ReplicaProfileHeaderGeometry.bannerBelowToolbar, 80);
+    expect(ReplicaProfileHeaderGeometry.avatarRadius, 40);
+    expect(ReplicaProfileHeaderGeometry.toolbarFadeDistance, FuncSpacing.xl);
+    expect(ReplicaProfileHeaderGeometry.initialExtentEstimate, 360);
 
-      Offset centerAt(double progress) => geometryAt(progress).avatarCenter(
-        headerWidth: 400,
-        backgroundHeight: 252,
-        collapsedLeftInset: 56,
-      );
+    // Banner and identity scroll out with the content, one-to-one.
+    expect(geometryAt(0).contentOffset, 0);
+    expect(geometryAt(120).contentOffset, -120);
 
-      final expanded = centerAt(0);
-      expect(expanded.dx, 200);
-      expect(
-        expanded.dy + ReplicaProfileHeaderGeometry.expandedAvatarRadius,
-        252 + 8,
-      );
+    final collapsed = geometryAt(430 - 56);
+    expect(collapsed.isFullyCollapsed, isTrue);
+    expect(geometryAt(430 - 56 - 0.6).isFullyCollapsed, isFalse);
+  });
 
-      var previousY = expanded.dy;
-      for (var step = 1; step <= 20; step++) {
-        final geometry = geometryAt(step / 20);
-        final center = centerAt(step / 20);
-        expect(center.dx, 200);
-        expect(center.dy, lessThan(previousY));
-        expect(geometry.avatarRadius, 52);
-        previousY = center.dy;
-      }
-
-      final collapsed = geometryAt(1);
-      expect(collapsed.isFullyCollapsed, isTrue);
-      expect(collapsed.showExpandedIdentity, isFalse);
-      expect(collapsed.expandedDetailsOpacity, 0);
-    },
-  );
-
-  test('expanded details crossfade into the toolbar without a blank stage', () {
-    final beforeFade = geometryAt(
-      ReplicaProfileHeaderGeometry.expandedDetailsFadeStart,
+  test('the toolbar background fades in as the banner leaves it', () {
+    const fadeStart =
+        ReplicaProfileHeaderGeometry.bannerBelowToolbar -
+        ReplicaProfileHeaderGeometry.toolbarFadeDistance;
+    expect(geometryAt(0).toolbarOpacity, 0);
+    expect(geometryAt(fadeStart).toolbarOpacity, 0);
+    expect(
+      geometryAt(
+        fadeStart + ReplicaProfileHeaderGeometry.toolbarFadeDistance / 2,
+      ).toolbarOpacity,
+      0.5,
     );
-    final afterExit = geometryAt(
-      ReplicaProfileHeaderGeometry.expandedIdentityExitProgress,
+    expect(
+      geometryAt(
+        ReplicaProfileHeaderGeometry.bannerBelowToolbar,
+      ).toolbarOpacity,
+      1,
     );
-    expect(beforeFade.expandedDetailsOpacity, 1);
-    expect(afterExit.expandedDetailsOpacity, 0);
-    expect(afterExit.collapsedOpacity, greaterThan(0));
-    expect(geometryAt(1).collapsedOpacity, 1);
+    expect(geometryAt(200).toolbarOpacity, 1);
+
+    var previous = 0.0;
+    for (
+      var offset = 0.0;
+      offset <= ReplicaProfileHeaderGeometry.bannerBelowToolbar;
+      offset += 2
+    ) {
+      final opacity = geometryAt(offset).toolbarOpacity;
+      expect(opacity, greaterThanOrEqualTo(previous));
+      previous = opacity;
+    }
+  });
+
+  test('controls read the banner only while it sits behind the toolbar', () {
+    const mid =
+        ReplicaProfileHeaderGeometry.bannerBelowToolbar -
+        ReplicaProfileHeaderGeometry.toolbarFadeDistance / 2;
+    expect(geometryAt(0).bannerBehindToolbar, isTrue);
+    expect(geometryAt(mid - 0.1).bannerBehindToolbar, isTrue);
+    expect(geometryAt(mid + 0.1).bannerBehindToolbar, isFalse);
+    expect(
+      geometryAt(
+        ReplicaProfileHeaderGeometry.bannerBelowToolbar,
+      ).bannerBehindToolbar,
+      isFalse,
+    );
+  });
+
+  test('the pinned toolbar includes the status-bar inset', () {
+    expect(geometryAt(0, minExtent: 80).minExtent, 80);
+    expect(geometryAt(0, minExtent: 80).collapseRange, 350);
+  });
+
+  test('the delegate estimates one frame until the identity reports', () {
+    final estimating = ReplicaProfileHeaderDelegate(
+      user: _user(42),
+      isMe: true,
+      selectedTabIndex: 0,
+      showRestrictSelector: false,
+      restrict: UserRestrict.public,
+      onRestrictChanged: (_) {},
+      onShare: (_) {},
+      onExpandedExtentMeasured: (_) {},
+    );
+    expect(
+      estimating.maxExtent,
+      ReplicaProfileHeaderGeometry.initialExtentEstimate,
+    );
+
+    final measured = ReplicaProfileHeaderDelegate(
+      user: _user(42),
+      isMe: true,
+      selectedTabIndex: 0,
+      showRestrictSelector: false,
+      restrict: UserRestrict.public,
+      onRestrictChanged: (_) {},
+      onShare: (_) {},
+      expandedExtent: 247,
+      onExpandedExtentMeasured: (_) {},
+    );
+    expect(measured.maxExtent, 247);
+    expect(measured.minExtent, 56);
   });
 
   testWidgets('collapsed chrome stays unmounted through the fade interval', (
@@ -501,51 +596,45 @@ void main() {
           body: CustomScrollView(
             controller: controller,
             slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: ReplicaProfileHeaderDelegate(
-                  user: _user(42),
-                  isMe: true,
-                  selectedTabIndex: 0,
-                  showRestrictSelector: false,
-                  restrict: UserRestrict.public,
-                  onRestrictChanged: (_) {},
-                  onShare: (_) {},
-                  expandedExtent: 320,
-                ),
+              _MeasuredProfileHeader(
+                delegateFor: (extent, onMeasured) =>
+                    ReplicaProfileHeaderDelegate(
+                      user: _user(42),
+                      isMe: true,
+                      selectedTabIndex: 0,
+                      showRestrictSelector: false,
+                      restrict: UserRestrict.public,
+                      onRestrictChanged: (_) {},
+                      onShare: (_) {},
+                      expandedExtent: extent,
+                      onExpandedExtentMeasured: onMeasured,
+                    ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
             ],
           ),
         ),
       ),
     );
+    // First frame lays out at the estimate extent; the measured height
+    // lands on the second frame.
     await tester.pump();
+    await tester.pump();
+    final collapseRange = _headerCollapseRange(tester);
 
-    controller.jumpTo(210); // 80% through the 264dp collapse range.
+    controller.jumpTo(collapseRange * 0.8);
     await tester.pump();
     expect(find.byKey(const ValueKey('profile-toolbar-title')), findsNothing);
 
-    controller.jumpTo(263.4);
+    controller.jumpTo(collapseRange - 0.6);
     await tester.pump();
     expect(find.byKey(const ValueKey('profile-toolbar-title')), findsNothing);
 
-    controller.jumpTo(264);
+    controller.jumpTo(collapseRange);
     await tester.pump();
     expect(find.byKey(const ValueKey('profile-toolbar-title')), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
-  });
-
-  test('the pinned toolbar includes the status-bar inset', () {
-    final geometry = geometryAt(0, topInset: 24);
-    expect(geometry.minExtent, 80);
-    expect(geometry.collapseRange, 350);
-  });
-
-  test('the background still fades independently of the identity content', () {
-    expect(geometryAt(0.5).backgroundOpacity, 0.5);
-    expect(geometryAt(1).backgroundOpacity, 0);
   });
 
   testWidgets(
@@ -570,17 +659,19 @@ void main() {
                 body: CustomScrollView(
                   key: ValueKey(user.profileImageUrl ?? 'placeholder'),
                   slivers: [
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: ReplicaProfileHeaderDelegate(
-                        user: user,
-                        isMe: true,
-                        selectedTabIndex: 0,
-                        showRestrictSelector: false,
-                        restrict: UserRestrict.public,
-                        onRestrictChanged: (_) {},
-                        onShare: (_) {},
-                      ),
+                    _MeasuredProfileHeader(
+                      delegateFor: (extent, onMeasured) =>
+                          ReplicaProfileHeaderDelegate(
+                            user: user,
+                            isMe: true,
+                            selectedTabIndex: 0,
+                            showRestrictSelector: false,
+                            restrict: UserRestrict.public,
+                            onRestrictChanged: (_) {},
+                            onShare: (_) {},
+                            expandedExtent: extent,
+                            onExpandedExtentMeasured: onMeasured,
+                          ),
                     ),
                     const SliverToBoxAdapter(child: SizedBox(height: 2000)),
                   ],
@@ -588,6 +679,7 @@ void main() {
               ),
             ),
           );
+          await tester.pump();
           await tester.pump();
 
           for (var step = 0; step <= 10; step++) {
@@ -601,6 +693,19 @@ void main() {
                 isFalse,
                 reason: 'avatar/name overlap at drag step $step',
               );
+              if (step == 0) {
+                // R2: the avatar's centre line sits exactly on the
+                // banner's bottom edge — topInset(0) + toolbar(56) +
+                // bannerBelowToolbar(80) = 136.
+                expect(
+                  tester.getRect(avatar).center.dy,
+                  moreOrLessEquals(
+                    kToolbarHeight +
+                        ReplicaProfileHeaderGeometry.bannerBelowToolbar,
+                    epsilon: 0.5,
+                  ),
+                );
+              }
             }
             await tester.drag(
               find.byType(CustomScrollView),
@@ -634,20 +739,22 @@ void main() {
         home: Scaffold(
           body: CustomScrollView(
             slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: ReplicaProfileHeaderDelegate(
-                  user: _user(42),
-                  isMe: true,
-                  selectedTabIndex: 0,
-                  showRestrictSelector: false,
-                  restrict: UserRestrict.public,
-                  onRestrictChanged: (_) {},
-                  onShare: (_) {},
-                  topInset: 24,
-                ),
+              _MeasuredProfileHeader(
+                delegateFor: (extent, onMeasured) =>
+                    ReplicaProfileHeaderDelegate(
+                      user: _user(42),
+                      isMe: true,
+                      selectedTabIndex: 0,
+                      showRestrictSelector: false,
+                      restrict: UserRestrict.public,
+                      onRestrictChanged: (_) {},
+                      onShare: (_) {},
+                      expandedExtent: extent,
+                      onExpandedExtentMeasured: onMeasured,
+                      topInset: 24,
+                    ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
             ],
           ),
         ),
@@ -676,27 +783,29 @@ void main() {
         home: Scaffold(
           body: CustomScrollView(
             slivers: [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: ReplicaProfileHeaderDelegate(
-                  user: UserEntity(
-                    id: 42,
-                    name: 'a very long display name that will not fit',
-                    account: 'sample',
-                  ),
-                  isMe: true,
-                  selectedTabIndex: 0,
-                  showRestrictSelector: true,
-                  restrict: UserRestrict.public,
-                  onRestrictChanged: (_) {},
-                  onShare: (_) {},
-                  onEditProfile: () {},
-                  onOpenBookmarkTags: () {},
-                  onDownloadAll: () {},
-                  topInset: 24,
-                ),
+              _MeasuredProfileHeader(
+                delegateFor: (extent, onMeasured) =>
+                    ReplicaProfileHeaderDelegate(
+                      user: UserEntity(
+                        id: 42,
+                        name: 'a very long display name that will not fit',
+                        account: 'sample',
+                      ),
+                      isMe: true,
+                      selectedTabIndex: 0,
+                      showRestrictSelector: true,
+                      restrict: UserRestrict.public,
+                      onRestrictChanged: (_) {},
+                      onShare: (_) {},
+                      onEditProfile: () {},
+                      onOpenBookmarkTags: () {},
+                      onDownloadAll: () {},
+                      expandedExtent: extent,
+                      onExpandedExtentMeasured: onMeasured,
+                      topInset: 24,
+                    ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
             ],
           ),
         ),
@@ -732,35 +841,41 @@ void main() {
             body: CustomScrollView(
               controller: controller,
               slivers: [
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: ReplicaProfileHeaderDelegate(
-                    user: _user(42),
-                    isMe: true,
-                    selectedTabIndex: 0,
-                    showRestrictSelector: true,
-                    restrict: UserRestrict.public,
-                    onRestrictChanged: (_) {},
-                    onShare: (_) {},
-                    onEditProfile: () {},
-                    onOpenBookmarkTags: () {},
-                    onDownloadAll: () {},
-                  ),
+                _MeasuredProfileHeader(
+                  delegateFor: (extent, onMeasured) =>
+                      ReplicaProfileHeaderDelegate(
+                        user: _user(42),
+                        isMe: true,
+                        selectedTabIndex: 0,
+                        showRestrictSelector: true,
+                        restrict: UserRestrict.public,
+                        onRestrictChanged: (_) {},
+                        onShare: (_) {},
+                        onEditProfile: () {},
+                        onOpenBookmarkTags: () {},
+                        onDownloadAll: () {},
+                        expandedExtent: extent,
+                        onExpandedExtentMeasured: onMeasured,
+                      ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+                const SliverToBoxAdapter(child: SizedBox(height: 2000)),
               ],
             ),
           ),
         ),
       );
       await tester.pump();
+      await tester.pump();
       expect(find.byTooltip('分享用户'), findsOneWidget);
-      expect(find.byTooltip('编辑个人资料'), findsOneWidget);
+      // The owner's main action is a tonal text button on the page
+      // surface — not an icon button anymore.
+      expect(find.text('编辑个人资料'), findsOneWidget);
       // The persistent overflow carries the full list in every state.
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
       expect(find.text('分享用户'), findsOneWidget);
-      expect(find.text('编辑个人资料'), findsOneWidget);
+      // Inline main action + menu item.
+      expect(find.text('编辑个人资料'), findsNWidgets(2));
       expect(find.text('公开'), findsOneWidget);
       expect(find.text('私密'), findsOneWidget);
       expect(find.text('收藏标签'), findsOneWidget);
@@ -768,12 +883,13 @@ void main() {
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
-      controller.jumpTo(264);
+      controller.jumpTo(_headerCollapseRange(tester));
       await tester.pump();
       expect(find.byIcon(Icons.more_vert), findsOneWidget);
       await tester.tap(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
       expect(find.text('分享用户'), findsOneWidget);
+      // Collapsed: the inline identity is offstage, only the menu item.
       expect(find.text('编辑个人资料'), findsOneWidget);
       expect(find.text('公开'), findsOneWidget);
       expect(find.text('收藏标签'), findsOneWidget);
@@ -789,9 +905,8 @@ void main() {
     Widget header() => Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: ReplicaProfileHeaderDelegate(
+          _MeasuredProfileHeader(
+            delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
               user: _user(42),
               isMe: true,
               selectedTabIndex: 0,
@@ -799,6 +914,8 @@ void main() {
               restrict: UserRestrict.public,
               onRestrictChanged: (_) {},
               onShare: (_) {},
+              expandedExtent: extent,
+              onExpandedExtentMeasured: onMeasured,
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 1000)),
@@ -848,9 +965,8 @@ void main() {
         body: CustomScrollView(
           controller: controller,
           slivers: [
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: ReplicaProfileHeaderDelegate(
+            _MeasuredProfileHeader(
+              delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
                 user: _user(42),
                 isMe: true,
                 selectedTabIndex: 0,
@@ -858,9 +974,11 @@ void main() {
                 restrict: UserRestrict.public,
                 onRestrictChanged: (_) {},
                 onShare: (_) => shareCount++,
+                expandedExtent: extent,
+                onExpandedExtentMeasured: onMeasured,
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 1000)),
+            const SliverToBoxAdapter(child: SizedBox(height: 2000)),
           ],
         ),
       );
@@ -885,11 +1003,11 @@ void main() {
       );
       await tester.pump();
 
-      // expandedExtent 320 - minExtent 56 = 264dp collapse range.
+      // The collapse range comes from the measured header extent.
       for (final progress in [0.60, 0.80, 0.95]) {
         await tester.tap(find.text('open'));
         await tester.pumpAndSettle();
-        controller.jumpTo(264 * progress);
+        controller.jumpTo(_headerCollapseRange(tester) * progress);
         await tester.pump();
 
         // The overflow fires even inside the fade hand-off: the expanded
@@ -1226,6 +1344,346 @@ void main() {
       // 360×640 × ru combinations on the real page.
     },
   );
+
+  // R8 wide-screen: the measured header lays out cleanly and all six
+  // statistics share one row when there is room for them.
+  testWidgets('wide screens keep the statistics on one row', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final container = await _makeWorld(users: _FakeUserRepository());
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: const UserPage(userId: 42),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final tops = <double>{
+      for (final id in [
+        'following',
+        'myPixiv',
+        'illust',
+        'manga',
+        'novel',
+        'series',
+      ])
+        tester.getRect(find.byKey(ValueKey('profile-stat-$id-header'))).top,
+    };
+    expect(tops, hasLength(1), reason: '1200dp fits six cells in one row');
+  });
+
+  testWidgets('the expanded header is measured from its content', (
+    tester,
+  ) async {
+    const statIds = [
+      'following',
+      'myPixiv',
+      'illust',
+      'manga',
+      'novel',
+      'series',
+    ];
+    Finder stat(String id) => find.byKey(ValueKey('profile-stat-$id-header'));
+
+    Future<void> pumpPage({
+      required bool isMe,
+      required bool cover,
+      required Size size,
+      required double textScale,
+      required Locale locale,
+    }) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      final repository = _FakeUserRepository(
+        detail: _user(42).copyWith(
+          backgroundImageUrl: cover ? 'https://i.pximg.net/bg.png' : null,
+        ),
+      );
+      final container = await _makeWorld(users: repository);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: locale,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(textScale)),
+                child: child!,
+              ),
+              home: isMe
+                  ? MePage(onEditProfile: () {})
+                  : const UserPage(userId: 42),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      });
+    }
+
+    void expectIdentityInsideHeader(String label, {required bool isMe}) {
+      // No layout exception was recorded while building this combination.
+      expect(tester.takeException(), isNull, reason: label);
+      // The pinned tab strip is laid out even when a measured header that
+      // is taller than the viewport pushes it below the fold — the sliver
+      // reports `visible: false` then, so the on-stage finder misses it.
+      // skipOffstage keeps the anchor: its rect still sits at the header's
+      // bottom edge, which is exactly what the assertions measure against.
+      final tabTop = tester
+          .getRect(find.byType(TabBar, skipOffstage: false))
+          .top;
+      // Main action + share live in the identity band above the tab strip.
+      final main = isMe
+          ? find.byType(FilledButton)
+          : find.byType(FollowSwitchButton);
+      expect(main, findsOneWidget, reason: label);
+      expect(
+        tester.getRect(main).bottom,
+        lessThanOrEqualTo(tabTop),
+        reason: '$label main action leaves the header',
+      );
+      final share = find.byIcon(Icons.share_outlined);
+      expect(share, findsOneWidget, reason: label);
+      expect(
+        tester.getRect(share).bottom,
+        lessThanOrEqualTo(tabTop),
+        reason: '$label share leaves the header',
+      );
+      for (final id in statIds) {
+        expect(
+          tester.getRect(stat(id)).bottom,
+          lessThanOrEqualTo(tabTop),
+          reason: '$label stat $id leaves the header',
+        );
+      }
+    }
+
+    for (final size in [const Size(360, 640), const Size(411, 891)]) {
+      final small = size.width == 360;
+      for (final isMe in [true, false]) {
+        for (final cover in [true, false]) {
+          await pumpPage(
+            isMe: isMe,
+            cover: cover,
+            size: size,
+            textScale: small ? 2 : 1,
+            locale: small ? const Locale('ru') : const Locale('zh', 'CN'),
+          );
+          expectIdentityInsideHeader(
+            '${size.width}×${size.height} isMe=$isMe cover=$cover',
+            isMe: isMe,
+          );
+        }
+      }
+    }
+    tester.view.reset();
+  });
+
+  testWidgets('the measured extent tracks refreshed identity content', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakeUserRepository(
+      detail: _user(42).copyWith(account: 'sample'),
+    );
+    final container = await _makeWorld(users: repository);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: const UserPage(userId: 42),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    // From the second frame on, the header is fully opaque — the estimate
+    // frame only exists before the identity reports its height.
+    final opacities = tester.widgetList<Opacity>(
+      find.ancestor(
+        of: find.byKey(const ValueKey('profile-expanded-avatar')),
+        matching: find.byType(Opacity),
+      ),
+    );
+    expect(opacities, isNotEmpty);
+    for (final opacity in opacities) {
+      expect(opacity.opacity, 1);
+    }
+    final tabTopBefore = tester
+        .getRect(find.byType(TabBar, skipOffstage: false))
+        .top;
+
+    // A refreshed user with a much longer account line wraps to more rows,
+    // which must grow the measured extent instead of overflowing. The page
+    // reads the entity captured by userDetailControllerProvider, so the
+    // refresh has to go through reload() — a bare UserStore.mergeAll never
+    // reaches it.
+    repository.detail = _user(42).copyWith(
+      name: 'an extremely long display name that keeps going',
+      account: 'a_very_long_account_handle_that_wraps_to_more_lines',
+    );
+    await container.read(userDetailControllerProvider(42).notifier).reload();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final tabTopAfter = tester
+        .getRect(find.byType(TabBar, skipOffstage: false))
+        .top;
+    expect(
+      tabTopAfter,
+      greaterThan(tabTopBefore),
+      reason: 'the measured extent follows wrapped identity content',
+    );
+    for (final id in ['following', 'illust', 'series']) {
+      expect(
+        tester.getRect(find.byKey(ValueKey('profile-stat-$id-header'))).bottom,
+        lessThanOrEqualTo(tabTopAfter),
+      );
+    }
+  });
+
+  testWidgets('header height tracks the drag without jumps', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakeUserRepository(
+      works: List.generate(30, (index) => _illust(index + 1)),
+    );
+    final container = await _makeWorld(users: repository);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('ru'),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Drag target: the nested scroll view itself. At 360×640 with 2x
+      // text the measured header is taller than the viewport, so the feed
+      // slivers are entirely below the fold — finders treat them as
+      // offstage and `tester.drag(feed)` cannot resolve a hit point. The
+      // NestedScrollView's centre is the same screen point the gesture
+      // would land on anyway.
+      final scrollable = find.byType(NestedScrollView);
+      double tabTop() =>
+          tester.getRect(find.byType(TabBar, skipOffstage: false)).top;
+
+      var previous = tabTop();
+      final tops = <double>[previous];
+      for (var step = 0; step < 14; step++) {
+        await tester.drag(scrollable, const Offset(0, -30));
+        await tester.pump();
+        final top = tabTop();
+        // Monotone, and never ahead of the finger: the height change per
+        // frame cannot exceed the dragged distance.
+        expect(top, lessThanOrEqualTo(previous + 0.01));
+        expect(previous - top, lessThanOrEqualTo(30.1));
+        tops.add(top);
+        previous = top;
+      }
+      for (var step = 0; step < 14; step++) {
+        await tester.drag(scrollable, const Offset(0, 30));
+        await tester.pump();
+        final top = tabTop();
+        expect(top, greaterThanOrEqualTo(previous - 0.01));
+        expect(top - previous, lessThanOrEqualTo(30.1));
+        previous = top;
+      }
+      expect(tester.takeException(), isNull);
+      expect(tabTop(), tops.first);
+      // Flush any overscroll/refresh timers the reverse drags armed so the
+      // test does not leave a pending Timer behind.
+      await tester.pumpAndSettle();
+    });
+  });
+
+  testWidgets('the banner without a cover is a container, not the page '
+      'colour', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              _MeasuredProfileHeader(
+                delegateFor: (extent, onMeasured) =>
+                    ReplicaProfileHeaderDelegate(
+                      user: _user(42),
+                      isMe: true,
+                      selectedTabIndex: 0,
+                      showRestrictSelector: false,
+                      restrict: UserRestrict.public,
+                      onRestrictChanged: (_) {},
+                      onShare: (_) {},
+                      expandedExtent: extent,
+                      onExpandedExtentMeasured: onMeasured,
+                    ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final headerMaterial = find
+        .ancestor(
+          of: find.byKey(const ValueKey('profile-expanded-avatar')),
+          matching: find.byType(Material),
+        )
+        .first;
+    final colors = Theme.of(tester.element(headerMaterial)).colorScheme;
+    final banners = tester
+        .widgetList<ColoredBox>(
+          find.descendant(
+            of: headerMaterial,
+            matching: find.byType(ColoredBox),
+          ),
+        )
+        .where((box) => box.color == colors.surfaceContainerHigh)
+        .toList();
+    expect(banners, hasLength(1));
+    expect(tester.widget<Material>(headerMaterial).color, colors.surface);
+    expect(colors.surfaceContainerHigh, isNot(colors.surface));
+  });
 
   testWidgets(
     'same work tab tap returns both profile scroll positions to top',
