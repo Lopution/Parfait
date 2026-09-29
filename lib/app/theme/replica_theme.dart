@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../system_ui.dart';
 import 'func_semantic_tokens.dart';
 import 'func_tokens.dart';
 
@@ -141,6 +142,11 @@ ThemeData replicaTheme(Brightness brightness) {
       surfaceTintColor: FuncTokens.transparent,
       iconTheme: IconThemeData(color: text),
       actionsIconTheme: IconThemeData(color: text),
+      // Pinned rather than per-frame estimated: every app bar in the app is
+      // opaque on the page surface, so the bar icons always invert the page
+      // brightness (§6 — this changes no page, it only makes the source
+      // single).
+      systemOverlayStyle: funcSystemBarsStyle(brightness),
     ),
     iconTheme: IconThemeData(color: text),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(

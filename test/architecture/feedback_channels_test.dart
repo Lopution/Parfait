@@ -12,6 +12,9 @@
 //     variants / showMenu / framework pickers) outside
 //     lib/app/motion/app_overlays.dart: zero beyond the pinned
 //     framework-picker allow-list
+//   - `SystemUiOverlayStyle(` / `AnnotatedRegion<SystemUiOverlayStyle>`
+//     callsites outside lib/app/system_ui.dart: zero — FuncSystemBars and
+//     funcSystemBarsStyle are the only way to style system bars
 //   - `Hero(` callsites: exactly the members of the illustHeroTag family —
 //     no second tag family may appear
 //   - `Duration(milliseconds:` inside lib/app/ + lib/features/: only in
@@ -33,6 +36,10 @@ const _hapticsOwner = 'lib/app/haptics/app_haptics.dart';
 
 /// Owner file for app modal overlays.
 const _overlaysOwner = 'lib/app/motion/app_overlays.dart';
+
+/// Owner file for system bar styling: pages reach for FuncSystemBars /
+/// funcSystemBarsStyle, never a raw overlay-style widget or constructor.
+const _systemUiOwner = 'lib/app/system_ui.dart';
 
 /// Approved `showAppSnackBarOn` callsites: the root-level presentations that
 /// cannot reach a scoped messenger context (root exit hint, app-level update
@@ -168,6 +175,23 @@ void main() {
       reason:
           'raw overlay entries outside $_overlaysOwner:\n'
           '${violations.join('\n')}',
+    );
+  });
+
+  test('system bar styles have exactly one owner', () {
+    final hits = _matches(
+      ['lib'],
+      RegExp(
+        r'SystemUiOverlayStyle\(|AnnotatedRegion\s*<SystemUiOverlayStyle>',
+      ),
+    );
+    expect(
+      hits.keys.toSet().difference({_systemUiOwner}),
+      isEmpty,
+      reason:
+          'raw SystemUiOverlayStyle/AnnotatedRegion outside $_systemUiOwner: '
+          '${hits.keys.toSet().difference({_systemUiOwner}).join(', ')} — '
+          'use funcSystemBarsStyle / FuncSystemBars',
     );
   });
 
