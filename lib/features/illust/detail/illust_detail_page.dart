@@ -25,6 +25,7 @@ import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
 import 'widgets/detail_image_pager.dart';
+import 'widgets/detail_page_counter.dart';
 import 'widgets/illust_series_section.dart';
 import 'widgets/info_block.dart';
 import 'widgets/page_image.dart';
@@ -66,33 +67,56 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   /// on with nothing selected yet — "Done" stays disabled until n > 0.
   Set<int>? _selectedPages;
 
-  /// Narrow-layout compact header: the topmost image page currently in
-  /// view feeds the `n/共N页` counter (VisibilityDetector per page,
-  /// 200ms cadence — the counter does not need frame-exact updates).
+  /// Page-counter overlay data: the topmost image page currently in
+  /// view feeds the `n / m` pill (VisibilityDetector per page, 200ms
+  /// cadence — the pill does not need frame-exact updates). Empty set
+  /// means nothing artwork is on screen (scrolled into the meta tail).
   final Set<int> _visiblePages = <int>{};
   final GlobalKey _infoAnchorKey = GlobalKey();
 
-  int get _firstVisiblePage =>
-      _visiblePages.isEmpty ? 0 : _visiblePages.reduce(math.min);
+  /// Attached to the narrow layout's scroll view so the artwork-info
+  /// jump can walk the lazily-built page list until the InfoBlock anchor
+  /// exists. SmoothWheelScroll keeps owning its own internal controller
+  /// — this one is attached alongside, never taken over (risks R9).
+  final ScrollController _narrowScroll = ScrollController();
+
+  int? get _topVisiblePage =>
+      _visiblePages.isEmpty ? null : _visiblePages.reduce(math.min);
 
   void _onPageVisibility(int index, VisibilityInfo info) {
     final visible = info.visibleFraction > 0;
-    final before = _firstVisiblePage;
+    final before = _topVisiblePage;
     if (visible) {
       _visiblePages.add(index);
     } else {
       _visiblePages.remove(index);
     }
-    if (_firstVisiblePage != before && mounted) setState(() {});
+    if (_topVisiblePage != before && mounted) setState(() {});
   }
 
-  /// The 「信息」 button scrolls the meta column's InfoBlock into view.
-  /// ensureVisible uses the target's own context (risks R9 — we never
-  /// touch SmoothWheelScroll's controller).
-  void _scrollToInfo() {
-    final ctx = _infoAnchorKey.currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(ctx, duration: MotionTokens.medium);
+  /// The ⋮ menu's artwork-info item scrolls the InfoBlock into view.
+  /// The InfoBlock sliver is built
+  /// lazily below the page list, so on long works the narrow scroll first
+  /// steps one viewport at a time until the anchor exists — each step's
+  /// viewport is contiguous with the previous one, so every section gets
+  /// built as we pass. ensureVisible uses the target's own context
+  /// (risks R9 — we never touch SmoothWheelScroll's controller).
+  Future<void> _scrollToInfo() async {
+    while (_infoAnchorKey.currentContext == null && _narrowScroll.hasClients) {
+      final position = _narrowScroll.position;
+      if (position.pixels >= position.maxScrollExtent) break;
+      position.jumpTo(
+        math.min(
+          position.pixels + position.viewportDimension,
+          position.maxScrollExtent,
+        ),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    final anchor = _infoAnchorKey.currentContext;
+    if (anchor == null || !anchor.mounted) return;
+    await Scrollable.ensureVisible(anchor, duration: MotionTokens.medium);
   }
 
   bool _blockMode = false;
@@ -115,6 +139,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   @override
   void dispose() {
     _downloadEvents?.cancel();
+    _narrowScroll.dispose();
     super.dispose();
   }
 
@@ -281,6 +306,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   ) {
     final entity = _entityOf(async);
     final download = ref.watch(illustDownloadControllerProvider);
+    // Restricted and not-found states render a FeedEmpty body without an
+    // InfoBlock — the menu's artwork-info item only exists while the
+    // content actually renders.
+    final rendersContent =
+        entity != null &&
+        async.value is! IllustDetailRestricted &&
+        async.value is! IllustDetailNotFound;
     return AppBar(
       // The work title lives in the body (Shaft's hero_title / official
       // client layout): a single-line AppBar slot ellipsises anything
@@ -288,12 +320,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       // and the real title wraps freely in InfoBlock.
       title: Text(context.l10n.illustDetailTitle),
       actions: [
-        if (entity != null)
-          IconButton(
-            tooltip: context.l10n.cardActionShare,
-            onPressed: () => _share(context, ref, entity),
-            icon: const Icon(Icons.share_outlined),
-          ),
         // "Download all" is the always-visible plain download entry — it
         // is no longer gated behind the selection mode.
         if (entity != null)
@@ -327,12 +353,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             },
             icon: const Icon(Icons.file_download_outlined),
           ),
-        if (entity != null && entity.pageCount > 1 && !entity.isUgoira)
-          IconButton(
-            tooltip: context.l10n.downloadSelectPages,
-            onPressed: _enterDownloadMode,
-            icon: const Icon(Icons.checklist_outlined),
-          ),
         // Beta56 keeps the bookmark heart in the app bar actions at all
         // times (isButton: false variant, tap toggles / long-press sheet
         // only while unbookmarked).
@@ -346,6 +366,24 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 isButton: false,
               ),
             ),
+          ),
+        if (entity != null)
+          _DetailMoreMenu(
+            actions: [
+              _DetailMenuAction.share,
+              // Re-entering selection mode from inside the mode is a
+              // no-op, so the entry hides while the mode is on.
+              if (entity.pageCount > 1 && !entity.isUgoira && !_downloadMode)
+                _DetailMenuAction.selectPages,
+              if (rendersContent) _DetailMenuAction.info,
+            ],
+            onSelected: (buttonContext, action) => switch (action) {
+              _DetailMenuAction.share => unawaited(
+                _share(buttonContext, ref, entity),
+              ),
+              _DetailMenuAction.selectPages => _enterDownloadMode(),
+              _DetailMenuAction.info => unawaited(_scrollToInfo()),
+            },
           ),
       ],
     );
@@ -519,7 +557,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       // and the info block (name, 第 N 话, prev/next navigation).
       IllustSeriesSection(illustId: widget.illustId),
       SliverToBoxAdapter(
-        // The compact header's 「信息」 button scrolls to this anchor
+        // The ⋮ menu's artwork-info item scrolls to this anchor
         // (ensureVisible by context — no controller takeover, risks R9).
         child: Container(
           key: _infoAnchorKey,
@@ -591,30 +629,35 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               // scrollbar lands where the main scrollbar belongs.
               secondary: Scrollbar(child: metaScroll),
             )
-          : Column(
+          : Stack(
+              fit: StackFit.expand,
               children: [
-                // Narrow-only compact header: persistent title/author/
-                // page-count context + an info jump that scrolls to
-                // InfoBlock (design §2.2 — the two-pane branch already
-                // carries the same info in its right column).
-                _CompactDetailHeader(
-                  entity: entity,
-                  visiblePage: _firstVisiblePage,
-                  onInfo: _scrollToInfo,
-                ),
-                Expanded(
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: onScrollNotification,
-                    child: SmoothWheelScroll(
-                      builder: (context, controller, physics) =>
-                          CustomScrollView(
-                            controller: controller,
-                            physics: physics,
-                            slivers: [...imageSlivers, ...metaSlivers],
-                          ),
+                NotificationListener<ScrollNotification>(
+                  onNotification: onScrollNotification,
+                  child: SmoothWheelScroll(
+                    controller: _narrowScroll,
+                    builder: (context, controller, physics) => CustomScrollView(
+                      controller: controller,
+                      physics: physics,
+                      slivers: [...imageSlivers, ...metaSlivers],
                     ),
                   ),
                 ),
+                // The shared page counter floats over the top-end of the
+                // artwork while an image page is actually on screen —
+                // scrolled past the last page it leaves with them. The
+                // pill is IgnorePointer, so taps fall through to the
+                // artwork below. Selection mode hides it: each page's
+                // badge occupies the same top-end corner.
+                if (!entity.isUgoira &&
+                    !_downloadMode &&
+                    _topVisiblePage != null)
+                  Positioned.fill(
+                    child: DetailPageCounter(
+                      page: _topVisiblePage!,
+                      count: entity.pageCount,
+                    ),
+                  ),
               ],
             ),
     );
@@ -636,69 +679,59 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   }
 }
 
-/// Narrow-layout (<1200) persistent header under the AppBar: the detail
-/// body keeps title/author/page-context visible while the user scrolls
-/// through pages, and the 「信息」 button jumps straight to InfoBlock.
-/// Not rendered in the two-pane layout (the meta column carries the same
-/// information) or in degraded states (this only builds inside
-/// _buildContent, which requires a non-null entity).
-class _CompactDetailHeader extends StatelessWidget {
-  const _CompactDetailHeader({
-    required this.entity,
-    required this.visiblePage,
-    required this.onInfo,
-  });
+/// Actions carried by the detail AppBar's ⋮ menu: share, the page-
+/// selection entry (multi-page works only) and the artwork-info jump.
+enum _DetailMenuAction { share, selectPages, info }
 
-  final IllustEntity entity;
-  final int visiblePage;
-  final VoidCallback onInfo;
+/// The ⋮ menu holding the less-frequent detail actions. Every entry
+/// carries an icon plus its localized text label — nothing here depends
+/// on a long-press to be discoverable (R3).
+class _DetailMoreMenu extends StatelessWidget {
+  const _DetailMoreMenu({required this.actions, required this.onSelected});
+
+  final List<_DetailMenuAction> actions;
+
+  /// Receives the ⋮ button's own context so share can anchor its popover
+  /// to the button.
+  final void Function(BuildContext buttonContext, _DetailMenuAction action)
+  onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = context.l10n;
-    return Material(
-      color: theme.colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: FuncSpacing.lg,
-          vertical: FuncSpacing.xs,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entity.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  Text(
-                    entity.user.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: FuncSpacing.sm),
-            Text(
-              l10n.viewerPageLabel(visiblePage + 1, entity.pageCount),
-              style: theme.textTheme.bodySmall,
-            ),
-            IconButton(
-              tooltip: l10n.illustInfoJump,
-              onPressed: onInfo,
-              icon: const Icon(Icons.info_outline),
-            ),
-          ],
-        ),
+    (IconData, String) labelOf(_DetailMenuAction action) => switch (action) {
+      _DetailMenuAction.share => (Icons.share_outlined, l10n.cardActionShare),
+      _DetailMenuAction.selectPages => (
+        Icons.checklist_outlined,
+        l10n.downloadSelectPages,
       ),
+      _DetailMenuAction.info => (Icons.info_outline, l10n.illustInfoJump),
+    };
+    return PopupMenuButton<_DetailMenuAction>(
+      tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+      icon: const Icon(Icons.more_vert),
+      onSelected: (action) => onSelected(context, action),
+      itemBuilder: (context) => [
+        for (final action in actions)
+          PopupMenuItem<_DetailMenuAction>(
+            value: action,
+            child: Row(
+              children: [
+                Icon(labelOf(action).$1, size: 20),
+                const SizedBox(width: FuncSpacing.md),
+                // Expanded keeps long localized labels inside the menu's
+                // fixed width — they truncate rather than overflow.
+                Expanded(
+                  child: Text(
+                    labelOf(action).$2,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
