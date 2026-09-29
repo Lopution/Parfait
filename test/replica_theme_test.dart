@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -233,6 +234,128 @@ void main() {
             .first,
       );
       expect(material.color, theme.colorScheme.inverseSurface);
+    }
+  });
+
+  testWidgets('component text styles resolve through the themed textTheme', (
+    tester,
+  ) async {
+    TextStyle? paragraphStyle(String text) {
+      return tester.renderObject<RenderParagraph>(find.text(text)).text.style;
+    }
+
+    void expectStyle(
+      TextStyle? style, {
+      required double fontSize,
+      required FontWeight weight,
+    }) {
+      expect(style?.fontFamily, 'Montserrat');
+      expect(style?.fontSize, fontSize);
+      expect(style?.fontWeight, weight);
+    }
+
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: replicaTheme(brightness),
+          home: Scaffold(
+            appBar: AppBar(title: const Text('App bar')),
+            body: Column(
+              children: [
+                FilterChip(label: const Text('chip'), onSelected: (_) {}),
+                SizedBox(
+                  width: 120,
+                  height: 160,
+                  child: NavigationRail(
+                    selectedIndex: 0,
+                    onDestinationSelected: (_) {},
+                    labelType: NavigationRailLabelType.all,
+                    destinations: const [
+                      NavigationRailDestination(
+                        icon: Icon(Icons.add),
+                        label: Text('rail'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.remove),
+                        label: Text('other'),
+                      ),
+                    ],
+                  ),
+                ),
+                Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('snack'))),
+                    child: const Text('toast'),
+                  ),
+                ),
+                Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => const AlertDialog(
+                        title: Text('dialog title'),
+                        content: Text('dialog content'),
+                      ),
+                    ),
+                    child: const Text('dialog'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      // Let AnimatedTheme converge when the second iteration swaps themes.
+      await tester.pumpAndSettle();
+
+      // AppBar title keeps 16/w500.
+      expectStyle(
+        paragraphStyle('App bar'),
+        fontSize: 16,
+        weight: FontWeight.w500,
+      );
+      // Chip label keeps 14/w400.
+      expectStyle(
+        paragraphStyle('chip'),
+        fontSize: 14,
+        weight: FontWeight.w400,
+      );
+      // Rail labels derive from labelMedium + a themed color — the slot is
+      // geometry-less in material_ui's color-only default textTheme, so only
+      // the family and color are pinned here.
+      final railStyle = paragraphStyle('rail');
+      expect(railStyle?.fontFamily, 'Montserrat');
+      expect(railStyle?.color, replicaTheme(brightness).colorScheme.primary);
+
+      await tester.tap(find.text('toast'));
+      await tester.pumpAndSettle();
+      expectStyle(
+        paragraphStyle('snack'),
+        fontSize: 14,
+        weight: FontWeight.w400,
+      );
+      ScaffoldMessenger.of(
+        tester.element(find.byType(Scaffold)),
+      ).hideCurrentSnackBar();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('dialog'));
+      await tester.pumpAndSettle();
+      expectStyle(
+        paragraphStyle('dialog title'),
+        fontSize: 24,
+        weight: FontWeight.w500,
+      );
+      expectStyle(
+        paragraphStyle('dialog content'),
+        fontSize: 14,
+        weight: FontWeight.w400,
+      );
+      // Tap the barrier to dismiss (showDialog's default barrierDismissible).
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
     }
   });
 
