@@ -10,121 +10,7 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
-
-@immutable
-class ProfileStatisticData {
-  const ProfileStatisticData({
-    required this.id,
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
-
-  final String id;
-  final IconData icon;
-  final String label;
-  final int value;
-  final VoidCallback? onTap;
-}
-
-/// Shared stat control for the compact header chips and the about-page rows.
-/// A single semantic node announces the label and value together.
-class ProfileStatistic extends StatelessWidget {
-  const ProfileStatistic({
-    super.key,
-    required this.statistic,
-    this.compact = false,
-    this.foregroundColor,
-  });
-
-  final ProfileStatisticData statistic;
-  final bool compact;
-  final Color? foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final chipBackground = foregroundColor == null
-        ? colors.surfaceContainerHighest
-        : Colors.black.withValues(alpha: 0.25);
-    return Semantics(
-      key: ValueKey(
-        'profile-stat-${statistic.id}-${compact ? 'header' : 'about'}',
-      ),
-      container: true,
-      button: statistic.onTap != null,
-      label: '${statistic.label}, ${statistic.value}',
-      onTap: statistic.onTap,
-      child: ExcludeSemantics(
-        child: compact
-            ? Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Material(
-                  color: chipBackground,
-                  shape: StadiumBorder(
-                    side: BorderSide(
-                      color: foregroundColor == null
-                          ? colors.outlineVariant
-                          : Colors.white.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: InkWell(
-                    onTap: statistic.onTap,
-                    customBorder: const StadiumBorder(),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            statistic.icon,
-                            size: 17,
-                            color: foregroundColor,
-                          ),
-                          const SizedBox(width: 6),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${statistic.value}',
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: foregroundColor,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1,
-                                    ),
-                              ),
-                              Text(
-                                statistic.label,
-                                maxLines: 1,
-                                softWrap: false,
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: foregroundColor),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            : ListTile(
-                dense: true,
-                leading: Icon(statistic.icon, size: 18),
-                title: Text(statistic.label),
-                trailing: Text('${statistic.value}'),
-                onTap: statistic.onTap,
-              ),
-      ),
-    );
-  }
-}
+import 'profile_statistics.dart';
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
 @immutable
@@ -661,18 +547,14 @@ class _ExpandedProfileDetails extends StatelessWidget {
             ).textTheme.bodySmall?.copyWith(color: secondaryColor),
           ),
         const SizedBox(height: 7),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final statistic in statistics)
-                ProfileStatistic(
-                  statistic: statistic,
-                  compact: true,
-                  foregroundColor: textColor,
-                ),
-            ],
-          ),
+        // Equal-width grid instead of a horizontal scroll strip: the stats
+        // must all stay visible without scrolling (R3). T3 re-lays out the
+        // identity block around this grid.
+        ProfileStatisticsGrid(
+          statistics: [
+            for (final statistic in statistics)
+              ProfileStatistic(statistic: statistic, compact: true),
+          ],
         ),
         const SizedBox(height: 8),
         // One actions row under the stats — the share icon used to sit alone

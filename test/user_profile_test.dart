@@ -1130,6 +1130,104 @@ void main() {
   );
 
   testWidgets(
+    'profile statistics lay out in an equal-width grid without horizontal '
+    'scrolling',
+    (tester) async {
+      const statIds = [
+        'following',
+        'myPixiv',
+        'illust',
+        'manga',
+        'novel',
+        'series',
+      ];
+      Finder stat(String id) => find.byKey(ValueKey('profile-stat-$id-header'));
+
+      Future<void> pumpPage({
+        required Size size,
+        required double textScale,
+        required Locale locale,
+      }) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final container = await _makeWorld(users: _FakeUserRepository());
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: locale,
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+                child: const UserPage(userId: 42),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      void expectNoHorizontalScrollable(Finder statFinder) {
+        var found = false;
+        tester.element(statFinder).visitAncestorElements((ancestor) {
+          final widget = ancestor.widget;
+          if (widget is Scrollable && widget.axis == Axis.horizontal) {
+            found = true;
+          }
+          return true;
+        });
+        expect(found, isFalse, reason: 'stat cell must not scroll sideways');
+      }
+
+      void expectEqualRowWidths() {
+        final rects = [for (final id in statIds) tester.getRect(stat(id))];
+        final rows = <double, List<Rect>>{};
+        for (final rect in rects) {
+          rows.putIfAbsent(rect.top, () => []).add(rect);
+        }
+        for (final row in rows.values) {
+          for (final cell in row) {
+            expect(
+              cell.width,
+              moreOrLessEquals(row.first.width, epsilon: 0.01),
+              reason: 'cells in one grid row share the same width',
+            );
+          }
+        }
+      }
+
+      // 411×891, 1.0, zh: all six stats fit one row, all on screen.
+      await pumpPage(
+        size: const Size(411, 891),
+        textScale: 1,
+        locale: const Locale('zh', 'CN'),
+      );
+      for (final id in statIds) {
+        final rect = tester.getRect(stat(id));
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(891));
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(411));
+        expectNoHorizontalScrollable(stat(id));
+      }
+      final tops = {for (final id in statIds) tester.getRect(stat(id)).top};
+      expect(
+        tops,
+        hasLength(1),
+        reason: '411/1.0/zh fits six cells in one row',
+      );
+      expectEqualRowWidths();
+
+      // Narrow/large-text conditions that wrap onto multiple rows live in
+      // test/profile_statistics_test.dart — the legacy fixed-height header
+      // cannot host a taller grid at all, so T3's R1 tests own the
+      // 360×640 × ru combinations on the real page.
+    },
+  );
+
+  testWidgets(
     'same work tab tap returns both profile scroll positions to top',
     (tester) async {
       final repository = _FakeUserRepository(
