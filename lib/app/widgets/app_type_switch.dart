@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 
@@ -128,6 +130,37 @@ class _RenderNonNegativeOverlap extends RenderProxySliver {
       ),
       parentUsesSize: true,
     );
-    geometry = child!.geometry;
+    final childGeometry = child!.geometry;
+    geometry = childGeometry?.copyWith(
+      paintOrigin: math.max(
+        childGeometry.paintOrigin,
+        _pinnedOverlap(childGeometry),
+      ),
+    );
+  }
+
+  /// While the row is floated (its slot scrolled fully out), a NestedScrollView
+  /// body underlaps the pinned outer headers: the enclosing *body* sliver
+  /// (e.g. the outer viewport's SliverFillRemaining) carries that encroachment
+  /// in its own `constraints.overlap`, while inner slivers see zero. Parking
+  /// the revealed row at that offset keeps it below the pinned chrome instead
+  /// of under it. In a standalone CustomScrollView there is no enclosing
+  /// sliver, so this reports zero and the row floats at the viewport edge as
+  /// usual.
+  double _pinnedOverlap(SliverGeometry childGeometry) {
+    // Once the slot is only partially scrolled off, the row is still in the
+    // list's flow — its natural position is correct and no inset applies.
+    if (constraints.scrollOffset < childGeometry.scrollExtent) {
+      return 0;
+    }
+    RenderObject? node = parent;
+    while (node != null) {
+      final ancestor = node.parent;
+      if (node is RenderSliver && ancestor is RenderNestedScrollViewViewport) {
+        return math.max(node.constraints.overlap, 0.0);
+      }
+      node = ancestor;
+    }
+    return 0;
   }
 }

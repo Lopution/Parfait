@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
-import '../../core/profile/profile_models.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../app/widgets/app_tab_bar.dart';
@@ -865,29 +864,26 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// Pinned profile tab bar and the persistent work-section selector.
+/// Pinned profile tab bar. The work-section selector used to live under it
+/// as a 64dp chip row; it now belongs to each work feed via
+/// `ProfileWorkTypeSwitch` (Compact Type Switch Contract), so this bar is a
+/// constant 56dp on every tab.
 class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileTabsDelegate({
     required this.controller,
     required this.isMe,
-    required this.section,
     required this.onTabTap,
-    required this.onSectionChanged,
   });
 
   final TabController controller;
   final bool isMe;
-  final ProfileWorkSection section;
   final ValueChanged<int> onTabTap;
-  final ValueChanged<ProfileWorkSection> onSectionChanged;
 
   @override
-  double get minExtent => kToolbarHeight + (_isWorkTab ? 64 : 0);
+  double get minExtent => kToolbarHeight;
 
   @override
   double get maxExtent => minExtent;
-
-  bool get _isWorkTab => isMe ? controller.index == 4 : controller.index == 0;
 
   String _text(BuildContext context, String key) =>
       l10nLookup(context.l10n, key);
@@ -912,49 +908,15 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
             'profileFollowing',
             'profileAbout',
           ];
-    final isWorkTab = _isWorkTab;
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
-      child: Column(
-        children: [
-          SizedBox(
-            height: kToolbarHeight,
-            child: AppTabBar(
-              controller: controller,
-              onTap: onTabTap,
-              labels: [for (final label in labels) _text(context, label)],
-            ),
-          ),
-          if (isWorkTab)
-            SizedBox(
-              height: 64,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final type in ProfileWorkSection.values) ...[
-                      if (type != ProfileWorkSection.illust)
-                        const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: Text(
-                          _text(context, switch (type) {
-                            ProfileWorkSection.illust => 'profileIllust',
-                            ProfileWorkSection.manga => 'profileManga',
-                            ProfileWorkSection.novel => 'profileNovel',
-                            ProfileWorkSection.series => 'profileSeries',
-                          }),
-                        ),
-                        selected: section == type,
-                        onSelected: (_) => onSectionChanged(type),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-        ],
+      child: SizedBox(
+        height: kToolbarHeight,
+        child: AppTabBar(
+          controller: controller,
+          onTap: onTabTap,
+          labels: [for (final label in labels) _text(context, label)],
+        ),
       ),
     );
   }
@@ -963,5 +925,5 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant ReplicaProfileTabsDelegate oldDelegate) =>
       oldDelegate.controller != controller ||
       oldDelegate.isMe != isMe ||
-      oldDelegate.section != section;
+      oldDelegate.onTabTap != onTabTap;
 }
