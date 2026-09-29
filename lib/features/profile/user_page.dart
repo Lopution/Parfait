@@ -25,6 +25,7 @@ import 'profile_illust_feed.dart';
 import 'profile_novel_feed.dart';
 import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
+import 'profile_statistics.dart';
 import 'profile_work_type_switch.dart';
 import 'user_series_feed.dart';
 import '../../core/profile/profile_models.dart';
