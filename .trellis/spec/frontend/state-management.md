@@ -735,6 +735,23 @@ NovelReaderLayoutContext NovelReaderCommitGate.beginLayout({
   generation and cancellation from the layout request to the commit. A late
   result may not update `_layout`, page count, `PageController` or history
   anchor after a newer generation, content/chapter change or disposal.
+- The reader chrome runs off one stage-owned `AnimationController`. The
+  user's intent (`_chromeVisible`) and the rendered state
+  (`_chromeHidden == controller.isDismissed`) are separate; the passive
+  progress hint exists in the tree only while the controller is dismissed,
+  so it can never paint under the exiting bottom bar. Reduced-motion jumps
+  the controller instead of animating.
+- The novel-series provider is an `autoDispose` family kept alive by the
+  reader stage itself (`ref.watch` in the stage build — a build-time
+  `ref.listen` re-subscribes on every rebuild with a dispose gap that
+  refetches, and a manual subscription does not hold autoDispose). One
+  fetch happens per reader session; chrome reveals reuse it. Riverpod's
+  default failure retry is disabled on the provider (`retry: (_, _) =>
+  null`) so the localized error strip persists until the user taps retry,
+  which is the only path that invalidates and refetches. The series strip
+  is a fixed 48 dp `_SeriesBarRow` in all four states — loading, failure
+  with retry, missing-current-entry (navigation dead-ended, no watchlist
+  cursor write) and data — so it never resizes under the bottom chrome.
 
 #### 4. Validation & Error Matrix
 
