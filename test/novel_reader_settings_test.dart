@@ -57,6 +57,24 @@ void main() {
       expect(night.foreground, isNotNull);
       expect(night.background!.computeLuminance(), lessThan(0.2));
     });
+
+    test('palette brightness matches each pinned background', () {
+      // The reader's system-bar icons invert off this value — a recolored
+      // preset that forgets to repin `brightness` fails here.
+      expect(novelReaderPalette(NovelReaderTheme.system).brightness, isNull);
+      for (final theme in [
+        NovelReaderTheme.paper,
+        NovelReaderTheme.sepia,
+        NovelReaderTheme.night,
+      ]) {
+        final palette = novelReaderPalette(theme);
+        expect(
+          palette.brightness,
+          ThemeData.estimateBrightnessForColor(palette.background!),
+          reason: '$theme brightness must track its background',
+        );
+      }
+    });
   });
 
   group('NovelReaderSettingsStore', () {

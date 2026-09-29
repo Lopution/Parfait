@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
+import '../../app/system_ui.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/watchlist_toggle.dart';
@@ -89,8 +91,8 @@ class NovelStatusScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        SafeArea(
-          bottom: false,
+        Padding(
+          padding: MediaQuery.of(context).padding.copyWith(bottom: 0),
           child: Align(
             alignment: Alignment.centerLeft,
             // An explicit control means "leave the page"; only the system
@@ -117,8 +119,17 @@ class NovelReaderStage extends ConsumerStatefulWidget {
   ConsumerState<NovelReaderStage> createState() => _NovelReaderStageState();
 }
 
-class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
+class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
+    with SingleTickerProviderStateMixin {
+  /// One controller drives both bars and the passive hint: the hint
+  /// tracks the *rendered* chrome state, not the user's intent — it
+  /// reappears only once the bottom bar is fully dismissed (R4).
+  late final AnimationController _chrome = AnimationController(
+    vsync: this,
+    duration: MotionTokens.fast,
+  )..addStatusListener(_onChromeStatus);
   bool _chromeVisible = false;
+  bool _chromeHidden = true; // == _chrome.isDismissed, cached for build
   final NovelReaderHandle _readerHandle = NovelReaderHandle();
   NovelAnchor? _anchor;
   int _page = 0;
@@ -129,12 +140,47 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
   bool _prefsReady = false;
   Object? _loadError;
 
+  /// System-bar insets as seen with the bars shown (D1). Hiding the bars
+  /// reports zero insets; reading them live would grow the body and
+  /// repaginate. Each edge keeps its maximum until the screen size changes.
+  EdgeInsets _stableInsets = EdgeInsets.zero;
+  Size? _insetsSize;
+
   NovelEntity get novel => widget.spec.novel;
 
   @override
   void initState() {
     super.initState();
+    // Chrome starts hidden, so the reader opens straight into immersion.
+    unawaited(setSystemUiMode(SystemUiMode.immersiveSticky));
     _loadPrefs();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final size = MediaQuery.sizeOf(context);
+    final live = MediaQuery.of(context).viewPadding;
+    final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;
+    _insetsSize = size;
+    if (next != _stableInsets) _stableInsets = next;
+  }
+
+  static EdgeInsets _maxEdges(EdgeInsets a, EdgeInsets b) => EdgeInsets.only(
+    left: math.max(a.left, b.left),
+    top: math.max(a.top, b.top),
+    right: math.max(a.right, b.right),
+    bottom: math.max(a.bottom, b.bottom),
+  );
+
+  @override
+  void dispose() {
+    // Leaving without a pop (route replace, go()) skips the pop callback —
+    // restore the ambient bars here as the fallback. Re-setting
+    // edgeToEdge is harmless when the route left through a normal pop.
+    unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
+    _chrome.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPrefs() async {
@@ -156,10 +202,35 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
     }
   }
 
-  void _toggleChrome() => setState(() => _chromeVisible = !_chromeVisible);
+  void _toggleChrome() => _setChromeVisible(!_chromeVisible);
 
   void _hideChrome() {
-    if (_chromeVisible) setState(() => _chromeVisible = false);
+    if (_chromeVisible) _setChromeVisible(false);
+  }
+
+  void _setChromeVisible(bool visible) {
+    setState(() => _chromeVisible = visible);
+    // System bars share the chrome's visibility: immersive while hidden,
+    // edge-to-edge while the bars are up.
+    unawaited(
+      setSystemUiMode(
+        visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+      ),
+    );
+    if (!MotionTokens.enabled(context)) {
+      // Reduced motion: land the end state — a zeroed controller still
+      // drives the hittable/dismissed boundary correctly.
+      _chrome.value = visible ? 1 : 0;
+    } else if (visible) {
+      _chrome.forward();
+    } else {
+      _chrome.reverse();
+    }
+  }
+
+  void _onChromeStatus(AnimationStatus status) {
+    final hidden = _chrome.isDismissed;
+    if (hidden != _chromeHidden) setState(() => _chromeHidden = hidden);
   }
 
   void _applySettings(NovelReaderSettings next) {
@@ -199,58 +270,87 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
     final percent = _pageCount <= 1
         ? 100
         : ((_page + 1) / _pageCount * 100).round();
-    return PopScope(
-      canPop: !_chromeVisible,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _hideChrome();
-      },
-      // Arrow-key paging lives on the stage's own Focus — when a sheet
-      // route opens it takes the primary focus, so keys reach the sheet
-      // instead of the reader without any extra guard.
-      child: Focus(
-        autofocus: true,
-        onKeyEvent: _onKeyEvent,
-        child: ColoredBox(
-          color:
-              palette.background ?? Theme.of(context).scaffoldBackgroundColor,
-          child: Stack(
-            children: [
-              Positioned.fill(child: _buildStage(context, palette)),
-              // Keep the passive progress hint out of the bottom chrome's
-              // paint and semantics tree. The chrome owns the interactive
-              // progress readout while it is visible; the hint returns when
-              // the reader is immersive again.
-              if (!_chromeVisible)
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
-                  child: IgnorePointer(
-                    child: Text(
-                      '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 11,
-                        color:
-                            (palette.foreground ??
-                                    Theme.of(context).colorScheme.onSurface)
-                                .withValues(alpha: 0.45),
+    // The series bar mounts only with the chrome; a bare autoDispose
+    // provider drops between reveals and refetches, and a manual
+    // subscription does not keep it alive. Watching it here holds the
+    // dependency for the stage's lifetime — the fetch starts at open
+    // and dies with the stage.
+    final seriesId = novel.seriesId;
+    if (seriesId != null) {
+      ref.watch(_novelSeriesProvider(seriesId));
+    }
+    // Bar icons invert off the reading surface: paper/sepia pin dark
+    // icons, night pins light ones; `system` follows the app theme. The
+    // stage fills the screen, so this region owns both bars while it is
+    // mounted and the root style returns on unmount (C2 contract).
+    return FuncSystemBars(
+      background: palette.brightness ?? Theme.of(context).brightness,
+      child: PopScope(
+        canPop: !_chromeVisible,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) {
+            // Restore the bars as the pop starts — dispose only runs
+            // after the pop animation, and the previous route needs its
+            // status bar while the transition is still on screen.
+            unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
+          } else {
+            _hideChrome();
+          }
+        },
+        // Arrow-key paging lives on the stage's own Focus — when a sheet
+        // route opens it takes the primary focus, so keys reach the sheet
+        // instead of the reader without any extra guard.
+        child: Focus(
+          autofocus: true,
+          onKeyEvent: _onKeyEvent,
+          child: ColoredBox(
+            color:
+                palette.background ?? Theme.of(context).scaffoldBackgroundColor,
+            child: Stack(
+              children: [
+                Positioned.fill(child: _buildStage(context, palette)),
+                // Keep the passive progress hint out of the bottom chrome's
+                // paint and semantics tree. The chrome owns the interactive
+                // progress readout while it is visible; the hint returns when
+                // the reader is immersive again.
+                if (_chromeHidden)
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 4 + _stableInsets.bottom,
+                    child: IgnorePointer(
+                      child: Text(
+                        '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                          color:
+                              (palette.foreground ??
+                                      Theme.of(context).colorScheme.onSurface)
+                                  .withValues(alpha: 0.45),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              _ChromeBar(
-                visible: _chromeVisible,
-                edge: _ChromeEdge.top,
-                child: _buildTopBar(context, palette),
-              ),
-              _ChromeBar(
-                visible: _chromeVisible,
-                edge: _ChromeEdge.bottom,
-                child: _buildBottomBar(context, l10n, palette),
-              ),
-            ],
+                // Dismissed bars are removed here, on the status-driven
+                // setState frame — not inside the animation builder,
+                // where mid-flush reparenting can trip the semantics
+                // attach assert.
+                if (!_chromeHidden)
+                  _ChromeBar(
+                    animation: _chrome,
+                    edge: _ChromeEdge.top,
+                    child: _buildTopBar(context, palette),
+                  ),
+                if (!_chromeHidden)
+                  _ChromeBar(
+                    animation: _chrome,
+                    edge: _ChromeEdge.bottom,
+                    child: _buildBottomBar(context, l10n, palette),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -294,8 +394,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
     if (!_prefsReady) {
       return const FeedLoading();
     }
-    final content = SafeArea(
-      bottom: false,
+    final content = Padding(
+      padding: _stableInsets.copyWith(bottom: 0),
       child: NovelReader(
         novel: novel,
         settings: _settings,
@@ -322,18 +422,25 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
     return widget.spec.bodyWrapper?.call(context, _anchor, content) ?? content;
   }
 
+  /// Shared fill for both chrome bars: the reading palette's background
+  /// (the page surface under `system`) at 0.96 alpha — a tinted glass over
+  /// the body, kept one brightness with the palette's bar-icon override.
+  Color _chromeBarColor(BuildContext context, NovelReaderPalette palette) =>
+      (palette.background ?? Theme.of(context).colorScheme.surface).withValues(
+        alpha: 0.96,
+      );
+
   Widget _buildTopBar(BuildContext context, NovelReaderPalette palette) {
     final foreground =
         palette.foreground ?? Theme.of(context).colorScheme.onSurface;
     return Material(
-      color: (palette.background ?? Theme.of(context).colorScheme.surface)
-          .withValues(alpha: 0.96),
+      color: _chromeBarColor(context, palette),
       child: IconTheme.merge(
         data: IconThemeData(color: foreground),
         // The Material paints through the status-bar inset; only the
         // controls are padded below it.
-        child: SafeArea(
-          bottom: false,
+        child: Padding(
+          padding: _stableInsets.copyWith(bottom: 0),
           child: Row(
             children: [
               IconButton(
@@ -375,14 +482,13 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
     final foreground =
         palette.foreground ?? Theme.of(context).colorScheme.onSurface;
     return Material(
-      color: (palette.background ?? Theme.of(context).colorScheme.surface)
-          .withValues(alpha: 0.96),
+      color: _chromeBarColor(context, palette),
       child: IconTheme.merge(
         data: IconThemeData(color: foreground),
         // The Material paints through the gesture-strip inset; only the
         // controls are padded above it.
-        child: SafeArea(
-          top: false,
+        child: Padding(
+          padding: _stableInsets.copyWith(top: 0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -443,11 +549,28 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
     );
   }
 
-  void _showInfoSheet(BuildContext context) {
-    showAppBottomSheet<void>(
+  /// Reader sheets keep the app theme's colors (not the reading palette),
+  /// so the sheet publishes its own [FuncSystemBars] region: the nav bar
+  /// under it takes icon brightness from the sheet's theme brightness,
+  /// not from the stage behind it.
+  Future<T?> _showReaderSheet<T>({
+    required WidgetBuilder builder,
+    bool isScrollControlled = false,
+  }) {
+    return showAppBottomSheet<T>(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: isScrollControlled,
       showDragHandle: true,
+      builder: (sheetContext) => FuncSystemBars(
+        background: Theme.of(sheetContext).brightness,
+        child: builder(sheetContext),
+      ),
+    );
+  }
+
+  void _showInfoSheet(BuildContext context) {
+    _showReaderSheet<void>(
+      isScrollControlled: true,
       builder: widget.spec.infoSheet,
     );
   }
@@ -460,10 +583,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
     final pageCount = _pageCount;
     final chapters = _readerHandle.chapters?.call() ?? const [];
     var preview = _page;
-    showAppBottomSheet<void>(
-      context: context,
+    _showReaderSheet<void>(
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -478,7 +599,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
               _readerHandle.goToPage?.call(page, animate: false);
             }
 
-            return SafeArea(
+            return Padding(
+              padding: MediaQuery.of(context).padding,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(
@@ -577,9 +699,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
 
   void _showReaderSettings(BuildContext context) {
     final l10n = context.l10n;
-    showAppBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
+    _showReaderSheet<void>(
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -588,7 +708,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
               _applySettings(next);
             }
 
-            return SafeArea(
+            return Padding(
+              padding: MediaQuery.of(context).padding,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(
@@ -694,85 +815,49 @@ class _SettingsSliderRow extends StatelessWidget {
 
 enum _ChromeEdge { top, bottom }
 
-/// One sliding chrome bar. The controller keeps the bar hittable until the
-/// hide animation fully completes — a tap landing mid-slide still hits the
-/// button instead of leaking through to the page-turn zone.
-class _ChromeBar extends StatefulWidget {
+/// One sliding chrome bar driven by the stage's controller. The bar stays
+/// hittable until the hide animation fully completes — a tap landing
+/// mid-slide still hits the button instead of leaking through to the
+/// page-turn zone.
+class _ChromeBar extends StatelessWidget {
   const _ChromeBar({
-    required this.visible,
+    required this.animation,
     required this.edge,
     required this.child,
   });
 
-  final bool visible;
+  final Animation<double> animation;
   final _ChromeEdge edge;
   final Widget child;
 
   @override
-  State<_ChromeBar> createState() => _ChromeBarState();
-}
-
-class _ChromeBarState extends State<_ChromeBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: MotionTokens.fast,
-    value: widget.visible ? 1 : 0,
-  );
-
-  @override
-  void didUpdateWidget(covariant _ChromeBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.visible != oldWidget.visible) {
-      if (!MotionTokens.enabled(context)) {
-        // Reduced motion: land the end state — a zeroed controller still
-        // drives the hittable/dismissed boundary correctly.
-        _controller.value = widget.visible ? 1 : 0;
-      } else if (widget.visible) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final isTop = widget.edge == _ChromeEdge.top;
+    final isTop = edge == _ChromeEdge.top;
     final slide =
         Tween<Offset>(
           begin: Offset(0, isTop ? -1 : 1),
           end: Offset.zero,
         ).animate(
-          CurvedAnimation(parent: _controller, curve: MotionTokens.fastCurve),
+          CurvedAnimation(parent: animation, curve: MotionTokens.fastCurve),
         );
     // No SafeArea here: the bar surface must paint edge-to-edge so its
     // background covers the system inset. The inset padding lives inside
     // each bar's Material instead — the bar slides from the screen edge
     // while its controls stay clear of the gesture strip.
-    final bar = SlideTransition(position: slide, child: widget.child);
+    final bar = SlideTransition(position: slide, child: child);
     return Positioned(
       top: isTop ? 0 : null,
       bottom: isTop ? null : 0,
       left: 0,
       right: 0,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          // Fully hidden means fully gone: no hit target, no semantics, no
-          // leftover widget for finders/a11y to see.
-          if (_controller.isDismissed) return const SizedBox.shrink();
-          return IgnorePointer(
-            ignoring: false,
-            child: FadeTransition(opacity: _controller, child: child),
-          );
-        },
+      // RenderOpacity drops the child's semantics below full opacity;
+      // the boundary flipping on each animation frame trips the
+      // semantics attach assert during repeated hide/reveal cycles.
+      // Pinning the boundary keeps one stable semantics parent — the
+      // dismissed bar is still removed from the tree by the stage.
+      child: FadeTransition(
+        opacity: animation,
+        alwaysIncludeSemantics: true,
         child: bar,
       ),
     );
@@ -788,14 +873,70 @@ void _showNovelPage(BuildContext context, int novelId) {
   openNovel(context, novelId);
 }
 
+// Riverpod's default retry would re-run the failed fetch on a backoff
+// and silently turn the error strip into data — the contract wants the
+// failure to stay until the user taps retry, so auto-retry is off.
 final _novelSeriesProvider = FutureProvider.autoDispose
     .family<NovelSeriesPage, int>((ref, seriesId) async {
       final token = CancelToken();
       ref.onDispose(token.cancel);
-      return ref
-          .read(novelRepositoryProvider)
-          .fetchSeries(seriesId, cancelToken: token);
-    });
+      try {
+        return await ref
+            .read(novelRepositoryProvider)
+            .fetchSeries(seriesId, cancelToken: token);
+      } catch (error) {
+        // The bar shows only the localized fallback; the real error goes
+        // to the log once, here at the fetch boundary — never inside
+        // build, which would re-log on every rebuild.
+        log('novel series $seriesId failed: $error');
+        rethrow;
+      }
+    }, retry: (_, _) => null);
+
+/// Fixed strip height shared by every series-bar state — an
+/// [IconButton]'s minimum hit target. Loading, failure, missing-entry and
+/// data never resize the strip under the bottom chrome.
+const _seriesBarHeight = 48.0;
+
+/// One fixed-height series row: prev/next chevrons at the edges, centered
+/// content, an optional trailing control (watchlist, retry) beside next.
+/// All series-bar states share it so layout never shifts between them.
+class _SeriesBarRow extends StatelessWidget {
+  const _SeriesBarRow({
+    this.onPrevious,
+    this.onNext,
+    this.center,
+    this.trailing,
+  });
+
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final Widget? center;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _seriesBarHeight,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: context.l10n.novelPrevious,
+            onPressed: onPrevious,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(child: center ?? const SizedBox.shrink()),
+          ?trailing,
+          IconButton(
+            tooltip: context.l10n.novelNext,
+            onPressed: onNext,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Prev/next navigation supplied by the webview payload when the detail
 /// metadata carries no `series` object of its own.
@@ -807,58 +948,91 @@ class _NovelAdjacentBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconButton(
-          tooltip: context.l10n.novelPrevious,
-          onPressed: prevId == null
-              ? null
-              : () => _showNovelPage(context, prevId!),
-          icon: const Icon(Icons.chevron_left),
-        ),
-        Expanded(
-          child: Text(
-            context.l10n.novelSeries,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        IconButton(
-          tooltip: context.l10n.novelNext,
-          onPressed: nextId == null
-              ? null
-              : () => _showNovelPage(context, nextId!),
-          icon: const Icon(Icons.chevron_right),
-        ),
-      ],
+    return _SeriesBarRow(
+      onPrevious: prevId == null
+          ? null
+          : () => _showNovelPage(context, prevId!),
+      onNext: nextId == null ? null : () => _showNovelPage(context, nextId!),
+      center: Text(
+        context.l10n.novelSeries,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }
 
-class _NovelSeriesBar extends ConsumerWidget {
+class _NovelSeriesBar extends ConsumerStatefulWidget {
   const _NovelSeriesBar({required this.seriesId, required this.novelId});
 
   final int seriesId;
   final int novelId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_NovelSeriesBar> createState() => _NovelSeriesBarState();
+}
+
+class _NovelSeriesBarState extends ConsumerState<_NovelSeriesBar> {
+  /// The watchlist cursor is written once per mounted bar — scheduling it
+  /// on every build would re-fire the write on each chrome rebuild.
+  bool _seenMarked = false;
+
+  int get seriesId => widget.seriesId;
+  int get novelId => widget.novelId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final async = ref.watch(_novelSeriesProvider(seriesId));
+    Widget seriesTitle(NovelSeriesPage series) => Text(
+      series.title ?? l10n.novelSeries,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
     return async.when(
-      loading: () => const LinearProgressIndicator(minHeight: 1),
-      error: (error, _) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Text(
-          '${context.l10n.novelSeriesUnavailable}: $error',
+      // Same row skeleton as the data state — disabled chevrons and a
+      // small spinner where the series name will land.
+      loading: () => const _SeriesBarRow(
+        center: Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      // Localized fallback plus retry — the raw error is logged in the
+      // provider, never stitched into the visible text.
+      error: (error, _) => _SeriesBarRow(
+        center: Text(
+          l10n.novelSeriesUnavailable,
+          textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        trailing: TextButton(
+          onPressed: () => ref.invalidate(_novelSeriesProvider(seriesId)),
+          child: Text(l10n.retry),
+        ),
       ),
       data: (series) {
         final index = series.entries.indexWhere((entry) => entry.id == novelId);
-        if (index < 0) return const SizedBox.shrink();
+        // The opened work is not in this series: keep title and watchlist
+        // but dead-end navigation — a cursor cannot point at a novel the
+        // series does not contain, so markSeen must not run either.
+        if (index < 0) {
+          return _SeriesBarRow(
+            center: seriesTitle(series),
+            trailing: WatchlistToggle(
+              seriesKey: WatchlistKey(WatchlistType.novel, seriesId),
+              detailAdded: series.watchlistAdded,
+              iconOnly: true,
+            ),
+          );
+        }
         final previous = index > 0 ? series.entries[index - 1] : null;
         final next = index + 1 < series.entries.length
             ? series.entries[index + 1]
@@ -870,8 +1044,10 @@ class _NovelSeriesBar extends ConsumerWidget {
             (async) => async.value?.usableCurrent?.id,
           ),
         );
-        if (accountId != null) {
+        if (accountId != null && !_seenMarked) {
+          _seenMarked = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
             ref
                 .read(watchlistReadCursorProvider)
                 .markSeen(
@@ -881,36 +1057,19 @@ class _NovelSeriesBar extends ConsumerWidget {
                 );
           });
         }
-        return Row(
-          children: [
-            IconButton(
-              tooltip: context.l10n.novelPrevious,
-              onPressed: previous?.viewable == true
-                  ? () => _showNovelPage(context, previous!.id)
-                  : null,
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Expanded(
-              child: Text(
-                series.title ?? context.l10n.novelSeries,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            WatchlistToggle(
-              seriesKey: WatchlistKey(WatchlistType.novel, seriesId),
-              detailAdded: series.watchlistAdded,
-              iconOnly: true,
-            ),
-            IconButton(
-              tooltip: context.l10n.novelNext,
-              onPressed: next?.viewable == true
-                  ? () => _showNovelPage(context, next!.id)
-                  : null,
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
+        return _SeriesBarRow(
+          onPrevious: previous?.viewable == true
+              ? () => _showNovelPage(context, previous!.id)
+              : null,
+          onNext: next?.viewable == true
+              ? () => _showNovelPage(context, next!.id)
+              : null,
+          center: seriesTitle(series),
+          trailing: WatchlistToggle(
+            seriesKey: WatchlistKey(WatchlistType.novel, seriesId),
+            detailAdded: series.watchlistAdded,
+            iconOnly: true,
+          ),
         );
       },
     );

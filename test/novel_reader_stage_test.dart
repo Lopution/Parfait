@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/core/novel/novel_entity.dart';
 import 'package:pixiv_func/core/novel/reader_settings.dart';
 import 'package:pixiv_func/core/settings/shared_preferences.dart';
@@ -263,6 +266,71 @@ void main() {
     expect(find.text('16'), findsOneWidget);
   });
 
+  testWidgets('bar icons invert off the reading palette', (tester) async {
+    // R2: paper/sepia pin dark icons, night pins light ones, and the
+    // `system` preset defers to the app theme under both brightnesses.
+    // The settings store reads the seeded SharedPreferences on open.
+    Future<void> open(
+      NovelReaderTheme readerTheme,
+      Brightness appBrightness,
+    ) async {
+      // pumpWidget reuses the stage's Element across identical trees —
+      // drop to an empty tree so each palette mounts a fresh stage that
+      // reloads the seeded settings. The store builds its
+      // SharedPreferencesAsync lazily, so it binds to the platform
+      // instance installed here.
+      installMemoryPreferences({
+        'pixivfunc.novel.reader_settings.v1': jsonEncode(
+          NovelReaderSettings(theme: readerTheme).toJson(),
+        ),
+      });
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        _stageApp(_RecordingBinding(), theme: replicaTheme(appBrightness)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // RenderView applies the AnnotatedRegion at frame time and publishes
+      // latestStyle in a following microtask — pump once more before
+      // reading (same handling as test/system_ui_test.dart).
+      await tester.pump();
+    }
+
+    for (final (readerTheme, icons) in [
+      (NovelReaderTheme.paper, Brightness.dark),
+      (NovelReaderTheme.sepia, Brightness.dark),
+      (NovelReaderTheme.night, Brightness.light),
+    ]) {
+      await open(readerTheme, Brightness.light);
+      expect(
+        SystemChrome.latestStyle?.statusBarIconBrightness,
+        icons,
+        reason: '$readerTheme must paint $icons status-bar icons',
+      );
+      expect(
+        SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+        icons,
+        reason: '$readerTheme must paint $icons nav-bar icons',
+      );
+    }
+
+    for (final appBrightness in Brightness.values) {
+      await open(NovelReaderTheme.system, appBrightness);
+      final icons = appBrightness == Brightness.light
+          ? Brightness.dark
+          : Brightness.light;
+      expect(
+        SystemChrome.latestStyle?.statusBarIconBrightness,
+        icons,
+        reason: 'system under a $appBrightness theme must paint $icons icons',
+      );
+      expect(
+        SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+        icons,
+      );
+    }
+  });
+
   testWidgets('progress sheet percent matches the footer formula at 1/2/N '
       'boundaries', (tester) async {
     // pageBreakBefore makes the page count deterministic — one short
@@ -361,6 +429,7 @@ Widget _stageApp(
   bool chapters = false,
   NovelEntity? novel,
   SharedPreferencesAsync? preferences,
+  ThemeData? theme,
 }) {
   return ProviderScope(
     overrides: [
@@ -368,6 +437,7 @@ Widget _stageApp(
         sharedPreferencesProvider.overrideWithValue(preferences),
     ],
     child: MaterialApp(
+      theme: theme,
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('zh', 'CN'),

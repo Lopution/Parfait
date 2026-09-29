@@ -188,9 +188,28 @@ one owner. Feature code uses the three seams below.
 - **Immersive mode.** `setSystemUiMode(SystemUiMode)` is the only caller of
   `SystemChrome.setEnabledSystemUIMode`; a platform `Exception` is logged,
   never thrown or silently dropped. `PixivFuncApp.initState` enters
-  `edgeToEdge` once at startup; the image viewer toggles
-  `immersiveSticky`/`edgeToEdge` with chrome visibility through the same
-  helper.
+  `edgeToEdge` once at startup; the image viewer and the novel reader
+  toggle `immersiveSticky`/`edgeToEdge` with chrome visibility through the
+  same helper.
+- **Page-level immersion lifecycle.** A page that goes immersive enters
+  `immersiveSticky` in `initState`, flips to `edgeToEdge` while its chrome
+  is shown, flips back when it hides, and restores `edgeToEdge` the moment
+  the pop starts (`PopScope.onPopInvokedWithResult` with `didPop == true`)
+  plus once more in `dispose` as the path that cannot miss. Every call is
+  `unawaited` and goes through `setSystemUiMode`.
+- **Stable insets while the bars hide.** A page that hides the system bars
+  must not lay out from live `MediaQuery` padding/viewPadding — hiding
+  reports zero insets and would regrow the body (the novel reader would
+  repaginate). Capture the with-bars `viewPadding` once, keep each edge's
+  maximum, and reseed only when the screen size changes. Known edge case:
+  rotating while immersive reports a zero inset on the new size, so the
+  first chrome reveal after rotation adjusts the body once (the reader's
+  commit gate keeps the anchor); it is stable again afterwards.
+- **Sheets over an overriding page.** A page that overrides the bar style
+  (a night palette reading surface) and opens an app-themed sheet lets the
+  sheet own the covered edge: the sheet wraps itself in `FuncSystemBars`
+  with its own surface brightness, so a light sheet over a dark reader
+  flips the navigation-bar icons dark for as long as it covers them.
 
 Widget tests read `SystemChrome.latestStyle` only after a `pump` (the
 `RenderView` applies annotated regions at frame time) and mock
@@ -316,6 +335,12 @@ window.
 Pages with local edit state, such as `ProfileEditPage`, keep their
 `canPop`/confirmation behavior in their own `PopScope`. Navigation changes
 must not bypass that confirmation or reset the branch stack.
+
+An immersive page restores the system bars on the *successful* pop path:
+`onPopInvokedWithResult` fires with `didPop == true`, so the novel reader
+calls `setSystemUiMode(SystemUiMode.edgeToEdge)` there — the previous route
+needs its status bar while the pop animation is still on screen — and again
+in `dispose` as the fallback for pop paths that never notify.
 
 ## Hero Drag Contract
 
