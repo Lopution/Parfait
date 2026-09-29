@@ -21,10 +21,14 @@ enum NovelReaderTheme {
 /// Resolved colors for one [NovelReaderTheme]. `null` fields mean "inherit
 /// the app theme" (the `system` preset).
 class NovelReaderPalette {
-  const NovelReaderPalette({this.background, this.foreground});
+  const NovelReaderPalette({this.background, this.foreground, this.brightness});
 
   final Color? background;
   final Color? foreground;
+
+  /// Brightness of [background]; null (the `system` preset) follows the
+  /// app theme. Drives the system-bar icons over the reader.
+  final Brightness? brightness;
 }
 
 NovelReaderPalette novelReaderPalette(NovelReaderTheme theme) {
@@ -34,15 +38,18 @@ NovelReaderPalette novelReaderPalette(NovelReaderTheme theme) {
     NovelReaderTheme.paper => const NovelReaderPalette(
       background: Color(0xFFF5F0E6),
       foreground: Color(0xFF2B2620),
+      brightness: Brightness.light,
     ),
     // Classic 绿豆沙 eye-care green used by legado/reading apps.
     NovelReaderTheme.sepia => const NovelReaderPalette(
       background: Color(0xFFC7E5C8),
       foreground: Color(0xFF22331F),
+      brightness: Brightness.light,
     ),
     NovelReaderTheme.night => const NovelReaderPalette(
       background: Color(0xFF101318),
       foreground: Color(0xFFC9CDD4),
+      brightness: Brightness.dark,
     ),
   };
 }

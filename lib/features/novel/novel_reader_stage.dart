@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
+import '../../app/system_ui.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/watchlist_toggle.dart';
@@ -232,58 +233,65 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     final percent = _pageCount <= 1
         ? 100
         : ((_page + 1) / _pageCount * 100).round();
-    return PopScope(
-      canPop: !_chromeVisible,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _hideChrome();
-      },
-      // Arrow-key paging lives on the stage's own Focus — when a sheet
-      // route opens it takes the primary focus, so keys reach the sheet
-      // instead of the reader without any extra guard.
-      child: Focus(
-        autofocus: true,
-        onKeyEvent: _onKeyEvent,
-        child: ColoredBox(
-          color:
-              palette.background ?? Theme.of(context).scaffoldBackgroundColor,
-          child: Stack(
-            children: [
-              Positioned.fill(child: _buildStage(context, palette)),
-              // Keep the passive progress hint out of the bottom chrome's
-              // paint and semantics tree. The chrome owns the interactive
-              // progress readout while it is visible; the hint returns when
-              // the reader is immersive again.
-              if (_chromeHidden)
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
-                  child: IgnorePointer(
-                    child: Text(
-                      '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontSize: 11,
-                        color:
-                            (palette.foreground ??
-                                    Theme.of(context).colorScheme.onSurface)
-                                .withValues(alpha: 0.45),
+    // Bar icons invert off the reading surface: paper/sepia pin dark
+    // icons, night pins light ones; `system` follows the app theme. The
+    // stage fills the screen, so this region owns both bars while it is
+    // mounted and the root style returns on unmount (C2 contract).
+    return FuncSystemBars(
+      background: palette.brightness ?? Theme.of(context).brightness,
+      child: PopScope(
+        canPop: !_chromeVisible,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _hideChrome();
+        },
+        // Arrow-key paging lives on the stage's own Focus — when a sheet
+        // route opens it takes the primary focus, so keys reach the sheet
+        // instead of the reader without any extra guard.
+        child: Focus(
+          autofocus: true,
+          onKeyEvent: _onKeyEvent,
+          child: ColoredBox(
+            color:
+                palette.background ?? Theme.of(context).scaffoldBackgroundColor,
+            child: Stack(
+              children: [
+                Positioned.fill(child: _buildStage(context, palette)),
+                // Keep the passive progress hint out of the bottom chrome's
+                // paint and semantics tree. The chrome owns the interactive
+                // progress readout while it is visible; the hint returns when
+                // the reader is immersive again.
+                if (_chromeHidden)
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
+                    child: IgnorePointer(
+                      child: Text(
+                        '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                          color:
+                              (palette.foreground ??
+                                      Theme.of(context).colorScheme.onSurface)
+                                  .withValues(alpha: 0.45),
+                        ),
                       ),
                     ),
                   ),
+                _ChromeBar(
+                  animation: _chrome,
+                  edge: _ChromeEdge.top,
+                  child: _buildTopBar(context, palette),
                 ),
-              _ChromeBar(
-                animation: _chrome,
-                edge: _ChromeEdge.top,
-                child: _buildTopBar(context, palette),
-              ),
-              _ChromeBar(
-                animation: _chrome,
-                edge: _ChromeEdge.bottom,
-                child: _buildBottomBar(context, l10n, palette),
-              ),
-            ],
+                _ChromeBar(
+                  animation: _chrome,
+                  edge: _ChromeEdge.bottom,
+                  child: _buildBottomBar(context, l10n, palette),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -355,12 +363,19 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     return widget.spec.bodyWrapper?.call(context, _anchor, content) ?? content;
   }
 
+  /// Shared fill for both chrome bars: the reading palette's background
+  /// (the page surface under `system`) at 0.96 alpha — a tinted glass over
+  /// the body, kept one brightness with the palette's bar-icon override.
+  Color _chromeBarColor(BuildContext context, NovelReaderPalette palette) =>
+      (palette.background ?? Theme.of(context).colorScheme.surface).withValues(
+        alpha: 0.96,
+      );
+
   Widget _buildTopBar(BuildContext context, NovelReaderPalette palette) {
     final foreground =
         palette.foreground ?? Theme.of(context).colorScheme.onSurface;
     return Material(
-      color: (palette.background ?? Theme.of(context).colorScheme.surface)
-          .withValues(alpha: 0.96),
+      color: _chromeBarColor(context, palette),
       child: IconTheme.merge(
         data: IconThemeData(color: foreground),
         // The Material paints through the status-bar inset; only the
@@ -408,8 +423,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     final foreground =
         palette.foreground ?? Theme.of(context).colorScheme.onSurface;
     return Material(
-      color: (palette.background ?? Theme.of(context).colorScheme.surface)
-          .withValues(alpha: 0.96),
+      color: _chromeBarColor(context, palette),
       child: IconTheme.merge(
         data: IconThemeData(color: foreground),
         // The Material paints through the gesture-strip inset; only the
@@ -476,11 +490,28 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     );
   }
 
-  void _showInfoSheet(BuildContext context) {
-    showAppBottomSheet<void>(
+  /// Reader sheets keep the app theme's colors (not the reading palette),
+  /// so the sheet publishes its own [FuncSystemBars] region: the nav bar
+  /// under it takes icon brightness from the sheet's theme brightness,
+  /// not from the stage behind it.
+  Future<T?> _showReaderSheet<T>({
+    required WidgetBuilder builder,
+    bool isScrollControlled = false,
+  }) {
+    return showAppBottomSheet<T>(
       context: context,
-      isScrollControlled: true,
+      isScrollControlled: isScrollControlled,
       showDragHandle: true,
+      builder: (sheetContext) => FuncSystemBars(
+        background: Theme.of(sheetContext).brightness,
+        child: builder(sheetContext),
+      ),
+    );
+  }
+
+  void _showInfoSheet(BuildContext context) {
+    _showReaderSheet<void>(
+      isScrollControlled: true,
       builder: widget.spec.infoSheet,
     );
   }
@@ -493,10 +524,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     final pageCount = _pageCount;
     final chapters = _readerHandle.chapters?.call() ?? const [];
     var preview = _page;
-    showAppBottomSheet<void>(
-      context: context,
+    _showReaderSheet<void>(
       isScrollControlled: true,
-      showDragHandle: true,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -610,9 +639,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
 
   void _showReaderSettings(BuildContext context) {
     final l10n = context.l10n;
-    showAppBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
+    _showReaderSheet<void>(
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
