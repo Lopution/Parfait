@@ -12,6 +12,7 @@ import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
+import 'package:pixiv_func/app/widgets/image_overlay_button.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
@@ -1035,8 +1036,62 @@ void main() {
     expect(find.text('#猫'), findsOneWidget);
     expect(find.text('#风景'), findsOneWidget);
     // The representative work has a visible secondary action; the tag-only
-    // card does not pretend that it can open a work.
+    // card does not pretend that it can open a work. The action floats over
+    // artwork, so it must be the scrim-backed ImageOverlayButton (R6).
     expect(find.byTooltip('打开详情页'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byTooltip('打开详情页'),
+        matching: find.byType(ImageOverlayButton),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('the trending overlay button opens the representative work', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository();
+    final router = createPixivRouter(initialLocation: '/search');
+    addTearDown(router.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    });
+
+    final button = find.byTooltip('打开详情页');
+    expect(button, findsOneWidget);
+    expect(
+      tester
+          .widget<ImageOverlayButton>(
+            find.ancestor(
+              of: button,
+              matching: find.byType(ImageOverlayButton),
+            ),
+          )
+          .tooltip,
+      '打开详情页',
+    );
+    await tester.tap(button);
+    await tester.pump();
+
+    // The push lands synchronously; settle would wait on the detail page's
+    // own deferred work, so assert the route and pop back before settling.
+    expect(router.state.uri.path, '/search/illust/901');
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/search');
   });
 
   testWidgets('trending grid renders every tag including a partial row', (

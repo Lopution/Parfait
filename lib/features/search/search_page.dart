@@ -7,6 +7,7 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/image_overlay_button.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
@@ -307,7 +308,7 @@ class _TrendingTagTile extends StatelessWidget {
                 Positioned(
                   top: 4,
                   right: 4,
-                  child: IconButton.filledTonal(
+                  child: ImageOverlayButton(
                     tooltip: context.l10n.viewerOpenDetail,
                     onPressed: () => _openRepresentative(context),
                     icon: const Icon(Icons.open_in_new),
