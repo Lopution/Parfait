@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../navigation/home_shell_metrics.dart';
+import '../theme/func_semantic_tokens.dart';
 import 'hero_rect_clip.dart';
 
 /// Hero flight geometry shared by the feed cards and the detail page.
@@ -31,6 +32,27 @@ class IllustHeroFlightChild extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => child;
+}
+
+/// Feed-card end of the artwork Hero (R5): rounded clip plus a divider
+/// hairline. The shared shuttle recognises it on the card side and fades
+/// the same hairline out as the image grows into the detail page.
+class IllustHeroCardFrame extends StatelessWidget {
+  const IllustHeroCardFrame({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: FuncShape.card,
+        border: Border.all(color: FuncSemanticTokens.of(context).divider),
+      ),
+      child: ClipRRect(borderRadius: FuncShape.card, child: child),
+    );
+  }
 }
 
 /// Conservative fallback for the home shell bottom navigation before its
@@ -73,6 +95,17 @@ Widget illustHeroFlightShuttleBuilder(
       ? heroChild.popChild!
       : heroChild;
   final child = RepaintBoundary(child: shuttleChild);
+  // The card's hairline border rides the flight: the card endpoint is the
+  // source on push and the destination on pop. Only when that endpoint is an
+  // [IllustHeroCardFrame] does a border exist at all — the detail-to-viewer
+  // flight has no card side and must not grow a hairline out of nowhere.
+  final cardContext = direction == HeroFlightDirection.push
+      ? fromHeroContext
+      : toHeroContext;
+  final cardHero = cardContext.widget;
+  final cardDivider = cardHero is Hero && cardHero.child is IllustHeroCardFrame
+      ? FuncSemanticTokens.of(cardContext).divider
+      : null;
   // Resolve all geometry before the animation starts. The old implementation
   // performed RenderObject walks and NestedScrollView header discovery from
   // AnimatedBuilder; the first return therefore paid that cost on a frame
@@ -108,6 +141,11 @@ Widget illustHeroFlightShuttleBuilder(
       final progress = rawProgress.isFinite
           ? rawProgress.clamp(0.0, 1.0).toDouble()
           : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
+      final radius = BorderRadius.lerp(
+        _illustHeroBorderRadius,
+        BorderRadius.zero,
+        progress,
+      )!;
       return HeroRectClip(
         globalRect: _heroFlightClipRect(
           flightContext,
@@ -122,12 +160,25 @@ Widget illustHeroFlightShuttleBuilder(
           fallbackTo: fallbackTo,
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.lerp(
-            _illustHeroBorderRadius,
-            BorderRadius.zero,
-            progress,
-          )!,
-          child: child!,
+          borderRadius: radius,
+          // Same lerped radius as the clip, fading out towards the detail
+          // end: the first push frame and the last pop frame match the card
+          // exactly, and the hairline is fully transparent at the detail
+          // endpoint — no jump, no ghost.
+          child: cardDivider == null
+              ? child!
+              : DecoratedBox(
+                  position: DecorationPosition.foreground,
+                  decoration: BoxDecoration(
+                    borderRadius: radius,
+                    border: Border.all(
+                      color: cardDivider.withValues(
+                        alpha: cardDivider.a * (1 - progress),
+                      ),
+                    ),
+                  ),
+                  child: child!,
+                ),
         ),
       );
     },
@@ -400,4 +451,4 @@ double _pinnedHeaderChrome(BuildContext context, double statusInset) {
   return total > 0 ? math.max(0, total - statusInset) : 0;
 }
 
-const _illustHeroBorderRadius = BorderRadius.all(Radius.circular(12));
+const _illustHeroBorderRadius = FuncShape.card;

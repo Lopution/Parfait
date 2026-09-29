@@ -270,6 +270,18 @@ void main() {
       expect(loggedIn, 1);
     });
 
+    testWidgets('expanded help text uses the secondary text color', (
+      tester,
+    ) async {
+      await pumpLogin(tester, size: const Size(390, 844));
+      await expandHelp(tester);
+
+      final hint = find.textContaining('默认直连');
+      expect(hint, findsOneWidget);
+      final scheme = Theme.of(tester.element(hint)).colorScheme;
+      expect(tester.widget<Text>(hint).style?.color, scheme.onSurfaceVariant);
+    });
+
     testWidgets('clipboard import shows a busy state and debounces taps', (
       tester,
     ) async {

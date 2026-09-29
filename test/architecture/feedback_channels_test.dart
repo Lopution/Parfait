@@ -12,6 +12,10 @@
 //     variants / showMenu / framework pickers) outside
 //     lib/app/motion/app_overlays.dart: zero beyond the pinned
 //     framework-picker allow-list
+//   - `SystemChrome.` callsites and `SystemUiOverlayStyle(` /
+//     `AnnotatedRegion<SystemUiOverlayStyle>` outside
+//     lib/app/system_ui.dart: zero — FuncSystemBars, funcSystemBarsStyle
+//     and setSystemUiMode are the only way to touch system UI
 //   - `Hero(` callsites: exactly the members of the illustHeroTag family —
 //     no second tag family may appear
 //   - `Duration(milliseconds:` inside lib/app/ + lib/features/: only in
@@ -33,6 +37,10 @@ const _hapticsOwner = 'lib/app/haptics/app_haptics.dart';
 
 /// Owner file for app modal overlays.
 const _overlaysOwner = 'lib/app/motion/app_overlays.dart';
+
+/// Owner file for system bar styling: pages reach for FuncSystemBars /
+/// funcSystemBarsStyle, never a raw overlay-style widget or constructor.
+const _systemUiOwner = 'lib/app/system_ui.dart';
 
 /// Approved `showAppSnackBarOn` callsites: the root-level presentations that
 /// cannot reach a scoped messenger context (root exit hint, app-level update
@@ -168,6 +176,24 @@ void main() {
       reason:
           'raw overlay entries outside $_overlaysOwner:\n'
           '${violations.join('\n')}',
+    );
+  });
+
+  test('system UI has exactly one owner', () {
+    final hits = _matches(
+      ['lib'],
+      RegExp(
+        r'SystemChrome\.|SystemUiOverlayStyle\(|'
+        r'AnnotatedRegion\s*<SystemUiOverlayStyle>',
+      ),
+    );
+    expect(
+      hits.keys.toSet().difference({_systemUiOwner}),
+      isEmpty,
+      reason:
+          'raw system UI calls outside $_systemUiOwner: '
+          '${hits.keys.toSet().difference({_systemUiOwner}).join(', ')} — '
+          'use funcSystemBarsStyle / FuncSystemBars / setSystemUiMode',
     );
   });
 

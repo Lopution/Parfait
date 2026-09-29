@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,7 @@ import 'haptics/app_haptics.dart';
 import 'motion/motion_tokens.dart';
 import 'navigation/home_shell_metrics.dart';
 import 'scroll_behavior.dart';
+import 'system_ui.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
@@ -76,6 +78,11 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // D2: edge-to-edge from process start. Previously only exiting the
+    // viewer set this, so Android 10-14 rendered a different layout before
+    // and after the first viewer visit (and the transparent nav bar only
+    // means something edge-to-edge). Android 15+ enforces it anyway.
+    unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
     // C5: one lightweight recovery bootstrap at process start. Constructing
     // the provider triggers the fireImmediately account listener, which
     // scans durable download/ugoira recovery records and cleans only
@@ -239,14 +246,17 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
                     settingsPending: settingsPending,
                     child: routeChild,
                   ));
-        return MotionScope(
-          reduce: settings.reduceMotion,
-          // ignore: deprecated_member_use
-          child: MaterialUiCompatibilityBridge(
-            child: ExternalIntentBridge(
-              router: _router,
-              intentSource: widget.intentSource,
-              child: PipelineWarmup(child: content),
+        return FuncSystemBars(
+          background: Theme.of(context).brightness,
+          child: MotionScope(
+            reduce: settings.reduceMotion,
+            // ignore: deprecated_member_use
+            child: MaterialUiCompatibilityBridge(
+              child: ExternalIntentBridge(
+                router: _router,
+                intentSource: widget.intentSource,
+                child: PipelineWarmup(child: content),
+              ),
             ),
           ),
         );

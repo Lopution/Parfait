@@ -109,7 +109,7 @@ class EntityRow extends StatelessWidget {
         onLongPress: onLongPress,
         child: Material(
           type: selected ? MaterialType.canvas : MaterialType.transparency,
-          color: selected ? colorScheme.secondaryContainer : null,
+          color: selected ? colorScheme.primaryContainer : null,
           borderRadius: radius,
           // Only the selection surface needs the rounded clip — paying a
           // saveLayer per unselected feed row is wasted raster work.

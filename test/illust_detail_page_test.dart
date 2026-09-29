@@ -26,6 +26,7 @@ import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/illust/illust_detail_controller.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
+import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
@@ -284,6 +285,30 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('1 / 2'), findsNWidgets(2));
       });
+    });
+
+    testWidgets('the placeholder stays transparent over the black stage', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+
+          home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+        ),
+      );
+      await tester.pump();
+
+      // The stage is already black; the default surfaceContainer placeholder
+      // would flash a grey box under the artwork.
+      expect(
+        tester
+            .widget<PixivImage>(find.byType(PixivImage).first)
+            .placeholderColor,
+        FuncTokens.transparent,
+      );
     });
 
     testWidgets('zoom clamps to 0.9–6.0 via InteractiveViewer', (tester) async {
@@ -1026,6 +1051,26 @@ void main() {
         });
       },
     );
+  });
+
+  testWidgets('the page placeholder reads the container surface tier', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeWorld();
+    await pumpDetail(tester, container);
+
+    // Before the first frame decodes, each page slot shows its estimated
+    // box. It must match the surfaceContainer backdrop every other image
+    // placeholder uses, not a hardcoded translucent grey.
+    final images = find.byWidgetPredicate(
+      (widget) => widget is PixivImage && widget.placeholderWidget != null,
+    );
+    expect(images, findsWidgets);
+    final colors = Theme.of(tester.element(images.first)).colorScheme;
+    for (final image in tester.widgetList<PixivImage>(images)) {
+      final slot = image.placeholderWidget! as AspectRatio;
+      expect((slot.child! as ColoredBox).color, colors.surfaceContainer);
+    }
   });
 
   group('IllustDetailPage download mode (R4)', () {
