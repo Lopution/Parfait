@@ -748,6 +748,11 @@ const PullToRefresh({
   overriding the framework's decision is not. Mirroring the framework's own
   value creates no second source of truth — the previous implementation's
   defect was the second judgement, not the act of listening.
+- The first-load skeleton is scoped to the initial load
+  (`PagedFeedState.showInitialSpinner` / `AsyncValue.loading`). A refresh
+  keeps the loaded list mounted under the indicator and never falls back to
+  the skeleton; load-more uses the feed's own tail. See
+  [First-Load Skeletons](#first-load-skeletons).
 
 ### 4. Validation & Error Matrix
 
@@ -825,3 +830,93 @@ these rules:
   at display size through `PixivImage` (shared cache + Referer); a
   missing URL falls back to a neutral placeholder, never to a metadata
   fetch.
+
+## Settings Rows and Groups
+
+Settings pages compose shared rows inside `SettingsGroup`
+(`lib/app/widgets/settings/`). `SettingsSection` is deleted — do not
+reintroduce it or hand-build group containers.
+
+- `SettingsGroup` owns the group chrome: an optional `title` rendered as
+  a `Semantics(header: true)` label in `titleSmall`/`onSurfaceVariant`
+  (never `primary` — the brand color is reserved for actions, selection,
+  and indicators), one rounded `surfaceContainer` `Material` clipped at
+  `FuncShape.card` holding `children`, and an optional `footer` rendered
+  below the container. Explanatory copy that used to sit above the rows
+  belongs in `footer` so the rows come first. Empty `children` render no
+  container. Rows are separated by their own padding — never `Divider`.
+  Spacing between groups is `FuncSpacing.xl`; the page `ListView` keeps
+  only `top: sm, bottom: xl` padding because the group supplies the
+  horizontal margins.
+- Row types — all built on `ListTile`/`SwitchListTile`, so existing
+  `find.widgetWithText(ListTile, …)` tests keep working:
+  - `SettingsTile` navigates to a subpage: optional `icon`, chevron
+    trailing.
+  - `SettingsControl` is the `SwitchListTile` toggle.
+  - `SettingsChoiceTile` is one option in a single-choice list. It always
+    sets `ListTile.selected` and, when selected, shows a `primary`
+    `Icons.check` trailing. `RadioListTile` is deprecated in this Flutter
+    version; the check is the single-choice marker, and `selected` is
+    what lets screen readers announce the chosen row.
+  - `SettingsActionTile` shows a current value, runs an action, or
+    presents read-only info; `onTap: null`/`enabled: false` disables the
+    row and its ink.
+  - `SettingsGroupContent` holds non-row controls (text fields,
+    `SegmentedButton`, sliders, buttons) inside the group with
+    `horizontal: lg, vertical: sm` padding.
+- Hand-written `ListTile`s are allowed only for content rows — entries
+  that are data rather than settings (muted items, the account list,
+  diagnostic results, the read-only download path, dialog options, the
+  `AccountSummaryTile` identity block).
+  `test/architecture/settings_rows_test.dart` pins the exact per-file
+  `ListTile(` count; adding a hand-written row means extending that
+  whitelist with a stated reason.
+
+## First-Load Skeletons
+
+A feed or detail page's *initial* load paints a skeleton that mirrors
+the loaded layout — never `FeedEmpty`, a blank area, or a spinner alone.
+Shared pieces live in `lib/app/widgets/skeleton/` (`FuncSkeleton`,
+`SkeletonBone`, `IllustGridSkeleton`); page-shaped skeletons live with
+their feature (`IllustDetailSkeleton`, `ProfileSkeleton`).
+
+- `FuncSkeleton` paints every descendant `SkeletonBone` in the ambient
+  `surfaceContainer` — the same color `PixivImage` resolves as its image
+  placeholder, so the swap to real content does not shift the surface.
+  One shared `AnimationController` (`MotionTokens.shimmer`, 1400 ms,
+  `repeat()`) sweeps a highlight gradient over the whole tree via
+  `ShaderMask`; bones never animate individually and never hard-code a
+  color (they read it from `FuncSkeleton`'s inherited widget).
+- Nesting: a `FuncSkeleton` under another one (a page skeleton embedding
+  `IllustGridSkeleton`) renders its child as-is — no controller, no
+  `ShaderMask`, no second semantics node. The outermost skeleton owns
+  all three.
+- Reduced motion: when `MotionTokens.enabled(context)` is false the
+  controller never starts and no `ShaderMask` is built — the bones render
+  as a static fill. `didChangeDependencies` tracks the toggle.
+- Semantics: `FuncSkeleton` exposes exactly one node —
+  `Semantics(label:, container: true)` wrapping
+  `ExcludeSemantics(child: …)`. The label is a localized loading string
+  (`context.l10n.contentLoading` or a page-specific `*Loading` key).
+- `IllustGridSkeleton` mirrors `IllustFeedGrid`: columns come from the
+  same `illustColumnsFor(maxWidth - padding.horizontal)` call, and its
+  `padding`/`mainAxisSpacing`/`crossAxisSpacing` must be passed the same
+  values as the real grid beneath it, so loaded cards land where bones
+  stood. It fills the viewport and clips (`ClipRect`/`OverflowBox`); it
+  never scrolls.
+- First load only. Skeletons cover `AsyncValue.loading` /
+  `showInitialSpinner`. Refresh and load-more keep the loaded list — see
+  the Shared Pull-to-Refresh Contract — and a refresh must never collapse
+  back to the skeleton. Surfaces with no grid-shaped layout (novel
+  detail, novel/user search results, novel-type feeds) use
+  `FeedLoading(label:)` instead, keeping the label visible under the
+  spinner.
+- `IllustDetailSkeleton` renders only when the route has no
+  `initialEntity` snapshot — the snapshot first frame and Hero hand-off
+  are untouched. `ProfileSkeleton` mirrors the C3 no-cover header
+  geometry — the avatar centre and the name's top edge match the real
+  header exactly (pinned by a test in `user_profile_test.dart`); its
+  `surfaceContainerHigh` banner band is structural (painted beneath the
+  skeleton, no shimmer), and it keeps a real `BackButton` outside
+  `ExcludeSemantics` so the page can be left while loading. It clips
+  rather than overflows on short viewports.
