@@ -165,6 +165,20 @@ ThemeData replicaTheme(Brightness brightness) {
         );
       }),
     ),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: background,
+      indicatorColor: colorScheme.primaryContainer,
+      selectedIconTheme: IconThemeData(color: colorScheme.primary),
+      unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
+      selectedLabelTextStyle: TextStyle(color: colorScheme.primary),
+      unselectedLabelTextStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        selectedBackgroundColor: colorScheme.primaryContainer,
+        selectedForegroundColor: colorScheme.onPrimaryContainer,
+      ),
+    ),
     cardTheme: CardThemeData(
       color: colorScheme.surfaceContainer,
       surfaceTintColor: FuncTokens.transparent,

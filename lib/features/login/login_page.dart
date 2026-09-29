@@ -325,9 +325,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         if (_help) ...[
           Text(
             text('networkCompatibilityHint'),
-            style: FuncSemanticTokens.of(
-              context,
-            ).body.copyWith(color: Theme.of(context).colorScheme.onSecondary),
+            style: FuncSemanticTokens.of(context).body.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 12),
           // Clipboard import is an action (idle/busy/success/error): while
