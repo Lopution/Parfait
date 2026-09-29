@@ -448,10 +448,11 @@ Future<void> PixivImage.preload(
   landing.
 - Detail page page numbers use only `DetailPageCounter`. Narrow and wide
   layouts both place it at the top-right of the artwork region; single-page
-  and ugoira works never show it; it appears only after the entry transition
-  completes; it is wrapped in `IgnorePointer`; and its screen-reader label
-  uses `viewerPageLabel`. The detail page keeps no persistent information
-  strip.
+  and ugoira works never show it; selection mode hides it because each
+  page's selection badge takes the same corner; it appears only after the
+  entry transition completes; it is wrapped in `IgnorePointer`; and its
+  screen-reader label uses `viewerPageLabel`. The detail page keeps no
+  persistent information strip.
 - The detail AppBar directly exposes only download-all and the bookmark
   heart. Share, page selection, and artwork-info navigation live in the ⋮
   overflow menu with text labels; no action may depend solely on a long

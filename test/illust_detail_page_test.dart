@@ -1969,31 +1969,35 @@ void main() {
       expect(find.byType(ImageViewerPage), findsOneWidget);
     });
 
-    testWidgets('selection mode: the pill never covers the bottom bar', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container);
+    // Each page's selection badge sits at the same top-end corner as the
+    // pill, so selection mode hides the pill instead of stacking the two.
+    for (final (layout, size) in [
+      ('narrow', null),
+      ('two-pane', const Size(1400, 900)),
+    ]) {
+      testWidgets('$layout selection mode hides the pill over the badges', (
+        tester,
+      ) async {
+        final (container, _, _) = await makeWorld();
+        if (size != null) {
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+        }
+        await pumpDetail(tester, container);
+        expect(find.byType(DetailPageCounter), findsOneWidget);
 
-      await longPressImage(tester);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
+        await longPressImage(tester);
+        expect(find.text('0 of 2 selected'), findsOneWidget);
+        expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
+        expect(find.byType(DetailPageCounter), findsNothing);
 
-      final pill = find.descendant(
-        of: find.byType(DetailPageCounter),
-        matching: find.byType(DecoratedBox),
-      );
-      final bar = find
-          .ancestor(
-            of: find.text('0 of 2 selected'),
-            matching: find.byType(Material),
-          )
-          .first;
-      expect(
-        tester.getRect(pill).overlaps(tester.getRect(bar)),
-        isFalse,
-        reason: 'the top-end pill must leave the selection bar clear',
-      );
-    });
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(find.text('0 of 2 selected'), findsNothing);
+        expect(find.text('1 / 2'), findsOneWidget);
+      });
+    }
 
     testWidgets('restricted state shows no counter or info menu item', (
       tester,

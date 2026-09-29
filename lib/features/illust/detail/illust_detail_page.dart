@@ -647,8 +647,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // artwork while an image page is actually on screen —
                 // scrolled past the last page it leaves with them. The
                 // pill is IgnorePointer, so taps fall through to the
-                // artwork below.
-                if (!entity.isUgoira && _topVisiblePage != null)
+                // artwork below. Selection mode hides it: each page's
+                // badge occupies the same top-end corner.
+                if (!entity.isUgoira &&
+                    !_downloadMode &&
+                    _topVisiblePage != null)
                   Positioned.fill(
                     child: DetailPageCounter(
                       page: _topVisiblePage!,
