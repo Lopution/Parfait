@@ -25,6 +25,8 @@ import 'profile_illust_feed.dart';
 import 'profile_novel_feed.dart';
 import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
+import 'profile_statistics.dart';
+import 'profile_work_type_switch.dart';
 import 'user_series_feed.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/share/share_service.dart';
@@ -106,6 +108,11 @@ class _UserPageState extends ConsumerState<UserPage>
   UserRestrict _restrict = UserRestrict.public;
   int _selectedIndex = 0;
   bool _staleBannerVisible = true;
+
+  /// Measured expanded height of the profile header (R1). Null until the
+  /// identity block reports its first layout; the delegate renders one
+  /// transparent estimate frame before that.
+  double? _headerExtent;
 
   @override
   void initState() {
@@ -497,10 +504,17 @@ class _UserPageState extends ConsumerState<UserPage>
                 delegate: ReplicaProfileHeaderDelegate(
                   user: user,
                   isMe: widget.isMe,
-                  // The artwork band now stops well short of the old 430dp
-                  // (it covered over half the screen). The /me header needs
-                  // a little more room for the extra edit/settings row.
-                  expandedExtent: widget.isMe ? 350 : 320,
+                  // The expanded height is measured from the real identity
+                  // content (R1): the delegate reports it after every
+                  // layout, so font scale, language and stat-count changes
+                  // all land without any hard-coded extent.
+                  expandedExtent: _headerExtent,
+                  onExpandedExtentMeasured: (extent) {
+                    if (_headerExtent == null ||
+                        (extent - _headerExtent!).abs() > 0.5) {
+                      setState(() => _headerExtent = extent);
+                    }
+                  },
                   selectedTabIndex: _selectedIndex,
                   showRestrictSelector: showRestrictSelector,
                   restrict: _restrict,
@@ -539,9 +553,7 @@ class _UserPageState extends ConsumerState<UserPage>
                 delegate: ReplicaProfileTabsDelegate(
                   controller: _tabController,
                   isMe: widget.isMe,
-                  section: _workSection,
                   onTabTap: _onTabTap,
-                  onSectionChanged: _onSectionChanged,
                 ),
               ),
             ],
@@ -557,6 +569,7 @@ class _UserPageState extends ConsumerState<UserPage>
                     tabIndex: index,
                     feedKey: _feedKeyFor(index),
                     workSection: _workSection,
+                    onSectionChanged: _onSectionChanged,
                     statistics: statistics,
                   ),
               ],
@@ -577,6 +590,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.tabIndex,
     required this.feedKey,
     required this.workSection,
+    required this.onSectionChanged,
     required this.statistics,
   });
 
@@ -589,6 +603,10 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   /// The work-tab selector value; only meaningful when [feedKey] is a
   /// `ProfileFeedKind.work` key (other tabs ignore it).
   final ProfileWorkSection workSection;
+
+  /// Work feeds surface this through their own `SliverAppTypeSwitch` row:
+  /// tapping a section swaps the feed, re-tapping scrolls to top.
+  final ValueChanged<ProfileWorkSection> onSectionChanged;
   final List<ProfileStatisticData> statistics;
 
   @override
@@ -646,24 +664,32 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
     if (feedKey == null) {
       return _ProfileAbout(user: widget.user, statistics: widget.statistics);
     }
+    // D3: the work tab's selector floats inside whichever feed is showing,
+    // so it scrolls with that feed instead of pinning under the tab bar.
+    final typeSwitch = feedKey.kind == ProfileFeedKind.work
+        ? ProfileWorkTypeSwitch(
+            selected: widget.workSection,
+            onSelected: widget.onSectionChanged,
+          )
+        : null;
     if (feedKey.kind == ProfileFeedKind.work &&
         widget.workSection == ProfileWorkSection.series) {
       // The series section is a display selector over its own endpoint; the
       // wire workType fallback on feedKey is unused here.
-      return UserSeriesFeed(userId: widget.userId);
+      return UserSeriesFeed(userId: widget.userId, typeSwitch: typeSwitch);
     }
     if (feedKey.workType == UserWorkType.novel) {
       // TabController.indexIsChanging is false during a drag gesture. Keep
       // the page mounted for both tap and swipe transitions so the destination
       // never becomes a zero-size blank child mid-flight.
-      return ProfileNovelFeed(userId: feedKey.userId);
+      return ProfileNovelFeed(userId: feedKey.userId, typeSwitch: typeSwitch);
     }
     if (feedKey.kind == ProfileFeedKind.following ||
         feedKey.kind == ProfileFeedKind.fans ||
         feedKey.kind == ProfileFeedKind.myPixiv) {
       return ProfileUserFeed(feedKey: feedKey);
     }
-    return ProfileIllustFeed(feedKey: feedKey);
+    return ProfileIllustFeed(feedKey: feedKey, typeSwitch: typeSwitch);
   }
 }
 

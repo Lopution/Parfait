@@ -12,41 +12,52 @@ import '../../core/series/series_feed_controller.dart';
 import '../../core/series/series_models.dart';
 import '../../core/series/series_store.dart';
 import '../../l10n/context.dart';
+import 'profile_work_type_switch.dart';
 
 /// Profile work-tab section: the user's public illust series as a card
 /// grid (`/v1/user/illust-series`). Mounted inside the profile
 /// NestedScrollView, so it keeps the HeaderLocator/isNested contract of the
 /// sibling work feeds.
 class UserSeriesFeed extends ConsumerWidget {
-  const UserSeriesFeed({super.key, required this.userId});
+  const UserSeriesFeed({super.key, required this.userId, this.typeSwitch});
 
   final int userId;
+
+  /// Work tab only: the compact section selector this feed hosts (D3).
+  final ProfileWorkTypeSwitch? typeSwitch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(userSeriesFeedProvider(userId));
+    final typeSwitch = this.typeSwitch;
+    Widget wrapState(Widget state) =>
+        typeSwitch?.aboveState(context, state) ?? state;
     return async.when(
-      loading: () => const FeedLoading(),
-      error: (error, _) => FeedError(
-        title: context.l10n.seriesLoadFailed,
-        error: error,
-        retryLabel: context.l10n.retry,
-        onRetry: () =>
-            ref.read(userSeriesFeedProvider(userId).notifier).retryInitial(),
+      loading: () => wrapState(const FeedLoading()),
+      error: (error, _) => wrapState(
+        FeedError(
+          title: context.l10n.seriesLoadFailed,
+          error: error,
+          retryLabel: context.l10n.retry,
+          onRetry: () =>
+              ref.read(userSeriesFeedProvider(userId).notifier).retryInitial(),
+        ),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return FeedError(
-            title: context.l10n.seriesLoadFailed,
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: context.l10n.retry,
-            onRetry: () => ref
-                .read(userSeriesFeedProvider(userId).notifier)
-                .retryInitial(),
+          return wrapState(
+            FeedError(
+              title: context.l10n.seriesLoadFailed,
+              error: feed.initialError ?? const ApiParseError('unknown error'),
+              retryLabel: context.l10n.retry,
+              onRetry: () => ref
+                  .read(userSeriesFeedProvider(userId).notifier)
+                  .retryInitial(),
+            ),
           );
         }
         if (feed.showInitialSpinner) {
-          return const FeedLoading();
+          return wrapState(const FeedLoading());
         }
         final store = ref.watch(illustSeriesStoreProvider);
         final entities = [
@@ -74,6 +85,7 @@ class UserSeriesFeed extends ConsumerWidget {
               scrollCacheExtent: kFeedCacheExtent,
               slivers: [
                 const HeaderLocator.sliver(),
+                if (typeSwitch != null) typeSwitch.sliver(context),
                 if (entities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,

@@ -9,7 +9,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:pixiv_func/features/comments/comment_input.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
-import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
+import 'package:pixiv_func/features/profile/profile_statistics.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 Widget _host(Widget child) {

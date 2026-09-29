@@ -1,131 +1,21 @@
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
-import '../../core/profile/profile_models.dart';
+import '../../app/system_ui.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
+import '../../app/widgets/image_overlay_button.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
-
-@immutable
-class ProfileStatisticData {
-  const ProfileStatisticData({
-    required this.id,
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
-
-  final String id;
-  final IconData icon;
-  final String label;
-  final int value;
-  final VoidCallback? onTap;
-}
-
-/// Shared stat control for the compact header chips and the about-page rows.
-/// A single semantic node announces the label and value together.
-class ProfileStatistic extends StatelessWidget {
-  const ProfileStatistic({
-    super.key,
-    required this.statistic,
-    this.compact = false,
-    this.foregroundColor,
-  });
-
-  final ProfileStatisticData statistic;
-  final bool compact;
-  final Color? foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final chipBackground = foregroundColor == null
-        ? colors.surfaceContainerHighest
-        : Colors.black.withValues(alpha: 0.25);
-    return Semantics(
-      key: ValueKey(
-        'profile-stat-${statistic.id}-${compact ? 'header' : 'about'}',
-      ),
-      container: true,
-      button: statistic.onTap != null,
-      label: '${statistic.label}, ${statistic.value}',
-      onTap: statistic.onTap,
-      child: ExcludeSemantics(
-        child: compact
-            ? Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Material(
-                  color: chipBackground,
-                  shape: StadiumBorder(
-                    side: BorderSide(
-                      color: foregroundColor == null
-                          ? colors.outlineVariant
-                          : Colors.white.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: InkWell(
-                    onTap: statistic.onTap,
-                    customBorder: const StadiumBorder(),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            statistic.icon,
-                            size: 17,
-                            color: foregroundColor,
-                          ),
-                          const SizedBox(width: 6),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${statistic.value}',
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: foregroundColor,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1,
-                                    ),
-                              ),
-                              Text(
-                                statistic.label,
-                                maxLines: 1,
-                                softWrap: false,
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: foregroundColor),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            : ListTile(
-                dense: true,
-                leading: Icon(statistic.icon, size: 18),
-                title: Text(statistic.label),
-                trailing: Text('${statistic.value}'),
-                onTap: statistic.onTap,
-              ),
-      ),
-    );
-  }
-}
+import 'profile_statistics.dart';
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
 @immutable
@@ -136,32 +26,21 @@ class ReplicaProfileHeaderGeometry {
     required this.maxExtent,
   });
 
-  /// Expanded avatar radius. 104dp across reads as an identity element next
-  /// to the background band; the previous 144dp filled the band and, for the
-  /// default placeholder, looked like a watermark.
-  static const expandedAvatarRadius = 52.0;
+  /// Banner height left visible below the toolbar at full expansion. The
+  /// banner's total height is `topInset + kToolbarHeight + 80`, i.e. a
+  /// 136dp band excluding the status-bar inset (D1's "about 135dp").
+  static const bannerBelowToolbar = 80.0;
 
-  /// Historical collapsed avatar radius. The current header deliberately does
-  /// not render an avatar in the toolbar; keeping the constant avoids breaking
-  /// callers that use the geometry type as a small design token.
-  static const collapsedAvatarRadius = 20.0;
+  /// 80dp avatar centred on the banner's bottom edge.
+  static const avatarRadius = 40.0;
 
-  /// How far the expanded avatar hangs below the background image. Keeping the
-  /// overhang modest leaves a dedicated gap for the name row below it.
-  static const _avatarOverhang = 8.0;
+  /// The toolbar background finishes fading in as the banner's bottom edge
+  /// approaches the toolbar's bottom edge over this distance.
+  static const toolbarFadeDistance = FuncSpacing.xl;
 
-  /// The expanded identity block is laid out as one unit and translated out
-  /// of the shrinking header. The toolbar begins fading in while the details
-  /// fade out, so the header has one continuous hand-off instead of a blank
-  /// second stage between the two states.
-  static const expandedIdentityExitProgress = 0.78;
-  static const expandedDetailsFadeStart = 0.55;
-
-  /// A native flexible-space header scrolls its background content out of the
-  /// pinned toolbar. Matching the header's scroll distance keeps the identity
-  /// movement at one speed instead of producing a second apparent jump near
-  /// the collapsed threshold.
-  static const _expandedContentTravelFactor = 1.0;
+  /// First-frame estimate used until the identity block reports its real
+  /// height; the header stays transparent for that frame only.
+  static const initialExtentEstimate = 360.0;
 
   final double shrinkOffset;
   final double minExtent;
@@ -174,52 +53,21 @@ class ReplicaProfileHeaderGeometry {
 
   bool get isFullyCollapsed => shrinkOffset >= collapseRange - 0.5;
 
-  /// Kept as a convenience for other header geometry callers. The current
-  /// design has one expanded avatar rather than an expanded/collapsed pair.
-  double lerp(double expanded, double collapsed) =>
-      expanded + (collapsed - expanded) * progress;
+  /// Vertical translation applied to the banner and the identity block —
+  /// both scroll out of the header with the content.
+  double get contentOffset => -shrinkOffset;
 
-  /// The avatar stays an expanded identity element instead of shrinking into
-  /// the toolbar. It is clipped as the expanded block leaves the header.
-  double get avatarRadius => expandedAvatarRadius;
-
-  /// Vertical translation applied to the expanded identity block.
-  double get expandedContentOffset =>
-      -shrinkOffset * _expandedContentTravelFactor;
-
-  /// Fade only the text/actions block. The avatar remains opaque until it has
-  /// physically left the clipped expanded area, avoiding the old watermark
-  /// effect on placeholder avatars.
-  double get expandedDetailsOpacity =>
-      1 -
-      ((progress - expandedDetailsFadeStart) /
-              (expandedIdentityExitProgress - expandedDetailsFadeStart))
+  /// 0 while the banner still fills the toolbar, 1 once its bottom edge has
+  /// scrolled past; fades over [toolbarFadeDistance] before that.
+  double get toolbarOpacity =>
+      ((shrinkOffset - (bannerBelowToolbar - toolbarFadeDistance)) /
+              toolbarFadeDistance)
           .clamp(0.0, 1.0);
 
-  bool get showExpandedIdentity => progress < expandedIdentityExitProgress;
-
-  /// Avatar centre in the expanded coordinate space, including the same
-  /// translation used by the identity block. [collapsedLeftInset] is retained
-  /// for source compatibility but is intentionally ignored: no avatar is
-  /// placed in the toolbar anymore.
-  Offset avatarCenter({
-    required double headerWidth,
-    required double backgroundHeight,
-    required double collapsedLeftInset,
-  }) {
-    final expanded = Offset(
-      headerWidth / 2,
-      backgroundHeight + _avatarOverhang - expandedAvatarRadius,
-    );
-    return expanded.translate(0, expandedContentOffset);
-  }
-
-  double get backgroundOpacity => 1 - progress;
-
-  /// Opacity of the collapsed toolbar chrome (back button, title, actions).
-  double get collapsedOpacity =>
-      ((progress - expandedDetailsFadeStart) / (1 - expandedDetailsFadeStart))
-          .clamp(0.0, 1.0);
+  /// While true, the banner is still painted behind the toolbar: the back
+  /// and overflow controls take the image-overlay style and the status bar
+  /// asks for light icons over the artwork.
+  bool get bannerBehindToolbar => toolbarOpacity < 0.5;
 }
 
 /// Project-owned profile header. It avoids the old extended_sliver delegate.
@@ -245,7 +93,8 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     this.onCopyLink,
     this.onOpenBookmarkTags,
     this.onDownloadAll,
-    this.expandedExtent = 320,
+    required this.onExpandedExtentMeasured,
+    this.expandedExtent,
     this.topInset = 0,
   });
 
@@ -268,14 +117,26 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   /// Works tab only: bulk-downloads every illust/manga work of the author.
   final VoidCallback? onDownloadAll;
-  final double expandedExtent;
+
+  /// Measured expanded height (identity block + banner). Null until the
+  /// first layout reports it; the header renders one transparent estimate
+  /// frame before that.
+  final double? expandedExtent;
+
+  /// Reports the identity block's natural height after each layout, so the
+  /// caller can update [expandedExtent] when content (fonts, language,
+  /// stats) changes.
+  final ValueChanged<double> onExpandedExtentMeasured;
   final double topInset;
 
   @override
   double get minExtent => kToolbarHeight + topInset;
 
   @override
-  double get maxExtent => math.max(expandedExtent, minExtent);
+  double get maxExtent => math.max(
+    expandedExtent ?? ReplicaProfileHeaderGeometry.initialExtentEstimate,
+    minExtent,
+  );
 
   List<_ProfileHeaderAction> _actions(BuildContext context) => [
     _ProfileHeaderAction(
@@ -288,7 +149,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         builder: (buttonContext) => IconButton(
           tooltip: context.l10n.profileShare,
           onPressed: () => onShare(buttonContext),
-          color: user.backgroundImageUrl == null ? null : Colors.white,
           icon: const Icon(Icons.share_outlined),
         ),
       ),
@@ -300,11 +160,11 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         icon: Icons.edit_outlined,
         primary: true,
         onSelected: (_) => onEditProfile!(),
-        buildInline: (context) => IconButton(
-          tooltip: context.l10n.profileEditTitle,
+        // Text sits on the page surface now, so the neutral tonal style is
+        // enough — no filled pink or on-artwork white variant.
+        buildInline: (context) => FilledButton.tonal(
           onPressed: onEditProfile,
-          color: user.backgroundImageUrl == null ? null : Colors.white,
-          icon: const Icon(Icons.edit_outlined),
+          child: Text(context.l10n.profileEditTitle),
         ),
       ),
     if (!isMe && onToggleFollow != null)
@@ -379,93 +239,134 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     );
     final colors = Theme.of(context).colorScheme;
     final actions = _actions(context);
-    // The artwork band covers the whole expanded header; identity content
-    // sits on a bottom gradient so the text stays readable over any image.
-    final backgroundHeight = maxExtent;
-    return Material(
-      color: colors.surface,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            fit: StackFit.expand,
-            clipBehavior: Clip.hardEdge,
-            children: [
-              // Keep the artwork pinned while it fades, as in PixEz's
-              // FlexibleSpaceBar. Identity content below is translated out
-              // separately so the avatar never shares the fade curve.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: backgroundHeight,
-                child: Opacity(
-                  opacity: geometry.backgroundOpacity,
-                  child: _ProfileBackground(user: user, withScrim: true),
-                ),
-              ),
-              if (geometry.showExpandedIdentity)
-                Positioned(
-                  top: geometry.expandedContentOffset,
-                  left: 0,
-                  width: constraints.maxWidth,
-                  height: maxExtent,
-                  child: _ExpandedProfile(
-                    user: user,
-                    backgroundHeight: backgroundHeight,
-                    detailsOpacity: geometry.expandedDetailsOpacity,
-                    actions: actions,
-                    statistics: statistics,
+    final hasCover = user.backgroundImageUrl != null;
+    final bannerHeight =
+        topInset +
+        kToolbarHeight +
+        ReplicaProfileHeaderGeometry.bannerBelowToolbar;
+    // Layered header, bottom to top: banner → identity (clipped below the
+    // toolbar) → fading toolbar surface → collapsed title → persistent
+    // back/overflow controls.
+    // The overlay affordance and the cover-scoped status bar share one
+    // predicate (R4/R6): only while real artwork still sits behind the
+    // toolbar do the persistent controls get the image-overlay style and
+    // the status bar light icons. A cover-less surfaceContainerHigh band
+    // and the collapsed toolbar both take the normal surface treatment.
+    final overArtwork = hasCover && geometry.bannerBehindToolbar;
+    return FuncSystemBars(
+      background: overArtwork ? Brightness.dark : Theme.of(context).brightness,
+      child: Opacity(
+        // First frame only: the delegate still holds the estimate extent
+        // while the real identity height is being measured.
+        opacity: expandedExtent == null ? 0 : 1,
+        child: Material(
+          color: colors.surface,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  // 1. Banner band: cover image, or a surfaceContainerHigh
+                  // strip so the header separates from the page colour.
+                  Positioned(
+                    top: geometry.contentOffset,
+                    left: 0,
+                    right: 0,
+                    height: bannerHeight,
+                    child: _ProfileBackground(user: user),
                   ),
-                ),
-              // The pinned toolbar is mounted only after the flexible header
-              // has fully collapsed. A fading, mounted toolbar cannot expose
-              // a visible-but-untappable action window during the hand-off.
-              if (geometry.isFullyCollapsed)
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    // The status-bar inset belongs above the actual 56dp
-                    // toolbar controls. This keeps pinned chrome out of the
-                    // system UI on targetSdk 36 edge-to-edge devices.
-                    height: minExtent,
-                    child: Padding(
-                      padding: EdgeInsets.only(top: topInset),
-                      child: SizedBox(
-                        height: kToolbarHeight,
-                        child: _CollapsedProfile(user: user),
+                  // 2. Identity block at natural height, clipped below the
+                  // toolbar's bottom edge so avatar and text never enter
+                  // the toolbar. Stays mounted (Offstage) when collapsed so
+                  // the measurement keeps reporting.
+                  Positioned(
+                    top: minExtent,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: ClipRect(
+                      child: OverflowBox(
+                        minHeight: 0,
+                        maxHeight: double.infinity,
+                        alignment: Alignment.topCenter,
+                        child: Transform.translate(
+                          offset: Offset(0, geometry.contentOffset - minExtent),
+                          child: Offstage(
+                            offstage: geometry.isFullyCollapsed,
+                            child: _ReportSize(
+                              onSize: (size) =>
+                                  onExpandedExtentMeasured(size.height),
+                              child: _ExpandedIdentity(
+                                user: user,
+                                bannerHeight: bannerHeight,
+                                actions: actions,
+                                statistics: statistics,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              // Critical actions live on a persistent layer that spans the
-              // whole collapse interval: the expanded details leave at
-              // 0.78 (and are IgnorePointer'd from the fade start) while
-              // the collapsed toolbar only mounts at the end, so an
-              // action that lived in either state had an untappable dead
-              // zone through the hand-off. The two states now swap only
-              // identity content; back and the overflow stay reachable.
-              Positioned(
-                top: topInset + 4,
-                right: 8,
-                child: _ProfileHeaderMoreButton(
-                  actions: actions,
-                  includePrimary: true,
-                  filled: true,
-                ),
-              ),
-              // One persistent back button for both header states: the
-              // collapsed row reserves the same 48px slot underneath, so
-              // the affordance never jumps when the header folds — and it
-              // stays mounted through the pop animation instead of being
-              // unmounted by a canPop flip (P3/P4).
-              Positioned(
-                top: topInset + 4,
-                left: 8,
-                child: const _HeaderBackButton(),
-              ),
-            ],
-          );
-        },
+                  // 3. Toolbar surface fading in as the banner leaves.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: minExtent,
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: geometry.toolbarOpacity,
+                        child: ColoredBox(color: colors.surface),
+                      ),
+                    ),
+                  ),
+                  // 4. Collapsed toolbar title mounts only at full collapse.
+                  if (geometry.isFullyCollapsed)
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        // The status-bar inset belongs above the actual
+                        // 56dp toolbar controls. This keeps pinned chrome
+                        // out of the system UI on targetSdk 36
+                        // edge-to-edge devices.
+                        height: minExtent,
+                        child: Padding(
+                          padding: EdgeInsets.only(top: topInset),
+                          child: SizedBox(
+                            height: kToolbarHeight,
+                            child: _CollapsedProfile(user: user),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // 5. Persistent controls: mounted and tappable through
+                  // the whole collapse interval. They switch to the
+                  // image-overlay affordance only while real artwork still
+                  // sits behind them (`overArtwork`).
+                  Positioned(
+                    top: topInset + 4,
+                    right: 8,
+                    child: _ProfileHeaderMoreButton(
+                      actions: actions,
+                      includePrimary: true,
+                      overArtwork: overArtwork,
+                    ),
+                  ),
+                  // One persistent back button for both header states —
+                  // stays mounted through the pop animation instead of
+                  // being unmounted by a canPop flip (P3/P4).
+                  Positioned(
+                    top: topInset + 4,
+                    left: 8,
+                    child: _HeaderBackButton(overArtwork: overArtwork),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -488,122 +389,158 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.statistics != statistics ||
         oldDelegate.onRestrictChanged != onRestrictChanged ||
         oldDelegate.expandedExtent != expandedExtent ||
+        oldDelegate.onExpandedExtentMeasured != onExpandedExtentMeasured ||
         oldDelegate.topInset != topInset;
   }
 }
 
-class _ExpandedProfile extends StatelessWidget {
-  const _ExpandedProfile({
+/// Banner artwork band. No scrim and no over-artwork text: the identity
+/// content sits on the page surface below the banner, so nothing readable
+/// is painted over the image and the overlay controls carry their own
+/// filled background.
+class _ProfileBackground extends StatelessWidget {
+  const _ProfileBackground({required this.user});
+
+  final UserEntity user;
+
+  @override
+  Widget build(BuildContext context) {
+    if (user.backgroundImageUrl == null) {
+      // No cover uploaded: a lighter opaque container separates the banner
+      // from the page colour and still hides the feed items scrolling
+      // underneath (the tab strip below is opaque, so that seam is covered
+      // too).
+      return ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      );
+    }
+    return PixivImage.detail(
+      user.backgroundImageUrl!,
+      fit: BoxFit.cover,
+      // Background images have widely varying aspect ratios; anchoring to
+      // the top keeps the main subject visible when the header crops the
+      // lower part of a tall image.
+      alignment: Alignment.topCenter,
+    );
+  }
+}
+
+/// Everything below the toolbar while expanded, laid out at natural
+/// height: a banner spacer (the banner itself is painted by the layered
+/// header), the overlapping 80dp avatar, the share/main action row, the
+/// name/account lines and the statistics grid. The measured height of this
+/// widget drives [ReplicaProfileHeaderDelegate.expandedExtent].
+class _ExpandedIdentity extends StatelessWidget {
+  const _ExpandedIdentity({
     required this.user,
-    required this.backgroundHeight,
-    required this.detailsOpacity,
+    required this.bannerHeight,
     required this.actions,
     required this.statistics,
   });
 
   final UserEntity user;
-  final double backgroundHeight;
-  final double detailsOpacity;
+  final double bannerHeight;
   final List<_ProfileHeaderAction> actions;
   final List<ProfileStatisticData> statistics;
-
-  @override
-  Widget build(BuildContext context) {
-    // Compact vertical identity: avatar then name/stats/action on the
-    // darkened bottom gradient of the artwork band. Both are translated
-    // together by the delegate (expandedContentOffset), so their relative
-    // positions cannot cross during a collapse.
-    final topInset = MediaQuery.paddingOf(context).top;
-    return Align(
-      alignment: Alignment.center,
-      child: Padding(
-        // Keep the identity block clear of the status bar; the expanded
-        // artwork band starts at the screen top (edge-to-edge).
-        padding: EdgeInsets.fromLTRB(24, topInset + 12, 24, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            KeyedSubtree(
-              key: const ValueKey('profile-expanded-avatar'),
-              child: _Avatar(
-                user: user,
-                radius: ReplicaProfileHeaderGeometry.expandedAvatarRadius,
-              ),
-            ),
-            const SizedBox(height: 14),
-            IgnorePointer(
-              ignoring: detailsOpacity < 0.99,
-              child: Opacity(
-                opacity: detailsOpacity,
-                child: _ExpandedProfileDetails(
-                  user: user,
-                  actions: actions,
-                  statistics: statistics,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileBackground extends StatelessWidget {
-  const _ProfileBackground({required this.user, this.withScrim = false});
-
-  final UserEntity user;
-
-  /// When true and the user has an artwork background, a bottom gradient
-  /// keeps the identity text readable over any image.
-  final bool withScrim;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    // Placeholder uses the page surface (not a darker band). A
-    // surfaceContainerHighest block under a background image only reached
-    // part of the header, leaving an obvious grey band between the artwork
-    // and the identity block on every profile.
-    if (user.backgroundImageUrl == null) {
-      return ColoredBox(color: colors.surface);
+    _ProfileHeaderAction? share;
+    _ProfileHeaderAction? main;
+    for (final action in actions) {
+      if (action.value == 'share') {
+        share = action;
+      } else if (action.primary && action.buildInline != null) {
+        main ??= action;
+      }
     }
-    if (!withScrim) {
-      return PixivImage.detail(
-        user.backgroundImageUrl!,
-        fit: BoxFit.cover,
-        // Background images have widely varying aspect ratios; anchoring to
-        // the top keeps the main subject visible when the header crops the
-        // lower part of a tall image.
-        alignment: Alignment.topCenter,
-      );
-    }
+    const avatarRadius = ReplicaProfileHeaderGeometry.avatarRadius;
     return Stack(
-      fit: StackFit.expand,
+      clipBehavior: Clip.none,
       children: [
-        PixivImage.detail(
-          user.backgroundImageUrl!,
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-        ),
-        // PixShaft-style flat dim: the whole band drops contrast so the
-        // white identity text stays readable over any artwork — a
-        // surface-tinted gradient only worked near the bottom edge and
-        // let names collide with light artwork.
-        const IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: [0.0, 0.5, 1.0],
-                colors: [
-                  Color(0x59000000),
-                  Color(0x66000000),
-                  Color(0x8C000000),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: bannerHeight),
+            // The action row sits in the avatar's lower half, right of it.
+            // The avatar's top half overlaps the banner.
+            Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: FuncSpacing.lg + avatarRadius * 2 + FuncSpacing.md,
+                end: FuncSpacing.lg,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: avatarRadius + FuncSpacing.sm,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (share?.buildInline != null)
+                      share!.buildInline!(context),
+                    if (main?.buildInline != null)
+                      Flexible(
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(
+                            start: FuncSpacing.sm,
+                          ),
+                          child: main!.buildInline!(context),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: FuncSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    key: const ValueKey('profile-expanded-name'),
+                    user.name,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (user.account.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      user.account,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: FuncSpacing.md),
+                  // Equal-width grid instead of a horizontal scroll strip:
+                  // the stats must all stay visible without scrolling (R3).
+                  ProfileStatisticsGrid(
+                    statistics: [
+                      for (final statistic in statistics)
+                        ProfileStatistic(statistic: statistic, compact: true),
+                    ],
+                  ),
+                  const SizedBox(height: FuncSpacing.md),
                 ],
               ),
             ),
+          ],
+        ),
+        // 80dp avatar centred on the banner's bottom edge, left-aligned.
+        PositionedDirectional(
+          start: FuncSpacing.lg,
+          top: bannerHeight - avatarRadius,
+          child: KeyedSubtree(
+            key: const ValueKey('profile-expanded-avatar'),
+            child: _Avatar(user: user, radius: avatarRadius),
           ),
         ),
       ],
@@ -611,85 +548,41 @@ class _ProfileBackground extends StatelessWidget {
   }
 }
 
-class _ExpandedProfileDetails extends StatelessWidget {
-  const _ExpandedProfileDetails({
-    required this.user,
-    required this.actions,
-    required this.statistics,
-  });
+/// Reports its laid-out size after every frame so the delegate's
+/// [expandedExtent] tracks real content height (R1) instead of a
+/// hard-coded value.
+class _ReportSize extends SingleChildRenderObjectWidget {
+  const _ReportSize({required this.onSize, required super.child});
 
-  final UserEntity user;
-  final List<_ProfileHeaderAction> actions;
-  final List<ProfileStatisticData> statistics;
+  final ValueChanged<Size> onSize;
 
   @override
-  Widget build(BuildContext context) {
-    // The identity block sits on the dimmed artwork band: white text/icons
-    // like PixShaft's user page. Without an artwork background the band is
-    // the plain page surface, so theme colours must stay.
-    final onArtwork = user.backgroundImageUrl != null;
-    final Color? textColor = onArtwork ? Colors.white : null;
-    final Color? secondaryColor = onArtwork
-        ? Colors.white.withValues(alpha: 0.85)
-        : null;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: 48,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 56),
-            child: Center(
-              child: Text(
-                key: const ValueKey('profile-expanded-name'),
-                user.name,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (user.account.isNotEmpty)
-          Text(
-            user.account,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: secondaryColor),
-          ),
-        const SizedBox(height: 7),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final statistic in statistics)
-                ProfileStatistic(
-                  statistic: statistic,
-                  compact: true,
-                  foregroundColor: textColor,
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        // One actions row under the stats — the share icon used to sit alone
-        // at the name row's trailing edge while edit/settings lived here,
-        // which scattered the controls across two spots. Overflow lives on
-        // the header's persistent top-right affordance so it stays
-        // reachable while this block fades out during collapse.
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final action in actions.where((action) => action.primary))
-              if (action.buildInline != null) action.buildInline!(context),
-          ],
-        ),
-      ],
-    );
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderReportSize(onSize);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderReportSize renderObject,
+  ) {
+    renderObject.onSize = onSize;
+  }
+}
+
+class _RenderReportSize extends RenderProxyBox {
+  _RenderReportSize(this.onSize);
+
+  ValueChanged<Size> onSize;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    // A size change must not mark anything dirty during layout; the
+    // delegate field is updated from the post-frame callback instead.
+    final reported = size;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      onSize(reported);
+    });
   }
 }
 
@@ -718,15 +611,17 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
   const _ProfileHeaderMoreButton({
     required this.actions,
     this.includePrimary = false,
-    this.filled = false,
+    this.overArtwork = false,
   });
 
   final List<_ProfileHeaderAction> actions;
   final bool includePrimary;
 
-  /// Tonal fill matching the persistent [IconButton.filledTonal] back
-  /// affordance, so the always-on overflow stays legible over artwork.
-  final bool filled;
+  /// While artwork sits behind the control it carries the shared
+  /// [ImageOverlayButton] palette — a fixed 55% black fill keeps the
+  /// glyph legible over any image. On the normal surface there is no
+  /// fill at all.
+  final bool overArtwork;
 
   @override
   Widget build(BuildContext context) {
@@ -734,15 +629,12 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
         .where((action) => includePrimary || !action.primary)
         .toList();
     if (entries.isEmpty) return const SizedBox.shrink();
-    final colors = Theme.of(context).colorScheme;
     return PopupMenuButton<String>(
       tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-      style: filled
-          ? IconButton.styleFrom(
-              foregroundColor: colors.onSecondaryContainer,
-              backgroundColor: colors.secondaryContainer,
-            )
-          : null,
+      // PopupMenuButton builds its own IconButton, so it cannot wrap an
+      // ImageOverlayButton — the shared style keeps the affordance
+      // identical instead of duplicating the token list.
+      style: overArtwork ? ImageOverlayButton.buttonStyle() : null,
       onSelected: (value) {
         for (final action in entries) {
           if (action.value == value) {
@@ -823,7 +715,12 @@ class _CollapsedProfile extends StatelessWidget {
 /// and leave it out of the pop snapshot. The first evaluation is latched:
 /// a pushed page keeps its button until the route is gone.
 class _HeaderBackButton extends StatefulWidget {
-  const _HeaderBackButton();
+  const _HeaderBackButton({this.overArtwork = false});
+
+  /// While artwork sits behind the button it takes the shared
+  /// [ImageOverlayButton] style; on the normal surface it is a plain
+  /// toolbar icon with no fill (R4).
+  final bool overArtwork;
 
   @override
   State<_HeaderBackButton> createState() => _HeaderBackButtonState();
@@ -841,11 +738,13 @@ class _HeaderBackButtonState extends State<_HeaderBackButton> {
   @override
   Widget build(BuildContext context) {
     if (!_canPop) return const SizedBox.shrink();
-    return IconButton.filledTonal(
-      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-      onPressed: () => Navigator.of(context).maybePop(),
-      icon: const Icon(Icons.arrow_back_ios_new),
-    );
+    final tooltip = MaterialLocalizations.of(context).backButtonTooltip;
+    const icon = Icon(Icons.arrow_back_ios_new);
+    void pop() => Navigator.of(context).maybePop();
+    if (widget.overArtwork) {
+      return ImageOverlayButton(icon: icon, tooltip: tooltip, onPressed: pop);
+    }
+    return IconButton(tooltip: tooltip, onPressed: pop, icon: icon);
   }
 }
 
@@ -865,29 +764,26 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// Pinned profile tab bar and the persistent work-section selector.
+/// Pinned profile tab bar. The work-section selector used to live under it
+/// as a 64dp chip row; it now belongs to each work feed via
+/// `ProfileWorkTypeSwitch` (Compact Type Switch Contract), so this bar is a
+/// constant 56dp on every tab.
 class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileTabsDelegate({
     required this.controller,
     required this.isMe,
-    required this.section,
     required this.onTabTap,
-    required this.onSectionChanged,
   });
 
   final TabController controller;
   final bool isMe;
-  final ProfileWorkSection section;
   final ValueChanged<int> onTabTap;
-  final ValueChanged<ProfileWorkSection> onSectionChanged;
 
   @override
-  double get minExtent => kToolbarHeight + (_isWorkTab ? 64 : 0);
+  double get minExtent => kToolbarHeight;
 
   @override
   double get maxExtent => minExtent;
-
-  bool get _isWorkTab => isMe ? controller.index == 4 : controller.index == 0;
 
   String _text(BuildContext context, String key) =>
       l10nLookup(context.l10n, key);
@@ -912,49 +808,15 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
             'profileFollowing',
             'profileAbout',
           ];
-    final isWorkTab = _isWorkTab;
     return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
-      child: Column(
-        children: [
-          SizedBox(
-            height: kToolbarHeight,
-            child: AppTabBar(
-              controller: controller,
-              onTap: onTabTap,
-              labels: [for (final label in labels) _text(context, label)],
-            ),
-          ),
-          if (isWorkTab)
-            SizedBox(
-              height: 64,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final type in ProfileWorkSection.values) ...[
-                      if (type != ProfileWorkSection.illust)
-                        const SizedBox(width: 8),
-                      ChoiceChip(
-                        label: Text(
-                          _text(context, switch (type) {
-                            ProfileWorkSection.illust => 'profileIllust',
-                            ProfileWorkSection.manga => 'profileManga',
-                            ProfileWorkSection.novel => 'profileNovel',
-                            ProfileWorkSection.series => 'profileSeries',
-                          }),
-                        ),
-                        selected: section == type,
-                        onSelected: (_) => onSectionChanged(type),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-        ],
+      child: SizedBox(
+        height: kToolbarHeight,
+        child: AppTabBar(
+          controller: controller,
+          onTap: onTabTap,
+          labels: [for (final label in labels) _text(context, label)],
+        ),
       ),
     );
   }
@@ -963,5 +825,5 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant ReplicaProfileTabsDelegate oldDelegate) =>
       oldDelegate.controller != controller ||
       oldDelegate.isMe != isMe ||
-      oldDelegate.section != section;
+      oldDelegate.onTabTap != onTabTap;
 }
