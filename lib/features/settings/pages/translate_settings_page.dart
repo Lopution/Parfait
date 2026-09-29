@@ -2,6 +2,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/settings/settings_choice_tile.dart';
+import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_tile.dart';
 import '../../../core/comments/comment_translation.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
@@ -81,53 +85,52 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
       appBar: AppBar(title: Text(context.l10n.translateSettings)),
       body: settingsNarrowBody(
         ListView(
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
+          ),
           children: [
-            for (final item in items)
-              ListTile(
-                title: Text(item.$2),
-                trailing: settings.translationProvider == item.$1
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => persistSettings(
-                  context,
-                  () => ref
-                      .read(settingsProvider.notifier)
-                      .selectTranslationProvider(item.$1),
-                ),
+            SettingsGroup(
+              footer: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.l10n.translateCredentialHint),
+                  if (settings.translationProvider ==
+                      TranslationProvider.baidu) ...[
+                    const SizedBox(height: FuncSpacing.xs),
+                    Text(context.l10n.translateBaiduHint),
+                  ],
+                ],
               ),
-            if (settings.translationProvider == TranslationProvider.baidu)
-              ListTile(
-                leading: const Icon(Icons.key_outlined),
-                title: Text(context.l10n.translateBaiduCredential),
-                subtitle: _credentialStatus(_baiduConfigured),
-                onTap: () => _openTranslationCredentials(true),
-              ),
-            if (settings.translationProvider ==
-                TranslationProvider.translationLlm)
-              ListTile(
-                leading: const Icon(Icons.key_outlined),
-                title: Text(context.l10n.translateLlmCredential),
-                subtitle: _credentialStatus(_llmConfigured),
-                onTap: () => _openTranslationCredentials(false),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                context.l10n.translateCredentialHint,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              children: [
+                for (final item in items)
+                  SettingsChoiceTile(
+                    title: Text(item.$2),
+                    selected: settings.translationProvider == item.$1,
+                    onTap: () => persistSettings(
+                      context,
+                      () => ref
+                          .read(settingsProvider.notifier)
+                          .selectTranslationProvider(item.$1),
+                    ),
+                  ),
+                if (settings.translationProvider == TranslationProvider.baidu)
+                  SettingsTile(
+                    icon: Icons.key_outlined,
+                    title: context.l10n.translateBaiduCredential,
+                    subtitle: _credentialStatus(_baiduConfigured),
+                    onTap: () => _openTranslationCredentials(true),
+                  ),
+                if (settings.translationProvider ==
+                    TranslationProvider.translationLlm)
+                  SettingsTile(
+                    icon: Icons.key_outlined,
+                    title: context.l10n.translateLlmCredential,
+                    subtitle: _credentialStatus(_llmConfigured),
+                    onTap: () => _openTranslationCredentials(false),
+                  ),
+              ],
             ),
-            if (settings.translationProvider == TranslationProvider.baidu)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Text(
-                  context.l10n.translateBaiduHint,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
           ],
         ),
       ),
