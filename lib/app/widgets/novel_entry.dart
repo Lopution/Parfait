@@ -163,7 +163,6 @@ class NovelEntry extends StatelessWidget {
                 : PixivImage.feed(
                     entity.coverImageUrl!,
                     layoutWidth: _coverWidth,
-                    placeholderColor: colorScheme.surfaceContainer,
                   ),
           ),
         ),

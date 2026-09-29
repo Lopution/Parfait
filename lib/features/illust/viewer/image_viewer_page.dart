@@ -687,6 +687,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   transitionKey: heroTag,
                   tierKey: widget.tierKeyForPage?.call(page),
                   tier: widget.tier,
+                  // The stage is already black — the default container
+                  // tier would flash a grey box under the artwork.
+                  placeholderColor: FuncTokens.transparent,
                 ),
               ),
             ),
@@ -710,6 +713,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                 transitionKey: heroTag,
                 tierKey: widget.tierKeyForPage?.call(page),
                 tier: widget.tier,
+                placeholderColor: FuncTokens.transparent,
               ),
             ),
             child: viewer,
