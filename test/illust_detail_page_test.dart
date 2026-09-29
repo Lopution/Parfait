@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,6 +40,7 @@ import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/features/search/tag_search_page.dart';
 import 'package:pixiv_func/app/widgets/tag_chips.dart';
 import 'package:pixiv_func/core/mute/mute_store.dart';
+import 'package:pixiv_func/core/share/share_service.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'download_manager_test.dart';
@@ -57,6 +59,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Map<int, Map<String, dynamic>>? detailOverrides,
   Map<int, List<Map<String, dynamic>>>? relatedOverrides,
   Set<String> mutedTags = const {},
+  List<Override> extraOverrides = const [],
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
@@ -107,6 +110,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       illustDetailWebClientProvider.overrideWithValue(
         MockClient((request) async => http.Response('unavailable', 403)),
       ),
+      ...extraOverrides,
     ],
   );
   final client = PixivHttpClient(
@@ -163,6 +167,33 @@ http.Response okJson(Map<String, dynamic> json) => http.Response(
   200,
   headers: {'content-type': 'application/json'},
 );
+
+/// Records what the detail page hands to the platform share boundary —
+/// the system sheet is an external boundary, so a recording stand-in is
+/// legitimate here (the page itself always runs).
+class _RecordingShareService implements ShareService {
+  final List<SharePayload> payloads = [];
+  ShareOutcome outcome = ShareOutcome.openedSheet;
+
+  @override
+  Future<ShareOutcome> share(
+    SharePayload payload, {
+    Rect? sharePositionOrigin,
+  }) async {
+    payloads.add(payload);
+    return outcome;
+  }
+}
+
+/// Opens the detail AppBar's ⋮ menu. The tooltip comes from
+/// MaterialLocalizations.showMenuTooltip ('Show menu' / '显示菜单').
+Future<void> openDetailMenu(
+  WidgetTester tester, {
+  String tooltip = 'Show menu',
+}) async {
+  await tester.tap(find.byTooltip(tooltip));
+  await tester.pumpAndSettle();
+}
 
 Future<void> pumpDetail(
   WidgetTester tester,
@@ -1081,10 +1112,10 @@ void main() {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
 
-      expect(find.byTooltip('Select pages to download'), findsOneWidget);
-
-      await tester.tap(find.byTooltip('Select pages to download'));
-      await tester.pump();
+      // The selection entry lives in the ⋮ menu with its text label.
+      await openDetailMenu(tester);
+      await tester.tap(find.text('Select pages to download'));
+      await tester.pumpAndSettle();
 
       expect(find.text('Select pages to download'), findsOneWidget);
       expect(find.text('0 of 2 selected'), findsOneWidget);
@@ -1101,7 +1132,13 @@ void main() {
       await pumpDetail(tester, container, seedStore: false);
 
       expect(find.byTooltip('Download All'), findsOneWidget);
-      expect(find.byTooltip('Select pages to download'), findsNothing);
+
+      // ⋮ holds share and the artwork-info jump — nothing page-related
+      // for a single-page work.
+      await openDetailMenu(tester);
+      expect(find.text('Share'), findsOneWidget);
+      expect(find.text('Jump to artwork info'), findsOneWidget);
+      expect(find.text('Select pages to download'), findsNothing);
     });
 
     testWidgets(
@@ -1241,7 +1278,16 @@ void main() {
           ),
           findsOneWidget,
         );
-        expect(find.byTooltip('选择要下载的页'), findsNothing);
+
+        // The ⋮ menu carries share + the artwork-info jump only — ugoira
+        // has no pages to select.
+        await openDetailMenu(tester, tooltip: '显示菜单');
+        expect(find.text('分享'), findsOneWidget);
+        expect(find.text('跳到作品信息区'), findsOneWidget);
+        expect(find.text('选择要下载的页'), findsNothing);
+        // Dismiss the menu before the long-press checks.
+        await tester.tapAt(const Offset(10, 400));
+        await tester.pumpAndSettle();
 
         // Ugoira has no pages to select — a long-press must not open the
         // selection chrome.
@@ -1823,7 +1869,9 @@ void main() {
       expect(find.byTooltip('跳到作品信息区'), findsOneWidget);
     });
 
-    testWidgets('the info button scrolls InfoBlock into view', (tester) async {
+    testWidgets('the menu artwork-info item scrolls InfoBlock into view', (
+      tester,
+    ) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
       await tester.pumpAndSettle();
@@ -1831,7 +1879,8 @@ void main() {
       // InfoBlock's caption sits below the fold — not built yet.
       expect(find.text('作品说明文字'), findsNothing);
 
-      await tester.tap(find.byTooltip('跳到作品信息区'));
+      await openDetailMenu(tester, tooltip: '显示菜单');
+      await tester.tap(find.text('跳到作品信息区'));
       await tester.pumpAndSettle();
       expect(find.text('作品说明文字'), findsOneWidget);
       expect(
@@ -1902,6 +1951,98 @@ void main() {
         expect(find.textContaining('共 6 页'), findsOneWidget);
       },
     );
+  });
+
+  group('detail overflow menu (R3)', () {
+    testWidgets('the app bar keeps download-all and the heart while share and '
+        'selection move into the ⋮ menu', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+
+      expect(find.byTooltip('Download All'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
+      expect(find.byTooltip('Show menu'), findsOneWidget);
+      expect(find.byTooltip('Share'), findsNothing);
+      expect(find.byTooltip('Select pages to download'), findsNothing);
+    });
+
+    testWidgets('the selection entry hides while selection mode is on', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+
+      await longPressImage(tester);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+
+      await openDetailMenu(tester);
+      expect(find.text('Share'), findsOneWidget);
+      expect(find.text('Jump to artwork info'), findsOneWidget);
+      // The bottom bar keeps its own "Select pages to download" title —
+      // what must be gone is the menu's re-entry item.
+      expect(
+        find.widgetWithText(PopupMenuItem, 'Select pages to download'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('share goes through the ⋮ menu to the share boundary', (
+      tester,
+    ) async {
+      final share = _RecordingShareService();
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [shareServiceProvider.overrideWithValue(share)],
+      );
+      await pumpDetail(tester, container);
+
+      await openDetailMenu(tester);
+      await tester.tap(find.text('Share'));
+      await tester.pumpAndSettle();
+
+      expect(share.payloads, hasLength(1));
+      expect(share.payloads.single.url, 'https://www.pixiv.net/artworks/42');
+    });
+
+    testWidgets('a long six-page work still reaches InfoBlock via the menu', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(
+            42,
+            pageCount: 6,
+            withMetaPages: true,
+            caption: '作品说明文字',
+          ),
+        },
+      );
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(
+          illustJson(42, pageCount: 6, withMetaPages: true, caption: '作品说明文字'),
+        ),
+      ]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
+
+      // Six image pages push the InfoBlock past the cache extent — its
+      // caption is not built yet.
+      expect(find.text('作品说明文字'), findsNothing);
+
+      await openDetailMenu(tester, tooltip: '显示菜单');
+      await tester.tap(find.text('跳到作品信息区'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('作品说明文字'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('作品说明文字')).top,
+        lessThan(tester.view.physicalSize.height),
+      );
+    });
   });
 
   group('tag action menu (R3)', () {
