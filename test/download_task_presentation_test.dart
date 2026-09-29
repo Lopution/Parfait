@@ -399,6 +399,35 @@ void main() {
       );
     });
 
+    test('group status line folds the counter into one line', () {
+      // A finished group reads "已完成 2/2" once — the old card printed
+      // 已完成 on both the status row and the counter row (R4).
+      expect(
+        downloadGroupStatusLine(
+          l10n,
+          DownloadVisualState.succeeded,
+          _group(status: DownloadGroupStatus.succeeded, succeededCount: 2),
+        ),
+        '已完成 2/2',
+      );
+      expect(
+        downloadGroupStatusLine(
+          l10n,
+          DownloadVisualState.running,
+          _group(receivedBytes: 5, totalBytes: 10),
+        ),
+        '下载中 · 已完成 0/2 · 50%',
+      );
+      expect(
+        downloadGroupStatusLine(
+          l10n,
+          DownloadVisualState.paused,
+          _group(status: DownloadGroupStatus.retryable),
+        ),
+        '已暂停 · 已完成 0/2',
+      );
+    });
+
     test('group title reads the work, the author, or the item count', () {
       final workPages = [
         _task(illustId: 7, pageIndex: 0, title: '星空', artist: '画师'),
