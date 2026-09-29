@@ -4,13 +4,15 @@ import 'package:flutter/services.dart';
 import '../../../../app/motion/hero_transition.dart';
 import '../../../../app/motion/motion_tokens.dart';
 import '../../../../core/entity/illust_entity.dart';
+import 'detail_page_counter.dart';
 import 'page_image.dart';
 import '../ugoira_viewer.dart';
 
 /// The two-pane detail page's left pane: a horizontal page pager that keeps
-/// each page fitted (contain) inside the pane height, with a `n / total`
-/// indicator and arrow-key paging. Narrow surfaces never see this widget —
-/// they keep the vertical image list inside the single scroll view.
+/// each page fitted (contain) inside the pane height, with the shared
+/// `DetailPageCounter` overlay and arrow-key paging. Narrow surfaces never
+/// see this widget — they keep the vertical image list inside the single
+/// scroll view.
 class DetailImagePager extends StatefulWidget {
   const DetailImagePager({
     super.key,
@@ -150,35 +152,11 @@ class _DetailImagePagerState extends State<DetailImagePager> {
               );
             },
           ),
-          if (count > 1)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 12,
-              child: IgnorePointer(
-                child: Center(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      child: Text(
-                        '${_page + 1} / $count',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          // The overlay hides itself for single-page works and ugoira
+          // (count collapses to 1 above) and waits out the entry flight.
+          Positioned.fill(
+            child: DetailPageCounter(page: _page, count: count),
+          ),
         ],
       ),
     );
