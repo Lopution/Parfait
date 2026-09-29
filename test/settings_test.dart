@@ -44,7 +44,6 @@ import 'package:pixiv_func/features/settings/settings_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart' as profile;
 import 'package:pixiv_func/app/widgets/settings/settings_control.dart';
 import 'package:pixiv_func/app/widgets/settings/settings_group.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_section.dart';
 import 'package:pixiv_func/app/widgets/settings/settings_tile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -792,16 +791,20 @@ void main() {
         home: Scaffold(
           body: Column(
             children: [
-              SettingsSection(title: Text('Display')),
-              SettingsControl(
-                title: Text('Large previews'),
-                value: true,
-                onChanged: _ignoreBool,
-              ),
-              SettingsTile(
-                icon: Icons.info_outline,
-                title: 'About',
-                onTap: _noop,
+              SettingsGroup(
+                title: Text('Display'),
+                children: [
+                  SettingsControl(
+                    title: Text('Large previews'),
+                    value: true,
+                    onChanged: _ignoreBool,
+                  ),
+                  SettingsTile(
+                    icon: Icons.info_outline,
+                    title: 'About',
+                    onTap: _noop,
+                  ),
+                ],
               ),
             ],
           ),
@@ -1835,7 +1838,12 @@ void main() {
     await tester.pumpAndSettle();
 
     // The mode tiles and status sections push this entry below the fold.
-    await _scrollCentered(tester, find.text('高级设置', skipOffstage: false));
+    await tester.scrollUntilVisible(
+      find.text('高级设置'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('高级设置'));
     await tester.pumpAndSettle();
 
@@ -1878,7 +1886,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await _scrollCentered(tester, find.text('高级设置', skipOffstage: false));
+    await tester.scrollUntilVisible(
+      find.text('高级设置'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('高级设置'));
     await tester.pumpAndSettle();
 
@@ -1932,13 +1945,23 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await _scrollCentered(tester, find.text('高级设置', skipOffstage: false));
+    await tester.scrollUntilVisible(
+      find.text('高级设置'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('高级设置'));
     await tester.pumpAndSettle();
 
     // Reset rewrites two stored fields at once, so it asks first; cancelling
     // must not touch the stored values.
-    await _scrollCentered(tester, find.text('恢复默认值', skipOffstage: false));
+    await tester.scrollUntilVisible(
+      find.text('恢复默认值'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('恢复默认值'));
     await tester.pumpAndSettle();
     expect(find.text('将 DoH 端点与 ECH 前置主机恢复为默认值。'), findsOneWidget);
@@ -2299,6 +2322,62 @@ void main() {
       tester.getSemantics(find.widgetWithText(ListTile, '简体中文')),
       isSemantics(isSelected: false),
     );
+  });
+
+  testWidgets('choice pages mark the selected row with selected semantics', (
+    tester,
+  ) async {
+    // R1: every single-choice row — not only theme and language — carries
+    // the Semantics(selected) channel next to the check icon.
+    final repository = _FakeRepository(_baseSettings());
+    final translationStore = _FakeTranslationStore();
+    final policy = NetworkAccessPolicy(
+      registry: PixivDestinationRegistry(),
+      resolver: _StubResolver([InternetAddress('93.184.216.34')]),
+      clientFactory: (route, canonicalHost, _) => _RecordingClient(),
+    );
+    Widget host(Widget home) => ProviderScope(
+      overrides: [
+        settingsRepositoryProvider.overrideWithValue(repository),
+        translationCredentialStoreProvider.overrideWithValue(translationStore),
+        networkAccessPolicyProvider.overrideWithValue(policy),
+      ],
+      child: MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: home,
+      ),
+    );
+
+    // Browse's image-source group sits at the bottom; a tall surface
+    // builds every lazy row so the semantics checks below stay legal.
+    tester.view.physicalSize = const Size(800, 4000);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    Future<void> check(Widget page, String selected, String idle) async {
+      await tester.pumpWidget(host(page));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester.getSemantics(find.widgetWithText(ListTile, selected)),
+        isSemantics(isSelected: true),
+      );
+      expect(
+        tester.getSemantics(find.widgetWithText(ListTile, idle)),
+        isSemantics(isSelected: false),
+      );
+    }
+
+    await check(const TranslateSettingsPage(), '关闭', '百度翻译');
+    await check(const DownloadSettingsPage(), '作品 ID（默认）', '标题 - ID');
+    await check(const NetworkSettingsPage(), '自动', '仅直连');
+    await check(const BrowseSettingsPage(), '官方源（默认）', 'pixiv.cat 镜像');
+    await check(const DownloadDestinationPage(), '相册', '文件夹（系统目录选择）');
+
+    // Unmount and unwind the third-party reachability probe timeouts.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 
   test('enableHaptics defaults on and round-trips through JSON', () {

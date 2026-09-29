@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/settings/settings_choice_tile.dart';
+import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
@@ -30,26 +33,26 @@ class ThemeSettingsPage extends ConsumerWidget {
       appBar: AppBar(title: Text(context.l10n.themeSettings)),
       body: settingsNarrowBody(
         ListView(
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
+          ),
           children: [
-            for (final item in items)
-              ListTile(
-                // `selected` is the second channel: the check icon shows
-                // sighted users the value while Semantics(selected) tells
-                // assistive tech the same fact (R3).
-                selected: settings.themeCode == item.$1,
-                title: Text(item.$2),
-                trailing: settings.themeCode == item.$1
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => persistSettings(
-                  context,
-                  () =>
-                      ref.read(settingsProvider.notifier).selectTheme(item.$1),
-                ),
-              ),
+            SettingsGroup(
+              children: [
+                for (final item in items)
+                  SettingsChoiceTile(
+                    selected: settings.themeCode == item.$1,
+                    title: Text(item.$2),
+                    onTap: () => persistSettings(
+                      context,
+                      () => ref
+                          .read(settingsProvider.notifier)
+                          .selectTheme(item.$1),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
