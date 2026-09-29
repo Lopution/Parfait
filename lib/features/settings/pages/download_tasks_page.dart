@@ -212,10 +212,9 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                 title: Text(context.l10n.downloaderSettings),
                 actions: [
                   if (tasks.isNotEmpty)
-                    IconButton(
-                      tooltip: context.l10n.manage,
+                    TextButton(
                       onPressed: _enterManaging,
-                      icon: const Icon(Icons.checklist_outlined),
+                      child: Text(context.l10n.manage),
                     ),
                 ],
               ),
