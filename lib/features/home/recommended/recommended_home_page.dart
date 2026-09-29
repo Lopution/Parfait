@@ -15,6 +15,7 @@ import '../../../core/user/user_store.dart';
 import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
+import '../../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_tab_bar.dart';
 import '../../../app/widgets/branch_slide_stack.dart';
@@ -280,7 +281,10 @@ class _RecommendedFeedView extends ConsumerWidget {
     final feedAsync = ref.watch(recommendedFeedProvider(key));
 
     return feedAsync.when(
-      loading: () => const FeedLoading(),
+      loading: () => IllustGridSkeleton(
+        label: context.l10n.contentLoading,
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+      ),
       error: (error, _) => FeedError(
         title: context.l10n.recommendedLoadFailed,
         error: error,
@@ -298,7 +302,10 @@ class _RecommendedFeedView extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const FeedLoading();
+          return IllustGridSkeleton(
+            label: context.l10n.contentLoading,
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+          );
         }
         if (feed.isEmptyAndReady) {
           return FeedEmpty(

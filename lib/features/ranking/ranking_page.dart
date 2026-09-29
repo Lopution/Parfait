@@ -16,6 +16,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
+import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/ranking_feed_controller.dart';
 import '../../l10n/context.dart';
@@ -197,7 +198,7 @@ class _RankingModeBody extends ConsumerWidget {
     final state = ref.watch(rankingFeedControllerProvider(mode));
     final store = ref.watch(illustStoreProvider);
     return state.when(
-      loading: () => const FeedLoading(),
+      loading: () => IllustGridSkeleton(label: context.l10n.contentLoading),
       error: (error, _) => FeedError(
         title: l10nLookup(context.l10n, 'rankingLoadFailed'),
         error: error,
@@ -218,7 +219,7 @@ class _RankingModeBody extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const FeedLoading();
+          return IllustGridSkeleton(label: context.l10n.contentLoading);
         }
         if (feed.isEmptyAndReady) {
           return ReplicaEmptyState(

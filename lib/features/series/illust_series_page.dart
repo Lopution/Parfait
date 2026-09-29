@@ -5,6 +5,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
+import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
@@ -40,7 +41,10 @@ class IllustSeriesPage extends ConsumerWidget {
         ),
       ),
       body: async.when(
-        loading: () => const FeedLoading(),
+        loading: () => IllustGridSkeleton(
+          label: context.l10n.contentLoading,
+          padding: const EdgeInsets.all(10),
+        ),
         error: (error, _) => FeedError(
           title: context.l10n.seriesLoadFailed,
           error: error,
@@ -61,7 +65,10 @@ class IllustSeriesPage extends ConsumerWidget {
             );
           }
           if (feed.showInitialSpinner) {
-            return const FeedLoading();
+            return IllustGridSkeleton(
+              label: context.l10n.contentLoading,
+              padding: const EdgeInsets.all(10),
+            );
           }
           final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
           return PullToRefresh(

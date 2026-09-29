@@ -30,6 +30,7 @@ import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
 import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
+import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/profile_illust_feed.dart';
 import 'package:pixiv_func/features/profile/profile_novel_feed.dart';
@@ -42,6 +43,7 @@ import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
 
 class _FakeFollowRepository implements FollowRepository {
@@ -69,50 +71,6 @@ class _FakeFollowRepository implements FollowRepository {
     if (activeGate != null) await activeGate.future;
     final error = failure;
     if (error != null) throw error;
-  }
-}
-
-/// In-memory stand-in for [FeedSnapshotStore]: each `_makeWorld` gets a
-/// fresh instance so a snapshot committed by one test cannot leak into the
-/// next world's cold start (sqflite's singleInstance cache would share the
-/// default ':memory:' feeds.db across the whole file).
-class _MemoryFeedSnapshotStore implements FeedSnapshotStore {
-  final _rows = <String, FeedSnapshot>{};
-
-  @override
-  int get discardedCount => 0;
-
-  @override
-  int get maxEntriesPerAccount => 64;
-
-  @override
-  Future<FeedSnapshot?> read(
-    String accountId,
-    String feedKey, {
-    Duration maxAge = FeedSnapshotStore.maxAge,
-  }) async => _rows['$accountId|$feedKey'];
-
-  @override
-  Future<void> write(
-    String accountId,
-    String feedKey, {
-    required List<int> ids,
-    required Map<String, Object?> entities,
-    String? cursor,
-    int snapshotVersion = 1,
-  }) async {
-    _rows['$accountId|$feedKey'] = FeedSnapshot(
-      ids: ids,
-      entities: entities,
-      savedAt: DateTime.now(),
-      cursor: cursor,
-      snapshotVersion: snapshotVersion,
-    );
-  }
-
-  @override
-  Future<void> clearAccount(String accountId) async {
-    _rows.removeWhere((key, _) => key.startsWith('$accountId|'));
   }
 }
 
@@ -265,7 +223,7 @@ Future<ProviderContainer> _makeWorld({
   // ':memory:' feeds.db by path, so one test's committed snapshot would
   // leak into the next world's cold start. An in-memory store keeps the
   // same read/write contract without touching sqlite inside FakeAsync.
-  final feedSnapshots = _MemoryFeedSnapshotStore();
+  final feedSnapshots = MemoryFeedSnapshotStore();
   final credentials = FakeCredentialStore(
     values: const {
       '100': Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
@@ -2162,14 +2120,15 @@ void main() {
       ),
     );
     // The detail resolves but the works request is parked behind the
-    // gate: the feed renders its loading branch, which must still carry
-    // the selector (D3 loading/error contract). pumpAndSettle can't settle
-    // on the indicator's perpetual animation, so pump a fixed stretch.
+    // gate: the feed renders its first-load skeleton, which must still
+    // carry the selector (D3 loading/error contract). pumpAndSettle can't
+    // settle on the shimmer's perpetual animation, so pump a fixed
+    // stretch.
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
     expect(repository.requests, contains('works:42:illust:first'));
-    expect(find.byType(FeedLoading), findsOneWidget);
+    expect(find.byType(IllustGridSkeleton), findsOneWidget);
     final segments = find.byType(SegmentedButton<ProfileWorkSection>);
     expect(segments, findsOneWidget);
     await tester.tap(find.descendant(of: segments, matching: find.text('漫画')));

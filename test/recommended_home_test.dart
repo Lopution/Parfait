@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -9,7 +10,10 @@ import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
+import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
+import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
@@ -17,6 +21,7 @@ import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/illust/recommended_feed_controller.dart';
 import 'package:pixiv_func/core/illust/recommended_repository.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -24,6 +29,7 @@ import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 
@@ -54,6 +60,10 @@ class _ApiFixture {
   /// refresh-error path after the first page has already loaded.
   bool failRecommended = false;
 
+  /// When set, `/v1/illust/recommended` awaits it — holds the illust
+  /// feed's initial load in flight.
+  Completer<void>? pendingRecommended;
+
   final requests = <String>[];
 
   http.Client build() {
@@ -64,6 +74,7 @@ class _ApiFixture {
       final path = request.url.path;
       requests.add('$path?${request.url.query}');
       if (path == '/v1/illust/recommended') {
+        await pendingRecommended?.future;
         if (failRecommended) {
           return http.Response('refresh failed', 500);
         }
@@ -132,6 +143,7 @@ Future<(ProviderContainer, _ApiFixture)> _makeWorld({
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
+      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
           accounts: const [Account(id: '100', userId: 100, name: 'tester')],
@@ -200,6 +212,40 @@ void main() {
     );
     // Illust cards render (titles from the store).
     expect(find.textContaining('illust '), findsWidgets);
+  });
+
+  testWidgets('illust first load shows the grid skeleton', (tester) async {
+    final (container, fixture) = await _makeWorld();
+    addTearDown(container.dispose);
+    fixture.pendingRecommended = Completer<void>();
+    addTearDown(() {
+      if (fixture.pendingRecommended?.isCompleted == false) {
+        fixture.pendingRecommended!.complete();
+      }
+    });
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: RecommendedHomePage(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(IllustGridSkeleton), findsOneWidget);
+      expect(find.byType(FeedEmpty), findsNothing);
+
+      fixture.pendingRecommended!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(IllustGridSkeleton), findsNothing);
+      expect(find.byType(IllustCard), findsWidgets);
+    });
   });
 
   testWidgets('switching to manga requests content_type=manga', (tester) async {

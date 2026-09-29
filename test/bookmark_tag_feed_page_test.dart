@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,15 +9,19 @@ import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
 import 'package:pixiv_func/core/entity/illust_entity.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:pixiv_func/core/profile/profile_models.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/features/profile/bookmark_tag_feed_page.dart';
 import 'package:pixiv_func/features/profile/profile_illust_feed.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
+import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
 
 class _StubAccountStore extends AccountStore {
@@ -29,6 +35,10 @@ class _StubAccountStore extends AccountStore {
 
 class _RecordingUserRepository implements UserRepository {
   final requests = <({int userId, UserRestrict restrict, String? tag})>[];
+
+  /// When set, every bookmark fetch awaits it — holds the feed's initial
+  /// load in flight.
+  Completer<void>? pendingFetch;
 
   final works = [
     _illust(1, 'Blue Sky', [
@@ -46,6 +56,7 @@ class _RecordingUserRepository implements UserRepository {
     CancelToken? cancelToken,
   }) async {
     requests.add((userId: userId, restrict: restrict, tag: tag));
+    await pendingFetch?.future;
     return UserIllustPage(illusts: works, nextUrl: null);
   }
 
@@ -93,6 +104,7 @@ ProviderContainer _makeContainer(_RecordingUserRepository repository) =>
     ProviderContainer(
       overrides: [
         accountStoreProvider.overrideWith(_StubAccountStore.new),
+        feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
         userRepositoryProvider.overrideWithValue(repository),
         illustStoreProvider.overrideWithValue(IllustStore()),
       ],
@@ -160,6 +172,43 @@ void main() {
         .heroScope;
     expect(untaggedScope, endsWith(':'));
     expect(untaggedScope, isNot(taggedScope));
+  });
+
+  testWidgets('profile works show the grid skeleton while pending', (
+    tester,
+  ) async {
+    final repository = _RecordingUserRepository()
+      ..pendingFetch = Completer<void>();
+    final container = _makeContainer(repository);
+    addTearDown(container.dispose);
+    addTearDown(() {
+      if (repository.pendingFetch?.isCompleted == false) {
+        repository.pendingFetch!.complete();
+      }
+    });
+
+    await tester.pumpWidget(
+      _testApp(
+        container,
+        const ProfileIllustFeed(
+          feedKey: ProfileFeedKey(
+            userId: 100,
+            kind: ProfileFeedKind.bookmarks,
+            restrict: UserRestrict.private,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(IllustGridSkeleton), findsOneWidget);
+    expect(find.byType(FeedEmpty), findsNothing);
+
+    repository.pendingFetch!.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(IllustGridSkeleton), findsNothing);
+    expect(find.byType(IllustCard), findsWidgets);
   });
 
   testWidgets('bookmark tag filter only changes loaded works locally', (
