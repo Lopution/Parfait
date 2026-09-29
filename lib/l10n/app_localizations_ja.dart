@@ -1476,6 +1476,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchClear => 'クリア';
 
   @override
+  String get contentLoading => '読み込み中';
+
+  @override
   String get searchLoading => '検索中';
 
   @override

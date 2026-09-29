@@ -1520,6 +1520,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchClear => 'Clear';
 
   @override
+  String get contentLoading => 'Loading';
+
+  @override
   String get searchLoading => 'Searching';
 
   @override

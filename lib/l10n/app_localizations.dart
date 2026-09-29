@@ -2795,6 +2795,12 @@ abstract class AppLocalizations {
   /// **'清除'**
   String get searchClear;
 
+  /// No description provided for @contentLoading.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在加载'**
+  String get contentLoading;
+
   /// No description provided for @searchLoading.
   ///
   /// In zh, this message translates to:
