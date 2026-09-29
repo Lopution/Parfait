@@ -2,10 +2,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/app/pixiv_image.dart';
+import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/entity_row.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -64,13 +66,15 @@ Future<ProviderContainer> _makeWorld() async {
 Future<void> _pumpCard(
   WidgetTester tester,
   ProviderContainer container,
-  IllustCard card,
-) async {
+  IllustCard card, {
+  ThemeData? theme,
+}) async {
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          theme: theme,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: const [Locale('zh')],
           locale: const Locale('zh'),
@@ -167,6 +171,36 @@ void main() {
     final r18TopLeft = tester.getTopLeft(r18Badge);
     expect(rankTopLeft.dx, r18TopLeft.dx);
     expect(rankTopLeft.dy, lessThan(r18TopLeft.dy));
+  });
+
+  testWidgets('the loading placeholder reads the container surface tier', (
+    tester,
+  ) async {
+    final container = await _makeWorld();
+    addTearDown(container.dispose);
+    // Both brightnesses: the placeholder is theme-driven, so it must track
+    // the ambient surfaceContainer instead of a hardcoded grey. Distinct
+    // entity ids keep tier-history underlays out of the second pump.
+    for (final brightness in Brightness.values) {
+      final theme = replicaTheme(brightness);
+      await _pumpCard(
+        tester,
+        container,
+        IllustCard(entity: parseIllust(illustJson(90 + brightness.index))),
+        theme: theme,
+      );
+      await tester.pumpAndSettle();
+      final image = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage).first,
+      );
+      final placeholder =
+          image.placeholder!(
+                tester.element(find.byType(CachedNetworkImage).first),
+                'unused',
+              )
+              as ColoredBox;
+      expect(placeholder.color, theme.colorScheme.surfaceContainer);
+    }
   });
 
   testWidgets('meta slot renders a line under the author', (tester) async {
