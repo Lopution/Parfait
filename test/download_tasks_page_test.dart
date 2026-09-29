@@ -491,9 +491,14 @@ void main() {
             manager.tasks.any((t) => t.status == DownloadStatus.running),
       );
 
+      // The manage entry spells itself out as a text button (R5) — the
+      // bare checklist icon is gone.
+      expect(find.widgetWithText(TextButton, '管理'), findsOneWidget);
+      expect(find.byIcon(Icons.checklist_outlined), findsNothing);
+
       // Entering selection mode fires the explicit vibration; the AppBar
       // swaps to the count surface.
-      await tester.tap(find.byIcon(Icons.checklist_outlined));
+      await tester.tap(find.widgetWithText(TextButton, '管理'));
       await tester.pump();
       expect(find.text('已选 0 项'), findsOneWidget);
       expect(haptics, ['HapticFeedbackType.heavyImpact']);
@@ -524,7 +529,7 @@ void main() {
 
       // Batch cancel on the running task also goes through the confirm
       // dialog, then the task unwinds once its gate opens.
-      await tester.tap(find.byIcon(Icons.checklist_outlined));
+      await tester.tap(find.widgetWithText(TextButton, '管理'));
       await tester.pump();
       await tester.tap(find.byIcon(Icons.select_all));
       await tester.pump();
