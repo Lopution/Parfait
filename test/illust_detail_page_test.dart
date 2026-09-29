@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -32,12 +33,14 @@ import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:pixiv_func/features/illust/detail/widgets/detail_image_pager.dart';
+import 'package:pixiv_func/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:pixiv_func/features/illust/detail/ugoira_viewer.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/features/search/tag_search_page.dart';
 import 'package:pixiv_func/app/widgets/tag_chips.dart';
 import 'package:pixiv_func/core/mute/mute_store.dart';
+import 'package:pixiv_func/core/share/share_service.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'download_manager_test.dart';
@@ -56,6 +59,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Map<int, Map<String, dynamic>>? detailOverrides,
   Map<int, List<Map<String, dynamic>>>? relatedOverrides,
   Set<String> mutedTags = const {},
+  List<Override> extraOverrides = const [],
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
@@ -106,6 +110,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       illustDetailWebClientProvider.overrideWithValue(
         MockClient((request) async => http.Response('unavailable', 403)),
       ),
+      ...extraOverrides,
     ],
   );
   final client = PixivHttpClient(
@@ -162,6 +167,33 @@ http.Response okJson(Map<String, dynamic> json) => http.Response(
   200,
   headers: {'content-type': 'application/json'},
 );
+
+/// Records what the detail page hands to the platform share boundary —
+/// the system sheet is an external boundary, so a recording stand-in is
+/// legitimate here (the page itself always runs).
+class _RecordingShareService implements ShareService {
+  final List<SharePayload> payloads = [];
+  ShareOutcome outcome = ShareOutcome.openedSheet;
+
+  @override
+  Future<ShareOutcome> share(
+    SharePayload payload, {
+    Rect? sharePositionOrigin,
+  }) async {
+    payloads.add(payload);
+    return outcome;
+  }
+}
+
+/// Opens the detail AppBar's ⋮ menu. The tooltip comes from
+/// MaterialLocalizations.showMenuTooltip ('Show menu' / '显示菜单').
+Future<void> openDetailMenu(
+  WidgetTester tester, {
+  String tooltip = 'Show menu',
+}) async {
+  await tester.tap(find.byTooltip(tooltip));
+  await tester.pumpAndSettle();
+}
 
 Future<void> pumpDetail(
   WidgetTester tester,
@@ -1080,10 +1112,10 @@ void main() {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
 
-      expect(find.byTooltip('Select pages to download'), findsOneWidget);
-
-      await tester.tap(find.byTooltip('Select pages to download'));
-      await tester.pump();
+      // The selection entry lives in the ⋮ menu with its text label.
+      await openDetailMenu(tester);
+      await tester.tap(find.text('Select pages to download'));
+      await tester.pumpAndSettle();
 
       expect(find.text('Select pages to download'), findsOneWidget);
       expect(find.text('0 of 2 selected'), findsOneWidget);
@@ -1100,7 +1132,13 @@ void main() {
       await pumpDetail(tester, container, seedStore: false);
 
       expect(find.byTooltip('Download All'), findsOneWidget);
-      expect(find.byTooltip('Select pages to download'), findsNothing);
+
+      // ⋮ holds share and the artwork-info jump — nothing page-related
+      // for a single-page work.
+      await openDetailMenu(tester);
+      expect(find.text('Share'), findsOneWidget);
+      expect(find.text('Jump to artwork info'), findsOneWidget);
+      expect(find.text('Select pages to download'), findsNothing);
     });
 
     testWidgets(
@@ -1240,7 +1278,16 @@ void main() {
           ),
           findsOneWidget,
         );
-        expect(find.byTooltip('选择要下载的页'), findsNothing);
+
+        // The ⋮ menu carries share + the artwork-info jump only — ugoira
+        // has no pages to select.
+        await openDetailMenu(tester, tooltip: '显示菜单');
+        expect(find.text('分享'), findsOneWidget);
+        expect(find.text('跳到作品信息区'), findsOneWidget);
+        expect(find.text('选择要下载的页'), findsNothing);
+        // Dismiss the menu before the long-press checks.
+        await tester.tapAt(const Offset(10, 400));
+        await tester.pumpAndSettle();
 
         // Ugoira has no pages to select — a long-press must not open the
         // selection chrome.
@@ -1485,8 +1532,8 @@ void main() {
       // cards); it renders author, meta and tags.
       expect(
         find.text('author'),
-        findsNWidgets(3),
-        reason: 'compact header + author block name + account',
+        findsNWidgets(2),
+        reason: 'author block name + account',
       );
       expect(find.textContaining('800x600'), findsOneWidget);
       expect(find.textContaining('ID: 42'), findsOneWidget);
@@ -1530,9 +1577,9 @@ void main() {
             findsWidgets,
             reason: 'content renders from the card snapshot, not a spinner',
           );
-          // Two copies are expected: the persistent compact header carries
-          // the title too (C17); the snapshot proves out through either.
-          expect(find.text('illust 42'), findsNWidgets(2));
+          // The snapshot proves out through the InfoBlock title — the
+          // detail page keeps no separate title copy anymore.
+          expect(find.text('illust 42'), findsOneWidget);
           expect(find.text('author'), findsWidgets);
           expect(
             tester.widget<PixivImage>(find.byType(PixivImage).first).url,
@@ -1809,20 +1856,223 @@ void main() {
     });
   });
 
-  group('narrow compact header (C17)', () {
-    testWidgets('renders title/author/page context and the info jump on narrow '
-        'surfaces', (tester) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+  group('narrow page counter (R1/R2)', () {
+    testWidgets('single-page works show no page chrome at all', (tester) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {42: illustJson(42, pageCount: 1)},
+      );
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
 
-      // Header shows the work context while the body is still on page 1.
-      expect(find.text('illust 42'), findsOneWidget);
-      expect(find.text('author'), findsOneWidget);
-      expect(find.text('第 1 页，共 2 页'), findsOneWidget);
-      expect(find.byTooltip('跳到作品信息区'), findsOneWidget);
+      // Neither the old strip's page label nor the overlay pill — and no
+      // standalone info button (the jump now lives in the ⋮ menu).
+      expect(find.text('第 1 页，共 1 页'), findsNothing);
+      expect(find.text('1 / 1'), findsNothing);
+      expect(find.byTooltip('跳到作品信息区'), findsNothing);
     });
 
-    testWidgets('the info button scrolls InfoBlock into view', (tester) async {
+    testWidgets(
+      'the counter follows the scrolled page and leaves with the artwork',
+      (tester) async {
+        // Related works make the meta tail taller than the viewport —
+        // scrolling to the bottom leaves every page fully off screen.
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {
+            42: illustJson(
+              42,
+              pageCount: 3,
+              withMetaPages: true,
+              caption: '作品说明文字',
+            ),
+          },
+          relatedOverrides: {
+            42: [
+              illustJson(901),
+              illustJson(902),
+              illustJson(903),
+              illustJson(904),
+            ],
+          },
+        );
+        container.read(illustStoreProvider).mergeAll([
+          parseIllust(
+            illustJson(
+              42,
+              pageCount: 3,
+              withMetaPages: true,
+              caption: '作品说明文字',
+            ),
+          ),
+        ]);
+        await pumpDetail(
+          tester,
+          container,
+          seedStore: false,
+          locale: const Locale('zh', 'CN'),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('1 / 3'), findsOneWidget);
+
+        // Jump past page 2's bottom edge so page 3 is the only visible
+        // artwork — deterministic, no fling physics involved.
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(1500);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // Scrolling past the artwork to the bottom leaves no page
+        // visible — the pill leaves with it.
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(
+              tester
+                  .state<ScrollableState>(find.byType(Scrollable).first)
+                  .position
+                  .maxScrollExtent,
+            );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('作品说明文字'), findsOneWidget);
+        expect(find.byType(DetailPageCounter), findsNothing);
+      },
+    );
+
+    testWidgets('tapping the pill spot reaches the artwork viewer', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, useRouter: true);
+      await tester.pumpAndSettle();
+
+      // The pill is IgnorePointer — a tap on it lands on the artwork
+      // below and pushes the viewer.
+      expect(find.byType(DetailPageCounter), findsOneWidget);
+      final pill = find.descendant(
+        of: find.byType(DetailPageCounter),
+        matching: find.byType(DecoratedBox),
+      );
+      await mockNetworkImagesFor(() async {
+        await tester.tapAt(tester.getCenter(pill));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+      });
+      expect(find.byType(ImageViewerPage), findsOneWidget);
+    });
+
+    // Each page's selection badge sits at the same top-end corner as the
+    // pill, so selection mode hides the pill instead of stacking the two.
+    for (final (layout, size) in [
+      ('narrow', null),
+      ('two-pane', const Size(1400, 900)),
+    ]) {
+      testWidgets('$layout selection mode hides the pill over the badges', (
+        tester,
+      ) async {
+        final (container, _, _) = await makeWorld();
+        if (size != null) {
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+        }
+        await pumpDetail(tester, container);
+        expect(find.byType(DetailPageCounter), findsOneWidget);
+
+        await longPressImage(tester);
+        expect(find.text('0 of 2 selected'), findsOneWidget);
+        expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
+        expect(find.byType(DetailPageCounter), findsNothing);
+
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(find.text('0 of 2 selected'), findsNothing);
+        expect(find.text('1 / 2'), findsOneWidget);
+      });
+    }
+
+    testWidgets('restricted state shows no counter or info menu item', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {42: illustJson(42, visible: false)},
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('该作品已被删除或受限（ID: 42）'), findsOneWidget);
+      expect(find.byType(DetailPageCounter), findsNothing);
+      expect(find.text('1 / 2'), findsNothing);
+
+      // The restricted body has no InfoBlock — the ⋮ menu keeps only
+      // share.
+      await openDetailMenu(tester, tooltip: '显示菜单');
+      expect(find.text('分享'), findsOneWidget);
+      expect(find.text('跳到作品信息区'), findsNothing);
+    });
+  });
+
+  group('detail overflow menu (R3)', () {
+    testWidgets('the app bar keeps download-all and the heart while share and '
+        'selection move into the ⋮ menu', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+
+      expect(find.byTooltip('Download All'), findsOneWidget);
+      expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
+      expect(find.byTooltip('Show menu'), findsOneWidget);
+      expect(find.byTooltip('Share'), findsNothing);
+      expect(find.byTooltip('Select pages to download'), findsNothing);
+    });
+
+    testWidgets('the selection entry hides while selection mode is on', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+
+      await longPressImage(tester);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+
+      await openDetailMenu(tester);
+      expect(find.text('Share'), findsOneWidget);
+      expect(find.text('Jump to artwork info'), findsOneWidget);
+      // The bottom bar keeps its own "Select pages to download" title —
+      // what must be gone is the menu's re-entry item.
+      expect(
+        find.widgetWithText(PopupMenuItem, 'Select pages to download'),
+        findsNothing,
+      );
+    });
+
+    testWidgets('share goes through the ⋮ menu to the share boundary', (
+      tester,
+    ) async {
+      final share = _RecordingShareService();
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [shareServiceProvider.overrideWithValue(share)],
+      );
+      await pumpDetail(tester, container);
+
+      await openDetailMenu(tester);
+      await tester.tap(find.text('Share'));
+      await tester.pumpAndSettle();
+
+      expect(share.payloads, hasLength(1));
+      expect(share.payloads.single.url, 'https://www.pixiv.net/artworks/42');
+    });
+
+    testWidgets('the menu artwork-info item scrolls InfoBlock into view', (
+      tester,
+    ) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
       await tester.pumpAndSettle();
@@ -1830,7 +2080,8 @@ void main() {
       // InfoBlock's caption sits below the fold — not built yet.
       expect(find.text('作品说明文字'), findsNothing);
 
-      await tester.tap(find.byTooltip('跳到作品信息区'));
+      await openDetailMenu(tester, tooltip: '显示菜单');
+      await tester.tap(find.text('跳到作品信息区'));
       await tester.pumpAndSettle();
       expect(find.text('作品说明文字'), findsOneWidget);
       expect(
@@ -1839,68 +2090,46 @@ void main() {
       );
     });
 
-    testWidgets('the header is absent in the two-pane layout', (tester) async {
-      tester.view.physicalSize = const Size(1400, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-
-      expect(find.byType(TwoPane), findsOneWidget);
-      expect(find.byTooltip('跳到作品信息区'), findsNothing);
-      expect(find.text('第 1 页，共 2 页'), findsNothing);
-    });
-
-    testWidgets('the header is absent in the restricted state', (tester) async {
+    testWidgets('a long six-page work still reaches InfoBlock via the menu', (
+      tester,
+    ) async {
       final (container, _, _) = await makeWorld(
-        detailOverrides: {42: illustJson(42, visible: false)},
+        detailOverrides: {
+          42: illustJson(
+            42,
+            pageCount: 6,
+            withMetaPages: true,
+            caption: '作品说明文字',
+          ),
+        },
       );
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-      await tester.pump(const Duration(milliseconds: 50));
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(
+          illustJson(42, pageCount: 6, withMetaPages: true, caption: '作品说明文字'),
+        ),
+      ]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
 
-      expect(find.text('该作品已被删除或受限（ID: 42）'), findsOneWidget);
-      expect(find.byTooltip('跳到作品信息区'), findsNothing);
+      // Six image pages push the InfoBlock past the cache extent — its
+      // caption is not built yet.
+      expect(find.text('作品说明文字'), findsNothing);
+
+      await openDetailMenu(tester, tooltip: '显示菜单');
+      await tester.tap(find.text('跳到作品信息区'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('作品说明文字'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('作品说明文字')).top,
+        lessThan(tester.view.physicalSize.height),
+      );
     });
-
-    testWidgets(
-      'a long multi-page work keeps title/author pinned and the counter '
-      'tracks the scrolled page (W4 gate: 长多页)',
-      (tester) async {
-        final (container, _, _) = await makeWorld(
-          detailOverrides: {
-            42: illustJson(42, pageCount: 6, withMetaPages: true),
-          },
-        );
-        container.read(illustStoreProvider).mergeAll([
-          parseIllust(illustJson(42, pageCount: 6, withMetaPages: true)),
-        ]);
-        await pumpDetail(
-          tester,
-          container,
-          seedStore: false,
-          locale: const Locale('zh', 'CN'),
-        );
-
-        expect(find.text('illust 42'), findsOneWidget);
-        expect(find.text('第 1 页，共 6 页'), findsOneWidget);
-
-        // Scroll two screenfuls down the page column — the pinned header
-        // stays put and the counter leaves page 1 behind.
-        for (var i = 0; i < 3; i++) {
-          await tester.drag(
-            find.byType(CustomScrollView),
-            const Offset(0, -500),
-          );
-          await tester.pump(const Duration(milliseconds: 50));
-        }
-        await tester.pumpAndSettle();
-
-        expect(find.text('illust 42'), findsOneWidget);
-        expect(find.text('author'), findsWidgets);
-        expect(find.text('第 1 页，共 6 页'), findsNothing);
-        expect(find.textContaining('共 6 页'), findsOneWidget);
-      },
-    );
   });
 
   group('tag action menu (R3)', () {
@@ -2031,9 +2260,35 @@ void main() {
       expect(find.byType(TwoPane), findsOneWidget);
       expect(find.byType(DetailImagePager), findsOneWidget);
       expect(find.byType(PageView), findsOneWidget);
-      // Page indicator and the meta column's info block both render.
+      // The shared page-counter overlay and the meta column's info block
+      // both render.
+      expect(find.byType(DetailPageCounter), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
       expect(find.text('作品说明文字'), findsOneWidget);
+    });
+
+    testWidgets('single-page work keeps the counter empty in the pager', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {42: illustJson(42, pageCount: 1)},
+      );
+      await pumpDetail(tester, container, seedStore: false);
+
+      expect(find.byType(TwoPane), findsOneWidget);
+      expect(find.byType(DetailImagePager), findsOneWidget);
+      // The overlay is mounted but paints nothing for a single page.
+      expect(find.byType(DetailPageCounter), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DetailPageCounter),
+          matching: find.byType(Text),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('arrow keys page the image pane', (tester) async {

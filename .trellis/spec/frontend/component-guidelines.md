@@ -446,6 +446,18 @@ Future<void> PixivImage.preload(
   must live **inside** the Hero child: a border drawn outside the Hero stays
   on the route during flight (a stationary ghost) and pops back in on
   landing.
+- Detail page page numbers use only `DetailPageCounter`. Narrow and wide
+  layouts both place it at the top-right of the artwork region; single-page
+  and ugoira works never show it; selection mode hides it because each
+  page's selection badge takes the same corner; it appears only after the
+  entry transition completes; it is wrapped in `IgnorePointer`; and its
+  screen-reader label uses `viewerPageLabel`. The detail page keeps no
+  persistent information strip.
+- The detail AppBar directly exposes only download-all and the bookmark
+  heart. Share, page selection, and artwork-info navigation live in the ⋮
+  overflow menu with text labels; no action may depend solely on a long
+  press. Artwork-info navigation must reach the lazily built InfoBlock in
+  long works.
 
 ### 4. Validation & Error Matrix
 
@@ -485,6 +497,10 @@ Future<void> PixivImage.preload(
 - Preview tests assert the source URL and detail index-0 Hero URL are equal;
   first-frame tests assert the avatar slot and provider exist before the detail
   request settles.
+- Detail counter tests assert a single-page work shows no page number, the
+  multi-page counter follows scrolling and hides once scrolling reaches the
+  InfoBlock, and a six-page long work reaches the InfoBlock through the ⋮
+  menu.
 
 ### 7. Wrong vs Correct
 
