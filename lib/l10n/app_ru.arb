@@ -509,6 +509,25 @@
       }
     }
   },
+  "downloadGroupAuthorTitle": "Работы: {name}",
+  "@downloadGroupAuthorTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadTaskPageLabel": "Стр. {page}/{total}",
+  "@downloadTaskPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "downloadAuthorWorks": "Скачать все работы",
   "downloadAuthorWorksTitle": "Скачать все работы автора",
   "downloadAuthorEnumerating": "Перечисление работ… найдено {count}",
