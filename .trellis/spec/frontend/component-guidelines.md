@@ -114,6 +114,19 @@ state or action.
   the `FuncTokens.imageControl`/`onImageControl` pair (pill counters and
   other non-button chrome). A `filledTonal` button or a plain glyph sits on
   an unpredictable image background — on a white artwork both wash out.
+- Never hard-code `SliverPersistentHeaderDelegate.maxExtent` for a header
+  whose content contains text. A fixed extent overflows at large text
+  scales or under longer translations — measure the laid-out content after
+  the frame and feed it back (the profile header's `_ReportSize` →
+  `expandedExtent` loop is the reference), and keep the first estimate
+  frame transparent so the correction is invisible.
+- A `Stack` does not rescue a child that lays out past its bounds:
+  non-`Positioned` children receive the stack's constraints only, so a
+  block taller than the header still overflows (`RenderFlex`) instead of
+  being clipped, and a positioned `OverflowBox` child paints past the
+  stack unless clipped. Content that must stay under a boundary needs an
+  explicit `ClipRect` — the profile identity block is clipped to the
+  `top: minExtent, bottom: 0` region for exactly this reason.
 
 ## Material 3 Theme Contract
 
@@ -288,6 +301,70 @@ selection as the current value, so a tap on the active segment reaches
 Branch Re-tap Contract. Loading, error, and empty feed states keep the
 selector reachable by rendering the box form as a fixed header above the
 status widget; only a loaded feed uses the floating sliver.
+
+The profile page is the second consumer. Each profile feed
+(`ProfileIllustFeed`, `ProfileNovelFeed`, `UserSeriesFeed`) takes a
+`typeSwitch` sliver parameter and inserts it *after*
+`HeaderLocator.sliver()` inside the nested list — the locator must come
+first so the shell can find it — while loading, error, and empty states
+render the switch through `aboveState` so it stays reachable. The profile
+tab delegate (`ReplicaProfileTabsDelegate`) no longer hosts the switch:
+it is a constant 56dp `AppTabBar`; the old 64dp `ChoiceChip` row is gone.
+
+## Profile Header Contract
+
+`ReplicaProfileHeaderDelegate`
+(`lib/features/profile/profile_header_delegate.dart`) owns the profile
+page's flexible header.
+
+**Measured extent.** `maxExtent` is never hard-coded for text-bearing
+content. The identity block (banner spacer, action row, name/account
+lines, statistics grid) lays out at natural height inside an
+`OverflowBox`, and the `_ReportSize` render object reports its height in
+a post-frame callback; the host stores the value as `expandedExtent`, so
+width, locale, and text-scale changes re-size the header without code
+changes. Until the first report arrives the delegate renders one
+transparent frame at `initialExtentEstimate` (360dp) — the correction is
+never a visible jump. The identity subtree stays mounted (`Offstage`)
+through collapse so measurement keeps reporting.
+
+**Geometry.** The banner band is `topInset + kToolbarHeight + 80dp`; the
+80dp avatar is left-aligned (`FuncSpacing.lg` inset) and centred on the
+banner's bottom edge. Banner and identity translate by `-shrinkOffset`
+one-to-one. The toolbar surface fades in over `toolbarFadeDistance`
+(`FuncSpacing.xl`) as the banner's bottom edge leaves the toolbar, and
+the centred toolbar title mounts only at full collapse. Identity content
+is laid out inside `ClipRect` bounded to `top: minExtent, bottom: 0`, so
+it never enters the toolbar band.
+
+**Persistent controls.** Back and overflow live on a topmost layer at
+`topInset + 4` and stay mounted — and tappable — through the whole
+collapse interval, including the fade hand-off between expanded and
+collapsed chrome. While real cover artwork still sits behind the toolbar
+(`hasCover && geometry.bannerBehindToolbar`), the back button is an
+`ImageOverlayButton` and the overflow `PopupMenuButton` applies
+`ImageOverlayButton.buttonStyle()`; collapsed or cover-less, both are
+plain surface icons with no fill. The whole header is wrapped in
+`FuncSystemBars(background: overArtwork ? Brightness.dark :
+theme.brightness)`, so the status bar paints light icons over artwork
+only and restores the root default otherwise.
+
+**Statistics.** `ProfileStatistic` cells render through
+`ProfileStatisticsGrid`: equal-width columns, column count chosen
+6 → 3 → 2 → 1 by the widest intrinsic cell, row height set by the tallest
+cell in the row. There is no horizontal scroll ancestor — all six stats
+stay on screen.
+
+**Tests Required** (`test/user_profile_test.dart`):
+
+- R1, both conditions — 360×640 / `textScaler` 2.0 / `ru` and 411×891 /
+  1.0 / `zh`: no layout exceptions; every action and statistic rect ends
+  at or above the tab bar's top edge; the measured extent tracks
+  refreshed identity content; a drag collapse/expand changes the header
+  height monotonically with no jumps.
+- R6: `SystemChrome.latestStyle` reads `statusBarIconBrightness ==
+  Brightness.light` while a cover is expanded, and the root default
+  (`dark` under the light theme) once collapsed or without a cover.
 
 ## SnackBar Feedback Contract
 
