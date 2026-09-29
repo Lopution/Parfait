@@ -135,4 +135,38 @@ void main() {
     await tester.tap(find.byType(ImageOverlayButton));
     expect(tapped, isTrue);
   });
+
+  testWidgets('buttonStyle() resolves to the same palette the widget paints', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ImageOverlayButton(
+          icon: const Icon(Icons.open_in_new),
+          tooltip: '打开详情页',
+          onPressed: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // PopupMenuButton-style consumers apply the shared style through their
+    // own IconButton — it must resolve to the same colors as the widget.
+    final shared = ImageOverlayButton.buttonStyle();
+    final applied = _style(tester);
+    for (final states in <Set<WidgetState>>{
+      const {},
+      const {WidgetState.disabled},
+    }) {
+      expect(
+        shared.backgroundColor!.resolve(states),
+        applied.backgroundColor!.resolve(states),
+      );
+      expect(
+        shared.foregroundColor!.resolve(states),
+        applied.foregroundColor!.resolve(states),
+      );
+    }
+    expect(shared.tapTargetSize, MaterialTapTargetSize.padded);
+  });
 }

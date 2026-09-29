@@ -6,11 +6,13 @@ import 'package:flutter/scheduler.dart';
 
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/system_ui.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
+import '../../app/widgets/image_overlay_button.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import 'profile_statistics.dart';
@@ -237,6 +239,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     );
     final colors = Theme.of(context).colorScheme;
     final actions = _actions(context);
+    final hasCover = user.backgroundImageUrl != null;
     final bannerHeight =
         topInset +
         kToolbarHeight +
@@ -244,116 +247,125 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     // Layered header, bottom to top: banner → identity (clipped below the
     // toolbar) → fading toolbar surface → collapsed title → persistent
     // back/overflow controls.
-    return Opacity(
-      // First frame only: the delegate still holds the estimate extent
-      // while the real identity height is being measured.
-      opacity: expandedExtent == null ? 0 : 1,
-      child: Material(
-        color: colors.surface,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              fit: StackFit.expand,
-              clipBehavior: Clip.hardEdge,
-              children: [
-                // 1. Banner band: cover image, or a surfaceContainerHigh
-                // strip so the header separates from the page colour.
-                Positioned(
-                  top: geometry.contentOffset,
-                  left: 0,
-                  right: 0,
-                  height: bannerHeight,
-                  child: _ProfileBackground(user: user),
-                ),
-                // 2. Identity block at natural height, clipped below the
-                // toolbar's bottom edge so avatar and text never enter
-                // the toolbar. Stays mounted (Offstage) when collapsed so
-                // the measurement keeps reporting.
-                Positioned(
-                  top: minExtent,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: ClipRect(
-                    child: OverflowBox(
-                      minHeight: 0,
-                      maxHeight: double.infinity,
-                      alignment: Alignment.topCenter,
-                      child: Transform.translate(
-                        offset: Offset(0, geometry.contentOffset - minExtent),
-                        child: Offstage(
-                          offstage: geometry.isFullyCollapsed,
-                          child: _ReportSize(
-                            onSize: (size) =>
-                                onExpandedExtentMeasured(size.height),
-                            child: _ExpandedIdentity(
-                              user: user,
-                              bannerHeight: bannerHeight,
-                              actions: actions,
-                              statistics: statistics,
+    // The overlay affordance and the cover-scoped status bar share one
+    // predicate (R4/R6): only while real artwork still sits behind the
+    // toolbar do the persistent controls get the image-overlay style and
+    // the status bar light icons. A cover-less surfaceContainerHigh band
+    // and the collapsed toolbar both take the normal surface treatment.
+    final overArtwork = hasCover && geometry.bannerBehindToolbar;
+    return FuncSystemBars(
+      background: overArtwork ? Brightness.dark : Theme.of(context).brightness,
+      child: Opacity(
+        // First frame only: the delegate still holds the estimate extent
+        // while the real identity height is being measured.
+        opacity: expandedExtent == null ? 0 : 1,
+        child: Material(
+          color: colors.surface,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  // 1. Banner band: cover image, or a surfaceContainerHigh
+                  // strip so the header separates from the page colour.
+                  Positioned(
+                    top: geometry.contentOffset,
+                    left: 0,
+                    right: 0,
+                    height: bannerHeight,
+                    child: _ProfileBackground(user: user),
+                  ),
+                  // 2. Identity block at natural height, clipped below the
+                  // toolbar's bottom edge so avatar and text never enter
+                  // the toolbar. Stays mounted (Offstage) when collapsed so
+                  // the measurement keeps reporting.
+                  Positioned(
+                    top: minExtent,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: ClipRect(
+                      child: OverflowBox(
+                        minHeight: 0,
+                        maxHeight: double.infinity,
+                        alignment: Alignment.topCenter,
+                        child: Transform.translate(
+                          offset: Offset(0, geometry.contentOffset - minExtent),
+                          child: Offstage(
+                            offstage: geometry.isFullyCollapsed,
+                            child: _ReportSize(
+                              onSize: (size) =>
+                                  onExpandedExtentMeasured(size.height),
+                              child: _ExpandedIdentity(
+                                user: user,
+                                bannerHeight: bannerHeight,
+                                actions: actions,
+                                statistics: statistics,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                // 3. Toolbar surface fading in as the banner leaves.
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: minExtent,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: geometry.toolbarOpacity,
-                      child: ColoredBox(color: colors.surface),
-                    ),
-                  ),
-                ),
-                // 4. Collapsed toolbar title mounts only at full collapse.
-                if (geometry.isFullyCollapsed)
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: SizedBox(
-                      // The status-bar inset belongs above the actual
-                      // 56dp toolbar controls. This keeps pinned chrome
-                      // out of the system UI on targetSdk 36
-                      // edge-to-edge devices.
-                      height: minExtent,
-                      child: Padding(
-                        padding: EdgeInsets.only(top: topInset),
-                        child: SizedBox(
-                          height: kToolbarHeight,
-                          child: _CollapsedProfile(user: user),
-                        ),
+                  // 3. Toolbar surface fading in as the banner leaves.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: minExtent,
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: geometry.toolbarOpacity,
+                        child: ColoredBox(color: colors.surface),
                       ),
                     ),
                   ),
-                // 5. Persistent controls: mounted and tappable through
-                // the whole collapse interval. They restyle once the
-                // toolbar surface covers them (T4 wires the overlay
-                // variant through `bannerBehindToolbar`).
-                Positioned(
-                  top: topInset + 4,
-                  right: 8,
-                  child: _ProfileHeaderMoreButton(
-                    actions: actions,
-                    includePrimary: true,
-                    filled: true,
+                  // 4. Collapsed toolbar title mounts only at full collapse.
+                  if (geometry.isFullyCollapsed)
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        // The status-bar inset belongs above the actual
+                        // 56dp toolbar controls. This keeps pinned chrome
+                        // out of the system UI on targetSdk 36
+                        // edge-to-edge devices.
+                        height: minExtent,
+                        child: Padding(
+                          padding: EdgeInsets.only(top: topInset),
+                          child: SizedBox(
+                            height: kToolbarHeight,
+                            child: _CollapsedProfile(user: user),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // 5. Persistent controls: mounted and tappable through
+                  // the whole collapse interval. They switch to the
+                  // image-overlay affordance only while real artwork still
+                  // sits behind them (`overArtwork`).
+                  Positioned(
+                    top: topInset + 4,
+                    right: 8,
+                    child: _ProfileHeaderMoreButton(
+                      actions: actions,
+                      includePrimary: true,
+                      overArtwork: overArtwork,
+                    ),
                   ),
-                ),
-                // One persistent back button for both header states —
-                // stays mounted through the pop animation instead of
-                // being unmounted by a canPop flip (P3/P4).
-                Positioned(
-                  top: topInset + 4,
-                  left: 8,
-                  child: const _HeaderBackButton(),
-                ),
-              ],
-            );
-          },
+                  // One persistent back button for both header states —
+                  // stays mounted through the pop animation instead of
+                  // being unmounted by a canPop flip (P3/P4).
+                  Positioned(
+                    top: topInset + 4,
+                    left: 8,
+                    child: _HeaderBackButton(overArtwork: overArtwork),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -599,15 +611,17 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
   const _ProfileHeaderMoreButton({
     required this.actions,
     this.includePrimary = false,
-    this.filled = false,
+    this.overArtwork = false,
   });
 
   final List<_ProfileHeaderAction> actions;
   final bool includePrimary;
 
-  /// Tonal fill matching the persistent [IconButton.filledTonal] back
-  /// affordance, so the always-on overflow stays legible over artwork.
-  final bool filled;
+  /// While artwork sits behind the control it carries the shared
+  /// [ImageOverlayButton] palette — a fixed 55% black fill keeps the
+  /// glyph legible over any image. On the normal surface there is no
+  /// fill at all.
+  final bool overArtwork;
 
   @override
   Widget build(BuildContext context) {
@@ -615,15 +629,12 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
         .where((action) => includePrimary || !action.primary)
         .toList();
     if (entries.isEmpty) return const SizedBox.shrink();
-    final colors = Theme.of(context).colorScheme;
     return PopupMenuButton<String>(
       tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-      style: filled
-          ? IconButton.styleFrom(
-              foregroundColor: colors.onSecondaryContainer,
-              backgroundColor: colors.secondaryContainer,
-            )
-          : null,
+      // PopupMenuButton builds its own IconButton, so it cannot wrap an
+      // ImageOverlayButton — the shared style keeps the affordance
+      // identical instead of duplicating the token list.
+      style: overArtwork ? ImageOverlayButton.buttonStyle() : null,
       onSelected: (value) {
         for (final action in entries) {
           if (action.value == value) {
@@ -704,7 +715,12 @@ class _CollapsedProfile extends StatelessWidget {
 /// and leave it out of the pop snapshot. The first evaluation is latched:
 /// a pushed page keeps its button until the route is gone.
 class _HeaderBackButton extends StatefulWidget {
-  const _HeaderBackButton();
+  const _HeaderBackButton({this.overArtwork = false});
+
+  /// While artwork sits behind the button it takes the shared
+  /// [ImageOverlayButton] style; on the normal surface it is a plain
+  /// toolbar icon with no fill (R4).
+  final bool overArtwork;
 
   @override
   State<_HeaderBackButton> createState() => _HeaderBackButtonState();
@@ -722,11 +738,13 @@ class _HeaderBackButtonState extends State<_HeaderBackButton> {
   @override
   Widget build(BuildContext context) {
     if (!_canPop) return const SizedBox.shrink();
-    return IconButton.filledTonal(
-      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-      onPressed: () => Navigator.of(context).maybePop(),
-      icon: const Icon(Icons.arrow_back_ios_new),
-    );
+    final tooltip = MaterialLocalizations.of(context).backButtonTooltip;
+    const icon = Icon(Icons.arrow_back_ios_new);
+    void pop() => Navigator.of(context).maybePop();
+    if (widget.overArtwork) {
+      return ImageOverlayButton(icon: icon, tooltip: tooltip, onPressed: pop);
+    }
+    return IconButton(tooltip: tooltip, onPressed: pop, icon: icon);
   }
 }
 
