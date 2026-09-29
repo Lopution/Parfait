@@ -1011,9 +1011,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historySettingsHint => '历史记录开关由历史模块读取；关闭后不会新增对应记录。';
 
   @override
-  String get downloaderSettingsHint => '下载任务由共享 DownloadManager 实时维护。';
-
-  @override
   String get downloadTasksEmpty => '暂无下载任务';
 
   @override

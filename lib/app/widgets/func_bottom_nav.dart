@@ -621,6 +621,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
           ? 0
           : 1,
     );
+    _scheduleMeasure();
   }
 
   @override

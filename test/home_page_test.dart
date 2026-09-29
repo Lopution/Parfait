@@ -2,8 +2,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:pixiv_func/app/app.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/external_intent_bridge.dart';
+import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
@@ -104,6 +106,11 @@ void main() {
   testWidgets(
     'U4: exit hint snackbar lifetime equals the root back exit window',
     (tester) async {
+      // Pin a compact surface so the shell renders the bottom bar whose
+      // measured height the hint's margin is asserted against.
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -148,6 +155,25 @@ void main() {
       expect(snackBar.behavior, SnackBarBehavior.floating);
       expect(find.text('再按一次退出'), findsOneWidget);
 
+      // The hint clears the shell bottom bar: the floating margin grows by
+      // the bar's measured resting height, and the rendered card never
+      // touches the bar.
+      final metrics = ProviderScope.containerOf(
+        tester.element(find.byType(FuncBottomNav)),
+      ).read(homeShellMetricsProvider);
+      expect(
+        snackBar.margin,
+        EdgeInsets.fromLTRB(16, 0, 16, 16 + metrics.bottomNavHeight!),
+      );
+      final card = tester.getRect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.byType(Material),
+        ),
+      );
+      final bar = tester.getRect(find.byType(FuncBottomNav));
+      expect(card.overlaps(bar), isFalse);
+
       // A second press inside the window exits via SystemNavigator.pop; in
       // the test environment that is a no-op that must not throw.
       await tester.binding.handlePopRoute();
@@ -158,6 +184,51 @@ void main() {
   testWidgets('root back coordinator window is one second', (tester) async {
     expect(RootBackCoordinator.exitWindow, const Duration(seconds: 1));
   });
+
+  testWidgets(
+    'update prompt clears the shell bar and times out at eight seconds',
+    (tester) async {
+      await _pumpHome(tester);
+      await tester.pumpAndSettle();
+
+      final host = tester.element(find.byType(FuncShellBottomNav));
+      showUpdatePrompt(
+        ScaffoldMessenger.of(host),
+        version: '9.9.9',
+        shellMetrics: ProviderScope.containerOf(
+          host,
+        ).read(homeShellMetricsProvider),
+        reduceMotion: false,
+        onOpen: () {},
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snackBar.duration, updatePromptDuration);
+      expect(find.text('发现新版本: 9.9.9'), findsOneWidget);
+      // The shared shell margin lifts the card fully above the bar.
+      final card = tester.getRect(
+        find.descendant(
+          of: find.byType(SnackBar),
+          matching: find.byWidgetPredicate(
+            (w) => w is Material && w.type == MaterialType.canvas,
+          ),
+        ),
+      );
+      final bar = tester.getRect(find.byType(FuncBottomNav));
+      expect(card.overlaps(bar), isFalse);
+
+      // D2: the prompt is still shown mid-dwell; once the 8-second dwell
+      // plus its exit flight have passed it is gone — the action never
+      // pins it.
+      await tester.pump(const Duration(seconds: 7));
+      expect(find.byType(SnackBar), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+    },
+  );
 
   group('three-tier navigation chrome', () {
     Future<void> pumpAt(WidgetTester tester, double width) async {

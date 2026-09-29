@@ -14,13 +14,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class HomeShellMetrics {
   const HomeShellMetrics({this.bottomNavTop, this.bottomNavHeight});
 
-  /// Global top edge of the rendered home bottom bar.  Keeping the edge (and
-  /// not just a guessed height) matters on devices where the bar includes a
-  /// system navigation inset.
+  /// Global top edge of the rendered home bottom bar at its **resting**
+  /// position — the measured box sits outside the bar's slide transforms,
+  /// so the value does not move while the bar slides out and back.
+  /// Keeping the edge (and not just a guessed height) matters on devices
+  /// where the bar includes a system navigation inset.
   final double? bottomNavTop;
 
-  /// Height of the rendered home bottom bar, retained for diagnostics and as
-  /// a conservative fallback before the first frame has been measured.
+  /// Height of the rendered home bottom bar at its resting position. Stays
+  /// null until the bar's first frame has been measured — the bar publishes
+  /// on mount, before any scroll or slide can move it.
   final double? bottomNavHeight;
 }
 

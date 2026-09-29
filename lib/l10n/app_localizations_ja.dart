@@ -1031,10 +1031,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get historySettingsHint => '履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。';
 
   @override
-  String get downloaderSettingsHint =>
-      'ダウンロード状況は共有 DownloadManager がリアルタイムで管理します。';
-
-  @override
   String get downloadTasksEmpty => 'ダウンロードタスクはありません';
 
   @override

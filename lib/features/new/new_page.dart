@@ -12,6 +12,8 @@ import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/app_tab_bar.dart';
+import '../../app/widgets/app_type_switch.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
@@ -20,11 +22,13 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 
-/// Beta56 New page: scope tabs + a persistent content-type selector. Both
-/// are route-durable (`/new?scope=&type=`): [initialScope]/[initialType]
-/// seed the controller and tab/chip changes echo back through
-/// [onFeedChanged]. Each (scope, type) pair keeps its own feed state,
-/// scroll offset and cursor — switching back does not refetch.
+/// Beta56 New page: scope tabs + a floating content-type row inside each
+/// feed. Both are route-durable (`/new?scope=&type=`):
+/// [initialScope]/[initialType] seed the controller and tab/segment
+/// changes echo back through [onFeedChanged]. Each (scope, type) pair
+/// keeps its own feed state, scroll offset and cursor — switching back
+/// does not refetch. The type row travels with its feed: it scrolls away
+/// with the content and floats back in on a reverse drag (D1).
 class NewPage extends StatefulWidget {
   const NewPage({
     super.key,
@@ -176,20 +180,12 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         titleSpacing: 0,
-        title: TabBar(
+        title: AppTabBar(
           controller: _tabController,
-          // Scrollable instead of equal-width slots + FittedBox: labels
-          // stay at full size in every locale (long translations used to
-          // shrink to unreadable).
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          indicatorSize: TabBarIndicatorSize.label,
-          indicatorPadding: const EdgeInsets.only(bottom: 5),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           onTap: _onTabTap,
-          tabs: [
+          labels: [
             for (final scope in _scopes)
-              Tab(text: _newText(context, _scopeLabelKey(scope))),
+              _newText(context, _scopeLabelKey(scope)),
           ],
         ),
         // Feature entries (watchlist, local novels) live in settings'
@@ -207,37 +203,31 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
             }
           }
         }),
-        child: Column(
+        child: TabSlideStack(
+          controller: _tabController,
           children: [
-            // The type selector is persistent chrome — the query context
-            // (scope × type) stays visible in every feed state.
-            _NewTypeSelector(type: _type, onChanged: _onTypeSelected),
-            Expanded(
-              child: TabSlideStack(
-                controller: _tabController,
+            for (final scope in _scopes)
+              // Each scope slot keeps its own loaded type bodies — same
+              // per-key state preservation as the old flat Offstage
+              // stack, now arranged along the strip axis. The type row
+              // floats inside every feed, so each feed keeps its own
+              // float state.
+              Stack(
+                fit: StackFit.expand,
                 children: [
-                  for (final scope in _scopes)
-                    // Each scope slot keeps its own loaded type bodies —
-                    // same per-key state preservation as the old flat
-                    // Offstage stack, now arranged along the strip axis.
-                    Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        for (final key in _loadedKeys)
-                          if (key.scope == scope)
-                            Offstage(
-                              offstage: key.type != _type,
-                              child: _NewFeedBody(
-                                key: ValueKey(key),
-                                feedKey: key,
-                                scrollController: _scrollControllerFor(key),
-                              ),
-                            ),
-                      ],
-                    ),
+                  for (final key in _loadedKeys)
+                    if (key.scope == scope)
+                      Offstage(
+                        offstage: key.type != _type,
+                        child: _NewFeedBody(
+                          key: ValueKey(key),
+                          feedKey: key,
+                          scrollController: _scrollControllerFor(key),
+                          onTypeSelected: _onTypeSelected,
+                        ),
+                      ),
                 ],
               ),
-            ),
           ],
         ),
       ),
@@ -251,45 +241,6 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   };
 }
 
-class _NewTypeSelector extends StatelessWidget {
-  const _NewTypeSelector({required this.type, required this.onChanged});
-
-  final NewFeedType type;
-  final ValueChanged<NewFeedType> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SizedBox(
-        height: 64,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final value in NewFeedType.values) ...[
-                if (value != NewFeedType.values.first) const SizedBox(width: 8),
-                ChoiceChip(
-                  label: Text(
-                    _newText(
-                      context,
-                      value == NewFeedType.illust ? 'newIllust' : 'newNovel',
-                    ),
-                  ),
-                  selected: value == type,
-                  onSelected: (_) => onChanged(value),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// One keyed feed body. The state is kept alive by [NewPage]'s Offstage stack
 /// so scroll/cursor/error state is not shared with another scope or type.
 /// [scrollController] is owned by the page (one per [NewFeedKey]) so re-tap
@@ -299,48 +250,88 @@ class _NewFeedBody extends ConsumerWidget {
     super.key,
     required this.feedKey,
     required this.scrollController,
+    required this.onTypeSelected,
   });
 
   final NewFeedKey feedKey;
   final ScrollController scrollController;
+  final ValueChanged<NewFeedType> onTypeSelected;
+
+  List<({NewFeedType value, String label})> _typeOptions(
+    BuildContext context,
+  ) => [
+    (value: NewFeedType.illust, label: _newText(context, 'newIllust')),
+    (value: NewFeedType.novel, label: _newText(context, 'newNovel')),
+  ];
+
+  /// Loading/error/empty states keep the switch row as a fixed header so
+  /// the type stays switchable — and the row sits at the same spot the
+  /// floating version occupies once data arrives (no jump on load).
+  Widget _withTypeSwitch(BuildContext context, Widget state) {
+    return Column(
+      children: [
+        AppTypeSwitch<NewFeedType>(
+          options: _typeOptions(context),
+          selected: feedKey.type,
+          onSelected: onTypeSelected,
+        ),
+        Expanded(child: state),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feedAsync = ref.watch(newFeedProvider(feedKey));
     return feedAsync.when(
-      loading: () => FeedEmpty(
-        icon: Icons.fiber_new_outlined,
-        title: context.l10n.newLoading,
+      loading: () => _withTypeSwitch(
+        context,
+        FeedEmpty(
+          icon: Icons.fiber_new_outlined,
+          title: context.l10n.newLoading,
+        ),
       ),
-      error: (error, _) => FeedError(
-        title: context.l10n.newLoadFailed,
-        error: error,
-        retryLabel: context.l10n.newRetry,
-        onRetry: () => ref.invalidate(newFeedProvider(feedKey)),
+      error: (error, _) => _withTypeSwitch(
+        context,
+        FeedError(
+          title: context.l10n.newLoadFailed,
+          error: error,
+          retryLabel: context.l10n.newRetry,
+          onRetry: () => ref.invalidate(newFeedProvider(feedKey)),
+        ),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return FeedError(
-            title: context.l10n.newLoadFailed,
-            error: feed.initialError ?? const ApiParseError('unknown error'),
-            retryLabel: context.l10n.newRetry,
-            onRetry: () =>
-                ref.read(newFeedProvider(feedKey).notifier).retryInitial(),
+          return _withTypeSwitch(
+            context,
+            FeedError(
+              title: context.l10n.newLoadFailed,
+              error: feed.initialError ?? const ApiParseError('unknown error'),
+              retryLabel: context.l10n.newRetry,
+              onRetry: () =>
+                  ref.read(newFeedProvider(feedKey).notifier).retryInitial(),
+            ),
           );
         }
         if (feed.showInitialSpinner) {
-          return FeedEmpty(
-            icon: Icons.fiber_new_outlined,
-            title: context.l10n.newLoading,
+          return _withTypeSwitch(
+            context,
+            FeedEmpty(
+              icon: Icons.fiber_new_outlined,
+              title: context.l10n.newLoading,
+            ),
           );
         }
         if (feed.isEmptyAndReady) {
-          return FeedEmpty(
-            icon: Icons.inbox_outlined,
-            title: context.l10n.newEmpty,
-            retryLabel: context.l10n.newRetry,
-            onRefresh: () =>
-                ref.read(newFeedProvider(feedKey).notifier).refresh(),
+          return _withTypeSwitch(
+            context,
+            FeedEmpty(
+              icon: Icons.inbox_outlined,
+              title: context.l10n.newEmpty,
+              retryLabel: context.l10n.newRetry,
+              onRefresh: () =>
+                  ref.read(newFeedProvider(feedKey).notifier).refresh(),
+            ),
           );
         }
 
@@ -368,7 +359,14 @@ class _NewFeedBody extends ConsumerWidget {
                 physics: physics,
                 scrollCacheExtent: kFeedCacheExtent,
                 restorationId: 'new-${feedKey.scope.name}-${feedKey.type.name}',
-                slivers: slivers,
+                slivers: [
+                  SliverAppTypeSwitch<NewFeedType>(
+                    options: _typeOptions(context),
+                    selected: feedKey.type,
+                    onSelected: onTypeSelected,
+                  ),
+                  ...slivers,
+                ],
               ),
             ),
           ),

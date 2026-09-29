@@ -182,6 +182,28 @@ void main() {
     expect(tester.takeException(), isNull, reason: 'no overflow');
   });
 
+  testWidgets('About surfaces the remembered check result before any tap', (
+    tester,
+  ) async {
+    await pumpAbout(
+      tester,
+      service: _StubUpdateService(
+        checkResult: const UpdateCheckResult(
+          status: UpdateCheckStatus.noUpdate,
+        ),
+        lastCheckResult: UpdateCheckResult(
+          status: UpdateCheckStatus.available,
+          release: fakeUpdateRelease(),
+        ),
+      ),
+    );
+
+    // The auto-check ran at startup; the section renders its remembered
+    // result without a manual 检查更新 tap.
+    expect(find.text('发现新版本: 9.9.9'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '下载并安装'), findsOneWidget);
+  });
+
   // Each check failure state maps to its own actionable message (R10):
   // retry after fixing the network, wait out GitHub rate limiting, report
   // an invalid manifest, or acknowledge a busy/generic failure.
@@ -263,11 +285,21 @@ void main() {
 /// Serves the staged check/apply results — the github-flavoured capability
 /// keeps the update controls rendered while the service internals never run.
 class _StubUpdateService extends UpdateService {
-  _StubUpdateService({required this.checkResult, this.applyResult})
-    : super(manifestTransport: _UnusedTransport(), platform: _FdroidPlatform());
+  _StubUpdateService({
+    required this.checkResult,
+    this.applyResult,
+    this.lastCheckResult,
+  }) : super(
+         manifestTransport: _UnusedTransport(),
+         platform: _FdroidPlatform(),
+       );
 
   final UpdateCheckResult checkResult;
   final UpdateApplyResult? applyResult;
+  final UpdateCheckResult? lastCheckResult;
+
+  @override
+  UpdateCheckResult? get lastCheck => lastCheckResult;
 
   @override
   Future<UpdateCapability> capability() async =>

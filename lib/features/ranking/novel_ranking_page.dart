@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/motion/feed_entrance.dart';
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -113,13 +114,8 @@ class _NovelRankingPageState extends State<NovelRankingPage>
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
-        title: TabBar(
+        title: AppTabBar(
           controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          indicatorSize: TabBarIndicatorSize.label,
-          indicatorPadding: const EdgeInsets.only(bottom: 5),
-          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           onTap: (index) {
             // Same-index taps never reach _changeIndex (it early-returns),
             // so indexIsChanging is false exactly for a re-tap: scroll the
@@ -131,9 +127,9 @@ class _NovelRankingPageState extends State<NovelRankingPage>
               );
             }
           },
-          tabs: [
+          labels: [
             for (final item in NovelRankingMode.values)
-              Tab(text: l10nLookupFor(language.locale, item.labelKey)),
+              l10nLookupFor(language.locale, item.labelKey),
           ],
         ),
       ),

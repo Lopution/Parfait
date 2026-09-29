@@ -17,6 +17,7 @@ import '../core/platform/android_intent_channel.dart';
 import 'external_intent_bridge.dart';
 import 'haptics/app_haptics.dart';
 import 'motion/motion_tokens.dart';
+import 'navigation/home_shell_metrics.dart';
 import 'scroll_behavior.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
@@ -33,6 +34,36 @@ class PixivFuncApp extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<PixivFuncApp> createState() => _PixivFuncAppState();
+}
+
+/// Dwell time of the auto-update prompt (D2): long enough to read and act
+/// on, short enough that a stale "new version" hint cannot linger on screen
+/// after the user has already seen it.
+const updatePromptDuration = Duration(seconds: 8);
+
+/// Shows the "update available" prompt on the given messenger — the app
+/// level caller holds the root `_messengerKey`, so this is split out for
+/// testability and to keep the l10n lookup on the messenger's own context
+/// (the caller's context sits above MaterialApp and has no Localizations).
+@visibleForTesting
+void showUpdatePrompt(
+  ScaffoldMessengerState messenger, {
+  required String version,
+  required HomeShellMetrics shellMetrics,
+  required bool reduceMotion,
+  required VoidCallback onOpen,
+}) {
+  final l10n = messenger.context.l10n;
+  showAppSnackBarOn(
+    messenger,
+    '${l10n.aboutUpdateAvailable}: $version',
+    duration: updatePromptDuration,
+    action: SnackBarAction(label: l10n.aboutUpdateOpen, onPressed: onOpen),
+    margin: appSnackBarShellMargin(shellMetrics),
+    animationStyle: !reduceMotion
+        ? appSnackBarAnimationStyle
+        : AnimationStyle.noAnimation,
+  );
 }
 
 class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
@@ -84,23 +115,18 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
       return;
     }
     final version = result.release?.manifest.version ?? '';
-    final l10n = messengerContext.l10n;
     // The root ScaffoldMessenger sits above MotionScope, so the in-app
     // reduce-motion setting is read from the provider directly (the same
     // source the scope publishes); the platform half of the gate is still
     // reachable through the messenger's context.
     final reduceMotion =
         ref.read(settingsProvider).value?.reduceMotion ?? false;
-    showAppSnackBarOn(
+    showUpdatePrompt(
       messenger,
-      '${l10n.aboutUpdateAvailable}: $version',
-      action: SnackBarAction(
-        label: l10n.aboutUpdateOpen,
-        onPressed: () => _router.push<void>('/settings/about'),
-      ),
-      animationStyle: !reduceMotion
-          ? appSnackBarAnimationStyle
-          : AnimationStyle.noAnimation,
+      version: '$version',
+      shellMetrics: ref.read(homeShellMetricsProvider),
+      reduceMotion: reduceMotion,
+      onOpen: () => _router.push<void>('/settings/about'),
     );
   }
 
