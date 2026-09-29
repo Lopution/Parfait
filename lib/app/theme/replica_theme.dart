@@ -30,9 +30,15 @@ ThemeData replicaTheme(Brightness brightness) {
       ? FuncTokens.darkTextSecondary
       : FuncTokens.lightTextSecondary;
 
-  final baseTextTheme = ThemeData(
-    brightness: brightness,
-  ).textTheme.apply(bodyColor: text, displayColor: text);
+  // fontFamily goes through apply() as well: ThemeData(fontFamily:) only
+  // lands on the *default* textTheme before merge(), so base styles that
+  // carry an explicit platform family (Roboto on the untouched slots like
+  // labelMedium/titleLarge) would otherwise win the merge and leak through.
+  final baseTextTheme = ThemeData(brightness: brightness).textTheme.apply(
+    bodyColor: text,
+    displayColor: text,
+    fontFamily: 'Montserrat',
+  );
 
   final colorScheme =
       ColorScheme.fromSeed(
@@ -78,7 +84,6 @@ ThemeData replicaTheme(Brightness brightness) {
           elevation: 0,
         ).copyWith(
           backgroundColor: inverseSurface,
-          contentTextStyle: TextStyle(color: onInverseSurface),
           actionTextColor: colorScheme.inversePrimary,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -136,11 +141,6 @@ ThemeData replicaTheme(Brightness brightness) {
       surfaceTintColor: FuncTokens.transparent,
       iconTheme: IconThemeData(color: text),
       actionsIconTheme: IconThemeData(color: text),
-      titleTextStyle: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
     ),
     iconTheme: IconThemeData(color: text),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
@@ -186,8 +186,6 @@ ThemeData replicaTheme(Brightness brightness) {
       indicatorColor: colorScheme.primaryContainer,
       selectedIconTheme: IconThemeData(color: colorScheme.primary),
       unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
-      selectedLabelTextStyle: TextStyle(color: colorScheme.primary),
-      unselectedLabelTextStyle: TextStyle(color: colorScheme.onSurfaceVariant),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: SegmentedButton.styleFrom(
@@ -207,8 +205,6 @@ ThemeData replicaTheme(Brightness brightness) {
       backgroundColor: colorScheme.surfaceContainer,
       selectedColor: colorScheme.primaryContainer,
       checkmarkColor: colorScheme.onPrimaryContainer,
-      labelStyle: TextStyle(color: text),
-      secondaryLabelStyle: TextStyle(color: text),
       side: BorderSide(color: colorScheme.outline),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -218,12 +214,6 @@ ThemeData replicaTheme(Brightness brightness) {
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: FuncTokens.transparent,
       elevation: 0,
-      titleTextStyle: TextStyle(
-        color: text,
-        fontSize: 24,
-        fontWeight: FontWeight.w500,
-      ),
-      contentTextStyle: TextStyle(color: text, fontSize: 14),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(28)),
       ),
@@ -259,12 +249,39 @@ ThemeData replicaTheme(Brightness brightness) {
     ),
   );
 
-  // D3: tab labels render at 14sp. The style is built off the *resolved*
-  // textTheme so it carries the Montserrat family — a TextStyle written
-  // directly into TabBarThemeData above would fall back to the platform
-  // font for Latin text.
-  final tabLabelStyle = theme.textTheme.titleSmall!.copyWith(fontSize: 14);
+  // Component themes whose widgets swap DefaultTextStyle wholesale (AppBar
+  // title, SnackBar, Chip labels, Dialog texts, rail labels, tab labels)
+  // derive their styles from the *resolved* textTheme below — a TextStyle
+  // written directly into a component theme lacks a family and falls back
+  // to the platform font for Latin letters and digits. Sizes/weights keep
+  // their previous values; only the family (and a color where needed) is
+  // carried over.
+  final textTheme = theme.textTheme;
+  final tabLabelStyle = textTheme.titleSmall!.copyWith(fontSize: 14);
+  final bodyText = textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.w400);
   return theme.copyWith(
+    appBarTheme: theme.appBarTheme.copyWith(
+      titleTextStyle: textTheme.titleMedium!.copyWith(fontSize: 16),
+    ),
+    snackBarTheme: theme.snackBarTheme.copyWith(
+      contentTextStyle: bodyText.copyWith(color: onInverseSurface),
+    ),
+    chipTheme: theme.chipTheme.copyWith(
+      labelStyle: bodyText,
+      secondaryLabelStyle: bodyText,
+    ),
+    dialogTheme: theme.dialogTheme.copyWith(
+      titleTextStyle: textTheme.headlineSmall!.copyWith(fontSize: 24),
+      contentTextStyle: bodyText,
+    ),
+    navigationRailTheme: theme.navigationRailTheme.copyWith(
+      selectedLabelTextStyle: textTheme.labelMedium!.copyWith(
+        color: colorScheme.primary,
+      ),
+      unselectedLabelTextStyle: textTheme.labelMedium!.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+    ),
     tabBarTheme: theme.tabBarTheme.copyWith(
       labelStyle: tabLabelStyle,
       unselectedLabelStyle: tabLabelStyle,
