@@ -962,6 +962,14 @@ snapshots before the recovered group status is exposed. HTTP `Retry-After` and t
 stable auth/rate/network/storage/permission/decode/resource failure classes
 are retained in the job snapshot without storing request headers or tokens.
 
+A submission snapshot may also carry optional **display fields** —
+`thumbnailUrl` and `totalPages` — that let the management list render the
+work thumbnail and a page label without re-fetching the entity. They are
+presentation-only: they never enter `dedupeKey` or owner checks, and
+records persisted before they existed decode them as `null` and must still
+recover — the row then falls back to the placeholder and the bare file
+name.
+
 Ugoira export follows the same owner fence, bounded frame/pixel/output
 budgets, cancellation checks and one pending output. It emits `finalizing`
 before the sink finalize call and publishes success only after finalize
