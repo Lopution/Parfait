@@ -32,6 +32,7 @@ import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:pixiv_func/features/illust/detail/widgets/detail_image_pager.dart';
+import 'package:pixiv_func/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:pixiv_func/features/illust/detail/ugoira_viewer.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
@@ -2031,9 +2032,35 @@ void main() {
       expect(find.byType(TwoPane), findsOneWidget);
       expect(find.byType(DetailImagePager), findsOneWidget);
       expect(find.byType(PageView), findsOneWidget);
-      // Page indicator and the meta column's info block both render.
+      // The shared page-counter overlay and the meta column's info block
+      // both render.
+      expect(find.byType(DetailPageCounter), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
       expect(find.text('作品说明文字'), findsOneWidget);
+    });
+
+    testWidgets('single-page work keeps the counter empty in the pager', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {42: illustJson(42, pageCount: 1)},
+      );
+      await pumpDetail(tester, container, seedStore: false);
+
+      expect(find.byType(TwoPane), findsOneWidget);
+      expect(find.byType(DetailImagePager), findsOneWidget);
+      // The overlay is mounted but paints nothing for a single page.
+      expect(find.byType(DetailPageCounter), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DetailPageCounter),
+          matching: find.byType(Text),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('arrow keys page the image pane', (tester) async {
