@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -77,6 +78,11 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // D2: edge-to-edge from process start. Previously only exiting the
+    // viewer set this, so Android 10-14 rendered a different layout before
+    // and after the first viewer visit (and the transparent nav bar only
+    // means something edge-to-edge). Android 15+ enforces it anyway.
+    unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
     // C5: one lightweight recovery bootstrap at process start. Constructing
     // the provider triggers the fireImmediately account listener, which
     // scans durable download/ugoira recovery records and cleans only

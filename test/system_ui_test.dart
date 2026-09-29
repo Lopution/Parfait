@@ -1,13 +1,33 @@
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'package:pixiv_func/app/app.dart';
 import 'package:pixiv_func/app/system_ui.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
+import 'package:pixiv_func/core/auth/account.dart';
+import 'package:pixiv_func/core/auth/credential.dart';
+import 'package:pixiv_func/core/download/download_manager.dart';
+import 'package:pixiv_func/core/download/download_providers.dart';
+import 'package:pixiv_func/core/download/download_sink.dart';
+import 'package:pixiv_func/core/network/compat/network_policy.dart';
+import 'package:pixiv_func/core/network/compat/network_providers.dart';
+import 'package:pixiv_func/core/network/compat/pixiv_network_factory.dart';
+import 'package:pixiv_func/core/settings/app_settings.dart';
+import 'package:pixiv_func/core/settings/settings_controller.dart';
+import 'package:pixiv_func/core/settings/settings_repository.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+
+import 'download_manager_test.dart';
+import 'helpers/fake_account.dart';
+import 'helpers/test_preferences.dart';
 
 /// Mounts the root system-bar default exactly like app.dart's builder: the
 /// outermost widget inside the theme, reading the resolved brightness.
@@ -155,4 +175,175 @@ void main() {
       Brightness.light,
     );
   });
+
+  test('a platform failure is logged, not thrown or dropped', () async {
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+        throw PlatformException(code: 'unavailable', message: 'no engine');
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    final printed = <String>[];
+    final previousDebugPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) {
+      if (message != null) printed.add(message);
+    };
+    try {
+      // Completes normally — desktop embedders and detached engines must not
+      // crash the caller — but the failure leaves a log line.
+      await setSystemUiMode(SystemUiMode.edgeToEdge);
+    } finally {
+      debugPrint = previousDebugPrint;
+    }
+    expect(printed, anyElement(contains('setEnabledSystemUIMode')));
+  });
+
+  testWidgets('the viewer hides to immersiveSticky and exits to edgeToEdge', (
+    tester,
+  ) async {
+    debugResetViewerSession();
+    addTearDown(debugResetViewerSession);
+    final modes = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+        modes.add(call.arguments as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: const Scaffold(body: SizedBox.expand()),
+        ),
+      );
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const ImageViewerPage(
+            urls: ['https://i.pximg.net/1/original.jpg'],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Chrome starts visible; a lone tap hides it → immersiveSticky. The
+      // tap resolves after the double-tap window (~300ms).
+      await tester.tap(find.byType(PageView));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+    });
+    expect(modes, contains('SystemUiMode.immersiveSticky'));
+
+    navigatorKey.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(
+      modes.last,
+      'SystemUiMode.edgeToEdge',
+      reason: 'leaving the viewer always restores the ambient edge-to-edge',
+    );
+  });
+
+  testWidgets('startup enters edgeToEdge once (D2)', (tester) async {
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    final modes = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+        modes.add(call.arguments as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    // Widget coordinator gate — keeps startup quiet without a native side.
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('pixivfunc/widget'),
+      (call) async => false,
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        ...accountProviderOverrides(
+          credentialStore: FakeCredentialStore(
+            values: const {
+              '100': Credential(accessToken: 'a', refreshToken: 'r'),
+            },
+          ),
+          metadataRepository: FakeAccountMetadataRepository(
+            accounts: const [Account(id: '100', userId: 100, name: 't')],
+            currentId: '100',
+          ),
+        ),
+        settingsRepositoryProvider.overrideWithValue(
+          _MemorySettingsRepository(
+            AppSettings.defaults().copyWith(guideCompleted: true),
+          ),
+        ),
+        pixivNetworkFactoryProvider.overrideWithValue(
+          PixivNetworkFactory(
+            NetworkAccessPolicy(
+              clientFactory: (route, host, purpose) =>
+                  MockClient((_) async => http.Response('{}', 200)),
+            ),
+          ),
+        ),
+        downloadManagerProvider.overrideWithValue(
+          DownloadManager(
+            transport: FakeTransport(),
+            sinkFactory: MemorySinkFactory(),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const PixivFuncApp(),
+      ),
+    );
+    // The delayed auto-update check (3s) must fire before the test ends —
+    // pump past it like the other app-level tests do.
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    await tester.pumpAndSettle();
+
+    expect(
+      modes.where((mode) => mode == 'SystemUiMode.edgeToEdge'),
+      hasLength(1),
+      reason: 'edge-to-edge is an app-start contract, not a per-page side',
+    );
+  });
+}
+
+class _MemorySettingsRepository implements SettingsRepository {
+  _MemorySettingsRepository(this.value);
+
+  AppSettings value;
+
+  @override
+  Future<AppSettings> load() async => value;
+
+  @override
+  Future<void> save(AppSettings settings) async => value = settings;
 }
