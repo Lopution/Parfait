@@ -19,6 +19,7 @@ import 'haptics/app_haptics.dart';
 import 'motion/motion_tokens.dart';
 import 'navigation/home_shell_metrics.dart';
 import 'scroll_behavior.dart';
+import 'system_ui.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
@@ -239,14 +240,17 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
                     settingsPending: settingsPending,
                     child: routeChild,
                   ));
-        return MotionScope(
-          reduce: settings.reduceMotion,
-          // ignore: deprecated_member_use
-          child: MaterialUiCompatibilityBridge(
-            child: ExternalIntentBridge(
-              router: _router,
-              intentSource: widget.intentSource,
-              child: PipelineWarmup(child: content),
+        return FuncSystemBars(
+          background: Theme.of(context).brightness,
+          child: MotionScope(
+            reduce: settings.reduceMotion,
+            // ignore: deprecated_member_use
+            child: MaterialUiCompatibilityBridge(
+              child: ExternalIntentBridge(
+                router: _router,
+                intentSource: widget.intentSource,
+                child: PipelineWarmup(child: content),
+              ),
             ),
           ),
         );

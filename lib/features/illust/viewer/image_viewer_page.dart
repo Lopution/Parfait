@@ -19,6 +19,7 @@ import '../../../core/download/download_task.dart' show DownloadEvent;
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/network/compat/network_providers.dart';
+import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
 import '../../../app/widgets/app_snack_bar.dart';
@@ -482,54 +483,61 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           child: DragToDismiss(
             enabled: !_activeZoomed,
             onDismissed: () => Navigator.of(context).pop<void>(),
-            child: Scaffold(
-              // primary: false — the media fills the whole screen edge to edge;
-              // each chrome bar SafeAreas its own controls.
-              primary: false,
-              backgroundColor: Colors.black,
-              body: Stack(
-                children: [
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      // Tap toggles chrome; double-tap runs the zoom cycle.
-                      // One detector registers both so the framework arena does
-                      // the ~kDoubleTapTimeout disambiguation (risks R1 — no
-                      // custom timer).
-                      onTap: _toggleChrome,
-                      onDoubleTapDown: (details) =>
-                          _doubleTapFocal = details.localPosition,
-                      onDoubleTap: _onDoubleTap,
-                      child: _pageCount == 0
-                          ? Center(
-                              child: Text(
-                                text('viewerNoImages'),
-                                style: TextStyle(
-                                  color: FuncTokens.lightBackground,
+            // The stage is always black; pin light bar icons while the
+            // viewer is mounted so the clock stays readable after exiting
+            // immersive mode (the AnnotatedRegion restores the ambient
+            // style on pop).
+            child: FuncSystemBars(
+              background: Brightness.dark,
+              child: Scaffold(
+                // primary: false — the media fills the whole screen edge to
+                // edge; each chrome bar SafeAreas its own controls.
+                primary: false,
+                backgroundColor: Colors.black,
+                body: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        // Tap toggles chrome; double-tap runs the zoom cycle.
+                        // One detector registers both so the framework arena does
+                        // the ~kDoubleTapTimeout disambiguation (risks R1 — no
+                        // custom timer).
+                        onTap: _toggleChrome,
+                        onDoubleTapDown: (details) =>
+                            _doubleTapFocal = details.localPosition,
+                        onDoubleTap: _onDoubleTap,
+                        child: _pageCount == 0
+                            ? Center(
+                                child: Text(
+                                  text('viewerNoImages'),
+                                  style: TextStyle(
+                                    color: FuncTokens.lightBackground,
+                                  ),
                                 ),
+                              )
+                            : PageView.builder(
+                                controller: _pageController,
+                                physics: _activeZoomed
+                                    ? const NeverScrollableScrollPhysics()
+                                    : const PageScrollPhysics(),
+                                itemCount: _pageCount,
+                                itemBuilder: _buildPage,
                               ),
-                            )
-                          : PageView.builder(
-                              controller: _pageController,
-                              physics: _activeZoomed
-                                  ? const NeverScrollableScrollPhysics()
-                                  : const PageScrollPhysics(),
-                              itemCount: _pageCount,
-                              itemBuilder: _buildPage,
-                            ),
+                      ),
                     ),
-                  ),
-                  _ChromeEdgeBar(
-                    visible: _chromeVisible,
-                    edge: _ChromeEdge.top,
-                    child: _buildTopBar(context),
-                  ),
-                  _ChromeEdgeBar(
-                    visible: _chromeVisible,
-                    edge: _ChromeEdge.bottom,
-                    child: _buildBottomBar(context, saveState),
-                  ),
-                ],
+                    _ChromeEdgeBar(
+                      visible: _chromeVisible,
+                      edge: _ChromeEdge.top,
+                      child: _buildTopBar(context),
+                    ),
+                    _ChromeEdgeBar(
+                      visible: _chromeVisible,
+                      edge: _ChromeEdge.bottom,
+                      child: _buildBottomBar(context, saveState),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
