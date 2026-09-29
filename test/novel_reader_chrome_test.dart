@@ -19,6 +19,7 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/novel/reader_settings.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/novel/novel_page.dart';
+import 'package:pixiv_func/features/novel/novel_reader.dart';
 import 'package:pixiv_func/features/novel/novel_reader_stage.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
@@ -127,6 +128,20 @@ Object.defineProperty(window, 'pixiv', {value: {
   );
   await container.read(accountStoreProvider.future);
   return container;
+}
+
+/// Pumps until the async pagination lands on its real page count: the
+/// controller boots at `1/1`, so a still-laying-out footer always shows
+/// `· 1/1 ·`. Layout yields on zero-duration timers, which `pump` drains.
+Future<void> _settleReader(WidgetTester tester) async {
+  final hint = find.textContaining('novel 1 ·');
+  for (var i = 0; i < 80; i++) {
+    if (hint.evaluate().isNotEmpty &&
+        !tester.widget<Text>(hint).data!.contains('· 1/1 ·')) {
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 void main() {
@@ -578,6 +593,275 @@ void main() {
       Brightness.light,
       reason: 'the status bar still belongs to the night stage',
     );
+  });
+
+  testWidgets('system bars hide with the chrome and return on pop', (
+    tester,
+  ) async {
+    // R1: open hidden → immersiveSticky; reveal → edgeToEdge; hide →
+    // immersiveSticky; pop → edgeToEdge on the first frame of the pop,
+    // before dispose ever runs.
+    final modes = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+        modes.add(call.arguments as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: _Host(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      // Detail + webview fetches, then the first layout pass.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    expect(
+      modes.last,
+      'SystemUiMode.immersiveSticky',
+      reason: 'the reader opens with chrome hidden → immersive',
+    );
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    expect(
+      modes.last,
+      'SystemUiMode.edgeToEdge',
+      reason: 'revealing the chrome brings the bars back',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    expect(
+      modes.last,
+      'SystemUiMode.immersiveSticky',
+      reason: 'hiding the chrome re-immerses',
+    );
+    await tester.pumpAndSettle();
+
+    // Chrome is hidden, so this back pops the page outright; the ambient
+    // mode must already be restored on the first frame after the pop is
+    // handled — dispose fires only when the pop animation ends.
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(
+      modes.last,
+      'SystemUiMode.edgeToEdge',
+      reason: 'edgeToEdge is requested as the pop starts, not at dispose',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(NovelPage), findsNothing);
+  });
+
+  testWidgets('explicit back restores edge-to-edge during the pop', (
+    tester,
+  ) async {
+    // R1 second leg: an imperative pop bypasses the chrome-first
+    // interception but still reports through onPopInvokedWithResult.
+    final modes = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+        modes.add(call.arguments as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: _Host(),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    // Reveal the chrome (edgeToEdge), then leave through the explicit
+    // back control: the mode must already be ambient on the first frame
+    // of the pop animation.
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(modes.last, 'SystemUiMode.edgeToEdge');
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pump();
+    expect(
+      modes.last,
+      'SystemUiMode.edgeToEdge',
+      reason: 'an imperative pop also restores the ambient mode early',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(NovelPage), findsNothing);
+  });
+
+  testWidgets('the body keeps its layout when the system bars hide', (
+    tester,
+  ) async {
+    // R3: hiding the bars drops the live insets to zero. The body, the
+    // page count and the hint must not move — the stage reads its cached
+    // "bars shown" insets, so no repagination happens (D1).
+    // FakeViewPadding speaks physical pixels; pin dpr to 1 and the
+    // surface to the usual 800x600 so insets are read as logical dp.
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 48);
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+    addTearDown(tester.view.reset);
+
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: NovelPage(novelId: 1),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+      await _settleReader(tester);
+    });
+
+    Rect readerRect() => tester.getRect(find.byType(NovelReader));
+    Rect? hintRect() {
+      final hint = find.textContaining('novel 1 ·');
+      return hint.evaluate().isEmpty ? null : tester.getRect(hint);
+    }
+
+    String footer() =>
+        tester.widget<Text>(find.textContaining('novel 1 ·')).data!;
+
+    final stableRect = readerRect();
+    final stableHint = hintRect()!;
+    final stableFooter = footer();
+
+    void expectUnchanged(String phase) {
+      expect(readerRect(), stableRect, reason: 'body moved in $phase');
+      expect(hintRect(), stableHint, reason: 'hint moved in $phase');
+      expect(footer(), stableFooter, reason: 'repaginated in $phase');
+    }
+
+    // Bars vanish: live insets report zero, layout must not move.
+    tester.view.viewPadding = const FakeViewPadding();
+    tester.view.padding = const FakeViewPadding();
+    await tester.pump();
+    expectUnchanged('insets dropping to zero');
+
+    // Bars return: still the same layout.
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 48);
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+    await tester.pump();
+    expectUnchanged('insets restored');
+
+    // A real reveal + hide cycle leaves the body untouched as well. The
+    // hint yields to the chrome while it is up and returns at the same
+    // place afterwards.
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(readerRect(), stableRect, reason: 'body moved on reveal');
+    expect(hintRect(), isNull, reason: 'hint must yield to the chrome');
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expectUnchanged('chrome hidden again');
+  });
+
+  testWidgets('a screen-size change reseeds the stable insets', (tester) async {
+    // R3 second leg: the cached insets are only valid for the size they
+    // were read at — a rotation/split changes the screen and the next
+    // live reading wins outright.
+    // FakeViewPadding speaks physical pixels; pin dpr to 1 and the
+    // surface to the usual 800x600 so insets are read as logical dp.
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 48);
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+    addTearDown(tester.view.reset);
+
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: NovelPage(novelId: 1),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+      await _settleReader(tester);
+    });
+
+    // Same size, bars hidden: the cached 24 top still applies.
+    tester.view.viewPadding = const FakeViewPadding();
+    tester.view.padding = const FakeViewPadding();
+    await tester.pump();
+    expect(tester.getRect(find.byType(NovelReader)).top, 24);
+
+    // New screen size with new live insets: the cache reseeds to them —
+    // this is the documented one-time relayout on rotation.
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.viewPadding = const FakeViewPadding(top: 8, bottom: 16);
+    tester.view.padding = const FakeViewPadding(top: 8, bottom: 16);
+    await tester.pump();
+    // The old layout's pages overflow the resized viewport for the frames
+    // the reseeded relayout still has in flight — that single relayout is
+    // the documented rotation boundary, not a layout bug. Let it commit,
+    // then drain those transient paint errors.
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    while (tester.takeException() != null) {}
+    expect(tester.getRect(find.byType(NovelReader)).top, 8);
   });
 
   testWidgets('leaving the reader restores the root bar style', (tester) async {

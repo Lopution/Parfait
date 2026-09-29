@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -90,8 +91,8 @@ class NovelStatusScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        SafeArea(
-          bottom: false,
+        Padding(
+          padding: MediaQuery.of(context).padding.copyWith(bottom: 0),
           child: Align(
             alignment: Alignment.centerLeft,
             // An explicit control means "leave the page"; only the system
@@ -139,16 +140,45 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   bool _prefsReady = false;
   Object? _loadError;
 
+  /// System-bar insets as seen with the bars shown (D1). Hiding the bars
+  /// reports zero insets; reading them live would grow the body and
+  /// repaginate. Each edge keeps its maximum until the screen size changes.
+  EdgeInsets _stableInsets = EdgeInsets.zero;
+  Size? _insetsSize;
+
   NovelEntity get novel => widget.spec.novel;
 
   @override
   void initState() {
     super.initState();
+    // Chrome starts hidden, so the reader opens straight into immersion.
+    unawaited(setSystemUiMode(SystemUiMode.immersiveSticky));
     _loadPrefs();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final size = MediaQuery.sizeOf(context);
+    final live = MediaQuery.of(context).viewPadding;
+    final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;
+    _insetsSize = size;
+    if (next != _stableInsets) _stableInsets = next;
+  }
+
+  static EdgeInsets _maxEdges(EdgeInsets a, EdgeInsets b) => EdgeInsets.only(
+    left: math.max(a.left, b.left),
+    top: math.max(a.top, b.top),
+    right: math.max(a.right, b.right),
+    bottom: math.max(a.bottom, b.bottom),
+  );
+
+  @override
   void dispose() {
+    // Leaving without a pop (route replace, go()) skips the pop callback —
+    // restore the ambient bars here as the fallback. Re-setting
+    // edgeToEdge is harmless when the route left through a normal pop.
+    unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
     _chrome.dispose();
     super.dispose();
   }
@@ -180,6 +210,13 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
 
   void _setChromeVisible(bool visible) {
     setState(() => _chromeVisible = visible);
+    // System bars share the chrome's visibility: immersive while hidden,
+    // edge-to-edge while the bars are up.
+    unawaited(
+      setSystemUiMode(
+        visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
+      ),
+    );
     if (!MotionTokens.enabled(context)) {
       // Reduced motion: land the end state — a zeroed controller still
       // drives the hittable/dismissed boundary correctly.
@@ -242,7 +279,14 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       child: PopScope(
         canPop: !_chromeVisible,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _hideChrome();
+          if (didPop) {
+            // Restore the bars as the pop starts — dispose only runs
+            // after the pop animation, and the previous route needs its
+            // status bar while the transition is still on screen.
+            unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
+          } else {
+            _hideChrome();
+          }
         },
         // Arrow-key paging lives on the stage's own Focus — when a sheet
         // route opens it takes the primary focus, so keys reach the sheet
@@ -264,7 +308,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                   Positioned(
                     left: 16,
                     right: 16,
-                    bottom: 4 + MediaQuery.viewPaddingOf(context).bottom,
+                    bottom: 4 + _stableInsets.bottom,
                     child: IgnorePointer(
                       child: Text(
                         '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
@@ -335,8 +379,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     if (!_prefsReady) {
       return const FeedLoading();
     }
-    final content = SafeArea(
-      bottom: false,
+    final content = Padding(
+      padding: _stableInsets.copyWith(bottom: 0),
       child: NovelReader(
         novel: novel,
         settings: _settings,
@@ -380,8 +424,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
         data: IconThemeData(color: foreground),
         // The Material paints through the status-bar inset; only the
         // controls are padded below it.
-        child: SafeArea(
-          bottom: false,
+        child: Padding(
+          padding: _stableInsets.copyWith(bottom: 0),
           child: Row(
             children: [
               IconButton(
@@ -428,8 +472,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
         data: IconThemeData(color: foreground),
         // The Material paints through the gesture-strip inset; only the
         // controls are padded above it.
-        child: SafeArea(
-          top: false,
+        child: Padding(
+          padding: _stableInsets.copyWith(top: 0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -540,7 +584,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
               _readerHandle.goToPage?.call(page, animate: false);
             }
 
-            return SafeArea(
+            return Padding(
+              padding: MediaQuery.of(context).padding,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(
@@ -648,7 +693,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
               _applySettings(next);
             }
 
-            return SafeArea(
+            return Padding(
+              padding: MediaQuery.of(context).padding,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(

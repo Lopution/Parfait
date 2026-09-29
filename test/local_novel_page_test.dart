@@ -352,6 +352,43 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('reader opens into immersiveSticky system ui', (tester) async {
+    // R1 second half: the local reader shares the stage — it must enter
+    // immersion on open just like the online page.
+    final modes = <String>[];
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+        modes.add(call.arguments as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    await warmDatabase(tester);
+    final novel = await tester.runAsync(
+      () => container
+          .read(localNovelRepositoryProvider)
+          .importBytes(
+            fileName: 'Deep Read.txt',
+            bytes: Uint8List.fromList(utf8.encode('Immersive opening.')),
+            targetDir: dir,
+          ),
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(LocalNovelReaderPage(localId: novel!.id)),
+      ),
+    );
+    await _pumpUntil(tester, find.byType(PageView));
+    expect(find.byType(LocalNovelReaderPage), findsOneWidget);
+    expect(modes, contains('SystemUiMode.immersiveSticky'));
+  });
+
   testWidgets('reader mounts the shared stage: chrome, settings, footer', (
     tester,
   ) async {
