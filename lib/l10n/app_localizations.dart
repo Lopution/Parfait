@@ -2105,6 +2105,18 @@ abstract class AppLocalizations {
   /// **'已完成 {done}/{count}'**
   String downloadGroupProgress(int done, int count);
 
+  /// No description provided for @downloadGroupAuthorTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 的作品'**
+  String downloadGroupAuthorTitle(String name);
+
+  /// No description provided for @downloadTaskPageLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {page}/{total} 页'**
+  String downloadTaskPageLabel(int page, int total);
+
   /// No description provided for @downloadAuthorWorks.
   ///
   /// In zh, this message translates to:

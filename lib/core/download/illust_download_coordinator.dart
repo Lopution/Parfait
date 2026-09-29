@@ -143,6 +143,7 @@ class IllustDownloadCoordinator {
       width: work.width,
       height: work.height,
       date: DateTime.tryParse(work.createDate ?? ''),
+      thumbnailUrl: work.squareUrlAt(pageIndex),
     );
   }
 

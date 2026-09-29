@@ -721,3 +721,30 @@ tolerance stay in one place.
 - Haptics are a redundant feedback channel: with the toggle off or on a
   platform without haptics support, all visual feedback must still be
   complete and distinguishable.
+## Management List Rows
+
+Management-style lists (Settings → Download Tasks and any future
+batch-manageable list) render **rows**, not stacked cards, and follow
+these rules:
+
+- **Lazy construction.** The list is a `ListView.builder` over a
+  flattened entry model — group header, expanded group children, and
+  ungrouped items. Large item sets and large expanded groups must not
+  build every row eagerly; row keys (`download-task-*`/`download-group-*`)
+  follow the task or group identity.
+- **One container per group.** A group's children paint their share of the
+  same rounded `surfaceContainer` block as the header — the header rounds
+  the top corners, the last child the bottom — and groups start
+  collapsed. Hierarchy is expressed by the shared surface, a smaller
+  child thumbnail, and text-column alignment, not by indentation alone.
+- **Status color is icon-only.** Status text stays on the secondary text
+  color (`onSurfaceVariant`); only the status icon carries the semantic
+  color (`success`/`warning`/`danger`/primary). Tinted status text was
+  measured below the 4.5:1 contrast floor on `surface`, so the icon
+  carries the signal and the text stays readable.
+- **Progress bars are unfinished-only.** Terminal and paused rows show
+  none; an unknown total renders the bar indeterminate.
+- **Thumbnail first.** Rows lead with a square artwork thumbnail decoded
+  at display size through `PixivImage` (shared cache + Referer); a
+  missing URL falls back to a neutral placeholder, never to a metadata
+  fetch.

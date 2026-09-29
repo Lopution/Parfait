@@ -1131,6 +1131,16 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String downloadGroupAuthorTitle(String name) {
+    return 'Работы: $name';
+  }
+
+  @override
+  String downloadTaskPageLabel(int page, int total) {
+    return 'Стр. $page/$total';
+  }
+
+  @override
   String get downloadAuthorWorks => 'Скачать все работы';
 
   @override

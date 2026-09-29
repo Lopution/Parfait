@@ -62,6 +62,28 @@ void main() {
       final entity = parseIllust(illustJson(10, visible: false));
       expect(entity.visible, isFalse);
     });
+
+    test('square thumbnail follows the page shape', () {
+      final multi = parseIllust(
+        illustJson(11, pageCount: 3, withMetaPages: true),
+      );
+      expect(multi.squareUrlAt(0), 'https://i.pximg.net/11/p0/s.jpg');
+      expect(multi.squareUrlAt(2), 'https://i.pximg.net/11/p2/s.jpg');
+      expect(
+        multi.squareUrlAt(3),
+        isNull,
+        reason: 'index beyond pageCount has no thumbnail',
+      );
+      expect(multi.squareUrlAt(-1), isNull);
+
+      final single = parseIllust(illustJson(12));
+      expect(single.squareUrlAt(0), 'https://i.pximg.net/12/square.jpg');
+      expect(
+        single.squareUrlAt(1),
+        isNull,
+        reason: 'a single-page work only exposes index 0',
+      );
+    });
   });
 
   group('IllustStore merge non-regression (detail AC)', () {
