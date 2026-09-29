@@ -356,7 +356,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
               topLeft: Radius.circular(24),
               topRight: Radius.circular(24),
             ),
-            color: colorScheme.surface,
+            color: colorScheme.surfaceContainer,
           ),
           child: SafeArea(
             top: false,

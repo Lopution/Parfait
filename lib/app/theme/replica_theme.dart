@@ -8,10 +8,22 @@ ThemeData replicaTheme(Brightness brightness) {
   final background = dark
       ? FuncTokens.darkBackground
       : FuncTokens.lightBackground;
-  final surface = dark ? FuncTokens.darkSurface : FuncTokens.lightSurface;
-  final surfaceRaised = dark
-      ? FuncTokens.darkSurfaceRaised
-      : FuncTokens.lightSurfaceRaised;
+  final containerLow = dark
+      ? FuncTokens.darkContainerLow
+      : FuncTokens.lightContainerLow;
+  final container = dark ? FuncTokens.darkContainer : FuncTokens.lightContainer;
+  final containerHigh = dark
+      ? FuncTokens.darkContainerHigh
+      : FuncTokens.lightContainerHigh;
+  final containerHighest = dark
+      ? FuncTokens.darkContainerHighest
+      : FuncTokens.lightContainerHighest;
+  final inverseSurface = dark
+      ? FuncTokens.darkInverseSurface
+      : FuncTokens.lightInverseSurface;
+  final onInverseSurface = dark
+      ? FuncTokens.darkOnInverseSurface
+      : FuncTokens.lightOnInverseSurface;
   final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
   final subdued = dark ? FuncTokens.darkSubdued : FuncTokens.lightSubdued;
   final textSecondary = dark
@@ -28,17 +40,21 @@ ThemeData replicaTheme(Brightness brightness) {
         brightness: brightness,
       ).copyWith(
         primary: FuncTokens.primary,
-        secondary: FuncTokens.primary,
-        surface: surface,
+        secondary: textSecondary,
+        surface: background,
         surfaceContainerLowest: background,
-        surfaceContainerLow: surface,
-        surfaceContainer: surface,
-        surfaceContainerHigh: surfaceRaised,
-        surfaceContainerHighest: surfaceRaised,
+        surfaceContainerLow: containerLow,
+        surfaceContainer: container,
+        surfaceContainerHigh: containerHigh,
+        surfaceContainerHighest: containerHighest,
         onPrimary: FuncTokens.lightBackground,
-        onSecondary: textSecondary,
+        secondaryContainer: containerHighest,
+        onSecondary: background,
+        onSecondaryContainer: text,
         onSurface: text,
         onSurfaceVariant: textSecondary,
+        inverseSurface: inverseSurface,
+        onInverseSurface: onInverseSurface,
         // Borders/dividers keep the faint subdued alpha; only text uses the
         // readable secondary color.
         outline: subdued,
@@ -61,15 +77,15 @@ ThemeData replicaTheme(Brightness brightness) {
           behavior: SnackBarBehavior.floating,
           elevation: 0,
         ).copyWith(
-          backgroundColor: surface,
-          contentTextStyle: TextStyle(color: text),
-          actionTextColor: FuncTokens.primary,
+          backgroundColor: inverseSurface,
+          contentTextStyle: TextStyle(color: onInverseSurface),
+          actionTextColor: colorScheme.inversePrimary,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
         ),
     scaffoldBackgroundColor: background,
-    cardColor: surface,
+    cardColor: colorScheme.surfaceContainer,
     colorScheme: colorScheme,
     textTheme: baseTextTheme.copyWith(
       headlineSmall: TextStyle(
