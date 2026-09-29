@@ -9,11 +9,14 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/system_ui.dart';
+import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/novel/reader_settings.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/novel/novel_page.dart';
 import 'package:pixiv_func/features/novel/novel_reader_stage.dart';
@@ -24,8 +27,10 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 
-Future<ProviderContainer> _apiContainer() async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+Future<ProviderContainer> _apiContainer({
+  Map<String, Object> preferences = const {},
+}) async {
+  SharedPreferencesAsyncPlatform.instance = memoryPreferences(preferences);
   final credentials = FakeCredentialStore(
     values: const {
       'account': Credential(
@@ -517,6 +522,131 @@ void main() {
     expect(
       tester.getRect(find.byIcon(Icons.arrow_back)).top,
       greaterThanOrEqualTo(24),
+    );
+  });
+
+  testWidgets('a light app-theme sheet over the night palette owns the nav '
+      'bar', (tester) async {
+    // R2 edge case: the reader pins the night palette's light icons, but a
+    // settings sheet is app-themed — under a light theme the nav-bar icons
+    // must flip dark for as long as the sheet covers that edge.
+    final container = await _apiContainer(
+      preferences: {
+        'pixivfunc.novel.reader_settings.v1': jsonEncode(
+          const NovelReaderSettings(theme: NovelReaderTheme.night).toJson(),
+        ),
+      },
+    );
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            theme: replicaTheme(Brightness.light),
+            home: const NovelPage(novelId: 1),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    expect(
+      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+      Brightness.light,
+      reason: 'the night palette pins light icons over both bars',
+    );
+
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.tune_outlined));
+    await tester.pumpAndSettle();
+    await tester.pump();
+
+    expect(
+      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+      Brightness.dark,
+      reason: 'a light sheet under itself needs dark nav icons',
+    );
+    expect(
+      SystemChrome.latestStyle?.statusBarIconBrightness,
+      Brightness.light,
+      reason: 'the status bar still belongs to the night stage',
+    );
+  });
+
+  testWidgets('leaving the reader restores the root bar style', (tester) async {
+    // R2: the stage's FuncSystemBars is a scoped override — unmounting the
+    // route returns the bars to the app-level default without a reset.
+    final container = await _apiContainer(
+      preferences: {
+        'pixivfunc.novel.reader_settings.v1': jsonEncode(
+          const NovelReaderSettings(theme: NovelReaderTheme.night).toJson(),
+        ),
+      },
+    );
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            theme: replicaTheme(Brightness.light),
+            // The same root default app.dart's builder installs.
+            builder: (context, routeChild) => FuncSystemBars(
+              background: Theme.of(context).brightness,
+              child: routeChild ?? const SizedBox.shrink(),
+            ),
+            home: const _Host(),
+          ),
+        ),
+      );
+      // Two pumps: mount, then RenderView publishes latestStyle.
+      await tester.pump();
+      await tester.pump();
+      expect(
+        SystemChrome.latestStyle?.statusBarIconBrightness,
+        Brightness.dark,
+        reason: 'the light root theme starts with dark icons',
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+    });
+
+    expect(
+      SystemChrome.latestStyle?.statusBarIconBrightness,
+      Brightness.light,
+      reason: 'the night palette owns both bars while mounted',
+    );
+    expect(
+      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+      Brightness.light,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(find.byType(NovelPage), findsNothing);
+    expect(
+      SystemChrome.latestStyle?.statusBarIconBrightness,
+      Brightness.dark,
+      reason: 'unmounting the reader restores the root style',
+    );
+    expect(
+      SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
+      Brightness.dark,
     );
   });
 }
