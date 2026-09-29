@@ -216,6 +216,18 @@ class IllustEntity {
     return metaSinglePageOriginalUrl ?? imageUrls.original ?? imageUrls.large;
   }
 
+  /// Square thumbnail URL for [pageIndex] (download-task rows). Multi-page
+  /// works read `metaPages[pageIndex].squareMedium` — an out-of-range index
+  /// has none; a single-page work only accepts `pageIndex == 0`.
+  String? squareUrlAt(int pageIndex) {
+    if (pageCount > 1) {
+      if (pageIndex < 0 || pageIndex >= metaPages.length) return null;
+      return metaPages[pageIndex].squareMedium;
+    }
+    if (pageIndex != 0) return null;
+    return imageUrls.squareMedium;
+  }
+
   /// Viewer URLs for [quality] (D4): original when available, else large.
   List<String> viewerUrls(ViewQuality quality) {
     if (pageCount > 1) {

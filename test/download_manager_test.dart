@@ -777,6 +777,44 @@ void main() {
       expect(coordinator.taskFor(illustId: 8, pageIndex: 5), isNull);
     });
 
+    test('download-all keeps each page thumbnail and the page count', () async {
+      final transport = FakeTransport();
+      for (var i = 0; i < 3; i++) {
+        transport.responses.add(
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [i],
+            ],
+          ),
+        );
+      }
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: MemorySinkFactory(),
+      );
+      addTearDown(manager.dispose);
+      final coordinator = IllustDownloadCoordinator(manager);
+
+      final all = await coordinator.downloadAllPages(
+        work: parseIllust(illustJson(9, pageCount: 3, withMetaPages: true)),
+        pageUrls: [
+          Uri.parse('https://i.pximg.net/img/9_p0.jpg'),
+          Uri.parse('https://i.pximg.net/img/9_p1.jpg'),
+          Uri.parse('https://i.pximg.net/img/9_p2.jpg'),
+        ],
+      );
+
+      expect(all, hasLength(3));
+      for (var i = 0; i < 3; i++) {
+        expect(
+          all[i].submission!.request.thumbnailUrl,
+          'https://i.pximg.net/9/p$i/s.jpg',
+        );
+        expect(all[i].submission!.request.totalPages, 3);
+      }
+    });
+
     test('rejects unsafe URLs before queueing (R4/R7)', () async {
       final manager = DownloadManager(
         transport: FakeTransport(),
