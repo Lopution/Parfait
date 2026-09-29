@@ -745,6 +745,7 @@
   "searchCancel": "Отмена",
   "searchSubmit": "Поиск",
   "searchClear": "Очистить",
+  "contentLoading": "Загрузка",
   "searchLoading": "Поиск",
   "searchNoResults": "Нет результатов поиска",
   "searchLoadFailed": "Поиск не удался",

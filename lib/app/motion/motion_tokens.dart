@@ -60,6 +60,9 @@ abstract final class MotionTokens {
   /// SmoothWheelScroll's per-wheel animated scroll duration.
   static const wheelScroll = Duration(milliseconds: 240);
 
+  /// First-load skeleton shimmer: one shared sweep per skeleton tree.
+  static const shimmer = Duration(milliseconds: 1400);
+
   /// Image fade-in inside PixivImage. 500ms matches CachedNetworkImage's
   /// default and PixEz; PixShaft's Glide crossfade is 300ms.
   static const imageFade = Duration(milliseconds: 500);
