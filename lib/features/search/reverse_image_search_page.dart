@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../core/format/byte_size.dart';
 import '../../core/platform/android_intent_channel.dart';
 import '../../core/platform/intent_router.dart';
 import '../../core/platform/platform_caps.dart';
@@ -383,7 +384,7 @@ class _ReverseImageSearchPageState
           ),
           const SizedBox(height: 12),
           Text(
-            '${input.width} × ${input.height} · ${_formatBytes(input.sizeBytes)}',
+            '${input.width} × ${input.height} · ${formatByteSize(input.sizeBytes)}',
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
@@ -680,7 +681,7 @@ class _TaskHeader extends StatelessWidget {
                   if (input != null)
                     Text(
                       '${input.width} × ${input.height} · '
-                      '${_formatBytes(input.sizeBytes)}',
+                      '${formatByteSize(input.sizeBytes)}',
                       style: Theme.of(context).textTheme.bodySmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -729,12 +730,6 @@ class _AdaptiveImagePreview extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatBytes(int bytes) {
-  if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KiB';
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB';
 }
 
 /// Controlled SauceNAO result WebView (D1): navigates freely inside

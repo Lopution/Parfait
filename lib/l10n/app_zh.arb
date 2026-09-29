@@ -509,6 +509,25 @@
       }
     }
   },
+  "downloadGroupAuthorTitle": "{name} 的作品",
+  "@downloadGroupAuthorTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadTaskPageLabel": "第 {page}/{total} 页",
+  "@downloadTaskPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "downloadAuthorWorks": "下载全部作品",
   "downloadAuthorWorksTitle": "下载作者全部作品",
   "downloadAuthorEnumerating": "正在枚举作品…已找到 {count} 个",

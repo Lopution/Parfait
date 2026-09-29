@@ -509,6 +509,25 @@
       }
     }
   },
+  "downloadGroupAuthorTitle": "Works by {name}",
+  "@downloadGroupAuthorTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadTaskPageLabel": "Page {page}/{total}",
+  "@downloadTaskPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "downloadAuthorWorks": "Download all works",
   "downloadAuthorWorksTitle": "Download all author works",
   "downloadAuthorEnumerating": "Enumerating works… {count} found",

@@ -1096,6 +1096,16 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String downloadGroupAuthorTitle(String name) {
+    return '$name の作品';
+  }
+
+  @override
+  String downloadTaskPageLabel(int page, int total) {
+    return '$page/$total ページ';
+  }
+
+  @override
   String get downloadAuthorWorks => 'すべての作品をダウンロード';
 
   @override
