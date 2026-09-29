@@ -214,6 +214,11 @@ class DownloadRecoveryRecord {
       if (snapshot.request.title != null) 'title': snapshot.request.title,
       if (snapshot.request.date != null)
         'date': snapshot.request.date!.toUtc().toIso8601String(),
+      // Display-only fields (C5): optional, absent in old records.
+      if (snapshot.request.totalPages != null)
+        'totalPages': snapshot.request.totalPages,
+      if (snapshot.request.thumbnailUrl != null)
+        'thumbnailUrl': snapshot.request.thumbnailUrl,
       if (snapshot.accountId != null) 'accountId': snapshot.accountId,
       'submittedAt': snapshot.submittedAt.toUtc().toIso8601String(),
     },
@@ -264,6 +269,14 @@ class DownloadRecoveryRecord {
     final date = rawSnapshot['date'] is String
         ? DateTime.tryParse(rawSnapshot['date'] as String)
         : null;
+    // Optional display fields (C5): missing or mistyped values degrade to
+    // null instead of rejecting the record.
+    final totalPages = rawSnapshot['totalPages'] is int
+        ? rawSnapshot['totalPages'] as int
+        : null;
+    final thumbnailUrl = rawSnapshot['thumbnailUrl'] is String
+        ? rawSnapshot['thumbnailUrl'] as String
+        : null;
     final request = DownloadRequest(
       illustId: rawSnapshot['illustId'] as int,
       pageIndex: rawSnapshot['pageIndex'] as int,
@@ -273,6 +286,8 @@ class DownloadRecoveryRecord {
       artist: artist,
       title: title,
       date: date,
+      totalPages: totalPages,
+      thumbnailUrl: thumbnailUrl,
     );
     final statusName = json['status'];
     final status = DownloadStatus.values.where(

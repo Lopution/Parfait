@@ -29,6 +29,7 @@ class DownloadRequest {
     this.seriesTitle,
     this.seriesOrder,
     this.seriesTotal,
+    this.thumbnailUrl,
   }) : assert(illustId > 0),
        assert(pageIndex >= 0);
 
@@ -55,6 +56,11 @@ class DownloadRequest {
   final String? seriesTitle;
   final int? seriesOrder;
   final int? seriesTotal;
+
+  /// Square thumbnail for list rows (C5). Display-only: not part of
+  /// `dedupeKey`, `displayName`, or the naming rule; persisted in the
+  /// recovery record so a restored task still shows its artwork.
+  final String? thumbnailUrl;
 
   /// Dedupe identity: illust + page + normalized URL + target (R4).
   String get dedupeKey =>
@@ -112,6 +118,7 @@ class DownloadRequest {
           seriesTitle: seriesTitle,
           seriesOrder: seriesOrder,
           seriesTotal: seriesTotal,
+          thumbnailUrl: thumbnailUrl,
         );
 
   String get mimeType => _mimeTypeForExtension(extension);
