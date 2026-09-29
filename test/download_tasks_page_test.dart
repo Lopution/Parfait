@@ -4,8 +4,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:pixiv_func/app/haptics/app_haptics.dart';
+import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/download/download_providers.dart';
@@ -66,15 +68,25 @@ Future<void> _drain(
   }
 }
 
-DownloadRequest _req(int id, {String? title, NamingRule? namingRule}) =>
-    DownloadRequest(
-      illustId: id,
-      pageIndex: 0,
-      url: Uri.parse('https://i.pximg.net/$id/p0.jpg'),
-      target: DownloadTarget.illustPage,
-      title: title,
-      namingRule: namingRule,
-    );
+DownloadRequest _req(
+  int id, {
+  String? title,
+  String? artist,
+  int pageIndex = 0,
+  int? totalPages,
+  String? thumbnailUrl,
+  NamingRule? namingRule,
+}) => DownloadRequest(
+  illustId: id,
+  pageIndex: pageIndex,
+  url: Uri.parse('https://i.pximg.net/$id/p$pageIndex.jpg'),
+  target: DownloadTarget.illustPage,
+  title: title,
+  artist: artist,
+  totalPages: totalPages,
+  thumbnailUrl: thumbnailUrl,
+  namingRule: namingRule,
+);
 
 ScriptedResponse _gated(Completer<void> gate, {int byte = 1}) =>
     ScriptedResponse(
@@ -85,8 +97,22 @@ ScriptedResponse _gated(Completer<void> gate, {int byte = 1}) =>
       completers: [gate],
     );
 
+/// A built row's `download-task-*`/`download-group-*` key, onstage or in the
+/// lazy cache — this is how we prove the list builds on demand (R6).
+Finder _taskRows({bool skipOffstage = true}) => find.byWidgetPredicate(
+  (widget) =>
+      widget.key is ValueKey<String> &&
+      (widget.key! as ValueKey<String>).value.startsWith('download-task-'),
+  skipOffstage: skipOffstage,
+);
+
+Finder _taskRow(String taskId) => find.byKey(ValueKey('download-task-$taskId'));
+
+Finder _groupHeader(String groupId) =>
+    find.byKey(ValueKey('download-group-$groupId'));
+
 void main() {
-  testWidgets('group card pauses, resumes and cancels children', (
+  testWidgets('group header pauses, resumes and cancels children', (
     tester,
   ) async {
     final gates = [Completer<void>(), Completer<void>()];
@@ -99,32 +125,33 @@ void main() {
         _gated(resumeGates[1], byte: 4),
       ],
     );
-    manager.submitGroup([_req(1), _req(2)]);
+    final group = manager.submitGroup([_req(1), _req(2)]);
     await _pumpPage(tester, container);
     await _drain(
       tester,
       () => manager.tasks.every((t) => t.status == DownloadStatus.running),
     );
 
-    final groupCard = find.byType(Card).first;
+    final header = _groupHeader(group.id);
     expect(
-      find.descendant(of: groupCard, matching: find.text('批量下载 · 2 项')),
+      find.descendant(of: header, matching: find.text('批量下载 · 2 项')),
       findsOneWidget,
     );
-    // Children nest indented under the group card — exactly one group
-    // header plus two child cards, none duplicated at the top level.
-    expect(find.byType(Card), findsNWidgets(3));
-    final childRect = tester.getRect(find.byType(Card).at(1));
-    expect(childRect.left, greaterThan(tester.getRect(groupCard).left));
+    // Collapsed by default (D1) — children stay out of the list entirely.
+    expect(_taskRows(skipOffstage: false), findsNothing);
     expect(
-      find.descendant(of: groupCard, matching: find.byIcon(Icons.pause)),
+      find.descendant(of: header, matching: find.byIcon(Icons.expand_more)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: header, matching: find.byIcon(Icons.pause)),
       findsOneWidget,
     );
 
-    // Pause the whole group; the running children unwind once their gated
-    // chunk completes, queued children flip immediately.
+    // Pause the whole group without expanding it; the running children
+    // unwind once their gated chunk completes, queued ones flip directly.
     await tester.tap(
-      find.descendant(of: groupCard, matching: find.byIcon(Icons.pause)),
+      find.descendant(of: header, matching: find.byIcon(Icons.pause)),
     );
     for (final gate in gates) {
       gate.complete();
@@ -135,17 +162,17 @@ void main() {
     );
     await tester.pump();
     expect(
-      find.descendant(of: groupCard, matching: find.text('已暂停')),
+      find.descendant(of: header, matching: find.textContaining('已暂停')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: groupCard, matching: find.byIcon(Icons.play_arrow)),
+      find.descendant(of: header, matching: find.byIcon(Icons.play_arrow)),
       findsOneWidget,
     );
 
     // Resume re-submits every child; the group tracks the new job ids.
     await tester.tap(
-      find.descendant(of: groupCard, matching: find.byIcon(Icons.play_arrow)),
+      find.descendant(of: header, matching: find.byIcon(Icons.play_arrow)),
     );
     await _drain(
       tester,
@@ -155,7 +182,7 @@ void main() {
 
     // Cancel lands every child in canceled — preserved output is dropped.
     await tester.tap(
-      find.descendant(of: groupCard, matching: find.byIcon(Icons.close)),
+      find.descendant(of: header, matching: find.byIcon(Icons.close)),
     );
     for (final gate in resumeGates) {
       gate.complete();
@@ -168,11 +195,11 @@ void main() {
     // A canceled group offers 重试 (refresh) — retry accepts canceled
     // work; 继续 (play_arrow) is reserved for the paused state.
     expect(
-      find.descendant(of: groupCard, matching: find.byIcon(Icons.refresh)),
+      find.descendant(of: header, matching: find.byIcon(Icons.refresh)),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: groupCard, matching: find.byIcon(Icons.play_arrow)),
+      find.descendant(of: header, matching: find.byIcon(Icons.play_arrow)),
       findsNothing,
     );
   });
@@ -199,7 +226,9 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('group card shows aggregate succeeded count', (tester) async {
+  testWidgets('a finished group shows the aggregate counter exactly once', (
+    tester,
+  ) async {
     final (container, manager, _) = await _world(
       responses: [
         ScriptedResponse(
@@ -216,7 +245,7 @@ void main() {
         ),
       ],
     );
-    manager.submitGroup([_req(1), _req(2)]);
+    final group = manager.submitGroup([_req(1), _req(2)]);
     await _pumpPage(tester, container);
     await _drain(
       tester,
@@ -224,44 +253,39 @@ void main() {
     );
     await tester.pump();
 
-    final groupCard = find.byType(Card).first;
+    final header = _groupHeader(group.id);
+    // The header's status line IS the counter — the old card printed
+    // 已完成 on both the status row and the counter row (R4).
+    expect(find.text('已完成 2/2'), findsOneWidget);
+    expect(find.text('已完成'), findsNothing);
     expect(
-      find.descendant(of: groupCard, matching: find.text('已完成 2/2')),
-      findsOneWidget,
+      find.descendant(
+        of: header,
+        matching: find.byType(LinearProgressIndicator),
+      ),
+      findsNothing,
+      reason: 'a finished group shows no progress bar (R2)',
     );
     // A finished group offers 查看 (opens the first succeeded work) and
     // 移除 (dismisses every terminal child).
     expect(
-      find.descendant(of: groupCard, matching: find.byIcon(Icons.open_in_new)),
+      find.descendant(of: header, matching: find.byIcon(Icons.open_in_new)),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: groupCard,
+        of: header,
         matching: find.byIcon(Icons.remove_circle_outline),
       ),
       findsOneWidget,
     );
-    expect(
-      tester
-          .widget<LinearProgressIndicator>(
-            find.descendant(
-              of: groupCard,
-              matching: find.byType(LinearProgressIndicator),
-            ),
-          )
-          .value,
-      1.0,
-    );
   });
 
-  testWidgets('completed unknown-length task renders a full progress bar', (
-    tester,
-  ) async {
+  testWidgets('a completed task hides the progress bar', (tester) async {
     final (container, manager, _) = await _world(
       responses: [
-        // No contentLength: active progress is indeterminate, but completion
-        // must still render as 100% in the task list.
+        // No contentLength: completion used to force a fake 100% bar;
+        // finished rows show none at all (R2).
         ScriptedResponse(
           chunks: const [
             <int>[1, 2, 3],
@@ -269,7 +293,7 @@ void main() {
         ),
       ],
     );
-    manager.submit(_req(1));
+    final task = manager.submit(_req(1));
     await _pumpPage(tester, container);
     await _drain(
       tester,
@@ -277,14 +301,23 @@ void main() {
     );
     await tester.pump();
 
-    final tile = find.byType(Card).first;
-    final indicator = tester.widget<LinearProgressIndicator>(
-      find.descendant(of: tile, matching: find.byType(LinearProgressIndicator)),
+    final row = _taskRow(task.id);
+    expect(
+      find.descendant(of: row, matching: find.byType(LinearProgressIndicator)),
+      findsNothing,
     );
-    expect(indicator.value, 1.0);
+    expect(
+      find.descendant(of: row, matching: find.textContaining('已完成')),
+      findsOneWidget,
+    );
+    // The row still reports the finished size.
+    expect(
+      find.descendant(of: row, matching: find.textContaining('3 B')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('paused tile shows paused status with retry and cancel', (
+  testWidgets('paused row shows paused status with retry and cancel', (
     tester,
   ) async {
     final gate = Completer<void>();
@@ -300,16 +333,16 @@ void main() {
         ),
       ],
     );
-    manager.submit(_req(1));
+    final task = manager.submit(_req(1));
     await _pumpPage(tester, container);
     await _drain(
       tester,
       () => manager.tasks.single.status == DownloadStatus.running,
     );
 
-    final tile = find.byType(Card).first;
+    final row = _taskRow(task.id);
     await tester.tap(
-      find.descendant(of: tile, matching: find.byIcon(Icons.pause)),
+      find.descendant(of: row, matching: find.byIcon(Icons.pause)),
     );
     gate.complete();
     await _drain(
@@ -318,23 +351,28 @@ void main() {
     );
     await tester.pump();
     expect(
-      find.descendant(of: tile, matching: find.text('已暂停')),
+      find.descendant(of: row, matching: find.text('已暂停')),
       findsOneWidget,
     );
     // Paused → 继续 (resume anchor), not the retry glyph.
     expect(
-      find.descendant(of: tile, matching: find.byIcon(Icons.play_arrow)),
+      find.descendant(of: row, matching: find.byIcon(Icons.play_arrow)),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: tile, matching: find.byIcon(Icons.refresh)),
+      find.descendant(of: row, matching: find.byIcon(Icons.refresh)),
       findsNothing,
+    );
+    expect(
+      find.descendant(of: row, matching: find.byType(LinearProgressIndicator)),
+      findsNothing,
+      reason: 'a paused row has no progress bar (R2)',
     );
 
     // Resume re-runs to success; cancel would have deleted preserved
     // bytes.
     await tester.tap(
-      find.descendant(of: tile, matching: find.byIcon(Icons.play_arrow)),
+      find.descendant(of: row, matching: find.byIcon(Icons.play_arrow)),
     );
     await _drain(
       tester,
@@ -342,7 +380,7 @@ void main() {
     );
   });
 
-  testWidgets('succeeded tile offers view and remove', (tester) async {
+  testWidgets('succeeded row offers view and remove', (tester) async {
     final (container, manager, _) = await _world(
       responses: [
         ScriptedResponse(
@@ -353,39 +391,44 @@ void main() {
         ),
       ],
     );
-    manager.submit(_req(1));
+    final task = manager.submit(_req(1));
     await _pumpPage(tester, container);
     await _drain(
       tester,
       () => manager.tasks.single.status == DownloadStatus.succeeded,
     );
 
-    final tile = find.byType(Card).first;
+    final row = _taskRow(task.id);
     expect(
-      find.descendant(of: tile, matching: find.text('已完成')),
+      find.descendant(of: row, matching: find.textContaining('已完成')),
       findsOneWidget,
+    );
+    expect(
+      find.descendant(of: row, matching: find.byType(LinearProgressIndicator)),
+      findsNothing,
+      reason: 'a finished row has no progress bar (R2)',
     );
     // 查看 + 移除 — no retry affordance on a finished task.
     expect(
-      find.descendant(of: tile, matching: find.byIcon(Icons.open_in_new)),
+      find.descendant(of: row, matching: find.byIcon(Icons.open_in_new)),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: tile,
+        of: row,
         matching: find.byIcon(Icons.remove_circle_outline),
       ),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: tile, matching: find.byIcon(Icons.refresh)),
+      find.descendant(of: row, matching: find.byIcon(Icons.refresh)),
       findsNothing,
     );
 
     // Remove dismisses the terminal record.
     await tester.tap(
       find.descendant(
-        of: tile,
+        of: row,
         matching: find.byIcon(Icons.remove_circle_outline),
       ),
     );
@@ -395,7 +438,7 @@ void main() {
     expect(find.text('暂无下载任务'), findsOneWidget);
   });
 
-  testWidgets('failed tile offers retry and remove', (tester) async {
+  testWidgets('failed row offers retry and remove', (tester) async {
     final (container, manager, _) = await _world(
       responses: [
         ScriptedResponse(
@@ -407,25 +450,34 @@ void main() {
         ),
       ],
     );
-    manager.submit(_req(1));
+    final task = manager.submit(_req(1));
     await _pumpPage(tester, container);
     await _drain(
       tester,
       () => manager.tasks.single.status == DownloadStatus.failed,
     );
 
-    final tile = find.byType(Card).first;
+    final row = _taskRow(task.id);
     expect(
-      find.descendant(of: tile, matching: find.text('失败')),
+      find.descendant(of: row, matching: find.textContaining('失败')),
+      findsOneWidget,
+    );
+    // The raw error stays readable under the status line.
+    expect(
+      find.descendant(of: row, matching: find.textContaining('boom')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: tile, matching: find.byIcon(Icons.refresh)),
+      find.descendant(of: row, matching: find.byType(LinearProgressIndicator)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: row, matching: find.byIcon(Icons.refresh)),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: tile,
+        of: row,
         matching: find.byIcon(Icons.remove_circle_outline),
       ),
       findsOneWidget,
@@ -434,12 +486,306 @@ void main() {
     // Remove dismisses the failed record.
     await tester.tap(
       find.descendant(
-        of: tile,
+        of: row,
         matching: find.byIcon(Icons.remove_circle_outline),
       ),
     );
     await tester.pump();
     expect(manager.tasks, isEmpty);
+  });
+
+  testWidgets('progress bars render only while a row is unfinished', (
+    tester,
+  ) async {
+    final gateKnown = Completer<void>();
+    final gateUnknown = Completer<void>();
+    // Concurrency 2 keeps the last submission genuinely queued: t3 and
+    // t4 fill the slots after t1/t2 settle, and t5 never gets one.
+    final (container, manager, _) = await _world(
+      maxConcurrent: 2,
+      responses: [
+        // t1 succeeds, t2 fails, t3 runs with a known total, t4 runs
+        // without one, t5 stays queued and is cancelled.
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [1],
+          ],
+        ),
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [1],
+          ],
+          error: StateError('boom'),
+        ),
+        _gated(gateKnown),
+        ScriptedResponse(
+          chunks: const [
+            <int>[1],
+          ],
+          completers: [gateUnknown],
+        ),
+      ],
+    );
+    final succeeded = manager.submit(_req(1));
+    final failed = manager.submit(_req(2));
+    final running = manager.submit(_req(3));
+    final unknown = manager.submit(_req(4));
+    final queued = manager.submit(_req(5));
+    await _pumpPage(tester, container);
+    // Both late submissions running means t1 succeeded and t2 failed.
+    await _drain(
+      tester,
+      () =>
+          manager.taskById(unknown.id)!.status == DownloadStatus.running &&
+          manager.taskById(running.id)!.status == DownloadStatus.running &&
+          manager.taskById(queued.id)!.status == DownloadStatus.queued,
+    );
+    await manager.cancel(queued.id);
+    await tester.pump();
+
+    // Running rows keep a bar: known total is determinate, unknown is not.
+    final runningBar = tester.widget<LinearProgressIndicator>(
+      find.descendant(
+        of: _taskRow(running.id),
+        matching: find.byType(LinearProgressIndicator),
+      ),
+    );
+    expect(runningBar.value, 0.0);
+    final unknownBar = tester.widget<LinearProgressIndicator>(
+      find.descendant(
+        of: _taskRow(unknown.id),
+        matching: find.byType(LinearProgressIndicator),
+      ),
+    );
+    expect(unknownBar.value, isNull);
+
+    // Terminal rows show none.
+    for (final task in [succeeded, failed, queued]) {
+      expect(
+        find.descendant(
+          of: _taskRow(task.id),
+          matching: find.byType(LinearProgressIndicator),
+        ),
+        findsNothing,
+        reason: '${task.id} is terminal and must not show a bar',
+      );
+    }
+    expect(
+      find.descendant(
+        of: _taskRow(queued.id),
+        matching: find.textContaining('已取消'),
+      ),
+      findsOneWidget,
+    );
+
+    // Pausing the running task drops its bar too.
+    await tester.tap(
+      find.descendant(
+        of: _taskRow(running.id),
+        matching: find.byIcon(Icons.pause),
+      ),
+    );
+    gateKnown.complete();
+    await _drain(
+      tester,
+      () => manager.taskById(running.id)!.status == DownloadStatus.retryable,
+    );
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: _taskRow(running.id),
+        matching: find.byType(LinearProgressIndicator),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('task rows render the page thumbnail or a placeholder', (
+    tester,
+  ) async {
+    await mockNetworkImagesFor(() async {
+      // The gated first task stays running forever — an uncompleted
+      // completer blocks on a future and leaves no pending timer behind.
+      final (container, manager, _) = await _world(
+        maxConcurrent: 1,
+        responses: [_gated(Completer<void>())],
+      );
+      final withThumb = manager.submit(
+        _req(1, thumbnailUrl: 'https://i.pximg.net/1/s.jpg'),
+      );
+      final withoutThumb = manager.submit(_req(2));
+      await _pumpPage(tester, container);
+      await _drain(tester, () => manager.tasks.isNotEmpty);
+
+      final image = tester.widget<PixivImage>(
+        find.descendant(
+          of: _taskRow(withThumb.id),
+          matching: find.byType(PixivImage),
+        ),
+      );
+      expect(image.url, 'https://i.pximg.net/1/s.jpg');
+      expect(
+        find.descendant(
+          of: _taskRow(withoutThumb.id),
+          matching: find.byType(PixivImage),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: _taskRow(withoutThumb.id),
+          matching: find.byIcon(Icons.image_outlined),
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
+  testWidgets('row title is the work name with page label and artist', (
+    tester,
+  ) async {
+    await mockNetworkImagesFor(() async {
+      final (container, manager, _) = await _world(
+        maxConcurrent: 1,
+        responses: [_gated(Completer<void>())],
+      );
+      final titled = manager.submit(
+        _req(7, title: '星空', artist: '画师', pageIndex: 1, totalPages: 3),
+      );
+      final untitled = manager.submit(_req(8));
+      await _pumpPage(tester, container);
+      await _drain(tester, () => manager.tasks.isNotEmpty);
+
+      final titledRow = _taskRow(titled.id);
+      expect(
+        find.descendant(of: titledRow, matching: find.text('星空')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: titledRow, matching: find.text('第 2/3 页')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: titledRow, matching: find.text('画师')),
+        findsOneWidget,
+      );
+
+      // No title carried — the row falls back to the file name.
+      expect(
+        find.descendant(
+          of: _taskRow(untitled.id),
+          matching: find.text('8_p0.jpg'),
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
+  testWidgets('a collapsed group expands on tap and folds its children in', (
+    tester,
+  ) async {
+    final (container, manager, _) = await _world(
+      maxConcurrent: 1,
+      responses: [_gated(Completer<void>())],
+    );
+    final group = manager.submitGroup([_req(1), _req(2)]);
+    await _pumpPage(tester, container);
+    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await tester.pump();
+
+    final header = _groupHeader(group.id);
+    expect(header, findsOneWidget);
+    expect(_taskRows(skipOffstage: false), findsNothing);
+
+    // Tap the header title to expand: children appear inside the same
+    // container — their rects stay within the header's horizontal bounds
+    // and they share its surface color.
+    await tester.tap(find.text('批量下载 · 2 项'));
+    await tester.pump();
+    expect(_taskRows(), findsNWidgets(2));
+    expect(
+      find.descendant(of: header, matching: find.byIcon(Icons.expand_less)),
+      findsOneWidget,
+    );
+    final headerRect = tester.getRect(header);
+    final surface = Theme.of(
+      tester.element(header),
+    ).colorScheme.surfaceContainer;
+    for (final task in manager.tasks) {
+      final child = _taskRow(task.id);
+      final childRect = tester.getRect(child);
+      expect(childRect.left, greaterThanOrEqualTo(headerRect.left));
+      expect(childRect.right, lessThanOrEqualTo(headerRect.right));
+      expect(
+        find.descendant(
+          of: child,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is DecoratedBox &&
+                widget.decoration is BoxDecoration &&
+                (widget.decoration as BoxDecoration).color == surface,
+          ),
+        ),
+        findsOneWidget,
+        reason: 'children share the group container surface',
+      );
+    }
+
+    // Tap again to collapse.
+    await tester.tap(find.text('批量下载 · 2 项'));
+    await tester.pump();
+    expect(_taskRows(skipOffstage: false), findsNothing);
+    expect(
+      find.descendant(of: header, matching: find.byIcon(Icons.expand_more)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a five-hundred-item list only builds the visible rows', (
+    tester,
+  ) async {
+    final (container, manager, _) = await _world(
+      maxConcurrent: 1,
+      responses: [_gated(Completer<void>())],
+    );
+    for (var i = 0; i < 500; i++) {
+      manager.submit(_req(i + 1));
+    }
+    await _pumpPage(tester, container);
+    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await tester.pump();
+
+    // ListView.builder only realizes the viewport plus its cache extent —
+    // far below the full 500. >0 guards against a degenerate "no keyed
+    // rows at all" pass (the eager ListView had none).
+    expect(
+      _taskRows(skipOffstage: false).evaluate().length,
+      inInclusiveRange(1, 20),
+    );
+  });
+
+  testWidgets('expanding a three-hundred-item group stays lazy', (
+    tester,
+  ) async {
+    final (container, manager, _) = await _world(
+      maxConcurrent: 1,
+      responses: [_gated(Completer<void>())],
+    );
+    final group = manager.submitGroup([
+      for (var i = 0; i < 300; i++) _req(i + 1),
+    ]);
+    await _pumpPage(tester, container);
+    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await tester.pump();
+
+    await tester.tap(find.byKey(ValueKey('download-group-${group.id}')));
+    await tester.pump();
+    expect(
+      _taskRows(skipOffstage: false).evaluate().length,
+      inInclusiveRange(1, 20),
+    );
   });
   testWidgets(
     'selection mode batch-removes terminal and batch-cancels active',
@@ -509,7 +855,12 @@ void main() {
       await tester.pump();
       expect(find.text('已选 2 项'), findsOneWidget);
       expect(haptics.last, 'HapticFeedbackType.selectionClick');
-      expect(find.byIcon(Icons.check_circle), findsNWidgets(2));
+      for (final task in manager.tasks) {
+        final mark = tester.widget<Icon>(
+          find.byKey(ValueKey('download-select-${task.id}')),
+        );
+        expect(mark.icon, Icons.check_circle);
+      }
       expect(find.byIcon(Icons.open_in_new), findsNothing);
 
       // Batch remove qualifies only the terminal task — the confirm
@@ -543,6 +894,8 @@ void main() {
         tester,
         () => manager.tasks.single.status == DownloadStatus.canceled,
       );
+      await tester.pump();
+      expect(find.byType(LinearProgressIndicator), findsNothing);
     },
   );
 
@@ -593,7 +946,7 @@ void main() {
           ),
         ],
       );
-      manager.submitGroup([
+      final group = manager.submitGroup([
         _req(
           42,
           title: longTitle,
@@ -609,29 +962,32 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
-      expect(find.byType(Card), findsNWidgets(3));
-      final groupCard = find.byType(Card).first;
-      final longNameTaskCard = find.byType(Card).at(1);
+      final header = _groupHeader(group.id);
+      // A compact group row keeps the first action plus the overflow menu.
       expect(
-        find.descendant(of: groupCard, matching: find.byIcon(Icons.more_vert)),
+        find.descendant(of: header, matching: find.byIcon(Icons.more_vert)),
         findsOneWidget,
       );
+
+      // Expand and the long-titled running child keeps the same compact
+      // contract: two-line title, actions on the second line.
+      await tester.tap(find.text('批量下载 · 2 项'));
+      await tester.pump();
+      final longNameTask = manager.tasks.first;
+      final childRow = _taskRow(longNameTask.id);
       expect(
-        find.descendant(
-          of: longNameTaskCard,
-          matching: find.byIcon(Icons.more_vert),
-        ),
+        find.descendant(of: childRow, matching: find.byIcon(Icons.more_vert)),
         findsOneWidget,
       );
       final taskTitle = tester.widget<Text>(
-        find.text(manager.tasks.first.displayName),
+        find.descendant(of: childRow, matching: find.text(longTitle)),
       );
       expect(taskTitle.maxLines, 2);
       expect(taskTitle.overflow, TextOverflow.ellipsis);
       expect(find.byTooltip('暂停'), findsNWidgets(2));
       await tester.tap(
         find.descendant(
-          of: longNameTaskCard,
+          of: childRow,
           matching: find.byTooltip(
             MaterialLocalizations.of(
               tester.element(find.byType(DownloadTasksPage)),
@@ -641,6 +997,9 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('取消'), findsOneWidget);
+      // Dismiss the menu before the teardown pump.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
 
       gate.complete();
       await _drain(

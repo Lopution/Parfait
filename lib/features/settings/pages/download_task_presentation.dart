@@ -159,6 +159,19 @@ String downloadGroupStatusDetail(
   return done;
 }
 
+/// The group header's single status line (R4): for a finished group the
+/// done counter *is* the status — the old card printed 已完成 twice; for
+/// every other state the counter trails the status text.
+String downloadGroupStatusLine(
+  AppLocalizations l10n,
+  DownloadVisualState state,
+  DownloadGroupSnapshot group,
+) {
+  final detail = downloadGroupStatusDetail(l10n, state, group);
+  if (state == DownloadVisualState.succeeded) return detail;
+  return '${downloadVisualText(l10n, state)} · $detail';
+}
+
 /// Row title: the work title the submission carried, else the generated
 /// file name (records predating these fields and un-owned submissions have
 /// no title).
