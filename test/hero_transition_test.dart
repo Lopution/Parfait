@@ -18,6 +18,8 @@ import 'illust_detail_page_test.dart';
 import 'package:pixiv_func/app/motion/hero_rect_clip.dart';
 import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
+import 'package:pixiv_func/app/theme/replica_theme.dart';
+import 'package:pixiv_func/app/widgets/app_type_switch.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
@@ -349,6 +351,120 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     final late = _heroPaintClipRect(tester)!;
     expect(late.bottom, lessThan(mid.bottom));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Hero pop flight stays below the floating type switch', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: replicaTheme(Brightness.light),
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        navigatorKey: navigatorKey,
+        home: Scaffold(
+          body: CustomScrollView(
+            slivers: [
+              SliverAppTypeSwitch<String>(
+                options: const [
+                  (value: 'illust', label: '插画'),
+                  (value: 'novel', label: '小说'),
+                ],
+                selected: 'illust',
+                onSelected: (_) {},
+              ),
+              SliverList(
+                delegate: SliverChildListDelegate([
+                  const SizedBox(height: 40),
+                  Hero(
+                    tag: 'float-switch-hero',
+                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                    child: const ColoredBox(
+                      color: Colors.red,
+                      child: SizedBox(height: 300),
+                    ),
+                  ),
+                  const SizedBox(height: 1200),
+                ]),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Scroll the list up so the hero's landing slot slides under the
+    // switch row, then reverse slightly: the row floats back in on top.
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 30));
+    await tester.pumpAndSettle();
+
+    final rowRect = tester.getRect(find.byType(AppTypeSwitch<String>));
+    final heroRect = tester.getRect(
+      find.byWidgetPredicate((w) => w is Hero && w.tag == 'float-switch-hero'),
+    );
+    // The row is floating above the content and the hero's landing rect
+    // overlaps it — without a clip the returning image would paint on top.
+    expect(rowRect.top, greaterThanOrEqualTo(0));
+    expect(rowRect.overlaps(heroRect), isTrue);
+
+    navigatorKey.currentState!.push(
+      _testPageRoute<void>(
+        builder: (_) => Scaffold(
+          body: Center(
+            child: Hero(
+              tag: 'float-switch-hero',
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+              child: const ColoredBox(
+                color: Colors.red,
+                child: SizedBox(width: 350, height: 500),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    navigatorKey.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    final start = _heroClipRect(tester);
+    await tester.pump(const Duration(milliseconds: 150));
+    final mid = _heroClipRect(tester);
+
+    // The landing boundary is the floating row's bottom edge: without the
+    // positive overlap feeding the measured clip, the top edge would stay
+    // at the detail page's zero for the whole flight. It must visibly
+    // retract toward the row instead.
+    expect(find.byType(HeroRectClip), findsOneWidget);
+    expect(mid.top, greaterThan(start.top));
+    expect(_heroPaintClipRect(tester), mid);
+
+    // Converge with the flight: the last measured clip lands on the row's
+    // bottom edge, so the image never paints across the floating row.
+    var lastClip = _heroPaintClipRect(tester);
+    while (find.byType(HeroRectClip).evaluate().isNotEmpty) {
+      lastClip = _heroPaintClipRect(tester) ?? lastClip;
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(
+      lastClip!.top,
+      closeTo(rowRect.bottom, 1.5),
+      reason: 'the return clip must land at the switch row bottom edge',
+    );
     await tester.pumpAndSettle();
   });
 

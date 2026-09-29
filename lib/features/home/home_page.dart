@@ -100,9 +100,9 @@ class _HomePageState extends State<HomePage>
         ).read(homeShellMetricsProvider);
         // HomePage's ScaffoldMessenger is above the branch-root Scaffold that
         // owns the bottom bar. A floating SnackBar otherwise anchors to the
-        // screen edge and covers the bar; reserve the measured bar height
-        // (plus a small gap) so the hint stays inside the content area.
-        final bottomMargin = (shellMetrics.bottomNavHeight ?? 64) + 12;
+        // screen edge and covers the bar; the shell margin lifts it by the
+        // measured bar height — by the time a back press happens the bar
+        // has long since been measured, so no fallback is needed.
         // U4 (R7): the hint's lifetime must equal the exit window — with
         // the default 4s SnackBar the text was still on screen long after
         // the window closed, so it was describing a state that was
@@ -111,7 +111,7 @@ class _HomePageState extends State<HomePage>
           ScaffoldMessenger.of(context),
           context.l10n.homeExitHint,
           duration: RootBackCoordinator.exitWindow,
-          margin: EdgeInsets.fromLTRB(16, 0, 16, bottomMargin),
+          margin: appSnackBarShellMargin(shellMetrics),
           // The resolved messenger is the root one — it sits above
           // MotionScope, so the gate must come from this page's context.
           animationStyle: snackBarAnimationStyleFor(context),

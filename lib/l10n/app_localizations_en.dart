@@ -1067,10 +1067,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'The history module reads these switches; disabled histories do not receive new records.';
 
   @override
-  String get downloaderSettingsHint =>
-      'Download tasks are maintained live by the shared DownloadManager.';
-
-  @override
   String get downloadTasksEmpty => 'No download tasks';
 
   @override

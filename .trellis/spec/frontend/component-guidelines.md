@@ -132,8 +132,69 @@ builder for legacy plugin subtrees; feature pages do not add another bridge.
 does not create a second tab controller or animation.
 
 The shell continues to publish the rendered bar bounds through
-`homeShellMetricsProvider`. Motion and Hero code uses those measured bounds,
-not a copied navigation-bar height.
+`homeShellMetricsProvider`. The bar publishes at the end of its first frame
+after mount — consumers never see a permanent null gap between layout and
+the first measurement. `bottomNavTop` and `bottomNavHeight` are the bar's
+resting position: the measured box sits outside both `SlideTransition`s,
+whose offsets only move its child, so a sample taken mid-slide still reads
+the resting geometry. Motion and Hero code uses those measured bounds, not
+a copied navigation-bar height.
+
+## Top Tab Contract
+
+`AppTabBar` is the single entry point for top-of-page tab rows; feature
+pages do not instantiate a raw `TabBar`. It measures the widest label in
+both label styles at the ambient text scale: when that label plus its
+horizontal padding fits an equal share of the row width, the tabs divide
+the width evenly (`TabAlignment.fill`); otherwise the row switches to
+`isScrollable` and aligns from the start edge. Labels render at the themed
+14sp (`replicaTheme` sets the `TabBarTheme` label styles) and are never
+shrunk to fit — overflow always resolves through scrolling, not smaller
+text. `onTap` is passed through to `TabBar.onTap` unchanged; per the Tab
+Navigation Animation Contract a re-tap handler must not `animateTo` the
+already-selected index.
+
+## Compact Type Switch Contract
+
+`AppTypeSwitch` is the shared compact segmented selector for a feed's
+content type. The box form is a left-aligned row at least the minimum
+interactive height tall (48dp at the default text scale; larger text grows
+it) whose segments scroll horizontally when they overflow.
+The sliver form, `SliverAppTypeSwitch`, is the same row wrapped for use as
+the first sliver of a feed: it scrolls away with the content and floats
+back in on an upward drag, animating with the bottom-bar show/hide
+`MotionTokens` (or `AnimationStyle.noAnimation` under reduced motion).
+
+The row scrolls on its own parentless `BouncingScrollPhysics`, installed
+with `ScrollConfiguration.of(context).copyWith(physics: ...)`, so it takes
+horizontal drags only when its segments overflow. Inherited physics would
+break two things: inside `PullToRefresh` a sideways drag would arm a
+refresh (see the Shared Pull-to-Refresh Contract), and
+`FuncScrollBehavior`'s always-scrollable parent would let a row that fits
+claim the drag, so a swipe starting on it would never reach
+`RootSwipeSwitcher`. `app_type_switch_test.dart` proves both — a fitting
+row under `FuncScrollBehavior` hands the swipe to an enclosing horizontal
+drag detector, and sideways drags on fitting and overflowing rows never
+call `onRefresh` — and the `a sideways swipe from the type row` group in
+`new_content_feed_test.dart` repeats them on the real feed.
+
+The sliver form clamps `constraints.overlap` at zero before handing it to
+`SliverFloatingHeader`. `PullToRefresh` lays out non-clamping, so an
+overscroll hands the first sliver a negative overlap; unclamped, the header
+parks at the viewport top while the list overshoots and the refresh
+indicator paints over the switch row. The clamp keeps the row traveling
+with the list while positive overlaps — which the Hero return clip reads —
+pass through untouched. `app_type_switch_test.dart` proves the row's top
+edge tracks the first card's during a pull; `new_content_feed_test.dart`
+repeats that on the real feed and adds that the indicator bottom stays at
+or above the row top.
+
+`AppTypeSwitch` enables `emptySelectionAllowed` and reports an empty
+selection as the current value, so a tap on the active segment reaches
+`onSelected` as a re-tap — hosts map it to scroll-to-top, matching the
+Branch Re-tap Contract. Loading, error, and empty feed states keep the
+selector reachable by rendering the box form as a fixed header above the
+status widget; only a loaded feed uses the floating sliver.
 
 ## SnackBar Feedback Contract
 
@@ -144,6 +205,15 @@ new message. Callers that communicate ordered steps must pass
 `replaceCurrent: false`; for example, the account-transfer clipboard warning
 follows its copy confirmation. Keep duration, action, shell-bar margin, and
 reduced-motion behavior within the shared helpers.
+
+An action button no longer implies a persistent snackbar — `material_ui`
+defaults `SnackBar.persist` to `action != null`, so the helpers pass an
+explicit `persist` that is true only when
+`MediaQuery.accessibleNavigationOf` reports assistive navigation. Every
+other message, action or not, times out on its `duration`. Bottom-bar
+clearance is computed once by `appSnackBarShellMargin` from
+`homeShellMetricsProvider`; branch snackbars and app-level snackbars on the
+root messenger share the same margin so both rest above the bar.
 
 Widget tests for this contract pump `material_ui`'s `MaterialApp` and query
 `material_ui`'s `SnackBar` and `ScaffoldMessenger` types. Cover both stale
@@ -393,9 +463,10 @@ fires `reTapEvents`.
   controller)` helper: `MotionTokens`-gated `animateTo(0)`, `jumpTo(0)`
   under reduced motion. Re-tap is pure scroll-to-top — never a refresh,
   a selector toggle, or a selection change.
-- In-page re-taps (a `TabBar`/chip for the already-selected index) follow
-  the same rule locally: `onTap` with `!controller.indexIsChanging` calls
-  `reTapScrollToTop` on that slot's own `ScrollController`.
+- In-page re-taps follow the same rule locally, calling
+  `reTapScrollToTop` on that slot's own `ScrollController`: a `TabBar`
+  `onTap` on the selected index while `!controller.indexIsChanging`, or an
+  `AppTypeSwitch` `onSelected` that reports the current value.
 
 Owning tests: the `re-tap channel` group in
 `test/root_swipe_switcher_test.dart` (emit-once-per-tap, pop-to-root,
@@ -445,6 +516,14 @@ const PullToRefresh({
   inside `PullToRefresh` subtrees, so non-feed pages (detail, settings,
   search) and `NestedScrollView` outer scrolls share the feed's feel. Do not
   reintroduce a `ClampingScrollPhysics` region.
+- The wrapper hands `EasyRefresh` a `child`, so EasyRefresh makes
+  `ERScrollBehavior(_ERScrollPhysics)` the `ScrollConfiguration` of that
+  whole subtree, on every axis. A horizontal scrollable inside a feed opts
+  out with `ScrollConfiguration.of(context).copyWith(physics: ...)`;
+  otherwise a sideways drag past its start edge arms the refresh header.
+  An explicit `physics:` on the scrollable is not enough — `Scrollable`
+  applies it on top of the inherited physics. `AppTypeSwitch` is the
+  reference.
 - Indicator behavior, stated as observable outcomes:
   - A pull that reverses before release moves the indicator back with the
     finger; releasing below the threshold cancels without calling `onRefresh`.
@@ -475,6 +554,7 @@ const PullToRefresh({
 | Reverse gesture continues past the indicator | Indicator retracts fully before the list scrolls; the two never move together. |
 | Scroll motion continues after the pointer lifts | No pull starts or resumes; indicator stays hidden. |
 | Refresh completes or cancels | Indicator returns to hidden; nothing residual on screen. |
+| Sideways drag on a horizontal scrollable inside the feed | Never calls `onRefresh`. |
 
 ### 5. Tests Required
 
