@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../system_ui.dart';
 import 'func_semantic_tokens.dart';
 import 'func_tokens.dart';
 
@@ -8,19 +9,37 @@ ThemeData replicaTheme(Brightness brightness) {
   final background = dark
       ? FuncTokens.darkBackground
       : FuncTokens.lightBackground;
-  final surface = dark ? FuncTokens.darkSurface : FuncTokens.lightSurface;
-  final surfaceRaised = dark
-      ? FuncTokens.darkSurfaceRaised
-      : FuncTokens.lightSurfaceRaised;
+  final containerLow = dark
+      ? FuncTokens.darkContainerLow
+      : FuncTokens.lightContainerLow;
+  final container = dark ? FuncTokens.darkContainer : FuncTokens.lightContainer;
+  final containerHigh = dark
+      ? FuncTokens.darkContainerHigh
+      : FuncTokens.lightContainerHigh;
+  final containerHighest = dark
+      ? FuncTokens.darkContainerHighest
+      : FuncTokens.lightContainerHighest;
+  final inverseSurface = dark
+      ? FuncTokens.darkInverseSurface
+      : FuncTokens.lightInverseSurface;
+  final onInverseSurface = dark
+      ? FuncTokens.darkOnInverseSurface
+      : FuncTokens.lightOnInverseSurface;
   final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
   final subdued = dark ? FuncTokens.darkSubdued : FuncTokens.lightSubdued;
   final textSecondary = dark
       ? FuncTokens.darkTextSecondary
       : FuncTokens.lightTextSecondary;
 
-  final baseTextTheme = ThemeData(
-    brightness: brightness,
-  ).textTheme.apply(bodyColor: text, displayColor: text);
+  // fontFamily goes through apply() as well: ThemeData(fontFamily:) only
+  // lands on the *default* textTheme before merge(), so base styles that
+  // carry an explicit platform family (Roboto on the untouched slots like
+  // labelMedium/titleLarge) would otherwise win the merge and leak through.
+  final baseTextTheme = ThemeData(brightness: brightness).textTheme.apply(
+    bodyColor: text,
+    displayColor: text,
+    fontFamily: 'Montserrat',
+  );
 
   final colorScheme =
       ColorScheme.fromSeed(
@@ -28,17 +47,21 @@ ThemeData replicaTheme(Brightness brightness) {
         brightness: brightness,
       ).copyWith(
         primary: FuncTokens.primary,
-        secondary: FuncTokens.primary,
-        surface: surface,
+        secondary: textSecondary,
+        surface: background,
         surfaceContainerLowest: background,
-        surfaceContainerLow: surface,
-        surfaceContainer: surface,
-        surfaceContainerHigh: surfaceRaised,
-        surfaceContainerHighest: surfaceRaised,
+        surfaceContainerLow: containerLow,
+        surfaceContainer: container,
+        surfaceContainerHigh: containerHigh,
+        surfaceContainerHighest: containerHighest,
         onPrimary: FuncTokens.lightBackground,
-        onSecondary: textSecondary,
+        secondaryContainer: containerHighest,
+        onSecondary: background,
+        onSecondaryContainer: text,
         onSurface: text,
         onSurfaceVariant: textSecondary,
+        inverseSurface: inverseSurface,
+        onInverseSurface: onInverseSurface,
         // Borders/dividers keep the faint subdued alpha; only text uses the
         // readable secondary color.
         outline: subdued,
@@ -61,15 +84,14 @@ ThemeData replicaTheme(Brightness brightness) {
           behavior: SnackBarBehavior.floating,
           elevation: 0,
         ).copyWith(
-          backgroundColor: surface,
-          contentTextStyle: TextStyle(color: text),
-          actionTextColor: FuncTokens.primary,
+          backgroundColor: inverseSurface,
+          actionTextColor: colorScheme.inversePrimary,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
         ),
     scaffoldBackgroundColor: background,
-    cardColor: surface,
+    cardColor: colorScheme.surfaceContainer,
     colorScheme: colorScheme,
     textTheme: baseTextTheme.copyWith(
       headlineSmall: TextStyle(
@@ -120,11 +142,11 @@ ThemeData replicaTheme(Brightness brightness) {
       surfaceTintColor: FuncTokens.transparent,
       iconTheme: IconThemeData(color: text),
       actionsIconTheme: IconThemeData(color: text),
-      titleTextStyle: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
+      // Pinned rather than per-frame estimated: every app bar in the app is
+      // opaque on the page surface, so the bar icons always invert the page
+      // brightness (§6 — this changes no page, it only makes the source
+      // single).
+      systemOverlayStyle: funcSystemBarsStyle(brightness),
     ),
     iconTheme: IconThemeData(color: text),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
@@ -165,6 +187,18 @@ ThemeData replicaTheme(Brightness brightness) {
         );
       }),
     ),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: background,
+      indicatorColor: colorScheme.primaryContainer,
+      selectedIconTheme: IconThemeData(color: colorScheme.primary),
+      unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        selectedBackgroundColor: colorScheme.primaryContainer,
+        selectedForegroundColor: colorScheme.onPrimaryContainer,
+      ),
+    ),
     cardTheme: CardThemeData(
       color: colorScheme.surfaceContainer,
       surfaceTintColor: FuncTokens.transparent,
@@ -177,8 +211,6 @@ ThemeData replicaTheme(Brightness brightness) {
       backgroundColor: colorScheme.surfaceContainer,
       selectedColor: colorScheme.primaryContainer,
       checkmarkColor: colorScheme.onPrimaryContainer,
-      labelStyle: TextStyle(color: text),
-      secondaryLabelStyle: TextStyle(color: text),
       side: BorderSide(color: colorScheme.outline),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -188,12 +220,6 @@ ThemeData replicaTheme(Brightness brightness) {
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: FuncTokens.transparent,
       elevation: 0,
-      titleTextStyle: TextStyle(
-        color: text,
-        fontSize: 24,
-        fontWeight: FontWeight.w500,
-      ),
-      contentTextStyle: TextStyle(color: text, fontSize: 14),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(28)),
       ),
@@ -229,12 +255,39 @@ ThemeData replicaTheme(Brightness brightness) {
     ),
   );
 
-  // D3: tab labels render at 14sp. The style is built off the *resolved*
-  // textTheme so it carries the Montserrat family — a TextStyle written
-  // directly into TabBarThemeData above would fall back to the platform
-  // font for Latin text.
-  final tabLabelStyle = theme.textTheme.titleSmall!.copyWith(fontSize: 14);
+  // Component themes whose widgets swap DefaultTextStyle wholesale (AppBar
+  // title, SnackBar, Chip labels, Dialog texts, rail labels, tab labels)
+  // derive their styles from the *resolved* textTheme below — a TextStyle
+  // written directly into a component theme lacks a family and falls back
+  // to the platform font for Latin letters and digits. Sizes/weights keep
+  // their previous values; only the family (and a color where needed) is
+  // carried over.
+  final textTheme = theme.textTheme;
+  final tabLabelStyle = textTheme.titleSmall!.copyWith(fontSize: 14);
+  final bodyText = textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.w400);
   return theme.copyWith(
+    appBarTheme: theme.appBarTheme.copyWith(
+      titleTextStyle: textTheme.titleMedium!.copyWith(fontSize: 16),
+    ),
+    snackBarTheme: theme.snackBarTheme.copyWith(
+      contentTextStyle: bodyText.copyWith(color: onInverseSurface),
+    ),
+    chipTheme: theme.chipTheme.copyWith(
+      labelStyle: bodyText,
+      secondaryLabelStyle: bodyText,
+    ),
+    dialogTheme: theme.dialogTheme.copyWith(
+      titleTextStyle: textTheme.headlineSmall!.copyWith(fontSize: 24),
+      contentTextStyle: bodyText,
+    ),
+    navigationRailTheme: theme.navigationRailTheme.copyWith(
+      selectedLabelTextStyle: textTheme.labelMedium!.copyWith(
+        color: colorScheme.primary,
+      ),
+      unselectedLabelTextStyle: textTheme.labelMedium!.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+    ),
     tabBarTheme: theme.tabBarTheme.copyWith(
       labelStyle: tabLabelStyle,
       unselectedLabelStyle: tabLabelStyle,

@@ -40,7 +40,7 @@ class PixivImage extends ConsumerStatefulWidget {
     this.width,
     this.height,
     this.alignment = Alignment.center,
-    this.placeholderColor = const Color(0x33383838),
+    this.placeholderColor,
     this.placeholderWidget,
     this.fade = true,
     this.fadeDuration = MotionTokens.imageFade,
@@ -63,7 +63,7 @@ class PixivImage extends ConsumerStatefulWidget {
     BoxFit fit = BoxFit.cover,
     double? width,
     double? height,
-    Color placeholderColor = const Color(0x33383838),
+    Color? placeholderColor,
     Widget? placeholderWidget,
     Object? transitionKey,
     String? tierKey,
@@ -145,7 +145,7 @@ class PixivImage extends ConsumerStatefulWidget {
     required Object? tag,
     BoxFit fit = BoxFit.cover,
     Alignment alignment = Alignment.center,
-    Color placeholderColor = const Color(0x33383838),
+    Color? placeholderColor,
     String? tierKey,
     IllustImageTier? tier,
     bool tierUpgrade = true,
@@ -194,7 +194,12 @@ class PixivImage extends ConsumerStatefulWidget {
   final double? width;
   final double? height;
   final Alignment alignment;
-  final Color placeholderColor;
+
+  /// Loading/error backdrop. When null the widget resolves the ambient
+  /// theme's `colorScheme.surfaceContainer` — the same tier the surrounding
+  /// card paints, so an empty slot reads as card surface, not a grey hole.
+  /// Full-bleed surfaces (the viewer's black stage) pass an explicit color.
+  final Color? placeholderColor;
 
   /// Optional custom placeholder (avatar shimmer etc.). When null the
   /// default [ColoredBox] with [placeholderColor] is used.
@@ -614,6 +619,9 @@ class _PixivImageState extends ConsumerState<PixivImage> {
         !slotHandoff &&
         TickerMode.valuesOf(context).enabled;
     _lastShownUrl = imageUrl;
+    final placeholderColor =
+        widget.placeholderColor ??
+        Theme.of(context).colorScheme.surfaceContainer;
     final image = LayoutBuilder(
       builder: (context, constraints) => CachedNetworkImage(
         imageUrl: imageUrl,
@@ -647,9 +655,9 @@ class _PixivImageState extends ConsumerState<PixivImage> {
         fadeInDuration: crossfade ? widget.fadeDuration : Duration.zero,
         fadeOutDuration: crossfade ? MotionTokens.imageFadeOut : Duration.zero,
         placeholder: (_, _) =>
-            transitionPlaceholder ?? ColoredBox(color: widget.placeholderColor),
+            transitionPlaceholder ?? ColoredBox(color: placeholderColor),
         errorWidget: (_, _, _) => ColoredBox(
-          color: widget.placeholderColor,
+          color: placeholderColor,
           child: const Icon(Icons.broken_image),
         ),
       ),
