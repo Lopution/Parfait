@@ -29,11 +29,13 @@ import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
 import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/profile_illust_feed.dart';
 import 'package:pixiv_func/features/profile/profile_novel_feed.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
+import 'package:pixiv_func/features/profile/profile_skeleton.dart';
 import 'package:pixiv_func/features/profile/user_series_feed.dart';
 import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
 import 'package:pixiv_func/app/widgets/image_overlay_button.dart';
@@ -92,11 +94,16 @@ class _FakeUserRepository implements UserRepository {
   /// When set, `fetchWorks` waits on it — lets a test observe the feed's
   /// loading state instead of racing past it.
   Completer<void>? worksGate;
+
+  /// Same gate for `fetchDetail` — holds the profile header's first load.
+  Completer<void>? detailGate;
   final requests = <String>[];
 
   @override
   Future<UserEntity> fetchDetail(int userId, {CancelToken? cancelToken}) async {
     requests.add('detail:$userId');
+    final gate = detailGate;
+    if (gate != null) await gate.future;
     final error = detailFailure;
     if (error != null) throw error;
     return detail.copyWith(id: userId);
@@ -2096,6 +2103,113 @@ void main() {
     expect(selected(), {ProfileWorkSection.illust});
     expect(find.byType(ProfileIllustFeed), findsOneWidget);
   });
+
+  testWidgets(
+    'a pending profile shows the skeleton and the back button leaves',
+    (tester) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final repository = _FakeUserRepository()..detailGate = gate;
+      final container = await _makeWorld(users: repository);
+
+      // Push the page so canPop is true — the skeleton's BackButton is a
+      // real affordance, not a dead icon.
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const UserPage(userId: 42),
+                      ),
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(ProfileSkeleton), findsOneWidget);
+      expect(find.byType(FeedEmpty), findsNothing);
+      expect(find.byType(FeedLoading), findsNothing);
+      expect(find.byType(BackButton), findsOneWidget);
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(UserPage), findsNothing);
+
+      gate.complete();
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'the profile skeleton lines up with the header it stands in for',
+    (tester) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final repository = _FakeUserRepository()..detailGate = gate;
+      final container = await _makeWorld(users: repository);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(ProfileSkeleton), findsOneWidget);
+      final avatarBone = tester.getCenter(
+        find.byKey(const ValueKey('profile-skeleton-avatar')),
+      );
+      final nameBone = tester.getTopLeft(
+        find.byKey(const ValueKey('profile-skeleton-name')),
+      );
+
+      gate.complete();
+      // The works feed shimmers behind the header, so pumpAndSettle would
+      // never return; pump a fixed stretch for the header to measure itself.
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.byType(ProfileSkeleton), findsNothing);
+      final avatar = tester.getCenter(
+        find.byKey(const ValueKey('profile-expanded-avatar')),
+      );
+      final name = tester.getTopLeft(
+        find.byKey(const ValueKey('profile-expanded-name')),
+      );
+
+      // Same avatar centre and the same name baseline row: nothing jumps
+      // when the data replaces the bones.
+      expect(avatarBone.dx, moreOrLessEquals(avatar.dx));
+      expect(avatarBone.dy, moreOrLessEquals(avatar.dy));
+      expect(nameBone.dx, moreOrLessEquals(name.dx));
+      expect(nameBone.dy, moreOrLessEquals(name.dy));
+    },
+  );
 
   testWidgets('work type switch stays usable while the feed is still loading', (
     tester,

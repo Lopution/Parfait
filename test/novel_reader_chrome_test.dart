@@ -28,6 +28,8 @@ import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
+
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 
@@ -36,6 +38,7 @@ Future<ProviderContainer> _apiContainer({
   bool withSeries = false,
   Future<http.Response> Function(int request)? seriesHandler,
   List<Uri>? seriesRequests,
+  Completer<void>? detailGate,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences(preferences);
   final credentials = FakeCredentialStore(
@@ -73,6 +76,7 @@ Future<ProviderContainer> _apiContainer({
   clientRef[0] = PixivHttpClient(
     client: MockClient((request) async {
       if (request.url.path == '/v2/novel/detail') {
+        await detailGate?.future;
         return http.Response.bytes(
           utf8.encode(
             jsonEncode({
@@ -598,6 +602,37 @@ void main() {
       tester.getRect(find.byIcon(Icons.arrow_back)).top,
       greaterThanOrEqualTo(24),
     );
+  });
+
+  testWidgets('a pending detail shows a spinner, not an empty state', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final container = await _apiContainer(detailGate: gate);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: NovelPage(novelId: 1),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(FeedLoading), findsOneWidget);
+    expect(find.byType(FeedEmpty), findsNothing);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(FeedLoading), findsNothing);
   });
 
   testWidgets('the series bar keeps one height in every state', (tester) async {
