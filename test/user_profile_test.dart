@@ -26,6 +26,7 @@ import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:pixiv_func/core/profile/profile_models.dart';
 import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
+import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
 import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
@@ -35,6 +36,7 @@ import 'package:pixiv_func/features/profile/profile_novel_feed.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/features/profile/user_series_feed.dart';
 import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
+import 'package:pixiv_func/app/widgets/image_overlay_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -1025,6 +1027,229 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('open'), findsOneWidget);
       }
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    },
+  );
+
+  testWidgets(
+    'cover artwork switches the persistent controls to the overlay style',
+    (tester) async {
+      final controller = ScrollController();
+      final coverUser = _user(
+        42,
+      ).copyWith(backgroundImageUrl: 'https://i.pximg.net/bg.png');
+      Widget header() => Scaffold(
+        body: CustomScrollView(
+          controller: controller,
+          slivers: [
+            _MeasuredProfileHeader(
+              delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
+                user: coverUser,
+                isMe: true,
+                selectedTabIndex: 0,
+                showRestrictSelector: false,
+                restrict: UserRestrict.public,
+                onRestrictChanged: (_) {},
+                onShare: (_) {},
+                expandedExtent: extent,
+                onExpandedExtentMeasured: onMeasured,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+          ],
+        ),
+      );
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute<void>(builder: (_) => header())),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+
+        ButtonStyle? overflowStyle() => tester
+            .widget<PopupMenuButton<String>>(
+              find.byType(PopupMenuButton<String>),
+            )
+            .style;
+
+        // Expanded over artwork: the back affordance is the shared overlay
+        // button and the overflow carries the same imageControl fill (R4).
+        expect(
+          find.ancestor(
+            of: find.byIcon(Icons.arrow_back_ios_new),
+            matching: find.byType(ImageOverlayButton),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          overflowStyle()!.backgroundColor!.resolve(const <WidgetState>{}),
+          FuncTokens.imageControl,
+        );
+
+        // Collapsed onto the plain surface: no overlay button, no fill,
+        // but both controls stay mounted and tappable.
+        controller.jumpTo(_headerCollapseRange(tester));
+        await tester.pump();
+        expect(find.byType(ImageOverlayButton), findsNothing);
+        expect(overflowStyle(), isNull);
+        expect(find.byIcon(Icons.more_vert), findsOneWidget);
+        expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+      controller.dispose();
+    },
+  );
+
+  testWidgets('without a cover the header controls stay plain surface icons', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    Widget header() => Scaffold(
+      body: CustomScrollView(
+        controller: controller,
+        slivers: [
+          _MeasuredProfileHeader(
+            delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
+              user: _user(42),
+              isMe: true,
+              selectedTabIndex: 0,
+              showRestrictSelector: false,
+              restrict: UserRestrict.public,
+              onRestrictChanged: (_) {},
+              onShare: (_) {},
+              expandedExtent: extent,
+              onExpandedExtentMeasured: onMeasured,
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+        ],
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute<void>(builder: (_) => header())),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // The banner still sits behind the toolbar while expanded, but with
+    // no cover there is nothing to overlay — plain icons, no fill (R4).
+    expect(find.byType(ImageOverlayButton), findsNothing);
+    expect(
+      tester
+          .widget<PopupMenuButton<String>>(find.byType(PopupMenuButton<String>))
+          .style,
+      isNull,
+    );
+    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets(
+    'the status bar asks for light icons only over a live cover banner',
+    (tester) async {
+      final controller = ScrollController();
+      Widget app(UserEntity user) => MaterialApp(
+        theme: replicaTheme(Brightness.light),
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('zh', 'CN'),
+        home: Scaffold(
+          body: CustomScrollView(
+            controller: controller,
+            slivers: [
+              _MeasuredProfileHeader(
+                delegateFor: (extent, onMeasured) =>
+                    ReplicaProfileHeaderDelegate(
+                      user: user,
+                      isMe: true,
+                      selectedTabIndex: 0,
+                      showRestrictSelector: false,
+                      restrict: UserRestrict.public,
+                      onRestrictChanged: (_) {},
+                      onShare: (_) {},
+                      expandedExtent: extent,
+                      onExpandedExtentMeasured: onMeasured,
+                    ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+            ],
+          ),
+        ),
+      );
+
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          app(
+            _user(
+              42,
+            ).copyWith(backgroundImageUrl: 'https://i.pximg.net/bg.png'),
+          ),
+        );
+        // latestStyle lands in a following microtask (C2 §9): pump once,
+        // then once more before reading.
+        await tester.pump();
+        await tester.pump();
+        expect(
+          SystemChrome.latestStyle?.statusBarIconBrightness,
+          Brightness.light,
+          reason: 'an expanded cover must paint light status-bar icons',
+        );
+
+        controller.jumpTo(_headerCollapseRange(tester));
+        await tester.pump();
+        await tester.pump();
+        expect(
+          SystemChrome.latestStyle?.statusBarIconBrightness,
+          Brightness.dark,
+          reason: 'the collapsed toolbar restores the light-theme default',
+        );
+      });
+
+      await tester.pumpWidget(app(_user(42)));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        SystemChrome.latestStyle?.statusBarIconBrightness,
+        Brightness.dark,
+        reason: 'a cover-less banner keeps the root default',
+      );
+
       await tester.pumpWidget(const SizedBox.shrink());
       controller.dispose();
     },
