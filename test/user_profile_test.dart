@@ -22,10 +22,16 @@ import 'package:pixiv_func/core/user/follow_store.dart';
 import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
+import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:pixiv_func/core/profile/profile_models.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
+import 'package:pixiv_func/app/widgets/app_type_switch.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
+import 'package:pixiv_func/features/profile/profile_illust_feed.dart';
+import 'package:pixiv_func/features/profile/profile_novel_feed.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
+import 'package:pixiv_func/features/profile/user_series_feed.dart';
 import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
@@ -62,6 +68,50 @@ class _FakeFollowRepository implements FollowRepository {
   }
 }
 
+/// In-memory stand-in for [FeedSnapshotStore]: each `_makeWorld` gets a
+/// fresh instance so a snapshot committed by one test cannot leak into the
+/// next world's cold start (sqflite's singleInstance cache would share the
+/// default ':memory:' feeds.db across the whole file).
+class _MemoryFeedSnapshotStore implements FeedSnapshotStore {
+  final _rows = <String, FeedSnapshot>{};
+
+  @override
+  int get discardedCount => 0;
+
+  @override
+  int get maxEntriesPerAccount => 64;
+
+  @override
+  Future<FeedSnapshot?> read(
+    String accountId,
+    String feedKey, {
+    Duration maxAge = FeedSnapshotStore.maxAge,
+  }) async => _rows['$accountId|$feedKey'];
+
+  @override
+  Future<void> write(
+    String accountId,
+    String feedKey, {
+    required List<int> ids,
+    required Map<String, Object?> entities,
+    String? cursor,
+    int snapshotVersion = 1,
+  }) async {
+    _rows['$accountId|$feedKey'] = FeedSnapshot(
+      ids: ids,
+      entities: entities,
+      savedAt: DateTime.now(),
+      cursor: cursor,
+      snapshotVersion: snapshotVersion,
+    );
+  }
+
+  @override
+  Future<void> clearAccount(String accountId) async {
+    _rows.removeWhere((key, _) => key.startsWith('$accountId|'));
+  }
+}
+
 class _FakeUserRepository implements UserRepository {
   _FakeUserRepository({
     UserEntity? detail,
@@ -76,6 +126,10 @@ class _FakeUserRepository implements UserRepository {
   final List<IllustEntity> bookmarks;
   final Object? worksFailure;
   final Object? detailFailure;
+
+  /// When set, `fetchWorks` waits on it — lets a test observe the feed's
+  /// loading state instead of racing past it.
+  Completer<void>? worksGate;
   final requests = <String>[];
 
   @override
@@ -96,6 +150,8 @@ class _FakeUserRepository implements UserRepository {
     requests.add(
       'works:$userId:${type.name}:${cursor == null ? 'first' : 'next'}',
     );
+    final gate = worksGate;
+    if (gate != null) await gate.future;
     final error = worksFailure;
     if (error != null) throw error;
     return UserIllustPage(
@@ -200,6 +256,11 @@ Future<ProviderContainer> _makeWorld({
   ShareService? shareService,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+  // Per-world snapshot store: sqflite singleInstance caches the default
+  // ':memory:' feeds.db by path, so one test's committed snapshot would
+  // leak into the next world's cold start. An in-memory store keeps the
+  // same read/write contract without touching sqlite inside FakeAsync.
+  final feedSnapshots = _MemoryFeedSnapshotStore();
   final credentials = FakeCredentialStore(
     values: const {
       '100': Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
@@ -209,6 +270,7 @@ Future<ProviderContainer> _makeWorld({
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
+      feedSnapshotStoreProvider.overrideWithValue(feedSnapshots),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
           accounts: [
@@ -920,15 +982,25 @@ void main() {
       );
       expect(find.text('关于'), findsOneWidget);
       expect(find.text('sample user'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, '插画'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, '漫画'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, '小说'), findsOneWidget);
 
-      await tester.tap(find.text('作品'));
-      await tester.pumpAndSettle();
-      expect(find.widgetWithText(ChoiceChip, '插画'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, '漫画'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, '小说'), findsOneWidget);
+      // D3: the work-section selector is the shared compact type switch
+      // inside the feed — a <=48dp segmented row, never the old ChoiceChip
+      // strip pinned under the tab bar.
+      final typeSwitch = find.byType(AppTypeSwitch<ProfileWorkSection>);
+      expect(typeSwitch, findsOneWidget);
+      expect(
+        tester.getSize(typeSwitch).height,
+        lessThanOrEqualTo(kMinInteractiveDimension),
+      );
+      expect(find.byType(ChoiceChip), findsNothing);
+      final segments = find.byType(SegmentedButton<ProfileWorkSection>);
+      expect(segments, findsOneWidget);
+      for (final label in ['插画', '漫画', '小说', '系列']) {
+        expect(
+          find.widgetWithText(SegmentedButton<ProfileWorkSection>, label),
+          findsOneWidget,
+        );
+      }
       expect(find.byType(EasyRefresh), findsOneWidget);
       expect(find.byType(HeaderLocator), findsOneWidget);
 
@@ -937,9 +1009,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('收藏'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(ChoiceChip, '插画'), findsNothing);
-      expect(find.widgetWithText(ChoiceChip, '漫画'), findsNothing);
-      expect(find.widgetWithText(ChoiceChip, '小说'), findsNothing);
+      expect(typeSwitch, findsNothing);
+      expect(find.byType(ChoiceChip), findsNothing);
     },
   );
 
@@ -994,9 +1065,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '漫画'))
+            .widget<SegmentedButton<ProfileWorkSection>>(
+              find.byType(SegmentedButton<ProfileWorkSection>),
+            )
             .selected,
-        isTrue,
+        {ProfileWorkSection.manga},
       );
       expect(repository.requests, contains('works:42:manga:first'));
       expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
@@ -1013,9 +1086,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '系列'))
+            .widget<SegmentedButton<ProfileWorkSection>>(
+              find.byType(SegmentedButton<ProfileWorkSection>),
+            )
             .selected,
-        isTrue,
+        {ProfileWorkSection.series},
       );
       expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
 
@@ -1045,9 +1120,11 @@ void main() {
       expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
       expect(
         tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '漫画'))
+            .widget<SegmentedButton<ProfileWorkSection>>(
+              find.byType(SegmentedButton<ProfileWorkSection>),
+            )
             .selected,
-        isTrue,
+        {ProfileWorkSection.manga},
       );
     },
   );
@@ -1120,7 +1197,28 @@ void main() {
         outer.jumpTo(80);
         inner.jumpTo(120);
         await tester.pump();
-        await tester.tap(find.widgetWithText(ChoiceChip, '插画'));
+        // The switch row scrolled away with the feed; a small reverse drag
+        // floats it back in so the re-tap can land (Compact Type Switch
+        // Contract).
+        await tester.drag(
+          find.byKey(
+            const PageStorageKey(
+              ProfileFeedKey(
+                userId: 42,
+                kind: ProfileFeedKind.work,
+                workType: UserWorkType.illust,
+              ),
+            ),
+          ),
+          const Offset(0, 50),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(SegmentedButton<ProfileWorkSection>),
+            matching: find.text('插画'),
+          ),
+        );
         await tester.pumpAndSettle();
         expect(outer.pixels, 0);
         expect(inner.pixels, 0);
@@ -1205,6 +1303,152 @@ void main() {
         await tester.pumpAndSettle();
         expect(bookmarkPosition.pixels, 0);
         expect(workPosition.pixels, 140);
+      });
+    },
+  );
+
+  testWidgets('work type switch swaps between all four feed sections', (
+    tester,
+  ) async {
+    final repository = _FakeUserRepository();
+    final container = await _makeWorld(users: repository);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+
+          home: const UserPage(userId: 42),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final segments = find.byType(SegmentedButton<ProfileWorkSection>);
+    Finder segment(String label) =>
+        find.descendant(of: segments, matching: find.text(label));
+    Set<ProfileWorkSection> selected() =>
+        tester.widget<SegmentedButton<ProfileWorkSection>>(segments).selected;
+
+    expect(segments, findsOneWidget);
+    expect(selected(), {ProfileWorkSection.illust});
+    expect(repository.requests, contains('works:42:illust:first'));
+
+    await tester.tap(segment('漫画'));
+    await tester.pumpAndSettle();
+    expect(selected(), {ProfileWorkSection.manga});
+    expect(repository.requests, contains('works:42:manga:first'));
+
+    // Novel and series are their own feeds; the selector follows whichever
+    // feed is mounted.
+    await tester.tap(segment('小说'));
+    await tester.pumpAndSettle();
+    expect(selected(), {ProfileWorkSection.novel});
+    expect(find.byType(ProfileNovelFeed), findsOneWidget);
+
+    await tester.tap(segment('系列'));
+    await tester.pumpAndSettle();
+    expect(selected(), {ProfileWorkSection.series});
+    expect(find.byType(UserSeriesFeed), findsOneWidget);
+
+    await tester.tap(segment('插画'));
+    await tester.pumpAndSettle();
+    expect(selected(), {ProfileWorkSection.illust});
+    expect(find.byType(ProfileIllustFeed), findsOneWidget);
+  });
+
+  testWidgets('work type switch stays usable while the feed is still loading', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final repository = _FakeUserRepository()..worksGate = gate;
+    final container = await _makeWorld(users: repository);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+
+          home: const UserPage(userId: 42),
+        ),
+      ),
+    );
+    // The detail resolves but the works request is parked behind the
+    // gate: the feed renders its loading branch, which must still carry
+    // the selector (D3 loading/error contract). pumpAndSettle can't settle
+    // on the indicator's perpetual animation, so pump a fixed stretch.
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(repository.requests, contains('works:42:illust:first'));
+    expect(find.byType(FeedLoading), findsOneWidget);
+    final segments = find.byType(SegmentedButton<ProfileWorkSection>);
+    expect(segments, findsOneWidget);
+    await tester.tap(find.descendant(of: segments, matching: find.text('漫画')));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(repository.requests, contains('works:42:manga:first'));
+  });
+
+  testWidgets(
+    'work type switch floats back in on a small reverse drag while the '
+    'header stays collapsed',
+    (tester) async {
+      final repository = _FakeUserRepository(
+        works: List.generate(36, (index) => _illust(index + 1)),
+      );
+      final container = await _makeWorld(users: repository);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+
+              home: const UserPage(userId: 42),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        const feedKey = ProfileFeedKey(
+          userId: 42,
+          kind: ProfileFeedKind.work,
+          workType: UserWorkType.illust,
+        );
+        final feed = find.byKey(const PageStorageKey(feedKey));
+        final typeRow = find.byType(AppTypeSwitch<ProfileWorkSection>);
+        expect(typeRow.hitTestable(), findsOneWidget);
+
+        // Scroll the inner feed: the switch row scrolls away with the
+        // content and the outer header collapses.
+        await tester.drag(feed, const Offset(0, -600));
+        await tester.pumpAndSettle();
+        expect(typeRow.hitTestable(), findsNothing);
+        expect(
+          find.byKey(const ValueKey('profile-toolbar-title')),
+          findsOneWidget,
+        );
+
+        // A small reverse drag floats the row back in. The inner position
+        // consumes the delta, so the outer header stays collapsed.
+        await tester.drag(feed, const Offset(0, 50));
+        await tester.pumpAndSettle();
+        expect(typeRow.hitTestable(), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('profile-toolbar-title')),
+          findsOneWidget,
+        );
       });
     },
   );
@@ -1417,9 +1661,7 @@ void main() {
                     delegate: ReplicaProfileTabsDelegate(
                       controller: controller,
                       isMe: isMe,
-                      section: ProfileWorkSection.illust,
                       onTabTap: (_) {},
-                      onSectionChanged: (_) {},
                     ),
                   ),
                   const SliverFillRemaining(),
@@ -1519,13 +1761,19 @@ void main() {
       await tester.pumpAndSettle();
 
       // The work feed's first page request failed, but the query context —
-      // tabs, section chips, and the header action row — stays mounted
-      // (parent §6 gate: chrome survives loading/error/empty).
+      // tabs, the feed-hosted type switch, and the header action row —
+      // stays mounted (parent §6 gate: chrome survives
+      // loading/error/empty).
       expect(repository.requests, contains('works:42:illust:first'));
       expect(find.byType(TabBar), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, '插画'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, '漫画'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, '小说'), findsOneWidget);
+      expect(find.byType(AppTypeSwitch<ProfileWorkSection>), findsOneWidget);
+      for (final label in ['插画', '漫画', '小说', '系列']) {
+        expect(
+          find.widgetWithText(SegmentedButton<ProfileWorkSection>, label),
+          findsOneWidget,
+        );
+      }
+      expect(find.byType(ChoiceChip), findsNothing);
       expect(find.byIcon(Icons.share_outlined), findsOneWidget);
       expect(
         find.byKey(const ValueKey('profile-stat-following-header')),
@@ -1557,9 +1805,7 @@ void main() {
                   delegate: ReplicaProfileTabsDelegate(
                     controller: controller,
                     isMe: false,
-                    section: ProfileWorkSection.illust,
                     onTabTap: (_) {},
-                    onSectionChanged: (_) {},
                   ),
                 ),
               ],

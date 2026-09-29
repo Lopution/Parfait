@@ -7,6 +7,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:pixiv_func/core/profile/profile_models.dart';
 import 'package:pixiv_func/features/illust/detail/widgets/illust_series_section.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
+import 'package:pixiv_func/features/profile/profile_work_type_switch.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -107,10 +108,11 @@ void main() {
     expect(find.byTooltip('下一话'), findsNothing);
   });
 
-  testWidgets('work selector offers the series section chip', (tester) async {
+  testWidgets('work selector offers the series section option', (tester) async {
+    // The selector moved out of the pinned tab bar into each work feed
+    // (D3): `ProfileWorkTypeSwitch` is the value object feeds render as a
+    // floating sliver — this mounts that sliver directly.
     ProfileWorkSection? selected;
-    final controller = TabController(length: 4, vsync: tester);
-    addTearDown(controller.dispose);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -118,32 +120,47 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
         home: Scaffold(
-          body: NestedScrollView(
-            headerSliverBuilder: (_, _) => [
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: ReplicaProfileTabsDelegate(
-                  controller: controller,
-                  isMe: false,
-                  section: ProfileWorkSection.illust,
-                  onTabTap: (_) {},
-                  onSectionChanged: (section) => selected = section,
-                ),
-              ),
-            ],
-            body: const SizedBox(),
+          body: Builder(
+            builder: (context) => CustomScrollView(
+              slivers: [
+                ProfileWorkTypeSwitch(
+                  selected: ProfileWorkSection.illust,
+                  onSelected: (section) => selected = section,
+                ).sliver(context),
+                const SliverFillRemaining(),
+              ],
+            ),
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('插画'), findsOneWidget);
-    expect(find.text('漫画'), findsOneWidget);
-    expect(find.text('小说'), findsOneWidget);
-    expect(find.text('系列'), findsOneWidget);
+    for (final label in ['插画', '漫画', '小说', '系列']) {
+      expect(
+        find.widgetWithText(SegmentedButton<ProfileWorkSection>, label),
+        findsOneWidget,
+      );
+    }
 
     await tester.tap(find.text('系列'));
     expect(selected, ProfileWorkSection.series);
+
+    // The tab bar itself is now a constant toolbar height on every tab —
+    // no 64dp selector strip under it anymore.
+    for (final isMe in [false, true]) {
+      final controller = TabController(length: isMe ? 5 : 4, vsync: tester);
+      addTearDown(controller.dispose);
+      for (var index = 0; index < controller.length; index++) {
+        controller.index = index;
+        final delegate = ReplicaProfileTabsDelegate(
+          controller: controller,
+          isMe: isMe,
+          onTabTap: (_) {},
+        );
+        expect(delegate.minExtent, kToolbarHeight);
+        expect(delegate.maxExtent, kToolbarHeight);
+      }
+    }
   });
 }
