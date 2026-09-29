@@ -177,6 +177,67 @@ void main() {
     expect(find.textContaining('novel 1 ·'), findsOneWidget);
   });
 
+  testWidgets('the progress hint never overlaps the sliding bottom bar', (
+    tester,
+  ) async {
+    // R4: the hint waits for the bar's `dismissed` edge in both
+    // directions — on no frame may a finder see both at once.
+    final container = await _apiContainer();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: NovelPage(novelId: 1),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    bool hintShown() => find.textContaining('novel 1 ·').evaluate().isNotEmpty;
+    bool barShown() =>
+        find.byIcon(Icons.text_decrease_outlined).evaluate().isNotEmpty;
+    void expectNotBoth(String direction, int frame) {
+      expect(
+        hintShown() && barShown(),
+        isFalse,
+        reason: 'frame $frame of the $direction slide shows both',
+      );
+    }
+
+    // Starts hidden: hint on, bar off.
+    expect(hintShown(), isTrue);
+    expect(barShown(), isFalse);
+
+    // Show direction: the hint leaves on the slide-in's first frame.
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    for (var i = 0; i < 15; i++) {
+      expectNotBoth('show', i);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(barShown(), isTrue);
+    expect(hintShown(), isFalse);
+
+    // Hide direction: the bar owns the strip until it is dismissed; the
+    // hint returns only on the frame the bar leaves the tree.
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    for (var i = 0; i < 15; i++) {
+      expectNotBoth('hide', i);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(barShown(), isFalse);
+    expect(hintShown(), isTrue);
+  });
+
   testWidgets('system back pops the page when the chrome is hidden', (
     tester,
   ) async {
@@ -389,6 +450,8 @@ void main() {
     await tester.tapAt(const Offset(400, 300));
     await tester.pump();
     expect(find.byIcon(Icons.arrow_back), findsNothing);
+    // The passive hint returns on the same frame the bar leaves (R4).
+    expect(find.textContaining('novel 1 ·'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
     expect(find.textContaining('· 2/'), findsOneWidget);

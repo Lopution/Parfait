@@ -117,8 +117,17 @@ class NovelReaderStage extends ConsumerStatefulWidget {
   ConsumerState<NovelReaderStage> createState() => _NovelReaderStageState();
 }
 
-class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
+class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
+    with SingleTickerProviderStateMixin {
+  /// One controller drives both bars and the passive hint: the hint
+  /// tracks the *rendered* chrome state, not the user's intent — it
+  /// reappears only once the bottom bar is fully dismissed (R4).
+  late final AnimationController _chrome = AnimationController(
+    vsync: this,
+    duration: MotionTokens.fast,
+  )..addStatusListener(_onChromeStatus);
   bool _chromeVisible = false;
+  bool _chromeHidden = true; // == _chrome.isDismissed, cached for build
   final NovelReaderHandle _readerHandle = NovelReaderHandle();
   NovelAnchor? _anchor;
   int _page = 0;
@@ -135,6 +144,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
   void initState() {
     super.initState();
     _loadPrefs();
+  }
+
+  @override
+  void dispose() {
+    _chrome.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPrefs() async {
@@ -156,10 +171,28 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
     }
   }
 
-  void _toggleChrome() => setState(() => _chromeVisible = !_chromeVisible);
+  void _toggleChrome() => _setChromeVisible(!_chromeVisible);
 
   void _hideChrome() {
-    if (_chromeVisible) setState(() => _chromeVisible = false);
+    if (_chromeVisible) _setChromeVisible(false);
+  }
+
+  void _setChromeVisible(bool visible) {
+    setState(() => _chromeVisible = visible);
+    if (!MotionTokens.enabled(context)) {
+      // Reduced motion: land the end state — a zeroed controller still
+      // drives the hittable/dismissed boundary correctly.
+      _chrome.value = visible ? 1 : 0;
+    } else if (visible) {
+      _chrome.forward();
+    } else {
+      _chrome.reverse();
+    }
+  }
+
+  void _onChromeStatus(AnimationStatus status) {
+    final hidden = _chrome.isDismissed;
+    if (hidden != _chromeHidden) setState(() => _chromeHidden = hidden);
   }
 
   void _applySettings(NovelReaderSettings next) {
@@ -220,7 +253,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
               // paint and semantics tree. The chrome owns the interactive
               // progress readout while it is visible; the hint returns when
               // the reader is immersive again.
-              if (!_chromeVisible)
+              if (_chromeHidden)
                 Positioned(
                   left: 16,
                   right: 16,
@@ -241,12 +274,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage> {
                   ),
                 ),
               _ChromeBar(
-                visible: _chromeVisible,
+                animation: _chrome,
                 edge: _ChromeEdge.top,
                 child: _buildTopBar(context, palette),
               ),
               _ChromeBar(
-                visible: _chromeVisible,
+                animation: _chrome,
                 edge: _ChromeEdge.bottom,
                 child: _buildBottomBar(context, l10n, palette),
               ),
@@ -694,83 +727,50 @@ class _SettingsSliderRow extends StatelessWidget {
 
 enum _ChromeEdge { top, bottom }
 
-/// One sliding chrome bar. The controller keeps the bar hittable until the
-/// hide animation fully completes — a tap landing mid-slide still hits the
-/// button instead of leaking through to the page-turn zone.
-class _ChromeBar extends StatefulWidget {
+/// One sliding chrome bar driven by the stage's controller. The bar stays
+/// hittable until the hide animation fully completes — a tap landing
+/// mid-slide still hits the button instead of leaking through to the
+/// page-turn zone.
+class _ChromeBar extends StatelessWidget {
   const _ChromeBar({
-    required this.visible,
+    required this.animation,
     required this.edge,
     required this.child,
   });
 
-  final bool visible;
+  final Animation<double> animation;
   final _ChromeEdge edge;
   final Widget child;
 
   @override
-  State<_ChromeBar> createState() => _ChromeBarState();
-}
-
-class _ChromeBarState extends State<_ChromeBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: MotionTokens.fast,
-    value: widget.visible ? 1 : 0,
-  );
-
-  @override
-  void didUpdateWidget(covariant _ChromeBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.visible != oldWidget.visible) {
-      if (!MotionTokens.enabled(context)) {
-        // Reduced motion: land the end state — a zeroed controller still
-        // drives the hittable/dismissed boundary correctly.
-        _controller.value = widget.visible ? 1 : 0;
-      } else if (widget.visible) {
-        _controller.forward();
-      } else {
-        _controller.reverse();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final isTop = widget.edge == _ChromeEdge.top;
+    final isTop = edge == _ChromeEdge.top;
     final slide =
         Tween<Offset>(
           begin: Offset(0, isTop ? -1 : 1),
           end: Offset.zero,
         ).animate(
-          CurvedAnimation(parent: _controller, curve: MotionTokens.fastCurve),
+          CurvedAnimation(parent: animation, curve: MotionTokens.fastCurve),
         );
     // No SafeArea here: the bar surface must paint edge-to-edge so its
     // background covers the system inset. The inset padding lives inside
     // each bar's Material instead — the bar slides from the screen edge
     // while its controls stay clear of the gesture strip.
-    final bar = SlideTransition(position: slide, child: widget.child);
+    final bar = SlideTransition(position: slide, child: child);
     return Positioned(
       top: isTop ? 0 : null,
       bottom: isTop ? null : 0,
       left: 0,
       right: 0,
       child: AnimatedBuilder(
-        animation: _controller,
+        animation: animation,
         builder: (context, child) {
           // Fully hidden means fully gone: no hit target, no semantics, no
           // leftover widget for finders/a11y to see.
-          if (_controller.isDismissed) return const SizedBox.shrink();
+          if (animation.isDismissed) return const SizedBox.shrink();
           return IgnorePointer(
             ignoring: false,
-            child: FadeTransition(opacity: _controller, child: child),
+            child: FadeTransition(opacity: animation, child: child),
           );
         },
         child: bar,
