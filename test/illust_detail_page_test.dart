@@ -1532,8 +1532,8 @@ void main() {
       // cards); it renders author, meta and tags.
       expect(
         find.text('author'),
-        findsNWidgets(3),
-        reason: 'compact header + author block name + account',
+        findsNWidgets(2),
+        reason: 'author block name + account',
       );
       expect(find.textContaining('800x600'), findsOneWidget);
       expect(find.textContaining('ID: 42'), findsOneWidget);
@@ -1577,9 +1577,9 @@ void main() {
             findsWidgets,
             reason: 'content renders from the card snapshot, not a spinner',
           );
-          // Two copies are expected: the persistent compact header carries
-          // the title too (C17); the snapshot proves out through either.
-          expect(find.text('illust 42'), findsNWidgets(2));
+          // The snapshot proves out through the InfoBlock title — the
+          // detail page keeps no separate title copy anymore.
+          expect(find.text('illust 42'), findsOneWidget);
           expect(find.text('author'), findsWidgets);
           expect(
             tester.widget<PixivImage>(find.byType(PixivImage).first).url,
@@ -1856,73 +1856,58 @@ void main() {
     });
   });
 
-  group('narrow compact header (C17)', () {
-    testWidgets('renders title/author/page context and the info jump on narrow '
-        'surfaces', (tester) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-
-      // Header shows the work context while the body is still on page 1.
-      expect(find.text('illust 42'), findsOneWidget);
-      expect(find.text('author'), findsOneWidget);
-      expect(find.text('第 1 页，共 2 页'), findsOneWidget);
-      expect(find.byTooltip('跳到作品信息区'), findsOneWidget);
-    });
-
-    testWidgets('the menu artwork-info item scrolls InfoBlock into view', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-      await tester.pumpAndSettle();
-
-      // InfoBlock's caption sits below the fold — not built yet.
-      expect(find.text('作品说明文字'), findsNothing);
-
-      await openDetailMenu(tester, tooltip: '显示菜单');
-      await tester.tap(find.text('跳到作品信息区'));
-      await tester.pumpAndSettle();
-      expect(find.text('作品说明文字'), findsOneWidget);
-      expect(
-        tester.getRect(find.text('作品说明文字')).top,
-        lessThan(tester.view.physicalSize.height),
-      );
-    });
-
-    testWidgets('the header is absent in the two-pane layout', (tester) async {
-      tester.view.physicalSize = const Size(1400, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-
-      expect(find.byType(TwoPane), findsOneWidget);
-      expect(find.byTooltip('跳到作品信息区'), findsNothing);
-      expect(find.text('第 1 页，共 2 页'), findsNothing);
-    });
-
-    testWidgets('the header is absent in the restricted state', (tester) async {
+  group('narrow page counter (R1/R2)', () {
+    testWidgets('single-page works show no page chrome at all', (tester) async {
       final (container, _, _) = await makeWorld(
-        detailOverrides: {42: illustJson(42, visible: false)},
+        detailOverrides: {42: illustJson(42, pageCount: 1)},
       );
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-      await tester.pump(const Duration(milliseconds: 50));
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
 
-      expect(find.text('该作品已被删除或受限（ID: 42）'), findsOneWidget);
+      // Neither the old strip's page label nor the overlay pill — and no
+      // standalone info button (the jump now lives in the ⋮ menu).
+      expect(find.text('第 1 页，共 1 页'), findsNothing);
+      expect(find.text('1 / 1'), findsNothing);
       expect(find.byTooltip('跳到作品信息区'), findsNothing);
     });
 
     testWidgets(
-      'a long multi-page work keeps title/author pinned and the counter '
-      'tracks the scrolled page (W4 gate: 长多页)',
+      'the counter follows the scrolled page and leaves with the artwork',
       (tester) async {
+        // Related works make the meta tail taller than the viewport —
+        // scrolling to the bottom leaves every page fully off screen.
         final (container, _, _) = await makeWorld(
           detailOverrides: {
-            42: illustJson(42, pageCount: 6, withMetaPages: true),
+            42: illustJson(
+              42,
+              pageCount: 3,
+              withMetaPages: true,
+              caption: '作品说明文字',
+            ),
+          },
+          relatedOverrides: {
+            42: [
+              illustJson(901),
+              illustJson(902),
+              illustJson(903),
+              illustJson(904),
+            ],
           },
         );
         container.read(illustStoreProvider).mergeAll([
-          parseIllust(illustJson(42, pageCount: 6, withMetaPages: true)),
+          parseIllust(
+            illustJson(
+              42,
+              pageCount: 3,
+              withMetaPages: true,
+              caption: '作品说明文字',
+            ),
+          ),
         ]);
         await pumpDetail(
           tester,
@@ -1930,27 +1915,105 @@ void main() {
           seedStore: false,
           locale: const Locale('zh', 'CN'),
         );
-
-        expect(find.text('illust 42'), findsOneWidget);
-        expect(find.text('第 1 页，共 6 页'), findsOneWidget);
-
-        // Scroll two screenfuls down the page column — the pinned header
-        // stays put and the counter leaves page 1 behind.
-        for (var i = 0; i < 3; i++) {
-          await tester.drag(
-            find.byType(CustomScrollView),
-            const Offset(0, -500),
-          );
-          await tester.pump(const Duration(milliseconds: 50));
-        }
         await tester.pumpAndSettle();
 
-        expect(find.text('illust 42'), findsOneWidget);
-        expect(find.text('author'), findsWidgets);
-        expect(find.text('第 1 页，共 6 页'), findsNothing);
-        expect(find.textContaining('共 6 页'), findsOneWidget);
+        expect(find.text('1 / 3'), findsOneWidget);
+
+        // Jump past page 2's bottom edge so page 3 is the only visible
+        // artwork — deterministic, no fling physics involved.
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(1500);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('3 / 3'), findsOneWidget);
+
+        // Scrolling past the artwork to the bottom leaves no page
+        // visible — the pill leaves with it.
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(
+              tester
+                  .state<ScrollableState>(find.byType(Scrollable).first)
+                  .position
+                  .maxScrollExtent,
+            );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('作品说明文字'), findsOneWidget);
+        expect(find.byType(DetailPageCounter), findsNothing);
       },
     );
+
+    testWidgets('tapping the pill spot reaches the artwork viewer', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, useRouter: true);
+      await tester.pumpAndSettle();
+
+      // The pill is IgnorePointer — a tap on it lands on the artwork
+      // below and pushes the viewer.
+      expect(find.byType(DetailPageCounter), findsOneWidget);
+      final pill = find.descendant(
+        of: find.byType(DetailPageCounter),
+        matching: find.byType(DecoratedBox),
+      );
+      await mockNetworkImagesFor(() async {
+        await tester.tapAt(tester.getCenter(pill));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+      });
+      expect(find.byType(ImageViewerPage), findsOneWidget);
+    });
+
+    testWidgets('selection mode: the pill never covers the bottom bar', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container);
+
+      await longPressImage(tester);
+      expect(find.text('0 of 2 selected'), findsOneWidget);
+
+      final pill = find.descendant(
+        of: find.byType(DetailPageCounter),
+        matching: find.byType(DecoratedBox),
+      );
+      final bar = find
+          .ancestor(
+            of: find.text('0 of 2 selected'),
+            matching: find.byType(Material),
+          )
+          .first;
+      expect(
+        tester.getRect(pill).overlaps(tester.getRect(bar)),
+        isFalse,
+        reason: 'the top-end pill must leave the selection bar clear',
+      );
+    });
+
+    testWidgets('restricted state shows no counter or info menu item', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {42: illustJson(42, visible: false)},
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('该作品已被删除或受限（ID: 42）'), findsOneWidget);
+      expect(find.byType(DetailPageCounter), findsNothing);
+      expect(find.text('1 / 2'), findsNothing);
+
+      // The restricted body has no InfoBlock — the ⋮ menu keeps only
+      // share.
+      await openDetailMenu(tester, tooltip: '显示菜单');
+      expect(find.text('分享'), findsOneWidget);
+      expect(find.text('跳到作品信息区'), findsNothing);
+    });
   });
 
   group('detail overflow menu (R3)', () {
@@ -2001,6 +2064,26 @@ void main() {
 
       expect(share.payloads, hasLength(1));
       expect(share.payloads.single.url, 'https://www.pixiv.net/artworks/42');
+    });
+
+    testWidgets('the menu artwork-info item scrolls InfoBlock into view', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      // InfoBlock's caption sits below the fold — not built yet.
+      expect(find.text('作品说明文字'), findsNothing);
+
+      await openDetailMenu(tester, tooltip: '显示菜单');
+      await tester.tap(find.text('跳到作品信息区'));
+      await tester.pumpAndSettle();
+      expect(find.text('作品说明文字'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('作品说明文字')).top,
+        lessThan(tester.view.physicalSize.height),
+      );
     });
 
     testWidgets('a long six-page work still reaches InfoBlock via the menu', (
