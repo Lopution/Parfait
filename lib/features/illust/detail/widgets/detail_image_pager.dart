@@ -154,9 +154,12 @@ class _DetailImagePagerState extends State<DetailImagePager> {
           ),
           // The overlay hides itself for single-page works and ugoira
           // (count collapses to 1 above) and waits out the entry flight.
-          Positioned.fill(
-            child: DetailPageCounter(page: _page, count: count),
-          ),
+          // Selection mode hides it: the page's badge takes the same
+          // top-end corner.
+          if (!widget.downloadMode)
+            Positioned.fill(
+              child: DetailPageCounter(page: _page, count: count),
+            ),
         ],
       ),
     );
