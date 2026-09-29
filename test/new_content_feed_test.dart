@@ -13,8 +13,11 @@ import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
+import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/new/new_feed_models.dart';
 import 'package:pixiv_func/core/new/new_feed_repository.dart';
@@ -25,6 +28,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 
@@ -98,6 +102,7 @@ Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
+      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
           accounts: const [Account(id: '100', userId: 100, name: 'tester')],
@@ -464,6 +469,52 @@ void main() {
         ),
       ),
     );
+    repository.pendingFetch!.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('illust first load shows the grid skeleton, not an empty '
+      'state', (tester) async {
+    final (container, repository) = await _makeWorld();
+    addTearDown(container.dispose);
+    repository.pendingFetch = Completer<void>();
+    addTearDown(() {
+      if (repository.pendingFetch?.isCompleted == false) {
+        repository.pendingFetch!.complete();
+      }
+    });
+    await tester.pumpWidget(_app(container));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(IllustGridSkeleton), findsOneWidget);
+    expect(find.byType(FeedEmpty), findsNothing);
+
+    repository.pendingFetch!.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('novel first load shows a spinner, not an empty state', (
+    tester,
+  ) async {
+    final (container, repository) = await _makeWorld();
+    addTearDown(container.dispose);
+    repository.pendingFetch = Completer<void>();
+    addTearDown(() {
+      if (repository.pendingFetch?.isCompleted == false) {
+        repository.pendingFetch!.complete();
+      }
+    });
+    await tester.pumpWidget(
+      _app(container, page: const NewPage(initialType: NewFeedType.novel)),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(FeedLoading), findsOneWidget);
+    expect(find.byType(IllustGridSkeleton), findsNothing);
+    expect(find.byType(FeedEmpty), findsNothing);
+
     repository.pendingFetch!.complete();
     await tester.pumpAndSettle();
   });

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
+import '../../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/widgets/replica_empty_state.dart';
 import '../../../core/entity/illust_store.dart';
@@ -25,7 +26,17 @@ class RecommendedIllustPage extends ConsumerWidget {
     final store = ref.watch(illustStoreProvider);
 
     return state.when(
-      loading: () => const Scaffold(body: FeedLoading()),
+      loading: () => Scaffold(
+        body: IllustGridSkeleton(
+          label: context.l10n.contentLoading,
+          padding: EdgeInsets.fromLTRB(
+            10,
+            MediaQuery.viewPaddingOf(context).top,
+            10,
+            0,
+          ),
+        ),
+      ),
       error: (error, _) => Scaffold(
         body: FeedError(
           title: context.l10n.recommendedLoadFailed,
@@ -50,7 +61,17 @@ class RecommendedIllustPage extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return const Scaffold(body: FeedLoading());
+          return Scaffold(
+            body: IllustGridSkeleton(
+              label: context.l10n.contentLoading,
+              padding: EdgeInsets.fromLTRB(
+                10,
+                MediaQuery.viewPaddingOf(context).top,
+                10,
+                0,
+              ),
+            ),
+          );
         }
         if (feed.isEmptyAndReady) {
           return Scaffold(
