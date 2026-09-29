@@ -198,10 +198,13 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                   filterColor: downloadMode ? FuncTokens.imageOverlay : null,
                   filterBlendMode: downloadMode ? BlendMode.srcOver : null,
                   // Estimated box until the first frame: after decode the
-                  // image's own aspect ratio sizes the slot instead.
+                  // image's own aspect ratio sizes the slot instead. Same
+                  // surfaceContainer tier as PixivImage's default backdrop.
                   placeholderWidget: AspectRatio(
                     aspectRatio: entity.pageAspectRatioAt(widget.index),
-                    child: const ColoredBox(color: Color(0x33383838)),
+                    child: ColoredBox(
+                      color: Theme.of(context).colorScheme.surfaceContainer,
+                    ),
                   ),
                 ),
               ),
