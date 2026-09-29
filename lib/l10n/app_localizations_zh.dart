@@ -1076,6 +1076,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String downloadGroupAuthorTitle(String name) {
+    return '$name 的作品';
+  }
+
+  @override
+  String downloadTaskPageLabel(int page, int total) {
+    return '第 $page/$total 页';
+  }
+
+  @override
   String get downloadAuthorWorks => '下载全部作品';
 
   @override

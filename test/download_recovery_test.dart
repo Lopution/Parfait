@@ -350,6 +350,8 @@ void main() {
         artist: 'artist',
         title: 'title',
         date: DateTime.utc(2026, 9, 3),
+        totalPages: 6,
+        thumbnailUrl: 'https://i.pximg.net/901/p3/s.jpg',
       ),
       accountId: 'account-a',
       submittedAt: DateTime.utc(2026, 9, 3),
@@ -374,7 +376,59 @@ void main() {
     expect(restored.snapshot.request.artist, 'artist');
     expect(restored.snapshot.request.title, 'title');
     expect(restored.snapshot.request.date, DateTime.utc(2026, 9, 3));
+    expect(restored.snapshot.request.totalPages, 6);
+    expect(
+      restored.snapshot.request.thumbnailUrl,
+      'https://i.pximg.net/901/p3/s.jpg',
+    );
     expect(restored.snapshot.displayName, 'artist_title_901_p3.jpg');
+  });
+
+  test('records without display fields still recover', () {
+    final snapshot = DownloadSubmissionSnapshot(
+      snapshotId: 'submission-legacy',
+      jobId: 'job-legacy',
+      groupId: null,
+      request: DownloadRequest(
+        illustId: 902,
+        pageIndex: 0,
+        url: Uri.parse('https://i.pximg.net/img/902_p0.jpg'),
+        target: DownloadTarget.illustPage,
+        title: 'title',
+      ),
+      accountId: 'account-a',
+      submittedAt: DateTime.utc(2026, 9, 3),
+    );
+    final record = DownloadRecoveryRecord(
+      jobId: snapshot.jobId,
+      dedupeKey: snapshot.request.dedupeKey,
+      snapshot: snapshot,
+      owner: const DownloadOutputOwner(
+        ownerId: 'output-legacy',
+        jobId: 'job-legacy',
+        accountId: 'account-a',
+      ),
+      status: DownloadStatus.running,
+    );
+
+    // A record written before the display fields existed carries neither
+    // key; a mistyped value degrades to null instead of rejecting the row.
+    final json = record.toJson().cast<String, dynamic>();
+    (json['snapshot'] as Map<String, dynamic>)
+      ..remove('totalPages')
+      ..remove('thumbnailUrl');
+    final legacy = DownloadRecoveryRecord.fromJson(json);
+    expect(legacy.snapshot.request.totalPages, isNull);
+    expect(legacy.snapshot.request.thumbnailUrl, isNull);
+    expect(legacy.snapshot.request.title, 'title');
+
+    final mistyped = record.toJson().cast<String, dynamic>();
+    (mistyped['snapshot'] as Map<String, dynamic>)
+      ..['totalPages'] = '3'
+      ..['thumbnailUrl'] = 7;
+    final restored = DownloadRecoveryRecord.fromJson(mistyped);
+    expect(restored.snapshot.request.totalPages, isNull);
+    expect(restored.snapshot.request.thumbnailUrl, isNull);
   });
 
   test('classifies rate limiting and preserves Retry-After', () async {

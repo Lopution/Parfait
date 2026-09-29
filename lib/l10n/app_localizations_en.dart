@@ -1132,6 +1132,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String downloadGroupAuthorTitle(String name) {
+    return 'Works by $name';
+  }
+
+  @override
+  String downloadTaskPageLabel(int page, int total) {
+    return 'Page $page/$total';
+  }
+
+  @override
   String get downloadAuthorWorks => 'Download all works';
 
   @override

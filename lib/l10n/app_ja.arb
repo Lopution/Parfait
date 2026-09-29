@@ -509,6 +509,25 @@
       }
     }
   },
+  "downloadGroupAuthorTitle": "{name} の作品",
+  "@downloadGroupAuthorTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadTaskPageLabel": "{page}/{total} ページ",
+  "@downloadTaskPageLabel": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "downloadAuthorWorks": "すべての作品をダウンロード",
   "downloadAuthorWorksTitle": "作者の全作品をダウンロード",
   "downloadAuthorEnumerating": "作品を列挙中…{count} 件",
