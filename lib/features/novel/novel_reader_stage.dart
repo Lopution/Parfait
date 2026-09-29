@@ -270,6 +270,15 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     final percent = _pageCount <= 1
         ? 100
         : ((_page + 1) / _pageCount * 100).round();
+    // The series bar mounts only with the chrome; a bare autoDispose
+    // provider drops between reveals and refetches, and a manual
+    // subscription does not keep it alive. Watching it here holds the
+    // dependency for the stage's lifetime — the fetch starts at open
+    // and dies with the stage.
+    final seriesId = novel.seriesId;
+    if (seriesId != null) {
+      ref.watch(_novelSeriesProvider(seriesId));
+    }
     // Bar icons invert off the reading surface: paper/sepia pin dark
     // icons, night pins light ones; `system` follows the app theme. The
     // stage fills the screen, so this region owns both bars while it is
@@ -324,16 +333,22 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                       ),
                     ),
                   ),
-                _ChromeBar(
-                  animation: _chrome,
-                  edge: _ChromeEdge.top,
-                  child: _buildTopBar(context, palette),
-                ),
-                _ChromeBar(
-                  animation: _chrome,
-                  edge: _ChromeEdge.bottom,
-                  child: _buildBottomBar(context, l10n, palette),
-                ),
+                // Dismissed bars are removed here, on the status-driven
+                // setState frame — not inside the animation builder,
+                // where mid-flush reparenting can trip the semantics
+                // attach assert.
+                if (!_chromeHidden)
+                  _ChromeBar(
+                    animation: _chrome,
+                    edge: _ChromeEdge.top,
+                    child: _buildTopBar(context, palette),
+                  ),
+                if (!_chromeHidden)
+                  _ChromeBar(
+                    animation: _chrome,
+                    edge: _ChromeEdge.bottom,
+                    child: _buildBottomBar(context, l10n, palette),
+                  ),
               ],
             ),
           ),
@@ -835,17 +850,14 @@ class _ChromeBar extends StatelessWidget {
       bottom: isTop ? null : 0,
       left: 0,
       right: 0,
-      child: AnimatedBuilder(
-        animation: animation,
-        builder: (context, child) {
-          // Fully hidden means fully gone: no hit target, no semantics, no
-          // leftover widget for finders/a11y to see.
-          if (animation.isDismissed) return const SizedBox.shrink();
-          return IgnorePointer(
-            ignoring: false,
-            child: FadeTransition(opacity: animation, child: child),
-          );
-        },
+      // RenderOpacity drops the child's semantics below full opacity;
+      // the boundary flipping on each animation frame trips the
+      // semantics attach assert during repeated hide/reveal cycles.
+      // Pinning the boundary keeps one stable semantics parent — the
+      // dismissed bar is still removed from the tree by the stage.
+      child: FadeTransition(
+        opacity: animation,
+        alwaysIncludeSemantics: true,
         child: bar,
       ),
     );
@@ -861,14 +873,70 @@ void _showNovelPage(BuildContext context, int novelId) {
   openNovel(context, novelId);
 }
 
+// Riverpod's default retry would re-run the failed fetch on a backoff
+// and silently turn the error strip into data — the contract wants the
+// failure to stay until the user taps retry, so auto-retry is off.
 final _novelSeriesProvider = FutureProvider.autoDispose
     .family<NovelSeriesPage, int>((ref, seriesId) async {
       final token = CancelToken();
       ref.onDispose(token.cancel);
-      return ref
-          .read(novelRepositoryProvider)
-          .fetchSeries(seriesId, cancelToken: token);
-    });
+      try {
+        return await ref
+            .read(novelRepositoryProvider)
+            .fetchSeries(seriesId, cancelToken: token);
+      } catch (error) {
+        // The bar shows only the localized fallback; the real error goes
+        // to the log once, here at the fetch boundary — never inside
+        // build, which would re-log on every rebuild.
+        log('novel series $seriesId failed: $error');
+        rethrow;
+      }
+    }, retry: (_, _) => null);
+
+/// Fixed strip height shared by every series-bar state — an
+/// [IconButton]'s minimum hit target. Loading, failure, missing-entry and
+/// data never resize the strip under the bottom chrome.
+const _seriesBarHeight = 48.0;
+
+/// One fixed-height series row: prev/next chevrons at the edges, centered
+/// content, an optional trailing control (watchlist, retry) beside next.
+/// All series-bar states share it so layout never shifts between them.
+class _SeriesBarRow extends StatelessWidget {
+  const _SeriesBarRow({
+    this.onPrevious,
+    this.onNext,
+    this.center,
+    this.trailing,
+  });
+
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final Widget? center;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _seriesBarHeight,
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: context.l10n.novelPrevious,
+            onPressed: onPrevious,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(child: center ?? const SizedBox.shrink()),
+          ?trailing,
+          IconButton(
+            tooltip: context.l10n.novelNext,
+            onPressed: onNext,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Prev/next navigation supplied by the webview payload when the detail
 /// metadata carries no `series` object of its own.
@@ -880,58 +948,91 @@ class _NovelAdjacentBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconButton(
-          tooltip: context.l10n.novelPrevious,
-          onPressed: prevId == null
-              ? null
-              : () => _showNovelPage(context, prevId!),
-          icon: const Icon(Icons.chevron_left),
-        ),
-        Expanded(
-          child: Text(
-            context.l10n.novelSeries,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        IconButton(
-          tooltip: context.l10n.novelNext,
-          onPressed: nextId == null
-              ? null
-              : () => _showNovelPage(context, nextId!),
-          icon: const Icon(Icons.chevron_right),
-        ),
-      ],
+    return _SeriesBarRow(
+      onPrevious: prevId == null
+          ? null
+          : () => _showNovelPage(context, prevId!),
+      onNext: nextId == null ? null : () => _showNovelPage(context, nextId!),
+      center: Text(
+        context.l10n.novelSeries,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }
 
-class _NovelSeriesBar extends ConsumerWidget {
+class _NovelSeriesBar extends ConsumerStatefulWidget {
   const _NovelSeriesBar({required this.seriesId, required this.novelId});
 
   final int seriesId;
   final int novelId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_NovelSeriesBar> createState() => _NovelSeriesBarState();
+}
+
+class _NovelSeriesBarState extends ConsumerState<_NovelSeriesBar> {
+  /// The watchlist cursor is written once per mounted bar — scheduling it
+  /// on every build would re-fire the write on each chrome rebuild.
+  bool _seenMarked = false;
+
+  int get seriesId => widget.seriesId;
+  int get novelId => widget.novelId;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final async = ref.watch(_novelSeriesProvider(seriesId));
+    Widget seriesTitle(NovelSeriesPage series) => Text(
+      series.title ?? l10n.novelSeries,
+      textAlign: TextAlign.center,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
     return async.when(
-      loading: () => const LinearProgressIndicator(minHeight: 1),
-      error: (error, _) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Text(
-          '${context.l10n.novelSeriesUnavailable}: $error',
+      // Same row skeleton as the data state — disabled chevrons and a
+      // small spinner where the series name will land.
+      loading: () => const _SeriesBarRow(
+        center: Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+      // Localized fallback plus retry — the raw error is logged in the
+      // provider, never stitched into the visible text.
+      error: (error, _) => _SeriesBarRow(
+        center: Text(
+          l10n.novelSeriesUnavailable,
+          textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        trailing: TextButton(
+          onPressed: () => ref.invalidate(_novelSeriesProvider(seriesId)),
+          child: Text(l10n.retry),
+        ),
       ),
       data: (series) {
         final index = series.entries.indexWhere((entry) => entry.id == novelId);
-        if (index < 0) return const SizedBox.shrink();
+        // The opened work is not in this series: keep title and watchlist
+        // but dead-end navigation — a cursor cannot point at a novel the
+        // series does not contain, so markSeen must not run either.
+        if (index < 0) {
+          return _SeriesBarRow(
+            center: seriesTitle(series),
+            trailing: WatchlistToggle(
+              seriesKey: WatchlistKey(WatchlistType.novel, seriesId),
+              detailAdded: series.watchlistAdded,
+              iconOnly: true,
+            ),
+          );
+        }
         final previous = index > 0 ? series.entries[index - 1] : null;
         final next = index + 1 < series.entries.length
             ? series.entries[index + 1]
@@ -943,8 +1044,10 @@ class _NovelSeriesBar extends ConsumerWidget {
             (async) => async.value?.usableCurrent?.id,
           ),
         );
-        if (accountId != null) {
+        if (accountId != null && !_seenMarked) {
+          _seenMarked = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
             ref
                 .read(watchlistReadCursorProvider)
                 .markSeen(
@@ -954,36 +1057,19 @@ class _NovelSeriesBar extends ConsumerWidget {
                 );
           });
         }
-        return Row(
-          children: [
-            IconButton(
-              tooltip: context.l10n.novelPrevious,
-              onPressed: previous?.viewable == true
-                  ? () => _showNovelPage(context, previous!.id)
-                  : null,
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Expanded(
-              child: Text(
-                series.title ?? context.l10n.novelSeries,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            WatchlistToggle(
-              seriesKey: WatchlistKey(WatchlistType.novel, seriesId),
-              detailAdded: series.watchlistAdded,
-              iconOnly: true,
-            ),
-            IconButton(
-              tooltip: context.l10n.novelNext,
-              onPressed: next?.viewable == true
-                  ? () => _showNovelPage(context, next!.id)
-                  : null,
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
+        return _SeriesBarRow(
+          onPrevious: previous?.viewable == true
+              ? () => _showNovelPage(context, previous!.id)
+              : null,
+          onNext: next?.viewable == true
+              ? () => _showNovelPage(context, next!.id)
+              : null,
+          center: seriesTitle(series),
+          trailing: WatchlistToggle(
+            seriesKey: WatchlistKey(WatchlistType.novel, seriesId),
+            detailAdded: series.watchlistAdded,
+            iconOnly: true,
+          ),
         );
       },
     );

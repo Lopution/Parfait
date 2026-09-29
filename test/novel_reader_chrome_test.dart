@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -17,6 +18,8 @@ import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/core/novel/reader_settings.dart';
+import 'package:pixiv_func/core/watchlist/watchlist_models.dart';
+import 'package:pixiv_func/core/watchlist/watchlist_store.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/novel/novel_page.dart';
 import 'package:pixiv_func/features/novel/novel_reader.dart';
@@ -30,6 +33,9 @@ import 'helpers/test_preferences.dart';
 
 Future<ProviderContainer> _apiContainer({
   Map<String, Object> preferences = const {},
+  bool withSeries = false,
+  Future<http.Response> Function(int request)? seriesHandler,
+  List<Uri>? seriesRequests,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences(preferences);
   final credentials = FakeCredentialStore(
@@ -89,6 +95,7 @@ Future<ProviderContainer> _apiContainer({
                   {'name': 'tag1', 'translated_name': 't1'},
                 ],
                 'image_urls': <String, String>{},
+                if (withSeries) 'series': {'id': 5, 'title': 'series five'},
               },
             }),
           ),
@@ -120,6 +127,11 @@ Object.defineProperty(window, 'pixiv', {value: {
           headers: {'content-type': 'text/html'},
         );
       }
+      if (request.url.path == '/v2/novel/series') {
+        seriesRequests?.add(request.url);
+        final handler = seriesHandler;
+        if (handler != null) return handler(seriesRequests?.length ?? 1);
+      }
       return http.Response('not found', 404);
     }),
     accountStore: container.read(accountStoreProvider.notifier),
@@ -143,6 +155,54 @@ Future<void> _settleReader(WidgetTester tester) async {
     await tester.pump(const Duration(milliseconds: 50));
   }
 }
+
+/// Mounts [NovelPage] and lets detail + webview + the async pagination
+/// land. Chrome still starts hidden; reveal it with a center tap.
+Future<void> _openReader(
+  WidgetTester tester,
+  ProviderContainer container,
+) async {
+  await mockNetworkImagesFor(() async {
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: NovelPage(novelId: 1),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    await _settleReader(tester);
+  });
+}
+
+Map<String, Object> _seriesNovel(int id, String title) => {
+  'id': id,
+  'title': title,
+  'visible': true,
+  'content_order': '$id',
+};
+
+Map<String, Object> _seriesJson(List<Map<String, Object>> novels) => {
+  'novels': novels,
+  'novel_series_detail': {
+    'id': 5,
+    'title': 'series five',
+    'watchlist_added': false,
+  },
+};
+
+http.Response _seriesResponse(List<Map<String, Object>> novels) =>
+    http.Response.bytes(
+      utf8.encode(jsonEncode(_seriesJson(novels))),
+      200,
+      headers: {'content-type': 'application/json'},
+    );
 
 void main() {
   testWidgets('immersive reader: chrome toggles, back closes chrome first', (
@@ -537,6 +597,189 @@ void main() {
     expect(
       tester.getRect(find.byIcon(Icons.arrow_back)).top,
       greaterThanOrEqualTo(24),
+    );
+  });
+
+  testWidgets('the series bar keeps one height in every state', (tester) async {
+    // R5: loading / failure / data / missing-entry all occupy the same
+    // 48dp strip — the bar never resizes under the bottom chrome.
+    double barHeight() {
+      final row = find.ancestor(
+        of: find.byIcon(Icons.chevron_left),
+        matching: find.byType(Row),
+      );
+      expect(row, findsWidgets, reason: 'no series row on screen');
+      return tester.getSize(row.first).height;
+    }
+
+    // Loading: the fetch hangs on a Completer. No pumpAndSettle — the
+    // spinner never settles, and 20s of fake time would trip the client's
+    // own ApiTimeout. A few frames are enough to mount the strip.
+    final pending = Completer<http.Response>();
+    var container = await _apiContainer(
+      withSeries: true,
+      seriesHandler: (_) => pending.future,
+    );
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(barHeight(), 48, reason: 'loading state must be 48dp');
+    // Resolve the hanging fetch so the client's timeout timer cannot
+    // outlive the test.
+    pending.complete(_seriesResponse([_seriesNovel(1, 'one')]));
+    await tester.pumpAndSettle();
+    container.dispose();
+
+    // Failure: a 500 must render the same strip, not a taller error text.
+    container = await _apiContainer(
+      withSeries: true,
+      seriesHandler: (_) async => http.Response('server exploded', 500),
+    );
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('系列信息暂不可用'), findsOneWidget);
+    expect(barHeight(), 48, reason: 'failure state must be 48dp');
+    container.dispose();
+
+    // Data.
+    container = await _apiContainer(
+      withSeries: true,
+      seriesHandler: (_) async =>
+          _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
+    );
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.text('series five'), findsOneWidget);
+    expect(barHeight(), 48, reason: 'data state must be 48dp');
+    container.dispose();
+
+    // Current novel absent from the entries list.
+    container = await _apiContainer(
+      withSeries: true,
+      seriesHandler: (_) async =>
+          _seriesResponse([_seriesNovel(2, 'two'), _seriesNovel(3, 'three')]),
+    );
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.text('series five'), findsOneWidget);
+    expect(barHeight(), 48, reason: 'missing-entry state must be 48dp');
+    container.dispose();
+  });
+
+  testWidgets('a failed series fetch shows localized text and retries', (
+    tester,
+  ) async {
+    // R5: the failure strip is the localized fallback plus a retry —
+    // never the raw exception — and retry issues exactly one more fetch.
+    final requests = <Uri>[];
+    var attempts = 0;
+    final container = await _apiContainer(
+      withSeries: true,
+      seriesRequests: requests,
+      seriesHandler: (_) async {
+        attempts += 1;
+        return attempts == 1
+            ? http.Response('server exploded', 500)
+            : _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]);
+      },
+    );
+    addTearDown(container.dispose);
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+
+    final strip = find.textContaining('系列信息暂不可用');
+    expect(strip, findsOneWidget);
+    final text = tester.widget<Text>(strip).data!;
+    for (final raw in ['500', 'Exception', 'ApiError', 'server exploded']) {
+      expect(
+        text.contains(raw),
+        isFalse,
+        reason: 'raw error detail leaked into the strip',
+      );
+    }
+
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+    expect(requests.length, 2, reason: 'retry must issue exactly one fetch');
+    expect(find.text('series five'), findsOneWidget);
+    expect(find.byIcon(Icons.bookmark_add_outlined), findsOneWidget);
+  });
+
+  testWidgets('a series missing the current entry dead-ends navigation', (
+    tester,
+  ) async {
+    // R5: the opened novel is not in the series — title and watchlist
+    // still render but prev/next stay disabled and no cursor is written.
+    final container = await _apiContainer(
+      withSeries: true,
+      seriesHandler: (_) async =>
+          _seriesResponse([_seriesNovel(2, 'two'), _seriesNovel(3, 'three')]),
+    );
+    addTearDown(container.dispose);
+    await _openReader(tester, container);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+
+    expect(find.text('series five'), findsOneWidget);
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.chevron_left),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.chevron_right),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    final cursor = await container
+        .read(watchlistReadCursorProvider)
+        .read('account', const WatchlistKey(WatchlistType.novel, 5));
+    expect(
+      cursor,
+      isNull,
+      reason: 'a missing entry must not move the seen cursor',
+    );
+  });
+
+  testWidgets('the series fetch happens once across chrome toggles', (
+    tester,
+  ) async {
+    // R5: the stage keeps the provider alive — the bar unmounts with the
+    // chrome but the request must not repeat on every reveal.
+    final requests = <Uri>[];
+    final container = await _apiContainer(
+      withSeries: true,
+      seriesRequests: requests,
+      seriesHandler: (_) async =>
+          _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
+    );
+    addTearDown(container.dispose);
+    await _openReader(tester, container);
+
+    for (var i = 0; i < 3; i++) {
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('novel 1 ·'), findsOneWidget);
+    expect(
+      requests.length,
+      1,
+      reason: 'hiding and revealing the chrome must not refetch',
     );
   });
 
