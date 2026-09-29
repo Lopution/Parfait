@@ -110,18 +110,92 @@ state or action.
 - Entry animations keyed by list index replay whenever a refresh re-seats
   positions; identity-based state (played sets, element keys via
   `findChildIndexCallback`, `ValueKey(entity.id)`) must use the entity id.
+- A control painted over artwork uses `ImageOverlayButton` (icon actions) or
+  the `FuncTokens.imageControl`/`onImageControl` pair (pill counters and
+  other non-button chrome). A `filledTonal` button or a plain glyph sits on
+  an unpredictable image background — on a white artwork both wash out.
 
 ## Material 3 Theme Contract
 
 `replicaTheme(Brightness)` is the single source of light/dark `ThemeData`.
 `ColorScheme.fromSeed` uses `FuncTokens.primary`, while semantic background,
 surface, text, subdued, and error values are mapped from `FuncTokens` for the
-current brightness. AppBar, NavigationBar, TabBar, Card, Chip, Dialog,
-BottomSheet, SnackBar, and Switch styles are defined there.
+current brightness. AppBar, NavigationBar, NavigationRail, SegmentedButton,
+TabBar, Card, Chip, Dialog, BottomSheet, SnackBar, and Switch styles are
+defined there.
+
+**Surface ladder.** Six monotonic M3 container tiers carry the whole
+elevation story. `surface` equals `surfaceContainerLowest` and is the page
+color; `surfaceContainerLow`, `surfaceContainer` (cards, chips, bottom
+sheets — also `cardColor`), `surfaceContainerHigh` (dialogs,
+`FuncSemanticTokens.surfaceRaised`), and `surfaceContainerHighest` step
+darker in the light theme and lighter in the dark theme. Adjacent tiers must
+stay distinguishable — `test/replica_theme_test.dart` pins the ordering, the
+`FuncSemanticTokens` mapping (`canvas`/`surface`/`surfaceRaised` =
+page/Container/High), and a 4.5:1 minimum for `onSurface`/`onSurfaceVariant`
+on every tier. Image placeholders resolve the ambient `surfaceContainer` at
+build time (`PixivImage.placeholderColor` defaults to null); the immersive
+viewer passes `FuncTokens.transparent` instead.
+
+**Pink discipline.** `primary` is reserved for primary actions, selected
+states, and indicators. `secondary`/`secondaryContainer` are neutral grays —
+tonal buttons and progress tracks are deliberately not pink. Selected
+control states (`SegmentedButton`, `NavigationRail`, `NavigationBar`,
+`EntityRow`) use `primaryContainer`/`onPrimaryContainer`. Known legacy: the
+secondary text on a selected row is ~4.15:1 in the dark theme — below the
+4.5 target; tracked for a later fix, do not "repair" it ad hoc.
+
+**Component text styles.** Component themes (`appBarTheme.titleTextStyle`,
+`snackBarTheme.contentTextStyle`, `chipTheme` label styles,
+`dialogTheme` title/content, `navigationRailTheme` label styles) derive from
+the *resolved* `theme.textTheme` in the trailing `copyWith` block of
+`replicaTheme` — never from a raw `TextStyle` inside `ThemeData(...)`. Raw
+styles drop the Montserrat family (AppBar/SnackBar/Chip/Dialog install the
+style wholesale via `DefaultTextStyle`, no merge) and fall back to the
+platform font for Latin glyphs. Explicit sizes/weights stay; only family,
+letter spacing, and line height come from the text theme.
+
+**SnackBar.** Transient feedback uses `inverseSurface`/`onInverseSurface`
+with `inversePrimary` actions, so a SnackBar reads as inverted chrome on
+both themes. Do not restyle it to a container tier.
 
 Feature code reads `ColorScheme`, `TextTheme`, and component defaults from the
 ambient theme. `MaterialUiCompatibilityBridge` is installed once in the app
 builder for legacy plugin subtrees; feature pages do not add another bridge.
+
+## System UI Contract
+
+`lib/app/system_ui.dart` is the only file that may mention `SystemChrome.`,
+`SystemUiOverlayStyle(`, or `AnnotatedRegion<SystemUiOverlayStyle>` —
+`test/architecture/feedback_channels_test.dart` scans `lib/` for exactly
+one owner. Feature code uses the three seams below.
+
+- `funcSystemBarsStyle(Brightness background)` builds the style: transparent
+  status and navigation bars, icon brightness inverted from the brightness
+  painted *under* the bars, `statusBarBrightness` (iOS) equal to the
+  background brightness, transparent nav divider.
+- **Root default.** `PixivFuncApp`'s `MaterialApp.router` builder wraps the
+  whole app in `FuncSystemBars(background: Theme.of(context).brightness)` —
+  inside `AnimatedTheme`, so theme switches re-resolve it. Pages without an
+  AppBar still get correct bar icons because the root region covers both
+  edges. `appBarTheme.systemOverlayStyle` is pinned to the same function so
+  the top region never disagrees with the root.
+- **Scoped override.** `FuncSystemBars({required Brightness background,
+  required Widget child})` wraps a page needing a different style (the image
+  viewer's black stage uses `Brightness.dark` → light icons). It is built on
+  `AnnotatedRegion`, so unmounting the page restores the root style on the
+  next frame — no imperative reset.
+- **Immersive mode.** `setSystemUiMode(SystemUiMode)` is the only caller of
+  `SystemChrome.setEnabledSystemUIMode`; a platform `Exception` is logged,
+  never thrown or silently dropped. `PixivFuncApp.initState` enters
+  `edgeToEdge` once at startup; the image viewer toggles
+  `immersiveSticky`/`edgeToEdge` with chrome visibility through the same
+  helper.
+
+Widget tests read `SystemChrome.latestStyle` only after a `pump` (the
+`RenderView` applies annotated regions at frame time) and mock
+`SystemChannels.platform` to observe `setEnabledSystemUIMode` calls —
+`test/system_ui_test.dart` covers both directions plus startup edgeToEdge.
 
 ## NavigationBar Contract
 
@@ -361,6 +435,17 @@ Future<void> PixivImage.preload(
   intersect to an empty rectangle. If an endpoint is temporarily offstage,
   use a conservative Scaffold/chrome fallback rather than returning an empty
   clip.
+- The waterfall card is the only Hero endpoint that carries a visible
+  boundary. `IllustHeroCardFrame` wraps the card's Hero child — `ClipRRect`
+  at `FuncShape.card` plus a foreground hairline in the semantic `divider`
+  color. The shuttle recognizes the frame on the card side and paints the
+  same hairline into the overlay, fading its alpha to zero across the flight
+  (`× 1 - progress`); the border and the clip share one interpolated
+  `BorderRadius`, and the color resolves through the card-side context.
+  Detail→viewer flights have no card endpoint and draw no border. The frame
+  must live **inside** the Hero child: a border drawn outside the Hero stays
+  on the route during flight (a stationary ghost) and pops back in on
+  landing.
 
 ### 4. Validation & Error Matrix
 
