@@ -144,7 +144,7 @@ Future<void> showFollowRestrictSheet(
             child: Container(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               decoration: BoxDecoration(
-                color: colors.surface,
+                color: colors.surfaceContainer,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(24),
                 ),

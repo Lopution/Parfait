@@ -61,10 +61,10 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
         : FuncTokens.lightTextSecondary;
     return FuncSemanticTokens(
       canvas: dark ? FuncTokens.darkBackground : FuncTokens.lightBackground,
-      surface: dark ? FuncTokens.darkSurface : FuncTokens.lightSurface,
+      surface: dark ? FuncTokens.darkContainer : FuncTokens.lightContainer,
       surfaceRaised: dark
-          ? FuncTokens.darkSurfaceRaised
-          : FuncTokens.lightSurfaceRaised,
+          ? FuncTokens.darkContainerHigh
+          : FuncTokens.lightContainerHigh,
       surfaceOverlay: FuncTokens.surfaceOverlay,
       divider: dark ? FuncTokens.darkDivider : FuncTokens.lightDivider,
       contentPrimary: text,
