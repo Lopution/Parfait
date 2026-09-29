@@ -1053,6 +1053,26 @@ void main() {
     );
   });
 
+  testWidgets('the page placeholder reads the container surface tier', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeWorld();
+    await pumpDetail(tester, container);
+
+    // Before the first frame decodes, each page slot shows its estimated
+    // box. It must match the surfaceContainer backdrop every other image
+    // placeholder uses, not a hardcoded translucent grey.
+    final images = find.byWidgetPredicate(
+      (widget) => widget is PixivImage && widget.placeholderWidget != null,
+    );
+    expect(images, findsWidgets);
+    final colors = Theme.of(tester.element(images.first)).colorScheme;
+    for (final image in tester.widgetList<PixivImage>(images)) {
+      final slot = image.placeholderWidget! as AspectRatio;
+      expect((slot.child! as ColoredBox).color, colors.surfaceContainer);
+    }
+  });
+
   group('IllustDetailPage download mode (R4)', () {
     testWidgets('multi-page works expose an explicit selection action', (
       tester,
