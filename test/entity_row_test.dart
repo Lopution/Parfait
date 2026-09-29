@@ -56,7 +56,7 @@ void main() {
       ),
     );
     final scheme = Theme.of(tester.element(find.byType(EntityRow))).colorScheme;
-    expect(material.color, scheme.secondaryContainer);
+    expect(material.color, scheme.primaryContainer);
   });
 
   testWidgets('tap and long-press reach the row', (tester) async {
