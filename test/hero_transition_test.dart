@@ -18,8 +18,10 @@ import 'illust_detail_page_test.dart';
 import 'package:pixiv_func/app/motion/hero_rect_clip.dart';
 import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
+import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
+import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
@@ -741,6 +743,178 @@ void main() {
     }
     await tester.pumpAndSettle();
   });
+
+  testWidgets('the card artwork carries a divider hairline inside the Hero', (
+    tester,
+  ) async {
+    final theme = replicaTheme(Brightness.light);
+    final (container, _, _) = await makeWorld();
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: theme,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Scaffold(
+              body: SizedBox(
+                width: 300,
+                child: IllustCard(entity: parseIllust(illustJson(50))),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    });
+
+    final hero = find.byWidgetPredicate(
+      (w) => w is Hero && w.tag == illustHeroTag('feed', 50),
+    );
+    final frame = find.descendant(
+      of: hero,
+      matching: find.byType(IllustHeroCardFrame),
+    );
+    expect(frame, findsOneWidget);
+    // The hairline is the ambient divider on the card corner — the same
+    // value the shuttle fades out during the flight.
+    final box = tester.widget<DecoratedBox>(
+      find.descendant(of: frame, matching: find.byType(DecoratedBox)).first,
+    );
+    final decoration = box.decoration as BoxDecoration;
+    expect(decoration.borderRadius, FuncShape.card);
+    expect(
+      decoration.border!.top.color,
+      FuncSemanticTokens.of(tester.element(frame)).divider,
+    );
+  });
+
+  testWidgets('the card hairline fades through the hero flight', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    const tag = 'border-hero';
+    Widget plainHero(Widget child) => Hero(
+      tag: tag,
+      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+      child: child,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: Scaffold(
+          body: plainHero(
+            const IllustHeroCardFrame(
+              child: ColoredBox(
+                color: Colors.red,
+                child: SizedBox(width: 160, height: 220),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final cardDivider = FuncSemanticTokens.of(
+      tester.element(find.byWidgetPredicate((w) => w is Hero && w.tag == tag)),
+    ).divider;
+
+    navigatorKey.currentState!.push(
+      _testPageRoute<void>(
+        builder: (_) => Scaffold(
+          body: Center(
+            child: plainHero(
+              const ColoredBox(
+                color: Colors.red,
+                child: SizedBox(width: 350, height: 500),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    final pushSamples = await _sampleShuttleBorder(tester);
+
+    // Push: the hairline starts identical to the card's and dissolves to
+    // nothing by the detail endpoint.
+    expect(pushSamples.length, greaterThan(2));
+    expect(pushSamples, everyElement(isNotNull));
+    expect(pushSamples.first!.a, closeTo(cardDivider.a, 0.03));
+    expect(pushSamples.last!.a, lessThan(0.05));
+    for (var i = 1; i < pushSamples.length; i++) {
+      expect(pushSamples[i]!.a, lessThanOrEqualTo(pushSamples[i - 1]!.a));
+    }
+    await tester.pumpAndSettle();
+
+    navigatorKey.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    final popSamples = await _sampleShuttleBorder(tester);
+
+    // Pop: the reverse — invisible at the detail end, restored to the full
+    // hairline as the image lands back on the card.
+    expect(popSamples.length, greaterThan(2));
+    expect(popSamples.first!.a, lessThan(0.05));
+    expect(popSamples.last!.a, closeTo(cardDivider.a, 0.03));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('a detail-to-viewer-style flight grows no border', (
+    tester,
+  ) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    const tag = 'no-card-hero';
+    Widget plainHero(Widget child) => Hero(
+      tag: tag,
+      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+      child: child,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: Scaffold(
+          body: Center(
+            child: plainHero(
+              const ColoredBox(
+                color: Colors.red,
+                child: SizedBox(width: 160, height: 220),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    navigatorKey.currentState!.push(
+      _testPageRoute<void>(
+        builder: (_) => Scaffold(
+          body: Center(
+            child: plainHero(
+              const ColoredBox(
+                color: Colors.red,
+                child: SizedBox(width: 350, height: 500),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+
+    // Neither endpoint is an IllustHeroCardFrame — the whole flight must
+    // stay borderless rather than painting a stray hairline.
+    final samples = await _sampleShuttleBorder(tester);
+    expect(samples.length, greaterThan(2));
+    expect(samples, everyElement(isNull));
+    await tester.pumpAndSettle();
+  });
 }
 
 void _noop() {}
@@ -774,6 +948,43 @@ double _shuttleRadius(WidgetTester tester) {
     ),
   );
   return (clip.borderRadius as BorderRadius).topLeft.x;
+}
+
+/// Samples the shuttle's border color once per frame for the whole flight,
+/// or null on frames that paint no hairline. Same sampling gate as
+/// [_sampleShuttleRadius]: the clip mounts one frame after the shuttle and
+/// unmounts at landing.
+Future<List<Color?>> _sampleShuttleBorder(WidgetTester tester) async {
+  final finder = find.byType(HeroRectClip);
+  final samples = <Color?>[];
+  for (var i = 0; i < 60; i++) {
+    if (finder.evaluate().isNotEmpty) {
+      samples.add(_shuttleBorderColor(tester));
+    } else if (samples.isNotEmpty) {
+      break;
+    }
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  return samples;
+}
+
+Color? _shuttleBorderColor(WidgetTester tester) {
+  for (final element
+      in find
+          .descendant(
+            of: find.byType(HeroRectClip),
+            matching: find.byType(DecoratedBox),
+          )
+          .evaluate()) {
+    final box = element.widget as DecoratedBox;
+    final decoration = box.decoration;
+    if (box.position == DecorationPosition.foreground &&
+        decoration is BoxDecoration &&
+        decoration.border != null) {
+      return decoration.border!.top.color;
+    }
+  }
+  return null;
 }
 
 PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
