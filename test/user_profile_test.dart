@@ -29,7 +29,6 @@ import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
 import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
-import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/profile_illust_feed.dart';
