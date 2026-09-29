@@ -12,9 +12,10 @@
 //     variants / showMenu / framework pickers) outside
 //     lib/app/motion/app_overlays.dart: zero beyond the pinned
 //     framework-picker allow-list
-//   - `SystemUiOverlayStyle(` / `AnnotatedRegion<SystemUiOverlayStyle>`
-//     callsites outside lib/app/system_ui.dart: zero — FuncSystemBars and
-//     funcSystemBarsStyle are the only way to style system bars
+//   - `SystemChrome.` callsites and `SystemUiOverlayStyle(` /
+//     `AnnotatedRegion<SystemUiOverlayStyle>` outside
+//     lib/app/system_ui.dart: zero — FuncSystemBars, funcSystemBarsStyle
+//     and setSystemUiMode are the only way to touch system UI
 //   - `Hero(` callsites: exactly the members of the illustHeroTag family —
 //     no second tag family may appear
 //   - `Duration(milliseconds:` inside lib/app/ + lib/features/: only in
@@ -178,20 +179,21 @@ void main() {
     );
   });
 
-  test('system bar styles have exactly one owner', () {
+  test('system UI has exactly one owner', () {
     final hits = _matches(
       ['lib'],
       RegExp(
-        r'SystemUiOverlayStyle\(|AnnotatedRegion\s*<SystemUiOverlayStyle>',
+        r'SystemChrome\.|SystemUiOverlayStyle\(|'
+        r'AnnotatedRegion\s*<SystemUiOverlayStyle>',
       ),
     );
     expect(
       hits.keys.toSet().difference({_systemUiOwner}),
       isEmpty,
       reason:
-          'raw SystemUiOverlayStyle/AnnotatedRegion outside $_systemUiOwner: '
+          'raw system UI calls outside $_systemUiOwner: '
           '${hits.keys.toSet().difference({_systemUiOwner}).join(', ')} — '
-          'use funcSystemBarsStyle / FuncSystemBars',
+          'use funcSystemBarsStyle / FuncSystemBars / setSystemUiMode',
     );
   });
 

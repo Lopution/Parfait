@@ -228,9 +228,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   void _setSystemChrome({required bool visible}) {
     unawaited(
-      SystemChrome.setEnabledSystemUIMode(
+      setSystemUiMode(
         visible ? SystemUiMode.edgeToEdge : SystemUiMode.immersiveSticky,
-      ).catchError((_) {}),
+      ),
     );
   }
 

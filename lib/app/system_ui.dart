@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../core/log.dart';
 import 'theme/func_tokens.dart';
 
 /// The only file that may construct `SystemUiOverlayStyle` / write
@@ -24,6 +25,18 @@ SystemUiOverlayStyle funcSystemBarsStyle(Brightness background) {
     // systemNavigationBarContrastEnforced stays unset: with three-button
     // navigation the platform decides whether to add a scrim.
   );
+}
+
+/// The only caller of `SystemChrome.setEnabledSystemUIMode`. A platform
+/// failure (desktop embedders, a detached engine) is logged, never thrown
+/// and never silently dropped. Only [Exception]s are platform failures —
+/// a programming error still throws.
+Future<void> setSystemUiMode(SystemUiMode mode) async {
+  try {
+    await SystemChrome.setEnabledSystemUIMode(mode);
+  } on Exception catch (error) {
+    log('setEnabledSystemUIMode($mode) failed: $error');
+  }
 }
 
 /// Scoped system bar style: the root default, or a page override while it
