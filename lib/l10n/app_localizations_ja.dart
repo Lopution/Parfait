@@ -1320,9 +1320,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String ugoiraLoadFailed(String error) {
-    return 'アニメーションを読み込めませんでした: $error';
-  }
+  String get ugoiraLoadFailed => 'アニメーションを読み込めませんでした';
 
   @override
   String get homeRecommended => 'おすすめ';

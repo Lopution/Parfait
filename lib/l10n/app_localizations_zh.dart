@@ -1297,9 +1297,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String ugoiraLoadFailed(String error) {
-    return '动图加载失败：$error';
-  }
+  String get ugoiraLoadFailed => '动图加载失败';
 
   @override
   String get homeRecommended => '推荐';

@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/errors/error_category.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
+import 'errors/error_details.dart';
 
 /// Shared "settings could not be read" body with a working retry.
 ///
@@ -38,7 +40,11 @@ class SettingsLoadError extends StatelessWidget {
             const SizedBox(height: 12),
             Text(text(messageKey), key: const Key('settings-load-error')),
             const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
+            Text(
+              errorCategoryText(context, categorizeError(error)),
+              textAlign: TextAlign.center,
+            ),
+            ErrorDetails(error: error),
             const SizedBox(height: 12),
             FilledButton(
               key: const Key('settings-load-retry'),

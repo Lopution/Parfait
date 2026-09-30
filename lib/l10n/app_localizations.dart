@@ -2498,8 +2498,8 @@ abstract class AppLocalizations {
   /// No description provided for @ugoiraLoadFailed.
   ///
   /// In zh, this message translates to:
-  /// **'动图加载失败：{error}'**
-  String ugoiraLoadFailed(String error);
+  /// **'动图加载失败'**
+  String get ugoiraLoadFailed;
 
   /// No description provided for @homeRecommended.
   ///

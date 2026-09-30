@@ -1365,9 +1365,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String ugoiraLoadFailed(String error) {
-    return 'Animation failed to load: $error';
-  }
+  String get ugoiraLoadFailed => 'Animation failed to load';
 
   @override
   String get homeRecommended => 'Recommended';

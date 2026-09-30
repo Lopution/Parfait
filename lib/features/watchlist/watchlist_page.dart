@@ -10,8 +10,10 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/entity_row.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/errors/error_category.dart';
 import '../../core/series/series_recent_open_store.dart';
 import '../../core/watchlist/watchlist_actions.dart';
 import '../../core/watchlist/watchlist_feed_controller.dart';
@@ -116,16 +118,24 @@ class _LoadMoreFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (feed.loadMoreError != null) {
+    final loadMoreError = feed.loadMoreError;
+    if (loadMoreError != null) {
       return Padding(
         padding: const EdgeInsets.all(16),
-        child: Center(
-          child: Text(
-            '${context.l10n.watchlistLoadMoreFailed}: '
-            '${feed.loadMoreError}',
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              context.l10n.watchlistLoadMoreFailed,
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              errorCategoryText(context, categorizeError(loadMoreError)),
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            ErrorDetails(error: loadMoreError),
+          ],
         ),
       );
     }
