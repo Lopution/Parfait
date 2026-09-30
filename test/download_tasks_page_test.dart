@@ -12,6 +12,7 @@ import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/core/download/download_manager.dart';
 import 'package:pixiv_func/core/download/naming_rule.dart';
 import 'package:pixiv_func/core/download/download_providers.dart';
+import 'package:pixiv_func/core/download/download_recovery.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
@@ -568,6 +569,67 @@ void main() {
         reason: 'task ${tasks[i].id} keeps its details disclosure',
       );
     }
+  });
+
+  testWidgets('a task interrupted by a restart says so, not unknown error', (
+    tester,
+  ) async {
+    // A running record carries no failure kind; recovery turns it into a
+    // kindless retryable task that must not read as 未知错误.
+    installMemoryPreferences();
+    final request = _req(7);
+    final snapshot = DownloadSubmissionSnapshot(
+      snapshotId: 'submission-7',
+      jobId: 'job-7',
+      groupId: null,
+      request: request,
+      accountId: 'account-a',
+      submittedAt: DateTime.utc(2026, 9, 30),
+    );
+    final store = MemoryDownloadRecoveryStore();
+    await store.upsert(
+      DownloadRecoveryRecord(
+        jobId: 'job-7',
+        dedupeKey: request.dedupeKey,
+        snapshot: snapshot,
+        owner: const DownloadOutputOwner(
+          ownerId: 'output-7',
+          jobId: 'job-7',
+          accountId: 'account-a',
+        ),
+        status: DownloadStatus.running,
+      ),
+    );
+    final manager = DownloadManager(
+      transport: FakeTransport(),
+      sinkFactory: MemorySinkFactory(),
+      submissionContext: () =>
+          const DownloadSubmissionContext(accountId: 'account-a'),
+      recoveryStore: store,
+    );
+    final report = await manager.recover();
+    expect(report.retryableJobIds, ['job-7']);
+    expect(manager.taskById('job-7')!.failureKind, isNull);
+    final container = ProviderContainer(
+      overrides: [downloadManagerProvider.overrideWithValue(manager)],
+    );
+    addTearDown(container.dispose);
+
+    await _pumpPage(tester, container);
+
+    final row = _taskRow('job-7');
+    expect(
+      find.descendant(
+        of: row,
+        matching: find.textContaining('应用重启时下载中断，点重试继续'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: row, matching: find.textContaining('未知错误')),
+      findsNothing,
+    );
+    expect(find.descendant(of: row, matching: find.text('详情')), findsOneWidget);
   });
 
   testWidgets('a failed child in an expanded group shows reason and details', (

@@ -19,14 +19,7 @@
   "register": "登録",
   "login": "ログイン",
   "loginPageClosed": "ページが閉じられました。再度開いてください。",
-  "loginCallbackInvalid": "ログインコールバックが無効です: {reason}",
-  "@loginCallbackInvalid": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
+  "loginCallbackInvalid": "ログインコールバックが無効です。もう一度ログインしてください",
   "loginNetworkError": "ネットワークエラー (HTTP {status})",
   "@loginNetworkError": {
     "placeholders": {
@@ -35,14 +28,7 @@
       }
     }
   },
-  "loginPageLoadFailed": "ページの読み込みに失敗しました ({error})",
-  "@loginPageLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "loginPageLoadFailed": "ページの読み込みに失敗しました",
   "loginWebView2Missing": "ログインには WebView2 Runtime が必要ですが、このシステムでは検出されませんでした。インストールしてからこのページを開き直してください。",
   "loginInstallWebView2": "WebView2 Runtime をインストール",
   "loginReload": "再読み込み",
@@ -459,9 +445,6 @@
   "downloadProcessing": "処理中",
   "downloadViewResult": "表示",
   "downloadRemoveRecord": "一覧から削除",
-  "downloadFailurePermission": "ストレージへの書き込み権限がありません",
-  "downloadFailureResource": "ファイルが大きすぎるかリソースが不足しています",
-  "downloadFailureOwnership": "タスクの所有者が現在のアカウントと一致しません",
   "downloadBatchCancelConfirm": "選択した {count} 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -618,36 +601,16 @@
   "downloadSubmissionFailed": "ダウンロードに失敗しました",
   "downloadFailurePermission": "ストレージ権限がありません",
   "downloadFailureResource": "デバイスのリソース不足またはファイルが大きすぎます",
-  "downloadFailureOwnership": "保存先のファイルは他のアプリが所有しています",
+  "downloadFailureOwnership": "このタスクは無効になりました。もう一度ダウンロードしてください",
+  "downloadFailureInterrupted": "アプリの再起動で中断されました。再試行で続行できます",
   "ugoiraSaveGif": "GIFを保存",
   "ugoiraLoadCanceled": "読み込みをキャンセルしました",
   "ugoiraLoginRequired": "GIFを保存するにはログインしてください",
   "ugoiraSaved": "GIFを保存しました",
   "ugoiraSaveCanceled": "GIFの保存をキャンセルしました",
-  "ugoiraSaveFailed": "GIFの保存に失敗しました: {error}",
-  "@ugoiraSaveFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "ugoiraArchiveInvalid": "アニメーションのアーカイブが無効です: {error}",
-  "@ugoiraArchiveInvalid": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "ugoiraFrameCorrupt": "アニメーションフレームが壊れています: {error}",
-  "@ugoiraFrameCorrupt": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraSaveFailed": "GIFの保存に失敗しました",
+  "ugoiraArchiveInvalid": "アニメーションのアーカイブが無効です",
+  "ugoiraFrameCorrupt": "アニメーションフレームが壊れています",
   "ugoiraLoadFailed": "アニメーションを読み込めませんでした",
   "homeRecommended": "おすすめ",
   "homeRanking": "ランキング",

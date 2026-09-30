@@ -24,8 +24,8 @@ import '../../app/theme/func_semantic_tokens.dart';
 /// decides which actions exist for a given error state.
 ///
 /// [describeWebViewFailure] is the matching message-shape contract: both
-/// pages report `'<type> <host>'` so the card shows what failed and on
-/// which host, without echoing the full URL or its query string.
+/// pages report `'<type> <host>'` so the card's details show what failed
+/// and on which host, without echoing the full URL or its query string.
 String describeWebViewFailure(Object type, Uri? uri) {
   final host = uri?.host ?? '';
   return host.isEmpty ? '$type' : '$type $host';
@@ -46,9 +46,9 @@ class LoginWebViewErrorCard extends StatelessWidget {
   /// Localized error description already resolved by the caller.
   final String message;
 
-  /// Raw error behind the collapsible details disclosure; `null` for
-  /// messages that already carry their own crafted text (e.g. an invalid
-  /// callback reason) and have nothing raw to expand.
+  /// Raw diagnostic behind the collapsible details disclosure (an exchange
+  /// exception, an invalid callback reason, a `'<type> <host>'` failure);
+  /// `null` when there is nothing raw to expand.
   final Object? error;
 
   /// Whether the error killed the PKCE session. Recoverable errors keep the

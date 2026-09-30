@@ -19,14 +19,7 @@
   "register": "Register",
   "login": "Log in",
   "loginPageClosed": "The page was closed. Reopen it to try again.",
-  "loginCallbackInvalid": "Invalid login callback: {reason}",
-  "@loginCallbackInvalid": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
+  "loginCallbackInvalid": "Invalid login callback. Sign in again.",
   "loginNetworkError": "Network error (HTTP {status})",
   "@loginNetworkError": {
     "placeholders": {
@@ -35,14 +28,7 @@
       }
     }
   },
-  "loginPageLoadFailed": "Page load failed ({error})",
-  "@loginPageLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "loginPageLoadFailed": "Page failed to load",
   "loginWebView2Missing": "Signing in requires the WebView2 Runtime, which was not detected on this system. Install it and reopen this page.",
   "loginInstallWebView2": "Install WebView2 Runtime",
   "loginReload": "Reload",
@@ -459,9 +445,6 @@
   "downloadProcessing": "Processing",
   "downloadViewResult": "View",
   "downloadRemoveRecord": "Remove",
-  "downloadFailurePermission": "Storage permission denied",
-  "downloadFailureResource": "File too large or out of resources",
-  "downloadFailureOwnership": "Task output belongs to a different account",
   "downloadBatchCancelConfirm": "Cancel the {count} selected download(s)? Unfinished progress will be discarded.",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -618,36 +601,16 @@
   "downloadSubmissionFailed": "Download failed",
   "downloadFailurePermission": "Storage permission missing",
   "downloadFailureResource": "Device resources exhausted or the file is too large",
-  "downloadFailureOwnership": "The destination file belongs to another app",
+  "downloadFailureOwnership": "This task is no longer valid. Download it again.",
+  "downloadFailureInterrupted": "Interrupted when the app restarted. Tap retry to continue.",
   "ugoiraSaveGif": "Save GIF",
   "ugoiraLoadCanceled": "Loading was canceled",
   "ugoiraLoginRequired": "Sign in before saving the GIF",
   "ugoiraSaved": "GIF saved",
   "ugoiraSaveCanceled": "GIF save canceled",
-  "ugoiraSaveFailed": "GIF save failed: {error}",
-  "@ugoiraSaveFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "ugoiraArchiveInvalid": "The animation archive is invalid: {error}",
-  "@ugoiraArchiveInvalid": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "ugoiraFrameCorrupt": "An animation frame is corrupt: {error}",
-  "@ugoiraFrameCorrupt": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraSaveFailed": "GIF save failed",
+  "ugoiraArchiveInvalid": "The animation archive is invalid",
+  "ugoiraFrameCorrupt": "An animation frame is corrupt",
   "ugoiraLoadFailed": "Animation failed to load",
   "homeRecommended": "Recommended",
   "homeRanking": "Ranking",

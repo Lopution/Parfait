@@ -21,6 +21,7 @@ import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
 import '../../core/auth/pkce.dart';
 import '../../core/i18n/replica_language.dart';
+import '../../core/logging/crash_log.dart';
 import '../../core/network/compat/network_contracts.dart' as network_contracts;
 import '../../core/network/compat/network_providers.dart';
 import '../../core/platform/intent_router.dart';
@@ -119,8 +120,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           }
         }
       case PixivCallbackInvalid(:final reason):
+        // The reason is a developer diagnostic, not copy — it goes to the
+        // crash log and the SnackBar stays a plain sentence.
+        CrashLog.record(StateError('login callback invalid: $reason'));
         if (mounted) {
-          showAppSnackBar(context, context.l10n.loginCallbackInvalid(reason));
+          showAppSnackBar(context, context.l10n.loginCallbackInvalid);
         }
       case PixivCallbackOther():
         break;
