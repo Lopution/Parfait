@@ -231,7 +231,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(HistoryPage), findsOneWidget);
     final route = _routeOf(tester, find.byType(HistoryPage));
-    // No MotionScope → the default tier (550ms) resolves.
+    // No MotionScope → the default tier (350ms) resolves.
     expect(route.transitionDuration, PageTransitionSpeed.normal.duration);
     expect(
       route.reverseTransitionDuration,
