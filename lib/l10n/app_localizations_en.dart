@@ -606,6 +606,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileEditImageChoose => 'Choose a supported image';
 
   @override
+  String get profileEditImageFailed => 'Image processing failed';
+
+  @override
   String get profileEditChooseImage => 'Choose image';
 
   @override
@@ -1109,6 +1112,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadRemoveRecord => 'Remove';
 
   @override
+  String get downloadFailurePermission => 'Storage permission denied';
+
+  @override
+  String get downloadFailureResource => 'File too large or out of resources';
+
+  @override
+  String get downloadFailureOwnership =>
+      'Task output belongs to a different account';
+
+  @override
   String downloadBatchCancelConfirm(int count) {
     return 'Cancel the $count selected download(s)? Unfinished progress will be discarded.';
   }
@@ -1402,6 +1415,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get continueAction => 'Continue';
+
+  @override
+  String get errorNetwork => 'Network connection failed';
+
+  @override
+  String get errorTimeout => 'Connection timed out';
+
+  @override
+  String get errorRateLimited => 'Too many requests — try again later';
+
+  @override
+  String get errorUnauthorized => 'Sign-in required';
+
+  @override
+  String get errorServer => 'Server error';
+
+  @override
+  String get errorNotFound => 'Content not found or removed';
+
+  @override
+  String get errorParse => 'Response could not be parsed';
+
+  @override
+  String get errorStorage => 'Storage error';
+
+  @override
+  String get errorUnknown => 'Unknown error';
+
+  @override
+  String get errorDetails => 'Details';
+
+  @override
+  String get errorDetailsCopy => 'Copy';
+
+  @override
+  String get errorDetailsCopied => 'Copied';
+
+  @override
+  String errorWithReason(String action, String reason) {
+    return '$action: $reason';
+  }
 
   @override
   String get rankingDay => 'Daily';

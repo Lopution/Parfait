@@ -221,6 +221,7 @@
   "profileEditCurrentPassword": "Current password",
   "profileEditFieldUnsupported": "This field is not supported by the current route",
   "profileEditImageChoose": "Choose a supported image",
+  "profileEditImageFailed": "Image processing failed",
   "profileEditChooseImage": "Choose image",
   "profileEditSave": "Save profile",
   "profileEditLeaveTitle": "Discard unsaved changes?",
@@ -473,6 +474,9 @@
   "downloadProcessing": "Processing",
   "downloadViewResult": "View",
   "downloadRemoveRecord": "Remove",
+  "downloadFailurePermission": "Storage permission denied",
+  "downloadFailureResource": "File too large or out of resources",
+  "downloadFailureOwnership": "Task output belongs to a different account",
   "downloadBatchCancelConfirm": "Cancel the {count} selected download(s)? Unfinished progress will be discarded.",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -700,6 +704,29 @@
   "cancel": "Cancel",
   "confirm": "Confirm",
   "continueAction": "Continue",
+  "errorNetwork": "Network connection failed",
+  "errorTimeout": "Connection timed out",
+  "errorRateLimited": "Too many requests — try again later",
+  "errorUnauthorized": "Sign-in required",
+  "errorServer": "Server error",
+  "errorNotFound": "Content not found or removed",
+  "errorParse": "Response could not be parsed",
+  "errorStorage": "Storage error",
+  "errorUnknown": "Unknown error",
+  "errorDetails": "Details",
+  "errorDetailsCopy": "Copy",
+  "errorDetailsCopied": "Copied",
+  "errorWithReason": "{action}: {reason}",
+  "@errorWithReason": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "Daily",
   "rankingDayR18": "Daily (R-18)",
   "rankingDayMale": "Daily (Male favorite)",

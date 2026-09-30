@@ -221,6 +221,7 @@
   "profileEditCurrentPassword": "当前密码",
   "profileEditFieldUnsupported": "当前通道不支持此字段",
   "profileEditImageChoose": "选择一张受支持的图片",
+  "profileEditImageFailed": "图片处理失败",
   "profileEditChooseImage": "选择图片",
   "profileEditSave": "保存资料",
   "profileEditLeaveTitle": "放弃未保存的修改？",
@@ -473,6 +474,9 @@
   "downloadProcessing": "处理中",
   "downloadViewResult": "查看",
   "downloadRemoveRecord": "移除",
+  "downloadFailurePermission": "没有写入存储的权限",
+  "downloadFailureResource": "文件过大或资源不足",
+  "downloadFailureOwnership": "任务属主与当前账号不一致",
   "downloadBatchCancelConfirm": "取消选中的 {count} 项下载？未完成的进度会被丢弃。",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -700,6 +704,29 @@
   "cancel": "取消",
   "confirm": "确定",
   "continueAction": "继续",
+  "errorNetwork": "网络连接失败",
+  "errorTimeout": "连接超时",
+  "errorRateLimited": "请求过于频繁，请稍后重试",
+  "errorUnauthorized": "需要重新登录",
+  "errorServer": "服务器错误",
+  "errorNotFound": "内容不存在或已被删除",
+  "errorParse": "响应无法解析",
+  "errorStorage": "存储错误",
+  "errorUnknown": "未知错误",
+  "errorDetails": "详情",
+  "errorDetailsCopy": "复制",
+  "errorDetailsCopied": "已复制",
+  "errorWithReason": "{action}：{reason}",
+  "@errorWithReason": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "每日",
   "rankingDayR18": "每日(R-18)",
   "rankingDayMale": "每日(男性欢迎)",

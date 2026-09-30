@@ -571,6 +571,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditImageChoose => '选择一张受支持的图片';
 
   @override
+  String get profileEditImageFailed => '图片处理失败';
+
+  @override
   String get profileEditChooseImage => '选择图片';
 
   @override
@@ -1053,6 +1056,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadRemoveRecord => '移除';
 
   @override
+  String get downloadFailurePermission => '没有写入存储的权限';
+
+  @override
+  String get downloadFailureResource => '文件过大或资源不足';
+
+  @override
+  String get downloadFailureOwnership => '任务属主与当前账号不一致';
+
+  @override
   String downloadBatchCancelConfirm(int count) {
     return '取消选中的 $count 项下载？未完成的进度会被丢弃。';
   }
@@ -1335,6 +1347,47 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get continueAction => '继续';
+
+  @override
+  String get errorNetwork => '网络连接失败';
+
+  @override
+  String get errorTimeout => '连接超时';
+
+  @override
+  String get errorRateLimited => '请求过于频繁，请稍后重试';
+
+  @override
+  String get errorUnauthorized => '需要重新登录';
+
+  @override
+  String get errorServer => '服务器错误';
+
+  @override
+  String get errorNotFound => '内容不存在或已被删除';
+
+  @override
+  String get errorParse => '响应无法解析';
+
+  @override
+  String get errorStorage => '存储错误';
+
+  @override
+  String get errorUnknown => '未知错误';
+
+  @override
+  String get errorDetails => '详情';
+
+  @override
+  String get errorDetailsCopy => '复制';
+
+  @override
+  String get errorDetailsCopied => '已复制';
+
+  @override
+  String errorWithReason(String action, String reason) {
+    return '$action：$reason';
+  }
 
   @override
   String get rankingDay => '每日';
