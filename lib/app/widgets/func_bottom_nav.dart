@@ -611,18 +611,12 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
 }
 
 class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
-  bool _measureScheduled = false;
-  bool _published = false;
-  void Function(double?, double?)? _publishMetrics;
-  void Function(bool)? _publishVisible;
+    with SingleTickerProviderStateMixin {
   late final AnimationController _coveredVisibility;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    widget.scrollVisibility.addListener(_scheduleMeasure);
     _coveredVisibility = AnimationController(
       vsync: this,
       duration: MotionTokens.navBarShow,
@@ -631,16 +625,17 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
           ? 0
           : 1,
     );
-    _scheduleMeasure();
+    // Publish after the first frame: provider writes are illegal inside
+    // the build this initState runs under, and the only consumer (the
+    // app-level update prompt) appears long after mount anyway.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _setBarVisible(true);
+    });
   }
 
   @override
   void didUpdateWidget(covariant FuncShellBottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollVisibility != widget.scrollVisibility) {
-      oldWidget.scrollVisibility.removeListener(_scheduleMeasure);
-      widget.scrollVisibility.addListener(_scheduleMeasure);
-    }
     if (oldWidget.selectedIndex != widget.selectedIndex) {
       // A hidden bar must return on a branch switch — Shaft's
       // BottomBarAutoHide.reveal() on ViewPager's onPageSelected.
@@ -649,21 +644,15 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
       } else {
         widget.scrollVisibility.value = 1;
       }
-      _scheduleMeasure();
       _syncCovered(_isCovered);
     }
   }
 
   @override
   void dispose() {
-    widget.scrollVisibility.removeListener(_scheduleMeasure);
     _coveredVisibility.dispose();
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-
-  @override
-  void didChangeMetrics() => _scheduleMeasure();
 
   bool get _isCovered =>
       ref.read(branchStackCoveredProvider).contains(widget.selectedIndex);
@@ -680,53 +669,33 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     }
   }
 
-  void _scheduleMeasure() {
-    if (_measureScheduled) return;
-    _measureScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _measureScheduled = false;
-      if (!mounted) return;
-      final box = context.findRenderObject() as RenderBox?;
-      if (box == null || !box.attached || !box.hasSize) return;
-      _published = true;
-      try {
-        _publishMetrics?.call(
-          box.localToGlobal(Offset.zero).dy,
-          box.size.height,
-        );
-        _publishVisible?.call(true);
-      } on Object {
-        // The provider container can already be gone (test teardown).
-      }
-    });
+  void _setBarVisible(bool visible) {
+    try {
+      ref.read(homeShellBarVisibleProvider.notifier).setVisible(visible);
+    } on Object {
+      // The provider container can already be gone (test teardown).
+    }
   }
 
   @override
   void deactivate() {
     // The branch stack keeps this widget mounted while a pushed route
-    // covers it — only clear the metrics when this bar is actually going
-    // away. publish() is deferred: provider writes are illegal inside the
+    // covers it — only report gone when this bar is actually leaving.
+    // The write is deferred: provider writes are illegal inside the
     // deactivate lifecycle.
-    if (_published) {
-      _published = false;
-      final metrics = _publishMetrics;
-      final visible = _publishVisible;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        try {
-          metrics?.call(null, 0);
-          visible?.call(false);
-        } on Object {
-          // The provider container can already be gone (test teardown).
-        }
-      });
-    }
+    final notifier = ref.read(homeShellBarVisibleProvider.notifier);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        notifier.setVisible(false);
+      } on Object {
+        // The provider container can already be gone (test teardown).
+      }
+    });
     super.deactivate();
   }
 
   @override
   Widget build(BuildContext context) {
-    _publishMetrics = ref.read(homeShellMetricsProvider.notifier).publish;
-    _publishVisible = ref.read(homeShellBarVisibleProvider.notifier).setVisible;
     // Covered state is a provider — watch the slice this bar cares about
     // (is *my* branch covered) so a pushed route inside the branch
     // Navigator rebuilds us and the controller slides away in step.
