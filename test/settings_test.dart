@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -490,6 +491,29 @@ void main() {
     expect(missing.reverseImageEngine, ReverseImageEngine.sauceNao);
   });
 
+  test('pageTransitionSpeed round-trips and unknown codes fall back', () {
+    final stored = _baseSettings().copyWith(
+      pageTransitionSpeed: PageTransitionSpeed.fast,
+    );
+    final encoded = stored.toJson();
+    expect(encoded['pageTransitionSpeedCode'], 300);
+    final restored = AppSettings.fromJson(encoded, fallback: _baseSettings());
+    expect(restored.pageTransitionSpeed, PageTransitionSpeed.fast);
+
+    final unknown = AppSettings.fromJson({
+      'pageTransitionSpeedCode': 999,
+    }, fallback: _baseSettings());
+    expect(unknown.pageTransitionSpeed, PageTransitionSpeed.normal);
+    // Missing key keeps the fallback's value; the explicit default is
+    // normal for existing installs.
+    final missing = AppSettings.fromJson(const {}, fallback: _baseSettings());
+    expect(missing.pageTransitionSpeed, PageTransitionSpeed.normal);
+    expect(
+      AppSettings.defaults().pageTransitionSpeed,
+      PageTransitionSpeed.normal,
+    );
+  });
+
   test('searchFilters round-trips and damaged fields fall back', () {
     const filters = SearchFilters(
       target: SearchTarget.exactMatchForTags,
@@ -746,7 +770,10 @@ void main() {
     await tester.pump();
     await tester.pump();
     final selectorFinder = find.byWidgetPredicate(
-      (widget) => widget is SegmentedButton<dynamic>,
+      (widget) =>
+          widget is SegmentedButton<PreviewQuality> ||
+          widget is SegmentedButton<DetailQuality> ||
+          widget is SegmentedButton<ViewQuality>,
       skipOffstage: false,
     );
     final selectors = tester
@@ -781,6 +808,95 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(repository.value.detailQuality, DetailQuality.original);
+  });
+
+  Future<void> pumpBrowse(
+    WidgetTester tester,
+    _FakeRepository repository,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: BrowseSettingsPage(),
+        ),
+      ),
+    );
+    tester.view.physicalSize = const Size(800, 2400);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pump();
+    await tester.pump();
+  }
+
+  Finder transitionSelector() => find.byWidgetPredicate(
+    (widget) => widget is SegmentedButton<PageTransitionSpeed>,
+    skipOffstage: false,
+  );
+
+  testWidgets('page transition speed is an Android-only three-way picker', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(_baseSettings());
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      await pumpBrowse(tester, repository);
+
+      final selector = transitionSelector();
+      expect(selector, findsOneWidget);
+      final segments = tester
+          .widget<SegmentedButton<PageTransitionSpeed>>(selector)
+          .segments
+          .map((segment) => segment.value)
+          .toList();
+      expect(segments, PageTransitionSpeed.values);
+      expect(find.text('快 · 300ms'), findsOneWidget);
+      expect(find.text('标准 · 550ms'), findsOneWidget);
+      expect(find.text('慢 · 800ms'), findsOneWidget);
+
+      await _scrollCentered(tester, selector);
+      await tester.tap(
+        find.descendant(of: selector, matching: find.text('慢 · 800ms')),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.value.pageTransitionSpeed, PageTransitionSpeed.slow);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('the speed picker is absent off Android', (tester) async {
+    final repository = _FakeRepository(_baseSettings());
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      await pumpBrowse(tester, repository);
+      expect(transitionSelector(), findsNothing);
+      expect(find.text('页面转场速度'), findsNothing);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('reduce motion greys the speed picker and explains why', (
+    tester,
+  ) async {
+    final repository = _FakeRepository(
+      _baseSettings().copyWith(reduceMotion: true),
+    );
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      await pumpBrowse(tester, repository);
+
+      final button = tester.widget<SegmentedButton<PageTransitionSpeed>>(
+        transitionSelector(),
+      );
+      expect(button.onSelectionChanged, isNull);
+      expect(find.text('开启「减少动态效果」时不播放页面转场'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('settings primitives expose headings, values and actions', (
@@ -2065,6 +2181,7 @@ void main() {
     expect(find.text('pixiv.re 镜像'), findsOneWidget);
     expect(find.text('pixiv.nl 镜像'), findsOneWidget);
 
+    await _scrollCentered(tester, find.text('pixiv.cat 镜像'));
     await tester.tap(find.text('pixiv.cat 镜像'));
     await tester.pumpAndSettle();
     expect(repository.value.imageSource, 'i.pixiv.cat');

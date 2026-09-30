@@ -1,13 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart'
-    hide PredictiveBackPageTransitionsBuilder;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart'
-    show PredictiveBackPageTransitionsBuilder;
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
@@ -16,6 +13,7 @@ import 'package:pixiv_func/app/navigation/func_page.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/widgets/branch_slide_stack.dart';
 import 'package:pixiv_func/core/auth/account.dart';
+import 'package:pixiv_func/core/settings/app_settings.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/profile/profile_edit_controller.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
@@ -102,6 +100,7 @@ Future<PageRoute<void>> _pushSecondPage(
 Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   bool reduceMotion = false,
+  Duration? pageTransition,
   String location = '/recommended',
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -116,8 +115,12 @@ Future<GoRouter> _pumpHome(
     locale: const Locale('en', 'US'),
     routerConfig: router,
   );
-  if (reduceMotion) {
-    app = MotionScope(reduce: true, child: app);
+  if (reduceMotion || pageTransition != null) {
+    app = MotionScope(
+      reduce: reduceMotion,
+      pageTransition: pageTransition ?? PageTransitionSpeed.normal.duration,
+      child: app,
+    );
   }
   await tester.pumpWidget(
     ProviderScope(
@@ -217,21 +220,58 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
 
-  testWidgets('routes pushed through _page carry the builder duration', (
+  testWidgets('routes pushed through _page carry the scoped duration', (
     tester,
   ) async {
     final router = await _pumpHome(tester);
     unawaited(router.push('/recommended/history'));
-    // The 800ms route transition plus the feed's shimmer settle window —
+    // The route transition plus the feed's shimmer settle window —
     // pump a fixed span, the shimmer never lets pumpAndSettle return.
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(HistoryPage), findsOneWidget);
     final route = _routeOf(tester, find.byType(HistoryPage));
+    // No MotionScope → the default tier (550ms) resolves.
+    expect(route.transitionDuration, PageTransitionSpeed.normal.duration);
     expect(
-      route.transitionDuration,
-      const PredictiveBackPageTransitionsBuilder().transitionDuration,
+      route.reverseTransitionDuration,
+      PageTransitionSpeed.normal.duration,
     );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('the Android route duration follows the speed tier', (
+    tester,
+  ) async {
+    for (final speed in PageTransitionSpeed.values) {
+      final router = await _pumpHome(tester, pageTransition: speed.duration);
+      unawaited(router.push('/recommended/history'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(HistoryPage), findsOneWidget);
+      final route = _routeOf(tester, find.byType(HistoryPage));
+      expect(
+        route.transitionDuration,
+        speed.duration,
+        reason: 'tier ${speed.name}',
+      );
+      expect(route.reverseTransitionDuration, speed.duration);
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('the scoped tier still collapses under reduced motion', (
+    tester,
+  ) async {
+    final router = await _pumpHome(
+      tester,
+      reduceMotion: true,
+      pageTransition: PageTransitionSpeed.slow.duration,
+    );
+    unawaited(router.push('/recommended/history'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final route = _routeOf(tester, find.byType(HistoryPage));
+    expect(route.transitionDuration, Duration.zero);
+    expect(route.reverseTransitionDuration, Duration.zero);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('windows keeps the FuncRouteTransition slide', (tester) async {

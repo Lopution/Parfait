@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/settings/app_settings.dart';
+
 /// Single source for every UI animation duration and curve. Data-level
 /// durations (debounce, frame scheduling, download throttling) do not belong
 /// here. Predictive-back / M3 motion hook into these constants in child F.
@@ -107,13 +109,37 @@ abstract final class MotionTokens {
 /// directly. The platform half of the gate stays on
 /// `MediaQuery.disableAnimations`.
 class MotionScope extends InheritedWidget {
-  const MotionScope({super.key, required this.reduce, required super.child});
+  const MotionScope({
+    super.key,
+    required this.reduce,
+    this.pageTransition = _defaultPageTransition,
+    required super.child,
+  });
 
   final bool reduce;
+
+  /// The Android route transition length picked in settings (R1). Read by
+  /// `_page` through [pageTransitionOf]; other platforms keep
+  /// [MotionTokens.pageTransition]. The reduce-motion gate still applies on
+  /// top via [MotionTokens.resolve].
+  final Duration pageTransition;
+
+  /// Field defaults are const-only, so the enum's `.duration` getter cannot
+  /// sit here — keep it equal to `PageTransitionSpeed.normal`.
+  static const _defaultPageTransition = Duration(milliseconds: 550);
 
   static bool? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MotionScope>()?.reduce;
 
+  /// The scoped page-transition duration; outside a scope (a bare
+  /// MaterialApp in tests) the default tier applies.
+  static Duration pageTransitionOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<MotionScope>()
+          ?.pageTransition ??
+      PageTransitionSpeed.normal.duration;
+
   @override
-  bool updateShouldNotify(MotionScope oldWidget) => reduce != oldWidget.reduce;
+  bool updateShouldNotify(MotionScope oldWidget) =>
+      reduce != oldWidget.reduce || pageTransition != oldWidget.pageTransition;
 }

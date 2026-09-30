@@ -260,6 +260,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
           background: Theme.of(context).brightness,
           child: MotionScope(
             reduce: settings.reduceMotion,
+            pageTransition: settings.pageTransitionSpeed.duration,
             // ignore: deprecated_member_use
             child: MaterialUiCompatibilityBridge(
               child: ExternalIntentBridge(
