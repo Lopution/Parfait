@@ -70,6 +70,29 @@ void main() {
     );
   });
 
+  testWidgets('settings tiles lay out at 1.3x text', (tester) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+        child: _wrap(
+          SizedBox(
+            width: 360,
+            child: SettingsTile(
+              icon: Icons.palette_outlined,
+              title: '一个很长很长很长的设置项标题',
+              subtitle: const Text('很长很长的设置项说明文字'),
+              onTap: _noop,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Overflow throws inside RenderFlex during the pump above.
+    expect(tester.takeException(), isNull);
+    expect(find.text('一个很长很长很长的设置项标题'), findsOneWidget);
+  });
+
   testWidgets('group paints one rounded surfaceContainer body', (tester) async {
     await tester.pumpWidget(
       _wrap(

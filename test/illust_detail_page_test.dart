@@ -208,6 +208,7 @@ Future<void> pumpDetail(
   Locale? locale,
   bool useRouter = false,
   bool reduceMotion = false,
+  double textScale = 1,
 }) async {
   if (seedStore) {
     container.read(illustStoreProvider).mergeAll([
@@ -243,6 +244,17 @@ Future<void> pumpDetail(
         );
   if (reduceMotion) {
     app = MotionScope(reduce: true, child: app);
+  }
+  if (textScale != 1) {
+    final base = app;
+    app = Builder(
+      builder: (context) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: base,
+      ),
+    );
   }
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
@@ -2148,6 +2160,32 @@ void main() {
         tester.getRect(find.text('作品说明文字')).top,
         lessThan(tester.view.physicalSize.height),
       );
+    });
+
+    testWidgets('the date/stat meta rows survive 320dp at 1.3x text', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        textScale: 1.3,
+      );
+      await tester.pumpAndSettle();
+
+      await openDetailMenu(tester, tooltip: '显示菜单');
+      await tester.tap(find.text('跳到作品信息区'));
+      await tester.pumpAndSettle();
+
+      // View/bookmark counts and the size+ID row lay out without overflow.
+      expect(find.text('10'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
+      expect(find.text('ID: 42'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a long six-page work still reaches InfoBlock via the menu', (
