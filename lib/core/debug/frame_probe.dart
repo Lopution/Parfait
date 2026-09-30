@@ -4,12 +4,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/scheduler.dart';
 
+/// `--dart-define=PIXIV_FRAME_PROBE=true` exposes the probe's settings
+/// entry in release builds — the only way to attach it to a signed
+/// measurement package. Default builds leave the define unset, so release
+/// behaviour is unchanged.
+const bool kPixivFrameProbe = bool.fromEnvironment('PIXIV_FRAME_PROBE');
+
 /// Dev-only frame timing probe for scroll-jank investigation.
 ///
 /// Records [FrameTiming] samples via [SchedulerBinding.addTimingsCallback]
 /// while [recording] is true, then summarizes build/raster distributions into
 /// a copyable report. Registered only in debug/profile builds — release code
-/// never instantiates this (the settings entry is gated on [kReleaseMode]).
+/// never instantiates this (the settings entry is gated on [kReleaseMode],
+/// with [kPixivFrameProbe] as the deliberate release exception).
 ///
 /// Per-frame data is kept verbatim (not aggregated online) so the report can
 /// slice by arbitrary percentile and dump the raw tail if a single giant

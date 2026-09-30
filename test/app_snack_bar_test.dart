@@ -70,6 +70,8 @@ _pumpShell(WidgetTester tester) async {
   addTearDown(container.dispose);
   final scrollVisibility = AnimationController(vsync: tester, value: 1);
   addTearDown(scrollVisibility.dispose);
+  final visibleExtent = ValueNotifier<double>(0);
+  addTearDown(visibleExtent.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
@@ -82,6 +84,7 @@ _pumpShell(WidgetTester tester) async {
             bottomBarExtent: FuncBottomNav.restingExtent(
               MediaQuery.paddingOf(context).bottom,
             ),
+            bottomBarVisibleExtent: visibleExtent,
             child: Stack(
               children: [
                 BranchRootScaffold(branchIndex: 0, child: _shellPage()),
@@ -91,6 +94,7 @@ _pumpShell(WidgetTester tester) async {
                     selectedIndex: 0,
                     onSelected: (_) {},
                     scrollVisibility: scrollVisibility,
+                    visibleExtent: visibleExtent,
                     indicatorAnimation: const AlwaysStoppedAnimation(0),
                   ),
                 ),

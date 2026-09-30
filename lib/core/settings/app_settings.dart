@@ -112,6 +112,32 @@ enum DetailQuality {
   }
 }
 
+/// Android page-transition speed (R1): the user-facing tier whose duration
+/// replaces the system FadeForwards length as the route transition — the
+/// Hero flight follows it. Persisted by [code] (the millisecond length);
+/// unknown codes fall back to [normal]. Reduce-motion collapses the
+/// resolved duration to zero regardless of the tier.
+enum PageTransitionSpeed {
+  fast(250),
+  normal(350),
+  slow(450);
+
+  const PageTransitionSpeed(this.code);
+
+  final int code;
+
+  Duration get duration => Duration(milliseconds: code);
+
+  static PageTransitionSpeed fromCode(Object? value) {
+    if (value is int) {
+      for (final speed in values) {
+        if (speed.code == value) return speed;
+      }
+    }
+    return PageTransitionSpeed.normal;
+  }
+}
+
 /// How the normal network stack routes traffic (D3). Only the user choice is
 /// persisted; route memory and probe results are never saved.
 enum NetworkMode {
@@ -171,6 +197,7 @@ class AppSettings {
     this.enableLocalBlockAI = false,
     this.hideMuted = false,
     this.reduceMotion = false,
+    this.pageTransitionSpeed = PageTransitionSpeed.normal,
     this.enableHaptics = true,
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
@@ -254,6 +281,10 @@ class AppSettings {
   /// scale, sheet/dialog presentation) to instant state changes. Merged
   /// with the platform `disableAnimations` flag inside `MotionTokens`.
   final bool reduceMotion;
+
+  /// Picked Android route transition length; also the Hero flight length.
+  /// Consumed through `MotionScope` — see design §1.
+  final PageTransitionSpeed pageTransitionSpeed;
 
   /// Haptic feedback master switch, consumed by `AppHaptics` (§5.6 single
   /// owner). Haptics are a redundant channel — visual feedback stays
@@ -366,6 +397,9 @@ class AppSettings {
       ),
       hideMuted: _bool(json['hideMuted'], base.hideMuted),
       reduceMotion: _bool(json['reduceMotion'], base.reduceMotion),
+      pageTransitionSpeed: json['pageTransitionSpeedCode'] is int
+          ? PageTransitionSpeed.fromCode(json['pageTransitionSpeedCode'])
+          : base.pageTransitionSpeed,
       enableHaptics: _bool(json['enableHaptics'], base.enableHaptics),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
@@ -403,6 +437,7 @@ class AppSettings {
       'enableLocalBlockAI': enableLocalBlockAI,
       'hideMuted': hideMuted,
       'reduceMotion': reduceMotion,
+      'pageTransitionSpeedCode': pageTransitionSpeed.code,
       'enableHaptics': enableHaptics,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
@@ -521,6 +556,7 @@ class AppSettings {
     bool? enableLocalBlockAI,
     bool? hideMuted,
     bool? reduceMotion,
+    PageTransitionSpeed? pageTransitionSpeed,
     bool? enableHaptics,
     int? translateIndex,
     int? maxDownloadCount,
@@ -564,6 +600,7 @@ class AppSettings {
       enableLocalBlockAI: enableLocalBlockAI ?? this.enableLocalBlockAI,
       hideMuted: hideMuted ?? this.hideMuted,
       reduceMotion: reduceMotion ?? this.reduceMotion,
+      pageTransitionSpeed: pageTransitionSpeed ?? this.pageTransitionSpeed,
       enableHaptics: enableHaptics ?? this.enableHaptics,
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -262,6 +263,43 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                   ),
                 ],
               ),
+              // Android-only: other platforms keep the fixed 300ms slide —
+              // the tier picker would be a dead control there.
+              if (defaultTargetPlatform == TargetPlatform.android)
+                SettingsGroup(
+                  title: Text(context.l10n.pageTransitionSpeed),
+                  footer: settings.reduceMotion
+                      ? Text(context.l10n.pageTransitionSpeedReduceHint)
+                      : null,
+                  children: [
+                    SettingsGroupContent(
+                      child: SegmentedButton<PageTransitionSpeed>(
+                        segments: [
+                          for (final speed in PageTransitionSpeed.values)
+                            ButtonSegment<PageTransitionSpeed>(
+                              value: speed,
+                              label: Text(
+                                '${_pageTransitionSpeedText(context, speed)}'
+                                ' · ${speed.code}ms',
+                              ),
+                            ),
+                        ],
+                        selected: {settings.pageTransitionSpeed},
+                        // Greyed out while reduce motion is on: the gate
+                        // collapses every transition to zero, so the tier
+                        // has nothing to drive (footnote explains why).
+                        onSelectionChanged: settings.reduceMotion
+                            ? null
+                            : (selected) => persistSettings(
+                                context,
+                                () => ref
+                                    .read(settingsProvider.notifier)
+                                    .setPageTransitionSpeed(selected.first),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               SettingsGroup(
                 children: [
                   SettingsControl(
@@ -373,6 +411,14 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
       ),
     );
   }
+}
+
+String _pageTransitionSpeedText(BuildContext context, PageTransitionSpeed s) {
+  return switch (s) {
+    PageTransitionSpeed.fast => context.l10n.pageTransitionFast,
+    PageTransitionSpeed.normal => context.l10n.pageTransitionNormal,
+    PageTransitionSpeed.slow => context.l10n.pageTransitionSlow,
+  };
 }
 
 String _qualityText(BuildContext context, Object quality) {

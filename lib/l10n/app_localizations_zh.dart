@@ -837,6 +837,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reduceMotionHint => '关闭页面转场、列表进场与按压反馈等装饰性动画';
 
   @override
+  String get pageTransitionSpeed => '页面转场速度';
+
+  @override
+  String get pageTransitionFast => '快';
+
+  @override
+  String get pageTransitionNormal => '标准';
+
+  @override
+  String get pageTransitionSlow => '慢';
+
+  @override
+  String get pageTransitionSpeedReduceHint => '开启「减少动态效果」时不播放页面转场';
+
+  @override
   String get maxDownloadCount => '最大并行下载数';
 
   @override
