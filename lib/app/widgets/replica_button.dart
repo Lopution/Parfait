@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../theme/func_semantic_tokens.dart';
+
 class ReplicaButton extends StatelessWidget {
   const ReplicaButton({
     super.key,
@@ -18,7 +20,7 @@ class ReplicaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(40);
+    const radius = FuncShape.pill;
     return Material(
       color: backgroundColor,
       shape: RoundedRectangleBorder(
@@ -31,7 +33,7 @@ class ReplicaButton extends StatelessWidget {
         borderRadius: radius,
         onTap: onPressed,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+          padding: const EdgeInsets.symmetric(vertical: FuncSpacing.lg),
           child: Center(
             child: Text(
               label,

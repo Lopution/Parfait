@@ -16,6 +16,7 @@ import '../../core/localnovel/local_novel_decoder.dart';
 import '../../core/localnovel/local_novel_repository.dart';
 import '../../core/localnovel/local_novel_store.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// The imported-TXT library: list rows (title/size/import time), an import
 /// action, and delete — reading itself is wired by the local reader route.
@@ -128,7 +129,7 @@ class _LocalNovelTile extends ConsumerWidget {
         height: 48,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: FuncShape.control,
         ),
         child: const Icon(Icons.menu_book_outlined),
       ),

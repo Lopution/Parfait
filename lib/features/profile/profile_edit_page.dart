@@ -26,6 +26,7 @@ import '../../app/widgets/errors/error_details.dart';
 import '../../core/errors/error_category.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 String _profileEditText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -247,7 +248,12 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
                         bottom: MediaQuery.viewInsetsOf(context).bottom,
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(
+                          FuncSpacing.lg,
+                          FuncSpacing.sm,
+                          FuncSpacing.lg,
+                          FuncSpacing.lg,
+                        ),
                         child: SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
@@ -289,14 +295,14 @@ class _InitializationFailure extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(FuncSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.cloud_off, size: 52),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             Text(context.l10n.profileEditLoadFailed),
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Text(
               errorCategoryText(context, categorizeError(error)),
               textAlign: TextAlign.center,
@@ -408,7 +414,12 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
         state.status != ProfileEditStatus.confirmed;
     return Form(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        padding: const EdgeInsets.fromLTRB(
+          FuncSpacing.lg,
+          FuncSpacing.lg,
+          FuncSpacing.lg,
+          FuncSpacing.lg,
+        ),
         children: [
           if (!capabilities.isAvailable)
             _Notice(
@@ -443,7 +454,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             onChanged: (value) =>
                 _controller.updateText(ProfileField.displayName, value),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           TextFormField(
             controller: _comment,
             enabled:
@@ -460,7 +471,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             onChanged: (value) =>
                 _controller.updateText(ProfileField.comment, value),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           TextFormField(
             controller: _webpage,
             enabled:
@@ -476,7 +487,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             onChanged: (value) =>
                 _controller.updateText(ProfileField.webpage, value),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           _ImageField(
             title: context.l10n.profileEditAvatar,
             currentUrl: draft.values.avatarUrl,
@@ -487,7 +498,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             unsupported: !capabilities.supports(ProfileField.avatar),
             onPick: () => _pickImage(ProfileField.avatar),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           _ImageField(
             title: context.l10n.profileEditBackground,
             currentUrl: draft.values.backgroundUrl,
@@ -500,7 +511,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             onPick: () => _pickImage(ProfileField.background),
           ),
           if (capabilities.requiresCurrentPassword) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             TextField(
               controller: _password,
               enabled: editingEnabled,
@@ -568,7 +579,7 @@ class _ImageField extends StatelessWidget {
     );
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(FuncSpacing.md),
         child: avatar
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +591,7 @@ class _ImageField extends StatelessWidget {
                       chooseButton,
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: FuncSpacing.md),
                   _details(context, subtitle),
                 ],
               )
@@ -591,15 +602,15 @@ class _ImageField extends StatelessWidget {
                     aspectRatio: 3.2,
                     child: ClipRRect(
                       key: const ValueKey('profile-edit-background-preview'),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: FuncShape.control,
                       child: _backgroundPreview(context),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: FuncSpacing.md),
                   Row(
                     children: [
                       Expanded(child: _details(context, subtitle)),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: FuncSpacing.sm),
                       chooseButton,
                     ],
                   ),
@@ -624,7 +635,7 @@ class _ImageField extends StatelessWidget {
       key: const ValueKey('profile-edit-avatar-preview'),
       width: radius * 2,
       height: radius * 2,
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(FuncSpacing.xxs),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Theme.of(context).colorScheme.surface,
@@ -670,7 +681,7 @@ class _ImageField extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Text(title, style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 4),
+      const SizedBox(height: FuncSpacing.xs),
       Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
     ],
   );
@@ -692,12 +703,12 @@ class _Notice extends StatelessWidget {
     return Card(
       color: Theme.of(context).colorScheme.surfaceContainer,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(FuncSpacing.md),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon),
-            const SizedBox(width: 10),
+            const SizedBox(width: FuncSpacing.sm),
             Expanded(child: Text(text)),
           ],
         ),
@@ -720,7 +731,7 @@ class _StatusBody extends StatelessWidget {
         state.status == ProfileEditStatus.submitting;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(FuncSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -728,7 +739,7 @@ class _StatusBody extends StatelessWidget {
               const CircularProgressIndicator()
             else
               const Icon(Icons.info_outline, size: 52),
-            const SizedBox(height: 16),
+            const SizedBox(height: FuncSpacing.lg),
             Text(
               // A spinner next to the failure headline read as "load failed"
               // while the draft was still resolving.
@@ -739,7 +750,7 @@ class _StatusBody extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (failure?.retryable == true) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: FuncSpacing.lg),
               FilledButton(onPressed: onRetry, child: Text(context.l10n.retry)),
             ],
           ],

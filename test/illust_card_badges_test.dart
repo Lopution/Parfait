@@ -18,6 +18,7 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
@@ -136,11 +137,14 @@ void main() {
       );
       expect(
         (containerWidget.decoration as BoxDecoration).borderRadius,
-        BorderRadius.circular(5),
+        FuncShape.control,
       );
       expect(
         containerWidget.padding,
-        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        const EdgeInsets.symmetric(
+          horizontal: FuncSpacing.xs,
+          vertical: FuncSpacing.xxs,
+        ),
       );
     }
     expect(find.text('R-18'), findsOneWidget);

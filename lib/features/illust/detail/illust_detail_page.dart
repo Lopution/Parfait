@@ -363,7 +363,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         // only while unbookmarked).
         if (entity != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.sm),
             child: Center(
               child: BookmarkSwitchButton(
                 illustId: entity.id,
@@ -521,9 +521,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) => Padding(
-              padding: EdgeInsets.only(
-                bottom: index == entity.pageCount - 1 ? 0 : 10,
-              ),
+              padding: index == entity.pageCount - 1
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.only(bottom: FuncSpacing.sm),
               child: VisibilityDetector(
                 key: ValueKey('illust-visibility-${entity.id}-$index'),
                 onVisibilityChanged: (info) => _onPageVisibility(index, info),

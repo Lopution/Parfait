@@ -95,7 +95,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
         label: semanticLabel,
         liveRegion: true,
         child: Padding(
-          padding: EdgeInsets.all(isButton ? 12 : 8),
+          padding: EdgeInsets.all(isButton ? FuncSpacing.md : FuncSpacing.sm),
           child: SizedBox(
             width: 24,
             height: 24,
@@ -149,7 +149,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
         onLongPress: onLongPress,
         onTap: () => ref.read(bookmarkActionsProvider).toggle(_key),
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(FuncSpacing.sm),
           child: bookmarked
               ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
               : const Icon(Icons.favorite_outline_sharp, size: 24),
@@ -354,10 +354,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
         child: Container(
           margin: EdgeInsets.only(bottom: keyboardInset),
           decoration: BoxDecoration(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
+            borderRadius: FuncShape.sheet,
             color: colorScheme.surfaceContainer,
           ),
           child: SafeArea(
@@ -371,9 +368,11 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: FuncSpacing.lg),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FuncSpacing.xl,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -389,7 +388,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: FuncSpacing.sm),
                         Text(
                           widget.title,
                           style: FuncSemanticTokens.of(context).title,
@@ -398,7 +397,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                           '${widget.bookmarkKey.id}',
                           style: FuncSemanticTokens.of(context).caption,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: FuncSpacing.lg),
                         SegmentedButton<BookmarkRestrict>(
                           segments: [
                             ButtonSegment(
@@ -427,10 +426,12 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: FuncSpacing.lg),
                   Flexible(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: FuncSpacing.xl,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -438,12 +439,12 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                             l10n.bookmarkTags,
                             style: FuncSemanticTokens.of(context).body,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: FuncSpacing.sm),
                           if (awaitingPrefill)
                             if (prefillFailed)
                               Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
+                                  vertical: FuncSpacing.sm,
                                 ),
                                 child: Row(
                                   children: [
@@ -468,7 +469,9 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                               )
                             else
                               const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
+                                padding: EdgeInsets.symmetric(
+                                  vertical: FuncSpacing.md,
+                                ),
                                 child: Center(
                                   child: SizedBox(
                                     width: 24,
@@ -506,14 +509,14 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: FuncSpacing.md),
                                     Text(
                                       l10n.bookmarkTagSuggestions,
                                       style: FuncSemanticTokens.of(
                                         context,
                                       ).caption,
                                     ),
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: FuncSpacing.xs),
                                     Wrap(
                                       spacing: 8,
                                       runSpacing: 4,
@@ -537,10 +540,15 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: FuncSpacing.lg),
                   if (_submitError != null)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                      padding: const EdgeInsets.fromLTRB(
+                        FuncSpacing.xl,
+                        0,
+                        FuncSpacing.xl,
+                        FuncSpacing.md,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -561,7 +569,9 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                       ),
                     ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FuncSpacing.xl,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -570,7 +580,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                             child: Text(l10n.cancel),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: FuncSpacing.md),
                         Expanded(
                           // Disabled until the existing bookmark's detail has
                           // prefilled: confirming earlier would overwrite a
@@ -587,7 +597,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: FuncSpacing.lg),
                 ],
               ),
             ),

@@ -27,6 +27,7 @@ import '../../core/share/share_service.dart';
 import '../../l10n/context.dart';
 import 'novel_layout.dart';
 import 'novel_reader_stage.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 final _novelDetailProvider = FutureProvider.autoDispose
     .family<NovelEntity, int>((ref, novelId) async {
@@ -138,10 +139,15 @@ class NovelPage extends ConsumerWidget {
       maxChildSize: 0.9,
       builder: (context, controller) => ListView(
         controller: controller,
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        padding: const EdgeInsets.fromLTRB(
+          FuncSpacing.xl,
+          0,
+          FuncSpacing.xl,
+          FuncSpacing.xl,
+        ),
         children: [
           Text(novel.title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           AuthorSummary(
             name: novel.user.name,
             imageUrl: novel.user.profileImageUrl,
@@ -153,13 +159,13 @@ class NovelPage extends ConsumerWidget {
             },
           ),
           if (novel.caption.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             // Caption HTML renders through the shared parser — <br> tags
             // become real line breaks and links stay clickable.
             CaptionRichText(caption: novel.caption),
           ],
           if (novel.tags.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             Wrap(
               children: [
                 for (final tag in novel.tags)
@@ -179,7 +185,7 @@ class NovelPage extends ConsumerWidget {
               ],
             ),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(

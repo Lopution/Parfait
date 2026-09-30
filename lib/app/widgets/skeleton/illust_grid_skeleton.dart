@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../theme/func_semantic_tokens.dart';
 import '../feed/feed_grid.dart';
+import '../feed/illust_card.dart';
 import 'func_skeleton.dart';
 
 /// First-load placeholder for the illustration waterfall grid (R3). The
@@ -14,9 +15,9 @@ class IllustGridSkeleton extends StatelessWidget {
   const IllustGridSkeleton({
     super.key,
     required this.label,
-    this.padding = const EdgeInsets.symmetric(horizontal: 10),
-    this.mainAxisSpacing = 5,
-    this.crossAxisSpacing = 10,
+    this.padding = IllustFeedGrid.defaultPadding,
+    this.mainAxisSpacing = IllustFeedGrid.defaultMainAxisSpacing,
+    this.crossAxisSpacing = IllustFeedGrid.defaultCrossAxisSpacing,
   });
 
   final String label;
@@ -179,7 +180,7 @@ class _SkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textWidth = math.max(0.0, columnWidth - 10);
+    final textWidth = math.max(0.0, columnWidth - IllustCard.textIndent);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -190,7 +191,7 @@ class _SkeletonCard extends StatelessWidget {
         ),
         const SizedBox(height: FuncSpacing.xs),
         Padding(
-          padding: const EdgeInsets.only(left: 10),
+          padding: const EdgeInsets.only(left: IllustCard.textIndent),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

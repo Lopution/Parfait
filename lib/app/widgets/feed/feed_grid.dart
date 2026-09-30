@@ -14,6 +14,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../image_tier_cache.dart';
 import '../../motion/feed_entrance.dart';
 import '../../pixiv_image.dart';
+import '../../theme/func_semantic_tokens.dart';
 
 /// Minimum card width used to derive the masonry column count.
 const _kMinCardExtent = 180.0;
@@ -281,13 +282,21 @@ int illustColumnsFor(double crossAxisExtent) {
 /// content width is smaller than the window, so reading `MediaQuery` here
 /// would over-count columns.
 class IllustFeedGrid extends StatefulWidget {
+  /// Feed defaults shared with [IllustGridSkeleton]: the skeleton reads
+  /// these so a loading feed already occupies the same slots.
+  static const defaultPadding = EdgeInsets.symmetric(
+    horizontal: FuncSpacing.sm,
+  );
+  static const defaultMainAxisSpacing = FuncSpacing.xs;
+  static const defaultCrossAxisSpacing = FuncSpacing.sm;
+
   const IllustFeedGrid({
     super.key,
     required this.itemCount,
     required this.itemBuilder,
-    this.padding = const EdgeInsets.symmetric(horizontal: 10),
-    this.mainAxisSpacing = 5,
-    this.crossAxisSpacing = 10,
+    this.padding = defaultPadding,
+    this.mainAxisSpacing = defaultMainAxisSpacing,
+    this.crossAxisSpacing = defaultCrossAxisSpacing,
     this.itemIds,
     this.prefetchEntities,
     this.pagerLoadMore,

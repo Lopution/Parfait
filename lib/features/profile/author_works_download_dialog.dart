@@ -10,6 +10,7 @@ import '../../core/download/illust_download_coordinator.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Enumerating → confirming flow behind the author page's "download all"
 /// action (implement.md step 4). Pops with the submitted group size on
@@ -118,7 +119,7 @@ class _AuthorWorksDownloadDialogState
               dimension: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: FuncSpacing.lg),
             Flexible(child: Text(l10n.downloadAuthorEnumerating(_scanned))),
           ],
         ),
@@ -141,7 +142,7 @@ class _AuthorWorksDownloadDialogState
                   l10n.downloadAuthorConfirmBody(result.works.length, pages),
                 ),
                 if (result.truncated) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: FuncSpacing.sm),
                   Text(
                     l10n.downloadAuthorTruncated(
                       AuthorWorksEnumerator.maxWorks,

@@ -10,6 +10,7 @@ import '../../../core/errors/error_category.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/illust/related_illust_controller.dart';
 import '../../../l10n/context.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 
 export '../../../core/illust/related_illust_controller.dart';
 export '../../../core/illust/related_illust_repository.dart';
@@ -38,7 +39,12 @@ class RelatedIllustsSlivers extends ConsumerWidget {
         final error = async.error;
         return SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.lg,
+              FuncSpacing.lg,
+              FuncSpacing.lg,
+              FuncSpacing.xl,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -46,7 +52,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                   context.l10n.relatedWorks,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: FuncSpacing.md),
                 _errorRow(context, error, controller.refresh),
               ],
             ),
@@ -55,7 +61,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
       }
       return const SliverToBoxAdapter(
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 28),
+          padding: EdgeInsets.symmetric(vertical: FuncSpacing.xxl),
           child: Center(
             child: SizedBox(
               width: 22,
@@ -69,7 +75,12 @@ class RelatedIllustsSlivers extends ConsumerWidget {
     if (state.showInitialError) {
       return SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          padding: const EdgeInsets.fromLTRB(
+            FuncSpacing.lg,
+            FuncSpacing.lg,
+            FuncSpacing.lg,
+            FuncSpacing.xl,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -77,7 +88,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                 context.l10n.relatedWorks,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: FuncSpacing.md),
               _errorRow(context, state.initialError, controller.refresh),
             ],
           ),
@@ -94,7 +105,12 @@ class RelatedIllustsSlivers extends ConsumerWidget {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.lg,
+              FuncSpacing.lg,
+              FuncSpacing.lg,
+              FuncSpacing.sm,
+            ),
             child: Text(
               context.l10n.relatedWorks,
               style: Theme.of(context).textTheme.titleMedium,
@@ -102,13 +118,11 @@ class RelatedIllustsSlivers extends ConsumerWidget {
           ),
         ),
         const SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: FuncSpacing.md),
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
         IllustFeedGrid(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
+          mainAxisSpacing: FuncSpacing.sm,
           itemIds: [for (final e in illusts) e.id],
           itemCount: illusts.length,
           itemBuilder: (context, index) => IllustCard(
@@ -146,7 +160,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                   ],
                 ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: FuncSpacing.md),
         TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
       ],
     );
@@ -163,7 +177,7 @@ class _LoadMoreFooter extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.loadMorePhase == FeedPhase.loading) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 18),
+        padding: EdgeInsets.symmetric(vertical: FuncSpacing.lg),
         child: Center(
           child: SizedBox(
             width: 20,
@@ -175,7 +189,7 @@ class _LoadMoreFooter extends ConsumerWidget {
     }
     if (state.loadMorePhase == FeedPhase.error) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
         child: Center(
           child: TextButton(
             onPressed: () => onLoadMore(),
@@ -184,6 +198,6 @@ class _LoadMoreFooter extends ConsumerWidget {
         ),
       );
     }
-    return const SizedBox(height: 6);
+    return const SizedBox(height: FuncSpacing.sm);
   }
 }

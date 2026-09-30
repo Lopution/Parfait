@@ -128,7 +128,17 @@ void main() {
     // Wide width: same count as the live grid would compute.
     tester.view.physicalSize = const Size(1200, 800);
     await tester.pump();
-    expect(cardXs().length, illustColumnsFor(1200 - 20));
+    expect(
+      cardXs().length,
+      illustColumnsFor(1200 - IllustFeedGrid.defaultPadding.horizontal),
+    );
+  });
+
+  test('grid skeleton defaults mirror the live grid', () {
+    const skeleton = IllustGridSkeleton(label: 'Loading content');
+    expect(skeleton.padding, IllustFeedGrid.defaultPadding);
+    expect(skeleton.mainAxisSpacing, IllustFeedGrid.defaultMainAxisSpacing);
+    expect(skeleton.crossAxisSpacing, IllustFeedGrid.defaultCrossAxisSpacing);
   });
 
   testWidgets('grid bones use the placeholder colour and card radius', (

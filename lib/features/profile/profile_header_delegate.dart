@@ -511,7 +511,7 @@ class _ExpandedIdentity extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (user.account.isNotEmpty) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: FuncSpacing.xxs),
                     Text(
                       user.account,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -671,7 +671,7 @@ class _ProfileHeaderMenuLabel extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Icon(action.icon, size: 18),
-      const SizedBox(width: 12),
+      const SizedBox(width: FuncSpacing.md),
       Text(action.label),
     ],
   );
@@ -690,7 +690,7 @@ class _CollapsedProfile extends StatelessWidget {
     // title stays centred on screen.
     return Row(
       children: [
-        const SizedBox(width: 8),
+        const SizedBox(width: FuncSpacing.sm),
         const SizedBox(width: 48, height: 48),
         Expanded(
           child: Text(
@@ -703,7 +703,7 @@ class _CollapsedProfile extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 48, height: 48),
-        const SizedBox(width: 8),
+        const SizedBox(width: FuncSpacing.sm),
       ],
     );
   }

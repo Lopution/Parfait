@@ -31,7 +31,10 @@ class AccountSummaryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = account;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.lg,
+        vertical: FuncSpacing.sm,
+      ),
       leading: _AccountAvatar(account: value),
       title: Text(
         value?.name ?? context.l10n.signedOut,

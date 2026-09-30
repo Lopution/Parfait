@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../app/widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Shared bottom-left error card for the authorization WebViews
 /// (`login_webview_page.dart` on mobile, `login_webview_desktop_page.dart`
@@ -74,11 +75,11 @@ class LoginWebViewErrorCard extends StatelessWidget {
       alignment: Alignment.bottomLeft,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(FuncSpacing.lg),
           child: Card(
             color: Theme.of(context).colorScheme.errorContainer,
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(FuncSpacing.md),
               child: Row(
                 children: [
                   Expanded(

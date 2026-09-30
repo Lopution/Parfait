@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/comments/comment_assets.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// The composer's input surface — four mutually exclusive states. [keyboard]
 /// is mirrored one-way from the framework focus node; [emoji] and [stamp] are
@@ -136,7 +137,12 @@ class CommentComposerState extends State<CommentComposer> {
                   container: true,
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                    padding: const EdgeInsets.fromLTRB(
+                      FuncSpacing.lg,
+                      FuncSpacing.sm,
+                      FuncSpacing.sm,
+                      0,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
@@ -157,7 +163,7 @@ class CommentComposerState extends State<CommentComposer> {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                padding: const EdgeInsets.all(FuncSpacing.sm),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -176,11 +182,11 @@ class CommentComposerState extends State<CommentComposer> {
                           filled: true,
                           fillColor: theme.colorScheme.surfaceContainer,
                           contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
+                            horizontal: FuncSpacing.md,
+                            vertical: FuncSpacing.sm,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: FuncShape.pill,
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -267,7 +273,7 @@ class CommentComposerState extends State<CommentComposer> {
         return Semantics(
           container: true,
           child: GridView.builder(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(FuncSpacing.sm),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
@@ -286,7 +292,7 @@ class CommentComposerState extends State<CommentComposer> {
                   child: InkResponse(
                     onTap: () => _insertEmoji(name),
                     child: Padding(
-                      padding: const EdgeInsets.all(2),
+                      padding: const EdgeInsets.all(FuncSpacing.xxs),
                       child: ExcludeSemantics(
                         child: Image.asset(commentEmojiAsset(name)),
                       ),
