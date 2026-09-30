@@ -257,6 +257,12 @@ one owner. Feature code uses the three seams below.
   rotating while immersive reports a zero inset on the new size, so the
   first chrome reveal after rotation adjusts the body once (the reader's
   commit gate keeps the anchor); it is stable again afterwards.
+- **Novel progress hint band.** The reader's always-on progress hint sits
+  `4dp` above the stable bottom inset. The body's bottom padding is that
+  inset plus the part of the hint band (`4 + one hint line`, measured with
+  the hint's own style and `TextScaler`) not already covered by the layout's
+  22dp `verticalPadding`. Every input is stable while reading, so chrome
+  show/hide still never repaginates; the cost is about one line per page.
 - **Sheets over an overriding page.** A page that overrides the bar style
   (a night palette reading surface) and opens an app-themed sheet lets the
   sheet own the covered edge: the sheet wraps itself in `FuncSystemBars`
@@ -285,7 +291,15 @@ the bar's own `SafeArea` adds, and nothing between the stack and that
 `SafeArea` strips the inset, so the computed value equals the rendered bar
 height on the very first frame. `FuncNavBarSpacer`, `showAppSnackBar`'s
 branch margin and the Hero landing clip all read the same extent — no
-consumer measures or copies the bar geometry. On NavigationRail layouts the
+consumer measures or copies the bar geometry.
+
+The bar also slides out (covered by a pushed route, or scroll auto-hide), so
+`HomeShellChrome.bottomBarVisibleExtent` publishes the height it covers *right
+now*: `FuncShellBottomNav` computes it from the same two `CurvedAnimation`s
+that drive its `SlideTransition`s. The Hero landing clip caps the home-side
+edge with it per frame, so a returning image is not cut at a bar that is not
+there yet. Consumers read `.value` and never listen — the bar writes it from
+its own `build`. Everything else keeps the resting extent. On NavigationRail layouts the
 extent is 0 and no `FuncShellBottomNav` exists. The only consumer that
 cannot reach the scope is the root-messenger update prompt; it reads the
 `homeShellBarVisibleProvider` presence flag (`FuncShellBottomNav` publishes
@@ -465,9 +479,13 @@ window.
 `PredictiveBackPageTransitionsBuilder` (FadeForwards for button pops, the
 shared-element predictive transition while `popGestureInProgress`), every
 other platform keeps the `FuncRouteTransition` trailing-edge slide.
-`transitionDuration` is the builder's 800ms on Android and
-`MotionTokens.pageTransition` elsewhere, both through `MotionTokens.resolve`
-so reduced motion collapses them to zero. Both paths are wrapped by
+`transitionDuration` on Android is the user's speed tier
+(`AppSettings.pageTransitionSpeed`: 300 / 550 / 800ms, default 550 — the
+builder's own 800ms dragged), read through `MotionScope.pageTransitionOf`;
+FadeForwards scales its phases to whatever duration the route carries.
+Other platforms keep `MotionTokens.pageTransition`, and the setting is shown
+on Android only. Both pass through `MotionTokens.resolve`, so reduced motion
+collapses them to zero; Hero flights follow the route duration. Both paths are wrapped by
 `FuncTransitionGuard` — the shared `TickerMode` + `RoutePopSnapshot` pair that
 freezes an outgoing page's tickers and snapshots it for the reverse flight;
 `FuncRouteTransition` already carries the guard internally, so the Android
@@ -805,8 +823,17 @@ const PullToRefresh({
   `BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())` plus no
   platform overscroll indicator — the same scheme `_ERScrollPhysics` installs
   inside `PullToRefresh` subtrees, so non-feed pages (detail, settings,
-  search) and `NestedScrollView` outer scrolls share the feed's feel. Do not
-  reintroduce a `ClampingScrollPhysics` region.
+  search) share the feed's feel. Do not reintroduce a
+  `ClampingScrollPhysics` region.
+- A `NestedScrollView` does **not** inherit that behavior: its outer position
+  is `widget.physics?.applyTo(Clamping) ?? ClampingScrollPhysics()`. Pass
+  `physics: ScrollConfiguration.of(context).getScrollPhysics(context)`
+  explicitly. On release the coordinator runs one ballistic per position
+  over the same combined metrics, and the nested feeds' `_ERScrollPhysics`
+  always builds a `BouncingScrollSimulation`; a Clamping outer travels a
+  fraction of that distance at low speed (24 vs 150px at 300px/s), so the
+  header stops short while the feed rolls on, and a light pull-down dies at
+  the edge (09-30 profile "dip"/"stuck").
 - The wrapper hands `EasyRefresh` a `child`, so EasyRefresh makes
   `ERScrollBehavior(_ERScrollPhysics)` the `ScrollConfiguration` of that
   whole subtree, on every axis. A horizontal scrollable inside a feed opts
