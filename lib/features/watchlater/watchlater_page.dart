@@ -8,6 +8,7 @@ import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/watchlater/watch_later_store.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Local watch-later list: stashed illusts render straight from the stored
 /// payload — no network — and long-pressing a card offers "remove" through
@@ -45,9 +46,8 @@ class WatchLaterPage extends ConsumerWidget {
                     restorationId: 'watchlater',
                     slivers: [
                       IllustFeedGrid(
-                        padding: const EdgeInsets.all(10),
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
+                        padding: const EdgeInsets.all(FuncSpacing.sm),
+                        mainAxisSpacing: FuncSpacing.sm,
                         itemIds: [for (final e in list) e.entity.id],
                         itemCount: list.length,
                         // IllustFeedGrid already wraps each item in a

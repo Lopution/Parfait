@@ -26,6 +26,7 @@ import '../../core/novel/novel_store.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -302,9 +303,8 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
               restorationId: 'history-${widget.accountId}',
               slivers: [
                 IllustFeedGrid(
-                  padding: const EdgeInsets.all(10),
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
+                  padding: const EdgeInsets.all(FuncSpacing.sm),
+                  mainAxisSpacing: FuncSpacing.sm,
                   itemCount: entries.length,
                   itemBuilder: (context, index) => _HistoryEntry(
                     record: entries[index].record,
@@ -321,11 +321,11 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                     state.loadMoreError,
                   )) {
                     (true, _) => const Padding(
-                      padding: EdgeInsets.all(16),
+                      padding: EdgeInsets.all(FuncSpacing.lg),
                       child: FeedLoading(),
                     ),
                     (_, final error?) => Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(FuncSpacing.lg),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -342,7 +342,7 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                         ],
                       ),
                     ),
-                    _ => const SizedBox(height: 16),
+                    _ => const SizedBox(height: FuncSpacing.lg),
                   },
                 ),
               ],
@@ -415,7 +415,7 @@ class _HistoryEntry extends ConsumerWidget {
               child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: FuncShape.card,
                     border: selected
                         ? Border.all(color: colorScheme.primary, width: 2)
                         : null,
@@ -509,7 +509,7 @@ class _NovelHistoryEntry extends StatelessWidget {
                     AspectRatio(
                       aspectRatio: 1,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: FuncShape.card,
                         child: coverUrl == null
                             ? ColoredBox(
                                 color: colorScheme.surfaceContainer,
@@ -535,7 +535,7 @@ class _NovelHistoryEntry extends StatelessWidget {
                   ],
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                  padding: const EdgeInsets.all(FuncSpacing.xs),
                   child: Text(
                     title,
                     maxLines: 2,
@@ -544,7 +544,12 @@ class _NovelHistoryEntry extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                    FuncSpacing.xs,
+                    0,
+                    FuncSpacing.xs,
+                    FuncSpacing.sm,
+                  ),
                   child: Text(
                     author,
                     maxLines: 1,
@@ -577,7 +582,12 @@ class _HistoryCardFrame extends StatelessWidget {
         children: [
           child,
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.xs,
+              0,
+              FuncSpacing.xs,
+              FuncSpacing.xs,
+            ),
             child: EntityMetaText(_formatHistoryDate(lastViewedAt)),
           ),
         ],
@@ -599,7 +609,7 @@ class _SnapshotEntry extends StatelessWidget {
       children: [
         _SnapshotCover(record: record, icon: icon),
         Padding(
-          padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+          padding: const EdgeInsets.all(FuncSpacing.xs),
           child: Text(
             record.snapshot.title,
             maxLines: 2,
@@ -608,7 +618,12 @@ class _SnapshotEntry extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+          padding: const EdgeInsets.fromLTRB(
+            FuncSpacing.xs,
+            0,
+            FuncSpacing.xs,
+            FuncSpacing.sm,
+          ),
           child: Text(
             record.snapshot.authorName,
             maxLines: 1,
@@ -650,7 +665,7 @@ Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
     builder: (sheetContext) {
       return SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(FuncSpacing.xl),
           child: Column(
             // Wraps content: a fixed fraction of the sheet height overflowed
             // on short surfaces and left the buttons partially unhit-testable.
@@ -658,9 +673,9 @@ Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
+              const SizedBox(height: FuncSpacing.md),
               Text(context.l10n.historyDeleteHint),
-              const SizedBox(height: 24),
+              const SizedBox(height: FuncSpacing.xl),
               Row(
                 children: [
                   Expanded(
@@ -669,7 +684,7 @@ Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
                       child: Text(context.l10n.cancel),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: FuncSpacing.md),
                   Expanded(
                     child: FilledButton(
                       onPressed: () => Navigator.of(sheetContext).pop(true),

@@ -16,6 +16,7 @@ import '../../core/spotlight/spotlight_article_controller.dart';
 import '../../core/spotlight/spotlight_models.dart';
 import '../../core/spotlight/spotlight_store.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// In-app pixivision article reader: renders the parsed [SpotlightBlock]s —
 /// headings, link-aware paragraphs, images and `.illust` artwork cards —
@@ -99,11 +100,16 @@ class SpotlightArticlePage extends ConsumerWidget {
             constraints: const BoxConstraints(maxWidth: ContentWidths.article),
             child: ListView(
               key: PageStorageKey('spotlight-article-$articleId'),
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: const EdgeInsets.fromLTRB(
+                FuncSpacing.lg,
+                FuncSpacing.sm,
+                FuncSpacing.lg,
+                FuncSpacing.xxl,
+              ),
               children: [
                 if (body.title.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
                     child: SelectableText(
                       body.title,
                       style: Theme.of(context).textTheme.headlineSmall,
@@ -111,7 +117,7 @@ class SpotlightArticlePage extends ConsumerWidget {
                   ),
                 if (body.description != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: FuncSpacing.md),
                     child: SelectableText(
                       body.description!,
                       style: Theme.of(context).textTheme.bodySmall,
@@ -158,7 +164,10 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
       // rejected): heading and paragraph text is selectable per block, and
       // span recognizers stay live inside SelectableText.
       SpotlightHeading(:final text, :final level) => Padding(
-        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        padding: const EdgeInsets.only(
+          top: FuncSpacing.lg,
+          bottom: FuncSpacing.xs,
+        ),
         child: SelectableText(
           text,
           style: switch (level) {
@@ -169,7 +178,7 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
         ),
       ),
       SpotlightParagraph(:final segments) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xs),
         child: SelectableText.rich(
           TextSpan(
             style: theme.textTheme.bodyMedium,
@@ -178,7 +187,7 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
         ),
       ),
       SpotlightImage(:final url) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
         child: _ArticleImage(url: url),
       ),
       final SpotlightIllustCard card => _SpotlightIllustCardView(card: card),
@@ -249,24 +258,24 @@ class _SpotlightIllustCardView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => openIllust(context, card.illustId),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(FuncSpacing.md),
           child: Row(
             children: [
               if (card.imageUrl != null)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: FuncShape.control,
                   child: SizedBox(
                     width: 72,
                     height: 72,
                     child: _ArticleImage(url: card.imageUrl!),
                   ),
                 ),
-              if (card.imageUrl != null) const SizedBox(width: 12),
+              if (card.imageUrl != null) const SizedBox(width: FuncSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -43,7 +43,12 @@ class _CommentItemState extends ConsumerState<CommentItem> {
     final account = ref.watch(accountStoreProvider).value?.usableCurrent;
     final canDelete = account?.userId == widget.comment.user.id;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.lg,
+        FuncSpacing.md,
+        FuncSpacing.lg,
+        0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -51,7 +56,7 @@ class _CommentItemState extends ConsumerState<CommentItem> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Avatar(comment: widget.comment),
-              const SizedBox(width: 10),
+              const SizedBox(width: FuncSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,20 +73,20 @@ class _CommentItemState extends ConsumerState<CommentItem> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: FuncSpacing.sm),
                         Text(
                           _formatDate(widget.comment.createdAt),
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: FuncSpacing.sm),
                     _CommentBody(comment: widget.comment),
                     if (_translation != null)
                       _TranslationOverlay(text: _translation!),
                     if (_translating)
                       const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
+                        padding: EdgeInsets.symmetric(vertical: FuncSpacing.sm),
                         child: SizedBox(
                           width: 18,
                           height: 18,
@@ -90,7 +95,7 @@ class _CommentItemState extends ConsumerState<CommentItem> {
                       ),
                     if (_translationError != null)
                       Padding(
-                        padding: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.only(top: FuncSpacing.xs),
                         child: Text(
                           _translationError!,
                           style: TextStyle(color: theme.colorScheme.error),
@@ -222,13 +227,13 @@ class _CommentBody extends StatelessWidget {
               fit: BoxFit.contain,
             );
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xs),
         child: stamp,
       );
     }
     if (comment.content.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xs),
       child: CommentText(comment.content),
     );
   }
@@ -313,7 +318,7 @@ class _ActionPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = FuncSemanticTokens.of(context);
     final color = foreground ?? tokens.contentSecondary;
-    final radius = BorderRadius.circular(999);
+    final radius = FuncShape.pill;
     return Opacity(
       opacity: onTap == null ? 0.5 : 1,
       child: Material(
@@ -326,12 +331,17 @@ class _ActionPill extends StatelessWidget {
           onTap: onTap,
           borderRadius: radius,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(11, 7, 13, 7),
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.md,
+              FuncSpacing.sm,
+              FuncSpacing.md,
+              FuncSpacing.sm,
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, size: 15, color: color),
-                const SizedBox(width: 5),
+                const SizedBox(width: FuncSpacing.xs),
                 Text(
                   label,
                   style: TextStyle(
@@ -359,11 +369,11 @@ class _TranslationOverlay extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.only(top: FuncSpacing.xs),
+      padding: const EdgeInsets.all(FuncSpacing.sm),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: FuncShape.control,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

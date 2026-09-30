@@ -14,6 +14,10 @@ import '../../core/profile/profile_feed_controller.dart';
 import '../../core/profile/profile_models.dart';
 import '../../l10n/context.dart';
 import 'profile_work_type_switch.dart';
+import '../../app/theme/func_semantic_tokens.dart';
+
+/// Grid padding shared by this feed and `ProfileSkeleton`'s grid block.
+const gridPadding = EdgeInsets.all(FuncSpacing.sm);
 
 class ProfileIllustFeed extends ConsumerWidget {
   const ProfileIllustFeed({
@@ -43,7 +47,7 @@ class ProfileIllustFeed extends ConsumerWidget {
       loading: () => wrapState(
         IllustGridSkeleton(
           label: context.l10n.contentLoading,
-          padding: const EdgeInsets.all(10),
+          padding: gridPadding,
         ),
       ),
       error: (error, _) => wrapState(
@@ -73,7 +77,7 @@ class ProfileIllustFeed extends ConsumerWidget {
           return wrapState(
             IllustGridSkeleton(
               label: context.l10n.contentLoading,
-              padding: const EdgeInsets.all(10),
+              padding: gridPadding,
             ),
           );
         }
@@ -129,9 +133,7 @@ class ProfileIllustFeed extends ConsumerWidget {
                   )
                 else
                   IllustFeedGrid(
-                    padding: const EdgeInsets.all(10),
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 10,
+                    padding: gridPadding,
                     prefetchEntities: visibleEntities,
                     itemIds: [for (final e in visibleEntities) e.id],
                     itemCount: visibleEntities.length,
