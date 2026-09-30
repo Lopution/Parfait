@@ -2,6 +2,46 @@ import 'package:flutter/widgets.dart';
 
 import 'motion_tokens.dart';
 
+/// Transition-window guard shared by every route transition: [TickerMode]
+/// freezes tickers while either animation runs (see [FuncRouteTransition])
+/// and [RoutePopSnapshot] keeps the page one blitted texture. The
+/// platform-specific transform — slide, predictive-back shared element —
+/// wraps the snapshot through [transition], so the captured texture is what
+/// moves.
+class FuncTransitionGuard extends StatelessWidget {
+  const FuncTransitionGuard({
+    super.key,
+    required this.animation,
+    required this.secondaryAnimation,
+    required this.transition,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final Animation<double> secondaryAnimation;
+
+  /// The route's visual transition, applied around the snapshot.
+  final Widget Function(Widget child) transition;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final inTransition =
+        animation.isAnimating || secondaryAnimation.isAnimating;
+    return TickerMode(
+      enabled: !inTransition,
+      child: transition(
+        RoutePopSnapshot(
+          animation: animation,
+          secondaryAnimation: secondaryAnimation,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 /// Pushed-route transition: slide in from the trailing edge.
 ///
 /// A live in-page animation (loaders, image fades, scroll ballistic,
@@ -29,20 +69,16 @@ class FuncRouteTransition extends StatelessWidget {
     // frame during the transition, and a CurvedAnimation is a stateful
     // listener-holding object — the curve evaluation is all that is needed.
     final curved = animation.drive(CurveTween(curve: MotionTokens.pageCurve));
-    final inTransition =
-        animation.isAnimating || secondaryAnimation.isAnimating;
-    return TickerMode(
-      enabled: !inTransition,
-      child: SlideTransition(
+    return FuncTransitionGuard(
+      animation: animation,
+      secondaryAnimation: secondaryAnimation,
+      transition: (child) => SlideTransition(
         position: curved.drive(
           Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero),
         ),
-        child: RoutePopSnapshot(
-          animation: animation,
-          secondaryAnimation: secondaryAnimation,
-          child: child,
-        ),
+        child: child,
       ),
+      child: child,
     );
   }
 }
