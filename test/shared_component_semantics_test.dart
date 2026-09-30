@@ -7,9 +7,15 @@ import 'package:pixiv_func/app/widgets/app_snack_bar.dart';
 import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/core/network/api_error.dart';
 import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 Widget _host(Widget child) {
-  return MaterialApp(home: Scaffold(body: child));
+  return MaterialApp(
+    localizationsDelegates: appLocalizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(body: child),
+  );
 }
 
 void main() {
@@ -93,6 +99,14 @@ void main() {
       tester.getSemantics(find.text('Retry now')),
       isSemantics(isButton: true, hasTapAction: true),
     );
+
+    // The raw exception stays behind the details disclosure; the visible
+    // line is the localized category.
+    expect(find.text('Server error'), findsOneWidget);
+    expect(find.text('ApiHttpError(http 500)'), findsNothing);
+    await tester.tap(find.text('Details'));
+    await tester.pump();
+    expect(find.text('ApiHttpError(http 500)'), findsOneWidget);
   });
 
   testWidgets('app snackbars are exposed as live regions', (tester) async {

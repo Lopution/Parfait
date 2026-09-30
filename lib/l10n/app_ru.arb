@@ -674,14 +674,7 @@
       }
     }
   },
-  "ugoiraLoadFailed": "Не удалось загрузить анимацию: {error}",
-  "@ugoiraLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraLoadFailed": "Не удалось загрузить анимацию",
   "homeRecommended": "Рекомендации",
   "homeRanking": "Рейтинг",
   "homeMe": "Профиль",

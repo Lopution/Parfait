@@ -674,14 +674,7 @@
       }
     }
   },
-  "ugoiraLoadFailed": "动图加载失败：{error}",
-  "@ugoiraLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraLoadFailed": "动图加载失败",
   "homeRecommended": "推荐",
   "homeRanking": "排行",
   "homeMe": "我的",

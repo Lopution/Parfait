@@ -67,7 +67,7 @@ class MePage extends ConsumerWidget {
       error: (error, _) => _ProfileStatusPage(
         icon: Icons.cloud_off,
         title: context.l10n.profileLoadFailed,
-        detail: '$error',
+        error: error,
         onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
       ),
       data: (state) {
@@ -75,7 +75,7 @@ class MePage extends ConsumerWidget {
           return _ProfileStatusPage(
             icon: Icons.cloud_off,
             title: context.l10n.accountReadFailed,
-            detail: '${state.error ?? 'unknown account error'}',
+            error: state.error ?? StateError('account state unavailable'),
             onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
           );
         }
@@ -390,7 +390,7 @@ class _UserPageState extends ConsumerState<UserPage>
         error: (error, _) => _ProfileStatusPage(
           icon: Icons.cloud_off,
           title: context.l10n.profileLoadFailed,
-          detail: '$error',
+          error: error,
           onRetry: () => ref
               .read(userDetailControllerProvider(widget.userId).notifier)
               .reload(),
@@ -417,7 +417,7 @@ class _UserPageState extends ConsumerState<UserPage>
       UserDetailError(:final error) => _ProfileStatusPage(
         icon: Icons.cloud_off,
         title: context.l10n.profileLoadFailed,
-        detail: '$error',
+        error: error,
         onRetry: () => ref
             .read(userDetailControllerProvider(widget.userId).notifier)
             .reload(),
@@ -847,12 +847,14 @@ class _ProfileStatusPage extends StatelessWidget {
     required this.icon,
     required this.title,
     this.detail,
+    this.error,
     this.onRetry,
   });
 
   final IconData icon;
   final String title;
   final String? detail;
+  final Object? error;
   final Future<void> Function()? onRetry;
 
   @override
@@ -865,6 +867,7 @@ class _ProfileStatusPage extends StatelessWidget {
             icon: icon,
             title: title,
             detail: detail,
+            error: error,
             onRefresh: onRetry,
             retryLabel: context.l10n.profileRetry,
           ),

@@ -674,14 +674,7 @@
       }
     }
   },
-  "ugoiraLoadFailed": "アニメーションを読み込めませんでした: {error}",
-  "@ugoiraLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraLoadFailed": "アニメーションを読み込めませんでした",
   "homeRecommended": "おすすめ",
   "homeRanking": "ランキング",
   "homeMe": "マイページ",

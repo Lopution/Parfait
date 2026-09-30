@@ -674,14 +674,7 @@
       }
     }
   },
-  "ugoiraLoadFailed": "Animation failed to load: {error}",
-  "@ugoiraLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraLoadFailed": "Animation failed to load",
   "homeRecommended": "Recommended",
   "homeRanking": "Ranking",
   "homeMe": "Me",

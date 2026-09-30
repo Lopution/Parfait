@@ -23,6 +23,8 @@ import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
+import '../../core/errors/error_category.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 
@@ -296,7 +298,11 @@ class _InitializationFailure extends StatelessWidget {
             const SizedBox(height: 12),
             Text(context.l10n.profileEditLoadFailed),
             const SizedBox(height: 8),
-            Text('$error', textAlign: TextAlign.center),
+            Text(
+              errorCategoryText(context, categorizeError(error)),
+              textAlign: TextAlign.center,
+            ),
+            ErrorDetails(error: error),
           ],
         ),
       ),
