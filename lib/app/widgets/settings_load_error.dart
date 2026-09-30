@@ -4,6 +4,7 @@ import '../../core/errors/error_category.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
 import 'errors/error_details.dart';
+import '../theme/func_semantic_tokens.dart';
 
 /// Shared "settings could not be read" body with a working retry.
 ///
@@ -32,20 +33,20 @@ class SettingsLoadError extends StatelessWidget {
     String text(String key) => l10nLookup(context.l10n, key);
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(FuncSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.settings_outlined, size: 48),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             Text(text(messageKey), key: const Key('settings-load-error')),
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Text(
               errorCategoryText(context, categorizeError(error)),
               textAlign: TextAlign.center,
             ),
             ErrorDetails(error: error),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             FilledButton(
               key: const Key('settings-load-retry'),
               onPressed: onRetry,

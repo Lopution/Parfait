@@ -164,12 +164,15 @@ Future<void> showFollowRestrictSheet(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: contentMaxWidth),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              padding: const EdgeInsets.fromLTRB(
+                FuncSpacing.xl,
+                FuncSpacing.lg,
+                FuncSpacing.xl,
+                FuncSpacing.xl,
+              ),
               decoration: BoxDecoration(
                 color: colors.surfaceContainer,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
+                borderRadius: FuncShape.sheet,
               ),
               child: SafeArea(
                 top: false,
@@ -182,7 +185,7 @@ Future<void> showFollowRestrictSheet(
                       style: Theme.of(sheetContext).textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: FuncSpacing.sm),
                     Text(
                       userName,
                       style: FuncSemanticTokens.of(sheetContext).title,
@@ -192,7 +195,7 @@ Future<void> showFollowRestrictSheet(
                         userAccount,
                         style: FuncSemanticTokens.of(sheetContext).caption,
                       ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: FuncSpacing.lg),
                     SegmentedButton<FollowRestrict>(
                       segments: [
                         ButtonSegment(
@@ -212,7 +215,7 @@ Future<void> showFollowRestrictSheet(
                       onSelectionChanged: (value) =>
                           setState(() => restrict = value.first),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: FuncSpacing.lg),
                     Row(
                       children: [
                         Expanded(
@@ -221,7 +224,7 @@ Future<void> showFollowRestrictSheet(
                             child: Text(_followText(sheetContext, 'cancel')),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: FuncSpacing.md),
                         Expanded(
                           child: FilledButton(
                             onPressed: () =>
