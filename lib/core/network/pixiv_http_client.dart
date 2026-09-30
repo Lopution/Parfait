@@ -529,9 +529,19 @@ class PixivHttpClient {
       );
       return Refreshed(result.credential.accessToken);
     } on OAuthException catch (error) {
-      return RefreshFailed(error);
+      if (error.rejectsCredential) return RefreshFailed(error);
+      // The attempt failed, not the credential: fail this request and keep
+      // the account signed in so the next request refreshes again.
+      throw _refreshAttemptError(error);
     }
   }
+
+  static ApiError _refreshAttemptError(OAuthException error) =>
+      switch (error.statusCode) {
+        429 => const ApiRateLimited(null),
+        final int code => ApiHttpError(code, error.message),
+        null => ApiNetworkError(error),
+      };
 
   Duration? _parseRetryAfter(Map<String, String> headers) {
     final seconds = int.tryParse(headers['retry-after'] ?? '');

@@ -154,8 +154,12 @@ _makeWorld({
         FakeAccountMetadataRepository(accounts: accounts, currentId: currentId),
       ),
       oauthServiceProvider.overrideWithValue(
+        // The token endpoint rejects the refresh token, so a 401 page is a
+        // real auth failure rather than a failed refresh attempt.
         OAuthService(
-          client: MockClient((request) async => http.Response('{}', 500)),
+          client: MockClient(
+            (request) async => http.Response('{"error":"invalid_grant"}', 400),
+          ),
         ),
       ),
     ],

@@ -67,6 +67,9 @@ class _Fixture {
   Duration refreshDelay = Duration.zero;
   Duration apiDelay;
 
+  /// When true the token endpoint is unreachable (connection-level failure).
+  bool refreshUnreachable = false;
+
   final List<http.Request> apiRequests = [];
   var refreshCalls = 0;
 
@@ -94,6 +97,9 @@ class _Fixture {
       refreshCalls += 1;
       if (refreshDelay > Duration.zero) {
         await Future<void>.delayed(refreshDelay);
+      }
+      if (refreshUnreachable) {
+        throw http.ClientException('connection reset', request.url);
       }
       if (refreshStatus != 200) {
         return http.Response('{"error":"invalid_grant"}', refreshStatus);
@@ -368,6 +374,49 @@ void main() {
       expect(fixture.refreshCalls, 1);
     },
   );
+
+  // Only the token endpoint rejecting the refresh token ends the session. A
+  // refresh that could not complete (server error, rate limit, network) is a
+  // failed request: the account stays signed in and the next request
+  // refreshes again.
+  for (final (label, status, errorType) in [
+    ('server error', 503, isA<ApiHttpError>()),
+    ('rate limit', 429, isA<ApiRateLimited>()),
+  ]) {
+    test('a refresh $label keeps the account signed in', () async {
+      final fixture = _Fixture(refreshStatus: status, rejectStaleSeed: true);
+      final (container, client, _, _) = await _makeWorld(fixture: fixture);
+      addTearDown(container.dispose);
+
+      await expectLater(client.getJson(Uri.parse(_api)), throwsA(errorType));
+      expect(
+        container.read(accountStoreProvider).requireValue.current!.authState,
+        AccountAuthState.authenticated,
+      );
+
+      fixture.refreshStatus = 200;
+      expect(await client.getJson(Uri.parse(_api)), {'ok': true});
+      expect(fixture.refreshCalls, 2);
+    });
+  }
+
+  test('an unreachable token endpoint keeps the account signed in', () async {
+    final fixture = _Fixture(rejectStaleSeed: true)..refreshUnreachable = true;
+    final (container, client, _, _) = await _makeWorld(fixture: fixture);
+    addTearDown(container.dispose);
+
+    await expectLater(
+      client.getJson(Uri.parse(_api)),
+      throwsA(isA<ApiNetworkError>()),
+    );
+    expect(
+      container.read(accountStoreProvider).requireValue.current!.authState,
+      AccountAuthState.authenticated,
+    );
+
+    fixture.refreshUnreachable = false;
+    expect(await client.getJson(Uri.parse(_api)), {'ok': true});
+  });
 
   test(
     '400 invalid_grant triggers refresh and retries (live-device shape)',

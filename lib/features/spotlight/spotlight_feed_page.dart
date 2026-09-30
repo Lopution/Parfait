@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/navigation/routes.dart';
+import '../../app/pixiv_image.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
@@ -158,6 +158,9 @@ class _SpotlightFeedPageState extends ConsumerState<SpotlightFeedPage> {
 class _SpotlightArticleTile extends StatelessWidget {
   const _SpotlightArticleTile({required this.article});
 
+  static const double _thumbnailWidth = 88;
+  static const double _thumbnailHeight = 66;
+
   final SpotlightArticle article;
 
   @override
@@ -180,11 +183,13 @@ class _SpotlightArticleTile extends StatelessWidget {
               if (article.thumbnailUrl != null)
                 ClipRRect(
                   borderRadius: FuncShape.control,
-                  child: CachedNetworkImage(
-                    imageUrl: article.thumbnailUrl!,
-                    width: 88,
-                    height: 66,
-                    fit: BoxFit.cover,
+                  // App API thumbnails live on i.pximg.net, which refuses
+                  // requests without the Pixiv referer.
+                  child: PixivImage.feed(
+                    article.thumbnailUrl!,
+                    layoutWidth: _thumbnailWidth,
+                    width: _thumbnailWidth,
+                    height: _thumbnailHeight,
                   ),
                 ),
               if (article.thumbnailUrl != null)
