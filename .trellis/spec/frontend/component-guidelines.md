@@ -188,6 +188,25 @@ role from `Theme.of(context).textTheme` or a semantic token; explicit
 `test/replica_theme_test.dart` pins every role's size/weight and each
 token's equality with its role.
 
+**Spacing and shape tokens.** Feature code never writes a numeric
+`EdgeInsets.(all|symmetric|only|fromLTRB)` or `Radius.circular` — spacing
+resolves to `FuncSpacing` (xxs 4 … xxxl 48) and component radii to
+`FuncShape` (`control` 8, `card` 12, `dialog` 28, `sheet` top corners,
+`pill`). All-zero insets are `EdgeInsets.zero`; `SizedBox(width/height)`
+used as a `Row`/`Column` gap takes the same tokens (fixed image/control
+dimensions are not spacing and stay literal). Absorption: pick the nearest
+token in density order (6 → `sm` when unsure, 10 → `md` for card-text
+indent else `sm`, 20 → `xl` for page margins else `lg`, 28 → `xxl`);
+deviations go in the commit message. A grid and the skeleton standing in
+for it share one constant — `IllustFeedGrid.defaultPadding`/
+`defaultMainAxisSpacing`/`defaultCrossAxisSpacing` are the defaults,
+`IllustGridSkeleton` references them, and a page that overrides the grid
+passes the same file-local constant to both. `test/architecture/
+spacing_tokens_test.dart` scans `lib/app/**` and `lib/features/**` (minus
+`lib/app/theme/**`) for literals inside those calls; legitimate cases are
+rephrased or allow-listed per file with a reason and a site count, never
+per line number.
+
 **SnackBar.** Transient feedback uses `inverseSurface`/`onInverseSurface`
 with `inversePrimary` actions, so a SnackBar reads as inverted chrome on
 both themes. Do not restyle it to a container tier.
