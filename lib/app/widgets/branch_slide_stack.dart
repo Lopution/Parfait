@@ -530,6 +530,10 @@ class _BranchSlideStackState extends State<BranchSlideStack>
   @override
   Widget build(BuildContext context) {
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    // Branch routes must ignore the predictive-back gesture while a
+    // root-level page (settings, viewer) covers the whole shell — the
+    // pushed route owns the gesture then.
+    final enclosingRouteIsCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     // The shell always builds the current branch's Navigator — mark it
     // before the layout pass so the proxy path owns it.
     _visitedBranches.add(widget.shell.currentIndex);
@@ -570,9 +574,19 @@ class _BranchSlideStackState extends State<BranchSlideStack>
                           // cold-start contract); the stand-in Navigator
                           // is only built once the slot genuinely
                           // enters the window.
-                          child: _branchChild(
-                            i,
-                            offscreen: (i - pos).abs() >= 1.0,
+                          child: BranchActivityScope(
+                            // Only the settled, on-screen branch answers
+                            // the Android predictive-back gesture — a
+                            // covered Navigator's routes stay isCurrent
+                            // inside their own Navigator and would
+                            // otherwise steal it (R15).
+                            active:
+                                enclosingRouteIsCurrent &&
+                                (i - pos).abs() < 0.001,
+                            child: _branchChild(
+                              i,
+                              offscreen: (i - pos).abs() >= 1.0,
+                            ),
                           ),
                         ),
                       ),
@@ -614,6 +628,36 @@ class _BranchSlideStackState extends State<BranchSlideStack>
           : strip,
     );
   }
+}
+
+/// Marks whether a branch Navigator's subtree is the one on screen. A
+/// [PageRoute]'s `popGestureEnabled` consults this so the Android
+/// predictive-back gesture can only drive the visible branch: every
+/// branch's Navigator keeps its own `isCurrent` route alive even while
+/// parked a page-width offstage, and the gesture would otherwise go to
+/// whichever route registered first.
+class BranchActivityScope extends InheritedWidget {
+  const BranchActivityScope({
+    super.key,
+    required this.active,
+    required super.child,
+  });
+
+  /// True while this branch is the settled current branch and no
+  /// root-level route covers the shell.
+  final bool active;
+
+  /// Non-dependent lookup — `popGestureEnabled` reads it from gesture
+  /// dispatch, outside build, where registering a dependency is illegal.
+  static BranchActivityScope? maybeOf(BuildContext context) =>
+      context
+              .getElementForInheritedWidgetOfExactType<BranchActivityScope>()
+              ?.widget
+          as BranchActivityScope?;
+
+  @override
+  bool updateShouldNotify(BranchActivityScope oldWidget) =>
+      active != oldWidget.active;
 }
 
 class _BranchSlideScope extends InheritedWidget {
