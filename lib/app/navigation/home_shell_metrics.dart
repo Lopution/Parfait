@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,6 +13,7 @@ class HomeShellChrome extends InheritedWidget {
   const HomeShellChrome({
     super.key,
     required this.bottomBarExtent,
+    required this.bottomBarVisibleExtent,
     required super.child,
   });
 
@@ -19,6 +21,17 @@ class HomeShellChrome extends InheritedWidget {
   /// `FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom)`,
   /// or 0 while the width ladder selects the NavigationRail.
   final double bottomBarExtent;
+
+  /// The bar's *currently visible* height at the screen bottom — the two
+  /// stacked slide-out animations (route cover + scroll auto-hide) are
+  /// resolved into one live value by `FuncShellBottomNav`. The Hero
+  /// landing clip reads it per frame so a half-returned bar clips at its
+  /// real top edge instead of the resting one.
+  ///
+  /// The instance is a stable notifier owned by `BranchSlideStack`;
+  /// [updateShouldNotify] deliberately ignores it. Stays 0 on rail
+  /// layouts, where no bottom bar exists.
+  final ValueListenable<double> bottomBarVisibleExtent;
 
   static HomeShellChrome? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<HomeShellChrome>();

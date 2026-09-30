@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
@@ -915,6 +916,149 @@ void main() {
     expect(samples, everyElement(isNull));
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'Hero landing clip reaches the screen edge while the bar is hidden',
+    (tester) async {
+      final (navigatorKey, _) = await _pumpBarClipHome(
+        tester,
+        initialVisible: 0,
+      );
+
+      navigatorKey.currentState!.push(_barClipDetailRoute());
+      await tester.pumpAndSettle();
+      navigatorKey.currentState!.pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+
+      // Bar fully hidden: the landing clip must run to the screen bottom,
+      // not stop at the resting 100px bar edge.
+      final last = await _lastFlightClip(tester);
+      expect(last.bottom, closeTo(800, 1));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('Hero landing clip stops at the fully visible bottom bar', (
+    tester,
+  ) async {
+    final (navigatorKey, _) = await _pumpBarClipHome(
+      tester,
+      initialVisible: 100,
+    );
+
+    navigatorKey.currentState!.push(_barClipDetailRoute());
+    await tester.pumpAndSettle();
+    navigatorKey.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+
+    final last = await _lastFlightClip(tester);
+    expect(last.bottom, closeTo(700, 1));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Hero landing clip follows the bottom bar sliding mid-flight', (
+    tester,
+  ) async {
+    final (navigatorKey, visibleExtent) = await _pumpBarClipHome(
+      tester,
+      initialVisible: 0,
+    );
+
+    navigatorKey.currentState!.push(_barClipDetailRoute());
+    await tester.pumpAndSettle();
+    navigatorKey.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+
+    // While the bar is hidden the clip reaches the screen edge...
+    final early = _heroClipRect(tester);
+    expect(early.bottom, closeTo(800, 1));
+
+    // ...then the bar starts sliding back mid-flight and the landing
+    // clip retracts to its live edge — a bar half-visible at landing
+    // means height - 50, not the resting 100.
+    visibleExtent.value = 50;
+    final last = await _lastFlightClip(tester);
+    expect(last.bottom, closeTo(750, 1));
+    await tester.pumpAndSettle();
+  });
+}
+
+const _barClipHeroTag = 'bar-clip-hero';
+
+/// Pumps a home route whose only chrome is the published shell metrics —
+/// [HomeShellChrome] with a caller-owned [ValueNotifier], so a test can
+/// slide the bar's visible extent exactly like `FuncShellBottomNav` does.
+Future<(GlobalKey<NavigatorState>, ValueNotifier<double>)> _pumpBarClipHome(
+  WidgetTester tester, {
+  required double initialVisible,
+}) async {
+  tester.view.physicalSize = const Size(400, 800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+  final visibleExtent = ValueNotifier<double>(initialVisible);
+  addTearDown(visibleExtent.dispose);
+  final navigatorKey = GlobalKey<NavigatorState>();
+  await tester.pumpWidget(
+    MaterialApp(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('zh', 'CN'),
+      navigatorKey: navigatorKey,
+      home: HomeShellChrome(
+        bottomBarExtent: 100,
+        bottomBarVisibleExtent: visibleExtent,
+        child: Scaffold(
+          body: ListView(
+            children: const [
+              SizedBox(height: 600),
+              Hero(
+                tag: _barClipHeroTag,
+                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                child: ColoredBox(
+                  color: Colors.red,
+                  child: SizedBox(height: 300),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+  return (navigatorKey, visibleExtent);
+}
+
+PageRoute<void> _barClipDetailRoute() => _testPageRoute<void>(
+  builder: (_) => Scaffold(
+    body: Center(
+      child: Hero(
+        tag: _barClipHeroTag,
+        flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+        child: const ColoredBox(
+          color: Colors.red,
+          child: SizedBox(width: 350, height: 500),
+        ),
+      ),
+    ),
+  ),
+);
+
+/// Pumps until the flight shuttle unmounts and returns the last clip rect
+/// it painted with — the frame that must land on the bar's real edge.
+Future<Rect> _lastFlightClip(WidgetTester tester) async {
+  var last = _heroClipRect(tester);
+  while (find.byType(HeroRectClip).evaluate().isNotEmpty) {
+    last = _heroClipRect(tester);
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  return last;
 }
 
 void _noop() {}
