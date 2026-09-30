@@ -448,9 +448,49 @@ route model. go_router first pops the current branch stack. At a branch root,
 the shell delegates to `RootBackCoordinator` for the existing double-back exit
 window.
 
+`FuncPage<T>` (`lib/app/navigation/func_page.dart`) is the page behind every
+`_page` route. It is a hand-rolled `Page` because the predictive-back builder's
+`buildTransitions` needs the `PageRoute` itself — a `CustomTransitionPage`
+`transitionsBuilder` closure never receives it. Platform split inside
+`_FuncPageRoute.buildTransitions`: Android runs
+`PredictiveBackPageTransitionsBuilder` (FadeForwards for button pops, the
+shared-element predictive transition while `popGestureInProgress`), every
+other platform keeps the `FuncRouteTransition` trailing-edge slide.
+`transitionDuration` is the builder's 800ms on Android and
+`MotionTokens.pageTransition` elsewhere, both through `MotionTokens.resolve`
+so reduced motion collapses them to zero. Both paths are wrapped by
+`FuncTransitionGuard` — the shared `TickerMode` + `RoutePopSnapshot` pair that
+freezes an outgoing page's tickers and snapshots it for the reverse flight;
+`FuncRouteTransition` already carries the guard internally, so the Android
+path adds it around the platform builder. `_modalPage` stays on
+`CustomTransitionPage`; `maintainState`/`opaque`/`barrierColor` keep
+`CustomTransitionPage`'s defaults.
+
+Only the visible route may take the gesture. Each home-shell branch Navigator
+keeps an `isCurrent` route alive while parked a page-width offstage, and
+Flutter hands the gesture to the last-registered `popGestureEnabled` route —
+without a gate a hidden branch pops a page the user cannot see.
+`BranchSlideStack` wraps every branch in `BranchActivityScope` (`active` =
+the branch is settled as the current index AND the enclosing route — a
+root-level page above the shell — is current or absent).
+`_FuncPageRoute.popGestureEnabled` returns `super.popGestureEnabled &&
+BranchActivityScope.maybeOf(navigator.context)?.active ?? true`; it reads the
+scope non-dependently because the getter runs outside build. Routes outside
+the shell (root Navigator, any inner Navigator) see no scope and fall through
+to `?? true`.
+
+During a gesture back, Heroes do not fly back (`transitionOnUserGestures`
+stays false): the predictive transition shrinks the whole page but the Hero
+flight start rect is measured at gesture start, so the flight cannot track
+the shrinking page — the detail page fades out and the card is simply there.
+Button pops and `DragToDismiss` still fly Heroes as before.
+
 Pages with local edit state, such as `ProfileEditPage`, keep their
-`canPop`/confirmation behavior in their own `PopScope`. Navigation changes
-must not bypass that confirmation or reset the branch stack.
+`canPop`/confirmation behavior in their own `PopScope`. A dirty page reports
+`popDisposition != pop`, so `popGestureEnabled` is false and the gesture
+never starts; the back *button* still routes through `PopScope` and shows the
+discard confirmation. Navigation changes must not bypass that confirmation or
+reset the branch stack.
 
 An immersive page restores the system bars on the *successful* pop path:
 `onPopInvokedWithResult` fires with `didPop == true`, so the novel reader
@@ -464,7 +504,7 @@ in `dispose` as the fallback for pop paths that never notify.
 accepts a downward drag while the still viewer is at 1x, translates/scales/
 fades the surface with the drag, and returns with `MotionTokens.fast` when the
 drag is canceled or below threshold. A qualifying drag pops the current typed
-route so the existing `CustomTransitionPage`, scoped Hero tag, and
+route so the existing `FuncPage`, scoped Hero tag, and
 `HeroRectClip` perform the reverse flight.
 
 Horizontal page changes and zoomed `InteractiveViewer` pan remain with the
