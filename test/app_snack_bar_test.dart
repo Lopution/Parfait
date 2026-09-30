@@ -57,8 +57,9 @@ Widget _shellPage() => Scaffold(
 );
 
 /// Mounts the real shell bar as an overlay sibling of the branch strip —
-/// the same layering the home shell uses, so the bar publishes its real
-/// measured geometry instead of a test-injected number.
+/// the same layering the home shell uses, with [HomeShellChrome] computed
+/// the way [BranchSlideStack] computes it, so the bar's resting extent is
+/// available on the first frame instead of a post-layout measurement.
 Future<({ProviderContainer container, AnimationController scrollVisibility})>
 _pumpShell(WidgetTester tester) async {
   tester.view.physicalSize = const Size(390, 844);
@@ -76,19 +77,26 @@ _pumpShell(WidgetTester tester) async {
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
-        home: Stack(
-          children: [
-            BranchRootScaffold(branchIndex: 0, child: _shellPage()),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: FuncShellBottomNav(
-                selectedIndex: 0,
-                onSelected: (_) {},
-                scrollVisibility: scrollVisibility,
-                indicatorAnimation: const AlwaysStoppedAnimation(0),
-              ),
+        home: Builder(
+          builder: (context) => HomeShellChrome(
+            bottomBarExtent: FuncBottomNav.restingExtent(
+              MediaQuery.paddingOf(context).bottom,
             ),
-          ],
+            child: Stack(
+              children: [
+                BranchRootScaffold(branchIndex: 0, child: _shellPage()),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: FuncShellBottomNav(
+                    selectedIndex: 0,
+                    onSelected: (_) {},
+                    scrollVisibility: scrollVisibility,
+                    indicatorAnimation: const AlwaysStoppedAnimation(0),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     ),
@@ -150,23 +158,16 @@ void main() {
     expect(find.text('最新提示'), findsNothing);
   });
 
-  testWidgets('the shell bar publishes its resting bounds on mount', (
+  testWidgets('the spacer reserves the bar slot on the first frame', (
     tester,
   ) async {
-    final (:container, :scrollVisibility) = await _pumpShell(tester);
+    await _pumpShell(tester);
 
-    // The bar measures itself on mount — after the first frame the shell
-    // metrics already hold its resting geometry.
-    final metrics = container.read(homeShellMetricsProvider);
-    expect(metrics.bottomNavHeight, isNotNull);
-    expect(metrics.bottomNavTop, isNotNull);
-
-    // The trailing spacer picks the published height up on the next frame.
-    await tester.pump();
-    expect(
-      tester.getSize(find.byType(FuncNavBarSpacer)).height,
-      metrics.bottomNavHeight,
-    );
+    // pumpWidget ran exactly one frame — no post-layout measurement has
+    // had a chance to publish — and the spacer already matches the
+    // rendered bar.
+    final barHeight = tester.getSize(find.byType(FuncBottomNav)).height;
+    expect(tester.getSize(find.byType(FuncNavBarSpacer)).height, barHeight);
 
     await tester.tap(find.text('show'));
     await tester.pump();
@@ -176,14 +177,11 @@ void main() {
     expect(find.text('提示内容'), findsOneWidget);
 
     // The overlay bar owns no bottomNavigationBar slot, so Scaffold
-    // geometry cannot lift the SnackBar — the margin grows by the measured
-    // resting height instead. Assert on both the margin and the rendered
-    // Material card.
+    // geometry cannot lift the SnackBar — the margin grows by the same
+    // computed extent the spacer uses. Assert on both the margin and the
+    // rendered Material card.
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(
-      snackBar.margin,
-      EdgeInsets.fromLTRB(16, 0, 16, 16 + metrics.bottomNavHeight!),
-    );
+    expect(snackBar.margin, EdgeInsets.fromLTRB(16, 0, 16, 16 + barHeight));
     final cardBottom = tester
         .getBottomLeft(
           find.descendant(
@@ -192,15 +190,43 @@ void main() {
           ),
         )
         .dy;
-    expect(cardBottom, lessThanOrEqualTo(metrics.bottomNavTop!));
+    expect(
+      cardBottom,
+      lessThanOrEqualTo(tester.getRect(find.byType(FuncBottomNav)).top),
+    );
+  });
+
+  testWidgets('the computed extent tracks the navigation inset', (
+    tester,
+  ) async {
+    // Same assertion at three inset depths — no inset, gesture bar and
+    // three-button navigation. The first frame is what pumpWidget ran;
+    // each re-pump only changes the view padding underneath.
+    for (final inset in <double>[0, 24, 48]) {
+      tester.view.padding = FakeViewPadding(bottom: inset);
+      tester.view.viewPadding = FakeViewPadding(bottom: inset);
+      await _pumpShell(tester);
+      await tester.pump();
+      final expected = FuncBottomNav.restingExtent(inset);
+      expect(
+        tester.getSize(find.byType(FuncBottomNav)).height,
+        expected,
+        reason: 'rendered bar height at inset $inset',
+      );
+      expect(
+        tester.getSize(find.byType(FuncNavBarSpacer)).height,
+        expected,
+        reason: 'spacer height at inset $inset',
+      );
+    }
   });
 
   testWidgets('snackbar keeps clearing the shell bar while it slides', (
     tester,
   ) async {
-    final (:container, :scrollVisibility) = await _pumpShell(tester);
-    final restingTop = container.read(homeShellMetricsProvider).bottomNavTop!;
-    expect(restingTop, lessThan(844));
+    final shell = await _pumpShell(tester);
+    final scrollVisibility = shell.scrollVisibility;
+    final extent = tester.getSize(find.byType(FuncBottomNav)).height;
 
     await tester.tap(find.text('show'));
     await tester.pump();
@@ -219,10 +245,12 @@ void main() {
         isFalse,
         reason: 'snackbar must not intersect the shell bar mid-slide',
       );
-      // The measured box sits outside the slide transform, so the
-      // published top edge stays at the resting position through the
-      // whole flight — the margin never tracks the moving bar.
-      expect(container.read(homeShellMetricsProvider).bottomNavTop, restingTop);
+      // The margin is grown by the resting extent, which never tracks the
+      // moving bar — it stays constant through the whole flight.
+      expect(
+        tester.widget<SnackBar>(find.byType(SnackBar)).margin,
+        EdgeInsets.fromLTRB(16, 0, 16, 16 + extent),
+      );
     }
 
     // Slide out under scroll, then back in — sampled mid-flight both ways.

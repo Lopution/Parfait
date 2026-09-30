@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pixiv_func/app/app.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/external_intent_bridge.dart';
-import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/account_repository.dart';
@@ -156,15 +155,10 @@ void main() {
       expect(find.text('再按一次退出'), findsOneWidget);
 
       // The hint clears the shell bottom bar: the floating margin grows by
-      // the bar's measured resting height, and the rendered card never
+      // the bar's computed resting extent, and the rendered card never
       // touches the bar.
-      final metrics = ProviderScope.containerOf(
-        tester.element(find.byType(FuncBottomNav)),
-      ).read(homeShellMetricsProvider);
-      expect(
-        snackBar.margin,
-        EdgeInsets.fromLTRB(16, 0, 16, 16 + metrics.bottomNavHeight!),
-      );
+      final barExtent = tester.getSize(find.byType(FuncBottomNav)).height;
+      expect(snackBar.margin, EdgeInsets.fromLTRB(16, 0, 16, 16 + barExtent));
       final card = tester.getRect(
         find.descendant(
           of: find.byType(SnackBar),
@@ -195,9 +189,7 @@ void main() {
       showUpdatePrompt(
         ScaffoldMessenger.of(host),
         version: '9.9.9',
-        shellMetrics: ProviderScope.containerOf(
-          host,
-        ).read(homeShellMetricsProvider),
+        shellBarVisible: true,
         reduceMotion: false,
         onOpen: () {},
       );
