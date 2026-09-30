@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/errors/error_category.dart';
 import '../../../core/logging/crash_log.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../app_snack_bar.dart';
@@ -10,8 +11,13 @@ import '../app_snack_bar.dart';
 /// Maps an [ErrorCategory] to its localized sentence — the single owner of
 /// the category→copy mapping (C8/D1). Every error surface uses this instead
 /// of printing raw exception text.
-String errorCategoryText(BuildContext context, ErrorCategory category) {
-  final l10n = context.l10n;
+String errorCategoryText(BuildContext context, ErrorCategory category) =>
+    errorCategoryTextL10n(context.l10n, category);
+
+/// [AppLocalizations] twin of [errorCategoryText] for call sites that
+/// already hold the bundle instead of a context (e.g. the download-task
+/// presentation helpers).
+String errorCategoryTextL10n(AppLocalizations l10n, ErrorCategory category) {
   return switch (category) {
     ErrorCategory.network => l10n.errorNetwork,
     ErrorCategory.timeout => l10n.errorTimeout,

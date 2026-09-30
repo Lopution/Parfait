@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,7 @@ import 'package:pixiv_func/core/download/download_providers.dart';
 import 'package:pixiv_func/core/download/download_request.dart';
 import 'package:pixiv_func/core/download/download_sink.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
+import 'package:pixiv_func/core/download/pixiv_download_transport.dart';
 import 'package:pixiv_func/features/settings/pages/download_tasks_page.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
@@ -368,6 +370,9 @@ void main() {
       findsNothing,
       reason: 'a paused row has no progress bar (R2)',
     );
+    // C8/D1: paused is not a failure — no reason line, no details
+    // disclosure, no raw error.
+    expect(find.descendant(of: row, matching: find.text('详情')), findsNothing);
 
     // Resume re-runs to success; cancel would have deleted preserved
     // bytes.
@@ -462,7 +467,18 @@ void main() {
       find.descendant(of: row, matching: find.textContaining('失败')),
       findsOneWidget,
     );
-    // The raw error stays readable under the status line.
+    // C8/D1: the status line carries the localized reason (StateError →
+    // 未知错误), never the raw exception — that stays behind 详情.
+    expect(
+      find.descendant(of: row, matching: find.textContaining('未知错误')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: row, matching: find.textContaining('boom')),
+      findsNothing,
+    );
+    await tester.tap(find.descendant(of: row, matching: find.text('详情')));
+    await tester.pump();
     expect(
       find.descendant(of: row, matching: find.textContaining('boom')),
       findsOneWidget,
@@ -492,6 +508,130 @@ void main() {
     );
     await tester.pump();
     expect(manager.tasks, isEmpty);
+  });
+
+  testWidgets('failed rows name the localized reason for each kind', (
+    tester,
+  ) async {
+    // C8/D1 (design §2.4 第 4 类): the pipeline classifies each failure
+    // into a DownloadFailureKind and the row shows the matching localized
+    // reason instead of the raw error.
+    final url = Uri.parse('https://i.pximg.net/x.jpg');
+    final cases = <(Object, String)>[
+      (DownloadHttpStatusException(401, url), '需要重新登录'), // auth
+      (DownloadHttpStatusException(429, url), '请求过于频繁，请稍后重试'), // rateLimit
+      (const SocketException('down'), '网络连接失败'), // network
+      (const FileSystemException('io'), '存储错误'), // storage
+      (const FormatException('bad'), '响应无法解析'), // decode
+      (const DownloadPermissionException('denied'), '缺少存储权限'),
+      (const DownloadResourceLimitException('too big'), '设备资源不足或文件过大'),
+      (StateError('boom'), '未知错误'), // unknown
+    ];
+    final (container, manager, _) = await _world(
+      responses: [
+        for (final (error, _) in cases)
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [1],
+            ],
+            error: error,
+          ),
+      ],
+    );
+    final tasks = [
+      for (var i = 0; i < cases.length; i++) manager.submit(_req(100 + i)),
+    ];
+    await _pumpPage(tester, container);
+    await _drain(
+      tester,
+      () => manager.tasks.every((t) => t.status == DownloadStatus.failed),
+    );
+    await tester.pump();
+
+    for (var i = 0; i < cases.length; i++) {
+      final row = _taskRow(tasks[i].id);
+      // Rows are lazily built — scroll each one into view first.
+      await tester.ensureVisible(row);
+      await tester.pump();
+      expect(
+        find.descendant(of: row, matching: find.textContaining(cases[i].$2)),
+        findsOneWidget,
+        reason: 'task ${tasks[i].id} should show "${cases[i].$2}"',
+      );
+      // The raw error never lands in the status line; it stays behind
+      // the details disclosure (ownership/canceled/paused are covered by
+      // the presenter mapping and the dedicated tests).
+      expect(
+        find.descendant(of: row, matching: find.text('详情')),
+        findsOneWidget,
+        reason: 'task ${tasks[i].id} keeps its details disclosure',
+      );
+    }
+  });
+
+  testWidgets('a failed child in an expanded group shows reason and details', (
+    tester,
+  ) async {
+    final (container, manager, _) = await _world(
+      responses: [
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [1],
+          ],
+          error: const DownloadPermissionException('denied'),
+        ),
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [2],
+          ],
+        ),
+      ],
+    );
+    final group = manager.submitGroup([_req(1), _req(2)]);
+    await _pumpPage(tester, container);
+    await _drain(
+      tester,
+      () => manager.tasks.every(
+        (t) =>
+            t.status == DownloadStatus.failed ||
+            t.status == DownloadStatus.succeeded,
+      ),
+    );
+    await tester.pump();
+
+    final header = _groupHeader(group.id);
+    // Collapsed: children (and their failure details) stay out of the list.
+    expect(_taskRows(skipOffstage: false), findsNothing);
+
+    await tester.tap(header);
+    await tester.pumpAndSettle();
+
+    final failed = manager.tasks.firstWhere(
+      (t) => t.status == DownloadStatus.failed,
+    );
+    final row = _taskRow(failed.id);
+    await tester.ensureVisible(row);
+    await tester.pump();
+    expect(
+      find.descendant(of: row, matching: find.textContaining('缺少存储权限')),
+      findsOneWidget,
+    );
+    final detailsButton = find.descendant(of: row, matching: find.text('详情'));
+    expect(detailsButton, findsOneWidget);
+    await tester.ensureVisible(detailsButton);
+    await tester.tap(detailsButton);
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: row,
+        matching: find.textContaining('DownloadPermissionException'),
+      ),
+      findsOneWidget,
+      reason: 'the raw error stays reachable behind 详情 (R6)',
+    );
   });
 
   testWidgets('progress bars render only while a row is unfinished', (

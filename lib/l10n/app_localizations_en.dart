@@ -1103,14 +1103,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadRemoveRecord => 'Remove';
 
   @override
-  String get downloadFailurePermission => 'Storage permission denied';
+  String get downloadFailurePermission => 'Storage permission missing';
 
   @override
-  String get downloadFailureResource => 'File too large or out of resources';
+  String get downloadFailureResource =>
+      'Device resources exhausted or the file is too large';
 
   @override
   String get downloadFailureOwnership =>
-      'Task output belongs to a different account';
+      'The destination file belongs to another app';
 
   @override
   String downloadBatchCancelConfirm(int count) {
