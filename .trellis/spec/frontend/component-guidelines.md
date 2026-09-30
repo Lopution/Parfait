@@ -172,6 +172,22 @@ style wholesale via `DefaultTextStyle`, no merge) and fall back to the
 platform font for Latin glyphs. Explicit sizes/weights stay; only family,
 letter spacing, and line height come from the text theme.
 
+**Type scale.** One scale lives in `replicaTheme`'s `textTheme.copyWith`
+block; nothing else may carry its own ramp. Roles: `titleLarge` 20/w600,
+`titleMedium` 16/w600, `titleSmall` 14/w500, `bodyLarge` 14/w500,
+`bodyMedium` 14/w400 (the default body), `bodySmall` 12/w400,
+`labelLarge` 14/w500, `labelSmall` 11/w500, `headlineSmall` 18/w500.
+`FuncSemanticTokens.fromBrightness(brightness, textTheme)` derives its
+type ramp from these roles — `display`/`title`/`body`/`label`/`caption`/
+`numeric` = `titleLarge`/`titleMedium`/`bodyMedium`/`labelLarge`/
+`bodySmall`(secondary color)/`labelLarge`(+tabular figures) — so the
+semantic layer adds meaning, never a second size table. Widgets pick a
+role from `Theme.of(context).textTheme` or a semantic token; explicit
+`fontSize:` literals are allowed only for deliberately fixed sizes
+(e.g. the bottom-nav 12sp label base) and do not track the ramp.
+`test/replica_theme_test.dart` pins every role's size/weight and each
+token's equality with its role.
+
 **SnackBar.** Transient feedback uses `inverseSurface`/`onInverseSurface`
 with `inversePrimary` actions, so a SnackBar reads as inverted chrome on
 both themes. Do not restyle it to a container tier.
