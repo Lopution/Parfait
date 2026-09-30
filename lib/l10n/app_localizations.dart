@@ -2078,19 +2078,19 @@ abstract class AppLocalizations {
   /// No description provided for @downloadFailurePermission.
   ///
   /// In zh, this message translates to:
-  /// **'没有写入存储的权限'**
+  /// **'缺少存储权限'**
   String get downloadFailurePermission;
 
   /// No description provided for @downloadFailureResource.
   ///
   /// In zh, this message translates to:
-  /// **'文件过大或资源不足'**
+  /// **'设备资源不足或文件过大'**
   String get downloadFailureResource;
 
   /// No description provided for @downloadFailureOwnership.
   ///
   /// In zh, this message translates to:
-  /// **'任务属主与当前账号不一致'**
+  /// **'目标文件由其他应用创建，无法覆盖'**
   String get downloadFailureOwnership;
 
   /// No description provided for @downloadBatchCancelConfirm.

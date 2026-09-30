@@ -1047,13 +1047,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadRemoveRecord => '移除';
 
   @override
-  String get downloadFailurePermission => '没有写入存储的权限';
+  String get downloadFailurePermission => '缺少存储权限';
 
   @override
-  String get downloadFailureResource => '文件过大或资源不足';
+  String get downloadFailureResource => '设备资源不足或文件过大';
 
   @override
-  String get downloadFailureOwnership => '任务属主与当前账号不一致';
+  String get downloadFailureOwnership => '目标文件由其他应用创建，无法覆盖';
 
   @override
   String downloadBatchCancelConfirm(int count) {

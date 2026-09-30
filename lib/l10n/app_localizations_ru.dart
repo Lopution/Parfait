@@ -1103,14 +1103,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get downloadFailurePermission =>
-      'Нет разрешения на запись в хранилище';
+      'Нет разрешения на доступ к хранилищу';
 
   @override
   String get downloadFailureResource =>
-      'Файл слишком большой или недостаточно ресурсов';
+      'Недостаточно ресурсов устройства или файл слишком большой';
 
   @override
-  String get downloadFailureOwnership => 'Задача принадлежит другому аккаунту';
+  String get downloadFailureOwnership =>
+      'Целевой файл принадлежит другому приложению';
 
   @override
   String downloadBatchCancelConfirm(int count) {

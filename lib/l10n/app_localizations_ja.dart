@@ -1067,13 +1067,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadRemoveRecord => '一覧から削除';
 
   @override
-  String get downloadFailurePermission => 'ストレージへの書き込み権限がありません';
+  String get downloadFailurePermission => 'ストレージ権限がありません';
 
   @override
-  String get downloadFailureResource => 'ファイルが大きすぎるかリソースが不足しています';
+  String get downloadFailureResource => 'デバイスのリソース不足またはファイルが大きすぎます';
 
   @override
-  String get downloadFailureOwnership => 'タスクの所有者が現在のアカウントと一致しません';
+  String get downloadFailureOwnership => '保存先のファイルは他のアプリが所有しています';
 
   @override
   String downloadBatchCancelConfirm(int count) {

@@ -9,10 +9,12 @@ import '../../../app/motion/app_overlays.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart';
+import '../../../core/errors/error_category.dart';
 import '../../../l10n/context.dart';
 import 'download_task_presentation.dart';
 
@@ -451,6 +453,7 @@ class _DownloadRowLayout extends StatelessWidget {
     required this.status,
     this.progress,
     this.detail,
+    this.errorDetails,
     this.titleAction,
     this.actions = const [],
   });
@@ -471,8 +474,12 @@ class _DownloadRowLayout extends StatelessWidget {
   /// Progress bar — present only while the state is unfinished (R2).
   final Widget? progress;
 
-  /// Failure reason under the status line.
+  /// Localized failure reason under the status line.
   final String? detail;
+
+  /// Raw error behind the collapsible details disclosure (C8/D1) — `null`
+  /// when there is nothing technical to expand.
+  final Object? errorDetails;
 
   /// Element pinned to the end of the title row in both layouts.
   final Widget? titleAction;
@@ -530,6 +537,7 @@ class _DownloadRowLayout extends StatelessWidget {
                 style: captionStyle,
               ),
             ],
+            if (errorDetails != null) ErrorDetails(error: errorDetails!),
           ],
         );
         final rowContent = Row(
@@ -664,6 +672,38 @@ class _DownloadTaskRow extends StatelessWidget {
   /// text column.
   final bool dense;
 
+  /// Localized failure reason under the status line (C8/D1): mapped from
+  /// [DownloadTaskSnapshot.failureKind], with the raw error staying behind
+  /// [ErrorDetails]. `paused`/`canceled` are not failures and show nothing;
+  /// a record missing its kind falls back to the generic category table.
+  static String? _failureReason(
+    BuildContext context,
+    DownloadTaskSnapshot task,
+  ) {
+    final kind = task.failureKind;
+    if (kind == DownloadFailureKind.canceled ||
+        kind == DownloadFailureKind.paused) {
+      return null;
+    }
+    final mapped = downloadFailureReasonText(context.l10n, kind);
+    if (mapped != null) return mapped;
+    final error = task.error;
+    return error == null
+        ? null
+        : errorCategoryText(context, categorizeError(error));
+  }
+
+  /// Raw error text for the details disclosure — shown only when the row
+  /// also reports a failure ([_failureReason] suppresses paused/canceled).
+  static Object? _failureDetailsError(DownloadTaskSnapshot task) {
+    final kind = task.failureKind;
+    if (kind == DownloadFailureKind.canceled ||
+        kind == DownloadFailureKind.paused) {
+      return null;
+    }
+    return task.error;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -691,11 +731,8 @@ class _DownloadTaskRow extends StatelessWidget {
                   borderRadius: FuncShape.pill,
                 )
               : null,
-          detail:
-              task.error != null &&
-                  task.failureKind != DownloadFailureKind.paused
-              ? task.error
-              : null,
+          detail: _failureReason(context, task),
+          errorDetails: _failureDetailsError(task),
           titleAction: managing
               ? Icon(
                   key: ValueKey('download-select-${task.id}'),
