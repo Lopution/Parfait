@@ -96,9 +96,7 @@ class PixivTransferCredentialVerifier implements TransferCredentialVerifier {
         payload.credential.refreshToken,
       );
     } on OAuthException catch (error) {
-      if (error.statusCode != null &&
-          error.statusCode! >= 400 &&
-          error.statusCode! < 500) {
+      if (error.rejectsCredential) {
         throw AccountTransferException(
           AccountTransferErrorCode.credentialInvalid,
           'Pixiv credential is invalid',
