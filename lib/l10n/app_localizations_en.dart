@@ -885,6 +885,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Turn off decorative animation: page transitions, list entrances and press feedback';
 
   @override
+  String get pageTransitionSpeed => 'Page transition speed';
+
+  @override
+  String get pageTransitionFast => 'Fast';
+
+  @override
+  String get pageTransitionNormal => 'Standard';
+
+  @override
+  String get pageTransitionSlow => 'Slow';
+
+  @override
+  String get pageTransitionSpeedReduceHint =>
+      'No page transitions while Reduce motion is on';
+
+  @override
   String get maxDownloadCount => 'Maximum concurrent downloads';
 
   @override

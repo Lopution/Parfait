@@ -886,6 +886,22 @@ class AppLocalizationsRu extends AppLocalizations {
       'Отключить декоративную анимацию: переходы страниц, появление списков и отклик на нажатие';
 
   @override
+  String get pageTransitionSpeed => 'Скорость перехода страниц';
+
+  @override
+  String get pageTransitionFast => 'Быстро';
+
+  @override
+  String get pageTransitionNormal => 'Стандартно';
+
+  @override
+  String get pageTransitionSlow => 'Медленно';
+
+  @override
+  String get pageTransitionSpeedReduceHint =>
+      'Переходы не воспроизводятся, пока включено «Меньше анимаций»';
+
+  @override
   String get maxDownloadCount => 'Максимум параллельных загрузок';
 
   @override
