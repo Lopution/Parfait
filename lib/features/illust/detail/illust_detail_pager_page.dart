@@ -55,7 +55,11 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
 
   /// The work the user is looking at. Tracked by id (not index) so a
   /// mid-paging list mutation can re-seat the viewport on the same work.
-  late int _index;
+  ///
+  /// A notifier, not plain state: committing a swipe only flips the
+  /// [HeroMode] gate on the involved pages — the already-built
+  /// [IllustDetailPage] subtrees must survive the index change untouched.
+  late final ValueNotifier<int> _index;
   late int _currentId;
 
   @override
@@ -63,9 +67,9 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     super.initState();
     final ids = widget.source.ids;
     _initialIndex = math.max(0, ids.indexOf(widget.initialIllustId));
-    _index = _initialIndex;
-    _currentId = ids.isEmpty ? widget.initialIllustId : ids[_index];
-    _controller = PageController(initialPage: _index);
+    _index = ValueNotifier(_initialIndex);
+    _currentId = ids.isEmpty ? widget.initialIllustId : ids[_initialIndex];
+    _controller = PageController(initialPage: _initialIndex);
     widget.source.addListener(_onSourceChanged);
   }
 
@@ -73,16 +77,15 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   void dispose() {
     widget.source.removeListener(_onSourceChanged);
     _controller.dispose();
+    _index.dispose();
     super.dispose();
   }
 
   void _onPageChanged(int index) {
     final ids = widget.source.ids;
     if (index < 0 || index >= ids.length) return;
-    setState(() {
-      _index = index;
-      _currentId = ids[index];
-    });
+    _index.value = index;
+    _currentId = ids[index];
     if (index >= ids.length - IllustDetailPagerPage.loadAhead) {
       widget.source.onNearEnd?.call();
     }
@@ -121,13 +124,13 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     if (ids.isEmpty) return;
     var newIndex = ids.indexOf(_currentId);
     if (newIndex < 0) {
-      newIndex = _index.clamp(0, ids.length - 1);
+      newIndex = _index.value.clamp(0, ids.length - 1);
       _currentId = ids[newIndex];
     }
     setState(() {});
-    if (newIndex != _index && _controller.hasClients) {
-      _index = newIndex;
-      _controller.jumpToPage(_index);
+    if (newIndex != _index.value && _controller.hasClients) {
+      _index.value = newIndex;
+      _controller.jumpToPage(_index.value);
     }
   }
 
@@ -146,8 +149,12 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
       // carry — left enabled, all three would pair with feed cards and fly
       // together on push/pop. Only the page under the finger owns a live
       // hero; the rest ride HeroMode-disabled.
-      itemBuilder: (context, index) => HeroMode(
-        enabled: index == _index,
+      //
+      // The detail page is the builder's stable [child]: a page change
+      // only re-wraps it in a new HeroMode instead of running the whole
+      // detail build again.
+      itemBuilder: (context, index) => ValueListenableBuilder<int>(
+        valueListenable: _index,
         child: IllustDetailPage(
           key: ValueKey(ids[index]),
           illustId: ids[index],
@@ -157,6 +164,8 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
               ? widget.heroImageDecodeWidth
               : null,
         ),
+        builder: (context, current, child) =>
+            HeroMode(enabled: index == current, child: child!),
       ),
     );
   }
