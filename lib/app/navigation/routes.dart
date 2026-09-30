@@ -170,8 +170,8 @@ Page<dynamic> _page(
 ) {
   // Reduced-motion collapses the transition without dropping the state it
   // communicates: the route still changes on the same frame. Android takes
-  // the user-picked speed tier from MotionScope (300/550/800ms, default
-  // 550); other platforms keep the app slide.
+  // the user-picked speed tier from MotionScope (250/350/450ms, default
+  // 350); other platforms keep the app slide.
   final duration = MotionTokens.resolve(
     context,
     defaultTargetPlatform == TargetPlatform.android

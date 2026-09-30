@@ -118,9 +118,9 @@ enum DetailQuality {
 /// unknown codes fall back to [normal]. Reduce-motion collapses the
 /// resolved duration to zero regardless of the tier.
 enum PageTransitionSpeed {
-  fast(300),
-  normal(550),
-  slow(800);
+  fast(250),
+  normal(350),
+  slow(450);
 
   const PageTransitionSpeed(this.code);
 

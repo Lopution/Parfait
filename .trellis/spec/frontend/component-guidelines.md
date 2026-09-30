@@ -480,8 +480,9 @@ window.
 shared-element predictive transition while `popGestureInProgress`), every
 other platform keeps the `FuncRouteTransition` trailing-edge slide.
 `transitionDuration` on Android is the user's speed tier
-(`AppSettings.pageTransitionSpeed`: 300 / 550 / 800ms, default 550 — the
-builder's own 800ms dragged), read through `MotionScope.pageTransitionOf`;
+(`AppSettings.pageTransitionSpeed`: 250 / 350 / 450ms, default 350 — the
+builder's own 800ms dragged, and a 300/550/800 set still felt long on
+device), read through `MotionScope.pageTransitionOf`;
 FadeForwards scales its phases to whatever duration the route carries.
 Other platforms keep `MotionTokens.pageTransition`, and the setting is shown
 on Android only. Both pass through `MotionTokens.resolve`, so reduced motion

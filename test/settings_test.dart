@@ -496,7 +496,7 @@ void main() {
       pageTransitionSpeed: PageTransitionSpeed.fast,
     );
     final encoded = stored.toJson();
-    expect(encoded['pageTransitionSpeedCode'], 300);
+    expect(encoded['pageTransitionSpeedCode'], 250);
     final restored = AppSettings.fromJson(encoded, fallback: _baseSettings());
     expect(restored.pageTransitionSpeed, PageTransitionSpeed.fast);
 
@@ -852,13 +852,13 @@ void main() {
           .map((segment) => segment.value)
           .toList();
       expect(segments, PageTransitionSpeed.values);
-      expect(find.text('快 · 300ms'), findsOneWidget);
-      expect(find.text('标准 · 550ms'), findsOneWidget);
-      expect(find.text('慢 · 800ms'), findsOneWidget);
+      expect(find.text('快 · 250ms'), findsOneWidget);
+      expect(find.text('标准 · 350ms'), findsOneWidget);
+      expect(find.text('慢 · 450ms'), findsOneWidget);
 
       await _scrollCentered(tester, selector);
       await tester.tap(
-        find.descendant(of: selector, matching: find.text('慢 · 800ms')),
+        find.descendant(of: selector, matching: find.text('慢 · 450ms')),
       );
       await tester.pumpAndSettle();
       expect(repository.value.pageTransitionSpeed, PageTransitionSpeed.slow);

@@ -126,7 +126,7 @@ class MotionScope extends InheritedWidget {
 
   /// Field defaults are const-only, so the enum's `.duration` getter cannot
   /// sit here — keep it equal to `PageTransitionSpeed.normal`.
-  static const _defaultPageTransition = Duration(milliseconds: 550);
+  static const _defaultPageTransition = Duration(milliseconds: 350);
 
   static bool? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MotionScope>()?.reduce;
