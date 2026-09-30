@@ -3,13 +3,15 @@ import 'package:material_ui/material_ui.dart';
 class SettingsTile extends StatelessWidget {
   const SettingsTile({
     super.key,
-    required this.icon,
     required this.title,
     required this.onTap,
+    this.icon,
     this.subtitle,
   });
 
-  final IconData icon;
+  /// Optional leading icon. Sub-page entries without a distinctive icon
+  /// leave it null instead of picking a filler glyph.
+  final IconData? icon;
   final String title;
   final VoidCallback onTap;
 
@@ -19,9 +21,10 @@ class SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final icon = this.icon;
     return ListTile(
-      leading: Icon(icon),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      leading: icon != null ? Icon(icon) : null,
+      title: Text(title),
       subtitle: subtitle,
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,

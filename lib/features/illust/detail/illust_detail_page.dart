@@ -25,6 +25,7 @@ import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
 import 'widgets/detail_image_pager.dart';
+import 'widgets/illust_detail_skeleton.dart';
 import 'widgets/detail_page_counter.dart';
 import 'widgets/illust_series_section.dart';
 import 'widgets/info_block.dart';
@@ -261,7 +262,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             if (snapshot != null) {
               return _buildContent(context, ref, snapshot);
             }
-            return const FeedLoading();
+            return const IllustDetailSkeleton();
           },
           error: (Object error, StackTrace _) => FeedError(
             title: context.l10n.illustDetailLoadFailed,

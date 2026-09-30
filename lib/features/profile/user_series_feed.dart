@@ -5,6 +5,7 @@ import 'package:easy_refresh/easy_refresh.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../core/network/api_error.dart';
@@ -33,7 +34,13 @@ class UserSeriesFeed extends ConsumerWidget {
     Widget wrapState(Widget state) =>
         typeSwitch?.aboveState(context, state) ?? state;
     return async.when(
-      loading: () => wrapState(const FeedLoading()),
+      loading: () => wrapState(
+        IllustGridSkeleton(
+          label: context.l10n.contentLoading,
+          padding: const EdgeInsets.all(10),
+          mainAxisSpacing: 8,
+        ),
+      ),
       error: (error, _) => wrapState(
         FeedError(
           title: context.l10n.seriesLoadFailed,
@@ -57,7 +64,13 @@ class UserSeriesFeed extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return wrapState(const FeedLoading());
+          return wrapState(
+            IllustGridSkeleton(
+              label: context.l10n.contentLoading,
+              padding: const EdgeInsets.all(10),
+              mainAxisSpacing: 8,
+            ),
+          );
         }
         final store = ref.watch(illustSeriesStoreProvider);
         final entities = [

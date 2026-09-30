@@ -23,6 +23,7 @@ import '../../core/user/user_repository.dart';
 import 'author_works_download_dialog.dart';
 import 'profile_illust_feed.dart';
 import 'profile_novel_feed.dart';
+import 'profile_skeleton.dart';
 import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
 import 'profile_statistics.dart';
@@ -385,10 +386,7 @@ class _UserPageState extends ConsumerState<UserPage>
     final async = ref.watch(userDetailControllerProvider(widget.userId));
     return Scaffold(
       body: async.when(
-        loading: () => _ProfileStatusPage(
-          icon: Icons.person_search_outlined,
-          title: context.l10n.profileLoading,
-        ),
+        loading: () => const ProfileSkeleton(),
         error: (error, _) => _ProfileStatusPage(
           icon: Icons.cloud_off,
           title: context.l10n.profileLoadFailed,
@@ -404,10 +402,7 @@ class _UserPageState extends ConsumerState<UserPage>
 
   Widget _buildLoaded(UserDetailState state) {
     return switch (state) {
-      UserDetailLoading() => _ProfileStatusPage(
-        icon: Icons.person_search_outlined,
-        title: context.l10n.profileLoading,
-      ),
+      UserDetailLoading() => const ProfileSkeleton(),
       UserDetailNotFound() => _ProfileStatusPage(
         icon: Icons.person_off_outlined,
         title: context.l10n.profileNotFound,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
@@ -29,11 +30,13 @@ import 'package:pixiv_func/core/network/pixiv_http_client.dart';
 import 'package:pixiv_func/app/motion/hero_transition.dart';
 import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
 import 'package:pixiv_func/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:pixiv_func/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:pixiv_func/features/illust/detail/widgets/detail_page_counter.dart';
+import 'package:pixiv_func/features/illust/detail/widgets/illust_detail_skeleton.dart';
 import 'package:pixiv_func/features/illust/detail/ugoira_viewer.dart';
 import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
@@ -60,6 +63,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Map<int, List<Map<String, dynamic>>>? relatedOverrides,
   Set<String> mutedTags = const {},
   List<Override> extraOverrides = const [],
+  Completer<void>? detailGate,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
@@ -116,6 +120,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   final client = PixivHttpClient(
     client: MockClient((request) async {
       if (request.url.path == '/v1/illust/detail') {
+        await detailGate?.future;
         final id = int.parse(request.url.queryParameters['illust_id']!);
         final override = detailOverrides?[id];
         return okJson({
@@ -1572,6 +1577,7 @@ void main() {
           );
           // No second pump / settle: this is the AsyncLoading first frame.
           expect(find.byType(ProgressIndicator), findsNothing);
+          expect(find.byType(IllustDetailSkeleton), findsNothing);
           expect(
             find.byType(Scrollable),
             findsWidgets,
@@ -1607,6 +1613,60 @@ void main() {
         });
       },
     );
+
+    testWidgets(
+      'without a store snapshot the first load shows the detail skeleton',
+      (tester) async {
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        final (container, _, _) = await makeWorld(detailGate: gate);
+        await pumpDetail(tester, container, seedStore: false);
+
+        expect(find.byType(IllustDetailSkeleton), findsOneWidget);
+        expect(find.byType(FeedLoading), findsNothing);
+        expect(find.byType(ProgressIndicator), findsNothing);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(find.byType(IllustDetailSkeleton), findsNothing);
+        // The first page image at the top of the scroll proves the entity
+        // rendered — the InfoBlock title sits below the fold of a lazy
+        // sliver.
+        expect(
+          find.byKey(const ValueKey<Object?>('illust-page-42-0')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('the detail skeleton splits into two panes on a wide surface', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1600, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final (container, _, _) = await makeWorld(detailGate: gate);
+      await pumpDetail(tester, container, seedStore: false);
+
+      expect(find.byType(IllustDetailSkeleton), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(IllustDetailSkeleton),
+          matching: find.byType(TwoPane),
+        ),
+        findsOneWidget,
+      );
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
 
     testWidgets('detail artwork keeps the cold-load transition enabled', (
       tester,

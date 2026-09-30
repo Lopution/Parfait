@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,9 +12,11 @@ import 'package:pixiv_func/core/auth/account_store.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'fake_account.dart';
+import 'memory_feed_snapshot_store.dart';
 import 'illust_fixtures.dart';
 import 'test_preferences.dart';
 
@@ -46,8 +50,13 @@ class SeriesFixture {
   /// requested one — the feed must reject the cursor before page two.
   int? mismatchedSeriesId;
 
+  /// When set, every series request awaits it — holds a feed's initial
+  /// load in flight.
+  Completer<void>? pendingFetch;
+
   http.Client client() => MockClient((request) async {
     requests.add(request.url);
+    await pendingFetch?.future;
     switch (request.url.path) {
       case '/v1/illust/series':
         final seriesId = int.parse(
@@ -130,6 +139,7 @@ Future<(ProviderContainer, SeriesFixture)> makeSeriesWorld({
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
+      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
           accounts: const [Account(id: '100', userId: 100, name: 'tester')],

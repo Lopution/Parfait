@@ -1518,6 +1518,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchClear => 'Очистить';
 
   @override
+  String get contentLoading => 'Загрузка';
+
+  @override
   String get searchLoading => 'Поиск';
 
   @override

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
+import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
 import 'package:pixiv_func/core/series/illust_series_context_controller.dart';
@@ -163,6 +167,42 @@ void main() {
       expect(find.text('共 12 个作品'), findsOneWidget);
       expect(find.text('author'), findsWidgets);
       expect(find.byType(IllustCard), findsNWidgets(2));
+    });
+  });
+
+  testWidgets('series page shows the grid skeleton while the first page '
+      'is pending', (tester) async {
+    final fixture = SeriesFixture()..pendingFetch = Completer<void>();
+    final (container, _) = await makeSeriesWorld(fixture: fixture);
+    addTearDown(container.dispose);
+    addTearDown(() {
+      if (fixture.pendingFetch?.isCompleted == false) {
+        fixture.pendingFetch!.complete();
+      }
+    });
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const IllustSeriesPage(seriesId: 55),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(IllustGridSkeleton), findsOneWidget);
+      expect(find.byType(FeedEmpty), findsNothing);
+
+      fixture.pendingFetch!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(IllustGridSkeleton), findsNothing);
+      expect(find.byType(IllustCard), findsWidgets);
     });
   });
 

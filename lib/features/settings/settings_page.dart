@@ -11,8 +11,9 @@ import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/settings/settings_section.dart';
+import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account_store.dart';
@@ -135,157 +136,192 @@ class _SettingsList extends ConsumerWidget {
         // revision mid-flight makes the bottom-bar hide/show logic read
         // the spring-back as a real reverse scroll.
         scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
-        padding: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.only(
+          top: FuncSpacing.sm,
+          bottom: FuncSpacing.xl,
+        ),
         children: [
-          AccountCard(account: account),
-          SettingsTile(
-            icon: Icons.manage_accounts_outlined,
-            title: context.l10n.accountSettings,
-            subtitle: Text(account?.name ?? context.l10n.signedOut),
-            onTap: () => openSettingsPage(context, '/settings/account'),
-          ),
-          // Credential export is a visible entry, not a hidden gesture: the
-          // tile exists only for a signed-in account and the warning dialog
-          // still gates the actual copy.
-          if (account != null)
-            SettingsTile(
-              icon: Icons.send_to_mobile,
-              title: context.l10n.accountTransferExportTitle,
-              onTap: () => _confirmCopyAccount(context, ref),
-            ),
-          SettingsSection(title: Text(context.l10n.settingsGroupAppearance)),
-          SettingsTile(
-            icon: Icons.palette_outlined,
-            title: context.l10n.themeSettings,
-            subtitle: Text(themeModeLabel(context, settings.themeCode)),
-            onTap: () => openSettingsPage(context, '/settings/theme'),
-          ),
-          SettingsTile(
-            icon: Icons.language,
-            title: context.l10n.languageSettings,
-            subtitle: Text(languageDisplayName(settings.languageTag)),
-            onTap: () => openSettingsPage(context, '/settings/language'),
-          ),
-          SettingsTile(
-            icon: Icons.translate,
-            title: context.l10n.translateSettings,
-            subtitle: _TranslationSummary(
-              provider: settings.translationProvider,
-            ),
-            onTap: () => openSettingsPage(context, '/settings/translate'),
-          ),
-          SettingsSection(title: Text(context.l10n.settingsGroupBrowse)),
-          SettingsTile(
-            icon: Icons.image_outlined,
-            title: context.l10n.browseSettings,
-            subtitle: Text(imageSource),
-            onTap: () => openSettingsPage(context, '/settings/browse'),
-          ),
-          SettingsTile(
-            icon: Icons.block_outlined,
-            title: context.l10n.mutedItemsSettings,
-            subtitle: Text(
-              mutedCount == 0
-                  ? context.l10n.mutedEmpty
-                  : context.l10n.settingsMutedSummary(mutedCount),
-            ),
-            onTap: () => openSettingsPage(context, '/settings/muted'),
-          ),
-          // The history tile stays a configuration entry (D5): its summary
-          // shows the switch states; the content view lives in the library
-          // group below.
-          SettingsTile(
-            icon: Icons.manage_history,
-            title: context.l10n.historySettings,
-            subtitle: Text(
-              context.l10n.settingsHistorySummary(
-                settings.enableHistory
-                    ? context.l10n.settingsSummaryOn
-                    : context.l10n.settingsSummaryOff,
-                settings.enablePixivHistory
-                    ? context.l10n.settingsSummaryOn
-                    : context.l10n.settingsSummaryOff,
+          SettingsGroup(
+            children: [
+              AccountSummaryTile(account: account),
+              SettingsTile(
+                icon: Icons.manage_accounts_outlined,
+                title: context.l10n.accountSettings,
+                subtitle: Text(account?.name ?? context.l10n.signedOut),
+                onTap: () => openSettingsPage(context, '/settings/account'),
               ),
-            ),
-            onTap: () => openSettingsPage(context, '/settings/history'),
+              // Credential export is a visible entry, not a hidden gesture:
+              // the tile exists only for a signed-in account and the warning
+              // dialog still gates the actual copy.
+              if (account != null)
+                SettingsTile(
+                  icon: Icons.send_to_mobile,
+                  title: context.l10n.accountTransferExportTitle,
+                  onTap: () => _confirmCopyAccount(context, ref),
+                ),
+            ],
+          ),
+          SettingsGroup(
+            title: Text(context.l10n.settingsGroupAppearance),
+            children: [
+              SettingsTile(
+                icon: Icons.palette_outlined,
+                title: context.l10n.themeSettings,
+                subtitle: Text(themeModeLabel(context, settings.themeCode)),
+                onTap: () => openSettingsPage(context, '/settings/theme'),
+              ),
+              SettingsTile(
+                icon: Icons.language,
+                title: context.l10n.languageSettings,
+                subtitle: Text(languageDisplayName(settings.languageTag)),
+                onTap: () => openSettingsPage(context, '/settings/language'),
+              ),
+              SettingsTile(
+                icon: Icons.translate,
+                title: context.l10n.translateSettings,
+                subtitle: _TranslationSummary(
+                  provider: settings.translationProvider,
+                ),
+                onTap: () => openSettingsPage(context, '/settings/translate'),
+              ),
+            ],
+          ),
+          SettingsGroup(
+            title: Text(context.l10n.settingsGroupBrowse),
+            children: [
+              SettingsTile(
+                icon: Icons.image_outlined,
+                title: context.l10n.browseSettings,
+                subtitle: Text(imageSource),
+                onTap: () => openSettingsPage(context, '/settings/browse'),
+              ),
+              SettingsTile(
+                icon: Icons.block_outlined,
+                title: context.l10n.mutedItemsSettings,
+                subtitle: Text(
+                  mutedCount == 0
+                      ? context.l10n.mutedEmpty
+                      : context.l10n.settingsMutedSummary(mutedCount),
+                ),
+                onTap: () => openSettingsPage(context, '/settings/muted'),
+              ),
+              // The history tile stays a configuration entry (D5): its
+              // summary shows the switch states; the content view lives in
+              // the library group below.
+              SettingsTile(
+                icon: Icons.manage_history,
+                title: context.l10n.historySettings,
+                subtitle: Text(
+                  context.l10n.settingsHistorySummary(
+                    settings.enableHistory
+                        ? context.l10n.settingsSummaryOn
+                        : context.l10n.settingsSummaryOff,
+                    settings.enablePixivHistory
+                        ? context.l10n.settingsSummaryOn
+                        : context.l10n.settingsSummaryOff,
+                  ),
+                ),
+                onTap: () => openSettingsPage(context, '/settings/history'),
+              ),
+            ],
           ),
           // Content destinations (not preferences) sit in their own group so
           // the preference sections stay unmixed — the split Shaft draws
           // between its drawer entries and the settings catalog.
-          SettingsSection(title: Text(context.l10n.settingsGroupLibrary)),
-          SettingsTile(
-            icon: Icons.bookmark_border,
-            title: context.l10n.watchLaterTitle,
-            onTap: () => openWatchLater(context),
+          SettingsGroup(
+            title: Text(context.l10n.settingsGroupLibrary),
+            children: [
+              SettingsTile(
+                icon: Icons.bookmark_border,
+                title: context.l10n.watchLaterTitle,
+                onTap: () => openWatchLater(context),
+              ),
+              SettingsTile(
+                icon: Icons.collections_bookmark_outlined,
+                title: context.l10n.watchlistTitle,
+                onTap: () => openWatchlist(context),
+              ),
+              SettingsTile(
+                icon: Icons.menu_book_outlined,
+                title: context.l10n.localNovelsTitle,
+                onTap: () => openLocalNovels(context),
+              ),
+              // D5: direct content entry — the history configuration tile
+              // above keeps owning the switches; this one opens the content
+              // view.
+              SettingsTile(
+                icon: Icons.history,
+                title: context.l10n.historyView,
+                onTap: () => openHistory(context),
+              ),
+            ],
           ),
-          SettingsTile(
-            icon: Icons.collections_bookmark_outlined,
-            title: context.l10n.watchlistTitle,
-            onTap: () => openWatchlist(context),
+          SettingsGroup(
+            title: Text(context.l10n.settingsGroupNetwork),
+            children: [
+              SettingsTile(
+                icon: Icons.network_check,
+                title: context.l10n.networkSettings,
+                subtitle: Text(networkModeLabel(context, settings.networkMode)),
+                onTap: () => openSettingsPage(context, '/settings/network'),
+              ),
+              SettingsTile(
+                icon: Icons.download_outlined,
+                title: context.l10n.downloadSettings,
+                subtitle: Text(
+                  '${namingPresetLabel(context, settings.namingRule.preset)} · '
+                  '${downloadDestinationLabel(context, settings.downloadDestination)}',
+                ),
+                onTap: () => openSettingsPage(context, '/settings/download'),
+              ),
+              SettingsTile(
+                icon: Icons.downloading_outlined,
+                title: context.l10n.downloaderSettings,
+                subtitle: Text(
+                  context.l10n.settingsDownloadTasksSummary(activeTasks),
+                ),
+                onTap: () => openSettingsPage(context, '/settings/tasks'),
+              ),
+            ],
           ),
-          SettingsTile(
-            icon: Icons.menu_book_outlined,
-            title: context.l10n.localNovelsTitle,
-            onTap: () => openLocalNovels(context),
+          SettingsGroup(
+            title: Text(context.l10n.settingsGroupData),
+            children: [
+              // No natural current value exists for backup — the static hint
+              // tells the user what the page does instead (per design §4.8-1).
+              SettingsTile(
+                icon: Icons.backup_outlined,
+                title: context.l10n.backupSettings,
+                subtitle: Text(context.l10n.backupHint),
+                onTap: () => openSettingsPage(context, '/settings/backup'),
+              ),
+            ],
           ),
-          // D5: direct content entry — the history configuration tile above
-          // keeps owning the switches; this one opens the content view.
-          SettingsTile(
-            icon: Icons.history,
-            title: context.l10n.historyView,
-            onTap: () => openHistory(context),
-          ),
-          SettingsSection(title: Text(context.l10n.settingsGroupNetwork)),
-          SettingsTile(
-            icon: Icons.network_check,
-            title: context.l10n.networkSettings,
-            subtitle: Text(networkModeLabel(context, settings.networkMode)),
-            onTap: () => openSettingsPage(context, '/settings/network'),
-          ),
-          SettingsTile(
-            icon: Icons.download_outlined,
-            title: context.l10n.downloadSettings,
-            subtitle: Text(
-              '${namingPresetLabel(context, settings.namingRule.preset)} · '
-              '${downloadDestinationLabel(context, settings.downloadDestination)}',
-            ),
-            onTap: () => openSettingsPage(context, '/settings/download'),
-          ),
-          SettingsTile(
-            icon: Icons.downloading_outlined,
-            title: context.l10n.downloaderSettings,
-            subtitle: Text(
-              context.l10n.settingsDownloadTasksSummary(activeTasks),
-            ),
-            onTap: () => openSettingsPage(context, '/settings/tasks'),
-          ),
-          SettingsSection(title: Text(context.l10n.settingsGroupData)),
-          // No natural current value exists for backup — the static hint
-          // tells the user what the page does instead (per design §4.8-1).
-          SettingsTile(
-            icon: Icons.backup_outlined,
-            title: context.l10n.backupSettings,
-            subtitle: Text(context.l10n.backupHint),
-            onTap: () => openSettingsPage(context, '/settings/backup'),
-          ),
-          const Divider(),
-          SettingsTile(
-            icon: Icons.info_outline,
-            title: context.l10n.aboutSettings,
-            subtitle: const _VersionSummary(),
-            onTap: () => openSettingsPage(context, '/settings/about'),
+          SettingsGroup(
+            children: [
+              SettingsTile(
+                icon: Icons.info_outline,
+                title: context.l10n.aboutSettings,
+                subtitle: const _VersionSummary(),
+                onTap: () => openSettingsPage(context, '/settings/about'),
+              ),
+            ],
           ),
           // Frame probe is a diagnostics tool, not a preference: it ships in
           // every build but stays hidden until the about-page gesture (or a
           // non-release build) unlocks the developer group.
-          if (ref.watch(developerOptionsProvider) || !kReleaseMode) ...[
-            SettingsSection(title: Text(context.l10n.settingsGroupDeveloper)),
-            SettingsTile(
-              icon: Icons.monitor_heart_outlined,
-              title: context.l10n.frameProbeTitle,
-              onTap: () => openSettingsPage(context, '/settings/frame-probe'),
+          if (ref.watch(developerOptionsProvider) || !kReleaseMode)
+            SettingsGroup(
+              title: Text(context.l10n.settingsGroupDeveloper),
+              children: [
+                SettingsTile(
+                  icon: Icons.monitor_heart_outlined,
+                  title: context.l10n.frameProbeTitle,
+                  onTap: () =>
+                      openSettingsPage(context, '/settings/frame-probe'),
+                ),
+              ],
             ),
-          ],
           const FuncNavBarSpacer(),
         ],
       ),

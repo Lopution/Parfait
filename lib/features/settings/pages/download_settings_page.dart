@@ -2,7 +2,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/settings/settings_choice_tile.dart';
+import '../../../app/widgets/settings/settings_control.dart';
+import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_group_content.dart';
+import '../../../app/widgets/settings/settings_tile.dart';
 import '../../../core/download/naming_rule.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
@@ -64,126 +70,145 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
         appBar: AppBar(title: Text(context.l10n.downloadSettings)),
         body: settingsNarrowBody(
           ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(
+              top: FuncSpacing.sm,
+              bottom: FuncSpacing.xl,
+            ),
             children: [
-              Text(
-                '${context.l10n.maxDownloadCount}: $_draftMaxDownloads',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              // immediate-with-preview (D2): the thumb previews
-              // `_draftMaxDownloads`, the write commits on release and a
-              // failure rolls the draft back to the persisted count.
-              Slider(
-                min: 1,
-                max: 10,
-                divisions: 9,
-                value: (_draftMaxDownloads ?? settings.maxDownloadCount)
-                    .toDouble(),
-                label: '$_draftMaxDownloads',
-                onChanged: (value) =>
-                    setState(() => _draftMaxDownloads = value.round()),
-                onChangeEnd: (value) => _saveMaxDownloads(value.round()),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  context.l10n.maxDownloadCountHint,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(context.l10n.saveLocation),
-                subtitle: Text(downloadDestinationLabel(context, destination)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () =>
-                    context.push<void>('/settings/download/destination'),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(context.l10n.downloadCaption),
-                subtitle: Text(context.l10n.downloadCaptionHint),
-                value: settings.downloadCaption,
-                onChanged: (enabled) => persistSettings(
-                  context,
-                  () => ref
-                      .read(settingsProvider.notifier)
-                      .setDownloadCaption(enabled),
-                ),
-              ),
-              const Divider(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
-                child: Text(
-                  context.l10n.namingPreset,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              for (final preset in NamingPreset.values)
-                ListTile(
-                  title: Text(namingPresetLabel(context, preset)),
-                  trailing: namingRule.preset == preset
-                      ? Icon(
-                          Icons.check,
-                          color: Theme.of(context).colorScheme.primary,
-                        )
-                      : null,
-                  onTap: () => persistSettings(
-                    context,
-                    () => ref
-                        .read(settingsProvider.notifier)
-                        .setNamingRule(NamingRule(preset: preset)),
-                  ),
-                ),
-              if (namingRule.preset == NamingPreset.custom) ...[
-                TextField(
-                  controller: _templateController,
-                  focusNode: _templateFocusNode,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.namingTemplate,
-                    // The hint is the template syntax itself: the
-                    // parameterized getter can't go through the key-based
-                    // `settingsText` lookup (it would return the raw key).
-                    hintText: context.l10n.namingTemplateHint(
-                      '{artist}',
-                      '{title}',
-                      '{id}',
-                      '{page}',
-                      '{ext}',
+              SettingsGroup(
+                footer: Text(context.l10n.maxDownloadCountHint),
+                children: [
+                  SettingsGroupContent(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '${context.l10n.maxDownloadCount}: $_draftMaxDownloads',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    errorText:
-                        !NamingRule.isValidTemplate(_templateController.text)
-                        ? context.l10n.namingTemplateInvalid
-                        : null,
                   ),
-                  maxLength: 128,
-                  onChanged: (_) => setState(() => _templateDirty = true),
-                ),
-                Text(
-                  '${context.l10n.namingPreview}: '
-                  '${_previewName(context, namingRule.preset == NamingPreset.custom ? NamingRule(preset: NamingPreset.custom, template: _templateController.text) : namingRule)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  context.l10n.namingTemplateVariables(
-                    NamingRule.supportedVariables
-                        .map((name) => '{$name}')
-                        .join(' '),
+                  // immediate-with-preview (D2): the thumb previews
+                  // `_draftMaxDownloads`, the write commits on release and a
+                  // failure rolls the draft back to the persisted count.
+                  SettingsGroupContent(
+                    child: Slider(
+                      min: 1,
+                      max: 10,
+                      divisions: 9,
+                      value: (_draftMaxDownloads ?? settings.maxDownloadCount)
+                          .toDouble(),
+                      label: '$_draftMaxDownloads',
+                      onChanged: (value) =>
+                          setState(() => _draftMaxDownloads = value.round()),
+                      onChangeEnd: (value) => _saveMaxDownloads(value.round()),
+                    ),
                   ),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                // An invalid template disables the action instead of
-                // silently no-op'ing — the errorText already explains why.
-                FilledButton(
-                  onPressed:
-                      NamingRule.isValidTemplate(_templateController.text)
-                      ? _saveTemplate
-                      : null,
-                  child: Text(context.l10n.save),
-                ),
-              ],
+                ],
+              ),
+              SettingsGroup(
+                children: [
+                  SettingsTile(
+                    title: context.l10n.saveLocation,
+                    subtitle: Text(
+                      downloadDestinationLabel(context, destination),
+                    ),
+                    onTap: () =>
+                        context.push<void>('/settings/download/destination'),
+                  ),
+                  SettingsControl(
+                    title: Text(context.l10n.downloadCaption),
+                    subtitle: Text(context.l10n.downloadCaptionHint),
+                    value: settings.downloadCaption,
+                    onChanged: (enabled) => persistSettings(
+                      context,
+                      () => ref
+                          .read(settingsProvider.notifier)
+                          .setDownloadCaption(enabled),
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                title: Text(context.l10n.namingPreset),
+                children: [
+                  for (final preset in NamingPreset.values)
+                    SettingsChoiceTile(
+                      title: Text(namingPresetLabel(context, preset)),
+                      selected: namingRule.preset == preset,
+                      onTap: () => persistSettings(
+                        context,
+                        () => ref
+                            .read(settingsProvider.notifier)
+                            .setNamingRule(NamingRule(preset: preset)),
+                      ),
+                    ),
+                  if (namingRule.preset == NamingPreset.custom) ...[
+                    SettingsGroupContent(
+                      child: TextField(
+                        controller: _templateController,
+                        focusNode: _templateFocusNode,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.namingTemplate,
+                          // The hint is the template syntax itself: the
+                          // parameterized getter can't go through the
+                          // key-based `settingsText` lookup (it would return
+                          // the raw key).
+                          hintText: context.l10n.namingTemplateHint(
+                            '{artist}',
+                            '{title}',
+                            '{id}',
+                            '{page}',
+                            '{ext}',
+                          ),
+                          errorText:
+                              !NamingRule.isValidTemplate(
+                                _templateController.text,
+                              )
+                              ? context.l10n.namingTemplateInvalid
+                              : null,
+                        ),
+                        maxLength: 128,
+                        onChanged: (_) => setState(() => _templateDirty = true),
+                      ),
+                    ),
+                    SettingsGroupContent(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${context.l10n.namingPreview}: '
+                          '${_previewName(context, namingRule.preset == NamingPreset.custom ? NamingRule(preset: NamingPreset.custom, template: _templateController.text) : namingRule)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                    SettingsGroupContent(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          context.l10n.namingTemplateVariables(
+                            NamingRule.supportedVariables
+                                .map((name) => '{$name}')
+                                .join(' '),
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                    // An invalid template disables the action instead of
+                    // silently no-op'ing — the errorText already explains
+                    // why.
+                    SettingsGroupContent(
+                      child: FilledButton(
+                        onPressed:
+                            NamingRule.isValidTemplate(_templateController.text)
+                            ? _saveTemplate
+                            : null,
+                        child: Text(context.l10n.save),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
         ),

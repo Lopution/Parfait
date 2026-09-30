@@ -745,6 +745,7 @@
   "searchCancel": "取消",
   "searchSubmit": "搜索",
   "searchClear": "清除",
+  "contentLoading": "正在加载",
   "searchLoading": "正在搜索",
   "searchNoResults": "暂无搜索结果",
   "searchLoadFailed": "搜索失败",

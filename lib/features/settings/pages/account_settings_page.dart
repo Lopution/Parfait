@@ -6,8 +6,10 @@ import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/feed/feed_states.dart';
+import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
-import '../../../app/widgets/settings/settings_section.dart';
+import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../app/widgets/settings_load_error.dart';
 import '../../../core/auth/account.dart';
 import '../../../core/auth/account_store.dart';
@@ -15,31 +17,31 @@ import '../../../core/settings/server_display_settings.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 
-class AccountCard extends StatelessWidget {
-  const AccountCard({super.key, required this.account});
+/// Signed-in account summary on the settings hub: 58dp avatar and display
+/// type, not a settings row — it lives inside the first [SettingsGroup] and
+/// opens the profile page.
+class AccountSummaryTile extends StatelessWidget {
+  const AccountSummaryTile({super.key, required this.account});
 
   final Account? account;
 
   @override
   Widget build(BuildContext context) {
     final value = account;
-    return Card(
-      margin: const EdgeInsets.all(12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: _AccountAvatar(account: value),
-        title: Text(
-          value?.name ?? context.l10n.signedOut,
-          style: FuncSemanticTokens.of(context).display,
-        ),
-        subtitle: Text(
-          value == null
-              ? context.l10n.accountProfile
-              : value.mailAddress ?? '${context.l10n.accountId}: ${value.id}',
-        ),
-        trailing: value == null ? null : const Icon(Icons.chevron_right),
-        onTap: value == null ? null : () => openMe(context),
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: _AccountAvatar(account: value),
+      title: Text(
+        value?.name ?? context.l10n.signedOut,
+        style: FuncSemanticTokens.of(context).display,
       ),
+      subtitle: Text(
+        value == null
+            ? context.l10n.accountProfile
+            : value.mailAddress ?? '${context.l10n.accountId}: ${value.id}',
+      ),
+      trailing: value == null ? null : const Icon(Icons.chevron_right),
+      onTap: value == null ? null : () => openMe(context),
     );
   }
 }
@@ -122,65 +124,74 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
             ? Center(child: Text(context.l10n.noAccounts))
             : settingsNarrowBody(
                 ListView(
+                  padding: const EdgeInsets.only(
+                    top: FuncSpacing.sm,
+                    bottom: FuncSpacing.xl,
+                  ),
                   children: [
-                    for (final account in state.accounts)
-                      ListTile(
-                        // Same selected-state second channel as the
-                        // theme/language pickers (check icon for sighted
-                        // users, `selected` for assistive tech).
-                        selected: state.currentId == account.id,
-                        leading: _AccountAvatar(account: account),
-                        title: Text(account.name),
-                        subtitle: Text(
-                          account.mailAddress ??
-                              '${context.l10n.accountId}: ${account.id}',
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (_switchingTo == account.id)
-                              SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      semanticsLabel:
-                                          context.l10n.accountSwitching,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            else if (state.currentId == account.id)
-                              Icon(
-                                Icons.check,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            IconButton(
-                              tooltip: context.l10n.removeAccount,
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: _switchingTo == null
-                                  ? () => _confirmRemove(account)
-                                  : null,
+                    SettingsGroup(
+                      children: [
+                        for (final account in state.accounts)
+                          ListTile(
+                            // Same selected-state second channel as the
+                            // theme/language pickers (check icon for
+                            // sighted users, `selected` for assistive
+                            // tech).
+                            selected: state.currentId == account.id,
+                            leading: _AccountAvatar(account: account),
+                            title: Text(account.name),
+                            subtitle: Text(
+                              account.mailAddress ??
+                                  '${context.l10n.accountId}: ${account.id}',
                             ),
-                          ],
-                        ),
-                        onTap:
-                            state.currentId == account.id ||
-                                _switchingTo != null
-                            ? null
-                            : () => _switchTo(account),
-                      ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_switchingTo == account.id)
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          semanticsLabel:
+                                              context.l10n.accountSwitching,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else if (state.currentId == account.id)
+                                  Icon(
+                                    Icons.check,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                IconButton(
+                                  tooltip: context.l10n.removeAccount,
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: _switchingTo == null
+                                      ? () => _confirmRemove(account)
+                                      : null,
+                                ),
+                              ],
+                            ),
+                            onTap:
+                                state.currentId == account.id ||
+                                    _switchingTo != null
+                                ? null
+                                : () => _switchTo(account),
+                          ),
+                      ],
+                    ),
                     // Server-side display preferences only exist for a
                     // usable account; a signed-out/re-auth state shows the
                     // account rows alone.
-                    if (state.usableCurrent != null) ...[
-                      const Divider(),
+                    if (state.usableCurrent != null)
                       const _ServerDisplaySection(),
-                    ],
                   ],
                 ),
               ),
@@ -235,24 +246,18 @@ class _ServerDisplaySection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(serverDisplaySettingsProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SettingsSection(title: Text(context.l10n.serverDisplaySettings)),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Text(
-            context.l10n.serverDisplayHint,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-        settings.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
+    return SettingsGroup(
+      title: Text(context.l10n.serverDisplaySettings),
+      footer: Text(context.l10n.serverDisplayHint),
+      children: settings.when(
+        loading: () => const [
+          SettingsGroupContent(
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (error, _) => ListTile(
-            leading: const Icon(Icons.error_outline),
+        ],
+        error: (error, _) => [
+          SettingsActionTile(
+            icon: Icons.error_outline,
             title: Text(context.l10n.serverDisplayLoadFailed),
             subtitle: Text('$error'),
             trailing: TextButton(
@@ -260,30 +265,25 @@ class _ServerDisplaySection extends ConsumerWidget {
               child: Text(context.l10n.retry),
             ),
           ),
-          data: (value) => Column(
-            children: [
-              SettingsControl(
-                title: Text(context.l10n.serverShowAi),
-                value: value.showAi,
-                onChanged: (v) => _write(
-                  context,
-                  ref,
-                  (controller) => controller.setShowAi(v),
-                ),
-              ),
-              SettingsControl(
-                title: Text(context.l10n.serverRestrictedMode),
-                value: value.restrictedMode,
-                onChanged: (v) => _write(
-                  context,
-                  ref,
-                  (controller) => controller.setRestrictedMode(v),
-                ),
-              ),
-            ],
+        ],
+        data: (value) => [
+          SettingsControl(
+            title: Text(context.l10n.serverShowAi),
+            value: value.showAi,
+            onChanged: (v) =>
+                _write(context, ref, (controller) => controller.setShowAi(v)),
           ),
-        ),
-      ],
+          SettingsControl(
+            title: Text(context.l10n.serverRestrictedMode),
+            value: value.restrictedMode,
+            onChanged: (v) => _write(
+              context,
+              ref,
+              (controller) => controller.setRestrictedMode(v),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
