@@ -438,4 +438,51 @@ void main() {
       expect(result.account.mailAddress, isNull);
     },
   );
+
+  // An expired access token falls through to one refresh; only the token
+  // endpoint refusing the grant proves the credential invalid.
+  for (final (refreshStatus, expected) in [
+    (400, AccountTransferErrorCode.credentialInvalid),
+    (429, AccountTransferErrorCode.verificationUnavailable),
+    (503, AccountTransferErrorCode.verificationUnavailable),
+  ]) {
+    test(
+      'a $refreshStatus refresh during verification reports $expected',
+      () async {
+        final (container, accounts, credentials, _) = _container();
+        await container.read(accountStoreProvider.future);
+        final oauthService = OAuthService(
+          client: MockClient(
+            (_) async => http.Response('{"error":"x"}', refreshStatus),
+          ),
+        );
+        final verifier = PixivTransferCredentialVerifier(
+          apiClient: PixivHttpClient(
+            client: MockClient((_) async => http.Response('{}', 401)),
+            accountStore: accounts,
+            credentialStore: credentials,
+            oauthService: oauthService,
+          ),
+          oauthService: oauthService,
+        );
+
+        await expectLater(
+          verifier.verify(
+            const TransferAccountPayload(
+              accountId: '42',
+              userId: 42,
+              credential: _credential,
+            ),
+          ),
+          throwsA(
+            isA<AccountTransferException>().having(
+              (error) => error.code,
+              'code',
+              expected,
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
