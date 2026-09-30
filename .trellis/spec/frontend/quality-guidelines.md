@@ -110,6 +110,39 @@ rule with `// ignore:` without a one-line reason on the same line.
   the framework's decision does. Conflating the two blocks the only workable
   solutions.
 
+## User-facing Errors
+
+- **Never render raw exception text in user-facing surfaces.** Visible copy
+  must be a localized category or a hand-written message; the technical text
+  lives behind `ErrorDetails` or in `CrashLog`. This is enforced by
+  `test/architecture/raw_error_text_test.dart`, which heuristically scans
+  `lib/app/**` and `lib/features/**` — add explicit allowlist entries only for
+  surfaces whose copy is intentionally diagnostic (currently
+  `network_probe_page.dart`, whose whole purpose is showing raw HTTP results,
+  and `error_details.dart` itself).
+- **`lib/core/errors/error_category.dart` is the single classification
+  authority.** `categorizeError` maps thrown objects (API/network/parse/
+  storage exceptions) to an `ErrorCategory`; `categorizeDownloadFailure` maps
+  `DownloadFailureKind`. Do not re-classify at call sites and do not branch on
+  `error.toString()` substrings.
+- **`lib/app/widgets/errors/error_details.dart` owns the surfaces.**
+  `errorCategoryText`/`errorCategoryTextL10n` produce the localized category
+  sentence; `ErrorDetails` is the collapsible, copyable disclosure for
+  technical detail (text capped at 2000 chars, content capped at 240 px,
+  expanded state exposed to semantics); `showErrorSnackBar` is the single
+  entry point for error SnackBars — it records the original error to
+  `CrashLog` and shows only `action: localized category`. Success/info
+  SnackBars keep using `showAppSnackBar`.
+- **`CrashLog` (lib/core/logging/crash_log.dart) is where technical failures
+  accumulate** for later support use: it appends bounded entries to an
+  application-documents file. Call `CrashLog.record` (or use
+  `showErrorSnackBar`, which records for you) when a failure would otherwise
+  leave no durable trace.
+- **Download rows take their visible failure copy from `failureKind`**, not
+  from the persisted raw `error` string; the raw string remains available only
+  inside `ErrorDetails`. Canceled and paused tasks are not failures — never
+  show them with failure styling or failure copy.
+
 ---
 
 ## Testing Requirements

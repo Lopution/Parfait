@@ -261,14 +261,8 @@ abstract class AppLocalizations {
   /// No description provided for @loginFailed.
   ///
   /// In zh, this message translates to:
-  /// **'登录失败: {error}'**
-  String loginFailed(String error);
-
-  /// No description provided for @loginFailedType.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录失败 ({type})'**
-  String loginFailedType(String type);
+  /// **'登录失败'**
+  String get loginFailed;
 
   /// No description provided for @networkCompatibility.
   ///
@@ -1176,6 +1170,12 @@ abstract class AppLocalizations {
   /// **'选择一张受支持的图片'**
   String get profileEditImageChoose;
 
+  /// No description provided for @profileEditImageFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片处理失败'**
+  String get profileEditImageFailed;
+
   /// No description provided for @profileEditChooseImage.
   ///
   /// In zh, this message translates to:
@@ -1670,8 +1670,8 @@ abstract class AppLocalizations {
   /// No description provided for @muteFailed.
   ///
   /// In zh, this message translates to:
-  /// **'屏蔽操作失败:{error}'**
-  String muteFailed(Object error);
+  /// **'屏蔽操作失败'**
+  String get muteFailed;
 
   /// No description provided for @reduceMotion.
   ///
@@ -2075,6 +2075,24 @@ abstract class AppLocalizations {
   /// **'移除'**
   String get downloadRemoveRecord;
 
+  /// No description provided for @downloadFailurePermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'缺少存储权限'**
+  String get downloadFailurePermission;
+
+  /// No description provided for @downloadFailureResource.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备资源不足或文件过大'**
+  String get downloadFailureResource;
+
+  /// No description provided for @downloadFailureOwnership.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标文件由其他应用创建，无法覆盖'**
+  String get downloadFailureOwnership;
+
   /// No description provided for @downloadBatchCancelConfirm.
   ///
   /// In zh, this message translates to:
@@ -2156,8 +2174,8 @@ abstract class AppLocalizations {
   /// No description provided for @downloadAuthorFailed.
   ///
   /// In zh, this message translates to:
-  /// **'枚举作品失败：{error}'**
-  String downloadAuthorFailed(String error);
+  /// **'枚举作品失败'**
+  String get downloadAuthorFailed;
 
   /// No description provided for @downloadCaption.
   ///
@@ -2420,8 +2438,8 @@ abstract class AppLocalizations {
   /// No description provided for @downloadSubmissionFailed.
   ///
   /// In zh, this message translates to:
-  /// **'下载失败：{error}'**
-  String downloadSubmissionFailed(String error);
+  /// **'下载失败'**
+  String get downloadSubmissionFailed;
 
   /// No description provided for @ugoiraSaveGif.
   ///
@@ -2474,8 +2492,8 @@ abstract class AppLocalizations {
   /// No description provided for @ugoiraLoadFailed.
   ///
   /// In zh, this message translates to:
-  /// **'动图加载失败：{error}'**
-  String ugoiraLoadFailed(String error);
+  /// **'动图加载失败'**
+  String get ugoiraLoadFailed;
 
   /// No description provided for @homeRecommended.
   ///
@@ -2516,8 +2534,8 @@ abstract class AppLocalizations {
   /// No description provided for @bookmarkOperationFailed.
   ///
   /// In zh, this message translates to:
-  /// **'收藏操作失败：{error}'**
-  String bookmarkOperationFailed(String error);
+  /// **'收藏操作失败'**
+  String get bookmarkOperationFailed;
 
   /// No description provided for @save.
   ///
@@ -2566,6 +2584,84 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'继续'**
   String get continueAction;
+
+  /// No description provided for @errorNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络连接失败'**
+  String get errorNetwork;
+
+  /// No description provided for @errorTimeout.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接超时'**
+  String get errorTimeout;
+
+  /// No description provided for @errorRateLimited.
+  ///
+  /// In zh, this message translates to:
+  /// **'请求过于频繁，请稍后重试'**
+  String get errorRateLimited;
+
+  /// No description provided for @errorUnauthorized.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要重新登录'**
+  String get errorUnauthorized;
+
+  /// No description provided for @errorServer.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器错误'**
+  String get errorServer;
+
+  /// No description provided for @errorNotFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'内容不存在或已被删除'**
+  String get errorNotFound;
+
+  /// No description provided for @errorParse.
+  ///
+  /// In zh, this message translates to:
+  /// **'响应无法解析'**
+  String get errorParse;
+
+  /// No description provided for @errorStorage.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储错误'**
+  String get errorStorage;
+
+  /// No description provided for @errorUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'未知错误'**
+  String get errorUnknown;
+
+  /// No description provided for @errorDetails.
+  ///
+  /// In zh, this message translates to:
+  /// **'详情'**
+  String get errorDetails;
+
+  /// No description provided for @errorDetailsCopy.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制'**
+  String get errorDetailsCopy;
+
+  /// No description provided for @errorDetailsCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制'**
+  String get errorDetailsCopied;
+
+  /// No description provided for @errorWithReason.
+  ///
+  /// In zh, this message translates to:
+  /// **'{action}：{reason}'**
+  String errorWithReason(String action, String reason);
 
   /// No description provided for @rankingDay.
   ///
@@ -3338,8 +3434,8 @@ abstract class AppLocalizations {
   /// No description provided for @illustDetailOpenLinkFailed.
   ///
   /// In zh, this message translates to:
-  /// **'无法打开链接：{error}'**
-  String illustDetailOpenLinkFailed(String error);
+  /// **'无法打开链接'**
+  String get illustDetailOpenLinkFailed;
 
   /// No description provided for @illustDetailRestricted.
   ///

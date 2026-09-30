@@ -5,6 +5,8 @@ import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/author_summary.dart';
 import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/app/widgets/tag_chips.dart';
+import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
 /// Component-level visual matrix: light/dark x key states for the shared
 /// widgets every page family consumes. Text renders with the deterministic
@@ -23,6 +25,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: replicaTheme(brightness),
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('en'),
         home: Scaffold(body: Center(child: child)),
       ),
     );

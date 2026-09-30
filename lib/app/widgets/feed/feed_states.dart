@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../core/errors/error_category.dart';
 import '../../../core/paging/paged_feed_controller.dart';
+import '../errors/error_details.dart';
 
 /// Shared feed-tail widget: load-more spinner, load-more error + retry and
 /// the exhausted marker. Consumes [PagedFeedState] phase semantics; text and
@@ -37,6 +39,7 @@ class FeedTail extends StatelessWidget {
         ),
       );
     }
+    final loadMoreError = feed.loadMoreError;
     if (feed.showLoadMoreError) {
       return Center(
         child: Padding(
@@ -45,13 +48,14 @@ class FeedTail extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (errorTitle != null) Text(errorTitle!),
-              Text(
-                '${feed.loadMoreError}',
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
+              if (loadMoreError != null) ...[
+                Text(
+                  errorCategoryText(context, categorizeError(loadMoreError)),
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+                ErrorDetails(error: loadMoreError),
+              ],
               TextButton(onPressed: onRetry, child: Text(retryLabel)),
             ],
           ),
@@ -109,6 +113,7 @@ class FeedEmpty extends StatelessWidget {
     this.icon = Icons.inbox_outlined,
     required this.title,
     this.detail,
+    this.error,
     this.onRefresh,
     this.retryLabel,
     this.actionLabel,
@@ -120,11 +125,19 @@ class FeedEmpty extends StatelessWidget {
        assert(
          onAction == null || actionLabel != null,
          'actionLabel is required when onAction is provided',
+       ),
+       assert(
+         error == null || detail == null,
+         'error already supplies the category line and a details disclosure',
        );
 
   final IconData icon;
   final String title;
   final String? detail;
+
+  /// When set, the detail line is the localized category of this error and
+  /// the raw text moves behind an expandable [ErrorDetails] disclosure.
+  final Object? error;
   final Future<void> Function()? onRefresh;
 
   /// Translated label for the refresh button. Required whenever [onRefresh]
@@ -147,7 +160,15 @@ class FeedEmpty extends StatelessWidget {
           Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
           const SizedBox(height: 12),
           Text(title),
-          if (detail != null) ...[
+          if (error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              errorCategoryText(context, categorizeError(error!)),
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+            ErrorDetails(error: error!),
+          ] else if (detail != null) ...[
             const SizedBox(height: 8),
             Text(
               detail!,
@@ -185,7 +206,8 @@ class FeedEmpty extends StatelessWidget {
 
 /// Shared feed error state (initial-load failure). Callers keep their own
 /// error mapping: [title] and [retryLabel] are already translated, [error]
-/// is rendered as its string form below the title.
+/// renders as its localized category plus an expandable [ErrorDetails]
+/// disclosure — never as raw exception text.
 class FeedError extends StatelessWidget {
   const FeedError({
     super.key,
@@ -213,10 +235,11 @@ class FeedError extends StatelessWidget {
         if (error != null) ...[
           const SizedBox(height: 8),
           Text(
-            '$error',
+            errorCategoryText(context, categorizeError(error!)),
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
+          ErrorDetails(error: error!),
         ],
         const SizedBox(height: 12),
         FilledButton(onPressed: onRetry, child: Text(retryLabel)),

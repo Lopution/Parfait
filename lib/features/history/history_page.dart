@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
@@ -16,6 +17,7 @@ import '../../app/haptics/app_haptics.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
+import '../../core/errors/error_category.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_feed_controller.dart';
 import '../../core/history/history_repository.dart';
@@ -168,7 +170,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       }
     } on Object catch (error) {
       if (mounted) {
-        showAppSnackBar(context, '$error');
+        showErrorSnackBar(
+          context,
+          action: context.l10n.historyDelete,
+          error: error,
+        );
       }
     }
   }
@@ -191,7 +197,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       }
     } on Object catch (error) {
       if (context.mounted) {
-        showAppSnackBar(context, '$error');
+        showErrorSnackBar(
+          context,
+          action: context.l10n.historyDeleteAll,
+          error: error,
+        );
       }
     }
   }
@@ -316,9 +326,20 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                     ),
                     (_, final error?) => Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text(
-                        '${context.l10n.historyLoadFailed}: $error',
-                        textAlign: TextAlign.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            context.l10n.historyLoadFailed,
+                            textAlign: TextAlign.center,
+                          ),
+                          Text(
+                            errorCategoryText(context, categorizeError(error)),
+                            style: Theme.of(context).textTheme.bodySmall,
+                            textAlign: TextAlign.center,
+                          ),
+                          ErrorDetails(error: error),
+                        ],
                       ),
                     ),
                     _ => const SizedBox(height: 16),

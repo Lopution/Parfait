@@ -18,6 +18,7 @@ import '../../../l10n/context.dart';
 import '../../haptics/app_haptics.dart';
 import '../../navigation/routes.dart';
 import '../app_snack_bar.dart';
+import '../errors/error_details.dart';
 import 'card_action.dart';
 
 /// Ordered card long-press actions. Each domain contributes a thin adapter;
@@ -105,9 +106,10 @@ class _DownloadAction extends CardAction {
     } catch (error) {
       AppHaptics.error();
       if (context.mounted) {
-        showAppSnackBar(
+        showErrorSnackBar(
           context,
-          context.l10n.downloadSubmissionFailed(error.toString()),
+          action: context.l10n.downloadSubmissionFailed,
+          error: error,
         );
       }
     }
@@ -216,7 +218,11 @@ class _MuteWorkAction extends CardAction {
       await ref.read(muteStoreProvider.notifier).toggleWork(entity.id);
     } catch (error) {
       if (context.mounted) {
-        showAppSnackBar(context, context.l10n.muteFailed('$error'));
+        showErrorSnackBar(
+          context,
+          action: context.l10n.muteFailed,
+          error: error,
+        );
       }
     }
   }
@@ -258,7 +264,11 @@ class _MuteUserAction extends CardAction {
           );
     } catch (error) {
       if (context.mounted) {
-        showAppSnackBar(context, context.l10n.muteFailed('$error'));
+        showErrorSnackBar(
+          context,
+          action: context.l10n.muteFailed,
+          error: error,
+        );
       }
     }
   }

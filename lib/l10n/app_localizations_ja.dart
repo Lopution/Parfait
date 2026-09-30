@@ -95,14 +95,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginRestart => '再度ログイン';
 
   @override
-  String loginFailed(String error) {
-    return 'ログインに失敗しました: $error';
-  }
-
-  @override
-  String loginFailedType(String type) {
-    return 'ログインに失敗しました ($type)';
-  }
+  String get loginFailed => 'ログインに失敗しました';
 
   @override
   String get networkCompatibility => 'Pixiv公式ネットワーク互換';
@@ -587,6 +580,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileEditImageChoose => '対応する画像を選択してください';
 
   @override
+  String get profileEditImageFailed => '画像の処理に失敗しました';
+
+  @override
   String get profileEditChooseImage => '画像を選択';
 
   @override
@@ -854,9 +850,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get unmuteTag => 'ミュート解除';
 
   @override
-  String muteFailed(Object error) {
-    return 'ミュート操作に失敗しました:$error';
-  }
+  String get muteFailed => 'ミュート操作に失敗しました';
 
   @override
   String get reduceMotion => '視覚効果を減らす';
@@ -1073,6 +1067,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadRemoveRecord => '一覧から削除';
 
   @override
+  String get downloadFailurePermission => 'ストレージ権限がありません';
+
+  @override
+  String get downloadFailureResource => 'デバイスのリソース不足またはファイルが大きすぎます';
+
+  @override
+  String get downloadFailureOwnership => '保存先のファイルは他のアプリが所有しています';
+
+  @override
   String downloadBatchCancelConfirm(int count) {
     return '選択した $count 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。';
   }
@@ -1130,9 +1133,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadAuthorEmpty => 'この作者にはダウンロード可能な作品がありません。';
 
   @override
-  String downloadAuthorFailed(String error) {
-    return '作品の列挙に失敗しました：$error';
-  }
+  String get downloadAuthorFailed => '作品の列挙に失敗しました';
 
   @override
   String get downloadCaption => '作品のキャプションを書き出す';
@@ -1273,9 +1274,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadQueuedMessage => 'ダウンロードキューに追加しました';
 
   @override
-  String downloadSubmissionFailed(String error) {
-    return 'ダウンロードに失敗しました: $error';
-  }
+  String get downloadSubmissionFailed => 'ダウンロードに失敗しました';
 
   @override
   String get ugoiraSaveGif => 'GIFを保存';
@@ -1308,9 +1307,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String ugoiraLoadFailed(String error) {
-    return 'アニメーションを読み込めませんでした: $error';
-  }
+  String get ugoiraLoadFailed => 'アニメーションを読み込めませんでした';
 
   @override
   String get homeRecommended => 'おすすめ';
@@ -1331,9 +1328,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bookmarkNovel => '小説をブックマーク';
 
   @override
-  String bookmarkOperationFailed(String error) {
-    return 'ブックマーク操作に失敗しました: $error';
-  }
+  String get bookmarkOperationFailed => 'ブックマーク操作に失敗しました';
 
   @override
   String get save => '保存';
@@ -1358,6 +1353,47 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get continueAction => '続行';
+
+  @override
+  String get errorNetwork => 'ネットワーク接続に失敗しました';
+
+  @override
+  String get errorTimeout => '接続がタイムアウトしました';
+
+  @override
+  String get errorRateLimited => 'リクエストが多すぎます。しばらくしてから再試行してください';
+
+  @override
+  String get errorUnauthorized => '再ログインが必要です';
+
+  @override
+  String get errorServer => 'サーバーエラー';
+
+  @override
+  String get errorNotFound => 'コンテンツが見つからないか削除されました';
+
+  @override
+  String get errorParse => '応答を解析できませんでした';
+
+  @override
+  String get errorStorage => 'ストレージエラー';
+
+  @override
+  String get errorUnknown => '不明なエラー';
+
+  @override
+  String get errorDetails => '詳細';
+
+  @override
+  String get errorDetailsCopy => 'コピー';
+
+  @override
+  String get errorDetailsCopied => 'コピーしました';
+
+  @override
+  String errorWithReason(String action, String reason) {
+    return '$action：$reason';
+  }
 
   @override
   String get rankingDay => 'デイリー';
@@ -1759,9 +1795,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String illustDetailOpenLinkFailed(String error) {
-    return 'リンクを開けませんでした：$error';
-  }
+  String get illustDetailOpenLinkFailed => 'リンクを開けませんでした';
 
   @override
   String illustDetailRestricted(int id) {

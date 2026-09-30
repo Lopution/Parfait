@@ -47,22 +47,7 @@
   "loginInstallWebView2": "安装 WebView2 Runtime",
   "loginReload": "重新加载",
   "loginRestart": "重新登录",
-  "loginFailed": "登录失败: {error}",
-  "@loginFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "loginFailedType": "登录失败 ({type})",
-  "@loginFailedType": {
-    "placeholders": {
-      "type": {
-        "type": "String"
-      }
-    }
-  },
+  "loginFailed": "登录失败",
   "networkCompatibility": "Pixiv 官方网络兼容",
   "networkCompatibilityHint": "默认直连；仅 Pixiv 官方域名在明确的传输失败时尝试严格 HTTPS 候选。不会代理其他流量，也不会关闭证书校验。",
   "useLoginWithClipboard": "使用剪贴板数据登录",
@@ -221,6 +206,7 @@
   "profileEditCurrentPassword": "当前密码",
   "profileEditFieldUnsupported": "当前通道不支持此字段",
   "profileEditImageChoose": "选择一张受支持的图片",
+  "profileEditImageFailed": "图片处理失败",
   "profileEditChooseImage": "选择图片",
   "profileEditSave": "保存资料",
   "profileEditLeaveTitle": "放弃未保存的修改？",
@@ -373,7 +359,7 @@
   "muteAuthor": "屏蔽作者",
   "unmuteAuthor": "解除屏蔽作者",
   "unmuteTag": "解除屏蔽",
-  "muteFailed": "屏蔽操作失败:{error}",
+  "muteFailed": "屏蔽操作失败",
   "reduceMotion": "减少动态效果",
   "reduceMotionHint": "关闭页面转场、列表进场与按压反馈等装饰性动画",
   "maxDownloadCount": "最大并行下载数",
@@ -473,6 +459,9 @@
   "downloadProcessing": "处理中",
   "downloadViewResult": "查看",
   "downloadRemoveRecord": "移除",
+  "downloadFailurePermission": "没有写入存储的权限",
+  "downloadFailureResource": "文件过大或资源不足",
+  "downloadFailureOwnership": "任务属主与当前账号不一致",
   "downloadBatchCancelConfirm": "取消选中的 {count} 项下载？未完成的进度会被丢弃。",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -558,14 +547,7 @@
     }
   },
   "downloadAuthorEmpty": "该作者没有可下载的作品。",
-  "downloadAuthorFailed": "枚举作品失败：{error}",
-  "@downloadAuthorFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+"downloadAuthorFailed": "枚举作品失败",
   "downloadCaption": "同时导出作品简介",
   "downloadCaptionHint": "下载插画/漫画时，把标题、作者与简介保存为同名 .txt",
   "aboutVersion": "版本",
@@ -633,14 +615,10 @@
   "viewerNoImages": "没有可显示的图片",
   "downloadAll": "下载全部",
   "downloadQueuedMessage": "已加入下载队列",
-  "downloadSubmissionFailed": "下载失败：{error}",
-  "@downloadSubmissionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "downloadSubmissionFailed": "下载失败",
+  "downloadFailurePermission": "缺少存储权限",
+  "downloadFailureResource": "设备资源不足或文件过大",
+  "downloadFailureOwnership": "目标文件由其他应用创建，无法覆盖",
   "ugoiraSaveGif": "保存 GIF",
   "ugoiraLoadCanceled": "加载已取消",
   "ugoiraLoginRequired": "请先登录后保存 GIF",
@@ -670,28 +648,14 @@
       }
     }
   },
-  "ugoiraLoadFailed": "动图加载失败：{error}",
-  "@ugoiraLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraLoadFailed": "动图加载失败",
   "homeRecommended": "推荐",
   "homeRanking": "排行",
   "homeMe": "我的",
   "homeExitHint": "再按一次退出",
   "bookmarkIllust": "收藏插画",
   "bookmarkNovel": "收藏小说",
-  "bookmarkOperationFailed": "收藏操作失败：{error}",
-  "@bookmarkOperationFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "bookmarkOperationFailed": "收藏操作失败",
   "save": "保存",
   "saved": "已保存",
   "retry": "重试",
@@ -700,6 +664,29 @@
   "cancel": "取消",
   "confirm": "确定",
   "continueAction": "继续",
+  "errorNetwork": "网络连接失败",
+  "errorTimeout": "连接超时",
+  "errorRateLimited": "请求过于频繁，请稍后重试",
+  "errorUnauthorized": "需要重新登录",
+  "errorServer": "服务器错误",
+  "errorNotFound": "内容不存在或已被删除",
+  "errorParse": "响应无法解析",
+  "errorStorage": "存储错误",
+  "errorUnknown": "未知错误",
+  "errorDetails": "详情",
+  "errorDetailsCopy": "复制",
+  "errorDetailsCopied": "已复制",
+  "errorWithReason": "{action}：{reason}",
+  "@errorWithReason": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "每日",
   "rankingDayR18": "每日(R-18)",
   "rankingDayMale": "每日(男性欢迎)",
@@ -873,14 +860,7 @@
       }
     }
   },
-  "illustDetailOpenLinkFailed": "无法打开链接：{error}",
-  "@illustDetailOpenLinkFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "illustDetailOpenLinkFailed": "无法打开链接",
   "illustDetailRestricted": "该作品已被删除或受限（ID: {id}）",
   "@illustDetailRestricted": {
     "placeholders": {

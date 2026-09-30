@@ -22,9 +22,11 @@ import '../../core/reverse_image/reverse_image_platform.dart';
 import '../../core/reverse_image/reverse_image_provider.dart';
 import '../../core/reverse_image/sauce_nao_provider.dart';
 import '../../core/reverse_image/webview_upload_provider.dart';
+import '../../core/errors/error_category.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
 import 'package:pixiv_func/core/network/http_client_providers.dart';
 import '../../l10n/context.dart';
 
@@ -774,8 +776,8 @@ class _ControlledSauceNaoWebViewState
             if (error.isForMainFrame == true && mounted) {
               setState(() {
                 _error =
-                    '${context.l10n.searchReversePageLoadFailed} '
-                    '(${error.errorType})';
+                    '${error.errorType} '
+                    '[${error.errorCode}]: ${error.description}';
               });
             }
           },
@@ -809,20 +811,9 @@ class _ControlledSauceNaoWebViewState
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 56),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(_error!, textAlign: TextAlign.center),
-            ),
-          ],
-        ),
-      );
+    final error = _error;
+    if (error != null) {
+      return _webViewErrorBody(context, error);
     }
     return Stack(
       children: [
@@ -903,20 +894,9 @@ class _ControlledSauceNaoInAppWebViewState
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 56),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(_error!, textAlign: TextAlign.center),
-            ),
-          ],
-        ),
-      );
+    final error = _error;
+    if (error != null) {
+      return _webViewErrorBody(context, error);
     }
     final result = widget.webView;
     return Stack(
@@ -958,9 +938,7 @@ class _ControlledSauceNaoInAppWebViewState
           onReceivedError: (controller, request, error) {
             if (request.isForMainFrame == false || !mounted) return;
             setState(() {
-              _error =
-                  '${context.l10n.searchReversePageLoadFailed} '
-                  '(${error.type})';
+              _error = '${error.type}: ${error.description}';
             });
           },
         ),
@@ -1008,20 +986,9 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 56),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(_error!, textAlign: TextAlign.center),
-            ),
-          ],
-        ),
-      );
+    final error = _error;
+    if (error != null) {
+      return _webViewErrorBody(context, error);
     }
     return Column(
       children: [
@@ -1067,9 +1034,7 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
                 onReceivedError: (controller, request, error) {
                   if (request.isForMainFrame == false || !mounted) return;
                   setState(() {
-                    _error =
-                        '${context.l10n.searchReversePageLoadFailed} '
-                        '(${error.type})';
+                    _error = '${error.type}: ${error.description}';
                   });
                 },
               ),
@@ -1081,6 +1046,41 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
       ],
     );
   }
+}
+
+/// The three embedded WebViews share one failure surface: a localized
+/// headline, the network category (a main-frame error is always a
+/// connectivity failure), and the engine-reported detail behind the
+/// disclosure.
+Widget _webViewErrorBody(BuildContext context, String error) {
+  return Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.error_outline, size: 56),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.l10n.searchReversePageLoadFailed,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                errorCategoryText(context, ErrorCategory.network),
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+              ErrorDetails(error: error),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 Map<ReverseImageEngine, ReverseImageProvider> _defaultProviders(

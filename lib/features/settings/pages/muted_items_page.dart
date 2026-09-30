@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation/routes.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
-import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../core/entity/illust_store.dart';
@@ -43,7 +43,13 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
   void _unmute(Future<void> Function() action) {
     unawaited(
       action().catchError((Object error) {
-        if (mounted) showAppSnackBar(context, '$error');
+        if (mounted) {
+          showErrorSnackBar(
+            context,
+            action: context.l10n.muteFailed,
+            error: error,
+          );
+        }
       }),
     );
   }
@@ -57,7 +63,13 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
       await store.toggleTag(tag);
       if (mounted) _controller.clear();
     } on Object catch (error) {
-      if (mounted) showAppSnackBar(context, '$error');
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          action: context.l10n.muteFailed,
+          error: error,
+        );
+      }
     }
   }
 

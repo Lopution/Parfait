@@ -10,7 +10,7 @@ import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
-import 'app_snack_bar.dart';
+import 'errors/error_details.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
 
@@ -58,7 +58,11 @@ class FollowSwitchButton extends ConsumerWidget {
       followStoreProvider.select((state) => state[userId]?.error),
       (previous, next) {
         if (next != null && previous != next) {
-          showAppSnackBar(context, '${_text(context, 'followFailed')}: $next');
+          showErrorSnackBar(
+            context,
+            action: _text(context, 'followFailed'),
+            error: next,
+          );
         }
       },
     );

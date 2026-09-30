@@ -4,8 +4,9 @@ import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/entity/illust_store.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/illust_card.dart';
-import '../../../core/network/api_error.dart';
+import '../../../core/errors/error_category.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/illust/related_illust_controller.dart';
 import '../../../l10n/context.dart';
@@ -46,16 +47,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: Text(_errorText(context, error))),
-                    const SizedBox(width: 12),
-                    TextButton(
-                      onPressed: controller.refresh,
-                      child: Text(context.l10n.retry),
-                    ),
-                  ],
-                ),
+                _errorRow(context, error, controller.refresh),
               ],
             ),
           ),
@@ -86,18 +78,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(_errorText(context, state.initialError)),
-                  ),
-                  const SizedBox(width: 12),
-                  TextButton(
-                    onPressed: controller.refresh,
-                    child: Text(context.l10n.retry),
-                  ),
-                ],
-              ),
+              _errorRow(context, state.initialError, controller.refresh),
             ],
           ),
         ),
@@ -146,16 +127,29 @@ class RelatedIllustsSlivers extends ConsumerWidget {
     );
   }
 
-  String _errorText(BuildContext context, Object? error) {
-    final message = error is ApiError ? error.message : null;
-    if (message != null && message.isNotEmpty) return message;
-    if (error == null) return context.l10n.relatedLoadFailed;
-    // Provider-level failures (parse/type errors) carry no ApiError
-    // message: surface the runtime type + short description so a device
-    // failure is diagnosable instead of a silent fallback.
-    final detail = error.toString().replaceAll('\n', ' ').trim();
-    final short = detail.length > 180 ? detail.substring(0, 180) : detail;
-    return '${error.runtimeType}: $short';
+  /// The one failure row shape this section uses: a localized category
+  /// line plus the raw text behind [ErrorDetails], with retry beside it.
+  /// A null error (defensive branch) still gets the localized headline.
+  Widget _errorRow(BuildContext context, Object? error, VoidCallback onRetry) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: error == null
+              ? Text(context.l10n.relatedLoadFailed)
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(errorCategoryText(context, categorizeError(error))),
+                    ErrorDetails(error: error),
+                  ],
+                ),
+        ),
+        const SizedBox(width: 12),
+        TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
+      ],
+    );
   }
 }
 

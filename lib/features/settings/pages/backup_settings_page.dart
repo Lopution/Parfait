@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/backup/backup_envelope.dart';
@@ -47,7 +48,11 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       showAppSnackBar(context, context.l10n.backupExported(result.fileName));
     } on Object catch (error) {
       if (mounted) {
-        showAppSnackBar(context, '${context.l10n.backupExportFailed}: $error');
+        showErrorSnackBar(
+          context,
+          action: context.l10n.backupExportFailed,
+          error: error,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -61,10 +66,9 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     try {
       envelope = BackupEnvelope.parse(bytes);
     } on BackupImportException catch (error) {
-      showAppSnackBar(
-        context,
-        '${context.l10n.backupImportInvalid}: ${error.publicMessage}',
-      );
+      // `publicMessage` is crafted user-facing copy, not raw error text.
+      final message = error.publicMessage;
+      showAppSnackBar(context, '${context.l10n.backupImportInvalid}: $message');
       return;
     }
     final strategy = await _pickStrategy(envelope);
@@ -87,7 +91,11 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       }
     } on Object catch (error) {
       if (mounted) {
-        showAppSnackBar(context, '${context.l10n.backupImportFailed}: $error');
+        showErrorSnackBar(
+          context,
+          action: context.l10n.backupImportFailed,
+          error: error,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);

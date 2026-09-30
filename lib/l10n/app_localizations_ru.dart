@@ -95,14 +95,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get loginRestart => 'Войти снова';
 
   @override
-  String loginFailed(String error) {
-    return 'Не удалось войти: $error';
-  }
-
-  @override
-  String loginFailedType(String type) {
-    return 'Не удалось войти ($type)';
-  }
+  String get loginFailed => 'Не удалось войти';
 
   @override
   String get networkCompatibility => 'Совместимость с официальной сетью Pixiv';
@@ -605,6 +598,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileEditImageChoose => 'Выберите поддерживаемое изображение';
 
   @override
+  String get profileEditImageFailed => 'Не удалось обработать изображение';
+
+  @override
   String get profileEditChooseImage => 'Выбрать изображение';
 
   @override
@@ -883,9 +879,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get unmuteTag => 'Снять заглушение';
 
   @override
-  String muteFailed(Object error) {
-    return 'Ошибка заглушения: $error';
-  }
+  String get muteFailed => 'Ошибка заглушения';
 
   @override
   String get reduceMotion => 'Меньше анимаций';
@@ -1108,6 +1102,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadRemoveRecord => 'Убрать из списка';
 
   @override
+  String get downloadFailurePermission =>
+      'Нет разрешения на доступ к хранилищу';
+
+  @override
+  String get downloadFailureResource =>
+      'Недостаточно ресурсов устройства или файл слишком большой';
+
+  @override
+  String get downloadFailureOwnership =>
+      'Целевой файл принадлежит другому приложению';
+
+  @override
   String downloadBatchCancelConfirm(int count) {
     return 'Отменить выбранные загрузки ($count)? Незавершённый прогресс будет потерян.';
   }
@@ -1165,9 +1171,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadAuthorEmpty => 'У этого автора нет работ для скачивания.';
 
   @override
-  String downloadAuthorFailed(String error) {
-    return 'Не удалось перечислить работы: $error';
-  }
+  String get downloadAuthorFailed => 'Не удалось перечислить работы';
 
   @override
   String get downloadCaption => 'Экспортировать описание работы';
@@ -1315,9 +1319,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadQueuedMessage => 'Добавлено в очередь загрузки';
 
   @override
-  String downloadSubmissionFailed(String error) {
-    return 'Не удалось скачать: $error';
-  }
+  String get downloadSubmissionFailed => 'Не удалось скачать';
 
   @override
   String get ugoiraSaveGif => 'Сохранить GIF';
@@ -1350,9 +1352,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String ugoiraLoadFailed(String error) {
-    return 'Не удалось загрузить анимацию: $error';
-  }
+  String get ugoiraLoadFailed => 'Не удалось загрузить анимацию';
 
   @override
   String get homeRecommended => 'Рекомендации';
@@ -1373,9 +1373,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bookmarkNovel => 'Добавить новеллу в закладки';
 
   @override
-  String bookmarkOperationFailed(String error) {
-    return 'Не удалось изменить закладки: $error';
-  }
+  String get bookmarkOperationFailed => 'Не удалось изменить закладки';
 
   @override
   String get save => 'Сохранить';
@@ -1400,6 +1398,47 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get continueAction => 'Продолжить';
+
+  @override
+  String get errorNetwork => 'Сбой сетевого подключения';
+
+  @override
+  String get errorTimeout => 'Время ожидания соединения истекло';
+
+  @override
+  String get errorRateLimited => 'Слишком много запросов, попробуйте позже';
+
+  @override
+  String get errorUnauthorized => 'Требуется повторный вход';
+
+  @override
+  String get errorServer => 'Ошибка сервера';
+
+  @override
+  String get errorNotFound => 'Контент не найден или удалён';
+
+  @override
+  String get errorParse => 'Не удалось разобрать ответ';
+
+  @override
+  String get errorStorage => 'Ошибка хранилища';
+
+  @override
+  String get errorUnknown => 'Неизвестная ошибка';
+
+  @override
+  String get errorDetails => 'Подробности';
+
+  @override
+  String get errorDetailsCopy => 'Копировать';
+
+  @override
+  String get errorDetailsCopied => 'Скопировано';
+
+  @override
+  String errorWithReason(String action, String reason) {
+    return '$action: $reason';
+  }
 
   @override
   String get rankingDay => 'Ежедневно';
@@ -1811,9 +1850,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String illustDetailOpenLinkFailed(String error) {
-    return 'Не удалось открыть ссылку: $error';
-  }
+  String get illustDetailOpenLinkFailed => 'Не удалось открыть ссылку';
 
   @override
   String illustDetailRestricted(int id) {
