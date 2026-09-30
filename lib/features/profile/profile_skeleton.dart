@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/theme/func_semantic_tokens.dart';
@@ -21,10 +23,36 @@ import 'profile_statistics.dart';
 class ProfileSkeleton extends StatelessWidget {
   const ProfileSkeleton({super.key});
 
-  /// Statistic cells per row on a phone: six stats as 3×2, the grid's
-  /// usual choice at that width.
-  static const _statColumns = 3;
-  static const _statRows = 2;
+  /// The real `ProfileStatisticsGrid` picks the first count from
+  /// `columnChoices` whose widest cell still fits. The skeleton mirrors
+  /// that rule so the stat rows — and therefore the tab slot below them —
+  /// land at the same offset when the real header arrives.
+  ///
+  /// Estimation rule: the widest cell is the widest localized stat label
+  /// (the values are not known yet; they are assumed no wider than their
+  /// label) plus the cell's horizontal padding.
+  static int _statColumnCount(BuildContext context, List<String> labels) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final labelStyle = Theme.of(context).textTheme.labelMedium;
+    var widest = 0.0;
+    for (final label in labels) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: labelStyle),
+        textDirection: Directionality.of(context),
+        textScaler: textScaler,
+      )..layout();
+      widest = math.max(widest, painter.width);
+      painter.dispose();
+    }
+    widest += FuncSpacing.xs * 2;
+    final available = MediaQuery.sizeOf(context).width - FuncSpacing.lg * 2;
+    for (final columns in ProfileStatisticsGrid.columnChoices) {
+      final cellWidth =
+          (available - ProfileStatisticsGrid.gap * (columns - 1)) / columns;
+      if (widest <= cellWidth) return columns;
+    }
+    return 1;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +65,16 @@ class ProfileSkeleton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final canPop = Navigator.maybeOf(context)?.canPop() ?? false;
+    final l10n = context.l10n;
+    final statColumns = _statColumnCount(context, [
+      l10n.profileFollowing,
+      l10n.profileMyPixiv,
+      l10n.profileIllust,
+      l10n.profileManga,
+      l10n.profileNovel,
+      l10n.profileSeries,
+    ]);
+    final statRows = 6 ~/ statColumns;
 
     return Stack(
       children: [
@@ -75,7 +113,9 @@ class ProfileSkeleton extends StatelessWidget {
                               key: const ValueKey('profile-skeleton-name'),
                               widthFactor: 0.45,
                               child: SkeletonBone.text(
-                                style: textTheme.titleLarge,
+                                style: textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -86,14 +126,16 @@ class ProfileSkeleton extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: FuncSpacing.md),
-                            for (var row = 0; row < _statRows; row++) ...[
+                            for (var row = 0; row < statRows; row++) ...[
                               if (row > 0)
                                 const SizedBox(
                                   height: ProfileStatisticsGrid.gap,
                                 ),
                               _StatBoneRow(
-                                columns: _statColumns,
-                                valueStyle: textTheme.titleMedium,
+                                columns: statColumns,
+                                valueStyle: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                                 labelStyle: textTheme.labelMedium,
                               ),
                             ],
@@ -103,7 +145,10 @@ class ProfileSkeleton extends StatelessWidget {
                       ),
                       // The tab strip's slot: the band stays empty — fake tab
                       // captions would read as content, not placeholder.
-                      const SizedBox(height: kToolbarHeight),
+                      const SizedBox(
+                        key: ValueKey('profile-skeleton-tabs'),
+                        height: kToolbarHeight,
+                      ),
                       // Unbounded here, so the grid paints three cards per
                       // column; the viewport clips whatever does not fit.
                       IllustGridSkeleton(
@@ -159,7 +204,6 @@ class _StatBoneRow extends StatelessWidget {
               child: Column(
                 children: [
                   SkeletonBone.text(width: 32, style: valueStyle),
-                  const SizedBox(height: FuncSpacing.xxs),
                   SkeletonBone.text(width: 48, style: labelStyle),
                 ],
               ),
