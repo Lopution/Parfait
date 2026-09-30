@@ -24,6 +24,13 @@
   Each split contains exactly one `lib/<abi>/` directory.
 - Split `versionCode`s carry Flutter's ABI offsets: `armeabi-v7a = 1000 + n`,
   `arm64-v8a = 2000 + n`. Never pass `-Pforce-version-code-ignoring-abi`.
+- **Measurement packages.** `--dart-define=PIXIV_FRAME_PROBE=true` on the
+  arm64 github release command shows the frame probe's settings entry in a
+  signed release build (`kPixivFrameProbe`), so it installs over the user's
+  copy without losing the login. Published releases never pass it. For a
+  before/after pair, build the "before" side from a **detached** worktree
+  (`git worktree add --detach <dir> main`) — a plain `main` checkout makes
+  the cherry-pick land on the local `main` branch.
 
 ## Signing (task 09-01-release-blockers)
 
