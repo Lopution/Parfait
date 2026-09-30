@@ -324,13 +324,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 11,
-                          color:
-                              (palette.foreground ??
-                                      Theme.of(context).colorScheme.onSurface)
-                                  .withValues(alpha: 0.45),
-                        ),
+                        style: _hintStyle(context, palette),
                       ),
                     ),
                   ),
@@ -376,6 +370,32 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     return KeyEventResult.handled;
   }
 
+  /// The hint's text style, shared by the rendered `Text` and the
+  /// [TextPainter] that sizes the reserved band — the two must never
+  /// diverge or the reserve stops matching the painted glyph height.
+  TextStyle? _hintStyle(BuildContext context, NovelReaderPalette palette) =>
+      Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: 11,
+        color: (palette.foreground ?? Theme.of(context).colorScheme.onSurface)
+            .withValues(alpha: 0.45),
+      );
+
+  /// Bottom padding that keeps the last body line clear of the progress
+  /// hint. The hint hangs `4dp` above the (stable) bottom inset, so the
+  /// body must yield the inset itself plus whatever part of the hint band
+  /// is not already covered by the layout's bottom whitespace.
+  double _hintReserve(BuildContext context, NovelReaderPalette palette) {
+    final painter = TextPainter(
+      text: TextSpan(text: '0', style: _hintStyle(context, palette)),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+      maxLines: 1,
+    )..layout();
+    final hintBand = 4 + painter.height;
+    return _stableInsets.bottom +
+        math.max(0, hintBand - const NovelLayoutStyle().verticalPadding);
+  }
+
   Widget _buildStage(BuildContext context, NovelReaderPalette palette) {
     final loadError = _loadError;
     if (loadError != null) {
@@ -396,7 +416,9 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       return const FeedLoading();
     }
     final content = Padding(
-      padding: _stableInsets.copyWith(bottom: 0),
+      // The reserve depends only on the stable insets and the text scaler,
+      // so chrome show/hide never repaginates (C6 R3 contract).
+      padding: _stableInsets.copyWith(bottom: _hintReserve(context, palette)),
       child: NovelReader(
         novel: novel,
         settings: _settings,
