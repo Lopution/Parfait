@@ -53,33 +53,6 @@ class _HomeShellBarVisibleNotifier extends Notifier<bool> {
   void setVisible(bool visible) => state = visible;
 }
 
-// TODO(T19): remove — superseded by HomeShellChrome's computed extent.
-@immutable
-class HomeShellMetrics {
-  const HomeShellMetrics({this.bottomNavTop, this.bottomNavHeight});
-
-  final double? bottomNavTop;
-  final double? bottomNavHeight;
-}
-
-// TODO(T19): remove — see above.
-final homeShellMetricsProvider =
-    NotifierProvider<_HomeShellMetricsNotifier, HomeShellMetrics>(
-      _HomeShellMetricsNotifier.new,
-    );
-
-class _HomeShellMetricsNotifier extends Notifier<HomeShellMetrics> {
-  @override
-  HomeShellMetrics build() => const HomeShellMetrics();
-
-  void publish(double? bottomNavTop, double? bottomNavHeight) {
-    state = HomeShellMetrics(
-      bottomNavTop: bottomNavTop,
-      bottomNavHeight: bottomNavHeight,
-    );
-  }
-}
-
 /// Branches whose root route is currently covered by a pushed route inside
 /// the branch Navigator. The shell-level bottom bar subscribes to this and
 /// slides away while the current branch is covered — the same layering

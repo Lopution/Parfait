@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 
 import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
-import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../core/platform/platform_caps.dart';
@@ -24,7 +23,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with WidgetsBindingObserver, RouteAware {
   late final RootBackCoordinator _backCoordinator;
-  bool _chromeClearScheduled = false;
   RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
   bool _routeSubscribed = false;
 
@@ -65,23 +63,6 @@ class _HomePageState extends State<HomePage>
     WidgetsBinding.instance.removeObserver(this);
     _backCoordinator.dispose();
     super.dispose();
-  }
-
-  /// Wide layouts use a NavigationRail and have no bottom bar — report an
-  /// empty measurement so Hero flights clip against the viewport edge
-  /// instead of a phantom bar. In narrow layouts the shell-level
-  /// [FuncShellBottomNav] publishes its own measured geometry.
-  void _scheduleChromeClear() {
-    if (_chromeClearScheduled) return;
-    _chromeClearScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((timestamp) {
-      _chromeClearScheduled = false;
-      if (mounted) {
-        ProviderScope.containerOf(
-          context,
-        ).read(homeShellMetricsProvider.notifier).publish(null, 0);
-      }
-    });
   }
 
   void _handleRootBack(bool didPop) {
@@ -125,17 +106,12 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    final wide = AppBreakpoints.useNavigationRail(
-      MediaQuery.sizeOf(context).width,
-    );
     // The navigation chrome — bottom bar or NavigationRail, whichever the
     // width ladder selects — is owned by the shell's BranchSlideStack so
     // both controls share one action entry (BranchSlidePager.selectIndex).
     // Narrow layout: the bar floats over the branch strip and a pushed
-    // route slides it away via the covered provider.
-    // Wide layout: no bar at all; clear the metric so Hero flights do not
-    // clip against a phantom edge.
-    if (wide) _scheduleChromeClear();
+    // route slides it away via the covered provider. Wide layout: no bar
+    // at all — HomeShellChrome publishes a zero extent.
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
