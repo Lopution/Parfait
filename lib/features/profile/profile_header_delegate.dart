@@ -809,6 +809,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
             'profileAbout',
           ];
     return Material(
+      key: const ValueKey('profile-tabs'),
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SizedBox(
         height: kToolbarHeight,

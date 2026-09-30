@@ -68,6 +68,7 @@ Future<void> _pumpCard(
   ProviderContainer container,
   IllustCard card, {
   ThemeData? theme,
+  double textScale = 1,
 }) async {
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
@@ -78,6 +79,12 @@ Future<void> _pumpCard(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: const [Locale('zh')],
           locale: const Locale('zh'),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           home: Scaffold(
             body: SingleChildScrollView(
               child: SizedBox(width: 300, child: card),
@@ -137,8 +144,10 @@ void main() {
       );
     }
     expect(find.text('R-18'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget); // page count
-    expect(find.text('AI'), findsOneWidget);
+    expect(
+      find.text('3'),
+      findsOneWidget,
+    ); // page count    expect(find.text('AI'), findsOneWidget);
   });
 
   testWidgets('rank badge stacks above R-18 in the top-left cluster', (
@@ -232,5 +241,23 @@ void main() {
     // 300-wide column, 800×1200 work → 450-tall preview, never cropped.
     final size = tester.getSize(find.byType(PixivImage).first);
     expect(size.height, 450);
+  });
+
+  testWidgets('title and author rows fit the column at 1.3x text', (
+    tester,
+  ) async {
+    final container = await _makeWorld();
+    addTearDown(container.dispose);
+    // The waterfall column is ~180 wide on a phone; with a long CJK title
+    // and author at 1.3x the rows must ellipsize, not overflow.
+    await _pumpCard(
+      tester,
+      container,
+      IllustCard(entity: parseIllust(illustJson(5))),
+      textScale: 1.3,
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.text('illust 5'), findsOneWidget);
+    expect(find.text('author'), findsOneWidget);
   });
 }

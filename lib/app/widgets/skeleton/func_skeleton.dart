@@ -137,8 +137,17 @@ class SkeletonBone extends StatelessWidget {
         height ??
         () {
           final effectiveStyle = style ?? DefaultTextStyle.of(context).style;
-          final fontSize = effectiveStyle.fontSize ?? 14;
-          return fontSize * (effectiveStyle.height ?? 1.2);
+          // Track the real text box: measure one line in the same style
+          // and scaler so the bone keeps the font's true metrics, not an
+          // assumed 1.2 line-height factor.
+          final painter = TextPainter(
+            text: TextSpan(text: ' ', style: effectiveStyle),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout();
+          final measured = painter.height;
+          painter.dispose();
+          return measured;
         }();
     return Container(
       width: width,
