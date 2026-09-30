@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -64,6 +65,7 @@ import '../../l10n/context.dart';
 import '../motion/hero_transition.dart';
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
+import 'func_page.dart';
 import '../pixiv_image.dart';
 import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
@@ -166,28 +168,29 @@ Page<dynamic> _page(
   RouteObserver<ModalRoute<dynamic>> observer,
   Widget child,
 ) {
-  // Reduced-motion collapses the slide without dropping the state it
-  // communicates: the route still changes on the same frame.
-  final duration = MotionTokens.resolve(context, MotionTokens.pageTransition);
-  return CustomTransitionPage<dynamic>(
+  // Reduced-motion collapses the transition without dropping the state it
+  // communicates: the route still changes on the same frame. Android takes
+  // the system predictive-back duration (FadeForwards' 800ms); other
+  // platforms keep the app slide.
+  final duration = MotionTokens.resolve(
+    context,
+    defaultTargetPlatform == TargetPlatform.android
+        ? const PredictiveBackPageTransitionsBuilder().transitionDuration
+        : MotionTokens.pageTransition,
+  );
+  return FuncPage<dynamic>(
     key: state.pageKey,
     restorationId: RestorationScope.maybeOf(context) == null
         ? null
         : state.pageKey.value,
-    // The detail route slides at the same time as the Hero overlay. Keeping
-    // its static subtree in one repaint layer prevents the route animation
-    // from repainting every image card on each tick; Hero still extracts its
-    // own child into the navigator overlay and keeps the custom flight clip.
+    // The detail route animates at the same time as the Hero overlay.
+    // Keeping its static subtree in one repaint layer prevents the route
+    // animation from repainting every image card on each tick; Hero still
+    // extracts its own child into the navigator overlay and keeps the
+    // custom flight clip.
     child: _scoped(observer, child),
     transitionDuration: duration,
     reverseTransitionDuration: duration,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return FuncRouteTransition(
-        animation: animation,
-        secondaryAnimation: secondaryAnimation,
-        child: child,
-      );
-    },
   );
 }
 
