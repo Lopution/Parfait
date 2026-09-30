@@ -6,14 +6,7 @@ import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
 import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/replica_switch_tile.dart';
-
-double _contrast(Color a, Color b) {
-  final la = a.computeLuminance();
-  final lb = b.computeLuminance();
-  final hi = la > lb ? la : lb;
-  final lo = la > lb ? lb : la;
-  return (hi + 0.05) / (lo + 0.05);
-}
+import 'support/contrast.dart';
 
 List<Color> _surfaces(ColorScheme scheme) => [
   scheme.surface,
@@ -92,11 +85,11 @@ void main() {
       final scheme = replicaTheme(brightness).colorScheme;
       for (final background in _surfaces(scheme)) {
         expect(
-          _contrast(scheme.onSurface, background),
+          contrastRatio(scheme.onSurface, background),
           greaterThanOrEqualTo(4.5),
         );
         expect(
-          _contrast(scheme.onSurfaceVariant, background),
+          contrastRatio(scheme.onSurfaceVariant, background),
           greaterThanOrEqualTo(4.5),
         );
       }
@@ -112,11 +105,11 @@ void main() {
       expect(background, isNot(theme.colorScheme.surfaceContainer));
       expect(background, theme.colorScheme.inverseSurface);
       expect(
-        _contrast(snackBar.contentTextStyle!.color!, background),
+        contrastRatio(snackBar.contentTextStyle!.color!, background),
         greaterThanOrEqualTo(4.5),
       );
       expect(
-        _contrast(snackBar.actionTextColor!, background),
+        contrastRatio(snackBar.actionTextColor!, background),
         greaterThanOrEqualTo(4.5),
       );
     }

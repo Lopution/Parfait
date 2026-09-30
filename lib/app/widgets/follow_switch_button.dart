@@ -63,52 +63,70 @@ class FollowSwitchButton extends ConsumerWidget {
       },
     );
 
-    final width = compact ? 96.0 : 116.0;
-    return SizedBox(
-      width: width,
-      height: compact ? 36 : 42,
-      child: pending
-          ? Semantics(
-              container: true,
-              button: true,
-              enabled: false,
-              label: semanticLabel,
-              liveRegion: true,
-              child: const Center(child: CupertinoActivityIndicator()),
-            )
-          : Semantics(
-              container: true,
-              button: true,
-              toggled: followed,
-              label: semanticLabel,
-              onTap: () => ref.read(followActionsProvider).toggle(userId),
+    // Minimum size, not fixed: a long translation (e.g. ru at a large text
+    // scale) widens the button instead of truncating the label. Slots that
+    // still cannot fit the grown button bound it (e.g. a ListTile trailing
+    // capped at half the row); only then does the label scale down to fit.
+    final minSize = compact ? const Size(96, 36) : const Size(116, 42);
+    if (pending) {
+      // The spinner stays at the minimum size instead of tracking the
+      // label's width, so entering the pending state never wobbles.
+      return SizedBox.fromSize(
+        size: minSize,
+        child: Semantics(
+          container: true,
+          button: true,
+          enabled: false,
+          label: semanticLabel,
+          liveRegion: true,
+          child: const Center(child: CupertinoActivityIndicator()),
+        ),
+      );
+    }
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: minSize.width,
+        minHeight: minSize.height,
+      ),
+      child: IntrinsicWidth(
+        child: Semantics(
+          container: true,
+          button: true,
+          toggled: followed,
+          label: semanticLabel,
+          onTap: () => ref.read(followActionsProvider).toggle(userId),
+          onLongPress: followed ? null : () => _showRestrictSheet(context, ref),
+          child: ExcludeSemantics(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: followed ? colors.onSurface : colors.onPrimary,
+                backgroundColor: followed ? colors.surface : colors.primary,
+                side: BorderSide(
+                  color: followed ? colors.onSurface : colors.primary,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
+                minimumSize: minSize,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => ref.read(followActionsProvider).toggle(userId),
               onLongPress: followed
                   ? null
                   : () => _showRestrictSheet(context, ref),
-              child: ExcludeSemantics(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: followed
-                        ? colors.onSurface
-                        : colors.onPrimary,
-                    backgroundColor: followed ? colors.surface : colors.primary,
-                    side: BorderSide(
-                      color: followed ? colors.onSurface : colors.primary,
-                    ),
-                    padding: EdgeInsets.zero,
-                  ),
-                  onPressed: () =>
-                      ref.read(followActionsProvider).toggle(userId),
-                  onLongPress: followed
-                      ? null
-                      : () => _showRestrictSheet(context, ref),
-                  child: Text(
-                    semanticLabel,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
+              // The label never truncates or wraps: it paints at full size
+              // while the slot offers room and scales down past it.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  semanticLabel,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 }

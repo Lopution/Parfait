@@ -976,6 +976,19 @@ records persisted before they existed decode them as `null` and must still
 recover — the row then falls back to the placeholder and the bare file
 name.
 
+The snapshot also freezes the resolved `displayName` at submission time and
+persists it in the recovery record, so a restored job writes the file name
+the user submitted even when the naming rule or entity fields (title,
+artist, series data) would resolve differently today. Stored names are
+re-validated on decode (`validateDisplayName`); a record written before the
+field existed carries no key and falls back to recomputing the name from
+the restored request, while an invalid stored value fails decoding as
+`DownloadRecoveryDataException` like any other corrupt field (the load
+fails and `recover()` reports it as the recovery error). `retry` resubmits
+with the job's frozen name instead of recomputing it: the restored request
+does not carry every template input (`{author_id}`, `{w}`, `{h}`, series
+fields), so a recomputed name would come out with empty segments.
+
 Ugoira export follows the same owner fence, bounded frame/pixel/output
 budgets, cancellation checks and one pending output. It emits `finalizing`
 before the sink finalize call and publishes success only after finalize

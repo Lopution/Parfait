@@ -815,4 +815,159 @@ void main() {
     expect(changes, greaterThan(0));
     await changesSubscription.cancel();
   });
+
+  test('a custom-template file name survives recovery unchanged', () {
+    // `{author_id}`/`{w}`/`{h}` come from submission-time metadata that the
+    // record never persists; the frozen serialized name must be used.
+    final request = DownloadRequest(
+      illustId: 123,
+      pageIndex: 0,
+      url: Uri.parse('https://i.pximg.net/img-original/img/123_p0.jpg'),
+      target: DownloadTarget.illustPage,
+      namingRule: const NamingRule(
+        preset: NamingPreset.custom,
+        template: '{author_id}_{w}x{h}_{id}_p{page}',
+      ),
+      authorId: 42,
+      width: 100,
+      height: 200,
+    );
+    final snapshot = DownloadSubmissionSnapshot(
+      snapshotId: 'submission-name',
+      jobId: 'job-name',
+      groupId: null,
+      request: request,
+      accountId: 'account-a',
+      submittedAt: DateTime.utc(2026, 9, 1),
+    );
+    final record = DownloadRecoveryRecord(
+      jobId: snapshot.jobId,
+      dedupeKey: request.dedupeKey,
+      snapshot: snapshot,
+      owner: DownloadOutputOwner(
+        ownerId: 'output-name',
+        jobId: snapshot.jobId,
+        accountId: snapshot.accountId,
+      ),
+      status: DownloadStatus.queued,
+    );
+
+    final restored = DownloadRecoveryRecord.fromJson(
+      (jsonDecode(jsonEncode(record.toJson())) as Map).cast<String, dynamic>(),
+    );
+
+    expect(restored.snapshot.displayName, '42_100x200_123_p0');
+  });
+
+  test('a stored name with traversal segments is rejected', () {
+    final record = _recoveryRecord(0, status: DownloadStatus.queued);
+    final json = (jsonDecode(jsonEncode(record.toJson())) as Map)
+        .cast<String, dynamic>();
+    (json['snapshot'] as Map<String, dynamic>)['displayName'] = '../evil.jpg';
+
+    expect(
+      () => DownloadRecoveryRecord.fromJson(json),
+      throwsA(
+        isA<DownloadRecoveryDataException>().having(
+          (error) => error.message,
+          'message',
+          'snapshot displayName invalid',
+        ),
+      ),
+    );
+  });
+
+  test('a record without a stored name falls back to the request', () {
+    final record = _recoveryRecord(0, status: DownloadStatus.queued);
+    final json = (jsonDecode(jsonEncode(record.toJson())) as Map)
+        .cast<String, dynamic>();
+    (json['snapshot'] as Map<String, dynamic>).remove('displayName');
+
+    final restored = DownloadRecoveryRecord.fromJson(json);
+
+    expect(restored.snapshot.displayName, record.snapshot.request.displayName);
+  });
+
+  test('retrying a recovered task writes the stored name', () async {
+    // The recovered request lacks `{author_id}`/`{w}`/`{h}`, so a retry that
+    // recomputed the name would hand the sink `_x_123_p0`.
+    final request = DownloadRequest(
+      illustId: 123,
+      pageIndex: 0,
+      url: Uri.parse('https://i.pximg.net/img-original/img/123_p0.jpg'),
+      target: DownloadTarget.illustPage,
+      namingRule: const NamingRule(
+        preset: NamingPreset.custom,
+        template: '{author_id}_{w}x{h}_{id}_p{page}',
+      ),
+      authorId: 42,
+      width: 100,
+      height: 200,
+    );
+    final snapshot = DownloadSubmissionSnapshot(
+      snapshotId: 'submission-retry',
+      jobId: 'job-retry',
+      groupId: null,
+      request: request,
+      accountId: 'account-a',
+      submittedAt: DateTime.utc(2026, 9, 1),
+    );
+    final record = DownloadRecoveryRecord(
+      jobId: snapshot.jobId,
+      dedupeKey: request.dedupeKey,
+      snapshot: snapshot,
+      owner: DownloadOutputOwner(
+        ownerId: 'output-retry',
+        jobId: snapshot.jobId,
+        accountId: snapshot.accountId,
+      ),
+      status: DownloadStatus.running,
+    );
+    final store = MemoryDownloadRecoveryStore();
+    await store.upsert(
+      DownloadRecoveryRecord.fromJson(
+        (jsonDecode(jsonEncode(record.toJson())) as Map)
+            .cast<String, dynamic>(),
+      ),
+    );
+    final sinkFactory = _NameRecordingSinkFactory();
+    final manager = DownloadManager(
+      transport: _Transport(
+        _Response(
+          body: const [
+            [1],
+          ],
+        ),
+      ),
+      sinkFactory: sinkFactory,
+      submissionContext: () => _context(),
+      recoveryStore: store,
+    );
+    addTearDown(manager.dispose);
+
+    await manager.recover();
+    expect(manager.taskById('job-retry')!.displayName, '42_100x200_123_p0');
+
+    final retried = manager.retry('job-retry')!;
+    await _pumpUntil(
+      () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
+    );
+
+    expect(retried.displayName, '42_100x200_123_p0');
+    expect(sinkFactory.names, ['42_100x200_123_p0']);
+  });
+}
+
+class _NameRecordingSinkFactory extends MemorySinkFactory {
+  final names = <String>[];
+
+  @override
+  Future<DownloadSink> begin(
+    DownloadRequest request,
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) {
+    names.add(displayName);
+    return super.begin(request, displayName, destination: destination);
+  }
 }
