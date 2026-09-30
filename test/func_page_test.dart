@@ -14,9 +14,16 @@ import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/app/motion/page_transitions.dart';
 import 'package:pixiv_func/app/navigation/func_page.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
+import 'package:pixiv_func/app/widgets/branch_slide_stack.dart';
 import 'package:pixiv_func/core/auth/account.dart';
 import 'package:pixiv_func/core/auth/credential.dart';
+import 'package:pixiv_func/core/profile/profile_edit_controller.dart';
+import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/profile/profile_edit_models.dart';
+import 'package:pixiv_func/core/user/user_entity.dart';
 import 'package:pixiv_func/features/history/history_page.dart';
+import 'package:pixiv_func/features/profile/profile_edit_page.dart';
+import 'package:pixiv_func/features/profile/user_page.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 
@@ -309,4 +316,235 @@ void main() {
       findsNothing,
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('only the visible branch answers the back gesture', (
+    tester,
+  ) async {
+    final router = await _pumpHome(tester);
+    unawaited(router.push('/recommended/history'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(HistoryPage), findsOneWidget);
+    final branch0Route = _routeOf(tester, find.byType(HistoryPage));
+
+    router.go('/ranking');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byType(HistoryPage), findsNothing);
+
+    unawaited(router.push('/ranking/history'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    final branch1Route = _routeOf(tester, find.byType(HistoryPage));
+    // The covered branch's identical page is still mounted offstage —
+    // a visible marker that it did NOT take the gesture below.
+    expect(find.byType(HistoryPage, skipOffstage: false), findsNWidgets(2));
+
+    await _sendBackGestureMethod('startBackGesture', {
+      'touchOffset': <double>[5.0, 300.0],
+      'progress': 0.0,
+      'swipeEdge': 0,
+    });
+    await tester.pump();
+    await _sendBackGestureMethod('updateBackGestureProgress', {
+      'touchOffset': <double>[100.0, 300.0],
+      'progress': 0.35,
+      'swipeEdge': 0,
+    });
+    await tester.pump();
+    expect(branch1Route.animation!.value, moreOrLessEquals(0.65));
+    expect(branch0Route.animation!.value, 1.0);
+
+    await _sendBackGestureMethod('commitBackGesture');
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    // The visible branch popped its pushed route; the parked branch's
+    // identical page survives offstage.
+    expect(find.byType(HistoryPage), findsNothing);
+    expect(find.byType(HistoryPage, skipOffstage: false), findsOneWidget);
+
+    // goBranch keeps the branch stack — go() would re-match the root
+    // and drop the pushed page.
+    tester
+        .widget<BranchSlideStack>(find.byType(BranchSlideStack))
+        .shell
+        .goBranch(0);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byType(HistoryPage), findsOneWidget);
+    expect(branch0Route.isActive, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('a root-level page owns the gesture over the whole shell', (
+    tester,
+  ) async {
+    final router = await _pumpHome(tester, location: '/ranking');
+    unawaited(router.push('/ranking/history'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    final historyRoute = _routeOf(tester, find.byType(HistoryPage));
+
+    unawaited(router.push('/me'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(MePage), findsOneWidget);
+    final meRoute = _routeOf(tester, find.byType(MePage));
+
+    await _sendBackGestureMethod('startBackGesture', {
+      'touchOffset': <double>[5.0, 300.0],
+      'progress': 0.0,
+      'swipeEdge': 0,
+    });
+    await tester.pump();
+    await _sendBackGestureMethod('updateBackGestureProgress', {
+      'touchOffset': <double>[100.0, 300.0],
+      'progress': 0.35,
+      'swipeEdge': 0,
+    });
+    await tester.pump();
+    expect(meRoute.animation!.value, moreOrLessEquals(0.65));
+    expect(historyRoute.animation!.value, 1.0);
+
+    await _sendBackGestureMethod('commitBackGesture');
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(MePage), findsNothing);
+    expect(find.byType(HistoryPage), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets(
+    'a dirty profile editor ignores the gesture but confirms on back',
+    (tester) async {
+      installMemoryPreferences();
+      const owner = ProfileEditOwner(accountId: 'account-a');
+      const user = UserEntity(
+        id: 42,
+        name: 'old name',
+        account: 'old-account',
+        comment: 'old bio',
+        webpage: 'https://example.com',
+        profileImageUrl: 'https://i.pximg.net/avatar.png',
+        backgroundImageUrl: 'https://i.pximg.net/background.png',
+        hasDetail: true,
+      );
+      final session = ProfileEditSession(
+        repository: _StubProfileEditRepository(user),
+        owner: owner,
+        readOwner: () => owner,
+        initialUser: user,
+        onConfirmed: (_) async {},
+      );
+      final container = ProviderContainer(
+        overrides: [
+          profileEditControllerProvider.overrideWith2(
+            (arguments) => ProfileEditController(arguments),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container
+          .read(profileEditControllerProvider(session).notifier)
+          .load();
+
+      late BuildContext rootContext;
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en', 'US'),
+            home: Builder(
+              builder: (context) {
+                rootContext = context;
+                return Scaffold(
+                  body: TextButton(
+                    onPressed: () => Navigator.of(context).push<void>(
+                      FuncPage<void>(
+                            child: ProfileEditPage(
+                              userId: 42,
+                              session: session,
+                            ),
+                          ).createRoute(rootContext)
+                          as PageRoute<void>,
+                    ),
+                    child: const Text('open'),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      // Fixed pumps — the avatar's image placeholder keeps a shimmer
+      // ticking, so pumpAndSettle never returns.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(ProfileEditPage), findsOneWidget);
+      final editRoute = _routeOf(tester, find.byType(ProfileEditPage));
+
+      // The editor builds material_ui's TextFormField — a different class
+      // from flutter/material's — so match by name.
+      final fields = find.byWidgetPredicate(
+        (widget) => widget.runtimeType.toString() == 'TextFormField',
+      );
+      await tester.enterText(fields.first, 'changed');
+      await tester.pump();
+
+      // PopScope(canPop: false) marks the route doNotPop, so the gesture
+      // never starts: no predictive-back transition, no animation.
+      await _sendBackGestureMethod('startBackGesture', {
+        'touchOffset': <double>[5.0, 300.0],
+        'progress': 0.0,
+        'swipeEdge': 0,
+      });
+      await tester.pump();
+      expect(_sharedElementTransition(), findsNothing);
+      expect(editRoute.animation!.value, 1.0);
+      expect(find.byType(ProfileEditPage), findsOneWidget);
+
+      // The system back button still routes through PopScope and shows
+      // the discard confirmation.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Discard unsaved changes?'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+}
+
+/// Minimal repository — the editor only needs capabilities plus the saved
+/// draft to reach its editable state.
+class _StubProfileEditRepository implements ProfileEditRepository {
+  _StubProfileEditRepository(this.user);
+
+  final UserEntity user;
+
+  @override
+  Future<ProfileCapabilities> loadCapabilities({
+    required String accountId,
+    required int userId,
+    CancelToken? cancelToken,
+  }) async => ProfileCapabilities(
+    editableFields: {
+      ProfileField.displayName,
+      ProfileField.comment,
+      ProfileField.webpage,
+    },
+    channel: ProfileEditChannel.appApi,
+  );
+
+  @override
+  Future<UserEntity> loadDraft({
+    required String accountId,
+    required int userId,
+    CancelToken? cancelToken,
+  }) async => user;
+
+  @override
+  Future<ProfileEditOutcome> submit(
+    ProfileSubmitRequest request, {
+    CancelToken? cancelToken,
+  }) async => ProfileEditConfirmed(user);
 }

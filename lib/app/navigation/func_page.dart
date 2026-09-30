@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart'
 
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
+import '../widgets/branch_slide_stack.dart' show BranchActivityScope;
 
 /// The app's standard route page: Android gets the system transition —
 /// [PredictiveBackPageTransitionsBuilder] (predictive-back shared element
@@ -75,6 +76,18 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   @override
   bool get opaque => _page.opaque;
+
+  @override
+  bool get popGestureEnabled {
+    if (!super.popGestureEnabled) return false;
+    // Every home-shell branch Navigator keeps an isCurrent route alive
+    // while offscreen; only the settled visible branch may take the
+    // predictive-back gesture (R15). Routes outside the shell — the root
+    // Navigator and any inner Navigator — have no scope and fall through.
+    final navigator = this.navigator;
+    if (navigator == null) return false;
+    return BranchActivityScope.maybeOf(navigator.context)?.active ?? true;
+  }
 
   @override
   Widget buildPage(
