@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
+import 'package:pixiv_func/app/pixiv_image.dart';
 import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
 import 'package:pixiv_func/core/search/search_repository.dart' show TrendingTag;
 import 'package:pixiv_func/core/search/search_trending_controller.dart';
@@ -135,6 +136,19 @@ void main() {
         expect(find.text('label 101'), findsOneWidget);
         expect(find.text('2026-09-01'), findsNWidgets(2));
         expect(fixture.requests.single.queryParameters['category'], 'all');
+
+        // Thumbnails are pximg URLs: they must carry the Pixiv referer
+        // (PixivImage) and decode at the 88dp row slot, not full size.
+        final thumbnails = tester.widgetList<PixivImage>(
+          find.byType(PixivImage),
+        );
+        expect(thumbnails.map((image) => image.url), [
+          'https://i.pximg.net/spotlight/101.jpg',
+          'https://i.pximg.net/spotlight/102.jpg',
+        ]);
+        expect(thumbnails.map((image) => image.memCacheWidth).toSet(), {
+          PixivImage.decodeWidthFor(88),
+        });
 
         // Category selector drives an independent family feed.
         await tester.tap(find.text('插画'));
