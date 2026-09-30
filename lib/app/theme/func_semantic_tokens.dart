@@ -53,7 +53,10 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     required this.numeric,
   });
 
-  factory FuncSemanticTokens.fromBrightness(Brightness brightness) {
+  factory FuncSemanticTokens.fromBrightness(
+    Brightness brightness,
+    TextTheme textTheme,
+  ) {
     final dark = brightness == Brightness.dark;
     final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
     final textSecondary = dark
@@ -77,22 +80,15 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       danger: FuncTokens.danger,
       success: FuncTokens.success,
       warning: FuncTokens.warning,
-      display: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: text,
-      ),
-      title: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: text),
-      body: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: text),
-      label: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: text),
-      caption: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: textSecondary,
-      ),
-      numeric: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
+      // The type ramp derives from the resolved TextTheme so font size and
+      // weight have a single source of truth; only colors and tabular
+      // figures are applied on top.
+      display: textTheme.titleLarge!.copyWith(color: text),
+      title: textTheme.titleMedium!.copyWith(color: text),
+      body: textTheme.bodyMedium!.copyWith(color: text),
+      label: textTheme.labelLarge!.copyWith(color: text),
+      caption: textTheme.bodySmall!.copyWith(color: textSecondary),
+      numeric: textTheme.labelLarge!.copyWith(
         color: text,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
@@ -130,8 +126,9 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   /// so shared widgets also render under test harnesses and plugin subtrees
   /// that do not install `replicaTheme`.
   static FuncSemanticTokens of(BuildContext context) {
-    return Theme.of(context).extension<FuncSemanticTokens>() ??
-        FuncSemanticTokens.fromBrightness(Theme.of(context).brightness);
+    final theme = Theme.of(context);
+    return theme.extension<FuncSemanticTokens>() ??
+        FuncSemanticTokens.fromBrightness(theme.brightness, theme.textTheme);
   }
 
   @override
