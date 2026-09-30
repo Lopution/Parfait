@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pixiv_func/app/icons/app_icons.dart';
@@ -31,6 +32,7 @@ import 'package:pixiv_func/features/search/search_filter_sheet.dart';
 import 'package:pixiv_func/features/search/search_page.dart';
 import 'package:pixiv_func/features/search/search_result_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
@@ -129,6 +131,7 @@ class _FakeSearchRepository implements SearchRepository {
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler, {
   bool accountIsPremium = false,
+  List<Override> extraOverrides = const [],
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final credentials = FakeCredentialStore(
@@ -168,6 +171,7 @@ Future<ProviderContainer> _apiContainer(
         if (client == null) throw StateError('client is not wired');
         return client;
       }),
+      ...extraOverrides,
     ],
   );
   final client = PixivHttpClient(
@@ -1046,29 +1050,41 @@ void main() {
     // The tagless card keeps the plain text form, no broken-image slot.
     expect(find.text('#猫'), findsOneWidget);
     expect(find.text('#风景'), findsOneWidget);
-    // The representative work has a visible secondary action; the tag-only
-    // card does not pretend that it can open a work. The action floats over
-    // artwork, so it must be the scrim-backed ImageOverlayButton (R6).
-    expect(find.byTooltip('打开详情页'), findsOneWidget);
-    expect(
-      find.ancestor(
-        of: find.byTooltip('打开详情页'),
-        matching: find.byType(ImageOverlayButton),
-      ),
-      findsOneWidget,
-    );
+    // No corner button overlays the artwork anymore — the representative
+    // work is reached by long-press only.
+    expect(find.byTooltip('打开详情页'), findsNothing);
+    expect(find.byType(ImageOverlayButton), findsNothing);
+    expect(find.byIcon(Icons.open_in_new), findsNothing);
   });
 
-  testWidgets('the trending overlay button opens the representative work', (
+  testWidgets('long-pressing a trending tag opens the representative work', (
     tester,
   ) async {
+    // The detail page polls its compact-header counter through
+    // VisibilityDetector; a zero interval defers updates to post-frame
+    // callbacks so no Timer outlives the test.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+    addTearDown(
+      () => VisibilityDetectorController.instance.updateInterval =
+          const Duration(milliseconds: 500),
+    );
     final repository = _FakeSearchRepository();
+    final container = await _apiContainer(
+      (request) async {
+        if (request.url.path == '/v1/illust/detail') {
+          return _json({'illust': illustJson(901)});
+        }
+        fail('unexpected request: ${request.url}');
+      },
+      extraOverrides: [searchRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
     final router = createPixivRouter(initialLocation: '/search');
     addTearDown(router.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        UncontrolledProviderScope(
+          container: container,
           child: MaterialApp.router(
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
@@ -1079,30 +1095,81 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
-    });
 
-    final button = find.byTooltip('打开详情页');
-    expect(button, findsOneWidget);
-    expect(
-      tester
-          .widget<ImageOverlayButton>(
-            find.ancestor(
-              of: button,
-              matching: find.byType(ImageOverlayButton),
-            ),
-          )
-          .tooltip,
-      '打开详情页',
+      // The tile's only secondary action is the long-press; the corner
+      // button was removed.
+      expect(find.byTooltip('打开详情页'), findsNothing);
+      await tester.longPress(find.text('#风景'));
+      await tester.pump();
+
+      expect(router.state.uri.path, '/search/illust/901');
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/search');
+    });
+  });
+
+  testWidgets('trending grid keeps three columns on narrow screens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakeSearchRepository(trendingTagCount: 6);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: SearchHomePage(),
+        ),
+      ),
     );
-    await tester.tap(button);
+    await tester.pump();
     await tester.pump();
 
-    // The push lands synchronously; settle would wait on the detail page's
-    // own deferred work, so assert the route and pop back before settling.
-    expect(router.state.uri.path, '/search/illust/901');
-    router.pop();
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search');
+    final grid = tester.widget<SliverGrid>(
+      find.ancestor(of: find.text('#风景'), matching: find.byType(SliverGrid)),
+    );
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 3);
+    // Three columns actually show three tiles side by side.
+    expect(find.text('#标签3'), findsOneWidget);
+    expect(find.text('#标签4'), findsOneWidget);
+  });
+
+  testWidgets('trending grid adds columns on wide screens, never below 3', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakeSearchRepository(trendingTagCount: 14);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: SearchHomePage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final grid = tester.widget<SliverGrid>(
+      find.ancestor(of: find.text('#风景'), matching: find.byType(SliverGrid)),
+    );
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    // (1200 - 2*FuncSpacing.lg + 10) / 170 → ceil 7, floored at 3.
+    expect(delegate.crossAxisCount, 7);
+    expect(delegate.crossAxisCount, greaterThanOrEqualTo(3));
   });
 
   testWidgets('trending grid renders every tag including a partial row', (

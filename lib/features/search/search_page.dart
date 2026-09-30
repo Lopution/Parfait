@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,7 +9,6 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
-import '../../app/widgets/image_overlay_button.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
@@ -214,22 +215,35 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                       FuncSpacing.lg,
                       FuncSpacing.xxl,
                     ),
-                    sliver: SliverGrid.builder(
-                      // Adaptive: width decides the column count (≈160dp
-                      // tiles) so wide form factors no longer stretch
-                      // three columns and every tag is rendered — no
-                      // partial-row truncation.
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 160,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
+                    sliver: SliverLayoutBuilder(
+                      builder: (context, constraints) {
+                        // The SliverGridDelegateWithMaxCrossAxisExtent
+                        // formula, floored at three columns: narrow phones
+                        // keep a readable three-column grid while wider
+                        // surfaces still add columns as the width allows.
+                        final columns = math.max(
+                          3,
+                          ((constraints.crossAxisExtent + 10) / (160 + 10))
+                              .ceil(),
+                        );
+                        final tileWidth =
+                            (constraints.crossAxisExtent - 10 * (columns - 1)) /
+                            columns;
+                        return SliverGrid.builder(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: columns,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                              ),
+                          itemCount: tags.length,
+                          itemBuilder: (context, index) => _TrendingTagTile(
+                            tag: tags[index],
+                            type: trendingType,
+                            tileWidth: tileWidth,
                           ),
-                      itemCount: tags.length,
-                      itemBuilder: (context, index) => _TrendingTagTile(
-                        tag: tags[index],
-                        type: trendingType,
-                      ),
+                        );
+                      },
                     ),
                   );
                 },
@@ -271,10 +285,18 @@ class _SearchGuideBox extends StatelessWidget {
 }
 
 class _TrendingTagTile extends StatelessWidget {
-  const _TrendingTagTile({required this.tag, required this.type});
+  const _TrendingTagTile({
+    required this.tag,
+    required this.type,
+    required this.tileWidth,
+  });
 
   final TrendingTag tag;
   final SearchResultType type;
+
+  /// The grid cell's actual width — the thumbnail decodes for the tile it
+  /// lands in, not the half-screen two-column estimate.
+  final double tileWidth;
 
   void _openRepresentative(BuildContext context) {
     final representative = tag.representative;
@@ -309,7 +331,7 @@ class _TrendingTagTile extends StatelessWidget {
               if (representative != null)
                 PixivImage.feed(
                   representative.imageUrls.squareMedium,
-                  layoutWidth: MediaQuery.sizeOf(context).width / 2,
+                  layoutWidth: tileWidth,
                   fit: BoxFit.cover,
                 ),
               if (representative != null)
@@ -323,16 +345,6 @@ class _TrendingTagTile extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [Color(0x00000000), Color(0xB3000000)],
                     ),
-                  ),
-                ),
-              if (representative != null)
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: ImageOverlayButton(
-                    tooltip: context.l10n.viewerOpenDetail,
-                    onPressed: () => _openRepresentative(context),
-                    icon: const Icon(Icons.open_in_new),
                   ),
                 ),
               Align(
