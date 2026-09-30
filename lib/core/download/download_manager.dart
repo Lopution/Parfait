@@ -126,10 +126,26 @@ class DownloadManager {
     String? groupId,
     DownloadSubmissionContext? context,
     ResumeAnchor? resumeAnchor,
+  }) => _submit(
+    request,
+    groupId: groupId,
+    context: context,
+    resumeAnchor: resumeAnchor,
+  );
+
+  /// [frozenName] is the file name fixed at the original submission; [retry]
+  /// passes it because a recovered request lacks the template inputs to
+  /// recompute it (C8). A fresh submit computes the name from the request.
+  DownloadTaskSnapshot _submit(
+    DownloadRequest request, {
+    String? frozenName,
+    String? groupId,
+    DownloadSubmissionContext? context,
+    ResumeAnchor? resumeAnchor,
   }) {
     _checkUsable();
     validateDownloadUrl(request.url, target: request.target);
-    final name = request.displayName;
+    final name = frozenName ?? request.displayName;
     validateDisplayName(name);
 
     final ownerContext = context ?? _submissionContext?.call();
@@ -162,6 +178,7 @@ class DownloadManager {
       accountId: ownerContext?.accountId,
       submittedAt: _now().toUtc(),
       destination: ownerContext?.destination ?? DownloadDestination.builtin,
+      displayName: name,
     );
     final owner = DownloadOutputOwner(
       ownerId: 'output_$id',
@@ -293,7 +310,12 @@ class DownloadManager {
     _persistRemove(job.id);
     final oldJobId = job.id;
     final groupId = job.snapshot.groupId;
-    final retried = submit(job.request, groupId: groupId, resumeAnchor: anchor);
+    final retried = _submit(
+      job.request,
+      frozenName: job.displayName,
+      groupId: groupId,
+      resumeAnchor: anchor,
+    );
     final group = groupId == null ? null : _groups[groupId];
     if (group != null) {
       final index = group.jobIds.indexOf(oldJobId);
@@ -460,7 +482,7 @@ class DownloadManager {
       final request = record.snapshot.request;
       try {
         validateDownloadUrl(request.url, target: request.target);
-        validateDisplayName(request.displayName);
+        validateDisplayName(record.snapshot.displayName);
       } on Object catch (error) {
         final job = _recoveredJob(
           record,
