@@ -70,13 +70,63 @@ ThemeData replicaTheme(Brightness brightness) {
         onError: FuncTokens.lightBackground,
       );
 
+  // One type scale feeds both TextTheme roles and the semantic token ramp
+  // (FuncSemanticTokens derives its type slots from these roles).
+  final textTheme = baseTextTheme.copyWith(
+    headlineSmall: TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w500,
+      color: text,
+    ),
+    titleLarge: TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w600,
+      color: text,
+    ),
+    titleMedium: TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: text,
+    ),
+    titleSmall: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      color: text,
+    ),
+    bodyLarge: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      color: text,
+    ),
+    bodyMedium: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w400,
+      color: text,
+    ),
+    bodySmall: TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      color: text,
+    ),
+    labelLarge: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      color: text,
+    ),
+    labelSmall: TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+      color: text,
+    ),
+  );
+
   final theme = ThemeData(
     brightness: brightness,
     // Latin/digits render in Montserrat; missing glyphs (CJK, emoji) resolve
     // through the engine's system fallback chain.
     fontFamily: 'Montserrat',
     primaryColor: FuncTokens.primary,
-    extensions: [FuncSemanticTokens.fromBrightness(brightness)],
+    extensions: [FuncSemanticTokens.fromBrightness(brightness, textTheme)],
     // Keep app hints floating so their entrance and exit use the same
     // readable fade behavior across copy, saved, and exit messages.
     snackBarTheme:
@@ -93,48 +143,7 @@ ThemeData replicaTheme(Brightness brightness) {
     scaffoldBackgroundColor: background,
     cardColor: colorScheme.surfaceContainer,
     colorScheme: colorScheme,
-    textTheme: baseTextTheme.copyWith(
-      headlineSmall: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
-      titleMedium: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
-      titleSmall: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
-      bodyLarge: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
-      bodyMedium: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
-      bodySmall: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
-      labelLarge: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
-      labelSmall: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: text,
-      ),
-    ),
+    textTheme: textTheme,
     appBarTheme: AppBarThemeData(
       backgroundColor: background,
       foregroundColor: text,
@@ -262,12 +271,14 @@ ThemeData replicaTheme(Brightness brightness) {
   // to the platform font for Latin letters and digits. Sizes/weights keep
   // their previous values; only the family (and a color where needed) is
   // carried over.
-  final textTheme = theme.textTheme;
-  final tabLabelStyle = textTheme.titleSmall!.copyWith(fontSize: 14);
-  final bodyText = textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.w400);
+  final resolvedTextTheme = theme.textTheme;
+  final tabLabelStyle = resolvedTextTheme.titleSmall!;
+  final bodyText = resolvedTextTheme.bodyLarge!.copyWith(
+    fontWeight: FontWeight.w400,
+  );
   return theme.copyWith(
     appBarTheme: theme.appBarTheme.copyWith(
-      titleTextStyle: textTheme.titleMedium!.copyWith(fontSize: 16),
+      titleTextStyle: resolvedTextTheme.titleMedium!.copyWith(fontSize: 16),
     ),
     snackBarTheme: theme.snackBarTheme.copyWith(
       contentTextStyle: bodyText.copyWith(color: onInverseSurface),
@@ -277,14 +288,14 @@ ThemeData replicaTheme(Brightness brightness) {
       secondaryLabelStyle: bodyText,
     ),
     dialogTheme: theme.dialogTheme.copyWith(
-      titleTextStyle: textTheme.headlineSmall!.copyWith(fontSize: 24),
+      titleTextStyle: resolvedTextTheme.headlineSmall!.copyWith(fontSize: 24),
       contentTextStyle: bodyText,
     ),
     navigationRailTheme: theme.navigationRailTheme.copyWith(
-      selectedLabelTextStyle: textTheme.labelMedium!.copyWith(
+      selectedLabelTextStyle: resolvedTextTheme.labelMedium!.copyWith(
         color: colorScheme.primary,
       ),
-      unselectedLabelTextStyle: textTheme.labelMedium!.copyWith(
+      unselectedLabelTextStyle: resolvedTextTheme.labelMedium!.copyWith(
         color: colorScheme.onSurfaceVariant,
       ),
     ),
