@@ -768,6 +768,8 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     _restingExtent = FuncBottomNav.restingExtent(
       MediaQuery.paddingOf(context).bottom,
     );
+    // Written during build: safe only because consumers read `.value` per
+    // frame and never listen (see HomeShellChrome.bottomBarVisibleExtent).
     _publishVisibleExtent();
     return SlideTransition(
       position: _coveredCurve.drive(

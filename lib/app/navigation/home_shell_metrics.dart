@@ -31,6 +31,10 @@ class HomeShellChrome extends InheritedWidget {
   /// The instance is a stable notifier owned by `BranchSlideStack`;
   /// [updateShouldNotify] deliberately ignores it. Stays 0 on rail
   /// layouts, where no bottom bar exists.
+  ///
+  /// Read `.value` only — never listen. `FuncShellBottomNav` writes it from
+  /// its own `build`, so a listener that rebuilds would mark widgets dirty
+  /// mid-build.
   final ValueListenable<double> bottomBarVisibleExtent;
 
   static HomeShellChrome? maybeOf(BuildContext context) =>

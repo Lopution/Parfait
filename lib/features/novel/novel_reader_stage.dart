@@ -392,6 +392,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
       maxLines: 1,
     )..layout();
     final hintBand = 4 + painter.height;
+    painter.dispose();
     return _stableInsets.bottom +
         math.max(0, hintBand - const NovelLayoutStyle().verticalPadding);
   }
