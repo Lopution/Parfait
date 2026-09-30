@@ -70,7 +70,7 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
           isScrollable: !fits,
           tabAlignment: fits ? TabAlignment.fill : TabAlignment.start,
           indicatorSize: TabBarIndicatorSize.label,
-          indicatorPadding: const EdgeInsets.only(bottom: 5),
+          indicatorPadding: const EdgeInsets.only(bottom: FuncSpacing.xs),
           labelPadding: _labelPadding,
           onTap: onTap,
           tabs: [for (final label in labels) Tab(text: label)],

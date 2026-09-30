@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import '../theme/func_semantic_tokens.dart';
 
 /// Shared empty-feed presentation.
 ///
@@ -24,14 +25,14 @@ class ReplicaEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(FuncSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 48),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),

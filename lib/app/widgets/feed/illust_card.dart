@@ -40,6 +40,10 @@ class IllustCard extends ConsumerWidget {
     this.onLongPress,
   }) : super(key: key ?? ValueKey('illust-$heroScope-${entity.id}'));
 
+  /// Left indent of the title/author block under the card image. The
+  /// skeleton's text bones use the same value.
+  static const textIndent = FuncSpacing.md;
+
   final IllustEntity entity;
   final String heroScope;
 
@@ -85,7 +89,7 @@ class IllustCard extends ConsumerWidget {
           heroTag,
           previewTier,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: FuncSpacing.xs),
         _buildTitle(context),
       ],
     );
@@ -292,7 +296,7 @@ class IllustCard extends ConsumerWidget {
             children: [
               if (rank != null) ...[
                 EntityRankBadge(rank),
-                if (entity.isR18) const SizedBox(height: 4),
+                if (entity.isR18) const SizedBox(height: FuncSpacing.xs),
               ],
               if (entity.isR18)
                 EntityBadge(
@@ -328,7 +332,7 @@ class IllustCard extends ConsumerWidget {
     // right (BookmarkSwitchButton isButton variant).
     return Row(
       children: [
-        const SizedBox(width: 10),
+        const SizedBox(width: textIndent),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

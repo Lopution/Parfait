@@ -9,6 +9,7 @@ import '../../l10n/context.dart';
 import '../motion/motion_tokens.dart';
 import '../icons/app_icons.dart';
 import '../navigation/home_shell_metrics.dart';
+import '../theme/func_semantic_tokens.dart';
 
 /// Primary bottom navigation for narrow layouts.
 ///
@@ -540,7 +541,7 @@ class _FuncBottomNavItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(destination.icon, size: 24, color: color),
-          const SizedBox(height: 2),
+          const SizedBox(height: FuncSpacing.xxs),
           Text(
             destination.label,
             maxLines: 1,
@@ -551,7 +552,7 @@ class _FuncBottomNavItem extends StatelessWidget {
               color: color,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: FuncSpacing.xs),
         ],
       ),
     );

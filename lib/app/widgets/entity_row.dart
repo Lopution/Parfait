@@ -26,7 +26,7 @@ class EntityRow extends StatelessWidget {
     this.onLongPress,
     this.selected = false,
     this.semanticLabel,
-    this.padding = const EdgeInsets.all(10),
+    this.padding = const EdgeInsets.all(FuncSpacing.md),
   }) : assert(
          progress == null || (progress >= 0 && progress <= 1),
          'progress is a 0..1 fraction; null means "no record"',
@@ -88,7 +88,7 @@ class EntityRow extends StatelessWidget {
     // the primary/secondary hierarchy survives.
     final selectedText = colorScheme.onPrimaryContainer;
     final selectedSecondary = selectedText.withValues(alpha: 0.8);
-    const radius = BorderRadius.all(Radius.circular(4));
+    const radius = FuncShape.control;
     final label =
         semanticLabel ?? (subtitle == null ? title : '$title, $subtitle');
 
@@ -137,7 +137,7 @@ class EntityRow extends StatelessWidget {
                   // text). Only [trailing] keeps its own node so embedded
                   // actions stay reachable.
                   ExcludeSemantics(child: leadingSlot),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: FuncSpacing.md),
                   Expanded(
                     child: ExcludeSemantics(
                       child: Column(
@@ -153,7 +153,7 @@ class EntityRow extends StatelessWidget {
                             ),
                           ),
                           if (subtitle != null) ...[
-                            const SizedBox(height: 5),
+                            const SizedBox(height: FuncSpacing.xs),
                             Text(
                               subtitle!,
                               maxLines: 1,
@@ -166,14 +166,14 @@ class EntityRow extends StatelessWidget {
                             ),
                           ],
                           if (meta != null) ...[
-                            const SizedBox(height: 4),
+                            const SizedBox(height: FuncSpacing.xs),
                             EntityMetaText(
                               meta!,
                               color: selected ? selectedSecondary : null,
                             ),
                           ],
                           if (progress != null) ...[
-                            const SizedBox(height: 6),
+                            const SizedBox(height: FuncSpacing.xs),
                             LinearProgressIndicator(value: progress),
                           ],
                         ],
@@ -181,11 +181,11 @@ class EntityRow extends StatelessWidget {
                     ),
                   ),
                   if (trailing != null) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: FuncSpacing.sm),
                     trailing!,
                   ],
                   if (selected) ...[
-                    const SizedBox(width: 8),
+                    const SizedBox(width: FuncSpacing.sm),
                     Icon(
                       Icons.check_circle,
                       color: colorScheme.onPrimaryContainer,
@@ -260,10 +260,13 @@ class EntityBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.xs,
+        vertical: FuncSpacing.xxs,
+      ),
       decoration: BoxDecoration(
         color: color ?? const Color(0x99343838),
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: FuncShape.control,
       ),
       child: DefaultTextStyle(
         style: const TextStyle(color: FuncTokens.lightBackground),

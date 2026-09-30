@@ -4,6 +4,7 @@ import '../../core/novel/novel_entity.dart';
 import '../../l10n/context.dart';
 import '../navigation/routes.dart';
 import '../pixiv_image.dart';
+import '../theme/func_semantic_tokens.dart';
 import 'entity_row.dart';
 
 /// The single novel list-entry contract — replaces the parallel
@@ -146,7 +147,10 @@ class NovelEntry extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.md,
+        vertical: FuncSpacing.sm,
+      ),
       child: EntityRow(
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(_coverRadius),
