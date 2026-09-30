@@ -5,6 +5,7 @@ import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/scrollable_form_shell.dart';
 import '../../l10n/lookup.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -28,7 +29,7 @@ class WelcomePage extends StatelessWidget {
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: FuncSpacing.xs),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(

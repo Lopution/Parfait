@@ -13,6 +13,7 @@ import '../../core/i18n/replica_language.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../l10n/lookup.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 class LanguagePage extends ConsumerWidget {
   const LanguagePage({super.key});
@@ -62,8 +63,8 @@ class LanguagePage extends ConsumerWidget {
           for (final item in _items) ...[
             ReplicaSwitchTile(
               contentPadding: const EdgeInsets.symmetric(
-                vertical: 6,
-                horizontal: 24,
+                vertical: FuncSpacing.sm,
+                horizontal: FuncSpacing.xl,
               ),
               value: settings.languageTag == item.$2,
               title: Text(

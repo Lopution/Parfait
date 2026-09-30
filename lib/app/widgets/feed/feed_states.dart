@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/errors/error_category.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../errors/error_details.dart';
+import '../../theme/func_semantic_tokens.dart';
 
 /// Shared feed-tail widget: load-more spinner, load-more error + retry and
 /// the exhausted marker. Consumes [PagedFeedState] phase semantics; text and
@@ -15,7 +16,7 @@ class FeedTail extends StatelessWidget {
     this.errorTitle,
     required this.retryLabel,
     this.endMessage,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(FuncSpacing.lg),
   });
 
   final PagedFeedState feed;
@@ -34,7 +35,7 @@ class FeedTail extends StatelessWidget {
     if (feed.showLoadMoreSpinner) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(FuncSpacing.lg),
           child: CircularProgressIndicator(),
         ),
       );
@@ -43,7 +44,7 @@ class FeedTail extends StatelessWidget {
     if (feed.showLoadMoreError) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(FuncSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -73,7 +74,7 @@ class FeedTail extends StatelessWidget {
         ),
       );
     }
-    return const SizedBox(height: 16);
+    return const SizedBox(height: FuncSpacing.lg);
   }
 }
 
@@ -95,7 +96,7 @@ class FeedLoading extends StatelessWidget {
         children: [
           CircularProgressIndicator(semanticsLabel: label),
           if (label != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             Text(label!, style: Theme.of(context).textTheme.bodySmall),
           ],
         ],
@@ -158,10 +159,10 @@ class FeedEmpty extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
-          const SizedBox(height: 12),
+          const SizedBox(height: FuncSpacing.md),
           Text(title),
           if (error != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Text(
               errorCategoryText(context, categorizeError(error!)),
               style: Theme.of(context).textTheme.bodySmall,
@@ -169,7 +170,7 @@ class FeedEmpty extends StatelessWidget {
             ),
             ErrorDetails(error: error!),
           ] else if (detail != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Text(
               detail!,
               style: Theme.of(context).textTheme.bodySmall,
@@ -177,7 +178,7 @@ class FeedEmpty extends StatelessWidget {
             ),
           ],
           if (onRefresh != null || onAction != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             Wrap(
               spacing: 12,
               runSpacing: 8,
@@ -230,10 +231,10 @@ class FeedError extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.cloud_off, size: 48),
-        const SizedBox(height: 12),
+        const SizedBox(height: FuncSpacing.md),
         Text(title),
         if (error != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           Text(
             errorCategoryText(context, categorizeError(error!)),
             style: Theme.of(context).textTheme.bodySmall,
@@ -241,18 +242,21 @@ class FeedError extends StatelessWidget {
           ),
           ErrorDetails(error: error!),
         ],
-        const SizedBox(height: 12),
+        const SizedBox(height: FuncSpacing.md),
         FilledButton(onPressed: onRetry, child: Text(retryLabel)),
       ],
     );
     if (!scrollable) {
       return Center(
-        child: Padding(padding: const EdgeInsets.all(24), child: column),
+        child: Padding(
+          padding: const EdgeInsets.all(FuncSpacing.xl),
+          child: column,
+        ),
       );
     }
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(FuncSpacing.xl),
         child: column,
       ),
     );

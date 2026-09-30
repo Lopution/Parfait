@@ -34,6 +34,7 @@ import '../../core/profile/profile_models.dart';
 import '../../core/share/share_service.dart';
 import '../../core/user/user_detail_controller.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
@@ -726,7 +727,12 @@ class _ProfileAbout extends ConsumerWidget {
     return ListView(
       key: PageStorageKey('profile-about-${user.id}'),
       restorationId: 'profile-about-${user.id}',
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.xl,
+        FuncSpacing.md,
+        FuncSpacing.xl,
+        FuncSpacing.xxl,
+      ),
       children: [
         for (final entry in entries)
           if (entry.socialId == null)
@@ -747,7 +753,7 @@ class _ProfileAbout extends ConsumerWidget {
           context.l10n.profileStats,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: FuncSpacing.sm),
         for (final statistic in statistics)
           ProfileStatistic(statistic: statistic),
       ],
@@ -763,12 +769,12 @@ class _ProfileAboutTextEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
+    padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
+        const SizedBox(height: FuncSpacing.xs),
         SelectableText(value),
       ],
     ),
@@ -793,12 +799,12 @@ class _ProfileSocialLinkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
+    padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
+        const SizedBox(height: FuncSpacing.xs),
         Row(
           children: [
             Expanded(child: SelectableText(value)),
@@ -864,7 +870,7 @@ class _ProfileStatusPage extends StatelessWidget {
     return ReplicaScaffold(
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(FuncSpacing.xl),
           child: FeedEmpty(
             icon: icon,
             title: title,

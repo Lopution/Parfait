@@ -21,6 +21,7 @@ import 'comment_item.dart';
 import 'comment_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 class CommentsPage extends ConsumerStatefulWidget {
   const CommentsPage({
@@ -211,7 +212,12 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
                       onDelete: () => _deleteComment(root),
                     ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(
+                      FuncSpacing.lg,
+                      0,
+                      FuncSpacing.lg,
+                      FuncSpacing.sm,
+                    ),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -389,7 +395,7 @@ class _CommentFeedView extends ConsumerWidget {
                 // Constant breathing room only: the composer's bottom extent
                 // already reserves the IME/panel space in layout, so the
                 // list tail never needs an extra inset pad.
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
                 itemCount: comments.length + 1 + (header == null ? 0 : 1),
                 itemBuilder: (context, index) {
                   final offset = header == null ? 0 : 1;

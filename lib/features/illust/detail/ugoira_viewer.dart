@@ -28,6 +28,7 @@ import '../../../core/ugoira/ugoira_scheduler.dart';
 import '../../../core/ugoira/ugoira_zip.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../l10n/context.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 
 /// Inline beta56-compatible Ugoira surface. The cover, play affordance and
 /// paused overlay stay in the detail page; ZIP/decode/export resources are
@@ -221,7 +222,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                 bottom: 7,
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: FuncShape.control,
                     color: const Color(0x99343838),
                   ),
                   child: const Icon(
@@ -314,10 +315,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       flightShuttleBuilder: widget.flightShuttleBuilder,
       child: IllustHeroFlightChild(
         popChild: popChild,
-        child: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-          child: image,
-        ),
+        child: ClipRRect(borderRadius: FuncShape.card, child: image),
       ),
     );
   }
@@ -710,7 +708,7 @@ class _ErrorOverlay extends StatelessWidget {
       color: const Color(0x99000000),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(FuncSpacing.lg),
           // The scrim is dark regardless of the app theme, so the overlay
           // pins a dark scheme — otherwise the disclosure button and the
           // details text would take light-surface colors and disappear.
@@ -727,7 +725,7 @@ class _ErrorOverlay extends StatelessWidget {
                     style: TextStyle(color: FuncTokens.lightBackground),
                   ),
                   if (error != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: FuncSpacing.sm),
                     Text(
                       errorCategoryText(context, categorizeError(error)),
                       style: TextStyle(
@@ -737,7 +735,7 @@ class _ErrorOverlay extends StatelessWidget {
                     ),
                     ErrorDetails(error: error),
                   ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: FuncSpacing.sm),
                   TextButton(
                     onPressed: onRetry,
                     child: Text(context.l10n.retry),

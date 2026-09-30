@@ -8,6 +8,7 @@ import '../../../core/comments/comment_translation.dart';
 import '../../../core/comments/translation_credentials.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 
 class TranslationCredentialsPage extends ConsumerStatefulWidget {
   const TranslationCredentialsPage({super.key, required this.baidu});
@@ -261,7 +262,7 @@ class _TranslationCredentialsPageState
         ),
         body: settingsNarrowBody(
           ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(FuncSpacing.lg),
             children: [
               if (widget.baidu)
                 _credentialField(
@@ -294,10 +295,10 @@ class _TranslationCredentialsPageState
                   label: context.l10n.translateLlmModel,
                   obscure: false,
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: FuncSpacing.sm),
               if (_status != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: FuncSpacing.md),
                   child: Text(
                     _status!,
                     style: TextStyle(
@@ -318,7 +319,7 @@ class _TranslationCredentialsPageState
                     : const Icon(Icons.save_outlined),
                 label: Text(context.l10n.translateCredentialsSave),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: FuncSpacing.sm),
               OutlinedButton.icon(
                 onPressed: _busy ? null : _clear,
                 icon: _busy && _clearing
@@ -331,7 +332,7 @@ class _TranslationCredentialsPageState
                 label: Text(context.l10n.translateCredentialsClear),
               ),
               Padding(
-                padding: const EdgeInsets.only(top: 16),
+                padding: const EdgeInsets.only(top: FuncSpacing.lg),
                 child: Text(
                   settingsText(
                     context,
@@ -356,7 +357,7 @@ class _TranslationCredentialsPageState
     String? hint,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: FuncSpacing.md),
       child: TextField(
         controller: controller,
         obscureText: obscure,

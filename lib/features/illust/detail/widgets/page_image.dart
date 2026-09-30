@@ -10,6 +10,7 @@ import '../../../../core/settings/app_settings.dart';
 import '../../../../core/settings/settings_controller.dart';
 import '../../../../l10n/context.dart';
 import '../../../../app/navigation/routes.dart';
+import '../../../../app/theme/func_semantic_tokens.dart';
 
 class DetailPageImage extends ConsumerStatefulWidget {
   const DetailPageImage({
@@ -316,10 +317,10 @@ class _DownloadBadge extends StatelessWidget {
         selected: selected,
         label: label,
         child: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(FuncSpacing.sm),
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: FuncShape.dialog,
           ),
           child: child,
         ),

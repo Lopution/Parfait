@@ -20,9 +20,13 @@ import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
 import '../../app/widgets/watchlist_toggle.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// One illust series: a header (cover/title/author/work count/caption) plus
 /// the paginated works grid (`/v1/illust/series`, newest first).
+/// Grid padding shared by the works sliver and its first-load skeleton.
+const _gridPadding = EdgeInsets.all(FuncSpacing.sm);
+
 class IllustSeriesPage extends ConsumerWidget {
   const IllustSeriesPage({super.key, required this.seriesId});
 
@@ -43,7 +47,7 @@ class IllustSeriesPage extends ConsumerWidget {
       body: async.when(
         loading: () => IllustGridSkeleton(
           label: context.l10n.contentLoading,
-          padding: const EdgeInsets.all(10),
+          padding: _gridPadding,
         ),
         error: (error, _) => FeedError(
           title: context.l10n.seriesLoadFailed,
@@ -67,7 +71,7 @@ class IllustSeriesPage extends ConsumerWidget {
           if (feed.showInitialSpinner) {
             return IllustGridSkeleton(
               label: context.l10n.contentLoading,
-              padding: const EdgeInsets.all(10),
+              padding: _gridPadding,
             );
           }
           final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
@@ -113,9 +117,7 @@ class IllustSeriesPage extends ConsumerWidget {
                       )
                     else
                       IllustFeedGrid(
-                        padding: const EdgeInsets.all(10),
-                        mainAxisSpacing: 5,
-                        crossAxisSpacing: 10,
+                        padding: _gridPadding,
                         prefetchEntities: entities,
                         itemIds: [for (final e in entities) e.id],
                         itemCount: entities.length,
@@ -179,7 +181,12 @@ class _SeriesHeader extends ConsumerWidget {
         ? null
         : recentOpenMap[SeriesRecentOpenStore.keyFor(accountId, detail.id)];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.lg,
+        FuncSpacing.sm,
+        FuncSpacing.lg,
+        FuncSpacing.md,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -188,7 +195,7 @@ class _SeriesHeader extends ConsumerWidget {
             children: [
               if (cover != null)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: FuncShape.control,
                   child: PixivImage(
                     url: cover,
                     width: 88,
@@ -196,7 +203,7 @@ class _SeriesHeader extends ConsumerWidget {
                     memCacheWidth: PixivImage.decodeWidthFor(88),
                   ),
                 ),
-              if (cover != null) const SizedBox(width: 12),
+              if (cover != null) const SizedBox(width: FuncSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +214,7 @@ class _SeriesHeader extends ConsumerWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: FuncSpacing.xs),
                     InkWell(
                       onTap: () => openUser(context, detail.userId),
                       child: Text(
@@ -229,7 +236,7 @@ class _SeriesHeader extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: FuncSpacing.sm),
           WatchlistToggle(
             seriesKey: WatchlistKey(WatchlistType.manga, detail.id),
             detailAdded: detail.watchlistAdded,
@@ -239,7 +246,7 @@ class _SeriesHeader extends ConsumerWidget {
           // session last opened inside the series. Each button only
           // renders when its own data source exists.
           if (detail.firstContentId != null || recent != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Wrap(
               spacing: 8,
               runSpacing: 4,
@@ -278,7 +285,7 @@ class _SeriesHeader extends ConsumerWidget {
             ),
           ],
           if (detail.caption.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Text(detail.caption, style: theme.textTheme.bodySmall),
           ],
         ],

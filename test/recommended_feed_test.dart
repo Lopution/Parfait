@@ -27,6 +27,7 @@ import 'package:pixiv_func/core/illust/recommended_repository.dart'
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
+import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
@@ -584,6 +585,6 @@ void main() {
           'the feed overlapped the status bar',
     );
     expect(inset.top, isNot(closeTo(0, 0.01)));
-    expect(inset.left, 10);
+    expect(inset.left, FuncSpacing.sm);
   });
 }

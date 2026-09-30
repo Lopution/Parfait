@@ -20,6 +20,7 @@ import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 ///
@@ -96,13 +97,18 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
             physics: physics,
             slivers: [
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.lg,
+                  FuncSpacing.lg,
+                  FuncSpacing.lg,
+                  FuncSpacing.md,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: _SearchGuideBox(onTap: () => openSearchInput(context)),
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
                 sliver: SliverToBoxAdapter(
                   child: SizedBox(
                     width: double.infinity,
@@ -118,7 +124,12 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.lg,
+                  FuncSpacing.sm,
+                  FuncSpacing.lg,
+                  0,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: SizedBox(
                     width: double.infinity,
@@ -131,7 +142,12 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.lg,
+                  FuncSpacing.xl,
+                  FuncSpacing.lg,
+                  FuncSpacing.sm,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: Row(
                     children: [
@@ -166,7 +182,7 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                 loading: () => const SliverToBoxAdapter(
                   child: Center(
                     child: Padding(
-                      padding: EdgeInsets.all(28),
+                      padding: EdgeInsets.all(FuncSpacing.xxl),
                       child: CircularProgressIndicator(),
                     ),
                   ),
@@ -184,7 +200,7 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                   if (tags.isEmpty) {
                     return SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.all(28),
+                        padding: const EdgeInsets.all(FuncSpacing.xxl),
                         child: Center(
                           child: Text(context.l10n.searchNoTrending),
                         ),
@@ -192,7 +208,12 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                     );
                   }
                   return SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                    padding: const EdgeInsets.fromLTRB(
+                      FuncSpacing.lg,
+                      0,
+                      FuncSpacing.lg,
+                      FuncSpacing.xxl,
+                    ),
                     sliver: SliverGrid.builder(
                       // Adaptive: width decides the column count (≈160dp
                       // tiles) so wide form factors no longer stretch
@@ -238,7 +259,7 @@ class _SearchGuideBox extends StatelessWidget {
     return SearchBar(
       constraints: const BoxConstraints(minHeight: 56),
       padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
-        EdgeInsets.symmetric(horizontal: 16),
+        EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
       ),
       hintText: context.l10n.searchHint,
       leading: const Icon(Icons.search),
@@ -279,7 +300,7 @@ class _TrendingTagTile extends StatelessWidget {
       ),
       onLongPress: () => _openRepresentative(context),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: FuncShape.card,
         child: ColoredBox(
           color: scheme.surfaceContainer,
           child: Stack(
@@ -320,8 +341,8 @@ class _TrendingTagTile extends StatelessWidget {
                     : Alignment.bottomLeft,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
+                    horizontal: FuncSpacing.sm,
+                    vertical: FuncSpacing.sm,
                   ),
                   child: Text(
                     '#${tag.displayName}',
@@ -566,7 +587,10 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
             Align(
               alignment: Alignment.centerRight,
               child: Padding(
-                padding: const EdgeInsets.only(right: 12, top: 8),
+                padding: const EdgeInsets.only(
+                  right: FuncSpacing.md,
+                  top: FuncSpacing.sm,
+                ),
                 child: OutlinedButton.icon(
                   onPressed: _editFilters,
                   icon: const Icon(Icons.tune, size: 18),
@@ -627,8 +651,8 @@ class _SearchAutocompletePanel extends ConsumerWidget {
     }
     return ListView.separated(
       padding: EdgeInsets.only(
-        top: 8,
-        bottom: 8 + MediaQuery.viewInsetsOf(context).bottom,
+        top: FuncSpacing.sm,
+        bottom: FuncSpacing.sm + MediaQuery.viewInsetsOf(context).bottom,
       ),
       itemCount: state.suggestions.length,
       separatorBuilder: (_, _) => const Divider(height: 1),

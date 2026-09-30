@@ -12,6 +12,7 @@ import '../l10n/lookup.dart';
 import '../l10n/context.dart';
 import 'layout/content_widths.dart';
 import 'widgets/errors/error_details.dart';
+import 'theme/func_semantic_tokens.dart';
 
 /// Cold-start router driven by real settings and account state.
 ///
@@ -216,7 +217,7 @@ class _PipelineWarmupState extends State<PipelineWarmup> {
             child: Transform.scale(
               scale: 1.001,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: FuncShape.card,
                 child: Image.memory(
                   _pixel,
                   width: 8,
@@ -285,21 +286,21 @@ class _StartupError extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: ContentWidths.form),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(FuncSpacing.xl),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.error_outline, size: 48),
-                const SizedBox(height: 16),
+                const SizedBox(height: FuncSpacing.lg),
                 Text(text('accountReadFailed')),
-                const SizedBox(height: 8),
+                const SizedBox(height: FuncSpacing.sm),
                 Text(
                   errorCategoryText(context, categorizeError(error)),
                   style: Theme.of(context).textTheme.bodySmall,
                   textAlign: TextAlign.center,
                 ),
                 ErrorDetails(error: error),
-                const SizedBox(height: 16),
+                const SizedBox(height: FuncSpacing.lg),
                 // Retry is the page's primary action — same weight as
                 // FeedError's retry, not a low-emphasis text button.
                 Consumer(

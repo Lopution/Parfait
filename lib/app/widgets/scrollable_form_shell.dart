@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../layout/content_widths.dart';
 import 'replica_scaffold.dart';
+import '../theme/func_semantic_tokens.dart';
 
 /// Shared shell for form/onboarding-style pages: a scrollable,
 /// width-capped column whose primary action stays reachable at any
@@ -73,7 +74,12 @@ class ScrollableFormShell extends StatelessWidget {
             double.infinity,
           );
           return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 24),
+            padding: EdgeInsets.fromLTRB(
+              horizontal,
+              FuncSpacing.xl,
+              horizontal,
+              FuncSpacing.xl,
+            ),
             child: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
@@ -88,9 +94,9 @@ class ScrollableFormShell extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 48),
+                        const SizedBox(height: FuncSpacing.xxxl),
                         header,
-                        const SizedBox(height: 48),
+                        const SizedBox(height: FuncSpacing.xxxl),
                         content,
                       ],
                     ),
@@ -98,13 +104,13 @@ class ScrollableFormShell extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 48),
+                        const SizedBox(height: FuncSpacing.xxxl),
                         primaryAction,
                         if (secondary != null) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: FuncSpacing.sm),
                           secondary!,
                         ],
-                        const SizedBox(height: 24),
+                        const SizedBox(height: FuncSpacing.xl),
                       ],
                     ),
                   ],

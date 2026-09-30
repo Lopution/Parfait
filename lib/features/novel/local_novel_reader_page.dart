@@ -12,6 +12,7 @@ import '../../core/user/user_entity.dart';
 import '../../l10n/context.dart';
 import 'novel_layout.dart';
 import 'novel_reader_stage.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Loaded local novel: the index row plus the decoded text on disk.
 final _localNovelContentProvider = FutureProvider.autoDispose
@@ -105,7 +106,12 @@ class _LocalNovelInfoSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.xl,
+        0,
+        FuncSpacing.xl,
+        FuncSpacing.xl,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,14 +120,14 @@ class _LocalNovelInfoSheet extends StatelessWidget {
           // No author row when the import recorded none — local TXT
           // imports never carry one today, so the row is conditional.
           if (novel.author != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Text(novel.author!),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           Text(l10n.localNovelsChars(novel.charCount)),
-          const SizedBox(height: 4),
+          const SizedBox(height: FuncSpacing.xs),
           Text(l10n.localNovelFileEncoding(_encodingLabel(novel.encoding))),
-          const SizedBox(height: 4),
+          const SizedBox(height: FuncSpacing.xs),
           Text(l10n.localNovelFileImportedAt(_formatDate(novel.importedAt))),
         ],
       ),

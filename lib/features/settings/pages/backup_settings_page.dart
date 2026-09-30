@@ -257,7 +257,7 @@ class _BackupStrategyChoiceDialogState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(widget.summary),
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           _option(
             value: BackupImportStrategy.merge,
             title: l10n.backupMerge,

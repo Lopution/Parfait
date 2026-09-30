@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../theme/func_semantic_tokens.dart';
 
 /// Session-local set of muted works the user has revealed by tapping the
 /// blurred card. Revealing is presentation-only: it never touches the
@@ -37,7 +38,7 @@ class MutedCover extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          borderRadius: FuncShape.card,
           child: ImageFiltered(
             imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: child,
@@ -46,7 +47,7 @@ class MutedCover extends StatelessWidget {
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              borderRadius: FuncShape.card,
               color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
             ),
             child: Center(
@@ -58,9 +59,11 @@ class MutedCover extends StatelessWidget {
                     color: scheme.onSurfaceVariant,
                     size: 30,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: FuncSpacing.xs),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FuncSpacing.md,
+                    ),
                     child: Text(
                       reasonLabel,
                       maxLines: 1,

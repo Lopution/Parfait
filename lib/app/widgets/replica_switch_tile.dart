@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import '../theme/func_semantic_tokens.dart';
 
 class ReplicaSwitchTile extends StatelessWidget {
   const ReplicaSwitchTile({
@@ -7,8 +8,8 @@ class ReplicaSwitchTile extends StatelessWidget {
     required this.title,
     required this.onTap,
     this.contentPadding = const EdgeInsets.symmetric(
-      horizontal: 16,
-      vertical: 8,
+      horizontal: FuncSpacing.lg,
+      vertical: FuncSpacing.sm,
     ),
   });
 

@@ -1025,7 +1025,7 @@ class _DownloadActionStrip extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(action.icon, size: 20),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: FuncSpacing.md),
                     Text(action.label),
                   ],
                 ),

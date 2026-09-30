@@ -25,6 +25,7 @@ import '../../../l10n/lookup.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 
 /// Whether the viewer chrome (top bar + bottom bar) is visible. This is
 /// session-level state (revision ①): it deliberately survives page turns,
@@ -334,7 +335,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           return SafeArea(
             child: GridView.builder(
               shrinkWrap: true,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(FuncSpacing.lg),
               gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                 maxCrossAxisExtent: 72,
                 mainAxisSpacing: 8,
@@ -753,7 +754,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             const Spacer(),
             if (_pageCount > 0)
               Padding(
-                padding: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.only(right: FuncSpacing.lg),
                 child: Text(
                   '${_activePage + 1} / $_pageCount',
                   style: TextStyle(color: FuncTokens.lightBackground),
@@ -788,8 +789,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                 onTap: hasPages ? _openPageSheet : null,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                    horizontal: FuncSpacing.lg,
+                    vertical: FuncSpacing.md,
                   ),
                   child: hasPages
                       ? Text(
