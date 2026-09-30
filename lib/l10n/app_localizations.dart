@@ -1685,6 +1685,36 @@ abstract class AppLocalizations {
   /// **'关闭页面转场、列表进场与按压反馈等装饰性动画'**
   String get reduceMotionHint;
 
+  /// No description provided for @pageTransitionSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面转场速度'**
+  String get pageTransitionSpeed;
+
+  /// No description provided for @pageTransitionFast.
+  ///
+  /// In zh, this message translates to:
+  /// **'快'**
+  String get pageTransitionFast;
+
+  /// No description provided for @pageTransitionNormal.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准'**
+  String get pageTransitionNormal;
+
+  /// No description provided for @pageTransitionSlow.
+  ///
+  /// In zh, this message translates to:
+  /// **'慢'**
+  String get pageTransitionSlow;
+
+  /// No description provided for @pageTransitionSpeedReduceHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启「减少动态效果」时不播放页面转场'**
+  String get pageTransitionSpeedReduceHint;
+
   /// No description provided for @maxDownloadCount.
   ///
   /// In zh, this message translates to:

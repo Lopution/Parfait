@@ -170,12 +170,12 @@ Page<dynamic> _page(
 ) {
   // Reduced-motion collapses the transition without dropping the state it
   // communicates: the route still changes on the same frame. Android takes
-  // the system predictive-back duration (FadeForwards' 800ms); other
-  // platforms keep the app slide.
+  // the user-picked speed tier from MotionScope (250/350/450ms, default
+  // 350); other platforms keep the app slide.
   final duration = MotionTokens.resolve(
     context,
     defaultTargetPlatform == TargetPlatform.android
-        ? const PredictiveBackPageTransitionsBuilder().transitionDuration
+        ? MotionScope.pageTransitionOf(context)
         : MotionTokens.pageTransition,
   );
   return FuncPage<dynamic>(

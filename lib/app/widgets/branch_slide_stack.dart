@@ -332,6 +332,11 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     motionEnabled: () => mounted && MotionTokens.enabled(context),
   );
   late final AnimationController _navVisibility;
+  // The bar's live covered height at the screen bottom, published by
+  // FuncShellBottomNav from the same CurvedAnimations that drive its two
+  // SlideTransitions. Stable instance for the stack's lifetime; rail
+  // layouts never mount the bar, so it stays at 0 there.
+  final ValueNotifier<double> _navBarVisibleExtent = ValueNotifier(0);
   double _scrollAccum = 0;
   double? _lastPixels;
   BuildContext? _lastScrollable;
@@ -359,6 +364,7 @@ class _BranchSlideStackState extends State<BranchSlideStack>
   void dispose() {
     _pager.dispose();
     _navVisibility.dispose();
+    _navBarVisibleExtent.dispose();
     super.dispose();
   }
 
@@ -614,6 +620,7 @@ class _BranchSlideStackState extends State<BranchSlideStack>
                   selectedIndex: _pager.tab.index,
                   onSelected: _pager.selectIndex,
                   scrollVisibility: _navVisibility,
+                  visibleExtent: _navBarVisibleExtent,
                   indicatorAnimation:
                       _pager.tab.animation ??
                       AlwaysStoppedAnimation(_pager.position),
@@ -625,6 +632,7 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     );
     return HomeShellChrome(
       bottomBarExtent: bottomBarExtent,
+      bottomBarVisibleExtent: _navBarVisibleExtent,
       child: _BranchSlideScope(
         pager: _pager,
         child: rail

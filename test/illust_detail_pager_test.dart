@@ -204,6 +204,65 @@ void main() {
     );
   });
 
+  testWidgets('swiping keeps the sibling detail page instance alive', (
+    tester,
+  ) async {
+    // allowImplicitScrolling builds the neighbour as the drag pulls it
+    // into the window; the swipe commit only needs to move the HeroMode
+    // gate — rebuilding the whole detail subtree mid-swipe is exactly
+    // the device-reported hitch.
+    final (container, _, _) = await makeWorld();
+    container.read(illustStoreProvider).mergeAll([
+      for (final id in [42, 43, 44]) parseIllust(illustJson(id)),
+    ]);
+    final source = IllustPagerSource()..update(const [42, 43, 44]);
+    await _pumpPager(tester, container, source: source, initialId: 42);
+
+    final page43 = find.byWidgetPredicate(
+      (w) => w is IllustDetailPage && w.illustId == 43,
+    );
+
+    // Hold the drag mid-swipe: the incoming page has mounted but the
+    // commit has not fired yet, so the captured widget predates it.
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(PageView)),
+    );
+    for (var i = 0; i < 10 && page43.evaluate().isEmpty; i++) {
+      await gesture.moveBy(const Offset(-40, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(page43, findsOneWidget);
+    final before = tester.widget<IllustDetailPage>(page43);
+
+    // Push past the midpoint so the release commits to the next page.
+    await gesture.moveBy(const Offset(-250, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(_page(tester), 1);
+
+    expect(
+      identical(before, tester.widget<IllustDetailPage>(page43)),
+      isTrue,
+      reason:
+          'the adjacent IllustDetailPage subtree must survive the '
+          'page-change notify — only its HeroMode wrapper may rebuild',
+    );
+
+    // The hero gate still follows the committed page.
+    final enabled = find.byWidgetPredicate((w) => w is HeroMode && w.enabled);
+    expect(enabled, findsOneWidget);
+    expect(
+      find.descendant(
+        of: enabled,
+        matching: find.byWidgetPredicate(
+          (w) => w is IllustDetailPage && w.illustId == 43,
+        ),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a card feed exposes its work list to the detail route', (
     tester,
   ) async {

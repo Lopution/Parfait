@@ -584,6 +584,7 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.scrollVisibility,
+    required this.visibleExtent,
     required this.indicatorAnimation,
   });
 
@@ -602,6 +603,12 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
   /// never reflows the page underneath.
   final AnimationController scrollVisibility;
 
+  /// Sink for the bar's live covered height at the screen bottom, updated
+  /// from the same curved animations that drive the two [SlideTransition]s
+  /// below — the Hero landing clip reads it through
+  /// [HomeShellChrome.bottomBarVisibleExtent].
+  final ValueNotifier<double> visibleExtent;
+
   /// The strip's continuous position (the pager's `tab.animation`) — the
   /// indicator tracks it, sliding with the finger like the TabBar's does.
   final Animation<double> indicatorAnimation;
@@ -613,6 +620,12 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
 class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     with SingleTickerProviderStateMixin {
   late final AnimationController _coveredVisibility;
+  // The same two CurvedAnimation instances the SlideTransitions below use —
+  // reading their values here keeps the published extent pixel-exact with
+  // the bar's real on-screen position, curves and reverses included.
+  late final CurvedAnimation _coveredCurve;
+  late CurvedAnimation _scrollCurve;
+  double _restingExtent = 0;
 
   @override
   void initState() {
@@ -625,12 +638,35 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
           ? 0
           : 1,
     );
+    _coveredCurve = CurvedAnimation(
+      parent: _coveredVisibility,
+      curve: MotionTokens.navBarShowCurve,
+      reverseCurve: MotionTokens.navBarHideCurve,
+    )..addListener(_publishVisibleExtent);
+    _attachScrollCurve(widget.scrollVisibility);
     // Publish after the first frame: provider writes are illegal inside
     // the build this initState runs under, and the only consumer (the
     // app-level update prompt) appears long after mount anyway.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _setBarVisible(true);
     });
+  }
+
+  void _attachScrollCurve(AnimationController controller) {
+    _scrollCurve = CurvedAnimation(
+      parent: controller,
+      curve: MotionTokens.navBarShowCurve,
+      reverseCurve: MotionTokens.navBarHideCurve,
+    )..addListener(_publishVisibleExtent);
+  }
+
+  /// Both slides translate the bar downward by their own fraction of its
+  /// height; what is still on screen is the resting extent minus the sum
+  /// of the two translations, clamped at zero — the bar cannot hide
+  /// further than fully.
+  void _publishVisibleExtent() {
+    final hidden = (1 - _coveredCurve.value) + (1 - _scrollCurve.value);
+    widget.visibleExtent.value = _restingExtent * math.max(0.0, 1.0 - hidden);
   }
 
   @override
@@ -646,11 +682,22 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
       }
       _syncCovered(_isCovered);
     }
+    if (!identical(oldWidget.scrollVisibility, widget.scrollVisibility)) {
+      _scrollCurve
+        ..removeListener(_publishVisibleExtent)
+        ..dispose();
+      _attachScrollCurve(widget.scrollVisibility);
+    }
   }
 
   @override
   void dispose() {
+    // A rail switch (or shell teardown) unmounts the bar — report zero so
+    // the hero clip never reads a stale extent.
+    widget.visibleExtent.value = 0;
     _coveredVisibility.dispose();
+    _coveredCurve.dispose();
+    _scrollCurve.dispose();
     super.dispose();
   }
 
@@ -718,18 +765,20 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     // the strip uses a full-height layout so nothing reflows under the
     // finger. Two stacked transitions: covered (pushed route) over scroll
     // (auto-hide), either one wins the hide.
+    _restingExtent = FuncBottomNav.restingExtent(
+      MediaQuery.paddingOf(context).bottom,
+    );
+    // Written during build: safe only because consumers read `.value` per
+    // frame and never listen (see HomeShellChrome.bottomBarVisibleExtent).
+    _publishVisibleExtent();
     return SlideTransition(
-      position: CurvedAnimation(
-        parent: _coveredVisibility,
-        curve: MotionTokens.navBarShowCurve,
-        reverseCurve: MotionTokens.navBarHideCurve,
-      ).drive(Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)),
+      position: _coveredCurve.drive(
+        Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
+      ),
       child: SlideTransition(
-        position: CurvedAnimation(
-          parent: widget.scrollVisibility,
-          curve: MotionTokens.navBarShowCurve,
-          reverseCurve: MotionTokens.navBarHideCurve,
-        ).drive(Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)),
+        position: _scrollCurve.drive(
+          Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
+        ),
         child: FuncBottomNav(
           selectedIndex: widget.selectedIndex,
           onSelected: widget.onSelected,

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 
@@ -111,12 +112,23 @@ Widget illustHeroFlightShuttleBuilder(
   // budget and often fell to 30/60 FPS. The viewport and chrome are stable for
   // one flight, so the shuttle only interpolates two plain Rects below.
   final size = _heroScreenSize(flightContext, fromHeroContext, toHeroContext);
+  // The home-side endpoint keeps its raw viewport bottom: the floating bar
+  // slides in and out under it, so the flight clip caps that edge per frame
+  // from the live visible extent below.
+  final fromHome = _heroIsHomeSide(fromHeroContext);
+  final toHome = _heroIsHomeSide(toHeroContext);
+  final homeContext = fromHome
+      ? fromHeroContext
+      : (toHome ? toHeroContext : null);
+  final visibleExtent = homeContext == null
+      ? null
+      : HomeShellChrome.maybeOf(homeContext)?.bottomBarVisibleExtent;
   final measuredFrom = size.isEmpty
       ? null
-      : _heroMeasuredViewport(fromHeroContext, size);
+      : _heroMeasuredViewport(fromHeroContext, size, isHome: fromHome);
   final measuredTo = size.isEmpty
       ? null
-      : _heroMeasuredViewport(toHeroContext, size);
+      : _heroMeasuredViewport(toHeroContext, size, isHome: toHome);
   final fallbackFrom = size.isEmpty
       ? null
       : _fallbackHeroEndpoint(flightContext, fromHeroContext, size);
@@ -157,6 +169,9 @@ Widget illustHeroFlightShuttleBuilder(
           to: to,
           fallbackFrom: fallbackFrom,
           fallbackTo: fallbackTo,
+          fromHome: fromHome,
+          toHome: toHome,
+          visibleExtent: visibleExtent,
         ),
         child: ClipRRect(
           borderRadius: radius,
@@ -187,7 +202,11 @@ Widget illustHeroFlightShuttleBuilder(
 /// The measured viewport clip for one flight endpoint, or null when the
 /// endpoint is not laid out yet (detached route on the first flight frame).
 /// Null keeps the fallback path in [_heroFlightClipRect].
-Rect? _heroMeasuredViewport(BuildContext heroContext, Size size) {
+Rect? _heroMeasuredViewport(
+  BuildContext heroContext,
+  Size size, {
+  required bool isHome,
+}) {
   RenderObject? renderObject = heroContext.findRenderObject();
   RenderSliver? viewportSliver;
   while (renderObject != null) {
@@ -225,7 +244,13 @@ Rect? _heroMeasuredViewport(BuildContext heroContext, Size size) {
           // with scrollable ones.
           final chrome = _fallbackHeroEndpoint(null, heroContext, size);
           final top = math.max(viewportBounds.top, chrome.top);
-          final bottom = math.min(viewportBounds.bottom, chrome.bottom);
+          // Home-side: the floating bar's cap moves during the flight, so
+          // the measured rect keeps the raw viewport bottom and the frame
+          // pass applies the live edge. Other endpoints use the static
+          // chrome bound as before.
+          final bottom = isHome
+              ? viewportBounds.bottom
+              : math.min(viewportBounds.bottom, chrome.bottom);
           if (bottom > top) {
             return Rect.fromLTRB(0, top, size.width, bottom);
           }
@@ -259,15 +284,30 @@ Rect _heroFlightClipRect(
   Rect? to,
   Rect? fallbackFrom,
   Rect? fallbackTo,
+  bool fromHome = false,
+  bool toHome = false,
+  ValueListenable<double>? visibleExtent,
 }) {
   if (size.isEmpty) return Rect.zero;
   final screen = Offset.zero & size;
-  final fromRect =
+  var fromRect =
       from ??
       fallbackFrom ??
       _fallbackHeroEndpoint(flightContext, fromContext, size);
-  final toRect =
+  var toRect =
       to ?? fallbackTo ?? _fallbackHeroEndpoint(flightContext, toContext, size);
+
+  // The home-side bottom edge tracks the bar's *live* covered height: the
+  // bar slides back in during a return flight, so a resting-extent cap cuts
+  // the image before it has anywhere to land. Outside the shell there is no
+  // live value — keep the conservative constant. Measured home endpoints
+  // carry the raw viewport bottom, so this cap is the only bar-related one.
+  if (fromHome) {
+    fromRect = _capHeroBottom(fromRect, size, visibleExtent);
+  }
+  if (toHome) {
+    toRect = _capHeroBottom(toRect, size, visibleExtent);
+  }
 
   final rawProgress = direction == HeroFlightDirection.push
       ? animationValue
@@ -304,8 +344,8 @@ Rect _heroFlightClipRect(
       arrivalContext: toContext,
       size: size,
       progress: progress,
-      from: fallbackFrom,
-      to: fallbackTo,
+      from: fromRect,
+      to: toRect,
     );
   }
   return Rect.fromLTRB(0, top, size.width, bottom).intersect(screen);
@@ -392,9 +432,29 @@ double _heroTopChrome(BuildContext? context, BuildContext heroContext) {
   return statusTop + appBarChrome + _pinnedHeaderChrome(heroContext, statusTop);
 }
 
+/// Whether this flight endpoint lives on a branch-root route — the only
+/// place the floating shell bottom bar exists.
+bool _heroIsHomeSide(BuildContext heroContext) =>
+    ModalRoute.of(heroContext)?.isFirst ?? false;
+
+/// Applies the home-side bottom cap to one endpoint rect for the current
+/// frame. With the shell's live [visibleExtent] the bar's real covered
+/// height wins; scope-free hosts keep the static conservative constant.
+Rect _capHeroBottom(Rect rect, Size size, ValueListenable<double>? extent) {
+  final limit = extent != null
+      ? size.height - extent.value
+      : (size.height - _kHomeBottomNavHeight).clamp(0.0, size.height);
+  if (rect.bottom <= limit) return rect;
+  return Rect.fromLTRB(
+    rect.left,
+    rect.top,
+    rect.right,
+    math.max(rect.top, limit.toDouble()),
+  );
+}
+
 double _heroBottomEdge(BuildContext heroContext, Size size) {
-  final isHomeRoute = ModalRoute.of(heroContext)?.isFirst ?? false;
-  if (!isHomeRoute) return size.height;
+  if (!_heroIsHomeSide(heroContext)) return size.height;
 
   // The shell publishes the bar's resting extent through HomeShellChrome —
   // the same computed value the spacer and SnackBar margin use. Outside

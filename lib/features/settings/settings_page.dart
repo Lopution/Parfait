@@ -20,6 +20,7 @@ import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
 import '../../core/comments/comment_translation.dart';
+import '../../core/debug/frame_probe.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/download/download_task.dart' show isTerminal;
 import '../../core/mute/mute_store.dart';
@@ -309,8 +310,12 @@ class _SettingsList extends ConsumerWidget {
           ),
           // Frame probe is a diagnostics tool, not a preference: it ships in
           // every build but stays hidden until the about-page gesture (or a
-          // non-release build) unlocks the developer group.
-          if (ref.watch(developerOptionsProvider) || !kReleaseMode)
+          // non-release build) unlocks the developer group. A
+          // `PIXIV_FRAME_PROBE` dart-define shows it in release for signed
+          // measurement packages; default release builds are unchanged.
+          if (ref.watch(developerOptionsProvider) ||
+              !kReleaseMode ||
+              kPixivFrameProbe)
             SettingsGroup(
               title: Text(context.l10n.settingsGroupDeveloper),
               children: [

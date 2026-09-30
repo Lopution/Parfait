@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 import 'package:pixiv_func/core/auth/account.dart';
@@ -325,6 +326,36 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+  });
+
+  testWidgets('the shell bar publishes its live visible extent', (
+    tester,
+  ) async {
+    await _pumpHome(tester);
+    final chrome = HomeShellChrome.of(
+      tester.element(find.byType(SettingsPage)),
+    );
+    final extent = chrome.bottomBarExtent;
+    expect(extent, greaterThan(0));
+    expect(chrome.bottomBarVisibleExtent.value, closeTo(extent, 0.001));
+
+    // Scrolling down slides the bar out; the published extent shrinks in
+    // step with the animation instead of snapping.
+    await tester.drag(_settingsList, const Offset(0, -200));
+    var sawPartial = false;
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final v = chrome.bottomBarVisibleExtent.value;
+      if (v == 0) break;
+      if (v < extent) sawPartial = true;
+    }
+    expect(sawPartial, isTrue);
+    await tester.pumpAndSettle();
+    expect(chrome.bottomBarVisibleExtent.value, 0);
+
+    await tester.drag(_settingsList, const Offset(0, 120));
+    await tester.pumpAndSettle();
+    expect(chrome.bottomBarVisibleExtent.value, closeTo(extent, 0.001));
   });
 
   testWidgets('short scrolls below the slop keep the bar expanded', (
