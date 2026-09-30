@@ -224,6 +224,36 @@ void main() {
     expect(sizes.single, lessThan(12));
   });
 
+  testWidgets('labels stay legible at 1.3x platform text scale', (
+    tester,
+  ) async {
+    // 12sp remains the label base; _labelScale only shrinks below it when
+    // the slot cannot fit. At 1.3x the same rule applies — no truncation.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.3)),
+            child: Scaffold(
+              bottomNavigationBar: FuncBottomNav(
+                destinations: destinations,
+                selectedIndex: 0,
+                onSelected: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    for (final d in destinations) {
+      expect(find.text(d.label), findsOneWidget);
+    }
+  });
+
   testWidgets('shell bar collapses on scroll down and returns on scroll up', (
     tester,
   ) async {

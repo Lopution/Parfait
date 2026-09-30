@@ -32,6 +32,32 @@ void main() {
     expect(find.byIcon(Icons.more_vert), findsOneWidget);
   });
 
+  testWidgets('long title and subtitle stay inside the row at 1.3x text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+        child: _host(
+          const SizedBox(
+            width: 320,
+            child: EntityRow(
+              leading: SizedBox(width: 48, height: 48),
+              title: '一个很长很长很长很长的作品标题',
+              subtitle: '一个很长很长的作者名字',
+              meta: '12345 字',
+              trailing: Icon(Icons.more_vert),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Overflow throws inside RenderFlex during the pump above.
+    expect(tester.takeException(), isNull);
+    expect(find.text('12345 字'), findsOneWidget);
+  });
+
   testWidgets('empty slots render nothing extra', (tester) async {
     await tester.pumpWidget(
       _host(const EntityRow(leading: SizedBox(width: 48), title: 'Bare title')),

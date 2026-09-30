@@ -118,6 +118,20 @@ void main() {
     );
   });
 
+  testWidgets('labels stay 14sp and scroll instead of overflowing at 1.3x', (
+    tester,
+  ) async {
+    const labels = ['每日排行', '昨日排行', '每周排行', '每月排行'];
+    await _pumpBar(tester, labels, textScale: 1.3);
+
+    expect(tester.takeException(), isNull);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue);
+    expect(
+      (_labelRichText(tester, '每日排行').text as TextSpan).style!.fontSize,
+      14,
+    );
+  });
+
   testWidgets('label style is the resolved 14sp w500 Montserrat style', (
     tester,
   ) async {

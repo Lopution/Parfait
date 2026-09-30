@@ -303,11 +303,11 @@ void main() {
       // Let AnimatedTheme converge when the second iteration swaps themes.
       await tester.pumpAndSettle();
 
-      // AppBar title keeps 16/w500.
+      // AppBar title keeps 16, now on the w600 title role.
       expectStyle(
         paragraphStyle('App bar'),
         fontSize: 16,
-        weight: FontWeight.w500,
+        weight: FontWeight.w600,
       );
       // Chip label keeps 14/w400.
       expectStyle(
@@ -349,6 +349,52 @@ void main() {
       // Tap the barrier to dismiss (showDialog's default barrierDismissible).
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
+    }
+  });
+
+  test('one type scale feeds TextTheme roles and semantic tokens', () {
+    void expectStyle(
+      TextStyle? style, {
+      required double fontSize,
+      required FontWeight weight,
+    }) {
+      expect(style?.fontSize, fontSize);
+      expect(style?.fontWeight, weight);
+    }
+
+    for (final brightness in Brightness.values) {
+      final theme = replicaTheme(brightness);
+      final textTheme = theme.textTheme;
+
+      expectStyle(textTheme.titleLarge, fontSize: 20, weight: FontWeight.w600);
+      expectStyle(textTheme.titleMedium, fontSize: 16, weight: FontWeight.w600);
+      expectStyle(textTheme.titleSmall, fontSize: 14, weight: FontWeight.w500);
+      expectStyle(textTheme.bodyLarge, fontSize: 14, weight: FontWeight.w500);
+      expectStyle(textTheme.bodyMedium, fontSize: 14, weight: FontWeight.w400);
+      expectStyle(textTheme.bodySmall, fontSize: 12, weight: FontWeight.w400);
+      expectStyle(textTheme.labelLarge, fontSize: 14, weight: FontWeight.w500);
+      expectStyle(textTheme.labelSmall, fontSize: 11, weight: FontWeight.w500);
+      expectStyle(
+        textTheme.headlineSmall,
+        fontSize: 18,
+        weight: FontWeight.w500,
+      );
+
+      // Every semantic type slot resolves to its TextTheme role (size and
+      // weight); only colors and tabular figures diverge by design.
+      final tokens = theme.extension<FuncSemanticTokens>()!;
+      final roles = <(TextStyle, TextStyle?)>{
+        (tokens.display, textTheme.titleLarge),
+        (tokens.title, textTheme.titleMedium),
+        (tokens.body, textTheme.bodyMedium),
+        (tokens.label, textTheme.labelLarge),
+        (tokens.caption, textTheme.bodySmall),
+        (tokens.numeric, textTheme.labelLarge),
+      };
+      for (final (token, role) in roles) {
+        expect(token.fontSize, role?.fontSize);
+        expect(token.fontWeight, role?.fontWeight);
+      }
     }
   });
 

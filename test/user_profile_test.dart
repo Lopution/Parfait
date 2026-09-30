@@ -2159,57 +2159,76 @@ void main() {
     },
   );
 
-  testWidgets(
-    'the profile skeleton lines up with the header it stands in for',
-    (tester) async {
-      final gate = Completer<void>();
-      addTearDown(() {
-        if (!gate.isCompleted) gate.complete();
-      });
-      final repository = _FakeUserRepository()..detailGate = gate;
-      final container = await _makeWorld(users: repository);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: const UserPage(userId: 42),
+  for (final textScale in const [1.0, 1.3]) {
+    testWidgets(
+      'the profile skeleton lines up with the header it stands in for '
+      '(412dp @ ${textScale}x text)',
+      (tester) async {
+        tester.view.physicalSize = const Size(412, 892);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        final repository = _FakeUserRepository()..detailGate = gate;
+        final container = await _makeWorld(users: repository);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(textScale)),
+                child: child!,
+              ),
+              home: const UserPage(userId: 42),
+            ),
           ),
-        ),
-      );
-      await tester.pump();
-      expect(find.byType(ProfileSkeleton), findsOneWidget);
-      final avatarBone = tester.getCenter(
-        find.byKey(const ValueKey('profile-skeleton-avatar')),
-      );
-      final nameBone = tester.getTopLeft(
-        find.byKey(const ValueKey('profile-skeleton-name')),
-      );
+        );
+        await tester.pump();
+        expect(find.byType(ProfileSkeleton), findsOneWidget);
+        final avatarBone = tester.getCenter(
+          find.byKey(const ValueKey('profile-skeleton-avatar')),
+        );
+        final nameBone = tester.getTopLeft(
+          find.byKey(const ValueKey('profile-skeleton-name')),
+        );
+        final tabSlot = tester.getTopLeft(
+          find.byKey(const ValueKey('profile-skeleton-tabs')),
+        );
 
-      gate.complete();
-      // The works feed shimmers behind the header, so pumpAndSettle would
-      // never return; pump a fixed stretch for the header to measure itself.
-      for (var i = 0; i < 12; i++) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-      expect(find.byType(ProfileSkeleton), findsNothing);
-      final avatar = tester.getCenter(
-        find.byKey(const ValueKey('profile-expanded-avatar')),
-      );
-      final name = tester.getTopLeft(
-        find.byKey(const ValueKey('profile-expanded-name')),
-      );
+        gate.complete();
+        // The works feed shimmers behind the header, so pumpAndSettle would
+        // never return; pump a fixed stretch for the header to measure itself.
+        for (var i = 0; i < 12; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+        expect(find.byType(ProfileSkeleton), findsNothing);
+        final avatar = tester.getCenter(
+          find.byKey(const ValueKey('profile-expanded-avatar')),
+        );
+        final name = tester.getTopLeft(
+          find.byKey(const ValueKey('profile-expanded-name')),
+        );
+        final tabs = tester.getTopLeft(
+          find.byKey(const ValueKey('profile-tabs')),
+        );
 
-      // Same avatar centre and the same name baseline row: nothing jumps
-      // when the data replaces the bones.
-      expect(avatarBone.dx, moreOrLessEquals(avatar.dx));
-      expect(avatarBone.dy, moreOrLessEquals(avatar.dy));
-      expect(nameBone.dx, moreOrLessEquals(name.dx));
-      expect(nameBone.dy, moreOrLessEquals(name.dy));
-    },
-  );
+        // Same avatar centre, the same name baseline row and the same tab
+        // band top edge: nothing jumps when the data replaces the bones.
+        expect(avatarBone.dx, moreOrLessEquals(avatar.dx));
+        expect(avatarBone.dy, moreOrLessEquals(avatar.dy));
+        expect(nameBone.dx, moreOrLessEquals(name.dx));
+        expect(nameBone.dy, moreOrLessEquals(name.dy));
+        expect(tabSlot.dy, moreOrLessEquals(tabs.dy, epsilon: 1.0));
+      },
+    );
+  }
 
   testWidgets('work type switch stays usable while the feed is still loading', (
     tester,
