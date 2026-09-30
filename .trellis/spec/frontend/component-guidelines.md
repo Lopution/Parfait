@@ -276,14 +276,21 @@ Widget tests read `SystemChrome.latestStyle` only after a `pump` (the
 `goBranch`. Branch selection is owned by the shell; the destination callback
 does not create a second tab controller or animation.
 
-The shell continues to publish the rendered bar bounds through
-`homeShellMetricsProvider`. The bar publishes at the end of its first frame
-after mount — consumers never see a permanent null gap between layout and
-the first measurement. `bottomNavTop` and `bottomNavHeight` are the bar's
-resting position: the measured box sits outside both `SlideTransition`s,
-whose offsets only move its child, so a sample taken mid-slide still reads
-the resting geometry. Motion and Hero code uses those measured bounds, not
-a copied navigation-bar height.
+The shell publishes the bar's resting extent through `HomeShellChrome`, an
+InheritedWidget `BranchSlideStack` wraps around the strip and the bar —
+computed synchronously, not measured post-layout:
+`rail ? 0 : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom)`.
+`restingExtent` is the fixed `_height` row plus the bottom safe-area inset
+the bar's own `SafeArea` adds, and nothing between the stack and that
+`SafeArea` strips the inset, so the computed value equals the rendered bar
+height on the very first frame. `FuncNavBarSpacer`, `showAppSnackBar`'s
+branch margin and the Hero landing clip all read the same extent — no
+consumer measures or copies the bar geometry. On NavigationRail layouts the
+extent is 0 and no `FuncShellBottomNav` exists. The only consumer that
+cannot reach the scope is the root-messenger update prompt; it reads the
+`homeShellBarVisibleProvider` presence flag (`FuncShellBottomNav` publishes
+it on mount/deactivate) and recomputes the same formula from its own
+context's padding.
 
 ## Top Tab Contract
 
@@ -420,9 +427,11 @@ defaults `SnackBar.persist` to `action != null`, so the helpers pass an
 explicit `persist` that is true only when
 `MediaQuery.accessibleNavigationOf` reports assistive navigation. Every
 other message, action or not, times out on its `duration`. Bottom-bar
-clearance is computed once by `appSnackBarShellMargin` from
-`homeShellMetricsProvider`; branch snackbars and app-level snackbars on the
-root messenger share the same margin so both rest above the bar.
+clearance is computed once by `appSnackBarShellMargin` from the shell's
+computed bar extent (`HomeShellChrome.bottomBarExtent`, or the same
+`restingExtent` formula above the shell); branch snackbars and app-level
+snackbars on the root messenger share the same margin so both rest above
+the bar.
 
 Widget tests for this contract pump `material_ui`'s `MaterialApp` and query
 `material_ui`'s `SnackBar` and `ScaffoldMessenger` types. Cover both stale

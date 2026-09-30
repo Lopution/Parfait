@@ -25,6 +25,7 @@ import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
 import 'widgets/app_snack_bar.dart';
+import 'widgets/func_bottom_nav.dart';
 import 'widgets/settings_load_error.dart';
 import '../l10n/context.dart';
 import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
@@ -51,17 +52,26 @@ const updatePromptDuration = Duration(seconds: 8);
 void showUpdatePrompt(
   ScaffoldMessengerState messenger, {
   required String version,
-  required HomeShellMetrics shellMetrics,
+  required bool shellBarVisible,
   required bool reduceMotion,
   required VoidCallback onOpen,
 }) {
   final l10n = messenger.context.l10n;
+  // The prompt is presented by the root messenger above the shell, so it
+  // cannot read HomeShellChrome — the visible flag says whether a bar
+  // exists and the extent is recomputed from this context's padding with
+  // the same formula the shell uses.
+  final bottomBarExtent = shellBarVisible
+      ? FuncBottomNav.restingExtent(
+          MediaQuery.paddingOf(messenger.context).bottom,
+        )
+      : 0.0;
   showAppSnackBarOn(
     messenger,
     '${l10n.aboutUpdateAvailable}: $version',
     duration: updatePromptDuration,
     action: SnackBarAction(label: l10n.aboutUpdateOpen, onPressed: onOpen),
-    margin: appSnackBarShellMargin(shellMetrics),
+    margin: appSnackBarShellMargin(bottomBarExtent),
     animationStyle: !reduceMotion
         ? appSnackBarAnimationStyle
         : AnimationStyle.noAnimation,
@@ -131,7 +141,7 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     showUpdatePrompt(
       messenger,
       version: '$version',
-      shellMetrics: ref.read(homeShellMetricsProvider),
+      shellBarVisible: ref.read(homeShellBarVisibleProvider),
       reduceMotion: reduceMotion,
       onOpen: () => _router.push<void>('/settings/about'),
     );

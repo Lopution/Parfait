@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../motion/motion_tokens.dart';
 import '../navigation/home_shell_metrics.dart';
@@ -34,12 +33,12 @@ const _baseMargin = EdgeInsets.fromLTRB(
 );
 
 /// The margin for a floating SnackBar that must clear the home shell's
-/// bottom bar: base margin plus the bar's **resting** height. The bar
+/// bottom bar: base margin plus the bar's **resting** extent. The bar
 /// slides under the screen edge as an overlay while the snackbar dwells;
-/// lifting by the resting height keeps the message clear of the bar both
+/// lifting by the resting extent keeps the message clear of the bar both
 /// when it is shown and when it slides back mid-dwell.
-EdgeInsets appSnackBarShellMargin(HomeShellMetrics metrics) => _baseMargin
-    .copyWith(bottom: _baseMargin.bottom + (metrics.bottomNavHeight ?? 0));
+EdgeInsets appSnackBarShellMargin(double bottomBarExtent) =>
+    _baseMargin.copyWith(bottom: _baseMargin.bottom + bottomBarExtent);
 
 /// Builds the one in-app SnackBar shape: floating, a consistent margin and
 /// an optional action. Keeping construction in one place is what makes the
@@ -72,9 +71,9 @@ SnackBar buildAppSnackBar(
 ///
 /// The shell bottom bar floats over branch-root pages as an overlay, so
 /// Scaffold geometry cannot anchor the SnackBar above it — on a branch
-/// root (`BranchRootScope`) the margin is grown by the measured bar
-/// height. Pushed routes resolve the root messenger outside the scope and
-/// keep the plain margin, matching the bar having slid away.
+/// root (`BranchRootScope`) the margin is grown by the shell's computed
+/// bar extent. Pushed routes resolve the root messenger outside the scope
+/// and keep the plain margin, matching the bar having slid away.
 void showAppSnackBar(
   BuildContext context,
   String message, {
@@ -85,10 +84,7 @@ void showAppSnackBar(
   var margin = _baseMargin;
   if (BranchRootScope.maybeOf(context) != null) {
     margin = appSnackBarShellMargin(
-      ProviderScope.containerOf(
-        context,
-        listen: false,
-      ).read(homeShellMetricsProvider),
+      HomeShellChrome.maybeOf(context)?.bottomBarExtent ?? 0,
     );
   }
   showAppSnackBarOn(
