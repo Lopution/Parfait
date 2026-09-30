@@ -9,12 +9,13 @@ import '../../core/bookmark/bookmark_actions.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
 import '../../core/bookmark/bookmark_tag_providers.dart';
+import '../../core/errors/error_category.dart';
 import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
-import '../widgets/app_snack_bar.dart';
+import '../widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 
@@ -78,9 +79,10 @@ class BookmarkSwitchButton extends ConsumerWidget {
       next,
     ) {
       if (next != null && previous != next) {
-        showAppSnackBar(
+        showErrorSnackBar(
           context,
-          context.l10n.bookmarkOperationFailed(next.toString()),
+          action: context.l10n.bookmarkOperationFailed,
+          error: next,
         );
       }
     });
@@ -539,11 +541,23 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                   if (_submitError != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-                      child: Text(
-                        l10n.bookmarkOperationFailed('$_submitError'),
-                        style: FuncSemanticTokens.of(
-                          context,
-                        ).caption.copyWith(color: colorScheme.error),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.errorWithReason(
+                              l10n.bookmarkOperationFailed,
+                              errorCategoryText(
+                                context,
+                                categorizeError(_submitError!),
+                              ),
+                            ),
+                            style: FuncSemanticTokens.of(
+                              context,
+                            ).caption.copyWith(color: colorScheme.error),
+                          ),
+                          ErrorDetails(error: _submitError!),
+                        ],
                       ),
                     ),
                   Padding(

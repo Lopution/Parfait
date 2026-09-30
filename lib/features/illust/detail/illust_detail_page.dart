@@ -33,6 +33,7 @@ import 'widgets/page_image.dart';
 import 'ugoira_viewer.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
 import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/layout/two_pane.dart';
@@ -202,9 +203,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     } catch (error) {
       if (!mounted) return;
       AppHaptics.error();
-      showAppSnackBar(
+      showErrorSnackBar(
         context,
-        context.l10n.downloadSubmissionFailed(error.toString()),
+        action: context.l10n.downloadSubmissionFailed,
+        error: error,
       );
       return;
     }
@@ -336,9 +338,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // FormatException otherwise vanish with no UI feedback.
                 if (!context.mounted) return;
                 AppHaptics.error();
-                showAppSnackBar(
+                showErrorSnackBar(
                   context,
-                  context.l10n.downloadSubmissionFailed(error.toString()),
+                  action: context.l10n.downloadSubmissionFailed,
+                  error: error,
                 );
                 return;
               }

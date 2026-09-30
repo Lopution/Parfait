@@ -9,6 +9,7 @@ import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/follow_switch_button.dart';
@@ -67,7 +68,7 @@ class MePage extends ConsumerWidget {
       error: (error, _) => _ProfileStatusPage(
         icon: Icons.cloud_off,
         title: context.l10n.profileLoadFailed,
-        detail: '$error',
+        error: error,
         onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
       ),
       data: (state) {
@@ -75,7 +76,7 @@ class MePage extends ConsumerWidget {
           return _ProfileStatusPage(
             icon: Icons.cloud_off,
             title: context.l10n.accountReadFailed,
-            detail: '${state.error ?? 'unknown account error'}',
+            error: state.error ?? StateError('account state unavailable'),
             onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
           );
         }
@@ -390,7 +391,7 @@ class _UserPageState extends ConsumerState<UserPage>
         error: (error, _) => _ProfileStatusPage(
           icon: Icons.cloud_off,
           title: context.l10n.profileLoadFailed,
-          detail: '$error',
+          error: error,
           onRetry: () => ref
               .read(userDetailControllerProvider(widget.userId).notifier)
               .reload(),
@@ -417,7 +418,7 @@ class _UserPageState extends ConsumerState<UserPage>
       UserDetailError(:final error) => _ProfileStatusPage(
         icon: Icons.cloud_off,
         title: context.l10n.profileLoadFailed,
-        detail: '$error',
+        error: error,
         onRetry: () => ref
             .read(userDetailControllerProvider(widget.userId).notifier)
             .reload(),
@@ -829,9 +830,10 @@ Future<void> _openProfileSocialLink(
     await ref.read(outboundUrlOpenerProvider).openExternal(url);
   } on Object catch (error) {
     if (!context.mounted) return;
-    showAppSnackBar(
+    showErrorSnackBar(
       context,
-      context.l10n.illustDetailOpenLinkFailed(error.toString()),
+      action: context.l10n.illustDetailOpenLinkFailed,
+      error: error,
     );
   }
 }
@@ -847,12 +849,14 @@ class _ProfileStatusPage extends StatelessWidget {
     required this.icon,
     required this.title,
     this.detail,
+    this.error,
     this.onRetry,
   });
 
   final IconData icon;
   final String title;
   final String? detail;
+  final Object? error;
   final Future<void> Function()? onRetry;
 
   @override
@@ -865,6 +869,7 @@ class _ProfileStatusPage extends StatelessWidget {
             icon: icon,
             title: title,
             detail: detail,
+            error: error,
             onRefresh: onRetry,
             retryLabel: context.l10n.profileRetry,
           ),

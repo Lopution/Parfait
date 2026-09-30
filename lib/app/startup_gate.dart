@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/auth/account_store.dart';
+import '../core/errors/error_category.dart';
 import '../core/settings/app_settings.dart';
 import '../l10n/lookup.dart';
 import '../l10n/context.dart';
 import 'layout/content_widths.dart';
+import 'widgets/errors/error_details.dart';
 
 /// Cold-start router driven by real settings and account state.
 ///
@@ -292,10 +294,11 @@ class _StartupError extends StatelessWidget {
                 Text(text('accountReadFailed')),
                 const SizedBox(height: 8),
                 Text(
-                  '$error',
+                  errorCategoryText(context, categorizeError(error)),
                   style: Theme.of(context).textTheme.bodySmall,
                   textAlign: TextAlign.center,
                 ),
+                ErrorDetails(error: error),
                 const SizedBox(height: 16),
                 // Retry is the page's primary action — same weight as
                 // FeedError's retry, not a low-emphasis text button.

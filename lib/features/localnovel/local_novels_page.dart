@@ -9,6 +9,7 @@ import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/localnovel/local_novel_decoder.dart';
@@ -87,9 +88,10 @@ class LocalNovelsPage extends ConsumerWidget {
       );
     } on Object catch (error) {
       if (!context.mounted) return;
-      showAppSnackBar(
+      showErrorSnackBar(
         context,
-        '${context.l10n.localNovelsImportFailed}: $error',
+        action: context.l10n.localNovelsImportFailed,
+        error: error,
       );
     }
   }

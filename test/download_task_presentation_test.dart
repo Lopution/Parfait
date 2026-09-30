@@ -447,4 +447,40 @@ void main() {
       expect(downloadGroupRowTitle(l10n, const [], 3), '批量下载 · 3 项');
     });
   });
+
+  group('failure reason text (C8/D1, design §2.4 第 4 类)', () {
+    test('every failureKind maps to its localized reason', () {
+      final expectations = <DownloadFailureKind?, String>{
+        DownloadFailureKind.auth: l10n.errorUnauthorized,
+        DownloadFailureKind.rateLimit: l10n.errorRateLimited,
+        DownloadFailureKind.network: l10n.errorNetwork,
+        DownloadFailureKind.storage: l10n.errorStorage,
+        DownloadFailureKind.decode: l10n.errorParse,
+        DownloadFailureKind.permission: l10n.downloadFailurePermission,
+        DownloadFailureKind.resource: l10n.downloadFailureResource,
+        DownloadFailureKind.ownership: l10n.downloadFailureOwnership,
+        DownloadFailureKind.unknown: l10n.errorUnknown,
+      };
+      for (final entry in expectations.entries) {
+        expect(
+          downloadFailureReasonText(l10n, entry.key),
+          entry.value,
+          reason: '${entry.key} must read "${entry.value}"',
+        );
+      }
+      // canceled and paused are not failures; an absent kind has nothing
+      // to map (the row falls back to the generic category of the error).
+      for (final kind in [
+        null,
+        DownloadFailureKind.canceled,
+        DownloadFailureKind.paused,
+      ]) {
+        expect(
+          downloadFailureReasonText(l10n, kind),
+          isNull,
+          reason: '$kind shows no failure reason',
+        );
+      }
+    });
+  });
 }

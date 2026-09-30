@@ -95,14 +95,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginRestart => '重新登录';
 
   @override
-  String loginFailed(String error) {
-    return '登录失败: $error';
-  }
-
-  @override
-  String loginFailedType(String type) {
-    return '登录失败 ($type)';
-  }
+  String get loginFailed => '登录失败';
 
   @override
   String get networkCompatibility => 'Pixiv 官方网络兼容';
@@ -571,6 +564,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditImageChoose => '选择一张受支持的图片';
 
   @override
+  String get profileEditImageFailed => '图片处理失败';
+
+  @override
   String get profileEditChooseImage => '选择图片';
 
   @override
@@ -836,9 +832,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unmuteTag => '解除屏蔽';
 
   @override
-  String muteFailed(Object error) {
-    return '屏蔽操作失败:$error';
-  }
+  String get muteFailed => '屏蔽操作失败';
 
   @override
   String get reduceMotion => '减少动态效果';
@@ -1053,6 +1047,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadRemoveRecord => '移除';
 
   @override
+  String get downloadFailurePermission => '缺少存储权限';
+
+  @override
+  String get downloadFailureResource => '设备资源不足或文件过大';
+
+  @override
+  String get downloadFailureOwnership => '目标文件由其他应用创建，无法覆盖';
+
+  @override
   String downloadBatchCancelConfirm(int count) {
     return '取消选中的 $count 项下载？未完成的进度会被丢弃。';
   }
@@ -1110,9 +1113,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadAuthorEmpty => '该作者没有可下载的作品。';
 
   @override
-  String downloadAuthorFailed(String error) {
-    return '枚举作品失败：$error';
-  }
+  String get downloadAuthorFailed => '枚举作品失败';
 
   @override
   String get downloadCaption => '同时导出作品简介';
@@ -1250,9 +1251,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadQueuedMessage => '已加入下载队列';
 
   @override
-  String downloadSubmissionFailed(String error) {
-    return '下载失败：$error';
-  }
+  String get downloadSubmissionFailed => '下载失败';
 
   @override
   String get ugoiraSaveGif => '保存 GIF';
@@ -1285,9 +1284,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String ugoiraLoadFailed(String error) {
-    return '动图加载失败：$error';
-  }
+  String get ugoiraLoadFailed => '动图加载失败';
 
   @override
   String get homeRecommended => '推荐';
@@ -1308,9 +1305,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bookmarkNovel => '收藏小说';
 
   @override
-  String bookmarkOperationFailed(String error) {
-    return '收藏操作失败：$error';
-  }
+  String get bookmarkOperationFailed => '收藏操作失败';
 
   @override
   String get save => '保存';
@@ -1335,6 +1330,47 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get continueAction => '继续';
+
+  @override
+  String get errorNetwork => '网络连接失败';
+
+  @override
+  String get errorTimeout => '连接超时';
+
+  @override
+  String get errorRateLimited => '请求过于频繁，请稍后重试';
+
+  @override
+  String get errorUnauthorized => '需要重新登录';
+
+  @override
+  String get errorServer => '服务器错误';
+
+  @override
+  String get errorNotFound => '内容不存在或已被删除';
+
+  @override
+  String get errorParse => '响应无法解析';
+
+  @override
+  String get errorStorage => '存储错误';
+
+  @override
+  String get errorUnknown => '未知错误';
+
+  @override
+  String get errorDetails => '详情';
+
+  @override
+  String get errorDetailsCopy => '复制';
+
+  @override
+  String get errorDetailsCopied => '已复制';
+
+  @override
+  String errorWithReason(String action, String reason) {
+    return '$action：$reason';
+  }
 
   @override
   String get rankingDay => '每日';
@@ -1735,9 +1771,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String illustDetailOpenLinkFailed(String error) {
-    return '无法打开链接：$error';
-  }
+  String get illustDetailOpenLinkFailed => '无法打开链接';
 
   @override
   String illustDetailRestricted(int id) {

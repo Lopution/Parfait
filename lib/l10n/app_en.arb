@@ -47,22 +47,7 @@
   "loginInstallWebView2": "Install WebView2 Runtime",
   "loginReload": "Reload",
   "loginRestart": "Log in again",
-  "loginFailed": "Login failed: {error}",
-  "@loginFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "loginFailedType": "Login failed ({type})",
-  "@loginFailedType": {
-    "placeholders": {
-      "type": {
-        "type": "String"
-      }
-    }
-  },
+  "loginFailed": "Login failed",
   "networkCompatibility": "Pixiv official network compatibility",
   "networkCompatibilityHint": "Direct HTTPS is tried first; only official Pixiv destinations may try a strict HTTPS candidate after an explicit transport failure. Other traffic is never proxied and certificate checks stay enabled.",
   "useLoginWithClipboard": "Login with clipboard data",
@@ -221,6 +206,7 @@
   "profileEditCurrentPassword": "Current password",
   "profileEditFieldUnsupported": "This field is not supported by the current route",
   "profileEditImageChoose": "Choose a supported image",
+  "profileEditImageFailed": "Image processing failed",
   "profileEditChooseImage": "Choose image",
   "profileEditSave": "Save profile",
   "profileEditLeaveTitle": "Discard unsaved changes?",
@@ -373,7 +359,7 @@
   "muteAuthor": "Mute author",
   "unmuteAuthor": "Unmute author",
   "unmuteTag": "Unmute",
-  "muteFailed": "Mute operation failed: {error}",
+  "muteFailed": "Mute operation failed",
   "reduceMotion": "Reduce motion",
   "reduceMotionHint": "Turn off decorative animation: page transitions, list entrances and press feedback",
   "maxDownloadCount": "Maximum concurrent downloads",
@@ -473,6 +459,9 @@
   "downloadProcessing": "Processing",
   "downloadViewResult": "View",
   "downloadRemoveRecord": "Remove",
+  "downloadFailurePermission": "Storage permission denied",
+  "downloadFailureResource": "File too large or out of resources",
+  "downloadFailureOwnership": "Task output belongs to a different account",
   "downloadBatchCancelConfirm": "Cancel the {count} selected download(s)? Unfinished progress will be discarded.",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -558,14 +547,7 @@
     }
   },
   "downloadAuthorEmpty": "This author has no downloadable works.",
-  "downloadAuthorFailed": "Failed to enumerate works: {error}",
-  "@downloadAuthorFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+"downloadAuthorFailed": "Failed to enumerate works",
   "downloadCaption": "Export work caption",
   "downloadCaptionHint": "Save the title, author and caption as a matching .txt next to downloaded illusts and manga",
   "aboutVersion": "Version",
@@ -633,14 +615,10 @@
   "viewerNoImages": "No images to display",
   "downloadAll": "Download All",
   "downloadQueuedMessage": "Added to the download queue",
-  "downloadSubmissionFailed": "Download failed: {error}",
-  "@downloadSubmissionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "downloadSubmissionFailed": "Download failed",
+  "downloadFailurePermission": "Storage permission missing",
+  "downloadFailureResource": "Device resources exhausted or the file is too large",
+  "downloadFailureOwnership": "The destination file belongs to another app",
   "ugoiraSaveGif": "Save GIF",
   "ugoiraLoadCanceled": "Loading was canceled",
   "ugoiraLoginRequired": "Sign in before saving the GIF",
@@ -670,28 +648,14 @@
       }
     }
   },
-  "ugoiraLoadFailed": "Animation failed to load: {error}",
-  "@ugoiraLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraLoadFailed": "Animation failed to load",
   "homeRecommended": "Recommended",
   "homeRanking": "Ranking",
   "homeMe": "Me",
   "homeExitHint": "Press back again to exit",
   "bookmarkIllust": "Bookmark illustration",
   "bookmarkNovel": "Bookmark novel",
-  "bookmarkOperationFailed": "Bookmark operation failed: {error}",
-  "@bookmarkOperationFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "bookmarkOperationFailed": "Bookmark operation failed",
   "save": "Save",
   "saved": "Saved",
   "retry": "Retry",
@@ -700,6 +664,29 @@
   "cancel": "Cancel",
   "confirm": "Confirm",
   "continueAction": "Continue",
+  "errorNetwork": "Network connection failed",
+  "errorTimeout": "Connection timed out",
+  "errorRateLimited": "Too many requests — try again later",
+  "errorUnauthorized": "Sign-in required",
+  "errorServer": "Server error",
+  "errorNotFound": "Content not found or removed",
+  "errorParse": "Response could not be parsed",
+  "errorStorage": "Storage error",
+  "errorUnknown": "Unknown error",
+  "errorDetails": "Details",
+  "errorDetailsCopy": "Copy",
+  "errorDetailsCopied": "Copied",
+  "errorWithReason": "{action}: {reason}",
+  "@errorWithReason": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "Daily",
   "rankingDayR18": "Daily (R-18)",
   "rankingDayMale": "Daily (Male favorite)",
@@ -873,14 +860,7 @@
       }
     }
   },
-  "illustDetailOpenLinkFailed": "Could not open the link: {error}",
-  "@illustDetailOpenLinkFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "illustDetailOpenLinkFailed": "Could not open the link",
   "illustDetailRestricted": "This artwork has been deleted or restricted (ID: {id})",
   "@illustDetailRestricted": {
     "placeholders": {

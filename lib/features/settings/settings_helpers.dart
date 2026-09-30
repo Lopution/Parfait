@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
-import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/download/download_destination.dart';
@@ -98,10 +98,13 @@ Future<bool> persistSettings(
     return true;
   } on Object catch (error) {
     if (context.mounted) {
-      showAppSnackBar(
+      showErrorSnackBar(
         context,
-        '${settingsText(context, failureMessageKey ?? 'settingsWriteFailed')}: '
-        '$error',
+        action: settingsText(
+          context,
+          failureMessageKey ?? 'settingsWriteFailed',
+        ),
+        error: error,
       );
     }
     return false;

@@ -10,9 +10,11 @@ import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings_load_error.dart';
 import '../../../core/auth/account.dart';
 import '../../../core/auth/account_store.dart';
+import '../../../core/errors/error_category.dart';
 import '../../../core/settings/server_display_settings.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
@@ -259,7 +261,14 @@ class _ServerDisplaySection extends ConsumerWidget {
           SettingsActionTile(
             icon: Icons.error_outline,
             title: Text(context.l10n.serverDisplayLoadFailed),
-            subtitle: Text('$error'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(errorCategoryText(context, categorizeError(error))),
+                ErrorDetails(error: error),
+              ],
+            ),
             trailing: TextButton(
               onPressed: () => ref.invalidate(serverDisplaySettingsProvider),
               child: Text(context.l10n.retry),

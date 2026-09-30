@@ -7,14 +7,19 @@ import 'package:path/path.dart' as p;
 /// Local crash log (R3 — the pixes/Shaft convention: capture to a file on
 /// disk; no remote telemetry SDK).
 ///
-/// [install] hooks [FlutterError.onError] and is paired with
-/// `runZonedGuarded(record, ...)` in `main` so framework and zone errors
-/// both land in `crash.log` under the app support directory. Writes are
-/// serialized through a queue so a burst of errors cannot interleave or
-/// drop entries. The file is capped at [maxBytes]: past the cap the
-/// newest half is kept so a spammy failure can never grow it unbounded.
-/// Console output is preserved via [FlutterError.dumpErrorToConsole] so
-/// logcat stays complete.
+/// Two kinds of entries land here. Uncaught errors: [install] hooks
+/// [FlutterError.onError] and is paired with `runZonedGuarded(record, ...)`
+/// in `main` so framework and zone errors land in `crash.log` under the
+/// app support directory. Reported errors: `showErrorSnackBar` records the
+/// failures it already surfaced to the user, so the one file a user can
+/// share still carries the raw text the UI replaced with a category — the
+/// file therefore mixes non-fatal entries with real crashes.
+///
+/// Writes are serialized through a queue so a burst of errors cannot
+/// interleave or drop entries. The file is capped at [maxBytes]: past the
+/// cap the newest half is kept so a spammy failure can never grow it
+/// unbounded. Console output is preserved via
+/// [FlutterError.dumpErrorToConsole] so logcat stays complete.
 class CrashLog {
   CrashLog._();
 

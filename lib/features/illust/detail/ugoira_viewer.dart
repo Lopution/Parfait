@@ -9,11 +9,13 @@ import '../../../app/haptics/app_haptics.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/theme/func_tokens.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/auth/account_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_recovery.dart';
+import '../../../core/errors/error_category.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
@@ -109,6 +111,10 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   final Set<int> _failedFrames = <int>{};
   UgoiraExportJob? _exportJob;
   String? _error;
+
+  /// The raw failure behind [_error] — handed to the overlay's details
+  /// disclosure when the message itself stays at category level.
+  Object? _errorDetails;
   var _loading = false;
   var _frameReady = false;
   var _playRequested = false;
@@ -203,7 +209,11 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
               if (_loading)
                 const FeedLoading()
               else if (_error != null)
-                _ErrorOverlay(message: _error!, onRetry: _togglePlayback)
+                _ErrorOverlay(
+                  message: _error!,
+                  error: _errorDetails,
+                  onRetry: _togglePlayback,
+                )
               else if (scheduler == null || !scheduler.isPlaying)
                 const _PlayOverlay(),
               Positioned(
@@ -366,6 +376,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     setState(() {
       _loading = true;
       _error = null;
+      _errorDetails = null;
     });
     final cancelToken = CancelToken();
     _loadCancelToken = cancelToken;
@@ -404,11 +415,18 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
       }
     } on ApiCancelled {
       if (!_disposed) {
-        setState(() => _error = context.l10n.ugoiraLoadCanceled);
+        setState(() {
+          _error = context.l10n.ugoiraLoadCanceled;
+          _errorDetails = null;
+        });
       }
     } catch (error) {
       if (!_disposed) {
-        setState(() => _error = _friendlyError(context, error));
+        setState(() {
+          final friendly = _friendlyError(context, error);
+          _error = friendly.message;
+          _errorDetails = friendly.details;
+        });
       }
     } finally {
       _loadCancelToken = null;
@@ -547,7 +565,11 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           _playRequested = false;
           if (scheduler.isPlaying) scheduler.pause();
         }
-        setState(() => _error = _friendlyError(context, error));
+        setState(() {
+          final friendly = _friendlyError(context, error);
+          _error = friendly.message;
+          _errorDetails = friendly.details;
+        });
       }
     } finally {
       image?.dispose();
@@ -617,14 +639,27 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     super.dispose();
   }
 
-  String _friendlyError(BuildContext context, Object error) {
+  /// Archive/decode failures already carry crafted localized text, so the
+  /// overlay keeps showing it as the headline. Anything else falls back to
+  /// the category sentence and the raw error goes to the details
+  /// disclosure instead of being interpolated into the message.
+  ({String message, Object? details}) _friendlyError(
+    BuildContext context,
+    Object error,
+  ) {
     if (error is UgoiraArchiveException) {
-      return context.l10n.ugoiraArchiveInvalid(error.message);
+      return (
+        message: context.l10n.ugoiraArchiveInvalid(error.message),
+        details: error,
+      );
     }
     if (error is UgoiraDecodeException) {
-      return context.l10n.ugoiraFrameCorrupt(error.message);
+      return (
+        message: context.l10n.ugoiraFrameCorrupt(error.message),
+        details: error,
+      );
     }
-    return context.l10n.ugoiraLoadFailed(error.toString());
+    return (message: context.l10n.ugoiraLoadFailed, details: error);
   }
 
   DownloadSubmissionContext? _currentDownloadContext() {
@@ -655,28 +690,61 @@ class _PlayOverlay extends StatelessWidget {
 }
 
 class _ErrorOverlay extends StatelessWidget {
-  const _ErrorOverlay({required this.message, required this.onRetry});
+  const _ErrorOverlay({
+    required this.message,
+    required this.onRetry,
+    this.error,
+  });
 
   final String message;
   final VoidCallback onRetry;
 
+  /// The raw failure behind [message]: its category line and the details
+  /// disclosure ride under the headline when present.
+  final Object? error;
+
   @override
   Widget build(BuildContext context) {
+    final error = this.error;
     return ColoredBox(
       color: const Color(0x99000000),
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                message,
-                style: TextStyle(color: FuncTokens.lightBackground),
+          // The scrim is dark regardless of the app theme, so the overlay
+          // pins a dark scheme — otherwise the disclosure button and the
+          // details text would take light-surface colors and disappear.
+          child: Theme(
+            data: Theme.of(
+              context,
+            ).copyWith(colorScheme: const ColorScheme.dark()),
+            child: Builder(
+              builder: (context) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    message,
+                    style: TextStyle(color: FuncTokens.lightBackground),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      errorCategoryText(context, categorizeError(error)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: FuncTokens.lightBackground.withAlpha(204),
+                      ),
+                    ),
+                    ErrorDetails(error: error),
+                  ],
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: onRetry,
+                    child: Text(context.l10n.retry),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
-            ],
+            ),
           ),
         ),
       ),

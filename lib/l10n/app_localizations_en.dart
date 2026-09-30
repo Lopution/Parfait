@@ -95,14 +95,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginRestart => 'Log in again';
 
   @override
-  String loginFailed(String error) {
-    return 'Login failed: $error';
-  }
-
-  @override
-  String loginFailedType(String type) {
-    return 'Login failed ($type)';
-  }
+  String get loginFailed => 'Login failed';
 
   @override
   String get networkCompatibility => 'Pixiv official network compatibility';
@@ -606,6 +599,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileEditImageChoose => 'Choose a supported image';
 
   @override
+  String get profileEditImageFailed => 'Image processing failed';
+
+  @override
   String get profileEditChooseImage => 'Choose image';
 
   @override
@@ -883,9 +879,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unmuteTag => 'Unmute';
 
   @override
-  String muteFailed(Object error) {
-    return 'Mute operation failed: $error';
-  }
+  String get muteFailed => 'Mute operation failed';
 
   @override
   String get reduceMotion => 'Reduce motion';
@@ -1109,6 +1103,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadRemoveRecord => 'Remove';
 
   @override
+  String get downloadFailurePermission => 'Storage permission missing';
+
+  @override
+  String get downloadFailureResource =>
+      'Device resources exhausted or the file is too large';
+
+  @override
+  String get downloadFailureOwnership =>
+      'The destination file belongs to another app';
+
+  @override
   String downloadBatchCancelConfirm(int count) {
     return 'Cancel the $count selected download(s)? Unfinished progress will be discarded.';
   }
@@ -1166,9 +1171,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadAuthorEmpty => 'This author has no downloadable works.';
 
   @override
-  String downloadAuthorFailed(String error) {
-    return 'Failed to enumerate works: $error';
-  }
+  String get downloadAuthorFailed => 'Failed to enumerate works';
 
   @override
   String get downloadCaption => 'Export work caption';
@@ -1317,9 +1320,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadQueuedMessage => 'Added to the download queue';
 
   @override
-  String downloadSubmissionFailed(String error) {
-    return 'Download failed: $error';
-  }
+  String get downloadSubmissionFailed => 'Download failed';
 
   @override
   String get ugoiraSaveGif => 'Save GIF';
@@ -1352,9 +1353,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String ugoiraLoadFailed(String error) {
-    return 'Animation failed to load: $error';
-  }
+  String get ugoiraLoadFailed => 'Animation failed to load';
 
   @override
   String get homeRecommended => 'Recommended';
@@ -1375,9 +1374,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookmarkNovel => 'Bookmark novel';
 
   @override
-  String bookmarkOperationFailed(String error) {
-    return 'Bookmark operation failed: $error';
-  }
+  String get bookmarkOperationFailed => 'Bookmark operation failed';
 
   @override
   String get save => 'Save';
@@ -1402,6 +1399,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get continueAction => 'Continue';
+
+  @override
+  String get errorNetwork => 'Network connection failed';
+
+  @override
+  String get errorTimeout => 'Connection timed out';
+
+  @override
+  String get errorRateLimited => 'Too many requests — try again later';
+
+  @override
+  String get errorUnauthorized => 'Sign-in required';
+
+  @override
+  String get errorServer => 'Server error';
+
+  @override
+  String get errorNotFound => 'Content not found or removed';
+
+  @override
+  String get errorParse => 'Response could not be parsed';
+
+  @override
+  String get errorStorage => 'Storage error';
+
+  @override
+  String get errorUnknown => 'Unknown error';
+
+  @override
+  String get errorDetails => 'Details';
+
+  @override
+  String get errorDetailsCopy => 'Copy';
+
+  @override
+  String get errorDetailsCopied => 'Copied';
+
+  @override
+  String errorWithReason(String action, String reason) {
+    return '$action: $reason';
+  }
 
   @override
   String get rankingDay => 'Daily';
@@ -1808,9 +1846,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String illustDetailOpenLinkFailed(String error) {
-    return 'Could not open the link: $error';
-  }
+  String get illustDetailOpenLinkFailed => 'Could not open the link';
 
   @override
   String illustDetailRestricted(int id) {

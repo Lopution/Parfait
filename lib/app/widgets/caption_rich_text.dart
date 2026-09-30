@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../navigation/routes.dart';
-import 'app_snack_bar.dart';
+import 'errors/error_details.dart';
 import '../../core/entity/illust_caption.dart';
 import '../../core/platform/android_intent_channel.dart';
 import '../../l10n/context.dart';
@@ -46,9 +46,10 @@ class _CaptionRichTextState extends ConsumerState<CaptionRichText> {
     unawaited(
       opener.openExternal(href).catchError((Object error) {
         if (mounted) {
-          showAppSnackBar(
+          showErrorSnackBar(
             context,
-            context.l10n.illustDetailOpenLinkFailed(error.toString()),
+            action: context.l10n.illustDetailOpenLinkFailed,
+            error: error,
           );
         }
       }),

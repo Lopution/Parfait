@@ -47,22 +47,7 @@
   "loginInstallWebView2": "WebView2 Runtime をインストール",
   "loginReload": "再読み込み",
   "loginRestart": "再度ログイン",
-  "loginFailed": "ログインに失敗しました: {error}",
-  "@loginFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "loginFailedType": "ログインに失敗しました ({type})",
-  "@loginFailedType": {
-    "placeholders": {
-      "type": {
-        "type": "String"
-      }
-    }
-  },
+  "loginFailed": "ログインに失敗しました",
   "networkCompatibility": "Pixiv公式ネットワーク互換",
   "networkCompatibilityHint": "まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。",
   "useLoginWithClipboard": "クリップボードに保存されたデータでログイン",
@@ -221,6 +206,7 @@
   "profileEditCurrentPassword": "現在のパスワード",
   "profileEditFieldUnsupported": "現在の経路ではこの項目に対応していません",
   "profileEditImageChoose": "対応する画像を選択してください",
+  "profileEditImageFailed": "画像の処理に失敗しました",
   "profileEditChooseImage": "画像を選択",
   "profileEditSave": "プロフィールを保存",
   "profileEditLeaveTitle": "未保存の変更を破棄しますか？",
@@ -373,7 +359,7 @@
   "muteAuthor": "作者をミュート",
   "unmuteAuthor": "作者のミュートを解除",
   "unmuteTag": "ミュート解除",
-  "muteFailed": "ミュート操作に失敗しました:{error}",
+  "muteFailed": "ミュート操作に失敗しました",
   "reduceMotion": "視覚効果を減らす",
   "reduceMotionHint": "画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします",
   "maxDownloadCount": "同時ダウンロード数の上限",
@@ -473,6 +459,9 @@
   "downloadProcessing": "処理中",
   "downloadViewResult": "表示",
   "downloadRemoveRecord": "一覧から削除",
+  "downloadFailurePermission": "ストレージへの書き込み権限がありません",
+  "downloadFailureResource": "ファイルが大きすぎるかリソースが不足しています",
+  "downloadFailureOwnership": "タスクの所有者が現在のアカウントと一致しません",
   "downloadBatchCancelConfirm": "選択した {count} 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -558,14 +547,7 @@
     }
   },
   "downloadAuthorEmpty": "この作者にはダウンロード可能な作品がありません。",
-  "downloadAuthorFailed": "作品の列挙に失敗しました：{error}",
-  "@downloadAuthorFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+"downloadAuthorFailed": "作品の列挙に失敗しました",
   "downloadCaption": "作品のキャプションを書き出す",
   "downloadCaptionHint": "イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します",
   "aboutVersion": "バージョン",
@@ -633,14 +615,10 @@
   "viewerNoImages": "表示できる画像がありません",
   "downloadAll": "すべてダウンロード",
   "downloadQueuedMessage": "ダウンロードキューに追加しました",
-  "downloadSubmissionFailed": "ダウンロードに失敗しました: {error}",
-  "@downloadSubmissionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "downloadSubmissionFailed": "ダウンロードに失敗しました",
+  "downloadFailurePermission": "ストレージ権限がありません",
+  "downloadFailureResource": "デバイスのリソース不足またはファイルが大きすぎます",
+  "downloadFailureOwnership": "保存先のファイルは他のアプリが所有しています",
   "ugoiraSaveGif": "GIFを保存",
   "ugoiraLoadCanceled": "読み込みをキャンセルしました",
   "ugoiraLoginRequired": "GIFを保存するにはログインしてください",
@@ -670,28 +648,14 @@
       }
     }
   },
-  "ugoiraLoadFailed": "アニメーションを読み込めませんでした: {error}",
-  "@ugoiraLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraLoadFailed": "アニメーションを読み込めませんでした",
   "homeRecommended": "おすすめ",
   "homeRanking": "ランキング",
   "homeMe": "マイページ",
   "homeExitHint": "もう一度戻ると終了します",
   "bookmarkIllust": "イラストをブックマーク",
   "bookmarkNovel": "小説をブックマーク",
-  "bookmarkOperationFailed": "ブックマーク操作に失敗しました: {error}",
-  "@bookmarkOperationFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "bookmarkOperationFailed": "ブックマーク操作に失敗しました",
   "save": "保存",
   "saved": "保存しました",
   "retry": "再試行",
@@ -700,6 +664,29 @@
   "cancel": "キャンセル",
   "confirm": "確認",
   "continueAction": "続行",
+  "errorNetwork": "ネットワーク接続に失敗しました",
+  "errorTimeout": "接続がタイムアウトしました",
+  "errorRateLimited": "リクエストが多すぎます。しばらくしてから再試行してください",
+  "errorUnauthorized": "再ログインが必要です",
+  "errorServer": "サーバーエラー",
+  "errorNotFound": "コンテンツが見つからないか削除されました",
+  "errorParse": "応答を解析できませんでした",
+  "errorStorage": "ストレージエラー",
+  "errorUnknown": "不明なエラー",
+  "errorDetails": "詳細",
+  "errorDetailsCopy": "コピー",
+  "errorDetailsCopied": "コピーしました",
+  "errorWithReason": "{action}：{reason}",
+  "@errorWithReason": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "デイリー",
   "rankingDayR18": "デイリー (R-18)",
   "rankingDayMale": "デイリー (男子に人気)",
@@ -873,14 +860,7 @@
       }
     }
   },
-  "illustDetailOpenLinkFailed": "リンクを開けませんでした：{error}",
-  "@illustDetailOpenLinkFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "illustDetailOpenLinkFailed": "リンクを開けませんでした",
   "illustDetailRestricted": "この作品は削除または非公開になりました（ID: {id}）",
   "@illustDetailRestricted": {
     "placeholders": {

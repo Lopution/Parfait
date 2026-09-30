@@ -6,6 +6,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
+import '../../core/logging/crash_log.dart';
 
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
@@ -45,6 +46,10 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   bool _exchanging = false;
   double? _progress;
   String? _error;
+
+  /// Raw error shown behind the card's details disclosure; `null` when
+  /// [_error] is a crafted message with nothing technical to expand.
+  Object? _errorDetails;
 
   /// Whether [_error] describes a state the page cannot navigate out of.
   /// Recoverable errors leave the PKCE session alive so the user can keep
@@ -222,6 +227,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     setState(() {
       _exchanging = true;
       _error = null;
+      _errorDetails = null;
     });
     try {
       final result = await widget.oauthService.exchangeCode(code);
@@ -242,22 +248,22 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       if (!mounted) return;
       // The StartupGate reacts to the new usable account and shows Home.
       context.pop(true);
-    } on OAuthException catch (error) {
+    } on Object catch (error, stackTrace) {
       // The authorization code was already consumed by this exchange.
-      _abortLogin(context.l10n.loginFailed(error.toString()));
-    } on Object catch (error) {
-      _abortLogin(context.l10n.loginFailedType(error.runtimeType.toString()));
+      CrashLog.record(error, stackTrace);
+      _abortLogin(context.l10n.loginFailed, error: error);
     }
   }
 
   /// Ends the login attempt. The PKCE verifier is discarded, so the session
   /// must be rebuilt in place ([_restartLogin]) before sign-in can complete.
-  void _abortLogin(String message) {
+  void _abortLogin(String message, {Object? error}) {
     widget.oauthService.discardSession();
     if (!mounted) return;
     setState(() {
       _exchanging = false;
       _error = message;
+      _errorDetails = error;
       _fatal = true;
     });
   }
@@ -267,7 +273,10 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// permanently dead WebView.
   void _reportRecoverable(String message) {
     if (!mounted || _fatal) return;
-    setState(() => _error = message);
+    setState(() {
+      _error = message;
+      _errorDetails = null;
+    });
   }
 
   /// Reloads the current document in place. For a recoverable error this
@@ -278,6 +287,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   void _reload() {
     setState(() {
       _error = null;
+      _errorDetails = null;
       _fatal = false;
     });
     _controller?.reload();
@@ -291,6 +301,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     setState(() {
       _exchanging = false;
       _error = null;
+      _errorDetails = null;
       _fatal = false;
       _mainFrameUri = authorizeUrl;
     });
@@ -334,11 +345,15 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
           if (_error != null)
             LoginWebViewErrorCard(
               message: _error!,
+              error: _errorDetails,
               fatal: _fatal,
               signup: widget.create,
               onReload: _reload,
               onRestart: _restartLogin,
-              onDismiss: () => setState(() => _error = null),
+              onDismiss: () => setState(() {
+                _error = null;
+                _errorDetails = null;
+              }),
             ),
         ],
       ),

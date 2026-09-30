@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../core/download/author_works_enumerator.dart';
+import '../../core/errors/error_category.dart';
 import '../../core/download/illust_download_coordinator.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/settings/settings_controller.dart';
@@ -157,11 +159,21 @@ class _AuthorWorksDownloadDialogState
       ),
       _Phase.failed => AlertDialog(
         title: Text(l10n.downloadAuthorWorksTitle),
-        content: Text(
-          _error == null
-              ? l10n.downloadAuthorEmpty
-              : l10n.downloadAuthorFailed('$_error'),
-        ),
+        content: _error == null
+            ? Text(l10n.downloadAuthorEmpty)
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.errorWithReason(
+                      l10n.downloadAuthorFailed,
+                      errorCategoryText(context, categorizeError(_error!)),
+                    ),
+                  ),
+                  ErrorDetails(error: _error!),
+                ],
+              ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
