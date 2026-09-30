@@ -137,12 +137,18 @@ void main() {
 
     final card = find.byType(LoginWebViewErrorCard);
     expect(card, findsOneWidget);
-    // Same '<type> <host>' message shape as the mobile page — the query
+    // Same '<type> <host>' details shape as the mobile page — the query
     // string never reaches the card.
+    expect(
+      find.descendant(of: card, matching: find.text('页面加载失败')),
+      findsOneWidget,
+    );
+    await tester.tap(find.descendant(of: card, matching: find.text('详情')));
+    await tester.pumpAndSettle();
     expect(
       find.descendant(
         of: card,
-        matching: find.text('页面加载失败 (CONNECTION_ABORTED accounts.pixiv.net)'),
+        matching: find.text('CONNECTION_ABORTED accounts.pixiv.net'),
       ),
       findsOneWidget,
     );

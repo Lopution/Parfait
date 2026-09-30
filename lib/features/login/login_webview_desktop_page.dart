@@ -120,7 +120,7 @@ class _LoginWebViewDesktopPageState
         return true;
       }(),
       LoginNavAbort(:final reason) => () {
-        _abortLogin(context.l10n.loginCallbackInvalid(reason));
+        _abortLogin(context.l10n.loginCallbackInvalid, error: reason);
         return true;
       }(),
       LoginNavAllow() => false,
@@ -171,11 +171,11 @@ class _LoginWebViewDesktopPageState
     });
   }
 
-  void _reportRecoverable(String message) {
+  void _reportRecoverable(String message, {Object? error}) {
     if (!mounted || _fatal) return;
     setState(() {
       _error = message;
-      _errorDetails = null;
+      _errorDetails = error;
     });
   }
 
@@ -301,11 +301,10 @@ class _LoginWebViewDesktopPageState
               onReceivedError: (controller, request, error) {
                 if (request.isForMainFrame == false) return;
                 // '<type> <host>' — says which host produced the failure
-                // without echoing the full URL into the card.
+                // without echoing the full URL into the card's details.
                 _reportRecoverable(
-                  context.l10n.loginPageLoadFailed(
-                    describeWebViewFailure(error.type, request.url),
-                  ),
+                  context.l10n.loginPageLoadFailed,
+                  error: describeWebViewFailure(error.type, request.url),
                 );
               },
               onReceivedHttpError: (controller, request, response) {
