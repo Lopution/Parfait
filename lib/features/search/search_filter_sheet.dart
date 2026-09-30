@@ -6,6 +6,7 @@ import '../../core/search/search_models.dart';
 import '../../app/motion/app_overlays.dart';
 import 'search_text.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 Future<SearchFilters?> showSearchFilterSheet(
   BuildContext context, {
@@ -113,7 +114,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+        padding: const EdgeInsets.fromLTRB(
+          FuncSpacing.xl,
+          FuncSpacing.lg,
+          FuncSpacing.xl,
+          FuncSpacing.lg,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -151,7 +157,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               onSelected: (value) =>
                   setState(() => _filters = _filters.copyWith(target: value)),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             _FilterGroup<SearchSort>(
               title: context.l10n.searchSort,
               values: SearchSort.values,
@@ -164,7 +170,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
             // silently rerouted to the popular-preview endpoint. Say so.
             if (_filters.sort == SearchSort.popularDesc && !_isPremium)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.only(top: FuncSpacing.xs),
                 child: Text(
                   context.l10n.searchPopularPreviewHint,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -172,12 +178,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                   ),
                 ),
               ),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             Text(
               context.l10n.searchDuration,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: FuncSpacing.sm),
             Wrap(
               spacing: 8,
               runSpacing: 4,
@@ -216,7 +222,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             _DateFilterTile(
               label: context.l10n.searchStartDate,
               value: _dateText(_filters.startDate),
@@ -241,12 +247,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                     ),
             ),
             if (widget.type == SearchResultType.illust) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: FuncSpacing.md),
               Text(
                 context.l10n.searchAiSection,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: FuncSpacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -261,12 +267,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: FuncSpacing.md),
               Text(
                 context.l10n.searchBookmarkSection,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: FuncSpacing.sm),
               Row(
                 children: [
                   Expanded(
@@ -280,7 +286,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: FuncSpacing.md),
                   Expanded(
                     child: _NumberField(
                       controller: _bookmarkMax,
@@ -294,12 +300,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: FuncSpacing.md),
               Text(
                 context.l10n.searchRatioSection,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: FuncSpacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -321,12 +327,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: FuncSpacing.md),
               Text(
                 context.l10n.searchContentSection,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: FuncSpacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -341,12 +347,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: FuncSpacing.md),
               Text(
                 context.l10n.searchResolutionSection,
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: FuncSpacing.sm),
               _BoundRow(
                 label: context.l10n.searchWidth,
                 minController: _widthMin,
@@ -364,7 +370,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: FuncSpacing.sm),
               _BoundRow(
                 label: context.l10n.searchHeight,
                 minController: _heightMin,
@@ -383,7 +389,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 ),
               ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -421,7 +427,7 @@ class _FilterGroup<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
+        const SizedBox(height: FuncSpacing.sm),
         Wrap(
           spacing: 8,
           runSpacing: 4,
@@ -496,7 +502,7 @@ class _BoundRow extends StatelessWidget {
             onChanged: onMinChanged,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: FuncSpacing.md),
         Expanded(
           child: _NumberField(
             controller: maxController,

@@ -18,6 +18,7 @@ import '../../core/novel/novel_repository.dart';
 import '../../core/novel/novel_store.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Novel ranking page mirroring [RankingPage]: a horizontally scrollable
 /// 9-mode tab bar with one keyed feed body per mode. The active mode is
@@ -238,7 +239,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
                 restorationId: 'novel-ranking-${mode.name}',
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.only(top: FuncSpacing.sm),
                     sliver: SliverList.builder(
                       itemCount: entities.length,
                       itemBuilder: (context, index) => StaggeredEntrance(

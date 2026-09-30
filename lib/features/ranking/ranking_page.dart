@@ -257,9 +257,6 @@ class _RankingModeBody extends ConsumerWidget {
                 restorationId: 'ranking-${mode.name}',
                 slivers: [
                   IllustFeedGrid(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 10,
                     prefetchEntities: entities,
                     itemIds: [for (final e in entities) e.id],
                     itemCount: entities.length,
