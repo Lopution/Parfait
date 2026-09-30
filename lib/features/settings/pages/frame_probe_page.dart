@@ -7,6 +7,7 @@ import '../../../app/widgets/app_snack_bar.dart';
 import '../../../core/debug/frame_probe.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 
 /// Dev-only frame probe page: record timings while scrolling a feed, then
 /// copy the build/raster percentile report for offline analysis. Only
@@ -71,16 +72,16 @@ class _FrameProbePageState extends State<FrameProbePage> {
       appBar: AppBar(title: Text(context.l10n.frameProbeTitle)),
       body: settingsNarrowBody(
         ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(FuncSpacing.lg),
           children: [
             Text(context.l10n.frameProbeHint, style: theme.textTheme.bodySmall),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             if (_recording)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: FuncSpacing.md,
+                    vertical: FuncSpacing.sm,
                   ),
                   child: Row(
                     children: [
@@ -89,7 +90,7 @@ class _FrameProbePageState extends State<FrameProbePage> {
                         size: 16,
                         color: theme.colorScheme.error,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: FuncSpacing.sm),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +124,7 @@ class _FrameProbePageState extends State<FrameProbePage> {
                 icon: const Icon(Icons.fiber_manual_record),
                 label: Text(context.l10n.frameProbeStart),
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: FuncSpacing.lg),
             if (_report != null) ...[
               SelectableText(
                 _report!,

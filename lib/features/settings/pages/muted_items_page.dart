@@ -190,7 +190,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
             ),
             if (tags.isEmpty && users.isEmpty && works.isEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
+                padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xxl),
                 child: Center(child: Text(l10n.mutedEmpty)),
               ),
           ],

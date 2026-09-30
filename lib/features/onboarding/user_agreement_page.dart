@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// The agreement is intentionally an in-app document rather than an inert
 /// label. It states the practical boundaries of this unofficial client and
@@ -22,13 +23,18 @@ class UserAgreementPage extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: ContentWidths.article),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.xl,
+              FuncSpacing.lg,
+              FuncSpacing.xl,
+              FuncSpacing.xxl,
+            ),
             children: [
               SelectableText(
                 l10n.agreementIntro,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: FuncSpacing.xl),
               _AgreementSection(
                 title: l10n.agreementAccountTitle,
                 body: l10n.agreementAccountBody,
@@ -49,7 +55,7 @@ class UserAgreementPage extends StatelessWidget {
                 title: l10n.agreementDisclaimerTitle,
                 body: l10n.agreementDisclaimerBody,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: FuncSpacing.sm),
               SelectableText(
                 l10n.agreementUpdates,
                 style: Theme.of(context).textTheme.bodySmall,
@@ -71,7 +77,7 @@ class _AgreementSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: FuncSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -81,7 +87,7 @@ class _AgreementSection extends StatelessWidget {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           SelectableText(body, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),

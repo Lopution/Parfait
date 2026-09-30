@@ -13,6 +13,7 @@ import '../../core/i18n/replica_language.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../l10n/lookup.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 class ThemePage extends ConsumerWidget {
   const ThemePage({super.key});
@@ -50,7 +51,7 @@ class ThemePage extends ConsumerWidget {
     }
 
     Widget option(int themeCode, String label) => ReplicaSwitchTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 6),
+      contentPadding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
       value: settings.themeCode == themeCode,
       title: Text(
         label,

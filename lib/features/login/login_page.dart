@@ -271,7 +271,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         ReplicaSwitchTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: 6),
+          contentPadding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
           value: _networkMode == NetworkMode.automatic,
           title: _buildNetworkTitle(context, text),
           onTap: _toggleNetworkMode,
@@ -297,7 +297,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 widget.onRegister ?? () => _openLoginWebview(create: true),
           ),
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: FuncSpacing.lg),
         Expanded(
           child: ReplicaButton(
             label: text('login'),
@@ -325,7 +325,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: FuncSpacing.md),
           // Clipboard import is an action (idle/busy/success/error): while
           // busy the button is disabled and its label carries a small
           // progress indicator — ReplicaButton has no loading variant, so
@@ -341,7 +341,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: FuncSpacing.sm),
                 ],
                 Flexible(
                   child: Text(
@@ -352,13 +352,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: FuncSpacing.sm),
           Text(
             text('accountTransferWarning'),
             textAlign: TextAlign.center,
             style: FuncSemanticTokens.of(context).caption,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: FuncSpacing.md),
         ],
         Text(
           text('loginAgree'),
@@ -398,7 +398,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: FuncSpacing.sm),
         IconButton(
           onPressed: () => setState(() => _help = !_help),
           tooltip: text('networkCompatibility'),
