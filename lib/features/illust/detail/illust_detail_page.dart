@@ -521,9 +521,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) => Padding(
-              padding: EdgeInsets.only(
-                bottom: index == entity.pageCount - 1 ? 0 : FuncSpacing.sm,
-              ),
+              padding: index == entity.pageCount - 1
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.only(bottom: FuncSpacing.sm),
               child: VisibilityDetector(
                 key: ValueKey('illust-visibility-${entity.id}-$index'),
                 onVisibilityChanged: (info) => _onPageVisibility(index, info),
