@@ -17,6 +17,13 @@ FrameTiming _frame(int spanMicros) => FrameTiming(
 );
 
 void main() {
+  test('PIXIV_FRAME_PROBE stays unset in a default build', () {
+    // The release exception is opt-in: a build without the dart-define —
+    // including this test run — must keep the entry hidden. This guards
+    // the const from drifting to an enabled default.
+    expect(kPixivFrameProbe, isFalse);
+  });
+
   tearDown(() {
     // Singleton: leave no recording or frames behind for other tests —
     // stop() detaches the timings callback, debugClearTimings empties the
