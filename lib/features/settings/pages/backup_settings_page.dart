@@ -66,10 +66,9 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     try {
       envelope = BackupEnvelope.parse(bytes);
     } on BackupImportException catch (error) {
-      showAppSnackBar(
-        context,
-        '${context.l10n.backupImportInvalid}: ${error.publicMessage}',
-      );
+      // `publicMessage` is crafted user-facing copy, not raw error text.
+      final message = error.publicMessage;
+      showAppSnackBar(context, '${context.l10n.backupImportInvalid}: $message');
       return;
     }
     final strategy = await _pickStrategy(envelope);

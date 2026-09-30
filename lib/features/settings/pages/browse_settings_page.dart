@@ -105,10 +105,10 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
       }
     } on NetworkRedirectException catch (error) {
       if (mounted) {
-        showAppSnackBar(
-          context,
-          context.l10n.imageSourceTestOk('${error.statusCode}'),
-        );
+        // The returned status code is the probe's expected output, not raw
+        // error text — a redirect answer still describes a reachable host.
+        final statusCode = error.statusCode;
+        showAppSnackBar(context, context.l10n.imageSourceTestOk('$statusCode'));
       }
     } on Object catch (error) {
       if (mounted) {
