@@ -14,11 +14,11 @@ import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/scrollable_form_shell.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/account_transfer.dart';
 import '../../core/auth/account_transfer_service.dart';
-import '../../core/auth/oauth_service.dart';
 import '../../core/auth/pkce.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/compat/network_contracts.dart' as network_contracts;
@@ -108,18 +108,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 result.credential,
               );
           if (mounted) context.go('/recommended');
-        } on OAuthException catch (error) {
+        } on Object catch (error, stackTrace) {
           if (mounted) {
-            showAppSnackBar(
+            showErrorSnackBar(
               context,
-              context.l10n.loginFailed(error.toString()),
-            );
-          }
-        } on Object catch (error) {
-          if (mounted) {
-            showAppSnackBar(
-              context,
-              context.l10n.loginFailedType(error.runtimeType.toString()),
+              action: context.l10n.loginFailed,
+              error: error,
+              stack: stackTrace,
             );
           }
         }
@@ -172,9 +167,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         await ref.read(settingsProvider.notifier).setNetworkMode(mode);
       } on Object catch (error) {
         if (!mounted) return;
-        showAppSnackBar(
+        showErrorSnackBar(
           context,
-          '${_loginText('settingsWriteFailed')}: $error',
+          action: _loginText('settingsWriteFailed'),
+          error: error,
         );
       }
     }());

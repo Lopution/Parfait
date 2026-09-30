@@ -47,22 +47,7 @@
   "loginInstallWebView2": "Установить WebView2 Runtime",
   "loginReload": "Перезагрузить",
   "loginRestart": "Войти снова",
-  "loginFailed": "Не удалось войти: {error}",
-  "@loginFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "loginFailedType": "Не удалось войти ({type})",
-  "@loginFailedType": {
-    "placeholders": {
-      "type": {
-        "type": "String"
-      }
-    }
-  },
+  "loginFailed": "Не удалось войти",
   "networkCompatibility": "Совместимость с официальной сетью Pixiv",
   "networkCompatibilityHint": "Сначала используется прямой HTTPS; только официальные адреса Pixiv могут попробовать строгий HTTPS-маршрут после явного сбоя транспорта. Другой трафик не проксируется, проверка сертификата не отключается.",
   "useLoginWithClipboard": "Войти с данными из буфера обмена",
@@ -374,7 +359,7 @@
   "muteAuthor": "Заглушить автора",
   "unmuteAuthor": "Снять заглушение автора",
   "unmuteTag": "Снять заглушение",
-  "muteFailed": "Ошибка заглушения: {error}",
+  "muteFailed": "Ошибка заглушения",
   "reduceMotion": "Меньше анимаций",
   "reduceMotionHint": "Отключить декоративную анимацию: переходы страниц, появление списков и отклик на нажатие",
   "maxDownloadCount": "Максимум параллельных загрузок",
@@ -562,14 +547,7 @@
     }
   },
   "downloadAuthorEmpty": "У этого автора нет работ для скачивания.",
-  "downloadAuthorFailed": "Не удалось перечислить работы: {error}",
-  "@downloadAuthorFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+"downloadAuthorFailed": "Не удалось перечислить работы",
   "downloadCaption": "Экспортировать описание работы",
   "downloadCaptionHint": "При скачивании иллюстраций и манги сохранять название, автора и описание в одноимённый .txt",
   "aboutVersion": "Версия",
@@ -637,14 +615,7 @@
   "viewerNoImages": "Нет изображений для отображения",
   "downloadAll": "Скачать всё",
   "downloadQueuedMessage": "Добавлено в очередь загрузки",
-  "downloadSubmissionFailed": "Не удалось скачать: {error}",
-  "@downloadSubmissionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "downloadSubmissionFailed": "Не удалось скачать",
   "ugoiraSaveGif": "Сохранить GIF",
   "ugoiraLoadCanceled": "Загрузка отменена",
   "ugoiraLoginRequired": "Войдите, чтобы сохранить GIF",
@@ -681,14 +652,7 @@
   "homeExitHint": "Нажмите ещё раз, чтобы выйти",
   "bookmarkIllust": "Добавить иллюстрацию в закладки",
   "bookmarkNovel": "Добавить новеллу в закладки",
-  "bookmarkOperationFailed": "Не удалось изменить закладки: {error}",
-  "@bookmarkOperationFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "bookmarkOperationFailed": "Не удалось изменить закладки",
   "save": "Сохранить",
   "saved": "Сохранено",
   "retry": "Повторить",
@@ -893,14 +857,7 @@
       }
     }
   },
-  "illustDetailOpenLinkFailed": "Не удалось открыть ссылку: {error}",
-  "@illustDetailOpenLinkFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "illustDetailOpenLinkFailed": "Не удалось открыть ссылку",
   "illustDetailRestricted": "Работа удалена или ограничена (ID: {id})",
   "@illustDetailRestricted": {
     "placeholders": {

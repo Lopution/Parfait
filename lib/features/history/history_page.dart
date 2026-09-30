@@ -170,7 +170,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       }
     } on Object catch (error) {
       if (mounted) {
-        showAppSnackBar(context, '$error');
+        showErrorSnackBar(
+          context,
+          action: context.l10n.historyDelete,
+          error: error,
+        );
       }
     }
   }
@@ -193,7 +197,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       }
     } on Object catch (error) {
       if (context.mounted) {
-        showAppSnackBar(context, '$error');
+        showErrorSnackBar(
+          context,
+          action: context.l10n.historyDeleteAll,
+          error: error,
+        );
       }
     }
   }

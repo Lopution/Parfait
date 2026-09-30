@@ -23,6 +23,7 @@ import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
 
 /// Whether the viewer chrome (top bar + bottom bar) is visible. This is
@@ -287,9 +288,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     } catch (error) {
       if (!mounted) return;
       AppHaptics.error();
-      showAppSnackBar(
+      showErrorSnackBar(
         context,
-        context.l10n.downloadSubmissionFailed(error.toString()),
+        action: context.l10n.downloadSubmissionFailed,
+        error: error,
       );
       return;
     }
@@ -408,9 +410,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                     } catch (error) {
                       if (!mounted) return;
                       AppHaptics.error();
-                      showAppSnackBar(
+                      showErrorSnackBar(
                         context,
-                        l10n.downloadSubmissionFailed(error.toString()),
+                        action: l10n.downloadSubmissionFailed,
+                        error: error,
                       );
                       return;
                     }

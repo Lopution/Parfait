@@ -95,14 +95,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginRestart => 'Log in again';
 
   @override
-  String loginFailed(String error) {
-    return 'Login failed: $error';
-  }
-
-  @override
-  String loginFailedType(String type) {
-    return 'Login failed ($type)';
-  }
+  String get loginFailed => 'Login failed';
 
   @override
   String get networkCompatibility => 'Pixiv official network compatibility';
@@ -886,9 +879,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unmuteTag => 'Unmute';
 
   @override
-  String muteFailed(Object error) {
-    return 'Mute operation failed: $error';
-  }
+  String get muteFailed => 'Mute operation failed';
 
   @override
   String get reduceMotion => 'Reduce motion';
@@ -1179,9 +1170,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadAuthorEmpty => 'This author has no downloadable works.';
 
   @override
-  String downloadAuthorFailed(String error) {
-    return 'Failed to enumerate works: $error';
-  }
+  String get downloadAuthorFailed => 'Failed to enumerate works';
 
   @override
   String get downloadCaption => 'Export work caption';
@@ -1330,9 +1319,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadQueuedMessage => 'Added to the download queue';
 
   @override
-  String downloadSubmissionFailed(String error) {
-    return 'Download failed: $error';
-  }
+  String get downloadSubmissionFailed => 'Download failed';
 
   @override
   String get ugoiraSaveGif => 'Save GIF';
@@ -1386,9 +1373,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookmarkNovel => 'Bookmark novel';
 
   @override
-  String bookmarkOperationFailed(String error) {
-    return 'Bookmark operation failed: $error';
-  }
+  String get bookmarkOperationFailed => 'Bookmark operation failed';
 
   @override
   String get save => 'Save';
@@ -1860,9 +1845,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String illustDetailOpenLinkFailed(String error) {
-    return 'Could not open the link: $error';
-  }
+  String get illustDetailOpenLinkFailed => 'Could not open the link';
 
   @override
   String illustDetailRestricted(int id) {

@@ -638,6 +638,9 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('收藏操作失败'), findsOneWidget);
+    // C8/D1: raw exception text never reaches the SnackBar — it lands in
+    // the crash log instead.
+    expect(find.textContaining('boom'), findsNothing);
     expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
   });
 

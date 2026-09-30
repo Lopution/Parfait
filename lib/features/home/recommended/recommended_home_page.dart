@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/motion/feed_entrance.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,7 +17,6 @@ import '../../../core/illust/recommended_feed_controller.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/widgets/skeleton/illust_grid_skeleton.dart';
-import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_tab_bar.dart';
 import '../../../app/widgets/branch_slide_stack.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
@@ -268,10 +268,12 @@ class _RecommendedFeedView extends ConsumerWidget {
       final error = ref
           .read(recommendedFeedProvider(key).notifier)
           .consumeRefreshError();
-      showAppSnackBar(
+      if (error == null) return;
+      showErrorSnackBar(
         context,
-        '${context.l10n.recommendedRefreshFailed}: $error',
-        action: SnackBarAction(
+        action: context.l10n.recommendedRefreshFailed,
+        error: error,
+        snackBarAction: SnackBarAction(
           label: context.l10n.retry,
           onPressed: () =>
               ref.read(recommendedFeedProvider(key).notifier).refresh(),
