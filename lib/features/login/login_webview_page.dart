@@ -12,6 +12,7 @@ import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
 import 'login_session_restart.dart';
 import 'login_webview_error_card.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// OAuth login WebView.
 ///
@@ -325,7 +326,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
           preferredSize: const Size.fromHeight(2),
           child: _progress != null && _progress! < 1.0
               ? LinearProgressIndicator(value: _progress, minHeight: 2)
-              : const SizedBox(height: 2),
+              : const SizedBox(height: FuncSpacing.xxs),
         ),
       ),
       body: Stack(

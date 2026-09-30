@@ -19,6 +19,7 @@ import '../../core/log.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import 'settings_helpers.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Same string as the About page (pubspec `version: 0.1.0`).
 const _kAppVersion = '0.1.0';
@@ -253,20 +254,20 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
       appBar: AppBar(title: Text(context.l10n.networkProbeTitle)),
       body: settingsNarrowBody(
         ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(FuncSpacing.lg),
           children: [
             Text(
               context.l10n.networkProbeHint,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: FuncSpacing.xs),
             // Reports live only in page state — say so instead of letting the
             // user expect history (spec: probe results are not persisted).
             Text(
               context.l10n.networkProbeNotPersisted,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             FilledButton.icon(
               onPressed: _running ? null : _runAll,
               icon: _running
@@ -282,7 +283,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
                     : context.l10n.networkProbeRun,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: FuncSpacing.lg),
             if (_finished.isNotEmpty || _errors.isNotEmpty)
               NetworkProbeOverview(reports: _finished, errors: _errors),
             for (final target in _targets)
@@ -351,9 +352,9 @@ class NetworkProbeOverview extends StatelessWidget {
                 _severity(a.conclusion) >= _severity(b.conclusion) ? a : b,
           );
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: FuncSpacing.md),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(FuncSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -361,7 +362,7 @@ class NetworkProbeOverview extends StatelessWidget {
               context.l10n.networkProbeOverview,
               style: theme.textTheme.titleSmall,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Wrap(
               spacing: 8,
               runSpacing: 6,
@@ -389,7 +390,7 @@ class NetworkProbeOverview extends StatelessWidget {
               ],
             ),
             if (worst != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: FuncSpacing.sm),
               Row(
                 children: [
                   Flexible(
@@ -398,11 +399,11 @@ class NetworkProbeOverview extends StatelessWidget {
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: FuncSpacing.sm),
                   _ConclusionBadge(conclusion: worst.conclusion),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: FuncSpacing.xs),
               Text(
                 _probeText(context, _adviceKey(worst.conclusion)),
                 style: theme.textTheme.bodySmall,
@@ -434,9 +435,9 @@ class NetworkProbeHostPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final body = report;
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: FuncSpacing.md),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(FuncSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -457,7 +458,7 @@ class NetworkProbeHostPanel extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             if (error != null)
               Text(
                 '${context.l10n.networkProbeHostFailed}: $error',
@@ -475,7 +476,7 @@ class NetworkProbeHostPanel extends StatelessWidget {
             else ...[
               if (body.firstError != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.only(bottom: FuncSpacing.xs),
                   child: Text(
                     body.firstError!,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -490,7 +491,7 @@ class NetworkProbeHostPanel extends StatelessWidget {
                 children: [
                   if (body.dnsDisagrees)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
                       child: Text(
                         context.l10n.networkProbeDnsDiff,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -500,7 +501,7 @@ class NetworkProbeHostPanel extends StatelessWidget {
                     ),
                   for (final step in body.steps)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: FuncSpacing.xxs),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -511,7 +512,7 @@ class NetworkProbeHostPanel extends StatelessWidget {
                         ),
                       ),
                     ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: FuncSpacing.sm),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
@@ -582,10 +583,13 @@ class _ConclusionBadge extends StatelessWidget {
     };
     final resolvedColor = color;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.sm,
+        vertical: FuncSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: resolvedColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: FuncShape.control,
       ),
       child: Text(
         _probeText(context, key),

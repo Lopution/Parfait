@@ -17,6 +17,7 @@ import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
 import 'login_session_restart.dart';
 import 'login_webview_error_card.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// OAuth login WebView for desktop (Windows via `flutter_inappwebview` /
 /// WebView2). Same contract as `login_webview_page.dart`: one PKCE session
@@ -227,7 +228,7 @@ class _LoginWebViewDesktopPageState
           preferredSize: const Size.fromHeight(2),
           child: _progress != null && _progress! < 1.0
               ? LinearProgressIndicator(value: _progress, minHeight: 2)
-              : const SizedBox(height: 2),
+              : const SizedBox(height: FuncSpacing.xxs),
         ),
       ),
       body: Stack(
@@ -238,15 +239,17 @@ class _LoginWebViewDesktopPageState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.public_off, size: 56),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: FuncSpacing.md),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FuncSpacing.xl,
+                    ),
                     child: Text(
                       context.l10n.loginWebView2Missing,
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: FuncSpacing.md),
                   FilledButton.icon(
                     icon: const Icon(Icons.open_in_new),
                     label: Text(context.l10n.loginInstallWebView2),
