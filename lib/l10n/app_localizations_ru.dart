@@ -67,9 +67,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get loginPageClosed => 'Страница закрыта. Откройте её снова.';
 
   @override
-  String loginCallbackInvalid(String reason) {
-    return 'Недействительный callback входа: $reason';
-  }
+  String get loginCallbackInvalid =>
+      'Недействительный callback входа. Войдите снова.';
 
   @override
   String loginNetworkError(String status) {
@@ -77,9 +76,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String loginPageLoadFailed(String error) {
-    return 'Не удалось загрузить страницу ($error)';
-  }
+  String get loginPageLoadFailed => 'Не удалось загрузить страницу';
 
   @override
   String get loginWebView2Missing =>
@@ -1102,18 +1099,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadRemoveRecord => 'Убрать из списка';
 
   @override
-  String get downloadFailurePermission =>
-      'Нет разрешения на доступ к хранилищу';
-
-  @override
-  String get downloadFailureResource =>
-      'Недостаточно ресурсов устройства или файл слишком большой';
-
-  @override
-  String get downloadFailureOwnership =>
-      'Целевой файл принадлежит другому приложению';
-
-  @override
   String downloadBatchCancelConfirm(int count) {
     return 'Отменить выбранные загрузки ($count)? Незавершённый прогресс будет потерян.';
   }
@@ -1322,6 +1307,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadSubmissionFailed => 'Не удалось скачать';
 
   @override
+  String get downloadFailurePermission =>
+      'Нет разрешения на доступ к хранилищу';
+
+  @override
+  String get downloadFailureResource =>
+      'Недостаточно ресурсов устройства или файл слишком большой';
+
+  @override
+  String get downloadFailureOwnership =>
+      'Задача больше недействительна. Скачайте заново.';
+
+  @override
+  String get downloadFailureInterrupted =>
+      'Загрузка прервана перезапуском приложения. Нажмите «Повторить».';
+
+  @override
   String get ugoiraSaveGif => 'Сохранить GIF';
 
   @override
@@ -1337,19 +1338,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get ugoiraSaveCanceled => 'Сохранение GIF отменено';
 
   @override
-  String ugoiraSaveFailed(String error) {
-    return 'Не удалось сохранить GIF: $error';
-  }
+  String get ugoiraSaveFailed => 'Не удалось сохранить GIF';
 
   @override
-  String ugoiraArchiveInvalid(String error) {
-    return 'Архив анимации недействителен: $error';
-  }
+  String get ugoiraArchiveInvalid => 'Архив анимации недействителен';
 
   @override
-  String ugoiraFrameCorrupt(String error) {
-    return 'Кадр анимации повреждён: $error';
-  }
+  String get ugoiraFrameCorrupt => 'Кадр анимации повреждён';
 
   @override
   String get ugoiraLoadFailed => 'Не удалось загрузить анимацию';

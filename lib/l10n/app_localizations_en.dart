@@ -67,9 +67,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginPageClosed => 'The page was closed. Reopen it to try again.';
 
   @override
-  String loginCallbackInvalid(String reason) {
-    return 'Invalid login callback: $reason';
-  }
+  String get loginCallbackInvalid => 'Invalid login callback. Sign in again.';
 
   @override
   String loginNetworkError(String status) {
@@ -77,9 +75,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String loginPageLoadFailed(String error) {
-    return 'Page load failed ($error)';
-  }
+  String get loginPageLoadFailed => 'Page failed to load';
 
   @override
   String get loginWebView2Missing =>
@@ -1103,17 +1099,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadRemoveRecord => 'Remove';
 
   @override
-  String get downloadFailurePermission => 'Storage permission missing';
-
-  @override
-  String get downloadFailureResource =>
-      'Device resources exhausted or the file is too large';
-
-  @override
-  String get downloadFailureOwnership =>
-      'The destination file belongs to another app';
-
-  @override
   String downloadBatchCancelConfirm(int count) {
     return 'Cancel the $count selected download(s)? Unfinished progress will be discarded.';
   }
@@ -1323,6 +1308,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadSubmissionFailed => 'Download failed';
 
   @override
+  String get downloadFailurePermission => 'Storage permission missing';
+
+  @override
+  String get downloadFailureResource =>
+      'Device resources exhausted or the file is too large';
+
+  @override
+  String get downloadFailureOwnership =>
+      'This task is no longer valid. Download it again.';
+
+  @override
+  String get downloadFailureInterrupted =>
+      'Interrupted when the app restarted. Tap retry to continue.';
+
+  @override
   String get ugoiraSaveGif => 'Save GIF';
 
   @override
@@ -1338,19 +1338,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ugoiraSaveCanceled => 'GIF save canceled';
 
   @override
-  String ugoiraSaveFailed(String error) {
-    return 'GIF save failed: $error';
-  }
+  String get ugoiraSaveFailed => 'GIF save failed';
 
   @override
-  String ugoiraArchiveInvalid(String error) {
-    return 'The animation archive is invalid: $error';
-  }
+  String get ugoiraArchiveInvalid => 'The animation archive is invalid';
 
   @override
-  String ugoiraFrameCorrupt(String error) {
-    return 'An animation frame is corrupt: $error';
-  }
+  String get ugoiraFrameCorrupt => 'An animation frame is corrupt';
 
   @override
   String get ugoiraLoadFailed => 'Animation failed to load';

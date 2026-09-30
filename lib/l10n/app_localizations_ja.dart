@@ -67,9 +67,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginPageClosed => 'ページが閉じられました。再度開いてください。';
 
   @override
-  String loginCallbackInvalid(String reason) {
-    return 'ログインコールバックが無効です: $reason';
-  }
+  String get loginCallbackInvalid => 'ログインコールバックが無効です。もう一度ログインしてください';
 
   @override
   String loginNetworkError(String status) {
@@ -77,9 +75,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String loginPageLoadFailed(String error) {
-    return 'ページの読み込みに失敗しました ($error)';
-  }
+  String get loginPageLoadFailed => 'ページの読み込みに失敗しました';
 
   @override
   String get loginWebView2Missing =>
@@ -1067,15 +1063,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadRemoveRecord => '一覧から削除';
 
   @override
-  String get downloadFailurePermission => 'ストレージ権限がありません';
-
-  @override
-  String get downloadFailureResource => 'デバイスのリソース不足またはファイルが大きすぎます';
-
-  @override
-  String get downloadFailureOwnership => '保存先のファイルは他のアプリが所有しています';
-
-  @override
   String downloadBatchCancelConfirm(int count) {
     return '選択した $count 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。';
   }
@@ -1277,6 +1264,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadSubmissionFailed => 'ダウンロードに失敗しました';
 
   @override
+  String get downloadFailurePermission => 'ストレージ権限がありません';
+
+  @override
+  String get downloadFailureResource => 'デバイスのリソース不足またはファイルが大きすぎます';
+
+  @override
+  String get downloadFailureOwnership => 'このタスクは無効になりました。もう一度ダウンロードしてください';
+
+  @override
+  String get downloadFailureInterrupted => 'アプリの再起動で中断されました。再試行で続行できます';
+
+  @override
   String get ugoiraSaveGif => 'GIFを保存';
 
   @override
@@ -1292,19 +1291,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get ugoiraSaveCanceled => 'GIFの保存をキャンセルしました';
 
   @override
-  String ugoiraSaveFailed(String error) {
-    return 'GIFの保存に失敗しました: $error';
-  }
+  String get ugoiraSaveFailed => 'GIFの保存に失敗しました';
 
   @override
-  String ugoiraArchiveInvalid(String error) {
-    return 'アニメーションのアーカイブが無効です: $error';
-  }
+  String get ugoiraArchiveInvalid => 'アニメーションのアーカイブが無効です';
 
   @override
-  String ugoiraFrameCorrupt(String error) {
-    return 'アニメーションフレームが壊れています: $error';
-  }
+  String get ugoiraFrameCorrupt => 'アニメーションフレームが壊れています';
 
   @override
   String get ugoiraLoadFailed => 'アニメーションを読み込めませんでした';

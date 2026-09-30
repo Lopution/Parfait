@@ -16,6 +16,7 @@ import '../../../core/download/download_providers.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_recovery.dart';
 import '../../../core/errors/error_category.dart';
+import '../../../core/logging/crash_log.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/network/pixiv_http_client.dart';
@@ -111,11 +112,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   /// the ZIP was still being decoded.
   final Set<int> _failedFrames = <int>{};
   UgoiraExportJob? _exportJob;
-  String? _error;
-
-  /// The raw failure behind [_error] — handed to the overlay's details
-  /// disclosure when the message itself stays at category level.
-  Object? _errorDetails;
+  _UgoiraFailure? _failure;
   var _loading = false;
   var _frameReady = false;
   var _playRequested = false;
@@ -209,12 +206,8 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
               _buildCover(currentImage),
               if (_loading)
                 const FeedLoading()
-              else if (_error != null)
-                _ErrorOverlay(
-                  message: _error!,
-                  error: _errorDetails,
-                  onRetry: _togglePlayback,
-                )
+              else if (_failure case final failure?)
+                _ErrorOverlay(failure: failure, onRetry: _togglePlayback)
               else if (scheduler == null || !scheduler.isPlaying)
                 const _PlayOverlay(),
               Positioned(
@@ -336,7 +329,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
 
   void _togglePlayback() {
     if (_disposed) return;
-    if (_error != null) {
+    if (_failure != null) {
       _playRequested = true;
       _loadAndPlay();
       return;
@@ -373,8 +366,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     if (_scheduler != null) _releaseLoadedResources();
     setState(() {
       _loading = true;
-      _error = null;
-      _errorDetails = null;
+      _failure = null;
     });
     final cancelToken = CancelToken();
     _loadCancelToken = cancelToken;
@@ -414,17 +406,16 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     } on ApiCancelled {
       if (!_disposed) {
         setState(() {
-          _error = context.l10n.ugoiraLoadCanceled;
-          _errorDetails = null;
+          _failure = (
+            message: context.l10n.ugoiraLoadCanceled,
+            details: null,
+            categorized: false,
+          );
         });
       }
     } catch (error) {
       if (!_disposed) {
-        setState(() {
-          final friendly = _friendlyError(context, error);
-          _error = friendly.message;
-          _errorDetails = friendly.details;
-        });
+        setState(() => _failure = _friendlyError(context, error));
       }
     } finally {
       _loadCancelToken = null;
@@ -563,11 +554,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           _playRequested = false;
           if (scheduler.isPlaying) scheduler.pause();
         }
-        setState(() {
-          final friendly = _friendlyError(context, error);
-          _error = friendly.message;
-          _errorDetails = friendly.details;
-        });
+        setState(() => _failure = _friendlyError(context, error));
       }
     } finally {
       image?.dispose();
@@ -610,8 +597,13 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     final message = switch (result.status) {
       UgoiraExportStatus.succeeded => context.l10n.ugoiraSaved,
       UgoiraExportStatus.canceled => context.l10n.ugoiraSaveCanceled,
-      _ => context.l10n.ugoiraSaveFailed(result.error ?? 'unknown error'),
+      _ => context.l10n.ugoiraSaveFailed,
     };
+    // The export only keeps the failure as text, which categorizes to
+    // nothing useful — the reason goes to the crash log, not the SnackBar.
+    if (result.status == UgoiraExportStatus.failed) {
+      CrashLog.record(StateError('ugoira export failed: ${result.error}'));
+    }
     // Save succeeded → success; failed → error (§5.6); a user cancel is
     // a deliberate dismissal and gets no vibration.
     if (result.status == UgoiraExportStatus.succeeded) {
@@ -637,27 +629,27 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     super.dispose();
   }
 
-  /// Archive/decode failures already carry crafted localized text, so the
-  /// overlay keeps showing it as the headline. Anything else falls back to
-  /// the category sentence and the raw error goes to the details
-  /// disclosure instead of being interpolated into the message.
-  ({String message, Object? details}) _friendlyError(
-    BuildContext context,
-    Object error,
-  ) {
-    if (error is UgoiraArchiveException) {
-      return (
-        message: context.l10n.ugoiraArchiveInvalid(error.message),
+  /// Archive/decode failures get a specific localized headline; anything
+  /// else gets the generic one plus its category sentence. Either way the
+  /// raw error stays behind the details disclosure.
+  _UgoiraFailure _friendlyError(BuildContext context, Object error) {
+    return switch (error) {
+      UgoiraArchiveException() => (
+        message: context.l10n.ugoiraArchiveInvalid,
         details: error,
-      );
-    }
-    if (error is UgoiraDecodeException) {
-      return (
-        message: context.l10n.ugoiraFrameCorrupt(error.message),
+        categorized: false,
+      ),
+      UgoiraDecodeException() => (
+        message: context.l10n.ugoiraFrameCorrupt,
         details: error,
-      );
-    }
-    return (message: context.l10n.ugoiraLoadFailed, details: error);
+        categorized: false,
+      ),
+      _ => (
+        message: context.l10n.ugoiraLoadFailed,
+        details: error,
+        categorized: true,
+      ),
+    };
   }
 
   DownloadSubmissionContext? _currentDownloadContext() {
@@ -687,23 +679,20 @@ class _PlayOverlay extends StatelessWidget {
   }
 }
 
+/// A failure the overlay presents: [message] is the headline, [details] the
+/// raw error behind the disclosure, and [categorized] whether the headline
+/// is generic enough to need the category sentence under it.
+typedef _UgoiraFailure = ({String message, Object? details, bool categorized});
+
 class _ErrorOverlay extends StatelessWidget {
-  const _ErrorOverlay({
-    required this.message,
-    required this.onRetry,
-    this.error,
-  });
+  const _ErrorOverlay({required this.failure, required this.onRetry});
 
-  final String message;
+  final _UgoiraFailure failure;
   final VoidCallback onRetry;
-
-  /// The raw failure behind [message]: its category line and the details
-  /// disclosure ride under the headline when present.
-  final Object? error;
 
   @override
   Widget build(BuildContext context) {
-    final error = this.error;
+    final error = failure.details;
     return ColoredBox(
       color: const Color(0x99000000),
       child: Center(
@@ -721,18 +710,19 @@ class _ErrorOverlay extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    message,
+                    failure.message,
                     style: TextStyle(color: FuncTokens.lightBackground),
                   ),
                   if (error != null) ...[
                     const SizedBox(height: FuncSpacing.sm),
-                    Text(
-                      errorCategoryText(context, categorizeError(error)),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: FuncTokens.lightBackground.withAlpha(204),
+                    if (failure.categorized)
+                      Text(
+                        errorCategoryText(context, categorizeError(error)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: FuncTokens.lightBackground.withAlpha(204),
+                        ),
                       ),
-                    ),
                     ErrorDetails(error: error),
                   ],
                   const SizedBox(height: FuncSpacing.sm),

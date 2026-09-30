@@ -19,14 +19,7 @@
   "register": "注册",
   "login": "登录",
   "loginPageClosed": "页面已关闭，请重新打开",
-  "loginCallbackInvalid": "登录回调无效: {reason}",
-  "@loginCallbackInvalid": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
+  "loginCallbackInvalid": "登录回调无效，请重新登录",
   "loginNetworkError": "网络错误 (HTTP {status})",
   "@loginNetworkError": {
     "placeholders": {
@@ -35,14 +28,7 @@
       }
     }
   },
-  "loginPageLoadFailed": "页面加载失败 ({error})",
-  "@loginPageLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "loginPageLoadFailed": "页面加载失败",
   "loginWebView2Missing": "登录需要 WebView2 Runtime，但当前系统未检测到它。请安装后重新打开本页。",
   "loginInstallWebView2": "安装 WebView2 Runtime",
   "loginReload": "重新加载",
@@ -459,9 +445,6 @@
   "downloadProcessing": "处理中",
   "downloadViewResult": "查看",
   "downloadRemoveRecord": "移除",
-  "downloadFailurePermission": "没有写入存储的权限",
-  "downloadFailureResource": "文件过大或资源不足",
-  "downloadFailureOwnership": "任务属主与当前账号不一致",
   "downloadBatchCancelConfirm": "取消选中的 {count} 项下载？未完成的进度会被丢弃。",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -618,36 +601,16 @@
   "downloadSubmissionFailed": "下载失败",
   "downloadFailurePermission": "缺少存储权限",
   "downloadFailureResource": "设备资源不足或文件过大",
-  "downloadFailureOwnership": "目标文件由其他应用创建，无法覆盖",
+  "downloadFailureOwnership": "任务已失效，需重新下载",
+  "downloadFailureInterrupted": "应用重启时下载中断，点重试继续",
   "ugoiraSaveGif": "保存 GIF",
   "ugoiraLoadCanceled": "加载已取消",
   "ugoiraLoginRequired": "请先登录后保存 GIF",
   "ugoiraSaved": "GIF 已保存",
   "ugoiraSaveCanceled": "GIF 保存已取消",
-  "ugoiraSaveFailed": "GIF 保存失败：{error}",
-  "@ugoiraSaveFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "ugoiraArchiveInvalid": "动图压缩包无效：{error}",
-  "@ugoiraArchiveInvalid": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "ugoiraFrameCorrupt": "动图帧损坏：{error}",
-  "@ugoiraFrameCorrupt": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraSaveFailed": "GIF 保存失败",
+  "ugoiraArchiveInvalid": "动图压缩包无效",
+  "ugoiraFrameCorrupt": "动图帧损坏",
   "ugoiraLoadFailed": "动图加载失败",
   "homeRecommended": "推荐",
   "homeRanking": "排行",

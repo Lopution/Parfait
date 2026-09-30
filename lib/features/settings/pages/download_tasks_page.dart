@@ -674,8 +674,11 @@ class _DownloadTaskRow extends StatelessWidget {
 
   /// Localized failure reason under the status line (C8/D1): mapped from
   /// [DownloadTaskSnapshot.failureKind], with the raw error staying behind
-  /// [ErrorDetails]. `paused`/`canceled` are not failures and show nothing;
-  /// a record missing its kind falls back to the generic category table.
+  /// [ErrorDetails]. `paused`/`canceled` are not failures and show nothing.
+  /// A retryable task without a kind was running or queued when the process
+  /// died (recovery keeps the record's null kind), so it says so instead of
+  /// "unknown error". Any other kindless record falls back to the generic
+  /// category table.
   static String? _failureReason(
     BuildContext context,
     DownloadTaskSnapshot task,
@@ -684,6 +687,9 @@ class _DownloadTaskRow extends StatelessWidget {
     if (kind == DownloadFailureKind.canceled ||
         kind == DownloadFailureKind.paused) {
       return null;
+    }
+    if (kind == null && task.status == DownloadStatus.retryable) {
+      return context.l10n.downloadFailureInterrupted;
     }
     final mapped = downloadFailureReasonText(context.l10n, kind);
     if (mapped != null) return mapped;
