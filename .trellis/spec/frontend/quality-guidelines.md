@@ -141,7 +141,17 @@ rule with `// ignore:` without a one-line reason on the same line.
 - **Download rows take their visible failure copy from `failureKind`**, not
   from the persisted raw `error` string; the raw string remains available only
   inside `ErrorDetails`. Canceled and paused tasks are not failures — never
-  show them with failure styling or failure copy.
+  show them with failure styling or failure copy. A `retryable` task with no
+  kind was running or queued when the process died; it shows
+  `downloadFailureInterrupted`, not the generic "unknown error".
+- **Localized copy never interpolates a diagnostic.** An l10n key must not
+  take an `{error}`/`{reason}`-style text placeholder; pass the diagnostic
+  to `ErrorDetails` or `CrashLog` instead. When a message's headline already
+  names the problem, skip the category sentence under it — a redundant
+  "unknown error" line reads as a second failure. Text (`String`/`Object`)
+  placeholders must be allow-listed with a reason in
+  `test/architecture/l10n_placeholders_test.dart`, which also rejects an arb
+  key defined twice (later definitions silently win).
 
 ---
 
