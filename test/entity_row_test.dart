@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/entity_row.dart';
+
+import 'support/contrast.dart';
 
 Widget _host(Widget child) {
   return MaterialApp(home: Scaffold(body: child));
@@ -129,4 +132,52 @@ void main() {
     );
     expect(find.bySemanticsLabel('Custom label'), findsOneWidget);
   });
+
+  for (final brightness in [Brightness.light, Brightness.dark]) {
+    testWidgets('selected row text keeps 4.5:1 contrast ($brightness)', (
+      tester,
+    ) async {
+      final theme = replicaTheme(brightness);
+      final scheme = theme.colorScheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: EntityRow(
+              leading: SizedBox(width: 48),
+              title: 'Pick me',
+              subtitle: 'An author',
+              meta: '1234 words',
+              selected: true,
+            ),
+          ),
+        ),
+      );
+
+      final background = scheme.primaryContainer;
+      final secondary = scheme.onPrimaryContainer.withValues(alpha: 0.8);
+      for (final label in ['An author', '1234 words']) {
+        final style = tester.widget<Text>(find.text(label)).style!;
+        // The alpha-carrying color composites onto the row surface before
+        // the contrast is measured.
+        expect(
+          contrastRatio(Color.alphaBlend(style.color!, background), background),
+          greaterThanOrEqualTo(4.5),
+          reason: '$brightness "$label" contrast',
+        );
+        expect(style.color, secondary, reason: '$brightness "$label" color');
+      }
+      final titleStyle = tester.widget<Text>(find.text('Pick me')).style!;
+      expect(
+        contrastRatio(titleStyle.color!, background),
+        greaterThanOrEqualTo(4.5),
+        reason: '$brightness title contrast',
+      );
+      expect(titleStyle.color, scheme.onPrimaryContainer);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.check_circle)).color,
+        scheme.onPrimaryContainer,
+      );
+    });
+  }
 }

@@ -83,6 +83,11 @@ class EntityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final tokens = FuncSemanticTokens.of(context);
+    // Selected rows paint the whole row primaryContainer, so every glyph on
+    // it switches to the on-color; secondary lines keep a slight alpha so
+    // the primary/secondary hierarchy survives.
+    final selectedText = colorScheme.onPrimaryContainer;
+    final selectedSecondary = selectedText.withValues(alpha: 0.8);
     const radius = BorderRadius.all(Radius.circular(4));
     final label =
         semanticLabel ?? (subtitle == null ? title : '$title, $subtitle');
@@ -142,7 +147,10 @@ class EntityRow extends StatelessWidget {
                             title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: selected ? selectedText : null,
+                            ),
                           ),
                           if (subtitle != null) ...[
                             const SizedBox(height: 5),
@@ -150,12 +158,19 @@ class EntityRow extends StatelessWidget {
                               subtitle!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: tokens.caption,
+                              style: selected
+                                  ? tokens.caption.copyWith(
+                                      color: selectedSecondary,
+                                    )
+                                  : tokens.caption,
                             ),
                           ],
                           if (meta != null) ...[
                             const SizedBox(height: 4),
-                            EntityMetaText(meta!),
+                            EntityMetaText(
+                              meta!,
+                              color: selected ? selectedSecondary : null,
+                            ),
                           ],
                           if (progress != null) ...[
                             const SizedBox(height: 6),
@@ -171,7 +186,10 @@ class EntityRow extends StatelessWidget {
                   ],
                   if (selected) ...[
                     const SizedBox(width: 8),
-                    Icon(Icons.check_circle, color: colorScheme.primary),
+                    Icon(
+                      Icons.check_circle,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
                   ],
                 ],
               ),
@@ -188,17 +206,22 @@ class EntityRow extends StatelessWidget {
 /// the same kind of line (the history date under a card) reuse it directly
 /// so the meta look exists in exactly one place.
 class EntityMetaText extends StatelessWidget {
-  const EntityMetaText(this.text, {super.key});
+  const EntityMetaText(this.text, {super.key, this.color});
 
   final String text;
 
+  /// Overrides the caption color — [EntityRow] passes the selected-state
+  /// on-container color; null keeps the shared caption token.
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
+    final caption = FuncSemanticTokens.of(context).caption;
     return Text(
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: FuncSemanticTokens.of(context).caption,
+      style: color == null ? caption : caption.copyWith(color: color),
     );
   }
 }

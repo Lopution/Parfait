@@ -7,6 +7,7 @@ import 'package:pixiv_func/core/download/download_request.dart';
 import 'package:pixiv_func/core/download/download_task.dart';
 import 'package:pixiv_func/features/settings/pages/download_task_presentation.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'support/contrast.dart';
 
 DownloadTaskSnapshot _task({
   int illustId = 7,
@@ -84,14 +85,6 @@ DownloadGroupSnapshot _group({
     receivedBytes: receivedBytes,
     totalBytes: totalBytes,
   );
-}
-
-double _contrast(Color a, Color b) {
-  final la = a.computeLuminance();
-  final lb = b.computeLuminance();
-  final hi = la > lb ? la : lb;
-  final lo = la > lb ? lb : la;
-  return (hi + 0.05) / (lo + 0.05);
 }
 
 void main() {
@@ -293,7 +286,7 @@ void main() {
         // page color and on the group container color it sits inside.
         for (final background in [scheme.surface, scheme.surfaceContainer]) {
           expect(
-            _contrast(scheme.onSurfaceVariant, background),
+            contrastRatio(scheme.onSurfaceVariant, background),
             greaterThanOrEqualTo(4.5),
             reason: '${theme.brightness} onSurfaceVariant on $background',
           );
