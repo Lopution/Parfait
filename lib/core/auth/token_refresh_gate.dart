@@ -59,13 +59,21 @@ class TokenRefreshGate {
     }
     final inFlight = _InFlight(perform());
     _inFlight[accountId] = inFlight;
-    inFlight.future.whenComplete(() {
+    void release() {
       // Only the creator removes the entry: a late cleanup must not delete a
       // refresh started after this one completed.
       if (identical(_inFlight[accountId], inFlight)) {
         _inFlight.remove(accountId);
       }
-    });
+    }
+
+    // A failed attempt reaches every caller through the returned future;
+    // the cleanup branch absorbs the error so it is not reported twice as
+    // an unhandled one.
+    inFlight.future.then<void>(
+      (_) => release(),
+      onError: (Object _, StackTrace _) => release(),
+    );
     return inFlight.future;
   }
 

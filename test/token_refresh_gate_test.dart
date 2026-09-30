@@ -142,4 +142,38 @@ void main() {
     expect((first as Refreshed).accessToken, 'new-1');
     expect((second as Refreshed).accessToken, 'new-2');
   });
+
+  test('a throwing refresh reaches every caller and frees the slot', () async {
+    final gate = TokenRefreshGate();
+    final release = Completer<RefreshOutcome>();
+    var calls = 0;
+    Future<RefreshOutcome> perform() {
+      calls += 1;
+      return calls == 1 ? release.future : Future.value(Refreshed('new'));
+    }
+
+    final callers = [
+      for (var i = 0; i < 3; i++)
+        gate.refresh(
+          accountId: '100',
+          staleToken: 'old',
+          currentToken: 'old',
+          perform: perform,
+        ),
+    ];
+    release.completeError(StateError('network down'));
+    for (final caller in callers) {
+      await expectLater(caller, throwsA(isA<StateError>()));
+    }
+    expect(gate.isRefreshing, isFalse);
+
+    final retry = await gate.refresh(
+      accountId: '100',
+      staleToken: 'old',
+      currentToken: 'old',
+      perform: perform,
+    );
+    expect(calls, 2);
+    expect((retry as Refreshed).accessToken, 'new');
+  });
 }

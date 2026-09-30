@@ -18,6 +18,18 @@ class OAuthException implements Exception {
   final int? statusCode;
   final Object? cause;
 
+  /// The token endpoint answered and refused the grant — the credential
+  /// itself is unusable. Network failures, timeouts, 5xx, 408/429 and
+  /// malformed bodies are failed attempts, not a verdict on the credential.
+  bool get rejectsCredential {
+    final code = statusCode;
+    return code != null &&
+        code >= 400 &&
+        code < 500 &&
+        code != 408 &&
+        code != 429;
+  }
+
   @override
   String toString() =>
       'OAuthException($message${statusCode == null ? '' : ', status: $statusCode'})';
