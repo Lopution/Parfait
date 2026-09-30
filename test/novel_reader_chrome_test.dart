@@ -1086,6 +1086,77 @@ void main() {
     expectUnchanged('chrome hidden again');
   });
 
+  testWidgets('the progress hint never overlaps the last body line', (
+    tester,
+  ) async {
+    // Gesture-nav bottom inset 48 — the case where the hint band used to
+    // ride on top of the last text line.
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.viewPadding = const FakeViewPadding(top: 24, bottom: 48);
+    tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+    addTearDown(tester.view.reset);
+
+    for (final scale in [1.0, 2.0]) {
+      final container = await _apiContainer();
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: const NovelPage(novelId: 1),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
+        await _settleReader(tester);
+
+        final hint = tester.getRect(find.textContaining('novel 1 ·'));
+        var lastLineBottom = 0.0;
+        Rect? lastLine;
+        for (final line in tester.widgetList<Text>(
+          find.descendant(
+            of: find.byType(NovelReader),
+            matching: find.byType(Text),
+          ),
+        )) {
+          final rect = tester.getRect(find.byWidget(line));
+          if (rect.bottom > lastLineBottom) {
+            lastLineBottom = rect.bottom;
+            lastLine = rect;
+          }
+        }
+        expect(
+          lastLine,
+          isNotNull,
+          reason: 'scale $scale: the laid-out page must have text lines',
+        );
+        expect(
+          hint.overlaps(lastLine!),
+          isFalse,
+          reason:
+              'scale $scale: hint $hint must not cover the last body line '
+              '$lastLine',
+        );
+        // Sanity: the hint itself still sits inside the bottom inset band
+        // it is supposed to live in.
+        expect(hint.bottom, lessThanOrEqualTo(600));
+      });
+      container.dispose();
+    }
+  });
+
   testWidgets('a screen-size change reseeds the stable insets', (tester) async {
     // R3 second leg: the cached insets are only valid for the size they
     // were read at — a rotation/split changes the screen and the next
