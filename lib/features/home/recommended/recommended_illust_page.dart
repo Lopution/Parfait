@@ -13,6 +13,16 @@ import '../../../core/entity/illust_store.dart';
 import '../../../core/illust/recommended_illust_controller.dart';
 import '../../../l10n/context.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
+
+/// Grid padding shared by the feed sliver and its first-load skeleton:
+/// horizontal margins plus the status-bar inset (this tab has no AppBar).
+EdgeInsets _feedPadding(BuildContext context) => EdgeInsets.fromLTRB(
+  FuncSpacing.sm,
+  MediaQuery.viewPaddingOf(context).top,
+  FuncSpacing.sm,
+  0,
+);
 
 /// Recommended Illust tab: real API feed with initial/refresh/load-more
 /// states, card badges matching beta56 IllustPreviewer, and retained state
@@ -29,12 +39,7 @@ class RecommendedIllustPage extends ConsumerWidget {
       loading: () => Scaffold(
         body: IllustGridSkeleton(
           label: context.l10n.contentLoading,
-          padding: EdgeInsets.fromLTRB(
-            10,
-            MediaQuery.viewPaddingOf(context).top,
-            10,
-            0,
-          ),
+          padding: _feedPadding(context),
         ),
       ),
       error: (error, _) => Scaffold(
@@ -64,12 +69,7 @@ class RecommendedIllustPage extends ConsumerWidget {
           return Scaffold(
             body: IllustGridSkeleton(
               label: context.l10n.contentLoading,
-              padding: EdgeInsets.fromLTRB(
-                10,
-                MediaQuery.viewPaddingOf(context).top,
-                10,
-                0,
-              ),
+              padding: _feedPadding(context),
             ),
           );
         }
@@ -117,14 +117,7 @@ class RecommendedIllustPage extends ConsumerWidget {
                   scrollCacheExtent: kFeedCacheExtent,
                   slivers: [
                     IllustFeedGrid(
-                      padding: EdgeInsets.fromLTRB(
-                        10,
-                        MediaQuery.viewPaddingOf(context).top,
-                        10,
-                        0,
-                      ),
-                      mainAxisSpacing: 5,
-                      crossAxisSpacing: 10,
+                      padding: _feedPadding(context),
                       prefetchEntities: entities,
                       itemIds: [for (final e in entities) e.id],
                       itemCount: entities.length,

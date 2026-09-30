@@ -39,6 +39,9 @@ String _recommendedText(BuildContext context, String key) {
 /// changes echo back through [onTypeChanged]. Each type keeps its own
 /// cursor/scroll state via the TabSlideStack, so switching back does not
 /// refetch.
+/// Grid padding shared by the feed sliver and its first-load skeleton.
+const _gridPadding = EdgeInsets.fromLTRB(FuncSpacing.sm, 0, FuncSpacing.sm, 0);
+
 class RecommendedHomePage extends StatefulWidget {
   const RecommendedHomePage({
     super.key,
@@ -285,7 +288,7 @@ class _RecommendedFeedView extends ConsumerWidget {
     return feedAsync.when(
       loading: () => IllustGridSkeleton(
         label: context.l10n.contentLoading,
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+        padding: _gridPadding,
       ),
       error: (error, _) => FeedError(
         title: context.l10n.recommendedLoadFailed,
@@ -306,7 +309,7 @@ class _RecommendedFeedView extends ConsumerWidget {
         if (feed.showInitialSpinner) {
           return IllustGridSkeleton(
             label: context.l10n.contentLoading,
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+            padding: _gridPadding,
           );
         }
         if (feed.isEmptyAndReady) {
@@ -413,9 +416,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
     final entities = store.getAll(feed.ids);
     return [
       IllustFeedGrid(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-        mainAxisSpacing: 5,
-        crossAxisSpacing: 10,
+        padding: _gridPadding,
         prefetchEntities: entities,
         itemIds: [for (final e in entities) e.id],
         itemCount: entities.length,
@@ -441,7 +442,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
     ];
     return [
       SliverPadding(
-        padding: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.only(top: FuncSpacing.sm),
         sliver: SliverList.builder(
           itemCount: novels.length,
           itemBuilder: (context, index) => StaggeredEntrance(
@@ -469,7 +470,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
     ];
     return [
       SliverPadding(
-        padding: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.only(top: FuncSpacing.sm),
         sliver: SliverList.builder(
           itemCount: users.length,
           itemBuilder: (context, index) => StaggeredEntrance(
@@ -494,7 +495,10 @@ class _UserRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.md,
+        vertical: FuncSpacing.sm,
+      ),
       child: InkWell(
         onTap: () => openUser(context, entity.id),
         borderRadius: FuncShape.control,

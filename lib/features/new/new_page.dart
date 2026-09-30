@@ -22,6 +22,7 @@ import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Beta56 New page: scope tabs + a floating content-type row inside each
 /// feed. Both are route-durable (`/new?scope=&type=`):
@@ -385,7 +386,10 @@ class _NewFeedBody extends ConsumerWidget {
           child: Container(
             width: double.infinity,
             color: Theme.of(context).colorScheme.errorContainer,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: FuncSpacing.lg,
+              vertical: FuncSpacing.sm,
+            ),
             child: Row(
               children: [
                 Expanded(child: Text(context.l10n.newRefreshFailed)),
@@ -414,9 +418,6 @@ class _NewFeedBody extends ConsumerWidget {
       final entities = store.getAll(feed.ids);
       return [
         IllustFeedGrid(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          mainAxisSpacing: 5,
-          crossAxisSpacing: 10,
           prefetchEntities: entities,
           itemIds: [for (final e in entities) e.id],
           itemCount: entities.length,

@@ -10,6 +10,7 @@ import '../../../../core/series/series_models.dart';
 import '../../../../core/series/series_recent_open_store.dart';
 import '../../../../core/series/series_store.dart';
 import '../../../../l10n/context.dart';
+import '../../../../app/theme/func_semantic_tokens.dart';
 
 /// Detail-page sliver between the image pages and [InfoBlock]: the series
 /// card when this work belongs to a series (prev/next navigation included).
@@ -73,17 +74,20 @@ class _SeriesCardView extends ConsumerWidget {
     }
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.md,
+        vertical: FuncSpacing.sm,
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => openIllustSeries(buildContext, detail.id),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(FuncSpacing.md),
           child: Row(
             children: [
               if (cover != null)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: FuncShape.control,
                   child: PixivImage(
                     url: cover,
                     width: 56,
@@ -91,7 +95,7 @@ class _SeriesCardView extends ConsumerWidget {
                     memCacheWidth: PixivImage.decodeWidthFor(56),
                   ),
                 ),
-              if (cover != null) const SizedBox(width: 12),
+              if (cover != null) const SizedBox(width: FuncSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,7 +106,7 @@ class _SeriesCardView extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: FuncSpacing.xxs),
                     Text(
                       context.contentOrder == null
                           ? buildContext.l10n.seriesTitle

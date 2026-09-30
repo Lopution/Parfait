@@ -23,6 +23,10 @@ import 'search_filter_sheet.dart';
 import 'search_text.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
+import '../../app/theme/func_semantic_tokens.dart';
+
+/// Grid padding shared by the result sliver and its first-load skeleton.
+const _illustGridPadding = EdgeInsets.all(FuncSpacing.sm);
 
 class SearchResultPage extends ConsumerWidget {
   const SearchResultPage({super.key, required this.query});
@@ -91,10 +95,13 @@ class SearchResultPage extends ConsumerWidget {
         title: Tooltip(
           message: context.l10n.searchModifyQuery,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: FuncShape.control,
             onTap: () => _editQuery(context),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: FuncSpacing.xs,
+                vertical: FuncSpacing.xs,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -105,7 +112,7 @@ class SearchResultPage extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: FuncSpacing.xs),
                   Icon(
                     Icons.edit_outlined,
                     size: 18,
@@ -143,7 +150,7 @@ class SearchResultPage extends ConsumerWidget {
         loading: () => switch (query) {
           IllustSearchQuery() => IllustGridSkeleton(
             label: context.l10n.searchLoading,
-            padding: const EdgeInsets.all(10),
+            padding: _illustGridPadding,
           ),
           _ => FeedLoading(label: context.l10n.searchLoading),
         },
@@ -167,7 +174,7 @@ class SearchResultPage extends ConsumerWidget {
             return switch (query) {
               IllustSearchQuery() => IllustGridSkeleton(
                 label: context.l10n.searchLoading,
-                padding: const EdgeInsets.all(10),
+                padding: _illustGridPadding,
               ),
               _ => FeedLoading(label: context.l10n.searchLoading),
             };
@@ -239,9 +246,7 @@ class _IllustSearchFeed extends ConsumerWidget {
             controller: controller,
             slivers: [
               IllustFeedGrid(
-                padding: const EdgeInsets.all(10),
-                mainAxisSpacing: 5,
-                crossAxisSpacing: 10,
+                padding: _illustGridPadding,
                 prefetchEntities: entities,
                 itemIds: [for (final e in entities) e.id],
                 itemCount: entities.length,
@@ -404,7 +409,10 @@ class _SearchUserTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.md,
+        vertical: FuncSpacing.sm,
+      ),
       child: ListTile(
         onTap: () => openUser(context, user.id),
         leading: PersonAvatar(imageUrl: user.profileImageUrl, radius: 26),
@@ -488,7 +496,12 @@ class _FilterSummaryBar extends StatelessWidget {
       height: 44,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.fromLTRB(
+          FuncSpacing.lg,
+          0,
+          FuncSpacing.lg,
+          FuncSpacing.sm,
+        ),
         child: Row(
           children: [
             if (labels.isEmpty)
@@ -500,9 +513,9 @@ class _FilterSummaryBar extends StatelessWidget {
             else
               for (final label in labels) ...[
                 ActionChip(label: Text(label), onPressed: onEdit),
-                const SizedBox(width: 8),
+                const SizedBox(width: FuncSpacing.sm),
               ],
-            const SizedBox(width: 4),
+            const SizedBox(width: FuncSpacing.xs),
             ActionChip(
               avatar: const Icon(Icons.filter_alt_off_outlined, size: 16),
               label: Text(context.l10n.searchReset),

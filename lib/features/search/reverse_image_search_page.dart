@@ -29,6 +29,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import 'package:pixiv_func/core/network/http_client_providers.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 class ReverseImageSearchPage extends ConsumerStatefulWidget {
   const ReverseImageSearchPage({
@@ -289,19 +290,19 @@ class _ReverseImageSearchPageState
 
   Widget _idle(BuildContext context, ReverseImageFlowState state) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(FuncSpacing.xl),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 32),
+          const SizedBox(height: FuncSpacing.xxl),
           const Icon(Icons.image_search_outlined, size: 72),
-          const SizedBox(height: 18),
+          const SizedBox(height: FuncSpacing.lg),
           Text(context.l10n.searchReverseIntro, textAlign: TextAlign.center),
-          const SizedBox(height: 20),
+          const SizedBox(height: FuncSpacing.lg),
           _engineChips(context, state),
-          const SizedBox(height: 24),
+          const SizedBox(height: FuncSpacing.xl),
           _privacyCard(context),
-          const SizedBox(height: 20),
+          const SizedBox(height: FuncSpacing.lg),
           FilledButton.icon(
             onPressed: _controller.pick,
             icon: const Icon(Icons.photo_library_outlined),
@@ -315,12 +316,12 @@ class _ReverseImageSearchPageState
   Widget _privacyCard(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(FuncSpacing.lg),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(Icons.privacy_tip_outlined),
-            const SizedBox(width: 12),
+            const SizedBox(width: FuncSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,7 +330,7 @@ class _ReverseImageSearchPageState
                     context.l10n.searchReversePrivacy,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: FuncSpacing.xs),
                   Text(context.l10n.searchReversePrivacyDetail),
                 ],
               ),
@@ -343,14 +344,14 @@ class _ReverseImageSearchPageState
   Widget _progress(BuildContext context, String label) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(FuncSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircularProgressIndicator(),
-            const SizedBox(height: 18),
+            const SizedBox(height: FuncSpacing.lg),
             Text(label),
-            const SizedBox(height: 18),
+            const SizedBox(height: FuncSpacing.lg),
             // Cancelling the in-flight step keeps the page open — leaving
             // is what the AppBar back button is for.
             OutlinedButton(
@@ -368,28 +369,28 @@ class _ReverseImageSearchPageState
     final spec = ReverseImageEngineSpecs.all[state.engine]!;
     final supported = spec.supportsInput(input);
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(FuncSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _privacyCard(context),
-          const SizedBox(height: 16),
+          const SizedBox(height: FuncSpacing.lg),
           Text(
             context.l10n.searchReverseReady,
             style: Theme.of(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: FuncSpacing.md),
           Card(
             clipBehavior: Clip.antiAlias,
             child: _AdaptiveImagePreview(path: input.path),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: FuncSpacing.md),
           Text(
             '${input.width} × ${input.height} · ${formatByteSize(input.sizeBytes)}',
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: FuncSpacing.xs),
           // Reselect/cancel sit right under the preview — below the engine
           // chips and search button they fell off the first screen.
           Row(
@@ -406,17 +407,17 @@ class _ReverseImageSearchPageState
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: FuncSpacing.md),
           _engineChips(context, state),
           if (!supported) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: FuncSpacing.sm),
             Text(
               context.l10n.searchReverseEngineUnsupported,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: FuncSpacing.lg),
           FilledButton.icon(
             onPressed: supported ? _search : null,
             icon: const Icon(Icons.search),
@@ -450,12 +451,12 @@ class _ReverseImageSearchPageState
     final canRetry = state.input != null;
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(FuncSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline, size: 56),
-            const SizedBox(height: 16),
+            const SizedBox(height: FuncSpacing.lg),
             Text(
               message,
               textAlign: TextAlign.center,
@@ -463,17 +464,17 @@ class _ReverseImageSearchPageState
               overflow: TextOverflow.ellipsis,
             ),
             if (canRetry) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: FuncSpacing.lg),
               _engineChips(context, state),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: FuncSpacing.lg),
             if (canRetry)
               FilledButton.icon(
                 onPressed: _search,
                 icon: const Icon(Icons.refresh),
                 label: Text(context.l10n.searchReverseRetrySameEngine),
               ),
-            const SizedBox(height: 12),
+            const SizedBox(height: FuncSpacing.md),
             OutlinedButton.icon(
               onPressed: _controller.pick,
               icon: const Icon(Icons.photo_library_outlined),
@@ -490,9 +491,9 @@ class _ReverseImageSearchPageState
       return Center(child: Text(context.l10n.searchReverseNoResults));
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(FuncSpacing.lg),
       itemCount: state.results.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: FuncSpacing.sm),
       itemBuilder: (context, index) {
         final hit = state.results[index];
         final title =
@@ -596,7 +597,7 @@ class _TaskHeader extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (icon != null) ...[icon, const SizedBox(width: 6)],
+        if (icon != null) ...[icon, const SizedBox(width: FuncSpacing.xs)],
         Flexible(child: Text(_phaseLabel(context), style: style)),
       ],
     );
@@ -612,7 +613,10 @@ class _TaskHeader extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(spec.displayName),
-          if (trailing != null) ...[const SizedBox(width: 2), trailing],
+          if (trailing != null) ...[
+            const SizedBox(width: FuncSpacing.xxs),
+            trailing,
+          ],
         ],
       ),
     );
@@ -629,7 +633,7 @@ class _TaskHeader extends StatelessWidget {
               children: [
                 if (state.engineFailures.containsKey(engineSpec.engine)) ...[
                   const Icon(Icons.error_outline, size: 18),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: FuncSpacing.sm),
                 ],
                 Expanded(child: Text(engineSpec.displayName)),
                 if (engineSpec.engine == state.engine)
@@ -649,11 +653,14 @@ class _TaskHeader extends StatelessWidget {
     return Material(
       color: scheme.surfaceContainer,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: FuncSpacing.lg,
+          vertical: FuncSpacing.sm,
+        ),
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: FuncShape.control,
               child: SizedBox(
                 width: 44,
                 height: 44,
@@ -673,7 +680,7 @@ class _TaskHeader extends StatelessWidget {
                       ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: FuncSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -691,7 +698,7 @@ class _TaskHeader extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: FuncSpacing.sm),
             _engineSelector(context),
           ],
         ),
@@ -1058,9 +1065,9 @@ Widget _webViewErrorBody(BuildContext context, String error) {
       mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(Icons.error_outline, size: 56),
-        const SizedBox(height: 12),
+        const SizedBox(height: FuncSpacing.md),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1068,7 +1075,7 @@ Widget _webViewErrorBody(BuildContext context, String error) {
                 context.l10n.searchReversePageLoadFailed,
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: FuncSpacing.sm),
               Text(
                 errorCategoryText(context, ErrorCategory.network),
                 style: Theme.of(context).textTheme.bodySmall,
