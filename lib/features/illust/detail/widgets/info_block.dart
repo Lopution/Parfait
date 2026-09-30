@@ -9,6 +9,7 @@ import '../../../../app/motion/app_overlays.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/widgets/app_snack_bar.dart';
+import '../../../../app/widgets/errors/error_details.dart';
 import '../../../../app/widgets/author_summary.dart';
 import '../../../../app/widgets/tag_chips.dart';
 import '../../../../core/entity/illust_entity.dart';
@@ -134,7 +135,11 @@ class InfoBlock extends ConsumerWidget {
                           Object error,
                         ) {
                           if (context.mounted) {
-                            showAppSnackBar(context, '$error');
+                            showErrorSnackBar(
+                              context,
+                              action: context.l10n.muteFailed,
+                              error: error,
+                            );
                           }
                         }),
                       );
@@ -222,7 +227,11 @@ class InfoBlock extends ConsumerWidget {
                           .toggleTag(tag.name)
                           .catchError((Object error) {
                             if (context.mounted) {
-                              showAppSnackBar(context, '$error');
+                              showErrorSnackBar(
+                                context,
+                                action: context.l10n.muteFailed,
+                                error: error,
+                              );
                             }
                           }),
                     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
@@ -111,9 +112,10 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
       }
     } on Object catch (error) {
       if (mounted) {
-        showAppSnackBar(
+        showErrorSnackBar(
           context,
-          '${context.l10n.imageSourceTestFailed}: $error',
+          action: context.l10n.imageSourceTestFailed,
+          error: error,
         );
       }
     } finally {

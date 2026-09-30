@@ -719,6 +719,10 @@ void main() {
       expect(repository.loadCount, 1);
       expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
       expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
+      // The raw cause stays reachable behind the details disclosure
+      // (C8/D1) instead of being swallowed or printed outright.
+      await tester.tap(find.text('详情'));
+      await tester.pump();
       expect(
         find.textContaining('SettingsRepositoryException'),
         findsOneWidget,

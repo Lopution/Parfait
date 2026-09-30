@@ -47,22 +47,7 @@
   "loginInstallWebView2": "Install WebView2 Runtime",
   "loginReload": "Reload",
   "loginRestart": "Log in again",
-  "loginFailed": "Login failed: {error}",
-  "@loginFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "loginFailedType": "Login failed ({type})",
-  "@loginFailedType": {
-    "placeholders": {
-      "type": {
-        "type": "String"
-      }
-    }
-  },
+  "loginFailed": "Login failed",
   "networkCompatibility": "Pixiv official network compatibility",
   "networkCompatibilityHint": "Direct HTTPS is tried first; only official Pixiv destinations may try a strict HTTPS candidate after an explicit transport failure. Other traffic is never proxied and certificate checks stay enabled.",
   "useLoginWithClipboard": "Login with clipboard data",
@@ -374,7 +359,7 @@
   "muteAuthor": "Mute author",
   "unmuteAuthor": "Unmute author",
   "unmuteTag": "Unmute",
-  "muteFailed": "Mute operation failed: {error}",
+  "muteFailed": "Mute operation failed",
   "reduceMotion": "Reduce motion",
   "reduceMotionHint": "Turn off decorative animation: page transitions, list entrances and press feedback",
   "maxDownloadCount": "Maximum concurrent downloads",
@@ -562,14 +547,7 @@
     }
   },
   "downloadAuthorEmpty": "This author has no downloadable works.",
-  "downloadAuthorFailed": "Failed to enumerate works: {error}",
-  "@downloadAuthorFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+"downloadAuthorFailed": "Failed to enumerate works",
   "downloadCaption": "Export work caption",
   "downloadCaptionHint": "Save the title, author and caption as a matching .txt next to downloaded illusts and manga",
   "aboutVersion": "Version",
@@ -637,14 +615,7 @@
   "viewerNoImages": "No images to display",
   "downloadAll": "Download All",
   "downloadQueuedMessage": "Added to the download queue",
-  "downloadSubmissionFailed": "Download failed: {error}",
-  "@downloadSubmissionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "downloadSubmissionFailed": "Download failed",
   "ugoiraSaveGif": "Save GIF",
   "ugoiraLoadCanceled": "Loading was canceled",
   "ugoiraLoginRequired": "Sign in before saving the GIF",
@@ -681,14 +652,7 @@
   "homeExitHint": "Press back again to exit",
   "bookmarkIllust": "Bookmark illustration",
   "bookmarkNovel": "Bookmark novel",
-  "bookmarkOperationFailed": "Bookmark operation failed: {error}",
-  "@bookmarkOperationFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "bookmarkOperationFailed": "Bookmark operation failed",
   "save": "Save",
   "saved": "Saved",
   "retry": "Retry",
@@ -893,14 +857,7 @@
       }
     }
   },
-  "illustDetailOpenLinkFailed": "Could not open the link: {error}",
-  "@illustDetailOpenLinkFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "illustDetailOpenLinkFailed": "Could not open the link",
   "illustDetailRestricted": "This artwork has been deleted or restricted (ID: {id})",
   "@illustDetailRestricted": {
     "placeholders": {

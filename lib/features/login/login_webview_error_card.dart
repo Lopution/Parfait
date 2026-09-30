@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
 
 /// Shared bottom-left error card for the authorization WebViews
@@ -38,10 +39,16 @@ class LoginWebViewErrorCard extends StatelessWidget {
     required this.onReload,
     required this.onRestart,
     required this.onDismiss,
+    this.error,
   });
 
   /// Localized error description already resolved by the caller.
   final String message;
+
+  /// Raw error behind the collapsible details disclosure; `null` for
+  /// messages that already carry their own crafted text (e.g. an invalid
+  /// callback reason) and have nothing raw to expand.
+  final Object? error;
 
   /// Whether the error killed the PKCE session. Recoverable errors keep the
   /// session alive, so the same page can continue after a reload.
@@ -74,7 +81,16 @@ class LoginWebViewErrorCard extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  Expanded(child: Text(message)),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(message),
+                        if (error != null) ErrorDetails(error: error!),
+                      ],
+                    ),
+                  ),
                   if (fatal)
                     signup
                         ? TextButton(

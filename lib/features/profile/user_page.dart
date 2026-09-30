@@ -9,6 +9,7 @@ import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_scaffold.dart';
 import '../../app/widgets/follow_switch_button.dart';
@@ -829,9 +830,10 @@ Future<void> _openProfileSocialLink(
     await ref.read(outboundUrlOpenerProvider).openExternal(url);
   } on Object catch (error) {
     if (!context.mounted) return;
-    showAppSnackBar(
+    showErrorSnackBar(
       context,
-      context.l10n.illustDetailOpenLinkFailed(error.toString()),
+      action: context.l10n.illustDetailOpenLinkFailed,
+      error: error,
     );
   }
 }

@@ -47,22 +47,7 @@
   "loginInstallWebView2": "WebView2 Runtime をインストール",
   "loginReload": "再読み込み",
   "loginRestart": "再度ログイン",
-  "loginFailed": "ログインに失敗しました: {error}",
-  "@loginFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "loginFailedType": "ログインに失敗しました ({type})",
-  "@loginFailedType": {
-    "placeholders": {
-      "type": {
-        "type": "String"
-      }
-    }
-  },
+  "loginFailed": "ログインに失敗しました",
   "networkCompatibility": "Pixiv公式ネットワーク互換",
   "networkCompatibilityHint": "まず直接 HTTPS を試し、明確な転送障害時だけ Pixiv 公式宛先に厳格な HTTPS 候補を試します。他の通信はプロキシせず、証明書検証も無効にしません。",
   "useLoginWithClipboard": "クリップボードに保存されたデータでログイン",
@@ -374,7 +359,7 @@
   "muteAuthor": "作者をミュート",
   "unmuteAuthor": "作者のミュートを解除",
   "unmuteTag": "ミュート解除",
-  "muteFailed": "ミュート操作に失敗しました:{error}",
+  "muteFailed": "ミュート操作に失敗しました",
   "reduceMotion": "視覚効果を減らす",
   "reduceMotionHint": "画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします",
   "maxDownloadCount": "同時ダウンロード数の上限",
@@ -562,14 +547,7 @@
     }
   },
   "downloadAuthorEmpty": "この作者にはダウンロード可能な作品がありません。",
-  "downloadAuthorFailed": "作品の列挙に失敗しました：{error}",
-  "@downloadAuthorFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+"downloadAuthorFailed": "作品の列挙に失敗しました",
   "downloadCaption": "作品のキャプションを書き出す",
   "downloadCaptionHint": "イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します",
   "aboutVersion": "バージョン",
@@ -637,14 +615,7 @@
   "viewerNoImages": "表示できる画像がありません",
   "downloadAll": "すべてダウンロード",
   "downloadQueuedMessage": "ダウンロードキューに追加しました",
-  "downloadSubmissionFailed": "ダウンロードに失敗しました: {error}",
-  "@downloadSubmissionFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "downloadSubmissionFailed": "ダウンロードに失敗しました",
   "ugoiraSaveGif": "GIFを保存",
   "ugoiraLoadCanceled": "読み込みをキャンセルしました",
   "ugoiraLoginRequired": "GIFを保存するにはログインしてください",
@@ -681,14 +652,7 @@
   "homeExitHint": "もう一度戻ると終了します",
   "bookmarkIllust": "イラストをブックマーク",
   "bookmarkNovel": "小説をブックマーク",
-  "bookmarkOperationFailed": "ブックマーク操作に失敗しました: {error}",
-  "@bookmarkOperationFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "bookmarkOperationFailed": "ブックマーク操作に失敗しました",
   "save": "保存",
   "saved": "保存しました",
   "retry": "再試行",
@@ -893,14 +857,7 @@
       }
     }
   },
-  "illustDetailOpenLinkFailed": "リンクを開けませんでした：{error}",
-  "@illustDetailOpenLinkFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "illustDetailOpenLinkFailed": "リンクを開けませんでした",
   "illustDetailRestricted": "この作品は削除または非公開になりました（ID: {id}）",
   "@illustDetailRestricted": {
     "placeholders": {

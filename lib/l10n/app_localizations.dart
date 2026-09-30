@@ -261,14 +261,8 @@ abstract class AppLocalizations {
   /// No description provided for @loginFailed.
   ///
   /// In zh, this message translates to:
-  /// **'登录失败: {error}'**
-  String loginFailed(String error);
-
-  /// No description provided for @loginFailedType.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录失败 ({type})'**
-  String loginFailedType(String type);
+  /// **'登录失败'**
+  String get loginFailed;
 
   /// No description provided for @networkCompatibility.
   ///
@@ -1676,8 +1670,8 @@ abstract class AppLocalizations {
   /// No description provided for @muteFailed.
   ///
   /// In zh, this message translates to:
-  /// **'屏蔽操作失败:{error}'**
-  String muteFailed(Object error);
+  /// **'屏蔽操作失败'**
+  String get muteFailed;
 
   /// No description provided for @reduceMotion.
   ///
@@ -2180,8 +2174,8 @@ abstract class AppLocalizations {
   /// No description provided for @downloadAuthorFailed.
   ///
   /// In zh, this message translates to:
-  /// **'枚举作品失败：{error}'**
-  String downloadAuthorFailed(String error);
+  /// **'枚举作品失败'**
+  String get downloadAuthorFailed;
 
   /// No description provided for @downloadCaption.
   ///
@@ -2444,8 +2438,8 @@ abstract class AppLocalizations {
   /// No description provided for @downloadSubmissionFailed.
   ///
   /// In zh, this message translates to:
-  /// **'下载失败：{error}'**
-  String downloadSubmissionFailed(String error);
+  /// **'下载失败'**
+  String get downloadSubmissionFailed;
 
   /// No description provided for @ugoiraSaveGif.
   ///
@@ -2540,8 +2534,8 @@ abstract class AppLocalizations {
   /// No description provided for @bookmarkOperationFailed.
   ///
   /// In zh, this message translates to:
-  /// **'收藏操作失败：{error}'**
-  String bookmarkOperationFailed(String error);
+  /// **'收藏操作失败'**
+  String get bookmarkOperationFailed;
 
   /// No description provided for @save.
   ///
@@ -3440,8 +3434,8 @@ abstract class AppLocalizations {
   /// No description provided for @illustDetailOpenLinkFailed.
   ///
   /// In zh, this message translates to:
-  /// **'无法打开链接：{error}'**
-  String illustDetailOpenLinkFailed(String error);
+  /// **'无法打开链接'**
+  String get illustDetailOpenLinkFailed;
 
   /// No description provided for @illustDetailRestricted.
   ///

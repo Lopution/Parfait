@@ -11,6 +11,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
+import '../../core/logging/crash_log.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
@@ -50,6 +51,10 @@ class _LoginWebViewDesktopPageState
   bool _exchanging = false;
   double? _progress;
   String? _error;
+
+  /// Raw error shown behind the card's details disclosure; `null` when
+  /// [_error] is a crafted message with nothing technical to expand.
+  Object? _errorDetails;
   bool _fatal = false;
   bool _webView2Missing = false;
   late final Uri _initialUrl;
@@ -127,6 +132,7 @@ class _LoginWebViewDesktopPageState
     setState(() {
       _exchanging = true;
       _error = null;
+      _errorDetails = null;
     });
     try {
       final result = await widget.oauthService.exchangeCode(code);
@@ -147,26 +153,29 @@ class _LoginWebViewDesktopPageState
       if (!mounted) return;
       // The StartupGate reacts to the new usable account and shows Home.
       context.pop(true);
-    } on OAuthException catch (error) {
-      _abortLogin(context.l10n.loginFailed(error.toString()));
-    } on Object catch (error) {
-      _abortLogin(context.l10n.loginFailedType(error.runtimeType.toString()));
+    } on Object catch (error, stackTrace) {
+      CrashLog.record(error, stackTrace);
+      _abortLogin(context.l10n.loginFailed, error: error);
     }
   }
 
-  void _abortLogin(String message) {
+  void _abortLogin(String message, {Object? error}) {
     widget.oauthService.discardSession();
     if (!mounted) return;
     setState(() {
       _exchanging = false;
       _error = message;
+      _errorDetails = error;
       _fatal = true;
     });
   }
 
   void _reportRecoverable(String message) {
     if (!mounted || _fatal) return;
-    setState(() => _error = message);
+    setState(() {
+      _error = message;
+      _errorDetails = null;
+    });
   }
 
   /// Reloads the current document in place. For a recoverable error this
@@ -177,6 +186,7 @@ class _LoginWebViewDesktopPageState
   void _reload() {
     setState(() {
       _error = null;
+      _errorDetails = null;
       _fatal = false;
     });
     unawaited(_controller?.reload());
@@ -190,6 +200,7 @@ class _LoginWebViewDesktopPageState
     setState(() {
       _exchanging = false;
       _error = null;
+      _errorDetails = null;
       _fatal = false;
     });
     unawaited(
@@ -314,11 +325,15 @@ class _LoginWebViewDesktopPageState
           if (_error != null)
             LoginWebViewErrorCard(
               message: _error!,
+              error: _errorDetails,
               fatal: _fatal,
               signup: widget.create,
               onReload: _reload,
               onRestart: _restartLogin,
-              onDismiss: () => setState(() => _error = null),
+              onDismiss: () => setState(() {
+                _error = null;
+                _errorDetails = null;
+              }),
             ),
         ],
       ),

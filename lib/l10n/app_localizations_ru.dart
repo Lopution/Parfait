@@ -95,14 +95,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get loginRestart => 'Войти снова';
 
   @override
-  String loginFailed(String error) {
-    return 'Не удалось войти: $error';
-  }
-
-  @override
-  String loginFailedType(String type) {
-    return 'Не удалось войти ($type)';
-  }
+  String get loginFailed => 'Не удалось войти';
 
   @override
   String get networkCompatibility => 'Совместимость с официальной сетью Pixiv';
@@ -886,9 +879,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get unmuteTag => 'Снять заглушение';
 
   @override
-  String muteFailed(Object error) {
-    return 'Ошибка заглушения: $error';
-  }
+  String get muteFailed => 'Ошибка заглушения';
 
   @override
   String get reduceMotion => 'Меньше анимаций';
@@ -1179,9 +1170,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadAuthorEmpty => 'У этого автора нет работ для скачивания.';
 
   @override
-  String downloadAuthorFailed(String error) {
-    return 'Не удалось перечислить работы: $error';
-  }
+  String get downloadAuthorFailed => 'Не удалось перечислить работы';
 
   @override
   String get downloadCaption => 'Экспортировать описание работы';
@@ -1329,9 +1318,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadQueuedMessage => 'Добавлено в очередь загрузки';
 
   @override
-  String downloadSubmissionFailed(String error) {
-    return 'Не удалось скачать: $error';
-  }
+  String get downloadSubmissionFailed => 'Не удалось скачать';
 
   @override
   String get ugoiraSaveGif => 'Сохранить GIF';
@@ -1385,9 +1372,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bookmarkNovel => 'Добавить новеллу в закладки';
 
   @override
-  String bookmarkOperationFailed(String error) {
-    return 'Не удалось изменить закладки: $error';
-  }
+  String get bookmarkOperationFailed => 'Не удалось изменить закладки';
 
   @override
   String get save => 'Сохранить';
@@ -1864,9 +1849,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String illustDetailOpenLinkFailed(String error) {
-    return 'Не удалось открыть ссылку: $error';
-  }
+  String get illustDetailOpenLinkFailed => 'Не удалось открыть ссылку';
 
   @override
   String illustDetailRestricted(int id) {

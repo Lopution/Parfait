@@ -95,14 +95,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginRestart => '再度ログイン';
 
   @override
-  String loginFailed(String error) {
-    return 'ログインに失敗しました: $error';
-  }
-
-  @override
-  String loginFailedType(String type) {
-    return 'ログインに失敗しました ($type)';
-  }
+  String get loginFailed => 'ログインに失敗しました';
 
   @override
   String get networkCompatibility => 'Pixiv公式ネットワーク互換';
@@ -857,9 +850,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get unmuteTag => 'ミュート解除';
 
   @override
-  String muteFailed(Object error) {
-    return 'ミュート操作に失敗しました:$error';
-  }
+  String get muteFailed => 'ミュート操作に失敗しました';
 
   @override
   String get reduceMotion => '視覚効果を減らす';
@@ -1142,9 +1133,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadAuthorEmpty => 'この作者にはダウンロード可能な作品がありません。';
 
   @override
-  String downloadAuthorFailed(String error) {
-    return '作品の列挙に失敗しました：$error';
-  }
+  String get downloadAuthorFailed => '作品の列挙に失敗しました';
 
   @override
   String get downloadCaption => '作品のキャプションを書き出す';
@@ -1285,9 +1274,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadQueuedMessage => 'ダウンロードキューに追加しました';
 
   @override
-  String downloadSubmissionFailed(String error) {
-    return 'ダウンロードに失敗しました: $error';
-  }
+  String get downloadSubmissionFailed => 'ダウンロードに失敗しました';
 
   @override
   String get ugoiraSaveGif => 'GIFを保存';
@@ -1341,9 +1328,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bookmarkNovel => '小説をブックマーク';
 
   @override
-  String bookmarkOperationFailed(String error) {
-    return 'ブックマーク操作に失敗しました: $error';
-  }
+  String get bookmarkOperationFailed => 'ブックマーク操作に失敗しました';
 
   @override
   String get save => '保存';
@@ -1810,9 +1795,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String illustDetailOpenLinkFailed(String error) {
-    return 'リンクを開けませんでした：$error';
-  }
+  String get illustDetailOpenLinkFailed => 'リンクを開けませんでした';
 
   @override
   String illustDetailRestricted(int id) {
