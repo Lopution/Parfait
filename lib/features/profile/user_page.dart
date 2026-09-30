@@ -505,6 +505,7 @@ class _UserPageState extends ConsumerState<UserPage>
                   // all land without any hard-coded extent.
                   expandedExtent: _headerExtent,
                   onExpandedExtentMeasured: (extent) {
+                    if (!mounted) return;
                     if (_headerExtent == null ||
                         (extent - _headerExtent!).abs() > 0.5) {
                       setState(() => _headerExtent = extent);
