@@ -6,6 +6,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
+import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
@@ -39,7 +40,12 @@ class ProfileIllustFeed extends ConsumerWidget {
     Widget wrapState(Widget state) =>
         typeSwitch?.aboveState(context, state) ?? state;
     return async.when(
-      loading: () => wrapState(const FeedLoading()),
+      loading: () => wrapState(
+        IllustGridSkeleton(
+          label: context.l10n.contentLoading,
+          padding: const EdgeInsets.all(10),
+        ),
+      ),
       error: (error, _) => wrapState(
         FeedError(
           title: context.l10n.profileLoadFailed,
@@ -64,7 +70,12 @@ class ProfileIllustFeed extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) {
-          return wrapState(const FeedLoading());
+          return wrapState(
+            IllustGridSkeleton(
+              label: context.l10n.contentLoading,
+              padding: const EdgeInsets.all(10),
+            ),
+          );
         }
         final store = ref.watch(illustStoreProvider);
         final entities = store.getAll(feed.ids);

@@ -30,10 +30,12 @@ import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
 import 'package:pixiv_func/app/widgets/app_type_switch.dart';
 import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
+import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
 import 'package:pixiv_func/features/profile/profile_illust_feed.dart';
 import 'package:pixiv_func/features/profile/profile_novel_feed.dart';
 import 'package:pixiv_func/features/profile/user_page.dart';
+import 'package:pixiv_func/features/profile/profile_skeleton.dart';
 import 'package:pixiv_func/features/profile/user_series_feed.dart';
 import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
 import 'package:pixiv_func/app/widgets/image_overlay_button.dart';
@@ -42,6 +44,7 @@ import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
 
 class _FakeFollowRepository implements FollowRepository {
@@ -72,50 +75,6 @@ class _FakeFollowRepository implements FollowRepository {
   }
 }
 
-/// In-memory stand-in for [FeedSnapshotStore]: each `_makeWorld` gets a
-/// fresh instance so a snapshot committed by one test cannot leak into the
-/// next world's cold start (sqflite's singleInstance cache would share the
-/// default ':memory:' feeds.db across the whole file).
-class _MemoryFeedSnapshotStore implements FeedSnapshotStore {
-  final _rows = <String, FeedSnapshot>{};
-
-  @override
-  int get discardedCount => 0;
-
-  @override
-  int get maxEntriesPerAccount => 64;
-
-  @override
-  Future<FeedSnapshot?> read(
-    String accountId,
-    String feedKey, {
-    Duration maxAge = FeedSnapshotStore.maxAge,
-  }) async => _rows['$accountId|$feedKey'];
-
-  @override
-  Future<void> write(
-    String accountId,
-    String feedKey, {
-    required List<int> ids,
-    required Map<String, Object?> entities,
-    String? cursor,
-    int snapshotVersion = 1,
-  }) async {
-    _rows['$accountId|$feedKey'] = FeedSnapshot(
-      ids: ids,
-      entities: entities,
-      savedAt: DateTime.now(),
-      cursor: cursor,
-      snapshotVersion: snapshotVersion,
-    );
-  }
-
-  @override
-  Future<void> clearAccount(String accountId) async {
-    _rows.removeWhere((key, _) => key.startsWith('$accountId|'));
-  }
-}
-
 class _FakeUserRepository implements UserRepository {
   _FakeUserRepository({
     UserEntity? detail,
@@ -135,11 +94,16 @@ class _FakeUserRepository implements UserRepository {
   /// When set, `fetchWorks` waits on it — lets a test observe the feed's
   /// loading state instead of racing past it.
   Completer<void>? worksGate;
+
+  /// Same gate for `fetchDetail` — holds the profile header's first load.
+  Completer<void>? detailGate;
   final requests = <String>[];
 
   @override
   Future<UserEntity> fetchDetail(int userId, {CancelToken? cancelToken}) async {
     requests.add('detail:$userId');
+    final gate = detailGate;
+    if (gate != null) await gate.future;
     final error = detailFailure;
     if (error != null) throw error;
     return detail.copyWith(id: userId);
@@ -265,7 +229,7 @@ Future<ProviderContainer> _makeWorld({
   // ':memory:' feeds.db by path, so one test's committed snapshot would
   // leak into the next world's cold start. An in-memory store keeps the
   // same read/write contract without touching sqlite inside FakeAsync.
-  final feedSnapshots = _MemoryFeedSnapshotStore();
+  final feedSnapshots = MemoryFeedSnapshotStore();
   final credentials = FakeCredentialStore(
     values: const {
       '100': Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
@@ -2140,6 +2104,113 @@ void main() {
     expect(find.byType(ProfileIllustFeed), findsOneWidget);
   });
 
+  testWidgets(
+    'a pending profile shows the skeleton and the back button leaves',
+    (tester) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final repository = _FakeUserRepository()..detailGate = gate;
+      final container = await _makeWorld(users: repository);
+
+      // Push the page so canPop is true — the skeleton's BackButton is a
+      // real affordance, not a dead icon.
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const UserPage(userId: 42),
+                      ),
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(ProfileSkeleton), findsOneWidget);
+      expect(find.byType(FeedEmpty), findsNothing);
+      expect(find.byType(FeedLoading), findsNothing);
+      expect(find.byType(BackButton), findsOneWidget);
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(UserPage), findsNothing);
+
+      gate.complete();
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'the profile skeleton lines up with the header it stands in for',
+    (tester) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final repository = _FakeUserRepository()..detailGate = gate;
+      final container = await _makeWorld(users: repository);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(ProfileSkeleton), findsOneWidget);
+      final avatarBone = tester.getCenter(
+        find.byKey(const ValueKey('profile-skeleton-avatar')),
+      );
+      final nameBone = tester.getTopLeft(
+        find.byKey(const ValueKey('profile-skeleton-name')),
+      );
+
+      gate.complete();
+      // The works feed shimmers behind the header, so pumpAndSettle would
+      // never return; pump a fixed stretch for the header to measure itself.
+      for (var i = 0; i < 12; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(find.byType(ProfileSkeleton), findsNothing);
+      final avatar = tester.getCenter(
+        find.byKey(const ValueKey('profile-expanded-avatar')),
+      );
+      final name = tester.getTopLeft(
+        find.byKey(const ValueKey('profile-expanded-name')),
+      );
+
+      // Same avatar centre and the same name baseline row: nothing jumps
+      // when the data replaces the bones.
+      expect(avatarBone.dx, moreOrLessEquals(avatar.dx));
+      expect(avatarBone.dy, moreOrLessEquals(avatar.dy));
+      expect(nameBone.dx, moreOrLessEquals(name.dx));
+      expect(nameBone.dy, moreOrLessEquals(name.dy));
+    },
+  );
+
   testWidgets('work type switch stays usable while the feed is still loading', (
     tester,
   ) async {
@@ -2162,14 +2233,15 @@ void main() {
       ),
     );
     // The detail resolves but the works request is parked behind the
-    // gate: the feed renders its loading branch, which must still carry
-    // the selector (D3 loading/error contract). pumpAndSettle can't settle
-    // on the indicator's perpetual animation, so pump a fixed stretch.
+    // gate: the feed renders its first-load skeleton, which must still
+    // carry the selector (D3 loading/error contract). pumpAndSettle can't
+    // settle on the shimmer's perpetual animation, so pump a fixed
+    // stretch.
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 50));
     }
     expect(repository.requests, contains('works:42:illust:first'));
-    expect(find.byType(FeedLoading), findsOneWidget);
+    expect(find.byType(IllustGridSkeleton), findsOneWidget);
     final segments = find.byType(SegmentedButton<ProfileWorkSection>);
     expect(segments, findsOneWidget);
     await tester.tap(find.descendant(of: segments, matching: find.text('漫画')));

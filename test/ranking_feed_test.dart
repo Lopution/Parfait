@@ -14,11 +14,14 @@ import 'package:pixiv_func/core/auth/credential.dart';
 import 'package:pixiv_func/core/auth/oauth_service.dart';
 import 'package:pixiv_func/core/entity/illust_store.dart';
 import 'package:pixiv_func/core/network/pixiv_http_client.dart';
+import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:pixiv_func/app/icons/app_icons.dart';
 import 'package:pixiv_func/app/motion/motion_tokens.dart';
 import 'package:pixiv_func/app/widgets/root_swipe_switcher.dart';
 import 'package:pixiv_func/app/navigation/routes.dart';
+import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
 import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
+import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
 import 'package:pixiv_func/features/ranking/ranking_page.dart';
 import 'package:pixiv_func/core/illust/ranking_repository.dart';
@@ -28,6 +31,7 @@ import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
 import 'package:pixiv_func/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
 
 Map<String, dynamic> _illust(int id) => {
@@ -62,7 +66,11 @@ class _RankingFixture {
   /// overflow the test viewport.
   final int itemsPerPage;
   final requests = <Uri>[];
-  final Completer<void> release = Completer<void>();
+
+  /// Re-armable gate: a pending request holds until [release]
+  /// completes; assign a fresh Completer to block the next window
+  /// (initial load vs. pull-to-refresh).
+  Completer<void> release = Completer<void>();
   RankingMode? mismatchedNextMode;
   bool blockResponses = false;
 
@@ -124,6 +132,7 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
+      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
           accounts: [
@@ -338,6 +347,59 @@ void main() {
       expect(fixture.requests, isNotEmpty);
     });
   });
+
+  testWidgets(
+    'first load shows the grid skeleton and refresh keeps the cards',
+    (tester) async {
+      final fixture = _RankingFixture()..blockResponses = true;
+      final (container, _) = await _makeWorld(fixture: fixture);
+      addTearDown(container.dispose);
+      addTearDown(() {
+        if (!fixture.release.isCompleted) fixture.release.complete();
+      });
+
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: Locale('zh', 'CN'),
+              home: RankingPage(),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        // First page pending: the grid skeleton stands in, never an
+        // empty-state page.
+        expect(find.byType(IllustGridSkeleton), findsOneWidget);
+        expect(find.byType(FeedEmpty), findsNothing);
+
+        fixture.release.complete();
+        await tester.pumpAndSettle();
+        expect(find.byType(IllustCard), findsWidgets);
+        expect(find.byType(IllustGridSkeleton), findsNothing);
+
+        // A refresh over loaded data keeps the cards — the skeleton is
+        // bound to showInitialSpinner, which is false while items exist.
+        fixture.release = Completer<void>();
+        unawaited(
+          container
+              .read(rankingFeedControllerProvider(RankingMode.day).notifier)
+              .refresh(),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(find.byType(IllustCard), findsWidgets);
+        expect(find.byType(IllustGridSkeleton), findsNothing);
+        fixture.release.complete();
+        await tester.pumpAndSettle();
+      });
+    },
+  );
 
   // C6 — the sibling-category contract: a TabBar tap and a horizontal
   // strip drag are two injections of the same switch; both must land on

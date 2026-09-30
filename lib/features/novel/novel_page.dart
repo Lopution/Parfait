@@ -49,10 +49,7 @@ class NovelPage extends ConsumerWidget {
     return Scaffold(
       body: async.when(
         loading: () => NovelStatusScaffold(
-          child: FeedEmpty(
-            icon: Icons.menu_book_outlined,
-            title: context.l10n.novelLoading,
-          ),
+          child: FeedLoading(label: context.l10n.novelLoading),
         ),
         error: (error, _) {
           final isNotFound = error is ApiHttpError && error.statusCode == 404;

@@ -2,7 +2,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/settings/settings_choice_tile.dart';
+import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../core/download/download_destination.dart';
 import '../../../core/platform/saf_tree.dart';
 import '../../../core/settings/settings_controller.dart';
@@ -62,99 +66,101 @@ class _DownloadDestinationPageState
         appBar: AppBar(title: Text(context.l10n.saveLocation)),
         body: settingsNarrowBody(
           ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(
+              top: FuncSpacing.sm,
+              bottom: FuncSpacing.xl,
+            ),
             children: [
-              ListTile(
-                title: Text(context.l10n.saveLocationAlbum),
-                trailing: !destination.isSafFolder
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => persistSettings(
-                  context,
-                  () => ref
-                      .read(settingsProvider.notifier)
-                      .setDownloadDestination(DownloadDestination.builtin),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(32, 0, 0, 0),
-                child: TextField(
-                  controller: _albumController,
-                  decoration: InputDecoration(
-                    labelText: context.l10n.saveLocationCustomAlbum,
-                    helperText: context.l10n.saveLocationCustomAlbumHint,
-                  ),
-                  maxLength: 64,
-                  onChanged: (_) => setState(() => _albumDirty = true),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(32, 4, 0, 0),
-                child: FilledButton.tonal(
-                  onPressed: () async {
-                    final name = DownloadDestination.normalizeAlbumName(
-                      _albumController.text,
-                    );
-                    if (name == null) {
-                      showAppSnackBar(
-                        context,
-                        context.l10n.saveLocationAlbumInvalid,
-                      );
-                      return;
-                    }
-                    final saved = await persistSettings(
+              SettingsGroup(
+                children: [
+                  SettingsChoiceTile(
+                    title: Text(context.l10n.saveLocationAlbum),
+                    selected: !destination.isSafFolder,
+                    onTap: () => persistSettings(
                       context,
                       () => ref
                           .read(settingsProvider.notifier)
-                          .setDownloadDestination(
-                            DownloadDestination.customAlbum(name),
-                          ),
-                    );
-                    if (saved && context.mounted) {
-                      // Committed: the draft became the persisted value,
-                      // so leaving no longer needs the discard prompt.
-                      setState(() => _albumDirty = false);
-                      showAppSnackBar(context, context.l10n.saved);
-                    }
-                  },
-                  child: Text(context.l10n.save),
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                title: Text(context.l10n.saveLocationSafFolder),
-                subtitle: Text(context.l10n.saveLocationSafFolderHint),
-                trailing: destination.isSafFolder
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => _pickSafFolder(),
-              ),
-              if (destination.isSafFolder)
-                ListTile(
-                  leading: const Icon(Icons.check_circle),
-                  selected: true,
-                  // Headline is the human-readable tree name; the raw
-                  // `content://` URI drops to a truncated subtitle and stays
-                  // reachable through long-press copy (R6).
-                  title: Text(
-                    safTreeDisplayName(
-                      context.l10n,
-                      destination.safTreeUri ?? '',
+                          .setDownloadDestination(DownloadDestination.builtin),
                     ),
                   ),
-                  subtitle: Text(
-                    destination.safTreeUri ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  SettingsGroupContent(
+                    child: TextField(
+                      controller: _albumController,
+                      decoration: InputDecoration(
+                        labelText: context.l10n.saveLocationCustomAlbum,
+                        helperText: context.l10n.saveLocationCustomAlbumHint,
+                      ),
+                      maxLength: 64,
+                      onChanged: (_) => setState(() => _albumDirty = true),
+                    ),
                   ),
-                  onLongPress: () => _copySafUri(destination.safTreeUri),
-                ),
+                  SettingsGroupContent(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.tonal(
+                        onPressed: () async {
+                          final name = DownloadDestination.normalizeAlbumName(
+                            _albumController.text,
+                          );
+                          if (name == null) {
+                            showAppSnackBar(
+                              context,
+                              context.l10n.saveLocationAlbumInvalid,
+                            );
+                            return;
+                          }
+                          final saved = await persistSettings(
+                            context,
+                            () => ref
+                                .read(settingsProvider.notifier)
+                                .setDownloadDestination(
+                                  DownloadDestination.customAlbum(name),
+                                ),
+                          );
+                          if (saved && context.mounted) {
+                            // Committed: the draft became the persisted
+                            // value, so leaving no longer needs the discard
+                            // prompt.
+                            setState(() => _albumDirty = false);
+                            showAppSnackBar(context, context.l10n.saved);
+                          }
+                        },
+                        child: Text(context.l10n.save),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                children: [
+                  SettingsChoiceTile(
+                    title: Text(context.l10n.saveLocationSafFolder),
+                    subtitle: Text(context.l10n.saveLocationSafFolderHint),
+                    selected: destination.isSafFolder,
+                    onTap: () => _pickSafFolder(),
+                  ),
+                  if (destination.isSafFolder)
+                    ListTile(
+                      leading: const Icon(Icons.check_circle),
+                      selected: true,
+                      // Headline is the human-readable tree name; the raw
+                      // `content://` URI drops to a truncated subtitle and
+                      // stays reachable through long-press copy (R6).
+                      title: Text(
+                        safTreeDisplayName(
+                          context.l10n,
+                          destination.safTreeUri ?? '',
+                        ),
+                      ),
+                      subtitle: Text(
+                        destination.safTreeUri ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onLongPress: () => _copySafUri(destination.safTreeUri),
+                    ),
+                ],
+              ),
             ],
           ),
         ),

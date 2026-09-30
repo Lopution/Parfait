@@ -11,7 +11,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/settings/settings_action_tile.dart';
+import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../core/logging/crash_log.dart';
 import '../../../core/settings/shared_preferences.dart';
 import '../../../core/updater/update_manifest.dart';
@@ -77,97 +81,111 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
       appBar: AppBar(title: Text(context.l10n.aboutSettings)),
       body: settingsNarrowBody(
         ListView(
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
+          ),
           children: [
-            const ListTile(
-              leading: Icon(Icons.apps),
-              title: Text('Pixiv Func'),
-            ),
-            // Version comes from the platform package, not a literal — the
-            // pubspec `version:` line is the single source of truth (R1).
-            FutureBuilder<PackageInfo>(
-              future: PackageInfo.fromPlatform(),
-              builder: (context, snapshot) {
-                final info = snapshot.data;
-                final label = info == null
-                    ? '—'
-                    : '${info.version}+${info.buildNumber}';
-                return Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.info_outline),
-                      title: Text(context.l10n.aboutVersion),
-                      trailing: Text(label),
-                      onTap: _onVersionTap,
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.menu_book_outlined),
-                      title: Text(context.l10n.aboutLicense),
-                      subtitle: Text(context.l10n.aboutLicenseText),
-                      onTap: () => showLicensePage(
-                        context: context,
-                        applicationName: appName,
-                        applicationVersion: info?.version,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.people_outline),
-              title: Text(context.l10n.aboutAttribution),
-              subtitle: Text(context.l10n.aboutAttributionText),
-            ),
-            ListTile(
-              leading: const Icon(Icons.code),
-              title: Text(context.l10n.aboutSource),
-              subtitle: const Text('github.com/$updateRepository'),
-              // The row opens the repository; copying the URL is the
-              // secondary trailing action (settings action row, not a
-              // navigation row).
-              onTap: _openSourceRepository,
-              trailing: IconButton(
-                icon: const Icon(Icons.copy_outlined),
-                tooltip: context.l10n.copy,
-                onPressed: _copySourceUrl,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.bug_report_outlined),
-              title: Text(context.l10n.aboutExportLogs),
-              onTap: () => _exportCrashLog(context),
-            ),
-            // Read-back of the display mode the engine actually got —
-            // OEM ROMs (MIUI/HyperOS, ColorOS) can keep a third-party app at
-            // 60Hz despite the preferred-mode request, which looks exactly
-            // like a uniform low-fps app. This is the only user-visible way
-            // to check it without adb.
-            if (Platform.isAndroid)
-              FutureBuilder<DisplayMode>(
-                future: FlutterDisplayMode.active,
-                builder: (context, snapshot) => ListTile(
-                  leading: const Icon(Icons.speed_outlined),
-                  title: Text(context.l10n.aboutDisplayRefreshRate),
-                  trailing: Text(
-                    snapshot.hasData
-                        ? '${snapshot.data!.refreshRate.toStringAsFixed(0)} Hz'
-                        : '—',
+            SettingsGroup(
+              children: [
+                const SettingsActionTile(
+                  icon: Icons.apps,
+                  title: Text('Pixiv Func'),
+                ),
+                // Version comes from the platform package, not a literal —
+                // the pubspec `version:` line is the single source of truth
+                // (R1).
+                FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snapshot) {
+                    final info = snapshot.data;
+                    final label = info == null
+                        ? '—'
+                        : '${info.version}+${info.buildNumber}';
+                    return Column(
+                      children: [
+                        SettingsActionTile(
+                          icon: Icons.info_outline,
+                          title: Text(context.l10n.aboutVersion),
+                          trailing: Text(label),
+                          onTap: _onVersionTap,
+                        ),
+                        SettingsActionTile(
+                          icon: Icons.menu_book_outlined,
+                          title: Text(context.l10n.aboutLicense),
+                          subtitle: Text(context.l10n.aboutLicenseText),
+                          onTap: () => showLicensePage(
+                            context: context,
+                            applicationName: appName,
+                            applicationVersion: info?.version,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                SettingsActionTile(
+                  icon: Icons.people_outline,
+                  title: Text(context.l10n.aboutAttribution),
+                  subtitle: Text(context.l10n.aboutAttributionText),
+                ),
+                SettingsActionTile(
+                  icon: Icons.code,
+                  title: Text(context.l10n.aboutSource),
+                  subtitle: const Text('github.com/$updateRepository'),
+                  // The row opens the repository; copying the URL is the
+                  // secondary trailing action (settings action row, not a
+                  // navigation row).
+                  onTap: _openSourceRepository,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.copy_outlined),
+                    tooltip: context.l10n.copy,
+                    onPressed: _copySourceUrl,
                   ),
                 ),
-              ),
-            const Divider(),
-            updateService.when(
-              loading: () => ListTile(
-                leading: const Icon(Icons.system_update_outlined),
-                title: Text(context.l10n.aboutCheckUpdate),
-                subtitle: Text(context.l10n.aboutCheckingUpdate),
-              ),
-              error: (_, _) => ListTile(
-                leading: const Icon(Icons.warning_amber_outlined),
-                title: Text(context.l10n.aboutCheckUpdate),
-                subtitle: Text(context.l10n.aboutUpdateUnavailable),
-              ),
-              data: (service) => _AboutUpdateSection(service: service),
+                SettingsActionTile(
+                  icon: Icons.bug_report_outlined,
+                  title: Text(context.l10n.aboutExportLogs),
+                  onTap: () => _exportCrashLog(context),
+                ),
+                // Read-back of the display mode the engine actually got —
+                // OEM ROMs (MIUI/HyperOS, ColorOS) can keep a third-party
+                // app at 60Hz despite the preferred-mode request, which
+                // looks exactly like a uniform low-fps app. This is the
+                // only user-visible way to check it without adb.
+                if (Platform.isAndroid)
+                  FutureBuilder<DisplayMode>(
+                    future: FlutterDisplayMode.active,
+                    builder: (context, snapshot) => SettingsActionTile(
+                      icon: Icons.speed_outlined,
+                      title: Text(context.l10n.aboutDisplayRefreshRate),
+                      trailing: Text(
+                        snapshot.hasData
+                            ? '${snapshot.data!.refreshRate.toStringAsFixed(0)} Hz'
+                            : '—',
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            // The self-update block is one entry point, so it forms its own
+            // group below the app info rows.
+            SettingsGroup(
+              children: [
+                updateService.when(
+                  loading: () => SettingsActionTile(
+                    icon: Icons.system_update_outlined,
+                    title: Text(context.l10n.aboutCheckUpdate),
+                    subtitle: Text(context.l10n.aboutCheckingUpdate),
+                  ),
+                  error: (_, _) => SettingsActionTile(
+                    icon: Icons.warning_amber_outlined,
+                    title: Text(context.l10n.aboutCheckUpdate),
+                    subtitle: Text(context.l10n.aboutUpdateUnavailable),
+                  ),
+                  data: (service) => _AboutUpdateSection(service: service),
+                ),
+              ],
             ),
           ],
         ),
@@ -231,31 +249,31 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
       future: _capability,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return ListTile(
-            leading: const Icon(Icons.system_update_outlined),
+          return SettingsActionTile(
+            icon: Icons.system_update_outlined,
             title: Text(context.l10n.aboutCheckUpdate),
             subtitle: Text(context.l10n.aboutCheckingUpdate),
           );
         }
         final capability = snapshot.data;
         if (snapshot.hasError || capability == null) {
-          return ListTile(
-            leading: const Icon(Icons.warning_amber_outlined),
+          return SettingsActionTile(
+            icon: Icons.warning_amber_outlined,
             title: Text(context.l10n.aboutCheckUpdate),
             subtitle: Text(context.l10n.aboutUpdateUnavailable),
           );
         }
         if (capability.storeManaged ||
             capability.flavor == UpdateFlavor.fdroid) {
-          return ListTile(
-            leading: const Icon(Icons.store_outlined),
+          return SettingsActionTile(
+            icon: Icons.store_outlined,
             title: Text(context.l10n.aboutCheckUpdate),
             subtitle: Text(context.l10n.aboutUpdateStore),
           );
         }
         if (!capability.enabled) {
-          return ListTile(
-            leading: const Icon(Icons.warning_amber_outlined),
+          return SettingsActionTile(
+            icon: Icons.warning_amber_outlined,
             title: Text(context.l10n.aboutCheckUpdate),
             subtitle: Text(context.l10n.aboutUpdateUnavailable),
           );
@@ -292,31 +310,25 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
       UpdateApplyStatus.failed => context.l10n.aboutUpdateFailed,
       _ => null,
     };
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.system_update_outlined),
-            title: Text(context.l10n.aboutCheckUpdate),
-            subtitle: Text(
-              _checking
-                  ? context.l10n.aboutCheckingUpdate
-                  : _applying
-                  ? context.l10n.aboutUpdateDownloading
-                  : statusText ?? '',
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingsActionTile(
+          icon: Icons.system_update_outlined,
+          title: Text(context.l10n.aboutCheckUpdate),
+          subtitle: Text(
+            _checking
+                ? context.l10n.aboutCheckingUpdate
+                : _applying
+                ? context.l10n.aboutUpdateDownloading
+                : statusText ?? '',
           ),
-          if (_checking || _applying) const LinearProgressIndicator(),
-          if (applyText != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(applyText),
-            ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
+        ),
+        if (_checking || _applying)
+          const SettingsGroupContent(child: LinearProgressIndicator()),
+        if (applyText != null) SettingsGroupContent(child: Text(applyText)),
+        SettingsGroupContent(
+          child: FilledButton.icon(
             onPressed: _checking
                 ? null
                 : _applying
@@ -339,8 +351,8 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
                   : context.l10n.aboutUpdateDownload,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

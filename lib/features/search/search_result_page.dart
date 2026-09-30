@@ -17,6 +17,7 @@ import '../../core/user/user_store.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/follow_switch_button.dart';
+import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
@@ -139,8 +140,13 @@ class SearchResultPage extends ConsumerWidget {
         ],
       ),
       body: async.when(
-        loading: () =>
-            FeedEmpty(icon: Icons.search, title: context.l10n.searchLoading),
+        loading: () => switch (query) {
+          IllustSearchQuery() => IllustGridSkeleton(
+            label: context.l10n.searchLoading,
+            padding: const EdgeInsets.all(10),
+          ),
+          _ => FeedLoading(label: context.l10n.searchLoading),
+        },
         error: (error, _) => FeedError(
           title: context.l10n.searchLoadFailed,
           error: error,
@@ -158,10 +164,13 @@ class SearchResultPage extends ConsumerWidget {
             );
           }
           if (feed.showInitialSpinner) {
-            return FeedEmpty(
-              icon: Icons.search,
-              title: context.l10n.searchLoading,
-            );
+            return switch (query) {
+              IllustSearchQuery() => IllustGridSkeleton(
+                label: context.l10n.searchLoading,
+                padding: const EdgeInsets.all(10),
+              ),
+              _ => FeedLoading(label: context.l10n.searchLoading),
+            };
           }
           return _SearchFeedContent(query: query, feed: feed);
         },

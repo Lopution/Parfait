@@ -18,6 +18,7 @@ import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
+import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
@@ -286,10 +287,9 @@ class _NewFeedBody extends ConsumerWidget {
     return feedAsync.when(
       loading: () => _withTypeSwitch(
         context,
-        FeedEmpty(
-          icon: Icons.fiber_new_outlined,
-          title: context.l10n.newLoading,
-        ),
+        feedKey.type == NewFeedType.illust
+            ? IllustGridSkeleton(label: context.l10n.newLoading)
+            : FeedLoading(label: context.l10n.newLoading),
       ),
       error: (error, _) => _withTypeSwitch(
         context,
@@ -316,10 +316,9 @@ class _NewFeedBody extends ConsumerWidget {
         if (feed.showInitialSpinner) {
           return _withTypeSwitch(
             context,
-            FeedEmpty(
-              icon: Icons.fiber_new_outlined,
-              title: context.l10n.newLoading,
-            ),
+            feedKey.type == NewFeedType.illust
+                ? IllustGridSkeleton(label: context.l10n.newLoading)
+                : FeedLoading(label: context.l10n.newLoading),
           );
         }
         if (feed.isEmptyAndReady) {

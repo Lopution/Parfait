@@ -3,8 +3,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
-import '../../../app/widgets/settings/settings_section.dart';
+import '../../../app/widgets/settings/settings_action_tile.dart';
+import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/backup/backup_envelope.dart';
 import '../../../core/backup/backup_service.dart';
 import '../../../l10n/context.dart';
@@ -166,28 +168,30 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       appBar: AppBar(title: Text(l10n.backupSettings)),
       body: settingsNarrowBody(
         ListView(
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
+          ),
           children: [
-            SettingsSection(title: Text(l10n.backupSettings)),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                l10n.backupHint,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.file_upload_outlined),
-              title: Text(l10n.backupExport),
-              subtitle: Text(l10n.backupExportHint),
-              enabled: !_busy,
-              onTap: _export,
-            ),
-            ListTile(
-              leading: const Icon(Icons.file_open_outlined),
-              title: Text(l10n.backupImport),
-              subtitle: Text(l10n.backupImportHint),
-              enabled: !_busy,
-              onTap: _import,
+            SettingsGroup(
+              title: Text(l10n.backupSettings),
+              footer: Text(l10n.backupHint),
+              children: [
+                SettingsActionTile(
+                  icon: Icons.file_upload_outlined,
+                  title: Text(l10n.backupExport),
+                  subtitle: Text(l10n.backupExportHint),
+                  enabled: !_busy,
+                  onTap: _export,
+                ),
+                SettingsActionTile(
+                  icon: Icons.file_open_outlined,
+                  title: Text(l10n.backupImport),
+                  subtitle: Text(l10n.backupImportHint),
+                  enabled: !_busy,
+                  onTap: _import,
+                ),
+              ],
             ),
           ],
         ),

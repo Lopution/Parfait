@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/settings/settings_choice_tile.dart';
+import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
@@ -24,26 +27,26 @@ class LanguageSettingsPage extends ConsumerWidget {
       appBar: AppBar(title: Text(context.l10n.languageSettings)),
       body: settingsNarrowBody(
         ListView(
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
+          ),
           children: [
-            for (final item in languageItems)
-              ListTile(
-                // Same selected-state contract as the theme page: the
-                // trailing check plus Semantics(selected) (R3).
-                selected: settings.languageTag == item.$2,
-                title: Text(item.$1),
-                trailing: settings.languageTag == item.$2
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () => persistSettings(
-                  context,
-                  () => ref
-                      .read(settingsProvider.notifier)
-                      .selectLanguage(item.$2),
-                ),
-              ),
+            SettingsGroup(
+              children: [
+                for (final item in languageItems)
+                  SettingsChoiceTile(
+                    selected: settings.languageTag == item.$2,
+                    title: Text(item.$1),
+                    onTap: () => persistSettings(
+                      context,
+                      () => ref
+                          .read(settingsProvider.notifier)
+                          .selectLanguage(item.$2),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),

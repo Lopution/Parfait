@@ -4,8 +4,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation/routes.dart';
+import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
-import '../../../app/widgets/settings/settings_section.dart';
+import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/mute/mute_models.dart';
 import '../../../core/mute/mute_store.dart';
@@ -100,63 +102,80 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
       appBar: AppBar(title: Text(l10n.mutedItemsSettings)),
       body: settingsNarrowBody(
         ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.only(
+            top: FuncSpacing.sm,
+            bottom: FuncSpacing.xl,
+          ),
           children: [
-            SettingsSection(title: Text(l10n.mutedTagsSection)),
-            TextField(
-              controller: _controller,
-              decoration: InputDecoration(
-                labelText: l10n.muteTagInputHint,
-                suffixIcon: IconButton(
-                  tooltip: l10n.add,
-                  icon: const Icon(Icons.add),
-                  onPressed: () => _addTag(_controller.text),
+            SettingsGroup(
+              title: Text(l10n.mutedTagsSection),
+              children: [
+                SettingsGroupContent(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      labelText: l10n.muteTagInputHint,
+                      suffixIcon: IconButton(
+                        tooltip: l10n.add,
+                        icon: const Icon(Icons.add),
+                        onPressed: () => _addTag(_controller.text),
+                      ),
+                    ),
+                    onSubmitted: _addTag,
+                  ),
                 ),
-              ),
-              onSubmitted: _addTag,
+                for (final tag in tags)
+                  ListTile(
+                    dense: true,
+                    title: Text(tag),
+                    onTap: () => openTagSearch(context, tag),
+                    trailing: _unmuteTrailing(
+                      pending: state.pending.contains(MuteKey.tag(tag)),
+                      tooltip: l10n.unmuteTag,
+                      onPressed: () => _unmute(() => store.toggleTag(tag)),
+                    ),
+                  ),
+              ],
             ),
-            for (final tag in tags)
-              ListTile(
-                dense: true,
-                title: Text(tag),
-                onTap: () => openTagSearch(context, tag),
-                trailing: _unmuteTrailing(
-                  pending: state.pending.contains(MuteKey.tag(tag)),
-                  tooltip: l10n.unmuteTag,
-                  onPressed: () => _unmute(() => store.toggleTag(tag)),
-                ),
-              ),
-            const Divider(),
-            SettingsSection(title: Text(l10n.mutedUsersSection)),
-            for (final user in users)
-              ListTile(
-                dense: true,
-                title: Text(user.name),
-                subtitle: user.account == null
-                    ? null
-                    : Text('@${user.account}'),
-                onTap: () => openUser(context, user.userId),
-                trailing: _unmuteTrailing(
-                  pending: state.pending.contains(MuteKey.user(user.userId)),
-                  tooltip: l10n.unmuteAuthor,
-                  onPressed: () => _unmute(() => store.toggleUser(user)),
-                ),
-              ),
-            const Divider(),
-            SettingsSection(title: Text(l10n.mutedWorksSection)),
-            for (final id in works)
-              ListTile(
-                dense: true,
-                title: Text(
-                  ref.watch(illustStoreProvider).get(id)?.title ?? '#$id',
-                ),
-                onTap: () => openIllust(context, id),
-                trailing: _unmuteTrailing(
-                  pending: state.pending.contains(MuteKey.work(id)),
-                  tooltip: l10n.unmuteWork,
-                  onPressed: () => _unmute(() => store.toggleWork(id)),
-                ),
-              ),
+            SettingsGroup(
+              title: Text(l10n.mutedUsersSection),
+              children: [
+                for (final user in users)
+                  ListTile(
+                    dense: true,
+                    title: Text(user.name),
+                    subtitle: user.account == null
+                        ? null
+                        : Text('@${user.account}'),
+                    onTap: () => openUser(context, user.userId),
+                    trailing: _unmuteTrailing(
+                      pending: state.pending.contains(
+                        MuteKey.user(user.userId),
+                      ),
+                      tooltip: l10n.unmuteAuthor,
+                      onPressed: () => _unmute(() => store.toggleUser(user)),
+                    ),
+                  ),
+              ],
+            ),
+            SettingsGroup(
+              title: Text(l10n.mutedWorksSection),
+              children: [
+                for (final id in works)
+                  ListTile(
+                    dense: true,
+                    title: Text(
+                      ref.watch(illustStoreProvider).get(id)?.title ?? '#$id',
+                    ),
+                    onTap: () => openIllust(context, id),
+                    trailing: _unmuteTrailing(
+                      pending: state.pending.contains(MuteKey.work(id)),
+                      tooltip: l10n.unmuteWork,
+                      onPressed: () => _unmute(() => store.toggleWork(id)),
+                    ),
+                  ),
+              ],
+            ),
             if (tags.isEmpty && users.isEmpty && works.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32),

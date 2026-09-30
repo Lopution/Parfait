@@ -745,6 +745,7 @@
   "searchCancel": "Cancel",
   "searchSubmit": "Search",
   "searchClear": "Clear",
+  "contentLoading": "Loading",
   "searchLoading": "Searching",
   "searchNoResults": "No search results",
   "searchLoadFailed": "Search failed",

@@ -120,6 +120,12 @@ contract (C12). Cancellation lives on `context.cancelToken`.
   `copyWith(loadMoreError: null)` explicitly clear an error; omitted error
   arguments preserve the prior value. This requires a sentinel rather than
   `??` for nullable error fields.
+- Presentation: only the initial phase (`showInitialSpinner` /
+  `AsyncValue.loading`) maps to the page's first-load skeleton. Refresh
+  and load-more must keep the loaded list mounted; a feed that falls back
+  to the skeleton on refresh is a regression (see
+  component-guidelines.md "First-Load Skeletons" and the Shared
+  Pull-to-Refresh Contract).
 - A non-empty server cursor must pass the feed's `validateCursor` allowlist
   before it is stored. A rejected cursor is an observable `ApiParseError` and
   must never be requested.
