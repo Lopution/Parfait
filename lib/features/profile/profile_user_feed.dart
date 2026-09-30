@@ -125,11 +125,20 @@ class _UserPreviewTile extends StatelessWidget {
         leading: _ProfileAvatar(user: user, radius: 26),
         title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: user.account.isEmpty ? null : Text('@${user.account}'),
-        trailing: FollowSwitchButton(
-          userId: user.id,
-          userName: user.name,
-          userAccount: user.account,
-          compact: true,
+        // ListTile asserts when the trailing widget consumes the entire
+        // tile width, so an oversized localized button is capped at half
+        // the row to leave the title a lane; the button scales its label
+        // down past that bound.
+        trailing: LayoutBuilder(
+          builder: (context, constraints) => ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
+            child: FollowSwitchButton(
+              userId: user.id,
+              userName: user.name,
+              userAccount: user.account,
+              compact: true,
+            ),
+          ),
         ),
       ),
     );

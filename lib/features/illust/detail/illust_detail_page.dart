@@ -75,10 +75,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   final Set<int> _visiblePages = <int>{};
   final GlobalKey _infoAnchorKey = GlobalKey();
 
-  /// Attached to the narrow layout's scroll view so the artwork-info
-  /// jump can walk the lazily-built page list until the InfoBlock anchor
-  /// exists. SmoothWheelScroll keeps owning its own internal controller
-  /// — this one is attached alongside, never taken over (risks R9).
+  /// Passed to the narrow layout's [SmoothWheelScroll] `controller:`
+  /// parameter so the artwork-info jump can walk the lazily-built page
+  /// list until the InfoBlock anchor exists. The component then uses this
+  /// as its scroll controller — it only builds an internal one when none
+  /// is passed — so we never touch a controller the component owns (R9).
   final ScrollController _narrowScroll = ScrollController();
 
   int? get _topVisiblePage =>

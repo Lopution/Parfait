@@ -74,7 +74,7 @@ class DownloadSubmissionContext {
 /// settings/account change.
 @immutable
 class DownloadSubmissionSnapshot {
-  const DownloadSubmissionSnapshot({
+  DownloadSubmissionSnapshot({
     required this.snapshotId,
     required this.jobId,
     required this.groupId,
@@ -82,7 +82,8 @@ class DownloadSubmissionSnapshot {
     required this.accountId,
     required this.submittedAt,
     this.destination = DownloadDestination.builtin,
-  });
+    String? displayName,
+  }) : displayName = displayName ?? request.displayName;
 
   final String snapshotId;
   final String jobId;
@@ -92,11 +93,16 @@ class DownloadSubmissionSnapshot {
   final DateTime submittedAt;
   final DownloadDestination destination;
 
+  /// The file name fixed at submission time (C8): template inputs such as
+  /// `{author_id}`/`{w}`/`{h}` are not persisted, so recomputing after a
+  /// recovery would render empty segments. Serialization reads this field;
+  /// recovery passes the stored value back through the constructor.
+  final String displayName;
+
   int get illustId => request.illustId;
   int get pageIndex => request.pageIndex;
   Uri get sourceUrl => request.url;
   DownloadTarget get target => request.target;
-  String get displayName => request.displayName;
   String get format => request.mimeType;
   bool get isOwned => accountId != null && accountId!.isNotEmpty;
 
@@ -114,6 +120,7 @@ class DownloadSubmissionSnapshot {
       accountId: accountId,
       submittedAt: submittedAt,
       destination: destination,
+      displayName: displayName,
     );
   }
 
@@ -303,6 +310,25 @@ class DownloadRecoveryRecord {
     if (submittedAt == null) {
       throw const DownloadRecoveryDataException('snapshot timestamp invalid');
     }
+    // The serialized name is the submission-time decision. A missing key
+    // means a record written before it was persisted — fall back to
+    // recomputing from the restored request.
+    final rawDisplayName = rawSnapshot['displayName'];
+    final String? displayName;
+    if (rawDisplayName is String) {
+      try {
+        validateDisplayName(rawDisplayName);
+      } on FormatException {
+        throw const DownloadRecoveryDataException(
+          'snapshot displayName invalid',
+        );
+      }
+      displayName = rawDisplayName;
+    } else if (!rawSnapshot.containsKey('displayName')) {
+      displayName = null;
+    } else {
+      throw const DownloadRecoveryDataException('snapshot displayName invalid');
+    }
     final snapshot = DownloadSubmissionSnapshot(
       snapshotId: rawSnapshot['snapshotId'] as String,
       jobId: rawSnapshot['jobId'] as String,
@@ -313,6 +339,7 @@ class DownloadRecoveryRecord {
       destination: _destinationFromIdentity(
         rawSnapshot['destination'] as String?,
       ),
+      displayName: displayName,
     );
     return DownloadRecoveryRecord(
       jobId: json['jobId'] as String,

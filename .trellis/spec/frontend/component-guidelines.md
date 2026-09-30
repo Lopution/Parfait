@@ -154,9 +154,13 @@ viewer passes `FuncTokens.transparent` instead.
 states, and indicators. `secondary`/`secondaryContainer` are neutral grays —
 tonal buttons and progress tracks are deliberately not pink. Selected
 control states (`SegmentedButton`, `NavigationRail`, `NavigationBar`,
-`EntityRow`) use `primaryContainer`/`onPrimaryContainer`. Known legacy: the
-secondary text on a selected row is ~4.15:1 in the dark theme — below the
-4.5 target; tracked for a later fix, do not "repair" it ad hoc.
+`EntityRow`) use `primaryContainer`/`onPrimaryContainer`. On a selected
+`EntityRow` the title and the check icon resolve to opaque
+`onPrimaryContainer`; subtitle and meta text keep the hierarchy with
+`onPrimaryContainer` at alpha 0.8, which still composites to ≥4.5:1 on
+`primaryContainer` in both themes (the old caption gray measured ~3.94 in
+the dark theme). `EntityMetaText` takes an optional `color` for this;
+unselected rows keep the default caption color.
 
 **Component text styles.** Component themes (`appBarTheme.titleTextStyle`,
 `snackBarTheme.contentTextStyle`, `chipTheme` label styles,
