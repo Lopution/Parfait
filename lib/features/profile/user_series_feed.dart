@@ -14,11 +14,17 @@ import '../../core/series/series_models.dart';
 import '../../core/series/series_store.dart';
 import '../../l10n/context.dart';
 import 'profile_work_type_switch.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Profile work-tab section: the user's public illust series as a card
 /// grid (`/v1/user/illust-series`). Mounted inside the profile
 /// NestedScrollView, so it keeps the HeaderLocator/isNested contract of the
 /// sibling work feeds.
+/// Grid padding and spacing shared by this feed and its first-load
+/// skeleton.
+const _gridPadding = EdgeInsets.all(FuncSpacing.sm);
+const _gridMainAxisSpacing = FuncSpacing.sm;
+
 class UserSeriesFeed extends ConsumerWidget {
   const UserSeriesFeed({super.key, required this.userId, this.typeSwitch});
 
@@ -37,8 +43,8 @@ class UserSeriesFeed extends ConsumerWidget {
       loading: () => wrapState(
         IllustGridSkeleton(
           label: context.l10n.contentLoading,
-          padding: const EdgeInsets.all(10),
-          mainAxisSpacing: 8,
+          padding: _gridPadding,
+          mainAxisSpacing: _gridMainAxisSpacing,
         ),
       ),
       error: (error, _) => wrapState(
@@ -67,8 +73,8 @@ class UserSeriesFeed extends ConsumerWidget {
           return wrapState(
             IllustGridSkeleton(
               label: context.l10n.contentLoading,
-              padding: const EdgeInsets.all(10),
-              mainAxisSpacing: 8,
+              padding: _gridPadding,
+              mainAxisSpacing: _gridMainAxisSpacing,
             ),
           );
         }
@@ -113,9 +119,8 @@ class UserSeriesFeed extends ConsumerWidget {
                   )
                 else
                   IllustFeedGrid(
-                    padding: const EdgeInsets.all(10),
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 10,
+                    padding: _gridPadding,
+                    mainAxisSpacing: _gridMainAxisSpacing,
                     itemIds: [for (final e in entities) e.id],
                     itemCount: entities.length,
                     itemBuilder: (context, index) =>
@@ -166,7 +171,12 @@ class _UserSeriesCardView extends StatelessWidget {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+              padding: const EdgeInsets.fromLTRB(
+                FuncSpacing.sm,
+                FuncSpacing.xs,
+                FuncSpacing.sm,
+                FuncSpacing.sm,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

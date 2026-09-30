@@ -13,6 +13,7 @@ import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/follow_switch_button.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 class ProfileUserFeed extends ConsumerWidget {
   const ProfileUserFeed({super.key, required this.feedKey});
@@ -119,7 +120,10 @@ class _UserPreviewTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.md,
+        vertical: FuncSpacing.sm,
+      ),
       child: ListTile(
         onTap: () => openUser(context, user.id),
         leading: _ProfileAvatar(user: user, radius: 26),

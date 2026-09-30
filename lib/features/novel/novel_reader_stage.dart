@@ -24,6 +24,7 @@ import '../../l10n/app_localizations.dart';
 import '../../l10n/context.dart';
 import 'novel_layout.dart';
 import 'novel_reader.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// Data seam for [NovelReaderStage]: everything that differs between the
 /// online novel page and the local TXT reader is injected here, so the
@@ -515,7 +516,9 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                     child: InkWell(
                       onTap: () => _showProgressSheet(context),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: FuncSpacing.md,
+                        ),
                         child: Text(
                           '${_page + 1}/$_pageCount · ${percent.round()}%',
                           textAlign: TextAlign.center,
@@ -602,7 +605,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
             return Padding(
               padding: MediaQuery.of(context).padding,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.xl,
+                  0,
+                  FuncSpacing.xl,
+                  FuncSpacing.xl,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,7 +652,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                           onPressed: () => Navigator.of(sheetContext).pop(),
                           child: Text(l10n.cancel),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: FuncSpacing.sm),
                         FilledButton(
                           onPressed: () => jumpTo(preview),
                           child: Text(l10n.confirm),
@@ -654,14 +662,14 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                     // D4: the TOC section only exists when the document
                     // actually has chapters — local TXT files never do.
                     if (chapters.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: FuncSpacing.sm),
                       const Divider(),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: FuncSpacing.sm),
                       Text(
                         l10n.novelChapters,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: FuncSpacing.xs),
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxHeight: 240),
                         child: ListView.builder(
@@ -711,7 +719,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
             return Padding(
               padding: MediaQuery.of(context).padding,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.xl,
+                  0,
+                  FuncSpacing.xl,
+                  FuncSpacing.xl,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -735,7 +748,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                       onChanged: (v) =>
                           apply(_settings.copyWith(lineHeight: v)),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: FuncSpacing.md),
                     Wrap(
                       spacing: 8,
                       children: [

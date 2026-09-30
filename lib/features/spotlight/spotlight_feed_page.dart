@@ -12,6 +12,7 @@ import '../../core/spotlight/spotlight_models.dart';
 import '../../core/spotlight/spotlight_store.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// pixivision spotlight article list: a category selector (all/illust/
 /// manga) over independent paged feeds. Rows open the in-app article page
@@ -35,7 +36,7 @@ class _SpotlightFeedPageState extends ConsumerState<SpotlightFeedPage> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(52),
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
             child: SegmentedButton<SpotlightCategory>(
               segments: [
                 for (final category in SpotlightCategory.values)
@@ -117,10 +118,16 @@ class _SpotlightFeedPageState extends ConsumerState<SpotlightFeedPage> {
                       )
                     else
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                        padding: const EdgeInsets.fromLTRB(
+                          FuncSpacing.md,
+                          FuncSpacing.sm,
+                          FuncSpacing.md,
+                          0,
+                        ),
                         sliver: SliverList.separated(
                           itemCount: articles.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: FuncSpacing.sm),
                           itemBuilder: (context, index) =>
                               _SpotlightArticleTile(article: articles[index]),
                         ),
@@ -166,13 +173,13 @@ class _SpotlightArticleTile extends StatelessWidget {
           articleUrl: article.articleUrl,
         ),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(FuncSpacing.md),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (article.thumbnailUrl != null)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: FuncShape.control,
                   child: CachedNetworkImage(
                     imageUrl: article.thumbnailUrl!,
                     width: 88,
@@ -180,7 +187,8 @@ class _SpotlightArticleTile extends StatelessWidget {
                     fit: BoxFit.cover,
                   ),
                 ),
-              if (article.thumbnailUrl != null) const SizedBox(width: 12),
+              if (article.thumbnailUrl != null)
+                const SizedBox(width: FuncSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -191,7 +199,7 @@ class _SpotlightArticleTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: FuncSpacing.xs),
                     Row(
                       children: [
                         if (article.subcategoryLabel.isNotEmpty)
@@ -207,7 +215,7 @@ class _SpotlightArticleTile extends StatelessWidget {
                           ),
                         if (article.subcategoryLabel.isNotEmpty &&
                             article.publishDate.isNotEmpty)
-                          const SizedBox(width: 8),
+                          const SizedBox(width: FuncSpacing.sm),
                         if (article.publishDate.isNotEmpty)
                           Text(
                             article.publishDate,

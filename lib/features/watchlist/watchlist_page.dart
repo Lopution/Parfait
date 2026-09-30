@@ -20,6 +20,7 @@ import '../../core/watchlist/watchlist_feed_controller.dart';
 import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
 import '../../l10n/context.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// 追更列表: manga and novel series segments (PixEz `/v1/watchlist/*`).
 /// A tile shows a "new content" badge while its `latest_content_id` is
@@ -121,7 +122,7 @@ class _LoadMoreFooter extends StatelessWidget {
     final loadMoreError = feed.loadMoreError;
     if (loadMoreError != null) {
       return Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(FuncSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -141,7 +142,7 @@ class _LoadMoreFooter extends StatelessWidget {
     }
     if (feed.loadingMore) {
       return const Padding(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(FuncSpacing.lg),
         child: Center(
           child: SizedBox(
             width: 20,
@@ -151,7 +152,7 @@ class _LoadMoreFooter extends StatelessWidget {
         ),
       );
     }
-    return const SizedBox(height: 16);
+    return const SizedBox(height: FuncSpacing.lg);
   }
 }
 
@@ -185,7 +186,7 @@ class _WatchlistEntryTile extends ConsumerWidget {
     final published = entry.lastPublishedContentDatetime;
     return EntityRow(
       leading: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: FuncShape.control,
         child: entry.coverUrl != null
             ? PixivImage(
                 url: entry.coverUrl!,

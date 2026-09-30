@@ -8,6 +8,7 @@ import '../../core/profile/profile_models.dart';
 import '../../core/user/user_repository.dart';
 import '../../l10n/context.dart';
 import 'profile_illust_feed.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 
 /// The signed-in user's bookmarks filtered to one tag — the same
 /// `ProfileIllustFeed` pipeline with `ProfileFeedKey.bookmarkTag`.
@@ -62,7 +63,12 @@ class _BookmarkTagFeedPageState extends ConsumerState<BookmarkTagFeedPage> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(64),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.lg,
+              0,
+              FuncSpacing.lg,
+              FuncSpacing.sm,
+            ),
             child: TextField(
               controller: _filterController,
               onChanged: (value) => setState(() => _filter = value),

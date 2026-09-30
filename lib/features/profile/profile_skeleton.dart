@@ -8,6 +8,7 @@ import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../l10n/context.dart';
 import 'profile_header_delegate.dart';
 import 'profile_statistics.dart';
+import 'profile_illust_feed.dart';
 
 /// First-load placeholder for the user page: the header's no-cover layout —
 /// banner band, avatar straddling the banner's bottom edge, identity bones,
@@ -118,7 +119,7 @@ class ProfileSkeleton extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: FuncSpacing.xxs),
                             FractionallySizedBox(
                               widthFactor: 0.3,
                               child: SkeletonBone.text(
@@ -153,7 +154,7 @@ class ProfileSkeleton extends StatelessWidget {
                       // column; the viewport clips whatever does not fit.
                       IllustGridSkeleton(
                         label: context.l10n.profileLoading,
-                        padding: const EdgeInsets.all(10),
+                        padding: gridPadding,
                       ),
                     ],
                   ),
