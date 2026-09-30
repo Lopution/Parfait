@@ -5,6 +5,7 @@ import '../../l10n/context.dart';
 import '../icons/app_icons.dart';
 import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
+import '../navigation/home_shell_metrics.dart';
 import 'func_bottom_nav.dart';
 import 'root_swipe_switcher.dart';
 
@@ -540,6 +541,13 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     final rail = AppBreakpoints.useNavigationRail(
       MediaQuery.sizeOf(context).width,
     );
+    // The bar's resting slot is computable, not measured: the branch pages,
+    // the SnackBar margin and the Hero landing clip all read this extent on
+    // the first frame. Nothing between here and the bar's own SafeArea
+    // strips the bottom inset, so both read the same padding.
+    final bottomBarExtent = rail
+        ? 0.0
+        : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
     final strip = NotificationListener<ScrollNotification>(
       onNotification: _onScrollNotification,
       child: Stack(
@@ -615,17 +623,20 @@ class _BranchSlideStackState extends State<BranchSlideStack>
         ],
       ),
     );
-    return _BranchSlideScope(
-      pager: _pager,
-      child: rail
-          ? Row(
-              children: [
-                _buildRail(context),
-                const VerticalDivider(thickness: 1, width: 1),
-                Expanded(child: strip),
-              ],
-            )
-          : strip,
+    return HomeShellChrome(
+      bottomBarExtent: bottomBarExtent,
+      child: _BranchSlideScope(
+        pager: _pager,
+        child: rail
+            ? Row(
+                children: [
+                  _buildRail(context),
+                  const VerticalDivider(thickness: 1, width: 1),
+                  Expanded(child: strip),
+                ],
+              )
+            : strip,
+      ),
     );
   }
 }

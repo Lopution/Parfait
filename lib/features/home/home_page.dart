@@ -7,6 +7,7 @@ import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/func_bottom_nav.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../l10n/context.dart';
@@ -95,23 +96,24 @@ class _HomePageState extends State<HomePage>
     }
     switch (_backCoordinator.handleBackPress()) {
       case RootBackAction.showExitHint:
-        final shellMetrics = ProviderScope.containerOf(
-          context,
-        ).read(homeShellMetricsProvider);
         // HomePage's ScaffoldMessenger is above the branch-root Scaffold that
         // owns the bottom bar. A floating SnackBar otherwise anchors to the
         // screen edge and covers the bar; the shell margin lifts it by the
-        // measured bar height — by the time a back press happens the bar
-        // has long since been measured, so no fallback is needed.
+        // same extent the shell's chrome slot uses — computable here because
+        // nothing between this page and the bar strips the bottom inset.
         // U4 (R7): the hint's lifetime must equal the exit window — with
         // the default 4s SnackBar the text was still on screen long after
         // the window closed, so it was describing a state that was
         // already false.
+        final bottomBarExtent =
+            AppBreakpoints.useNavigationRail(MediaQuery.sizeOf(context).width)
+            ? 0.0
+            : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
         showAppSnackBarOn(
           ScaffoldMessenger.of(context),
           context.l10n.homeExitHint,
           duration: RootBackCoordinator.exitWindow,
-          margin: appSnackBarShellMargin(shellMetrics),
+          margin: appSnackBarShellMargin(bottomBarExtent),
           // The resolved messenger is the root one — it sits above
           // MotionScope, so the gate must come from this page's context.
           animationStyle: snackBarAnimationStyleFor(context),
