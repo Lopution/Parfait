@@ -605,6 +605,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileEditImageChoose => 'Выберите поддерживаемое изображение';
 
   @override
+  String get profileEditImageFailed => 'Не удалось обработать изображение';
+
+  @override
   String get profileEditChooseImage => 'Выбрать изображение';
 
   @override
@@ -1108,6 +1111,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadRemoveRecord => 'Убрать из списка';
 
   @override
+  String get downloadFailurePermission =>
+      'Нет разрешения на запись в хранилище';
+
+  @override
+  String get downloadFailureResource =>
+      'Файл слишком большой или недостаточно ресурсов';
+
+  @override
+  String get downloadFailureOwnership => 'Задача принадлежит другому аккаунту';
+
+  @override
   String downloadBatchCancelConfirm(int count) {
     return 'Отменить выбранные загрузки ($count)? Незавершённый прогресс будет потерян.';
   }
@@ -1400,6 +1414,47 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get continueAction => 'Продолжить';
+
+  @override
+  String get errorNetwork => 'Сбой сетевого подключения';
+
+  @override
+  String get errorTimeout => 'Время ожидания соединения истекло';
+
+  @override
+  String get errorRateLimited => 'Слишком много запросов, попробуйте позже';
+
+  @override
+  String get errorUnauthorized => 'Требуется повторный вход';
+
+  @override
+  String get errorServer => 'Ошибка сервера';
+
+  @override
+  String get errorNotFound => 'Контент не найден или удалён';
+
+  @override
+  String get errorParse => 'Не удалось разобрать ответ';
+
+  @override
+  String get errorStorage => 'Ошибка хранилища';
+
+  @override
+  String get errorUnknown => 'Неизвестная ошибка';
+
+  @override
+  String get errorDetails => 'Подробности';
+
+  @override
+  String get errorDetailsCopy => 'Копировать';
+
+  @override
+  String get errorDetailsCopied => 'Скопировано';
+
+  @override
+  String errorWithReason(String action, String reason) {
+    return '$action: $reason';
+  }
 
   @override
   String get rankingDay => 'Ежедневно';

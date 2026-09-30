@@ -221,6 +221,7 @@
   "profileEditCurrentPassword": "Текущий пароль",
   "profileEditFieldUnsupported": "Этот канал не поддерживает данное поле",
   "profileEditImageChoose": "Выберите поддерживаемое изображение",
+  "profileEditImageFailed": "Не удалось обработать изображение",
   "profileEditChooseImage": "Выбрать изображение",
   "profileEditSave": "Сохранить профиль",
   "profileEditLeaveTitle": "Отменить несохранённые изменения?",
@@ -473,6 +474,9 @@
   "downloadProcessing": "Обработка",
   "downloadViewResult": "Открыть",
   "downloadRemoveRecord": "Убрать из списка",
+  "downloadFailurePermission": "Нет разрешения на запись в хранилище",
+  "downloadFailureResource": "Файл слишком большой или недостаточно ресурсов",
+  "downloadFailureOwnership": "Задача принадлежит другому аккаунту",
   "downloadBatchCancelConfirm": "Отменить выбранные загрузки ({count})? Незавершённый прогресс будет потерян.",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -700,6 +704,29 @@
   "cancel": "Отмена",
   "confirm": "Подтвердить",
   "continueAction": "Продолжить",
+  "errorNetwork": "Сбой сетевого подключения",
+  "errorTimeout": "Время ожидания соединения истекло",
+  "errorRateLimited": "Слишком много запросов, попробуйте позже",
+  "errorUnauthorized": "Требуется повторный вход",
+  "errorServer": "Ошибка сервера",
+  "errorNotFound": "Контент не найден или удалён",
+  "errorParse": "Не удалось разобрать ответ",
+  "errorStorage": "Ошибка хранилища",
+  "errorUnknown": "Неизвестная ошибка",
+  "errorDetails": "Подробности",
+  "errorDetailsCopy": "Копировать",
+  "errorDetailsCopied": "Скопировано",
+  "errorWithReason": "{action}: {reason}",
+  "@errorWithReason": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "Ежедневно",
   "rankingDayR18": "Ежедневно (R-18)",
   "rankingDayMale": "Ежедневно (Мужчины)",

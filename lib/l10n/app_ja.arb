@@ -221,6 +221,7 @@
   "profileEditCurrentPassword": "現在のパスワード",
   "profileEditFieldUnsupported": "現在の経路ではこの項目に対応していません",
   "profileEditImageChoose": "対応する画像を選択してください",
+  "profileEditImageFailed": "画像の処理に失敗しました",
   "profileEditChooseImage": "画像を選択",
   "profileEditSave": "プロフィールを保存",
   "profileEditLeaveTitle": "未保存の変更を破棄しますか？",
@@ -473,6 +474,9 @@
   "downloadProcessing": "処理中",
   "downloadViewResult": "表示",
   "downloadRemoveRecord": "一覧から削除",
+  "downloadFailurePermission": "ストレージへの書き込み権限がありません",
+  "downloadFailureResource": "ファイルが大きすぎるかリソースが不足しています",
+  "downloadFailureOwnership": "タスクの所有者が現在のアカウントと一致しません",
   "downloadBatchCancelConfirm": "選択した {count} 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -700,6 +704,29 @@
   "cancel": "キャンセル",
   "confirm": "確認",
   "continueAction": "続行",
+  "errorNetwork": "ネットワーク接続に失敗しました",
+  "errorTimeout": "接続がタイムアウトしました",
+  "errorRateLimited": "リクエストが多すぎます。しばらくしてから再試行してください",
+  "errorUnauthorized": "再ログインが必要です",
+  "errorServer": "サーバーエラー",
+  "errorNotFound": "コンテンツが見つからないか削除されました",
+  "errorParse": "応答を解析できませんでした",
+  "errorStorage": "ストレージエラー",
+  "errorUnknown": "不明なエラー",
+  "errorDetails": "詳細",
+  "errorDetailsCopy": "コピー",
+  "errorDetailsCopied": "コピーしました",
+  "errorWithReason": "{action}：{reason}",
+  "@errorWithReason": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "デイリー",
   "rankingDayR18": "デイリー (R-18)",
   "rankingDayMale": "デイリー (男子に人気)",

@@ -587,6 +587,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileEditImageChoose => '対応する画像を選択してください';
 
   @override
+  String get profileEditImageFailed => '画像の処理に失敗しました';
+
+  @override
   String get profileEditChooseImage => '画像を選択';
 
   @override
@@ -1073,6 +1076,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadRemoveRecord => '一覧から削除';
 
   @override
+  String get downloadFailurePermission => 'ストレージへの書き込み権限がありません';
+
+  @override
+  String get downloadFailureResource => 'ファイルが大きすぎるかリソースが不足しています';
+
+  @override
+  String get downloadFailureOwnership => 'タスクの所有者が現在のアカウントと一致しません';
+
+  @override
   String downloadBatchCancelConfirm(int count) {
     return '選択した $count 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。';
   }
@@ -1358,6 +1370,47 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get continueAction => '続行';
+
+  @override
+  String get errorNetwork => 'ネットワーク接続に失敗しました';
+
+  @override
+  String get errorTimeout => '接続がタイムアウトしました';
+
+  @override
+  String get errorRateLimited => 'リクエストが多すぎます。しばらくしてから再試行してください';
+
+  @override
+  String get errorUnauthorized => '再ログインが必要です';
+
+  @override
+  String get errorServer => 'サーバーエラー';
+
+  @override
+  String get errorNotFound => 'コンテンツが見つからないか削除されました';
+
+  @override
+  String get errorParse => '応答を解析できませんでした';
+
+  @override
+  String get errorStorage => 'ストレージエラー';
+
+  @override
+  String get errorUnknown => '不明なエラー';
+
+  @override
+  String get errorDetails => '詳細';
+
+  @override
+  String get errorDetailsCopy => 'コピー';
+
+  @override
+  String get errorDetailsCopied => 'コピーしました';
+
+  @override
+  String errorWithReason(String action, String reason) {
+    return '$action：$reason';
+  }
 
   @override
   String get rankingDay => 'デイリー';
