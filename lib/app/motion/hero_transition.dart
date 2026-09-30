@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -55,10 +54,10 @@ class IllustHeroCardFrame extends StatelessWidget {
   }
 }
 
-/// Conservative fallback for the home shell bottom navigation before its
-/// first rendered global edge has been published by [HomePage]. The normal
-/// path uses [HomeShellMetrics.bottomNavTop], so this is only used in a
-/// first-frame or test-only route with no measured shell.
+/// Conservative fallback for the home shell bottom navigation when the
+/// Hero's context sits outside the shell — a plain MaterialApp in tests.
+/// The normal path reads [HomeShellChrome.bottomBarExtent], so this only
+/// serves scope-free hosts.
 const _kHomeBottomNavHeight = 80.0;
 
 /// Shared artwork Hero flight.
@@ -397,26 +396,17 @@ double _heroBottomEdge(BuildContext heroContext, Size size) {
   final isHomeRoute = ModalRoute.of(heroContext)?.isFirst ?? false;
   if (!isHomeRoute) return size.height;
 
-  // HomePage publishes the actual global edge of its BottomAppBar. Unlike a
-  // height-plus-safe-area calculation this cannot double-count the gesture or
-  // three-button navigation inset.
-  HomeShellMetrics? metrics;
-  try {
-    metrics = ProviderScope.containerOf(
-      heroContext,
-      listen: false,
-    ).read(homeShellMetricsProvider);
-  } on StateError {
-    // Hero flights may run under a plain MaterialApp (no ProviderScope) in
-    // tests; fall back to the conservative constant, matching pre-provider
-    // behaviour.
+  // The shell publishes the bar's resting extent through HomeShellChrome —
+  // the same computed value the spacer and SnackBar margin use. Outside
+  // the shell (a plain MaterialApp in tests) fall back to the conservative
+  // constant, matching pre-scope behaviour.
+  final extent = HomeShellChrome.maybeOf(heroContext)?.bottomBarExtent;
+  if (extent != null) {
+    return size.height - extent;
   }
-  final measuredTop = metrics?.bottomNavTop;
-  if (measuredTop != null && measuredTop > 0 && measuredTop < size.height) {
-    return measuredTop;
-  }
-  final measuredHeight = metrics?.bottomNavHeight ?? _kHomeBottomNavHeight;
-  return (size.height - measuredHeight).clamp(0.0, size.height).toDouble();
+  return (size.height - _kHomeBottomNavHeight)
+      .clamp(0.0, size.height)
+      .toDouble();
 }
 
 /// Collapsed height of pinned persistent headers in the landing page's scroll

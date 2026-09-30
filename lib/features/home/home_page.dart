@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../app/layout/app_breakpoints.dart';
 import '../../core/navigation/route_observer.dart';
-import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/func_bottom_nav.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/platform/root_back_coordinator.dart';
 import '../../l10n/context.dart';
@@ -23,7 +23,6 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with WidgetsBindingObserver, RouteAware {
   late final RootBackCoordinator _backCoordinator;
-  bool _chromeClearScheduled = false;
   RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
   bool _routeSubscribed = false;
 
@@ -66,23 +65,6 @@ class _HomePageState extends State<HomePage>
     super.dispose();
   }
 
-  /// Wide layouts use a NavigationRail and have no bottom bar — report an
-  /// empty measurement so Hero flights clip against the viewport edge
-  /// instead of a phantom bar. In narrow layouts the shell-level
-  /// [FuncShellBottomNav] publishes its own measured geometry.
-  void _scheduleChromeClear() {
-    if (_chromeClearScheduled) return;
-    _chromeClearScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((timestamp) {
-      _chromeClearScheduled = false;
-      if (mounted) {
-        ProviderScope.containerOf(
-          context,
-        ).read(homeShellMetricsProvider.notifier).publish(null, 0);
-      }
-    });
-  }
-
   void _handleRootBack(bool didPop) {
     if (didPop) return;
     // Double-back-to-exit is an Android pattern. Desktop has no root back
@@ -95,23 +77,24 @@ class _HomePageState extends State<HomePage>
     }
     switch (_backCoordinator.handleBackPress()) {
       case RootBackAction.showExitHint:
-        final shellMetrics = ProviderScope.containerOf(
-          context,
-        ).read(homeShellMetricsProvider);
         // HomePage's ScaffoldMessenger is above the branch-root Scaffold that
         // owns the bottom bar. A floating SnackBar otherwise anchors to the
         // screen edge and covers the bar; the shell margin lifts it by the
-        // measured bar height — by the time a back press happens the bar
-        // has long since been measured, so no fallback is needed.
+        // same extent the shell's chrome slot uses — computable here because
+        // nothing between this page and the bar strips the bottom inset.
         // U4 (R7): the hint's lifetime must equal the exit window — with
         // the default 4s SnackBar the text was still on screen long after
         // the window closed, so it was describing a state that was
         // already false.
+        final bottomBarExtent =
+            AppBreakpoints.useNavigationRail(MediaQuery.sizeOf(context).width)
+            ? 0.0
+            : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
         showAppSnackBarOn(
           ScaffoldMessenger.of(context),
           context.l10n.homeExitHint,
           duration: RootBackCoordinator.exitWindow,
-          margin: appSnackBarShellMargin(shellMetrics),
+          margin: appSnackBarShellMargin(bottomBarExtent),
           // The resolved messenger is the root one — it sits above
           // MotionScope, so the gate must come from this page's context.
           animationStyle: snackBarAnimationStyleFor(context),
@@ -123,17 +106,12 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    final wide = AppBreakpoints.useNavigationRail(
-      MediaQuery.sizeOf(context).width,
-    );
     // The navigation chrome — bottom bar or NavigationRail, whichever the
     // width ladder selects — is owned by the shell's BranchSlideStack so
     // both controls share one action entry (BranchSlidePager.selectIndex).
     // Narrow layout: the bar floats over the branch strip and a pushed
-    // route slides it away via the covered provider.
-    // Wide layout: no bar at all; clear the metric so Hero flights do not
-    // clip against a phantom edge.
-    if (wide) _scheduleChromeClear();
+    // route slides it away via the covered provider. Wide layout: no bar
+    // at all — HomeShellChrome publishes a zero extent.
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),

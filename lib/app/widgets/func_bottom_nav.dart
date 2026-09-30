@@ -55,6 +55,14 @@ class FuncBottomNav extends StatefulWidget {
   final bool replayLandingInk;
 
   static const double _height = 64;
+
+  /// Rendered height the bar occupies at rest: the fixed row plus the
+  /// bottom safe-area inset [SafeArea] adds underneath it. The shell's
+  /// chrome slot, branch-page spacers, SnackBar margins and the Hero
+  /// landing clip all derive from this one formula, so they agree on the
+  /// first frame without measuring the laid-out bar.
+  static double restingExtent(double bottomSafeInset) =>
+      _height + bottomSafeInset;
   static const double _indicatorHeight = 3;
 
   @override
@@ -567,9 +575,9 @@ class _FuncBottomNavItem extends StatelessWidget {
 /// [branchStackCoveredProvider]) it slides away — the same layering Shaft
 /// gets by pushing a whole Activity over the home ViewPager.
 ///
-/// It also publishes its measured geometry to [homeShellMetricsProvider]
-/// so a Hero flight can clip the returning artwork against the real bar
-/// edge.
+/// It also publishes its presence to [homeShellBarVisibleProvider] so the
+/// app-level update prompt — presented by a messenger above the shell —
+/// knows whether a bar needs clearing.
 class FuncShellBottomNav extends ConsumerStatefulWidget {
   const FuncShellBottomNav({
     super.key,
@@ -603,17 +611,12 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
 }
 
 class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
-  bool _measureScheduled = false;
-  bool _published = false;
-  void Function(double?, double?)? _publishMetrics;
+    with SingleTickerProviderStateMixin {
   late final AnimationController _coveredVisibility;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    widget.scrollVisibility.addListener(_scheduleMeasure);
     _coveredVisibility = AnimationController(
       vsync: this,
       duration: MotionTokens.navBarShow,
@@ -622,16 +625,17 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
           ? 0
           : 1,
     );
-    _scheduleMeasure();
+    // Publish after the first frame: provider writes are illegal inside
+    // the build this initState runs under, and the only consumer (the
+    // app-level update prompt) appears long after mount anyway.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _setBarVisible(true);
+    });
   }
 
   @override
   void didUpdateWidget(covariant FuncShellBottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.scrollVisibility != widget.scrollVisibility) {
-      oldWidget.scrollVisibility.removeListener(_scheduleMeasure);
-      widget.scrollVisibility.addListener(_scheduleMeasure);
-    }
     if (oldWidget.selectedIndex != widget.selectedIndex) {
       // A hidden bar must return on a branch switch — Shaft's
       // BottomBarAutoHide.reveal() on ViewPager's onPageSelected.
@@ -640,21 +644,15 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
       } else {
         widget.scrollVisibility.value = 1;
       }
-      _scheduleMeasure();
       _syncCovered(_isCovered);
     }
   }
 
   @override
   void dispose() {
-    widget.scrollVisibility.removeListener(_scheduleMeasure);
     _coveredVisibility.dispose();
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-
-  @override
-  void didChangeMetrics() => _scheduleMeasure();
 
   bool get _isCovered =>
       ref.read(branchStackCoveredProvider).contains(widget.selectedIndex);
@@ -671,49 +669,33 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     }
   }
 
-  void _scheduleMeasure() {
-    if (_measureScheduled) return;
-    _measureScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _measureScheduled = false;
-      if (!mounted) return;
-      final box = context.findRenderObject() as RenderBox?;
-      if (box == null || !box.attached || !box.hasSize) return;
-      _published = true;
-      try {
-        _publishMetrics?.call(
-          box.localToGlobal(Offset.zero).dy,
-          box.size.height,
-        );
-      } on Object {
-        // The provider container can already be gone (test teardown).
-      }
-    });
+  void _setBarVisible(bool visible) {
+    try {
+      ref.read(homeShellBarVisibleProvider.notifier).setVisible(visible);
+    } on Object {
+      // The provider container can already be gone (test teardown).
+    }
   }
 
   @override
   void deactivate() {
     // The branch stack keeps this widget mounted while a pushed route
-    // covers it — only clear the metrics when this bar is actually going
-    // away. publish() is deferred: provider writes are illegal inside the
+    // covers it — only report gone when this bar is actually leaving.
+    // The write is deferred: provider writes are illegal inside the
     // deactivate lifecycle.
-    if (_published) {
-      _published = false;
-      final metrics = _publishMetrics;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        try {
-          metrics?.call(null, 0);
-        } on Object {
-          // The provider container can already be gone (test teardown).
-        }
-      });
-    }
+    final notifier = ref.read(homeShellBarVisibleProvider.notifier);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        notifier.setVisible(false);
+      } on Object {
+        // The provider container can already be gone (test teardown).
+      }
+    });
     super.deactivate();
   }
 
   @override
   Widget build(BuildContext context) {
-    _publishMetrics = ref.read(homeShellMetricsProvider.notifier).publish;
     // Covered state is a provider — watch the slice this bar cares about
     // (is *my* branch covered) so a pushed route inside the branch
     // Navigator rebuilds us and the controller slides away in step.
@@ -776,17 +758,17 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
 
 /// Trailing spacer for branch-root scrollables. The navigation bar floats
 /// over the body ([Scaffold.extendBody]), so lists pad their tail by the
-/// measured bar height — the same inset redistribution Shaft applies to its
-/// overlay bar. Reports zero on rail layouts, where no bar exists.
-class FuncNavBarSpacer extends ConsumerWidget {
+/// shell's computed bar extent — the same inset redistribution Shaft
+/// applies to its overlay bar, available from the first frame. Reports
+/// zero on rail layouts, where no bar exists.
+class FuncNavBarSpacer extends StatelessWidget {
   const FuncNavBarSpacer({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final height = ref.watch(
-      homeShellMetricsProvider.select((m) => m.bottomNavHeight),
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: HomeShellChrome.maybeOf(context)?.bottomBarExtent ?? 0,
     );
-    return SizedBox(height: height ?? 0);
   }
 }
 
