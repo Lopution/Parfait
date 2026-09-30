@@ -443,6 +443,14 @@ void main() {
     expect(find.text('重新登录'), findsOneWidget);
     expect(find.text('重新打开'), findsNothing);
     expect(find.text('知道了'), findsNothing);
+
+    // The headline is plain copy; the developer reason only appears behind
+    // the details disclosure.
+    expect(find.text('登录回调无效，请重新登录'), findsOneWidget);
+    expect(find.textContaining('missing code'), findsNothing);
+    await tester.tap(find.text('详情'));
+    await tester.pump();
+    expect(find.text('missing code'), findsOneWidget);
   });
 
   testWidgets('a recoverable error card reloads the page in place', (
@@ -577,7 +585,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.textContaining('页面加载失败'), findsOneWidget);
+    expect(find.text('页面加载失败'), findsOneWidget);
   });
 
   testWidgets('signup mode reports page progress like the desktop page', (
@@ -636,9 +644,12 @@ void main() {
     );
     await tester.pump();
 
-    // Same '<type> <host>' shape the desktop page reports: the query
-    // string must not leak into the card.
-    expect(find.text('页面加载失败 (timeout accounts.pixiv.net)'), findsOneWidget);
+    // Same '<type> <host>' shape the desktop page reports, behind the
+    // details disclosure: the query string must not leak into the card.
+    expect(find.text('页面加载失败'), findsOneWidget);
+    await tester.tap(find.text('详情'));
+    await tester.pump();
+    expect(find.text('timeout accounts.pixiv.net'), findsOneWidget);
     expect(find.textContaining('code=secret'), findsNothing);
 
     // HTTP errors follow the same '<status> <host>' contract. The main

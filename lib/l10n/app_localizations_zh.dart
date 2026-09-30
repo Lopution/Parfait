@@ -67,9 +67,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginPageClosed => '页面已关闭，请重新打开';
 
   @override
-  String loginCallbackInvalid(String reason) {
-    return '登录回调无效: $reason';
-  }
+  String get loginCallbackInvalid => '登录回调无效，请重新登录';
 
   @override
   String loginNetworkError(String status) {
@@ -77,9 +75,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String loginPageLoadFailed(String error) {
-    return '页面加载失败 ($error)';
-  }
+  String get loginPageLoadFailed => '页面加载失败';
 
   @override
   String get loginWebView2Missing =>
@@ -1047,15 +1043,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadRemoveRecord => '移除';
 
   @override
-  String get downloadFailurePermission => '缺少存储权限';
-
-  @override
-  String get downloadFailureResource => '设备资源不足或文件过大';
-
-  @override
-  String get downloadFailureOwnership => '目标文件由其他应用创建，无法覆盖';
-
-  @override
   String downloadBatchCancelConfirm(int count) {
     return '取消选中的 $count 项下载？未完成的进度会被丢弃。';
   }
@@ -1254,6 +1241,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadSubmissionFailed => '下载失败';
 
   @override
+  String get downloadFailurePermission => '缺少存储权限';
+
+  @override
+  String get downloadFailureResource => '设备资源不足或文件过大';
+
+  @override
+  String get downloadFailureOwnership => '任务已失效，需重新下载';
+
+  @override
+  String get downloadFailureInterrupted => '应用重启时下载中断，点重试继续';
+
+  @override
   String get ugoiraSaveGif => '保存 GIF';
 
   @override
@@ -1269,19 +1268,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get ugoiraSaveCanceled => 'GIF 保存已取消';
 
   @override
-  String ugoiraSaveFailed(String error) {
-    return 'GIF 保存失败：$error';
-  }
+  String get ugoiraSaveFailed => 'GIF 保存失败';
 
   @override
-  String ugoiraArchiveInvalid(String error) {
-    return '动图压缩包无效：$error';
-  }
+  String get ugoiraArchiveInvalid => '动图压缩包无效';
 
   @override
-  String ugoiraFrameCorrupt(String error) {
-    return '动图帧损坏：$error';
-  }
+  String get ugoiraFrameCorrupt => '动图帧损坏';
 
   @override
   String get ugoiraLoadFailed => '动图加载失败';

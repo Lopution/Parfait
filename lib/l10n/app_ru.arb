@@ -19,14 +19,7 @@
   "register": "Регистрация",
   "login": "Вход",
   "loginPageClosed": "Страница закрыта. Откройте её снова.",
-  "loginCallbackInvalid": "Недействительный callback входа: {reason}",
-  "@loginCallbackInvalid": {
-    "placeholders": {
-      "reason": {
-        "type": "String"
-      }
-    }
-  },
+  "loginCallbackInvalid": "Недействительный callback входа. Войдите снова.",
   "loginNetworkError": "Сетевая ошибка (HTTP {status})",
   "@loginNetworkError": {
     "placeholders": {
@@ -35,14 +28,7 @@
       }
     }
   },
-  "loginPageLoadFailed": "Не удалось загрузить страницу ({error})",
-  "@loginPageLoadFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "loginPageLoadFailed": "Не удалось загрузить страницу",
   "loginWebView2Missing": "Для входа требуется WebView2 Runtime, который не обнаружен в системе. Установите его и откройте страницу заново.",
   "loginInstallWebView2": "Установить WebView2 Runtime",
   "loginReload": "Перезагрузить",
@@ -459,9 +445,6 @@
   "downloadProcessing": "Обработка",
   "downloadViewResult": "Открыть",
   "downloadRemoveRecord": "Убрать из списка",
-  "downloadFailurePermission": "Нет разрешения на запись в хранилище",
-  "downloadFailureResource": "Файл слишком большой или недостаточно ресурсов",
-  "downloadFailureOwnership": "Задача принадлежит другому аккаунту",
   "downloadBatchCancelConfirm": "Отменить выбранные загрузки ({count})? Незавершённый прогресс будет потерян.",
   "@downloadBatchCancelConfirm": {
     "placeholders": {
@@ -618,36 +601,16 @@
   "downloadSubmissionFailed": "Не удалось скачать",
   "downloadFailurePermission": "Нет разрешения на доступ к хранилищу",
   "downloadFailureResource": "Недостаточно ресурсов устройства или файл слишком большой",
-  "downloadFailureOwnership": "Целевой файл принадлежит другому приложению",
+  "downloadFailureOwnership": "Задача больше недействительна. Скачайте заново.",
+  "downloadFailureInterrupted": "Загрузка прервана перезапуском приложения. Нажмите «Повторить».",
   "ugoiraSaveGif": "Сохранить GIF",
   "ugoiraLoadCanceled": "Загрузка отменена",
   "ugoiraLoginRequired": "Войдите, чтобы сохранить GIF",
   "ugoiraSaved": "GIF сохранён",
   "ugoiraSaveCanceled": "Сохранение GIF отменено",
-  "ugoiraSaveFailed": "Не удалось сохранить GIF: {error}",
-  "@ugoiraSaveFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "ugoiraArchiveInvalid": "Архив анимации недействителен: {error}",
-  "@ugoiraArchiveInvalid": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "ugoiraFrameCorrupt": "Кадр анимации повреждён: {error}",
-  "@ugoiraFrameCorrupt": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
+  "ugoiraSaveFailed": "Не удалось сохранить GIF",
+  "ugoiraArchiveInvalid": "Архив анимации недействителен",
+  "ugoiraFrameCorrupt": "Кадр анимации повреждён",
   "ugoiraLoadFailed": "Не удалось загрузить анимацию",
   "homeRecommended": "Рекомендации",
   "homeRanking": "Рейтинг",

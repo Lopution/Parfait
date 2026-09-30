@@ -219,8 +219,8 @@ abstract class AppLocalizations {
   /// No description provided for @loginCallbackInvalid.
   ///
   /// In zh, this message translates to:
-  /// **'登录回调无效: {reason}'**
-  String loginCallbackInvalid(String reason);
+  /// **'登录回调无效，请重新登录'**
+  String get loginCallbackInvalid;
 
   /// No description provided for @loginNetworkError.
   ///
@@ -231,8 +231,8 @@ abstract class AppLocalizations {
   /// No description provided for @loginPageLoadFailed.
   ///
   /// In zh, this message translates to:
-  /// **'页面加载失败 ({error})'**
-  String loginPageLoadFailed(String error);
+  /// **'页面加载失败'**
+  String get loginPageLoadFailed;
 
   /// No description provided for @loginWebView2Missing.
   ///
@@ -2075,24 +2075,6 @@ abstract class AppLocalizations {
   /// **'移除'**
   String get downloadRemoveRecord;
 
-  /// No description provided for @downloadFailurePermission.
-  ///
-  /// In zh, this message translates to:
-  /// **'缺少存储权限'**
-  String get downloadFailurePermission;
-
-  /// No description provided for @downloadFailureResource.
-  ///
-  /// In zh, this message translates to:
-  /// **'设备资源不足或文件过大'**
-  String get downloadFailureResource;
-
-  /// No description provided for @downloadFailureOwnership.
-  ///
-  /// In zh, this message translates to:
-  /// **'目标文件由其他应用创建，无法覆盖'**
-  String get downloadFailureOwnership;
-
   /// No description provided for @downloadBatchCancelConfirm.
   ///
   /// In zh, this message translates to:
@@ -2441,6 +2423,30 @@ abstract class AppLocalizations {
   /// **'下载失败'**
   String get downloadSubmissionFailed;
 
+  /// No description provided for @downloadFailurePermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'缺少存储权限'**
+  String get downloadFailurePermission;
+
+  /// No description provided for @downloadFailureResource.
+  ///
+  /// In zh, this message translates to:
+  /// **'设备资源不足或文件过大'**
+  String get downloadFailureResource;
+
+  /// No description provided for @downloadFailureOwnership.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务已失效，需重新下载'**
+  String get downloadFailureOwnership;
+
+  /// No description provided for @downloadFailureInterrupted.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用重启时下载中断，点重试继续'**
+  String get downloadFailureInterrupted;
+
   /// No description provided for @ugoiraSaveGif.
   ///
   /// In zh, this message translates to:
@@ -2474,20 +2480,20 @@ abstract class AppLocalizations {
   /// No description provided for @ugoiraSaveFailed.
   ///
   /// In zh, this message translates to:
-  /// **'GIF 保存失败：{error}'**
-  String ugoiraSaveFailed(String error);
+  /// **'GIF 保存失败'**
+  String get ugoiraSaveFailed;
 
   /// No description provided for @ugoiraArchiveInvalid.
   ///
   /// In zh, this message translates to:
-  /// **'动图压缩包无效：{error}'**
-  String ugoiraArchiveInvalid(String error);
+  /// **'动图压缩包无效'**
+  String get ugoiraArchiveInvalid;
 
   /// No description provided for @ugoiraFrameCorrupt.
   ///
   /// In zh, this message translates to:
-  /// **'动图帧损坏：{error}'**
-  String ugoiraFrameCorrupt(String error);
+  /// **'动图帧损坏'**
+  String get ugoiraFrameCorrupt;
 
   /// No description provided for @ugoiraLoadFailed.
   ///

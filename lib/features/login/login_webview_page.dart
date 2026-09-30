@@ -154,7 +154,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       LoginNavAbort(:final reason) => () {
         // The callback was consumed with unusable parameters; the verifier
         // cannot be reused for another attempt.
-        _abortLogin(context.l10n.loginCallbackInvalid(reason));
+        _abortLogin(context.l10n.loginCallbackInvalid, error: reason);
         return true;
       }(),
       LoginNavAllow(:final uri) => () {
@@ -206,11 +206,10 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     // Only a main-frame failure is worth reporting, and it stays retryable.
     if (error.isForMainFrame == false) return;
     _reportRecoverable(
-      context.l10n.loginPageLoadFailed(
-        describeWebViewFailure(
-          error.errorType?.name ?? error.errorCode,
-          error.url == null ? _mainFrameUri : Uri.tryParse(error.url!),
-        ),
+      context.l10n.loginPageLoadFailed,
+      error: describeWebViewFailure(
+        error.errorType?.name ?? error.errorCode,
+        error.url == null ? _mainFrameUri : Uri.tryParse(error.url!),
       ),
     );
   }
@@ -272,11 +271,11 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// Reports a transient problem without touching the PKCE session. A
   /// form-validation status code or a failed page load must not turn into a
   /// permanently dead WebView.
-  void _reportRecoverable(String message) {
+  void _reportRecoverable(String message, {Object? error}) {
     if (!mounted || _fatal) return;
     setState(() {
       _error = message;
-      _errorDetails = null;
+      _errorDetails = error;
     });
   }
 
