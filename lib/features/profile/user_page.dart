@@ -495,6 +495,15 @@ class _UserPageState extends ConsumerState<UserPage>
           child: NestedScrollView(
             key: const ValueKey('profile-nested-scroll'),
             controller: _outerScrollController,
+            // The outer position must share the inner feeds' physics family:
+            // the coordinator runs one ballistic simulation per position over
+            // the combined metrics, and the feeds' EasyRefresh physics always
+            // builds a BouncingScrollSimulation. The widget default would pin
+            // the outer to Clamping, whose simulation diverges from it at low
+            // release speeds — the header then stops short while the feed is
+            // already rolling ("dip"), and a light pull-down dies on the edge
+            // ("stuck").
+            physics: ScrollConfiguration.of(context).getScrollPhysics(context),
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               SliverPersistentHeader(
                 pinned: true,

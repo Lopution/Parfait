@@ -25,6 +25,7 @@ import 'package:pixiv_func/core/user/user_repository.dart';
 import 'package:pixiv_func/core/user/user_store.dart';
 import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
 import 'package:pixiv_func/core/profile/profile_models.dart';
+import 'package:pixiv_func/app/scroll_behavior.dart';
 import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
 import 'package:pixiv_func/app/theme/func_tokens.dart';
 import 'package:pixiv_func/app/theme/replica_theme.dart';
@@ -1817,6 +1818,227 @@ void main() {
       // Flush any overscroll/refresh timers the reverse drags armed so the
       // test does not leave a pending Timer behind.
       await tester.pumpAndSettle();
+    });
+  });
+
+  // The device's outer Scrollable inside the profile NestedScrollView —
+  // first in tree order, before any tab feed.
+  ScrollPosition outerPosition(WidgetTester tester) {
+    final outerScrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey('profile-nested-scroll')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          ),
+        )
+        .first;
+    return tester.state<ScrollableState>(outerScrollable).position;
+  }
+
+  // The active tab feed's own Scrollable inside the NestedScrollView body.
+  ScrollPosition activeFeedPosition(WidgetTester tester) {
+    final innerScrollable = find
+        .descendant(
+          of: find.byKey(
+            const PageStorageKey(
+              ProfileFeedKey(
+                userId: 42,
+                kind: ProfileFeedKind.work,
+                workType: UserWorkType.illust,
+              ),
+            ),
+          ),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          ),
+        )
+        .first;
+    return tester.state<ScrollableState>(innerScrollable).position;
+  }
+
+  testWidgets(
+    'a light upward fling never leaves the inner feed ahead of the header',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      for (final speed in [300.0, 600.0]) {
+        final repository = _FakeUserRepository(
+          works: List.generate(30, (index) => _illust(index + 1)),
+        );
+        final container = await _makeWorld(users: repository);
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
+                scrollBehavior: const FuncScrollBehavior(),
+                home: const UserPage(userId: 42),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final outer = outerPosition(tester);
+          final inner = activeFeedPosition(tester);
+          final maxExtent = outer.maxScrollExtent;
+          expect(maxExtent, greaterThan(0));
+
+          // Drag just short of the collapse edge, then release at the
+          // measured speed — the coordinator starts one ballistic on each
+          // position over the combined metrics.
+          await tester.flingFrom(
+            tester.getCenter(find.byType(NestedScrollView)),
+            Offset(0, -(maxExtent - 60)),
+            speed,
+          );
+          // The invariant: while the header is still collapsing the feed
+          // must not have started scrolling. A divergent inner simulation
+          // breaks it — inner rolls while outer is still short of the end.
+          var frames = 0;
+          while (frames < 240) {
+            await tester.pump(const Duration(milliseconds: 16));
+            if (outer.pixels >= maxExtent - 0.001) break;
+            expect(
+              inner.pixels,
+              lessThanOrEqualTo(0.001),
+              reason:
+                  'v=$speed frame $frames: outer=${outer.pixels} of '
+                  '$maxExtent — the inner feed rolled before the header '
+                  'finished collapsing',
+            );
+            if (!outer.isScrollingNotifier.value &&
+                !inner.isScrollingNotifier.value) {
+              break;
+            }
+            frames++;
+          }
+          // Settle: either the header finished collapsing (inner may then
+          // roll), or everything stopped inside bounds.
+          await tester.pumpAndSettle();
+          expect(
+            outer.pixels >= maxExtent - 0.001 || inner.pixels <= 0.001,
+            isTrue,
+            reason:
+                'v=$speed: settled at outer=${outer.pixels}/$maxExtent, '
+                'inner=${inner.pixels} — inconsistent stop positions',
+          );
+        });
+      }
+    },
+  );
+
+  testWidgets(
+    'a light pull-down while the header is collapsing keeps it expanding',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = _FakeUserRepository(
+        works: List.generate(30, (index) => _illust(index + 1)),
+      );
+      final container = await _makeWorld(users: repository);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              scrollBehavior: const FuncScrollBehavior(),
+              home: const UserPage(userId: 42),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final outer = outerPosition(tester);
+        final inner = activeFeedPosition(tester);
+        final maxExtent = outer.maxScrollExtent;
+        expect(maxExtent, greaterThan(0));
+
+        // The state a light collapse fling leaves on the buggy build:
+        // header collapsed, feed already mid-scroll.
+        outer.jumpTo(maxExtent);
+        inner.jumpTo(115);
+        await tester.pump();
+
+        // A deliberate ~80px pull released at low speed: the inner feed
+        // slides back to 0 and the leftover momentum must expand the
+        // header, not die at the boundary.
+        await tester.flingFrom(
+          tester.getCenter(find.byType(NestedScrollView)),
+          const Offset(0, 80),
+          300,
+        );
+        var frames = 0;
+        while (frames < 240 &&
+            (outer.isScrollingNotifier.value ||
+                inner.isScrollingNotifier.value)) {
+          await tester.pump(const Duration(milliseconds: 16));
+          frames++;
+        }
+        await tester.pumpAndSettle();
+        expect(inner.pixels, closeTo(0, 0.001));
+        expect(
+          outer.pixels,
+          lessThan(maxExtent - 0.5),
+          reason:
+              'after the feed reached its top the pull must keep expanding '
+              'the header — outer=${outer.pixels} of $maxExtent',
+        );
+      });
+    },
+  );
+
+  testWidgets('a pull at the very top still pulls to refresh', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = _FakeUserRepository(
+      works: List.generate(30, (index) => _illust(index + 1)),
+    );
+    final container = await _makeWorld(users: repository);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            scrollBehavior: const FuncScrollBehavior(),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final outer = outerPosition(tester);
+      expect(outer.pixels, 0);
+      final firstLoads = repository.requests
+          .where((request) => request == 'works:42:illust:first')
+          .length;
+
+      // A deliberate pull past the 100dp arm threshold, then release.
+      await tester.drag(find.byType(NestedScrollView), const Offset(0, 400));
+      await tester.pumpAndSettle();
+      expect(
+        repository.requests
+            .where((request) => request == 'works:42:illust:first')
+            .length,
+        firstLoads + 1,
+        reason: 'the top pull must still reach the feed refresh',
+      );
+      expect(outer.pixels, 0);
     });
   });
 
