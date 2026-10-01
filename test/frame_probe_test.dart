@@ -58,9 +58,69 @@ void main() {
     expect(probe.isFull, isTrue);
     final report = probe.report();
     expect(report, contains('frames: ${FrameProbe.maxFrames}'));
-    expect(report, contains('worst: total 8.0ms'));
-    expect(report, isNot(contains('500.0ms')));
+    expect(report, contains('\n  8.0 = wait 0.0 + ui 4.0'));
+    expect(report, isNot(contains('500.0')));
   });
+
+  testWidgets('slowest frames split by phase and name the work before them', (
+    tester,
+  ) async {
+    final probe = FrameProbe.instance..start();
+    // Binding hook order for one frame, with a decode between frames and a
+    // feed commit inside the frame.
+    probe.measure('json 180KB', () {});
+    probe
+      ..beginUiFrame()
+      ..timePhase(UiPhase.animate, () {})
+      ..timePhase(UiPhase.frame, () {
+        probe.timePhase(UiPhase.draw, () {
+          probe.timePhase(UiPhase.layout, () {});
+          probe.measure('feed commit 30', () {});
+        });
+      })
+      ..endUiFrame(7)
+      ..stop();
+    probe.debugRecordTimings([
+      FrameTiming(
+        vsyncStart: 0,
+        buildStart: 30000,
+        buildFinish: 31000,
+        rasterStart: 32000,
+        rasterFinish: 33000,
+        rasterFinishWallTime: 33000,
+        frameNumber: 7,
+      ),
+      // No hook record for this frame: totals only, no phase bracket.
+      FrameTiming(
+        vsyncStart: 40000,
+        buildStart: 40000,
+        buildFinish: 41000,
+        rasterStart: 41000,
+        rasterFinish: 42000,
+        rasterFinishWallTime: 42000,
+        frameNumber: 8,
+      ),
+    ]);
+
+    final report = probe.report();
+    expect(report, contains('late start (wait > budget): 1'));
+    expect(report, contains('semantics: off'));
+    expect(
+      report,
+      matches(
+        RegExp(
+          r'  33\.0 = wait 30\.0 \+ ui 1\.0 '
+          r'\[anim [\d.]+ build [\d.]+ layout [\d.]+ paint 0\.0 sem 0\.0 '
+          r'post [\d.]+\] \+ queue 1\.0 \+ raster 1\.0 '
+          r'\| before: json 180KB [\d.]+ \| during: feed commit 30 [\d.]+',
+        ),
+      ),
+    );
+    expect(
+      report,
+      contains('  2.0 = wait 0.0 + ui 1.0 + queue 0.0 + raster 1.0\n'),
+    );
+  }, semanticsEnabled: false);
 
   testWidgets('frame budget and intervals follow the panel refresh rate', (
     tester,
