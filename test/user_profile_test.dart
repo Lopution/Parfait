@@ -393,6 +393,24 @@ void main() {
     },
   );
 
+  test('a page of users lands its follow snapshots as one write', () async {
+    final container = await _makeWorld();
+    var writes = 0;
+    container.listen(followStoreProvider, (_, _) => writes++);
+    final users = [
+      for (var id = 300; id < 330; id++)
+        _user(id).copyWith(isFollowed: id.isEven),
+    ];
+
+    container.read(userStoreProvider.notifier).mergeAll(users);
+    expect(writes, 1);
+    expect(container.read(followStoreProvider)[300]!.followed, isTrue);
+    expect(container.read(followStoreProvider)[301]!.followed, isFalse);
+
+    container.read(userStoreProvider.notifier).mergeAll(users);
+    expect(writes, 1, reason: 'an unchanged page must not notify');
+  });
+
   testWidgets('follow button exposes its label and toggle state', (
     tester,
   ) async {

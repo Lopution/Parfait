@@ -178,26 +178,61 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
     required bool? followed,
     FollowRestrict? restrict,
     int? snapshotRevision,
+  }) => observeRemoteAll([
+    (userId: userId, followed: followed, restrict: restrict),
+  ], snapshotRevision: snapshotRevision);
+
+  /// [observeRemote] for a whole payload under one state write — the
+  /// BookmarkStore.observeRemoteAll rule: one map copy and one listener
+  /// wake per page, none when nothing changes.
+  void observeRemoteAll(
+    Iterable<FollowSnapshot> snapshots, {
+    int? snapshotRevision,
   }) {
-    if (followed == null && restrict == null) return;
-    final entry = state[userId];
-    if (entry?.isPending == true) return;
+    Map<int, FollowEntry>? next;
+    for (final snapshot in snapshots) {
+      final merged = _mergeRemote(
+        (next ?? state)[snapshot.userId],
+        snapshot,
+        snapshotRevision,
+      );
+      if (merged != null) (next ??= {...state})[snapshot.userId] = merged;
+    }
+    if (next != null) state = next;
+  }
+
+  /// The entry [snapshot] settles [entry] to — null when the revision gate
+  /// rejects it or it would leave the entry as it is.
+  static FollowEntry? _mergeRemote(
+    FollowEntry? entry,
+    FollowSnapshot snapshot,
+    int? snapshotRevision,
+  ) {
+    final (userId: _, :followed, :restrict) = snapshot;
+    if (followed == null && restrict == null) return null;
+    if (entry?.isPending == true) return null;
     final confirmed = entry?.confirmedRevision;
     if (snapshotRevision != null &&
         confirmed != null &&
         snapshotRevision < confirmed) {
-      return;
+      return null;
     }
     final nextFollowed = followed ?? entry?.followed ?? false;
-    state = {
-      ...state,
-      userId: FollowEntry(
-        followed: nextFollowed,
-        restrict: nextFollowed ? (restrict ?? entry?.restrict) : null,
-        confirmedRevision: confirmed,
-        status: MutationStatus.idle,
-      ),
-    };
+    final nextRestrict = nextFollowed ? (restrict ?? entry?.restrict) : null;
+    if (entry != null &&
+        entry.status == MutationStatus.idle &&
+        entry.pending == null &&
+        entry.error == null &&
+        entry.followed == nextFollowed &&
+        entry.restrict == nextRestrict) {
+      return null;
+    }
+    return FollowEntry(
+      followed: nextFollowed,
+      restrict: nextRestrict,
+      confirmedRevision: confirmed,
+      status: MutationStatus.idle,
+    );
   }
 
   bool _owns(FollowOperation operation) {
