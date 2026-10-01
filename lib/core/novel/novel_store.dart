@@ -28,15 +28,20 @@ class _NovelStore extends Notifier<Map<int, NovelEntity>> {
 
   void mergeAll(Iterable<NovelEntity> incoming) {
     final bookmarks = ref.read(bookmarkStoreProvider.notifier);
+    final entities = incoming.toList(growable: false);
+    // Forward the remote snapshots first so a pending/confirmed mutation
+    // wins over whatever the feed or detail payload claims (same R2 rule
+    // as IllustStore).
+    bookmarks.observeRemoteAll([
+      for (final entity in entities)
+        (
+          key: BookmarkKey(BookmarkEntityType.novel, entity.id),
+          bookmarked: entity.isBookmarked,
+          restrict: null,
+        ),
+    ]);
     final next = Map<int, NovelEntity>.of(state);
-    for (final entity in incoming) {
-      // Forward the remote snapshot first so a pending/confirmed mutation
-      // wins over whatever the feed or detail payload claims (same R2 rule
-      // as IllustStore).
-      bookmarks.observeRemote(
-        BookmarkKey(BookmarkEntityType.novel, entity.id),
-        bookmarked: entity.isBookmarked,
-      );
+    for (final entity in entities) {
       final bookmarkAuthority = bookmarks
           .entryOf(BookmarkKey(BookmarkEntityType.novel, entity.id))
           ?.bookmarked;
