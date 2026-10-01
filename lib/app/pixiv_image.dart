@@ -8,6 +8,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import 'motion/motion_tokens.dart';
 import 'image_tier_cache.dart';
+import '../core/debug/frame_probe.dart';
 import '../core/entity/illust_entity.dart';
 import '../core/network/pixiv_headers.dart';
 import '../core/network/compat/image_cache.dart';
@@ -451,7 +452,8 @@ class PixivImage extends ConsumerStatefulWidget {
       _pendingTierRecords.remove(pending);
     }
 
-    listener = ImageStreamListener((_, _) {
+    listener = ImageStreamListener((info, _) {
+      FrameProbe.instance.mark('img ${info.image.width}x${info.image.height}');
       _markCompleted(decodeKey);
       if (tierKey != null && tier != null) {
         IllustTierCache.record(tierKey, tier, url);
@@ -492,6 +494,7 @@ class PixivImage extends ConsumerStatefulWidget {
       );
     }
     await precacheImage(imageProvider, context);
+    FrameProbe.instance.mark('img preload');
     _markCompleted(_decodeKey(resolved.$1, memCacheWidth));
     if (tierKey != null && resolved.$2 != null) {
       IllustTierCache.record(tierKey, resolved.$2!, resolved.$1);
