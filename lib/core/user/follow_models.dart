@@ -9,6 +9,13 @@ enum FollowRestrict { public, private }
 String followRestrictWire(FollowRestrict restrict) =>
     restrict == FollowRestrict.private ? 'private' : 'public';
 
+/// One remote follow observation: what a payload claims for [userId].
+typedef FollowSnapshot = ({
+  int userId,
+  bool? followed,
+  FollowRestrict? restrict,
+});
+
 enum FollowOperationKind { add, delete }
 
 /// A single follow mutation and its revision gate.

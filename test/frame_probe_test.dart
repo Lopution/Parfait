@@ -16,6 +16,19 @@ FrameTiming _frame(int spanMicros) => FrameTiming(
   rasterFinishWallTime: spanMicros,
 );
 
+FrameTiming _timed({
+  required int vsync,
+  required int build,
+  required int raster,
+}) => FrameTiming(
+  vsyncStart: vsync,
+  buildStart: vsync,
+  buildFinish: vsync + build,
+  rasterStart: vsync + build,
+  rasterFinish: vsync + build + raster,
+  rasterFinishWallTime: vsync + build + raster,
+);
+
 void main() {
   test('PIXIV_FRAME_PROBE stays unset in a default build', () {
     // The release exception is opt-in: a build without the dart-define —
@@ -45,8 +58,161 @@ void main() {
     expect(probe.isFull, isTrue);
     final report = probe.report();
     expect(report, contains('frames: ${FrameProbe.maxFrames}'));
-    expect(report, contains('worst: total 8.0ms'));
-    expect(report, isNot(contains('500.0ms')));
+    expect(report, contains('\n  8.0 = wait 0.0 + ui 4.0'));
+    expect(report, isNot(contains('500.0')));
+  });
+
+  testWidgets('vsync gaps bucket by panel period, split by finger state', (
+    tester,
+  ) async {
+    tester.view.display.refreshRate = 120;
+    addTearDown(tester.view.display.resetRefreshRate);
+    final probe = FrameProbe.instance..start();
+    void frame(int number) => probe
+      ..beginUiFrame()
+      ..endUiFrame(number);
+
+    frame(1);
+    final gesture = await tester.startGesture(const Offset(10, 10));
+    frame(2);
+    await gesture.up();
+    frame(3);
+    frame(4);
+    probe.stop();
+    // 120Hz period 8.333ms: frame 2 lands on time under the finger, frame 3
+    // skips a vsync after release, frame 4 comes from a faster panel mode.
+    FrameTiming at(int vsync, int number) => FrameTiming(
+      vsyncStart: vsync,
+      buildStart: vsync,
+      buildFinish: vsync + 1000,
+      rasterStart: vsync + 1000,
+      rasterFinish: vsync + 2000,
+      rasterFinishWallTime: vsync + 2000,
+      frameNumber: number,
+    );
+    probe.debugRecordTimings([
+      at(0, 1),
+      at(8333, 2),
+      at(25000, 3),
+      at(31944, 4),
+    ]);
+
+    final report = probe.report();
+    expect(
+      report,
+      contains(
+        '  all (3, min 6.9) <7.5: 1  7.5-10.0: 1  10.0-13.3: 0  '
+        '13.3-20.8: 1  >20.8: 0',
+      ),
+    );
+    expect(
+      report,
+      contains(
+        '  touch (1, min 8.3) <7.5: 0  7.5-10.0: 1  10.0-13.3: 0  '
+        '13.3-20.8: 0  >20.8: 0',
+      ),
+    );
+    expect(
+      report,
+      contains(
+        '  released (2, min 6.9) <7.5: 1  7.5-10.0: 0  10.0-13.3: 0  '
+        '13.3-20.8: 1  >20.8: 0',
+      ),
+    );
+    expect(report, contains('| touch\n'));
+  }, semanticsEnabled: false);
+
+  testWidgets('slowest frames split by phase and name the work before them', (
+    tester,
+  ) async {
+    final probe = FrameProbe.instance..start();
+    // Binding hook order for one frame, with a decode between frames and a
+    // feed commit inside the frame.
+    probe.measure('json 180KB', () {});
+    probe
+      ..beginUiFrame()
+      ..timePhase(UiPhase.animate, () {})
+      ..timePhase(UiPhase.frame, () {
+        probe.timePhase(UiPhase.draw, () {
+          probe.timePhase(UiPhase.layout, () {});
+          probe.measure('feed commit 30', () {});
+          probe.mark('img 540x810');
+        });
+      })
+      ..endUiFrame(7)
+      ..stop();
+    probe.debugRecordTimings([
+      FrameTiming(
+        vsyncStart: 0,
+        buildStart: 30000,
+        buildFinish: 31000,
+        rasterStart: 32000,
+        rasterFinish: 33000,
+        rasterFinishWallTime: 33000,
+        frameNumber: 7,
+      ),
+      // No hook record for this frame: totals only, no phase bracket.
+      FrameTiming(
+        vsyncStart: 40000,
+        buildStart: 40000,
+        buildFinish: 41000,
+        rasterStart: 41000,
+        rasterFinish: 42000,
+        rasterFinishWallTime: 42000,
+        frameNumber: 8,
+      ),
+    ]);
+
+    final report = probe.report();
+    expect(report, contains('late start (wait > budget): 1'));
+    expect(report, contains('semantics: off'));
+    expect(
+      report,
+      matches(
+        RegExp(
+          r'  33\.0 = wait 30\.0 \+ ui 1\.0 '
+          r'\[anim [\d.]+ build [\d.]+ layout [\d.]+ paint 0\.0 sem 0\.0 '
+          r'post [\d.]+\] \+ queue 1\.0 \+ raster 1\.0 '
+          r'\| before: json 180KB [\d.]+ '
+          r'\| during: feed commit 30 [\d.]+, img 540x810\n',
+        ),
+      ),
+    );
+    expect(
+      report,
+      contains('  2.0 = wait 0.0 + ui 1.0 + queue 0.0 + raster 1.0\n'),
+    );
+  }, semanticsEnabled: false);
+
+  testWidgets('frame budget and intervals follow the panel refresh rate', (
+    tester,
+  ) async {
+    tester.view.display.refreshRate = 120;
+    addTearDown(tester.view.display.resetRefreshRate);
+    final probe = FrameProbe.instance;
+    probe.debugRecordTimings([
+      _timed(vsync: 0, build: 4000, raster: 5000),
+      // 9ms build: fine at 60Hz, a missed vsync at 120Hz.
+      _timed(vsync: 8333, build: 9000, raster: 3000),
+      _timed(vsync: 16666, build: 3000, raster: 3000),
+      // One vsync skipped, and a raster stage over two budgets.
+      _timed(vsync: 33333, build: 3000, raster: 18000),
+      // Nearly a second later: idle, not a stall.
+      _timed(vsync: 1000000, build: 2000, raster: 2000),
+    ]);
+
+    final report = probe.report();
+    expect(report, contains('display: 120Hz, frame budget 8.3ms'));
+    expect(report, contains('over budget: 2 (40.0%)  >2x budget: 1'));
+    expect(report, contains('interval: p50 8.333ms'));
+    expect(report, contains('max 16.667ms'));
+    expect(report, isNot(contains('966.667ms')));
+
+    tester.view.display.refreshRate = 0;
+    expect(
+      probe.report(),
+      contains('display: 60Hz (not reported, assumed), frame budget 16.7ms'),
+    );
   });
 
   testWidgets('frame probe keeps recording across page exit and re-entry', (

@@ -45,6 +45,12 @@ class _RankingPageState extends State<RankingPage>
   late final TabController _tabController;
   final _scrollControllers = <RankingMode, ScrollController>{};
   final _loadedModes = <int>{};
+
+  /// One body instance per mode, reused across page builds: an identical
+  /// widget short-circuits the element update, so the tab hop, route echo
+  /// and drag warm-up that rebuild this page mid-swipe no longer rebuild
+  /// every loaded feed (and its visible cards) inside the swipe frame.
+  final _bodies = <RankingMode, Widget>{};
   int _selectedIndex = 0;
   ReTapChannel? _reTapChannel;
 
@@ -94,6 +100,15 @@ class _RankingPageState extends State<RankingPage>
 
   ScrollController _scrollControllerFor(RankingMode mode) {
     return _scrollControllers.putIfAbsent(mode, ScrollController.new);
+  }
+
+  /// Every drag start lands here; only a first visit to a neighbour needs
+  /// a rebuild.
+  void _prepareAdjacent(int index) {
+    final last = RankingMode.values.length - 1;
+    final neighbours = {(index - 1).clamp(0, last), (index + 1).clamp(0, last)};
+    if (_loadedModes.containsAll(neighbours)) return;
+    setState(() => _loadedModes.addAll(neighbours));
   }
 
   /// Branch-level re-tap (bottom bar same-destination tap): the channel
@@ -159,20 +174,19 @@ class _RankingPageState extends State<RankingPage>
         tabController: _tabController,
         // Warm the neighbor slots before a drag uncovers them — the strip
         // slide shows real feeds instead of blank placeholders.
-        onPrepareAdjacent: (index) => setState(() {
-          _loadedModes
-            ..add((index - 1).clamp(0, RankingMode.values.length - 1))
-            ..add((index + 1).clamp(0, RankingMode.values.length - 1));
-        }),
+        onPrepareAdjacent: _prepareAdjacent,
         child: TabSlideStack(
           controller: _tabController,
           children: [
-            for (var i = 0; i < RankingMode.values.length; i++)
+            for (final (i, mode) in RankingMode.values.indexed)
               if (_loadedModes.contains(i))
-                _RankingModeBody(
-                  key: ValueKey(RankingMode.values[i]),
-                  mode: RankingMode.values[i],
-                  scrollController: _scrollControllerFor(RankingMode.values[i]),
+                _bodies.putIfAbsent(
+                  mode,
+                  () => _RankingModeBody(
+                    key: ValueKey(mode),
+                    mode: mode,
+                    scrollController: _scrollControllerFor(mode),
+                  ),
                 )
               else
                 const SizedBox.shrink(),

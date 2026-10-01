@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kPressTimeout;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -40,6 +41,27 @@ AnimatedScale _animatedScale(WidgetTester tester) {
       matching: find.byType(AnimatedScale),
     ),
   );
+}
+
+/// Counts State creations — a re-inflated card mounts a second time.
+class _MountCounter extends StatefulWidget {
+  const _MountCounter({required this.onMount});
+
+  final VoidCallback onMount;
+
+  @override
+  State<_MountCounter> createState() => _MountCounterState();
+}
+
+class _MountCounterState extends State<_MountCounter> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onMount();
+  }
+
+  @override
+  Widget build(BuildContext context) => const Text('card');
 }
 
 void main() {
@@ -334,26 +356,66 @@ void main() {
       );
     });
 
-    testWidgets('a rebuilt item does not replay once its id is played', (
+    testWidgets('a remounted item does not replay once its id is played', (
       tester,
     ) async {
       final played = <int>{};
-      Widget item() => _wrap(
-        StaggeredEntrance(index: 0, id: 0, played: played, child: Text('card')),
+      Widget item(String mount) => _wrap(
+        StaggeredEntrance(
+          key: ValueKey(mount),
+          index: 0,
+          id: 0,
+          played: played,
+          child: Text('card'),
+        ),
       );
-      await tester.pumpWidget(item());
+      await tester.pumpWidget(item('first'));
       await tester.pumpAndSettle();
       expect(played, contains(0));
 
-      // The feed drops keep-alives: scrolling out and back rebuilds the
-      // widget — the played set must suppress a second entrance.
-      await tester.pumpWidget(item());
+      // The feed drops keep-alives: scrolling out and back mounts a fresh
+      // State — the played set must suppress a second entrance.
+      await tester.pumpWidget(item('second'));
       expect(
         find.descendant(
           of: find.byType(StaggeredEntrance),
           matching: find.byType(Opacity),
         ),
         findsNothing,
+      );
+    });
+
+    testWidgets('a finished entrance keeps the card subtree on rebuild', (
+      tester,
+    ) async {
+      var mounts = 0;
+      Widget item() => _wrap(
+        StaggeredEntrance(
+          index: 0,
+          id: 0,
+          played: <int>{},
+          child: _MountCounter(onMount: () => mounts++),
+        ),
+      );
+      await tester.pumpWidget(item());
+      await tester.pumpAndSettle();
+      expect(mounts, 1);
+
+      // A feed rebuild after the entrance settled: the card must be
+      // updated in place, not re-inflated, and must not replay.
+      await tester.pumpWidget(item());
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(mounts, 1);
+      expect(
+        tester
+            .widget<Opacity>(
+              find.descendant(
+                of: find.byType(StaggeredEntrance),
+                matching: find.byType(Opacity),
+              ),
+            )
+            .opacity,
+        1,
       );
     });
 
@@ -386,12 +448,17 @@ void main() {
           ),
         ),
       );
+      await tester.pump(const Duration(milliseconds: 16));
       expect(
-        find.descendant(
-          of: find.byType(StaggeredEntrance),
-          matching: find.byType(Opacity),
-        ),
-        findsNothing,
+        tester
+            .widget<Opacity>(
+              find.descendant(
+                of: find.byType(StaggeredEntrance),
+                matching: find.byType(Opacity),
+              ),
+            )
+            .opacity,
+        1,
       );
 
       // A genuinely new entity at a replayable position still animates —
@@ -455,29 +522,48 @@ void main() {
       expect(_animatedScale(tester).scale, 1.0);
     });
 
-    testWidgets('a scroll takeover releases the pressed scale', (tester) async {
-      await tester.pumpWidget(
-        _wrap(
-          ListView(
-            children: [
-              const PressScale(
-                // Opaque + tall: stays hit-testable and mounted after the
-                // drag scrolls it partway up the viewport.
-                child: ColoredBox(
-                  color: Colors.white,
-                  child: SizedBox(height: 100, child: Text('card content')),
-                ),
-              ),
-              for (var i = 0; i < 40; i++)
-                SizedBox(height: 60, child: Text('row $i')),
-            ],
+    Widget scrollingCard() => _wrap(
+      ListView(
+        children: [
+          const PressScale(
+            // Opaque + tall: stays hit-testable and mounted after the
+            // drag scrolls it partway up the viewport.
+            child: ColoredBox(
+              color: Colors.white,
+              child: SizedBox(height: 100, child: Text('card content')),
+            ),
           ),
-        ),
-      );
+          for (var i = 0; i < 40; i++)
+            SizedBox(height: 60, child: Text('row $i')),
+        ],
+      ),
+    );
+
+    testWidgets('inside a scrollable a swipe never shows the press', (
+      tester,
+    ) async {
+      await tester.pumpWidget(scrollingCard());
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(PressScale)),
       );
-      await tester.pump();
+      await tester.pump(kPressTimeout ~/ 2);
+      expect(_animatedScale(tester).scale, 1.0);
+
+      // The drag claims the pointer before the deadline: the pending press
+      // is dropped, not shown late.
+      await gesture.moveBy(const Offset(0, -80));
+      await tester.pump(kPressTimeout);
+      expect(_animatedScale(tester).scale, 1.0);
+      await gesture.up();
+    });
+
+    testWidgets('a scroll takeover releases the pressed scale', (tester) async {
+      await tester.pumpWidget(scrollingCard());
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PressScale)),
+      );
+      // A held finger presses once the deadline passes.
+      await tester.pump(kPressTimeout);
       expect(_animatedScale(tester).scale, MotionTokens.pressScale);
 
       // The drag becomes a scroll: the ListView's recognizer wins the

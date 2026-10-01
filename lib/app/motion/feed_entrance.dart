@@ -68,6 +68,13 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   late final AnimationController _controller = AnimationController(vsync: this);
   var _done = false;
+
+  /// Latched once [build] has returned the animation wrapper. Dropping the
+  /// wrapper after the entrance finishes would change the subtree shape,
+  /// and the next parent rebuild would re-inflate the whole card (its
+  /// image state included) — on device every feed rebuild did that to
+  /// every played card in layout.
+  var _wrapped = false;
   ScrollableState? _scrollable;
 
   /// Scroll offset captured when the position listener attached. A card
@@ -260,7 +267,10 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   @override
   Widget build(BuildContext context) {
-    if (_done) return widget.child;
+    // Played before the first build (reduced motion, frozen tickers, an id
+    // already in [played]): the card never needs the wrapper.
+    if (_done && !_wrapped) return widget.child;
+    _wrapped = true;
     final total = _controller.duration!.inMicroseconds;
     final delayUs =
         (MotionTokens.listStaggerStep * _staggerIndex).inMicroseconds;

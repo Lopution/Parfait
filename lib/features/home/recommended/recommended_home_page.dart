@@ -65,6 +65,12 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
   final _loaded = <RecommendedContentType>{};
   final _scrollControllers = <RecommendedContentType, ScrollController>{};
   final _entrancePlayed = <RecommendedContentType, Set<int>>{};
+
+  /// One body instance per type, reused across page builds: an identical
+  /// widget short-circuits the element update, so the tab hop, route echo
+  /// and drag warm-up that rebuild this page mid-swipe no longer rebuild
+  /// every loaded feed (and its visible cards) inside the swipe frame.
+  final _bodies = <RecommendedContentType, Widget>{};
   bool _suppressRouteEcho = false;
   ReTapChannel? _reTapChannel;
 
@@ -154,6 +160,17 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
     return _scrollControllers.putIfAbsent(type, ScrollController.new);
   }
 
+  /// Every drag start lands here; only a first visit to a neighbour needs
+  /// a rebuild.
+  void _prepareAdjacent(int index) {
+    final neighbours = {
+      _types[(index - 1).clamp(0, _types.length - 1)],
+      _types[(index + 1).clamp(0, _types.length - 1)],
+    };
+    if (_loaded.containsAll(neighbours)) return;
+    setState(() => _loaded.addAll(neighbours));
+  }
+
   @override
   Widget build(BuildContext context) {
     // Same chrome as Ranking/New/Search: AppBar with an embedded TabBar.
@@ -184,21 +201,20 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
         tabController: _tabController,
         // A neighbor the finger is about to uncover has to exist before
         // the slide starts — same offscreen-page warmup ViewPager does.
-        onPrepareAdjacent: (index) => setState(() {
-          _loaded
-            ..add(_types[(index - 1).clamp(0, _types.length - 1)])
-            ..add(_types[(index + 1).clamp(0, _types.length - 1)]);
-        }),
+        onPrepareAdjacent: _prepareAdjacent,
         child: TabSlideStack(
           controller: _tabController,
           children: [
             for (final type in _types)
               if (_loaded.contains(type))
-                _RecommendedFeedView(
-                  key: ValueKey(type),
-                  type: type,
-                  scrollController: _scrollControllerFor(type),
-                  entrancePlayed: _entrancePlayed.putIfAbsent(type, () => {}),
+                _bodies.putIfAbsent(
+                  type,
+                  () => _RecommendedFeedView(
+                    key: ValueKey(type),
+                    type: type,
+                    scrollController: _scrollControllerFor(type),
+                    entrancePlayed: _entrancePlayed.putIfAbsent(type, () => {}),
+                  ),
                 )
               else
                 const SizedBox.shrink(),

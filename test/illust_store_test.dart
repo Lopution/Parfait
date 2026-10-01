@@ -139,7 +139,7 @@ void main() {
     test('bookmark fields stay under BookmarkStore for feed and detail', () {
       final store = IllustStore();
       store.bindBookmarks(
-        observeRemote: (id, bookmarked, restrict, snapshotRevision) {},
+        observeRemote: (snapshots, snapshotRevision) {},
         authorityOf: (id) => true,
         revisionNow: () => 1,
       );

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart' show PipelineOwner;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rhttp/rhttp.dart' as rhttp;
 
 import 'app/app.dart';
+import 'core/debug/frame_probe.dart';
 import 'core/logging/crash_log.dart';
 import 'core/network/rhttp_gate.dart';
 import 'core/widget/widget_background.dart';
@@ -56,6 +58,29 @@ class _PixivFuncBinding extends WidgetsFlutterBinding {
     if (lifecycle == null || lifecycle == AppLifecycleState.resumed) {
       imageCache.clear();
     }
+  }
+
+  // Frame-probe hooks: split each frame's UI-thread time by phase while the
+  // probe records. When it does not, each hook is a plain super call.
+  @override
+  PipelineOwner createRootPipelineOwner() => ProbedRootPipelineOwner();
+
+  @override
+  void handleBeginFrame(Duration? rawTimeStamp) {
+    FrameProbe.instance
+      ..beginUiFrame()
+      ..timePhase(UiPhase.animate, () => super.handleBeginFrame(rawTimeStamp));
+  }
+
+  @override
+  void drawFrame() =>
+      FrameProbe.instance.timePhase(UiPhase.draw, () => super.drawFrame());
+
+  @override
+  void handleDrawFrame() {
+    FrameProbe.instance
+      ..timePhase(UiPhase.frame, () => super.handleDrawFrame())
+      ..endUiFrame(platformDispatcher.frameData.frameNumber);
   }
 }
 

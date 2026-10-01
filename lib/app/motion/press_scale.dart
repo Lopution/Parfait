@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
@@ -17,6 +19,12 @@ import 'motion_tokens.dart';
 /// takeover is detected here instead: once the drag delta along an ancestor
 /// Scrollable's axis passes [kTouchSlop], that scrollable has claimed the
 /// gesture and the press releases.
+///
+/// Inside a Scrollable the press itself still waits [kPressTimeout]: most
+/// touches there are swipes that cross the slop within it, and pressing at
+/// once would run a scale-down and a release across the card under the
+/// finger on every swipe start. A tap shorter than the deadline shows no
+/// scale; the tap's own feedback (ink, route push) covers it.
 ///
 /// [TickerMode] frozen (a route transition owns the ticker budget): render
 /// the neutral scale. A press scale left armed would bake a mid-release
@@ -49,6 +57,7 @@ class PressScale extends StatefulWidget {
 class _PressScaleState extends State<PressScale> {
   var _pressed = false;
   Offset? _downPosition;
+  Timer? _pressDelay;
   bool _insideVerticalScrollable = false;
   bool _insideHorizontalScrollable = false;
 
@@ -61,6 +70,24 @@ class _PressScaleState extends State<PressScale> {
         Scrollable.maybeOf(context, axis: Axis.horizontal) != null;
   }
 
+  @override
+  void didUpdateWidget(PressScale oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A disabled wrapper drops its Listener: the pointer up never arrives,
+    // so a pending delay or a held press would otherwise outlive it.
+    if (!widget.enabled) {
+      _pressDelay?.cancel();
+      _downPosition = null;
+      _pressed = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pressDelay?.cancel();
+    super.dispose();
+  }
+
   void _setPressed(bool value) {
     if (_pressed == value) return;
     setState(() => _pressed = value);
@@ -68,12 +95,17 @@ class _PressScaleState extends State<PressScale> {
 
   void _onPointerDown(PointerDownEvent event) {
     _downPosition = event.position;
-    _setPressed(true);
+    if (!_insideVerticalScrollable && !_insideHorizontalScrollable) {
+      _setPressed(true);
+      return;
+    }
+    _pressDelay?.cancel();
+    _pressDelay = Timer(kPressTimeout, () => _setPressed(true));
   }
 
   void _onPointerMove(PointerMoveEvent event) {
     final origin = _downPosition;
-    if (!_pressed || origin == null) return;
+    if (origin == null) return;
     final delta = event.position - origin;
     // The pointer keeps streaming to this Listener after a Scrollable's
     // drag recognizer wins the arena — the claim itself is what matters,
@@ -81,12 +113,14 @@ class _PressScaleState extends State<PressScale> {
     // crosses the same slop the recognizer uses.
     if ((delta.dy.abs() > kTouchSlop && _insideVerticalScrollable) ||
         (delta.dx.abs() > kTouchSlop && _insideHorizontalScrollable)) {
-      _downPosition = null;
-      _setPressed(false);
+      _release();
     }
   }
 
-  void _onPointerEnd(PointerEvent event) {
+  void _onPointerEnd(PointerEvent event) => _release();
+
+  void _release() {
+    _pressDelay?.cancel();
     _downPosition = null;
     _setPressed(false);
   }

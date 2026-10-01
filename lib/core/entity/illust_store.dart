@@ -29,9 +29,7 @@ class IllustStore {
   final Map<int, IllustEntity> _entities = {};
 
   void Function(
-    int id,
-    bool? bookmarked,
-    BookmarkRestrict? restrict,
+    Iterable<(int id, bool bookmarked)> snapshots,
     int? snapshotRevision,
   )?
   _observeRemote;
@@ -42,17 +40,16 @@ class IllustStore {
 
   /// Binds the canonical BookmarkStore (wired once in illustStoreProvider).
   /// Callbacks keep the two stores decoupled without import cycles:
-  /// - [observeRemote] forwards remote snapshots with their fetch-time
-  ///   revision so the BookmarkStore can apply its own staleness gates.
+  /// - [observeRemote] forwards a merge's remote snapshots, as one batch,
+  ///   with their fetch-time revision so the BookmarkStore can apply its
+  ///   own staleness gates.
   /// - [authorityOf] lets merges use the locally confirmed value as the
   ///   authoritative `isBookmarked` (BookmarkStore owns mutations, R2).
   /// - [revisionNow] exposes the revision to fetch sites.
   /// - [onConfirmedSync] mirrors confirmed changes back into entity payloads.
   void bindBookmarks({
     required void Function(
-      int id,
-      bool? bookmarked,
-      BookmarkRestrict? restrict,
+      Iterable<(int id, bool bookmarked)> snapshots,
       int? snapshotRevision,
     )
     observeRemote,
@@ -92,16 +89,14 @@ class IllustStore {
     EntityMergeSource source = EntityMergeSource.feed,
     int? bookmarkSnapshotRevision,
   }) {
-    for (final entity in incoming) {
-      // Forward the remote snapshot before anything else so the bound
-      // BookmarkStore can gate it; the authority read below then reflects
-      // the post-gate value.
-      _observeRemote?.call(
-        entity.id,
-        entity.isBookmarked,
-        null,
-        bookmarkSnapshotRevision,
-      );
+    final entities = incoming.toList(growable: false);
+    // Forward the remote snapshots before anything else so the bound
+    // BookmarkStore can gate them; the authority reads below then reflect
+    // the post-gate values.
+    _observeRemote?.call([
+      for (final entity in entities) (entity.id, entity.isBookmarked),
+    ], bookmarkSnapshotRevision);
+    for (final entity in entities) {
       final bookmarkAuthority = _authorityOf?.call(entity.id);
       final existing = _entities[entity.id];
       if (existing == null || existing == entity) {
@@ -168,13 +163,14 @@ final illustStoreProvider = Provider<IllustStore>((ref) {
   final store = IllustStore();
   final bookmarks = ref.watch(bookmarkStoreProvider.notifier);
   store.bindBookmarks(
-    observeRemote: (id, bookmarked, restrict, snapshotRevision) =>
-        bookmarks.observeRemote(
-          BookmarkKey(BookmarkEntityType.illust, id),
+    observeRemote: (snapshots, snapshotRevision) => bookmarks.observeRemoteAll([
+      for (final (id, bookmarked) in snapshots)
+        (
+          key: BookmarkKey(BookmarkEntityType.illust, id),
           bookmarked: bookmarked,
-          restrict: restrict,
-          snapshotRevision: snapshotRevision,
+          restrict: null,
         ),
+    ], snapshotRevision: snapshotRevision),
     authorityOf: (id) => bookmarks
         .entryOf(BookmarkKey(BookmarkEntityType.illust, id))
         ?.bookmarked,

@@ -6,6 +6,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,7 @@ import '../auth/credential.dart';
 import '../auth/credential_store.dart';
 import '../auth/oauth_service.dart';
 import '../auth/token_refresh_gate.dart';
+import '../debug/frame_probe.dart';
 import '../settings/settings_controller.dart';
 import 'api_error.dart';
 import 'compat/network_contracts.dart';
@@ -43,6 +45,31 @@ class CancelToken implements NetworkCancelSignal {
     if (!_cancelled.isCompleted) _cancelled.complete();
   }
 }
+
+/// Response bodies from this size up decode off the UI isolate. On device a
+/// 97KB feed page held the UI thread 4.3ms and a 290KB related-works page
+/// 9.5ms — landing mid-swipe or mid-fling, that is one or two dropped
+/// 120Hz frames. PixEz and Pixes get the same split from Dio's default
+/// `BackgroundTransformer` (50KB); measured 66KB already costs 1.9ms here.
+const backgroundJsonThreshold = 32 * 1024;
+
+/// Decodes a UTF-8 JSON response body: inline below
+/// [backgroundJsonThreshold], on a short-lived isolate above it. The decoded
+/// graph moves back without a copy.
+///
+/// Deliberately not `async`: a closure created inside an async body can
+/// capture its suspend state, which the isolate message cannot carry.
+Future<Object?> decodeJsonBody(Uint8List bytes) {
+  final label = 'json ${bytes.length ~/ 1024}KB';
+  if (bytes.length < backgroundJsonThreshold) {
+    return Future.sync(
+      () => FrameProbe.instance.measure(label, () => _decodeJson(bytes)),
+    );
+  }
+  return Isolate.run(() => _decodeJson(bytes), debugName: label);
+}
+
+Object? _decodeJson(Uint8List bytes) => jsonDecode(utf8.decode(bytes));
 
 /// Strict, cancellable Pixiv App API client shared by all features.
 ///
@@ -88,7 +115,7 @@ class PixivHttpClient {
   }) async {
     final response = await get(uri, cancelToken: cancelToken);
     try {
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      final decoded = await decodeJsonBody(response.bodyBytes);
       if (decoded is! Map<String, dynamic>) {
         throw const FormatException('response is not a JSON object');
       }

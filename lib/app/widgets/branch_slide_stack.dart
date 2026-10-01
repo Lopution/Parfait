@@ -418,6 +418,11 @@ class _BranchSlideStackState extends State<BranchSlideStack>
   }
 
   void _setNavHidden(bool hidden) {
+    // Already heading there. A scroll asks again every few pixels, and a
+    // re-issued reverse()/forward() restarts the ticker: restarted from a
+    // pointer move its next tick reads zero elapsed, so a drag moving past
+    // the slop every frame held the bar still until the finger lifted.
+    if (_navVisibility.status.isForwardOrCompleted != hidden) return;
     if (MotionTokens.enabled(context)) {
       if (hidden) {
         _navVisibility.reverse();
