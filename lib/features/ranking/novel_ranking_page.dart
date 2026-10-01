@@ -44,6 +44,12 @@ class _NovelRankingPageState extends State<NovelRankingPage>
   final _scrollControllers = <NovelRankingMode, ScrollController>{};
   final _entrancePlayed = <int>{};
   final _loadedModes = <int>{};
+
+  /// One body instance per mode, reused across page builds: an identical
+  /// widget short-circuits the element update, so the tab hop, route echo
+  /// and drag warm-up that rebuild this page mid-swipe no longer rebuild
+  /// every loaded feed (and its visible entries) inside the swipe frame.
+  final _bodies = <NovelRankingMode, Widget>{};
   int _selectedIndex = 0;
   bool _suppressRouteEcho = false;
 
@@ -107,6 +113,15 @@ class _NovelRankingPageState extends State<NovelRankingPage>
     return _scrollControllers.putIfAbsent(mode, ScrollController.new);
   }
 
+  /// Every drag start lands here; only a first visit to a neighbour needs
+  /// a rebuild.
+  void _prepareAdjacent(int index) {
+    final last = NovelRankingMode.values.length - 1;
+    final neighbours = {(index - 1).clamp(0, last), (index + 1).clamp(0, last)};
+    if (_loadedModes.containsAll(neighbours)) return;
+    setState(() => _loadedModes.addAll(neighbours));
+  }
+
   @override
   Widget build(BuildContext context) {
     final language = ReplicaLanguage.fromTag(
@@ -137,23 +152,20 @@ class _NovelRankingPageState extends State<NovelRankingPage>
       body: RootSwipeSwitcher(
         tabController: _tabController,
         // Warm the neighbor slots before a drag uncovers them.
-        onPrepareAdjacent: (index) => setState(() {
-          _loadedModes
-            ..add((index - 1).clamp(0, NovelRankingMode.values.length - 1))
-            ..add((index + 1).clamp(0, NovelRankingMode.values.length - 1));
-        }),
+        onPrepareAdjacent: _prepareAdjacent,
         child: TabSlideStack(
           controller: _tabController,
           children: [
-            for (var i = 0; i < NovelRankingMode.values.length; i++)
+            for (final (i, mode) in NovelRankingMode.values.indexed)
               if (_loadedModes.contains(i))
-                _NovelRankingModeBody(
-                  key: ValueKey(NovelRankingMode.values[i]),
-                  mode: NovelRankingMode.values[i],
-                  scrollController: _scrollControllerFor(
-                    NovelRankingMode.values[i],
+                _bodies.putIfAbsent(
+                  mode,
+                  () => _NovelRankingModeBody(
+                    key: ValueKey(mode),
+                    mode: mode,
+                    scrollController: _scrollControllerFor(mode),
+                    entrancePlayed: _entrancePlayed,
                   ),
-                  entrancePlayed: _entrancePlayed,
                 )
               else
                 const SizedBox.shrink(),
