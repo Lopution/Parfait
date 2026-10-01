@@ -62,6 +62,10 @@ lib/
   `windows/runner/resources/app_icon.ico`、`.github/branding/*.png`（仓库主页与宣传用，不进 APK，
   所以不能放在按目录打包的 `assets/` 下）。改图标就改生成器常量后重跑，改完用
   `--check` 确认入库产物与生成器一致；`mipmap-anydpi/ic_launcher.xml` 与背景色是手写资源。
+- **README 图片是生成产物**：`.github/readme/`（机模截图、首屏横幅 `banner.webp`、社交预览
+  `social-preview.jpg`）由 `tool/build_readme_assets.py` 从仓库外的真机截图原图生成，不要手改。
+  机模与 CJK 字体按锁定的 commit 下载并校验 SHA-256；换截图或调横幅就换原图、改生成器常量后
+  重跑。机模（Apache-2.0）的署名在 `NOTICE`，换素材时同步更新。
 
 ## Cross-Feature Shared Widget Contract
 
