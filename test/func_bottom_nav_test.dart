@@ -298,6 +298,25 @@ void main() {
     expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
   });
 
+  testWidgets('a continuous drag slides the bar out under the finger', (
+    tester,
+  ) async {
+    await _pumpHome(tester);
+    final nav = find.byType(FuncBottomNav);
+
+    // Every frame's move crosses the slop and asks for the hide again; the
+    // slide must keep its own clock instead of restarting on each ask.
+    final gesture = await tester.startGesture(tester.getCenter(_settingsList));
+    await gesture.moveBy(const Offset(0, -20));
+    for (var i = 0; i < 15; i++) {
+      await gesture.moveBy(const Offset(0, -12));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('edge bounce never toggles the bar', (tester) async {
     await _pumpHome(tester);
     final nav = find.byType(FuncBottomNav);
