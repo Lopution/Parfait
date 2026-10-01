@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,8 +51,11 @@ class IllustPagerSource extends ChangeNotifier {
   /// leave it null and the pager stops at the last work.
   VoidCallback? onNearEnd;
 
+  /// Grids publish a fresh list on every rebuild — a load-more phase flip
+  /// included — so only a changed order notifies: each notify re-seats the
+  /// open pager.
   void update(List<int> ids) {
-    if (identical(ids, _ids)) return;
+    if (identical(ids, _ids) || listEquals(ids, _ids)) return;
     _ids = List.unmodifiable(ids);
     notifyListeners();
   }
@@ -344,6 +348,20 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
   /// route's, not the widget's.
   final _pagerSource = IllustPagerSource();
 
+  /// Advanced only when a card mounts. Every feed state change rebuilds
+  /// the grid and re-runs the builder over all built cards; a cursor fed
+  /// by those walks queued a prefetch window per built card each time.
+  final _prefetchCursor = FeedPrefetchCursor();
+
+  void _prefetchPast(BuildContext context, int index, int decodeWidth) {
+    final entities = widget.prefetchEntities;
+    if (entities == null) return;
+    final from = _prefetchCursor.advance(index, ahead: _kFeedPrefetchAhead);
+    if (from != null) {
+      scheduleFeedPreviewPrefetch(context, entities, from, decodeWidth);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -371,7 +389,6 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
     // width change still creates a new grid and recalculates the columns.
     double? cachedCrossAxisExtent;
     Widget? cachedGrid;
-    final prefetchCursor = FeedPrefetchCursor();
     return SliverLayoutBuilder(
       builder: (context, constraints) {
         final crossAxisExtent = constraints.crossAxisExtent;
@@ -398,33 +415,23 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
             // wrapper only adds elements and notifications to every card.
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final prefetch = widget.prefetchEntities;
-                if (prefetch != null) {
-                  final from = prefetchCursor.advance(
-                    index,
-                    ahead: _kFeedPrefetchAhead,
-                  );
-                  if (from != null) {
-                    scheduleFeedPreviewPrefetch(
-                      context,
-                      prefetch,
-                      from,
-                      decodeWidth,
-                    );
-                  }
-                }
                 final ids = widget.itemIds;
                 final id = ids != null && index < ids.length
                     ? ids[index]
                     : index;
                 return FeedItemExtent(
                   width: columnWidth,
-                  child: StaggeredEntrance(
+                  // Keyed by work: a slot taking a different work mounts
+                  // afresh, which is what advances the prefetch.
+                  child: _OnMount(
                     key: ValueKey(id),
-                    index: index,
-                    id: id,
-                    played: _entrancePlayed,
-                    child: widget.itemBuilder(context, index),
+                    onMount: () => _prefetchPast(context, index, decodeWidth),
+                    child: StaggeredEntrance(
+                      index: index,
+                      id: id,
+                      played: _entrancePlayed,
+                      child: widget.itemBuilder(context, index),
+                    ),
                   ),
                 );
               },
@@ -453,4 +460,27 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
       },
     );
   }
+}
+
+/// Calls [onMount] once, when its element is created — never on the
+/// rebuilds that follow.
+class _OnMount extends StatefulWidget {
+  const _OnMount({super.key, required this.onMount, required this.child});
+
+  final VoidCallback onMount;
+  final Widget child;
+
+  @override
+  State<_OnMount> createState() => _OnMountState();
+}
+
+class _OnMountState extends State<_OnMount> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onMount();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
