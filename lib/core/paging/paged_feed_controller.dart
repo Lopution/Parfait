@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
+import '../debug/frame_probe.dart';
 import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
 import '../network/api_error.dart';
@@ -513,22 +514,11 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     try {
       final page = await fetchRelevantPage(context);
       final nextCursor = _validateCursor(page.nextCursor, context);
-      if (!_commitPage(context, page)) {
-        _restoreLoadMorePhaseIfCurrent(context);
-        return;
-      }
-      _recordCursor(nextCursor);
-      _nextCursor = nextCursor;
-      _page = context.page;
-      final merged = _dedupe(page.ids, current.ids);
-      state = AsyncData(
-        PagedFeedState(
-          ids: merged,
-          initialPhase: FeedPhase.idle,
-          loadMorePhase: FeedPhase.idle,
-          exhausted: _nextCursor == null,
-        ),
+      final committed = FrameProbe.instance.measure(
+        'feed commit ${page.ids.length}',
+        () => _commitLoadMore(context, page, current, nextCursor),
       );
+      if (!committed) _restoreLoadMorePhaseIfCurrent(context);
     } on ApiCancelled {
       if (_isContextActive(context)) {
         _commitGate.discard(
@@ -611,6 +601,29 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       disposed: _disposed,
       action: () => page.commit?.call(context),
     );
+  }
+
+  /// Commits a fetched next page and publishes the merged list; false when
+  /// the commit gate rejected the page.
+  bool _commitLoadMore(
+    FeedRequestContext context,
+    FeedPage page,
+    PagedFeedState current,
+    String? nextCursor,
+  ) {
+    if (!_commitPage(context, page)) return false;
+    _recordCursor(nextCursor);
+    _nextCursor = nextCursor;
+    _page = context.page;
+    state = AsyncData(
+      PagedFeedState(
+        ids: _dedupe(page.ids, current.ids),
+        initialPhase: FeedPhase.idle,
+        loadMorePhase: FeedPhase.idle,
+        exhausted: _nextCursor == null,
+      ),
+    );
+    return true;
   }
 
   bool _isContextActive(FeedRequestContext context) {

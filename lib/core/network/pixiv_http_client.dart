@@ -17,6 +17,7 @@ import '../auth/credential.dart';
 import '../auth/credential_store.dart';
 import '../auth/oauth_service.dart';
 import '../auth/token_refresh_gate.dart';
+import '../debug/frame_probe.dart';
 import '../settings/settings_controller.dart';
 import 'api_error.dart';
 import 'compat/network_contracts.dart';
@@ -88,7 +89,11 @@ class PixivHttpClient {
   }) async {
     final response = await get(uri, cancelToken: cancelToken);
     try {
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      final bytes = response.bodyBytes;
+      final decoded = FrameProbe.instance.measure(
+        'json ${bytes.length ~/ 1024}KB',
+        () => jsonDecode(utf8.decode(bytes)),
+      );
       if (decoded is! Map<String, dynamic>) {
         throw const FormatException('response is not a JSON object');
       }
