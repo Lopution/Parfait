@@ -16,6 +16,19 @@ FrameTiming _frame(int spanMicros) => FrameTiming(
   rasterFinishWallTime: spanMicros,
 );
 
+FrameTiming _timed({
+  required int vsync,
+  required int build,
+  required int raster,
+}) => FrameTiming(
+  vsyncStart: vsync,
+  buildStart: vsync,
+  buildFinish: vsync + build,
+  rasterStart: vsync + build,
+  rasterFinish: vsync + build + raster,
+  rasterFinishWallTime: vsync + build + raster,
+);
+
 void main() {
   test('PIXIV_FRAME_PROBE stays unset in a default build', () {
     // The release exception is opt-in: a build without the dart-define —
@@ -47,6 +60,37 @@ void main() {
     expect(report, contains('frames: ${FrameProbe.maxFrames}'));
     expect(report, contains('worst: total 8.0ms'));
     expect(report, isNot(contains('500.0ms')));
+  });
+
+  testWidgets('frame budget and intervals follow the panel refresh rate', (
+    tester,
+  ) async {
+    tester.view.display.refreshRate = 120;
+    addTearDown(tester.view.display.resetRefreshRate);
+    final probe = FrameProbe.instance;
+    probe.debugRecordTimings([
+      _timed(vsync: 0, build: 4000, raster: 5000),
+      // 9ms build: fine at 60Hz, a missed vsync at 120Hz.
+      _timed(vsync: 8333, build: 9000, raster: 3000),
+      _timed(vsync: 16666, build: 3000, raster: 3000),
+      // One vsync skipped, and a raster stage over two budgets.
+      _timed(vsync: 33333, build: 3000, raster: 18000),
+      // Nearly a second later: idle, not a stall.
+      _timed(vsync: 1000000, build: 2000, raster: 2000),
+    ]);
+
+    final report = probe.report();
+    expect(report, contains('display: 120Hz, frame budget 8.3ms'));
+    expect(report, contains('over budget: 2 (40.0%)  >2x budget: 1'));
+    expect(report, contains('interval: p50 8.333ms'));
+    expect(report, contains('max 16.667ms'));
+    expect(report, isNot(contains('966.667ms')));
+
+    tester.view.display.refreshRate = 0;
+    expect(
+      probe.report(),
+      contains('display: 60Hz (not reported, assumed), frame budget 16.7ms'),
+    );
   });
 
   testWidgets('frame probe keeps recording across page exit and re-entry', (
