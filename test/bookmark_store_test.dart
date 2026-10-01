@@ -177,6 +177,65 @@ void main() {
         reason: 'the pending op owns the truth until it settles',
       );
     });
+
+    test('a page of snapshots lands as one write, a repeat as none', () {
+      // A feed page merges ~30 works: one map write per work copied the
+      // whole store and woke every bookmark listener 30 times on the frame
+      // the page landed.
+      var writes = 0;
+      container.listen(
+        bookmarkStoreProvider,
+        (_, _) => writes++,
+        fireImmediately: false,
+      );
+      final page = <BookmarkSnapshot>[
+        for (var id = 100; id < 130; id++)
+          (
+            key: BookmarkKey(BookmarkEntityType.illust, id),
+            bookmarked: id.isEven,
+            restrict: null,
+          ),
+      ];
+
+      store().observeRemoteAll(page, snapshotRevision: 0);
+      expect(writes, 1);
+      expect(
+        store()
+            .entryOf(const BookmarkKey(BookmarkEntityType.illust, 101))!
+            .bookmarked,
+        isFalse,
+      );
+      expect(
+        store()
+            .entryOf(const BookmarkKey(BookmarkEntityType.illust, 102))!
+            .bookmarked,
+        isTrue,
+      );
+
+      store().observeRemoteAll(page, snapshotRevision: 0);
+      expect(writes, 1, reason: 'an unchanged page must not notify');
+    });
+
+    test('a batch still gates each snapshot on its own entry', () {
+      const pending = BookmarkKey(BookmarkEntityType.illust, 140);
+      const confirmed = BookmarkKey(BookmarkEntityType.illust, 141);
+      const fresh = BookmarkKey(BookmarkEntityType.illust, 142);
+      final s = store();
+      s.beginAdd(pending, BookmarkRestrict.public);
+      s.commit(s.beginAdd(confirmed, BookmarkRestrict.public)!);
+      final staleRevision = s.revisionNow() - 1;
+
+      s.observeRemoteAll([
+        (key: pending, bookmarked: true, restrict: null),
+        (key: confirmed, bookmarked: false, restrict: null),
+        (key: fresh, bookmarked: true, restrict: null),
+      ], snapshotRevision: staleRevision);
+
+      expect(s.entryOf(pending)!.isPending, isTrue);
+      expect(s.entryOf(pending)!.bookmarked, isFalse);
+      expect(s.entryOf(confirmed)!.bookmarked, isTrue);
+      expect(s.entryOf(fresh)!.bookmarked, isTrue);
+    });
   });
 
   group('BookmarkStore account scoping (R8)', () {

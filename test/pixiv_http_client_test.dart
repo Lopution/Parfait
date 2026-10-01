@@ -622,6 +622,52 @@ void main() {
     );
   });
 
+  test(
+    'bodies past the threshold decode off the UI isolate unchanged',
+    () async {
+      final (container, _, _, _) = await _makeWorld();
+      addTearDown(container.dispose);
+      PixivHttpClient clientReturning(String body) => PixivHttpClient(
+        client: MockClient(
+          (request) async => http.Response.bytes(utf8.encode(body), 200),
+        ),
+        accountStore: container.read(accountStoreProvider.notifier),
+        credentialStore: FakeCredentialStore(
+          values: const {
+            '100': Credential(
+              accessToken: 'old-access',
+              refreshToken: 'old-refresh',
+            ),
+          },
+        ),
+        oauthService: container.read(oauthServiceProvider),
+      );
+      final illusts = [
+        for (var i = 0; i < 1000; i++) {'id': i, 'title': '作品 $i' * 4},
+      ];
+      final body = jsonEncode({'illusts': illusts, 'next_url': null});
+      expect(utf8.encode(body).length, greaterThan(backgroundJsonThreshold));
+
+      final json = await clientReturning(body).getJson(Uri.parse(_api));
+      expect(json['illusts'], illusts);
+      expect(json.containsKey('next_url'), isTrue);
+
+      // A malformed large body keeps the parse-error contract across the
+      // isolate boundary.
+      await expectLater(
+        clientReturning(
+          '${body.substring(0, body.length - 1)},',
+        ).getJson(Uri.parse(_api)),
+        throwsA(isA<ApiParseError>()),
+      );
+      // So does a well-formed body that is not an object.
+      await expectLater(
+        clientReturning(jsonEncode(illusts)).getJson(Uri.parse(_api)),
+        throwsA(isA<ApiParseError>()),
+      );
+    },
+  );
+
   test('transport failures map to network errors and stay failures', () async {
     final (container, _, _, _) = await _makeWorld();
     addTearDown(container.dispose);

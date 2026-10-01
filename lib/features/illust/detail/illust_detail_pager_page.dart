@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -49,9 +50,11 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
 class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   late final PageController _controller;
 
-  /// The route's landing page — only it carries the feed card's hero
-  /// image url for the push flight.
+  /// The route's landing page. Its work alone carries the feed card's hero
+  /// image url for the push flight — matched by id, so a head insert that
+  /// shifts the indexes keeps the url on the same work.
   late final int _initialIndex;
+  late final int _initialId;
 
   /// The work the user is looking at. Tracked by id (not index) so a
   /// mid-paging list mutation can re-seat the viewport on the same work.
@@ -62,13 +65,22 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   late final ValueNotifier<int> _index;
   late int _currentId;
 
+  /// Pages allowed to build their detail subtree. The cache extent pulls
+  /// the page after next in on the first frame of a swipe; building a
+  /// whole detail page there was a 40ms+ swipe hitch on device, so a page
+  /// outside this window stays a bare surface until the scroll settles.
+  /// Neighbours join once the push transition is over, off its frames.
+  late final ValueNotifier<_ReadyWindow> _ready;
+
   @override
   void initState() {
     super.initState();
     final ids = widget.source.ids;
     _initialIndex = math.max(0, ids.indexOf(widget.initialIllustId));
     _index = ValueNotifier(_initialIndex);
+    _ready = ValueNotifier((center: _initialIndex, radius: 0));
     _currentId = ids.isEmpty ? widget.initialIllustId : ids[_initialIndex];
+    _initialId = _currentId;
     _controller = PageController(initialPage: _initialIndex);
     widget.source.addListener(_onSourceChanged);
   }
@@ -78,7 +90,24 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     widget.source.removeListener(_onSourceChanged);
     _controller.dispose();
     _index.dispose();
+    _ready.dispose();
     super.dispose();
+  }
+
+  void _readyAround(int center) {
+    _ready.value = (center: center, radius: _ready.value.radius);
+  }
+
+  void _readyNeighbours() {
+    _ready.value = (center: _ready.value.center, radius: 1);
+  }
+
+  bool _onScrollEnd(ScrollEndNotification notification) {
+    if (notification.depth == 0 && _controller.hasClients) {
+      final page = _controller.page;
+      if (page != null) _readyAround(page.round());
+    }
+    return false;
   }
 
   void _onPageChanged(int index) {
@@ -132,41 +161,210 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
       _index.value = newIndex;
       _controller.jumpToPage(_index.value);
     }
+    _readyAround(_index.value);
   }
 
   @override
   Widget build(BuildContext context) {
     final ids = widget.source.ids;
-    return PageView.builder(
-      controller: _controller,
-      // Build adjacent pages ahead of the swipe — their entities are
-      // already in IllustStore from the feed fetch, so the incoming page
-      // lands rendered instead of spinning up on first contact.
-      allowImplicitScrolling: true,
-      itemCount: ids.length,
-      onPageChanged: _onPageChanged,
-      // Adjacent pages build heroes with the same feed tag the grid cards
-      // carry — left enabled, all three would pair with feed cards and fly
-      // together on push/pop. Only the page under the finger owns a live
-      // hero; the rest ride HeroMode-disabled.
-      //
-      // The detail page is the builder's stable [child]: a page change
-      // only re-wraps it in a new HeroMode instead of running the whole
-      // detail build again.
-      itemBuilder: (context, index) => ValueListenableBuilder<int>(
-        valueListenable: _index,
-        child: IllustDetailPage(
-          key: ValueKey(ids[index]),
-          illustId: ids[index],
-          heroScope: widget.heroScope,
-          heroImageUrl: index == _initialIndex ? widget.heroImageUrl : null,
-          heroImageDecodeWidth: index == _initialIndex
-              ? widget.heroImageDecodeWidth
-              : null,
+    return _AfterRouteTransition(
+      onSettled: _readyNeighbours,
+      child: NotificationListener<ScrollEndNotification>(
+        onNotification: _onScrollEnd,
+        child: PageView.builder(
+          controller: _controller,
+          // Keep adjacent pages built ahead of the swipe — their entities
+          // are already in IllustStore from the feed fetch, so the
+          // incoming page lands rendered instead of spinning up on first
+          // contact. [_ready] decides which of them build a real detail.
+          allowImplicitScrolling: true,
+          itemCount: ids.length,
+          onPageChanged: _onPageChanged,
+          itemBuilder: (context, index) {
+            final landing = ids[index] == _initialId;
+            return _PagerSlot(
+              key: ValueKey(ids[index]),
+              index: index,
+              ready: _ready,
+              current: _index,
+              illustId: ids[index],
+              heroScope: widget.heroScope,
+              heroImageUrl: landing ? widget.heroImageUrl : null,
+              heroImageDecodeWidth: landing
+                  ? widget.heroImageDecodeWidth
+                  : null,
+            );
+          },
         ),
-        builder: (context, current, child) =>
-            HeroMode(enabled: index == current, child: child!),
       ),
     );
   }
+}
+
+/// Center page index and how many pages on each side of it may build.
+typedef _ReadyWindow = ({int center, int radius});
+
+/// One pager page: a bare surface until the page has been inside the
+/// ready window, the real detail from then on. Latched — a page that has
+/// built its detail keeps it for as long as the pager keeps the page.
+class _PagerSlot extends StatefulWidget {
+  const _PagerSlot({
+    super.key,
+    required this.index,
+    required this.ready,
+    required this.current,
+    required this.illustId,
+    required this.heroScope,
+    this.heroImageUrl,
+    this.heroImageDecodeWidth,
+  });
+
+  final int index;
+  final ValueListenable<_ReadyWindow> ready;
+
+  /// The committed page — only its hero is live.
+  final ValueListenable<int> current;
+
+  /// [IllustDetailPage] inputs.
+  final int illustId;
+  final String heroScope;
+  final String? heroImageUrl;
+  final int? heroImageDecodeWidth;
+
+  @override
+  State<_PagerSlot> createState() => _PagerSlotState();
+}
+
+class _PagerSlotState extends State<_PagerSlot> {
+  var _built = false;
+
+  /// Kept across slot updates while the inputs hold: a pager rebuild (a
+  /// feed page landing mid-paging) hands every slot a new widget, and a
+  /// new detail instance would rebuild each built page in full.
+  late IllustDetailPage _detail = _createDetail();
+
+  IllustDetailPage _createDetail() => IllustDetailPage(
+    illustId: widget.illustId,
+    heroScope: widget.heroScope,
+    heroImageUrl: widget.heroImageUrl,
+    heroImageDecodeWidth: widget.heroImageDecodeWidth,
+  );
+
+  bool get _inWindow {
+    final window = widget.ready.value;
+    return (widget.index - window.center).abs() <= window.radius;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _built = _inWindow;
+    if (!_built) widget.ready.addListener(_onReadyChanged);
+  }
+
+  @override
+  void didUpdateWidget(_PagerSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.illustId != oldWidget.illustId ||
+        widget.heroScope != oldWidget.heroScope ||
+        widget.heroImageUrl != oldWidget.heroImageUrl ||
+        widget.heroImageDecodeWidth != oldWidget.heroImageDecodeWidth) {
+      _detail = _createDetail();
+    }
+    // A feed rewrite can move this work to a new index.
+    if (!_built && _inWindow) _latch();
+  }
+
+  @override
+  void dispose() {
+    widget.ready.removeListener(_onReadyChanged);
+    super.dispose();
+  }
+
+  void _onReadyChanged() {
+    if (_inWindow) setState(_latch);
+  }
+
+  void _latch() {
+    widget.ready.removeListener(_onReadyChanged);
+    _built = true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_built) {
+      return ColoredBox(color: Theme.of(context).scaffoldBackgroundColor);
+    }
+    // Adjacent pages build heroes with the same feed tag the grid cards
+    // carry — left enabled, all three would pair with feed cards and fly
+    // together on push/pop. Only the page under the finger owns a live
+    // hero; the rest ride HeroMode-disabled.
+    //
+    // The detail page is the builder's stable [child]: a page change only
+    // re-wraps it in a new HeroMode instead of running the whole detail
+    // build again.
+    return ValueListenableBuilder<int>(
+      valueListenable: widget.current,
+      child: _detail,
+      builder: (context, current, child) =>
+          HeroMode(enabled: widget.index == current, child: child!),
+    );
+  }
+}
+
+/// Calls [onSettled] once the enclosing route's push transition is over —
+/// right away when there is none. A separate element so the route-status
+/// dependency rebuilds only this wrapper, never the pager's pages.
+class _AfterRouteTransition extends StatefulWidget {
+  const _AfterRouteTransition({required this.onSettled, required this.child});
+
+  final VoidCallback onSettled;
+  final Widget child;
+
+  @override
+  State<_AfterRouteTransition> createState() => _AfterRouteTransitionState();
+}
+
+class _AfterRouteTransitionState extends State<_AfterRouteTransition> {
+  ModalRoute<Object?>? _route;
+  var _settled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_settled) return;
+    final route = ModalRoute.of(context);
+    if (!identical(route, _route)) {
+      _route?.animation?.removeStatusListener(_onStatus);
+      _route = route;
+      route?.animation?.addStatusListener(_onStatus);
+    }
+    _check();
+  }
+
+  @override
+  void dispose() {
+    _route?.animation?.removeStatusListener(_onStatus);
+    super.dispose();
+  }
+
+  void _onStatus(AnimationStatus _) => _check();
+
+  /// A hero push lays out its first frame with the route offstage, and the
+  /// route's animation reads as completed for that frame — the transition
+  /// has not even started.
+  void _check() {
+    if (_settled) return;
+    final route = _route;
+    if (route != null &&
+        (route.offstage || !(route.animation?.isCompleted ?? true))) {
+      return;
+    }
+    _route?.animation?.removeStatusListener(_onStatus);
+    _settled = true;
+    widget.onSettled();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

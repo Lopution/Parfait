@@ -48,6 +48,12 @@ Future<void> _pumpPager(
 double _page(WidgetTester tester) =>
     tester.widget<PageView>(find.byType(PageView)).controller!.page!;
 
+/// A mounted detail page, on screen or in the pager's cache extent.
+Finder _detail(int id) => find.byWidgetPredicate(
+  (w) => w is IllustDetailPage && w.illustId == id,
+  skipOffstage: false,
+);
+
 void main() {
   setUp(() {
     // Detail pages embed VisibilityDetector page trackers; a zero interval
@@ -165,6 +171,36 @@ void main() {
     );
   });
 
+  testWidgets('a page landing mid-paging keeps the built detail pages', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeWorld();
+    container.read(illustStoreProvider).mergeAll([
+      for (final id in [42, 43, 44, 45]) parseIllust(illustJson(id)),
+    ]);
+    final source = IllustPagerSource()..update(const [42, 43, 44]);
+    await _pumpPager(tester, container, source: source, initialId: 42);
+    final before = tester.widget<IllustDetailPage>(_detail(42));
+
+    // The feed re-publishes an equal list on every rebuild (a load-more
+    // phase flip): nothing to re-seat.
+    var notified = 0;
+    source.addListener(() => notified++);
+    source.update(const [42, 43, 44]);
+    expect(notified, 0);
+
+    // A real append re-seats the pager, but the built detail subtrees
+    // must come through untouched.
+    source.update(const [42, 43, 44, 45]);
+    await tester.pump();
+    await tester.pump();
+    expect(notified, 1);
+    expect(
+      identical(tester.widget<IllustDetailPage>(_detail(42)), before),
+      isTrue,
+    );
+  });
+
   testWidgets('only the visible page owns a live hero', (tester) async {
     // Adjacent pages pre-build for the swipe, but all three carry the feed
     // hero tag — without HeroMode gating, a push or pop would fly three
@@ -261,6 +297,82 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a page pulled in mid-swipe builds once the scroll settles', (
+    tester,
+  ) async {
+    // The first drag frame pulls the page after next into the cache
+    // extent; building its whole detail there was the swipe hitch.
+    final (container, _, _) = await makeWorld();
+    container.read(illustStoreProvider).mergeAll([
+      for (final id in [42, 43, 44, 45]) parseIllust(illustJson(id)),
+    ]);
+    final source = IllustPagerSource()..update(const [42, 43, 44, 45]);
+    await _pumpPager(tester, container, source: source, initialId: 42);
+    expect(_detail(43), findsOneWidget);
+    expect(_detail(44), findsNothing);
+
+    await mockNetworkImagesFor(() async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PageView)),
+      );
+      for (var i = 0; i < 3; i++) {
+        await gesture.moveBy(const Offset(-40, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(_page(tester), greaterThan(0));
+      expect(_detail(44), findsNothing);
+
+      await gesture.moveBy(const Offset(-200, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+    expect(_page(tester), 1);
+    expect(_detail(44), findsOneWidget);
+  });
+
+  testWidgets('neighbours build after the push transition, not inside it', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeWorld();
+    container.read(illustStoreProvider).mergeAll([
+      for (final id in [41, 42, 43]) parseIllust(illustJson(id)),
+    ]);
+    final router = createPixivRouter(initialLocation: '/recommended');
+    addTearDown(router.dispose);
+    final source = IllustPagerSource()..update(const [41, 42, 43]);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      unawaited(
+        router.push<void>(
+          '/recommended/illust/42',
+          extra: IllustRouteExtra(pagerSource: source),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(_detail(42), findsOneWidget);
+      expect(_detail(41), findsNothing);
+      expect(_detail(43), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(_detail(41), findsOneWidget);
+      expect(_detail(43), findsOneWidget);
+    });
   });
 
   testWidgets('a card feed exposes its work list to the detail route', (

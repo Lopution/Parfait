@@ -33,6 +33,13 @@ class BookmarkKey {
   String toString() => 'BookmarkKey($type, $id)';
 }
 
+/// One remote bookmark observation: what a payload claims for [key].
+typedef BookmarkSnapshot = ({
+  BookmarkKey key,
+  bool? bookmarked,
+  BookmarkRestrict? restrict,
+});
+
 enum BookmarkOpKind { add, delete }
 
 /// One tag on a work's bookmark detail (`/v2/{illust,novel}/bookmark/detail`).

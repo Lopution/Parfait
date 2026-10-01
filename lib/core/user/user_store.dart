@@ -38,13 +38,13 @@ class UserStore extends Notifier<Map<int, UserEntity>> {
 
   void mergeAll(Iterable<UserEntity> incoming, {int? followSnapshotRevision}) {
     final follows = ref.read(followStoreProvider.notifier);
+    final entities = incoming.toList(growable: false);
+    follows.observeRemoteAll([
+      for (final entity in entities)
+        (userId: entity.id, followed: entity.isFollowed, restrict: null),
+    ], snapshotRevision: followSnapshotRevision);
     final next = Map<int, UserEntity>.of(state);
-    for (final entity in incoming) {
-      follows.observeRemote(
-        entity.id,
-        followed: entity.isFollowed,
-        snapshotRevision: followSnapshotRevision,
-      );
+    for (final entity in entities) {
       final authority = follows.entryOf(entity.id)?.followed;
       final existing = next[entity.id];
       final merged = existing == null ? entity : existing.merge(entity);

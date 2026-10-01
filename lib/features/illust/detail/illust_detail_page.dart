@@ -70,10 +70,16 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   Set<int>? _selectedPages;
 
   /// Page-counter overlay data: the topmost image page currently in
-  /// view feeds the `n / m` pill (VisibilityDetector per page, 200ms
-  /// cadence — the pill does not need frame-exact updates). Empty set
+  /// view feeds the `n / m` pill (VisibilityDetector per page of a
+  /// multi-page work — the pill hides for a single page). Empty set
   /// means nothing artwork is on screen (scrolled into the meta tail).
   final Set<int> _visiblePages = <int>{};
+
+  /// The pill's page, kept out of this State: the trackers report on their
+  /// own timer, typically while a swipe settles, and a page setState would
+  /// rebuild every built page, the info block and the related grid just to
+  /// move a counter.
+  final ValueNotifier<int?> _topVisiblePage = ValueNotifier<int?>(null);
   final GlobalKey _infoAnchorKey = GlobalKey();
 
   /// Passed to the narrow layout's [SmoothWheelScroll] `controller:`
@@ -83,18 +89,17 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   /// is passed — so we never touch a controller the component owns (R9).
   final ScrollController _narrowScroll = ScrollController();
 
-  int? get _topVisiblePage =>
-      _visiblePages.isEmpty ? null : _visiblePages.reduce(math.min);
-
   void _onPageVisibility(int index, VisibilityInfo info) {
-    final visible = info.visibleFraction > 0;
-    final before = _topVisiblePage;
-    if (visible) {
+    // A detector torn down with the page still reports once more.
+    if (!mounted) return;
+    if (info.visibleFraction > 0) {
       _visiblePages.add(index);
     } else {
       _visiblePages.remove(index);
     }
-    if (_topVisiblePage != before && mounted) setState(() {});
+    _topVisiblePage.value = _visiblePages.isEmpty
+        ? null
+        : _visiblePages.reduce(math.min);
   }
 
   /// The ⋮ menu's artwork-info item scrolls the InfoBlock into view.
@@ -143,6 +148,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   void dispose() {
     _downloadEvents?.cancel();
     _narrowScroll.dispose();
+    _topVisiblePage.dispose();
     super.dispose();
   }
 
@@ -464,57 +470,47 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final imageSlivers = <Widget>[
       if (entity.isUgoira)
         SliverToBoxAdapter(
-          child: VisibilityDetector(
-            key: ValueKey('illust-visibility-${entity.id}-0'),
-            onVisibilityChanged: (info) => _onPageVisibility(0, info),
-            child: UgoiraViewer(
-              illustId: entity.id,
-              // Same contract as DetailPageImage: the viewer keeps the
-              // feed card's URL for the opening Hero flight and only
-              // upgrades to the detail quality once the route settles —
-              // without the guard a cached detail payload would swap
-              // the cover mid-flight onto an undecoded entry (the
-              // grey-shuttle regression).
-              // Ugoira has no page selection: long-press does not enter the
-              // download mode and the GIF export action stays always visible.
-              previewUrl: entity.imageUrls.large,
-              detailUrl: detailUrlFor(0),
-              heroImageUrl: widget.heroImageUrl,
-              heroTier: widget.heroImageUrl == null
-                  ? null
-                  : entity.imageTierOf(widget.heroImageUrl!),
-              width: entity.width,
-              height: entity.height,
-              heroTag: illustHeroTag(widget.heroScope, entity.id),
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              heroDecodeWidth: widget.heroImageDecodeWidth,
-              heroPopUrl: widget.heroImageUrl,
-              heroPopDecodeWidth: widget.heroImageDecodeWidth,
-              tier: entity.imageTierOf(
-                detailUrlFor(0) ?? entity.imageUrls.large,
-              ),
-            ),
+          child: UgoiraViewer(
+            illustId: entity.id,
+            // Same contract as DetailPageImage: the viewer keeps the
+            // feed card's URL for the opening Hero flight and only
+            // upgrades to the detail quality once the route settles —
+            // without the guard a cached detail payload would swap
+            // the cover mid-flight onto an undecoded entry (the
+            // grey-shuttle regression).
+            // Ugoira has no page selection: long-press does not enter the
+            // download mode and the GIF export action stays always visible.
+            previewUrl: entity.imageUrls.large,
+            detailUrl: detailUrlFor(0),
+            heroImageUrl: widget.heroImageUrl,
+            heroTier: widget.heroImageUrl == null
+                ? null
+                : entity.imageTierOf(widget.heroImageUrl!),
+            width: entity.width,
+            height: entity.height,
+            heroTag: illustHeroTag(widget.heroScope, entity.id),
+            flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+            heroDecodeWidth: widget.heroImageDecodeWidth,
+            heroPopUrl: widget.heroImageUrl,
+            heroPopDecodeWidth: widget.heroImageDecodeWidth,
+            tier: entity.imageTierOf(detailUrlFor(0) ?? entity.imageUrls.large),
           ),
         )
       else if (entity.pageCount == 1)
         SliverToBoxAdapter(
-          child: VisibilityDetector(
-            key: ValueKey('illust-visibility-${entity.id}-0'),
-            onVisibilityChanged: (info) => _onPageVisibility(0, info),
-            child: DetailPageImage(
-              key: ValueKey<Object?>('illust-page-${entity.id}-0'),
-              entity: entity,
-              index: 0,
-              heroTag: illustHeroTag(widget.heroScope, entity.id),
-              heroScope: widget.heroScope,
-              heroImageUrl: widget.heroImageUrl,
-              heroImageDecodeWidth: widget.heroImageDecodeWidth,
-              detailUrl: detailUrlFor(0),
-              downloadMode: _downloadMode,
-              selected: _selectedPages?.contains(0) ?? false,
-              onToggleSelect: () => _togglePageSelected(0),
-              onLongPress: _enterDownloadMode,
-            ),
+          child: DetailPageImage(
+            key: ValueKey<Object?>('illust-page-${entity.id}-0'),
+            entity: entity,
+            index: 0,
+            heroTag: illustHeroTag(widget.heroScope, entity.id),
+            heroScope: widget.heroScope,
+            heroImageUrl: widget.heroImageUrl,
+            heroImageDecodeWidth: widget.heroImageDecodeWidth,
+            detailUrl: detailUrlFor(0),
+            downloadMode: _downloadMode,
+            selected: _selectedPages?.contains(0) ?? false,
+            onToggleSelect: () => _togglePageSelected(0),
+            onLongPress: _enterDownloadMode,
           ),
         )
       else
@@ -653,14 +649,18 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // scrolled past the last page it leaves with them. The
                 // pill is IgnorePointer, so taps fall through to the
                 // artwork below. Selection mode hides it: each page's
-                // badge occupies the same top-end corner.
-                if (!entity.isUgoira &&
-                    !_downloadMode &&
-                    _topVisiblePage != null)
+                // badge occupies the same top-end corner. Only multi-page
+                // works carry page trackers, so only they get the pill.
+                if (!entity.isUgoira && entity.pageCount > 1 && !_downloadMode)
                   Positioned.fill(
-                    child: DetailPageCounter(
-                      page: _topVisiblePage!,
-                      count: entity.pageCount,
+                    child: ValueListenableBuilder<int?>(
+                      valueListenable: _topVisiblePage,
+                      builder: (context, page, _) => page == null
+                          ? const SizedBox.shrink()
+                          : DetailPageCounter(
+                              page: page,
+                              count: entity.pageCount,
+                            ),
                     ),
                   ),
               ],

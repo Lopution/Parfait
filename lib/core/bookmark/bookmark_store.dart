@@ -200,28 +200,65 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
     bool? bookmarked,
     BookmarkRestrict? restrict,
     int? snapshotRevision,
+  }) => observeRemoteAll([
+    (key: key, bookmarked: bookmarked, restrict: restrict),
+  ], snapshotRevision: snapshotRevision);
+
+  /// [observeRemote] for a whole payload under one state write. A feed page
+  /// carries ~30 snapshots; a write per snapshot copied the entire map and
+  /// woke every bookmark listener once per work, on the frame the page
+  /// landed. Snapshots that change nothing skip the write altogether.
+  void observeRemoteAll(
+    Iterable<BookmarkSnapshot> snapshots, {
+    int? snapshotRevision,
   }) {
-    if (bookmarked == null && restrict == null) return;
-    final entry = state[key];
+    Map<BookmarkKey, BookmarkEntry>? next;
+    for (final snapshot in snapshots) {
+      final merged = _mergeRemote(
+        (next ?? state)[snapshot.key],
+        snapshot,
+        snapshotRevision,
+      );
+      if (merged != null) (next ??= {...state})[snapshot.key] = merged;
+    }
+    if (next != null) state = next;
+  }
+
+  /// The entry [snapshot] settles [entry] to — null when the revision gate
+  /// rejects it or it would leave the entry as it is.
+  static BookmarkEntry? _mergeRemote(
+    BookmarkEntry? entry,
+    BookmarkSnapshot snapshot,
+    int? snapshotRevision,
+  ) {
+    final (key: _, :bookmarked, :restrict) = snapshot;
+    if (bookmarked == null && restrict == null) return null;
     if (entry != null) {
-      if (entry.isPending) return;
+      if (entry.isPending) return null;
       final confirmed = entry.confirmedRevision;
       if (snapshotRevision != null &&
           confirmed != null &&
           snapshotRevision < confirmed) {
-        return;
+        return null;
       }
     }
-    state = {
-      ...state,
-      key: BookmarkEntry(
-        bookmarked: bookmarked ?? entry?.bookmarked ?? false,
-        restrict: restrict ?? entry?.restrict,
-        tags: entry?.tags ?? const [],
-        confirmedRevision: entry?.confirmedRevision,
-        status: MutationStatus.idle,
-      ),
-    };
+    final nextBookmarked = bookmarked ?? entry?.bookmarked ?? false;
+    final nextRestrict = restrict ?? entry?.restrict;
+    if (entry != null &&
+        entry.status == MutationStatus.idle &&
+        entry.pending == null &&
+        entry.error == null &&
+        entry.bookmarked == nextBookmarked &&
+        entry.restrict == nextRestrict) {
+      return null;
+    }
+    return BookmarkEntry(
+      bookmarked: nextBookmarked,
+      restrict: nextRestrict,
+      tags: entry?.tags ?? const [],
+      confirmedRevision: entry?.confirmedRevision,
+      status: MutationStatus.idle,
+    );
   }
 
   bool _owns(BookmarkOp operation) {
