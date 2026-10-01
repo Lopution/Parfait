@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show FramePhase;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
@@ -71,10 +72,12 @@ class FrameProbe {
   @visibleForTesting
   void debugClearTimings() => _frames.clear();
 
-  /// Jank threshold: one 60Hz vsync interval. On 90/120Hz panels this is a
-  /// lenient bar — frames are also bucketed by >2 intervals so high-refresh
-  /// jank still surfaces in the >33ms bucket.
-  static const _jank = Duration(microseconds: 16670);
+  /// Assumed panel rate when the display does not report one.
+  static const double _fallbackRefreshRate = 60;
+
+  /// Vsync gaps longer than this are idle time (nothing animating), not a
+  /// stalled frame, and stay out of the interval distribution.
+  static const _idleGap = Duration(milliseconds: 250);
 
   String report() {
     final buffer = StringBuffer()
@@ -85,6 +88,28 @@ class FrameProbe {
       return buffer.toString();
     }
 
+    final reportedRate =
+        SchedulerBinding
+            .instance
+            .platformDispatcher
+            .implicitView
+            ?.display
+            .refreshRate ??
+        0;
+    final knownRate = reportedRate.isFinite && reportedRate > 0;
+    final refreshRate = knownRate ? reportedRate : _fallbackRefreshRate;
+    // UI and raster threads are pipelined: a frame misses its vsync when
+    // either stage alone exceeds one refresh interval of the actual panel.
+    final budget = Duration(microseconds: (1e6 / refreshRate).round());
+    final slowest = _frames
+        .map(
+          (f) => f.buildDuration > f.rasterDuration
+              ? f.buildDuration
+              : f.rasterDuration,
+        )
+        .toList();
+    final overBudget = slowest.where((d) => d > budget).length;
+
     final builds = _frames.map((f) => f.buildDuration.inMicroseconds).toList()
       ..sort();
     final rasters = _frames.map((f) => f.rasterDuration.inMicroseconds).toList()
@@ -94,12 +119,23 @@ class FrameProbe {
 
     buffer
       ..writeln(
-        'jank>16.7ms: ${_frames.where((f) => f.totalSpan > _jank).length}'
-        '  >33ms: ${_frames.where((f) => f.totalSpan > _jank * 2).length}',
+        'display: ${refreshRate.toStringAsFixed(0)}Hz'
+        '${knownRate ? '' : ' (not reported, assumed)'}'
+        ', frame budget ${(budget.inMicroseconds / 1000).toStringAsFixed(1)}ms',
+      )
+      ..writeln(
+        'over budget: $overBudget '
+        '(${(overBudget * 100 / _frames.length).toStringAsFixed(1)}%)'
+        '  >2x budget: ${slowest.where((d) => d > budget * 2).length}',
       )
       ..writeln(_line('build', builds))
       ..writeln(_line('raster', rasters))
       ..writeln(_line('total', totals));
+    // Vsync-to-vsync spacing while animating: p50 shows the rate frames are
+    // actually delivered at (a throttled panel reads 2x the budget), the
+    // tail shows skipped vsyncs whatever thread caused them.
+    final intervals = _activeIntervals();
+    if (intervals.isNotEmpty) buffer.writeln(_line('interval', intervals));
 
     final worst = totals.last;
     final worstFrame = _frames.firstWhere(
@@ -118,6 +154,17 @@ class FrameProbe {
       'live ${cache.liveImageCount}, pending ${cache.pendingImageCount}',
     );
     return buffer.toString();
+  }
+
+  List<int> _activeIntervals() {
+    final intervals = <int>[];
+    for (var i = 1; i < _frames.length; i++) {
+      final gap =
+          _frames[i].timestampInMicroseconds(FramePhase.vsyncStart) -
+          _frames[i - 1].timestampInMicroseconds(FramePhase.vsyncStart);
+      if (gap > 0 && gap <= _idleGap.inMicroseconds) intervals.add(gap);
+    }
+    return intervals..sort();
   }
 
   static String _line(String label, List<int> sortedMicros) {
