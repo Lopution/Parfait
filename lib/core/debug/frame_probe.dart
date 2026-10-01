@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' show FramePhase, SemanticsUpdate;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -58,21 +59,37 @@ class FrameProbe {
   /// that the oldest frames are being dropped.
   bool get isFull => _frames.length >= maxFrames;
 
+  /// Pointers currently down, so each frame can be filed as finger-down or
+  /// released — jank that only follows a release (a fling, a page settle)
+  /// separates from jank under the finger.
+  int _pointersDown = 0;
+
   void start() {
     if (_attached) return;
     _frames.clear();
     _uiFrames.clear();
     _open = null;
     _pending = UiFrame();
+    _pointersDown = 0;
     SchedulerBinding.instance.addTimingsCallback(_onTimings);
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
     _attached = true;
   }
 
   void stop() {
     if (!_attached) return;
     SchedulerBinding.instance.removeTimingsCallback(_onTimings);
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
     _attached = false;
     _open = null;
+  }
+
+  void _onPointer(PointerEvent event) {
+    if (event is PointerDownEvent) {
+      _pointersDown++;
+    } else if (event is PointerUpEvent || event is PointerCancelEvent) {
+      _pointersDown = math.max(0, _pointersDown - 1);
+    }
   }
 
   void _onTimings(List<FrameTiming> timings) {
@@ -86,7 +103,7 @@ class FrameProbe {
   /// Binding hook: a frame's `handleBeginFrame` is about to run.
   void beginUiFrame() {
     if (!_attached) return;
-    _open = _pending;
+    _open = _pending..touching = _pointersDown > 0;
     _pending = UiFrame();
   }
 
@@ -126,13 +143,20 @@ class FrameProbe {
     try {
       return body();
     } finally {
-      final micros = watch.elapsedMicroseconds;
-      final open = _open;
-      final events = open?.during ?? _pending.before;
-      if (events.length < _maxEventsPerFrame) {
-        events.add('$label ${_ms(micros)}');
-      }
+      _log('$label ${_ms(watch.elapsedMicroseconds)}');
     }
+  }
+
+  /// Logs an instant [label] against the frame it lands in, under the same
+  /// rule as [measure] — for events whose cost shows up off the UI thread,
+  /// like a decoded image the raster thread draws for the first time.
+  void mark(String label) {
+    if (_attached) _log(label);
+  }
+
+  void _log(String event) {
+    final events = _open?.during ?? _pending.before;
+    if (events.length < _maxEventsPerFrame) events.add(event);
   }
 
   /// Test seam: feed timings without scheduling real frames.
@@ -212,7 +236,24 @@ class FrameProbe {
     // actually delivered at (a throttled panel reads 2x the budget), the
     // tail shows skipped vsyncs whatever thread caused them.
     final intervals = _activeIntervals();
-    if (intervals.isNotEmpty) buffer.writeln(_line('interval', intervals));
+    if (intervals.isNotEmpty) {
+      final all = [for (final (micros, _) in intervals) micros]..sort();
+      buffer
+        ..writeln(_line('interval', all))
+        ..writeln(_buckets('  all', all, budget))
+        ..writeln(
+          _buckets('  touch', [
+            for (final (micros, touching) in intervals)
+              if (touching == true) micros,
+          ], budget),
+        )
+        ..writeln(
+          _buckets('  released', [
+            for (final (micros, touching) in intervals)
+              if (touching == false) micros,
+          ], budget),
+        );
+    }
 
     // A frame that starts late lost its time before build: the UI thread
     // was busy with work outside the frame (or vsync arrived late).
@@ -262,18 +303,53 @@ class FrameProbe {
     if (ui != null && ui.during.isNotEmpty) {
       line.write(' | during: ${ui.during.join(', ')}');
     }
+    if (ui != null && ui.touching) line.write(' | touch');
     return line.toString();
   }
 
-  List<int> _activeIntervals() {
-    final intervals = <int>[];
+  /// Vsync gaps while animating, in frame order, each with whether a finger
+  /// was down for the frame that closed it (null: no hook record).
+  List<(int, bool?)> _activeIntervals() {
+    final intervals = <(int, bool?)>[];
     for (var i = 1; i < _frames.length; i++) {
       final gap =
           _frames[i].timestampInMicroseconds(FramePhase.vsyncStart) -
           _frames[i - 1].timestampInMicroseconds(FramePhase.vsyncStart);
-      if (gap > 0 && gap <= _idleGap.inMicroseconds) intervals.add(gap);
+      if (gap > 0 && gap <= _idleGap.inMicroseconds) {
+        intervals.add((gap, _uiFrames[_frames[i].frameNumber]?.touching));
+      }
     }
-    return intervals..sort();
+    return intervals;
+  }
+
+  /// Upper edges of the interval buckets, in panel periods: below 0.9 the
+  /// panel ran a faster mode than reported, 1.2–1.6 is a 90Hz-like mode,
+  /// 1.6–2.5 one missed vsync (or 60Hz), beyond that a longer stall.
+  static const List<double> _bucketEdges = [0.9, 1.2, 1.6, 2.5];
+
+  /// Counts vsync gaps per bucket. The percentiles hide both a panel that
+  /// switches into a faster mode (gaps below one period) and a handful of
+  /// skipped vsyncs under p99; the buckets show either directly.
+  static String _buckets(String label, List<int> micros, Duration budget) {
+    final period = budget.inMicroseconds;
+    final counts = List.filled(_bucketEdges.length + 1, 0);
+    for (final gap in micros) {
+      var bucket = 0;
+      while (bucket < _bucketEdges.length &&
+          gap >= _bucketEdges[bucket] * period) {
+        bucket++;
+      }
+      counts[bucket]++;
+    }
+    String edge(int i) => _ms((_bucketEdges[i] * period).round());
+    final parts = [
+      '<${edge(0)}: ${counts[0]}',
+      for (var i = 1; i < _bucketEdges.length; i++)
+        '${edge(i - 1)}-${edge(i)}: ${counts[i]}',
+      '>${edge(_bucketEdges.length - 1)}: ${counts.last}',
+    ];
+    final min = micros.isEmpty ? '-' : _ms(micros.reduce(math.min));
+    return '$label (${micros.length}, min $min) ${parts.join('  ')}';
   }
 
   static String _line(String label, List<int> sortedMicros) {
@@ -314,6 +390,9 @@ class UiFrame {
   final Map<UiPhase, int> _micros = {};
   final List<String> before = [];
   final List<String> during = [];
+
+  /// A finger was down when the frame began.
+  bool touching = false;
 
   void add(UiPhase phase, int micros) =>
       _micros[phase] = (_micros[phase] ?? 0) + micros;
