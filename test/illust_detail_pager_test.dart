@@ -171,6 +171,36 @@ void main() {
     );
   });
 
+  testWidgets('a page landing mid-paging keeps the built detail pages', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeWorld();
+    container.read(illustStoreProvider).mergeAll([
+      for (final id in [42, 43, 44, 45]) parseIllust(illustJson(id)),
+    ]);
+    final source = IllustPagerSource()..update(const [42, 43, 44]);
+    await _pumpPager(tester, container, source: source, initialId: 42);
+    final before = tester.widget<IllustDetailPage>(_detail(42));
+
+    // The feed re-publishes an equal list on every rebuild (a load-more
+    // phase flip): nothing to re-seat.
+    var notified = 0;
+    source.addListener(() => notified++);
+    source.update(const [42, 43, 44]);
+    expect(notified, 0);
+
+    // A real append re-seats the pager, but the built detail subtrees
+    // must come through untouched.
+    source.update(const [42, 43, 44, 45]);
+    await tester.pump();
+    await tester.pump();
+    expect(notified, 1);
+    expect(
+      identical(tester.widget<IllustDetailPage>(_detail(42)), before),
+      isTrue,
+    );
+  });
+
   testWidgets('only the visible page owns a live hero', (tester) async {
     // Adjacent pages pre-build for the swipe, but all three carry the feed
     // hero tag — without HeroMode gating, a push or pop would fly three

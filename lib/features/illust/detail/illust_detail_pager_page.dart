@@ -50,9 +50,11 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
 class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   late final PageController _controller;
 
-  /// The route's landing page — only it carries the feed card's hero
-  /// image url for the push flight.
+  /// The route's landing page. Its work alone carries the feed card's hero
+  /// image url for the push flight — matched by id, so a head insert that
+  /// shifts the indexes keeps the url on the same work.
   late final int _initialIndex;
+  late final int _initialId;
 
   /// The work the user is looking at. Tracked by id (not index) so a
   /// mid-paging list mutation can re-seat the viewport on the same work.
@@ -78,6 +80,7 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     _index = ValueNotifier(_initialIndex);
     _ready = ValueNotifier((center: _initialIndex, radius: 0));
     _currentId = ids.isEmpty ? widget.initialIllustId : ids[_initialIndex];
+    _initialId = _currentId;
     _controller = PageController(initialPage: _initialIndex);
     widget.source.addListener(_onSourceChanged);
   }
@@ -177,20 +180,21 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
           allowImplicitScrolling: true,
           itemCount: ids.length,
           onPageChanged: _onPageChanged,
-          itemBuilder: (context, index) => _PagerSlot(
-            key: ValueKey(ids[index]),
-            index: index,
-            ready: _ready,
-            current: _index,
-            child: IllustDetailPage(
+          itemBuilder: (context, index) {
+            final landing = ids[index] == _initialId;
+            return _PagerSlot(
+              key: ValueKey(ids[index]),
+              index: index,
+              ready: _ready,
+              current: _index,
               illustId: ids[index],
               heroScope: widget.heroScope,
-              heroImageUrl: index == _initialIndex ? widget.heroImageUrl : null,
-              heroImageDecodeWidth: index == _initialIndex
+              heroImageUrl: landing ? widget.heroImageUrl : null,
+              heroImageDecodeWidth: landing
                   ? widget.heroImageDecodeWidth
                   : null,
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
@@ -209,7 +213,10 @@ class _PagerSlot extends StatefulWidget {
     required this.index,
     required this.ready,
     required this.current,
-    required this.child,
+    required this.illustId,
+    required this.heroScope,
+    this.heroImageUrl,
+    this.heroImageDecodeWidth,
   });
 
   final int index;
@@ -217,7 +224,12 @@ class _PagerSlot extends StatefulWidget {
 
   /// The committed page — only its hero is live.
   final ValueListenable<int> current;
-  final Widget child;
+
+  /// [IllustDetailPage] inputs.
+  final int illustId;
+  final String heroScope;
+  final String? heroImageUrl;
+  final int? heroImageDecodeWidth;
 
   @override
   State<_PagerSlot> createState() => _PagerSlotState();
@@ -225,6 +237,18 @@ class _PagerSlot extends StatefulWidget {
 
 class _PagerSlotState extends State<_PagerSlot> {
   var _built = false;
+
+  /// Kept across slot updates while the inputs hold: a pager rebuild (a
+  /// feed page landing mid-paging) hands every slot a new widget, and a
+  /// new detail instance would rebuild each built page in full.
+  late IllustDetailPage _detail = _createDetail();
+
+  IllustDetailPage _createDetail() => IllustDetailPage(
+    illustId: widget.illustId,
+    heroScope: widget.heroScope,
+    heroImageUrl: widget.heroImageUrl,
+    heroImageDecodeWidth: widget.heroImageDecodeWidth,
+  );
 
   bool get _inWindow {
     final window = widget.ready.value;
@@ -241,6 +265,12 @@ class _PagerSlotState extends State<_PagerSlot> {
   @override
   void didUpdateWidget(_PagerSlot oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.illustId != oldWidget.illustId ||
+        widget.heroScope != oldWidget.heroScope ||
+        widget.heroImageUrl != oldWidget.heroImageUrl ||
+        widget.heroImageDecodeWidth != oldWidget.heroImageDecodeWidth) {
+      _detail = _createDetail();
+    }
     // A feed rewrite can move this work to a new index.
     if (!_built && _inWindow) _latch();
   }
@@ -275,7 +305,7 @@ class _PagerSlotState extends State<_PagerSlot> {
     // build again.
     return ValueListenableBuilder<int>(
       valueListenable: widget.current,
-      child: widget.child,
+      child: _detail,
       builder: (context, current, child) =>
           HeroMode(enabled: widget.index == current, child: child!),
     );
