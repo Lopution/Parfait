@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kPressTimeout;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -521,29 +522,48 @@ void main() {
       expect(_animatedScale(tester).scale, 1.0);
     });
 
-    testWidgets('a scroll takeover releases the pressed scale', (tester) async {
-      await tester.pumpWidget(
-        _wrap(
-          ListView(
-            children: [
-              const PressScale(
-                // Opaque + tall: stays hit-testable and mounted after the
-                // drag scrolls it partway up the viewport.
-                child: ColoredBox(
-                  color: Colors.white,
-                  child: SizedBox(height: 100, child: Text('card content')),
-                ),
-              ),
-              for (var i = 0; i < 40; i++)
-                SizedBox(height: 60, child: Text('row $i')),
-            ],
+    Widget scrollingCard() => _wrap(
+      ListView(
+        children: [
+          const PressScale(
+            // Opaque + tall: stays hit-testable and mounted after the
+            // drag scrolls it partway up the viewport.
+            child: ColoredBox(
+              color: Colors.white,
+              child: SizedBox(height: 100, child: Text('card content')),
+            ),
           ),
-        ),
-      );
+          for (var i = 0; i < 40; i++)
+            SizedBox(height: 60, child: Text('row $i')),
+        ],
+      ),
+    );
+
+    testWidgets('inside a scrollable a swipe never shows the press', (
+      tester,
+    ) async {
+      await tester.pumpWidget(scrollingCard());
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(PressScale)),
       );
-      await tester.pump();
+      await tester.pump(kPressTimeout ~/ 2);
+      expect(_animatedScale(tester).scale, 1.0);
+
+      // The drag claims the pointer before the deadline: the pending press
+      // is dropped, not shown late.
+      await gesture.moveBy(const Offset(0, -80));
+      await tester.pump(kPressTimeout);
+      expect(_animatedScale(tester).scale, 1.0);
+      await gesture.up();
+    });
+
+    testWidgets('a scroll takeover releases the pressed scale', (tester) async {
+      await tester.pumpWidget(scrollingCard());
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PressScale)),
+      );
+      // A held finger presses once the deadline passes.
+      await tester.pump(kPressTimeout);
       expect(_animatedScale(tester).scale, MotionTokens.pressScale);
 
       // The drag becomes a scroll: the ListView's recognizer wins the
