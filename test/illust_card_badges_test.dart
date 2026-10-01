@@ -264,4 +264,38 @@ void main() {
     expect(find.text('illust 5'), findsOneWidget);
     expect(find.text('author'), findsOneWidget);
   });
+
+  testWidgets('a parent rebuild with the same inputs skips the card body', (
+    tester,
+  ) async {
+    // Feed grids rebuild every built card on each feed state change; an
+    // unchanged card must not re-run its whole subtree for that.
+    final container = await _makeWorld();
+    addTearDown(container.dispose);
+    final entity = parseIllust(illustJson(6));
+    Widget body() => tester.widget(
+      find
+          .descendant(
+            of: find.byType(IllustCard),
+            matching: find.byType(Column),
+          )
+          .first,
+    );
+
+    await _pumpCard(tester, container, IllustCard(entity: entity, rank: 1));
+    final first = body();
+    await _pumpCard(tester, container, IllustCard(entity: entity, rank: 1));
+    expect(identical(body(), first), isTrue);
+
+    // Any changed input builds the card again.
+    await _pumpCard(tester, container, IllustCard(entity: entity, rank: 2));
+    expect(identical(body(), first), isFalse);
+    final ranked = body();
+    await _pumpCard(
+      tester,
+      container,
+      IllustCard(entity: parseIllust(illustJson(6)), rank: 2),
+    );
+    expect(identical(body(), ranked), isFalse);
+  });
 }

@@ -25,7 +25,7 @@ import 'muted_cover.dart';
 /// Illust preview card replicating beta56 IllustPreviewer semantics:
 /// R-18 top-left, ugoira gif bottom-left, page count top-right, AI
 /// bottom-right, title (14 bold) + user name (12) beneath the image.
-class IllustCard extends ConsumerWidget {
+class IllustCard extends StatefulWidget {
   /// The default key follows the work id so a feed refresh keeps each
   /// element attached to its own work instead of recycling the slot for a
   /// different one — the image widget then sees a slot hand-off only when
@@ -59,6 +59,45 @@ class IllustCard extends ConsumerWidget {
   /// Management pages (history selection mode) supply their own so the
   /// gesture enters selection instead of opening actions.
   final VoidCallback? onLongPress;
+
+  @override
+  State<IllustCard> createState() => _IllustCardState();
+}
+
+/// Hands the same body back while a parent rebuild passes the same inputs.
+/// A feed grid rebuilds every built card on each feed state change (a
+/// load-more phase flip, an appended page); the unchanged body instance
+/// lets the element skip the whole card subtree. The body still rebuilds
+/// on its own provider and inherited dependencies.
+class _IllustCardState extends State<IllustCard> {
+  late _IllustCardBody _body = _IllustCardBody(widget);
+
+  @override
+  void didUpdateWidget(IllustCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.entity, oldWidget.entity) ||
+        widget.heroScope != oldWidget.heroScope ||
+        widget.rank != oldWidget.rank ||
+        !identical(widget.meta, oldWidget.meta) ||
+        !identical(widget.onLongPress, oldWidget.onLongPress)) {
+      _body = _IllustCardBody(widget);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _body;
+}
+
+class _IllustCardBody extends ConsumerWidget {
+  const _IllustCardBody(this.card);
+
+  final IllustCard card;
+
+  IllustEntity get entity => card.entity;
+  String get heroScope => card.heroScope;
+  int? get rank => card.rank;
+  Widget? get meta => card.meta;
+  VoidCallback? get onLongPress => card.onLongPress;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -332,7 +371,7 @@ class IllustCard extends ConsumerWidget {
     // right (BookmarkSwitchButton isButton variant).
     return Row(
       children: [
-        const SizedBox(width: textIndent),
+        const SizedBox(width: IllustCard.textIndent),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
