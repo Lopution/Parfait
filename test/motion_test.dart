@@ -42,6 +42,27 @@ AnimatedScale _animatedScale(WidgetTester tester) {
   );
 }
 
+/// Counts State creations — a re-inflated card mounts a second time.
+class _MountCounter extends StatefulWidget {
+  const _MountCounter({required this.onMount});
+
+  final VoidCallback onMount;
+
+  @override
+  State<_MountCounter> createState() => _MountCounterState();
+}
+
+class _MountCounterState extends State<_MountCounter> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onMount();
+  }
+
+  @override
+  Widget build(BuildContext context) => const Text('card');
+}
+
 void main() {
   group('MotionTokens gate', () {
     Future<Duration> resolve(
@@ -334,26 +355,66 @@ void main() {
       );
     });
 
-    testWidgets('a rebuilt item does not replay once its id is played', (
+    testWidgets('a remounted item does not replay once its id is played', (
       tester,
     ) async {
       final played = <int>{};
-      Widget item() => _wrap(
-        StaggeredEntrance(index: 0, id: 0, played: played, child: Text('card')),
+      Widget item(String mount) => _wrap(
+        StaggeredEntrance(
+          key: ValueKey(mount),
+          index: 0,
+          id: 0,
+          played: played,
+          child: Text('card'),
+        ),
       );
-      await tester.pumpWidget(item());
+      await tester.pumpWidget(item('first'));
       await tester.pumpAndSettle();
       expect(played, contains(0));
 
-      // The feed drops keep-alives: scrolling out and back rebuilds the
-      // widget — the played set must suppress a second entrance.
-      await tester.pumpWidget(item());
+      // The feed drops keep-alives: scrolling out and back mounts a fresh
+      // State — the played set must suppress a second entrance.
+      await tester.pumpWidget(item('second'));
       expect(
         find.descendant(
           of: find.byType(StaggeredEntrance),
           matching: find.byType(Opacity),
         ),
         findsNothing,
+      );
+    });
+
+    testWidgets('a finished entrance keeps the card subtree on rebuild', (
+      tester,
+    ) async {
+      var mounts = 0;
+      Widget item() => _wrap(
+        StaggeredEntrance(
+          index: 0,
+          id: 0,
+          played: <int>{},
+          child: _MountCounter(onMount: () => mounts++),
+        ),
+      );
+      await tester.pumpWidget(item());
+      await tester.pumpAndSettle();
+      expect(mounts, 1);
+
+      // A feed rebuild after the entrance settled: the card must be
+      // updated in place, not re-inflated, and must not replay.
+      await tester.pumpWidget(item());
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(mounts, 1);
+      expect(
+        tester
+            .widget<Opacity>(
+              find.descendant(
+                of: find.byType(StaggeredEntrance),
+                matching: find.byType(Opacity),
+              ),
+            )
+            .opacity,
+        1,
       );
     });
 
@@ -386,12 +447,17 @@ void main() {
           ),
         ),
       );
+      await tester.pump(const Duration(milliseconds: 16));
       expect(
-        find.descendant(
-          of: find.byType(StaggeredEntrance),
-          matching: find.byType(Opacity),
-        ),
-        findsNothing,
+        tester
+            .widget<Opacity>(
+              find.descendant(
+                of: find.byType(StaggeredEntrance),
+                matching: find.byType(Opacity),
+              ),
+            )
+            .opacity,
+        1,
       );
 
       // A genuinely new entity at a replayable position still animates —
