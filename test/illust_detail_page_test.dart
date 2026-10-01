@@ -1946,6 +1946,8 @@ void main() {
       expect(find.text('第 1 页，共 1 页'), findsNothing);
       expect(find.text('1 / 1'), findsNothing);
       expect(find.byTooltip('跳到作品信息区'), findsNothing);
+      // Nothing to count, so nothing tracks page visibility either.
+      expect(find.byType(VisibilityDetector), findsNothing);
     });
 
     testWidgets(
@@ -1990,6 +1992,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('1 / 3'), findsOneWidget);
+        final appBar = tester.widget<AppBar>(find.byType(AppBar));
 
         // Jump past page 2's bottom edge so page 3 is the only visible
         // artwork — deterministic, no fling physics involved.
@@ -2000,6 +2003,11 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('3 / 3'), findsOneWidget);
+        // Only the pill followed: the page itself did not rebuild.
+        expect(
+          identical(tester.widget<AppBar>(find.byType(AppBar)), appBar),
+          isTrue,
+        );
 
         // Scrolling past the artwork to the bottom leaves no page
         // visible — the pill leaves with it.
