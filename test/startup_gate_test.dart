@@ -373,4 +373,17 @@ void main() {
     expect(find.byType(LoginPage), findsNothing);
     expect(find.byType(HomePage), findsNothing);
   });
+
+  testWidgets('splash mark matches the Android 12+ system splash icon size', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SplashPage()));
+
+    final mark = find.byType(Image);
+    final image = tester.widget<Image>(mark).image as AssetImage;
+    expect(image.assetName, 'assets/branding/pixiv_func_icon.png');
+    // 160dp is where the system splash draws the 72dp visible icon area, so
+    // the mark does not jump when the system splash hands over.
+    expect(tester.getSize(mark), const Size(160, 160));
+  });
 }
