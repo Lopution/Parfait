@@ -248,14 +248,19 @@ class _PipelineWarmupState extends State<PipelineWarmup> {
 class SplashPage extends StatelessWidget {
   const SplashPage({super.key});
 
+  /// Android 12+ shows the launcher icon's 72dp visible area at 160dp on the
+  /// system splash. The mark asset spans that same area, so the icon stays in
+  /// place when the system splash hands over to this page.
+  static const double markSize = 160;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
         child: Image.asset(
           'assets/branding/pixiv_func_icon.png',
-          width: 96,
-          height: 96,
+          width: markSize,
+          height: markSize,
         ),
       ),
     );
