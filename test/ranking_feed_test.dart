@@ -470,6 +470,67 @@ void main() {
     });
   }
 
+  testWidgets('a mode swipe leaves the outgoing feed unbuilt', (tester) async {
+    // The swipe hops the tab index mid-drag and echoes the mode into the
+    // route; both rebuild the page. The feed sliding out must not rebuild
+    // its cards for either — on device that landed inside the swipe frame.
+    final (container, _) = await _makeWorld(
+      fixture: _RankingFixture(itemsPerPage: 4),
+    );
+    addTearDown(container.dispose);
+    final router = createPixivRouter(initialLocation: '/ranking');
+    addTearDown(router.dispose);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      // The test host is desktop: SmoothWheelScroll leaves wheel mode on
+      // the first pointer down and rebuilds its scrollable once. Spend that
+      // on a short drag that does not commit.
+      await tester.timedDrag(
+        find.byType(TabSlideStack),
+        const Offset(-40, 0),
+        const Duration(milliseconds: 400),
+      );
+      await tester.pumpAndSettle();
+      expect(router.state.uri.queryParameters['mode'], isNull);
+
+      // The day feed's cards as mounted now; a later build of these same
+      // elements is a rebuild.
+      final dayCards = find.byType(IllustCard).evaluate().toSet();
+      expect(dayCards, isNotEmpty);
+      var cardRebuilds = 0;
+      debugOnRebuildDirtyWidget = (element, _) {
+        if (dayCards.contains(element)) cardRebuilds++;
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = null);
+
+      await tester.fling(
+        find.byType(TabSlideStack),
+        const Offset(-300, 0),
+        1200,
+      );
+      await tester.pumpAndSettle();
+      expect(router.state.uri.queryParameters['mode'], 'dayR18');
+      expect(cardRebuilds, 0);
+    });
+  });
+
   testWidgets('branch re-tap scrolls the active ranking feed to top', (
     tester,
   ) async {

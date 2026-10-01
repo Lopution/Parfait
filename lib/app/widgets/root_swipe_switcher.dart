@@ -28,7 +28,9 @@ class RootSwipeSwitcher extends StatefulWidget {
 
   /// Called once on drag start with the strip's current position — pages
   /// lazily create tab bodies, so the neighbors about to slide into view
-  /// need their first build scheduled before the finger moves.
+  /// need their first build scheduled before the finger moves. It fires on
+  /// every drag: rebuild only when a neighbor is new, since a page rebuild
+  /// here lands in the first frame of the slide.
   final ValueChanged<int>? onPrepareAdjacent;
 
   final Widget child;

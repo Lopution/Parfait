@@ -51,6 +51,13 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final _loadedKeys = <NewFeedKey>{};
   final _scrollControllers = <NewFeedKey, ScrollController>{};
+
+  /// One body instance per feed key, reused across page builds: an
+  /// identical widget short-circuits the element update, so the tab hop,
+  /// route echo and drag warm-up that rebuild this page mid-swipe no
+  /// longer rebuild every loaded feed (and its visible cards) inside the
+  /// swipe frame.
+  final _bodies = <NewFeedKey, Widget>{};
   late int _selectedIndex;
   late NewFeedType _type;
   bool _suppressRouteEcho = false;
@@ -125,6 +132,18 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   ScrollController _scrollControllerFor(NewFeedKey key) =>
       _scrollControllers.putIfAbsent(key, ScrollController.new);
 
+  /// Every drag start lands here; only a first visit to a neighbour needs
+  /// a rebuild.
+  void _prepareAdjacent(int index) {
+    final neighbours = {
+      for (final i in [index - 1, index + 1])
+        if (i >= 0 && i < _scopes.length)
+          NewFeedKey(scope: _scopes[i], type: _type),
+    };
+    if (_loadedKeys.containsAll(neighbours)) return;
+    setState(() => _loadedKeys.addAll(neighbours));
+  }
+
   void _onTabChanged() {
     if (_tabController.index == _selectedIndex) return;
     setState(() {
@@ -198,13 +217,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
         tabController: _tabController,
         // A neighbor the finger is about to uncover has to exist before
         // the slide starts — same offscreen-page warmup ViewPager does.
-        onPrepareAdjacent: (index) => setState(() {
-          for (final i in [index - 1, index + 1]) {
-            if (i >= 0 && i < _scopes.length) {
-              _loadedKeys.add(NewFeedKey(scope: _scopes[i], type: _type));
-            }
-          }
-        }),
+        onPrepareAdjacent: _prepareAdjacent,
         child: TabSlideStack(
           controller: _tabController,
           children: [
@@ -221,11 +234,14 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
                     if (key.scope == scope)
                       Offstage(
                         offstage: key.type != _type,
-                        child: _NewFeedBody(
-                          key: ValueKey(key),
-                          feedKey: key,
-                          scrollController: _scrollControllerFor(key),
-                          onTypeSelected: _onTypeSelected,
+                        child: _bodies.putIfAbsent(
+                          key,
+                          () => _NewFeedBody(
+                            key: ValueKey(key),
+                            feedKey: key,
+                            scrollController: _scrollControllerFor(key),
+                            onTypeSelected: _onTypeSelected,
+                          ),
                         ),
                       ),
                 ],
