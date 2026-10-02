@@ -225,6 +225,10 @@ class _FakeCommentRepository implements CommentRepository {
 }
 
 void main() {
+  // Stamp cells are PixivImages, which read settings; shards run single
+  // tests, so no test may rely on another having installed preferences.
+  setUp(installMemoryPreferences);
+
   test('comment parsing keeps root, parent and stamp fields distinct', () {
     final root = CommentEntity.fromJson(
       _commentJson(100, replyCount: 2),
