@@ -1,5 +1,7 @@
-/// Immutable beta56 asset bundle. Keep these names in manifest order because
-/// the 10-column emoji picker and 5-column stamp picker expose that order.
+/// Comment picker catalogue. Emoji ship in `assets/emojis/`; stamps load at
+/// runtime from pixiv via [commentStampUrl]. [commentStampIds] are pixiv's
+/// permanent stamps. Keep both lists in this order because the emoji and
+/// stamp pickers expose it.
 const List<String> commentEmojiNames = [
   'angry2',
   'blush2',
@@ -86,4 +88,5 @@ const List<int> commentStampIds = [
 
 String commentEmojiAsset(String name) => 'assets/emojis/$name.png';
 
-String commentStampAsset(int id) => 'assets/stamps/$id.jpg';
+String commentStampUrl(int id) =>
+    'https://s.pximg.net/common/images/stamp/generated-stamps/${id}_s.jpg';

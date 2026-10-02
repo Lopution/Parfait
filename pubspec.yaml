@@ -74,7 +74,6 @@ flutter:
   assets:
     - assets/branding/
     - assets/emojis/
-    - assets/stamps/
 
   fonts:
     - family: iconFont

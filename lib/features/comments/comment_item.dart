@@ -5,7 +5,6 @@ import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/comments/comment_assets.dart';
 import '../../core/comments/comment_translation.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../app/navigation/routes.dart';
@@ -209,15 +208,7 @@ class _CommentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (comment.stampId != null) {
-      final stamp = commentStampIds.contains(comment.stampId)
-          ? Image.asset(
-              commentStampAsset(comment.stampId!),
-              width: 180,
-              height: 110,
-              fit: BoxFit.contain,
-              alignment: Alignment.centerLeft,
-            )
-          : comment.stampUrl == null
+      final stamp = comment.stampUrl == null
           ? const Icon(Icons.image_not_supported_outlined)
           : PixivImage.feed(
               comment.stampUrl!,
@@ -225,6 +216,7 @@ class _CommentBody extends StatelessWidget {
               width: 180,
               height: 110,
               fit: BoxFit.contain,
+              alignment: Alignment.centerLeft,
             );
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xs),

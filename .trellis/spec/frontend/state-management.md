@@ -305,8 +305,9 @@ root comment; a root's `rootCommentId` is its own `id`.
   mutation state by an operation key plus monotonically increasing revision.
   Send/delete state is pending until the API succeeds; no optimistic entity
   is published.
-- Only `assets/emojis/` and `assets/stamps/` are used by the composer; grid
-  columns are width-driven (emoji ≈48dp cells clamped 3–10, stamps ≈96dp
+- The composer bundles only `assets/emojis/`. Stamps are not bundled: picker
+  cells load `commentStampUrl(id)` and stamp comments load the API's
+  `stampUrl`, both through `PixivImage.feed`. Grid columns are width-driven (emoji ≈48dp cells clamped 3–10, stamps ≈96dp
   cells clamped 2–5) so narrow screens keep minimum touch targets. Translation is a transient overlay and never
   replaces or persists the original comment text.
 

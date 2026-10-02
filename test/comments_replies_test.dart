@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -224,6 +225,10 @@ class _FakeCommentRepository implements CommentRepository {
 }
 
 void main() {
+  // Stamp cells are PixivImages, which read settings; shards run single
+  // tests, so no test may rely on another having installed preferences.
+  setUp(installMemoryPreferences);
+
   test('comment parsing keeps root, parent and stamp fields distinct', () {
     final root = CommentEntity.fromJson(
       _commentJson(100, replyCount: 2),
@@ -633,6 +638,68 @@ void main() {
     expect(commentStampIds, hasLength(40));
   });
 
+  test('stamp URLs follow the pixiv generated-stamps template', () {
+    expect(
+      commentStampUrl(101),
+      'https://s.pximg.net/common/images/stamp/generated-stamps/101_s.jpg',
+    );
+  });
+
+  testWidgets('stamp picker loads pixiv stamps and sends the tapped id', (
+    tester,
+  ) async {
+    final sent = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh', 'CN'),
+        supportedLocales: const [Locale('zh', 'CN')],
+        localizationsDelegates: appLocalizationsDelegates,
+        home: Scaffold(
+          resizeToAvoidBottomInset: false,
+          body: CommentComposer(
+            onSend: (_) async {},
+            onStampSend: (id) async => sent.add(id),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Stamp'));
+    await tester.pump();
+
+    final grid = tester.widget<GridView>(find.byType(GridView));
+    expect(
+      (grid.childrenDelegate as SliverChildBuilderDelegate).childCount,
+      commentStampIds.length,
+    );
+    final first = tester.widget<PixivImage>(
+      find
+          .descendant(
+            of: find.byType(GridView),
+            matching: find.byType(PixivImage),
+          )
+          .first,
+    );
+    expect(first.url, commentStampUrl(101));
+    expect(first.fit, BoxFit.contain);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Image && widget.image is AssetImage,
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(GridView),
+            matching: find.byType(InkResponse),
+          )
+          .first,
+    );
+    await tester.pump();
+    expect(sent, [101]);
+  });
+
   testWidgets(
     'comment item uses explicit reply actions and owner-only delete',
     (tester) async {
@@ -662,6 +729,68 @@ void main() {
       expect(find.byIcon(Icons.forum_outlined), findsOneWidget);
     },
   );
+
+  group('stamp comment body', () {
+    Future<void> pumpStampComment(WidgetTester tester, String? url) {
+      final base = _comment(41, content: '');
+      return tester.pumpWidget(
+        ProviderScope(
+          overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+          child: MaterialApp(
+            locale: const Locale('zh', 'CN'),
+            supportedLocales: const [Locale('zh', 'CN')],
+            localizationsDelegates: appLocalizationsDelegates,
+            home: Scaffold(
+              body: CommentItem(
+                comment: CommentEntity(
+                  id: base.id,
+                  workId: base.workId,
+                  kind: base.kind,
+                  parentCommentId: null,
+                  rootCommentId: base.rootCommentId,
+                  user: base.user,
+                  content: '',
+                  createdAt: base.createdAt,
+                  stampId: 101,
+                  stampUrl: url,
+                ),
+                onReply: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('shows the stamp from its pixiv URL, left-aligned', (
+      tester,
+    ) async {
+      final url = commentStampUrl(101);
+      await pumpStampComment(tester, url);
+      await tester.pump();
+
+      final image = tester.widget<PixivImage>(
+        find.byWidgetPredicate(
+          (widget) => widget is PixivImage && widget.url == url,
+        ),
+      );
+      expect(image.alignment, Alignment.centerLeft);
+      expect(image.fit, BoxFit.contain);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is Image && widget.image is AssetImage,
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('shows a placeholder icon without a stamp URL', (tester) async {
+      await pumpStampComment(tester, null);
+      await tester.pump();
+
+      expect(find.byIcon(Icons.image_not_supported_outlined), findsOneWidget);
+    });
+  });
 
   testWidgets('comments page renders the root feed and opens its thread', (
     tester,
