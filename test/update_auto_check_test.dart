@@ -91,7 +91,7 @@ class _FakePlatform implements UpdatePlatform {
 
   @override
   Future<UpdatePlatformInfo> info() async => UpdatePlatformInfo(
-    packageName: 'io.github.lopution.pixivfunc',
+    packageName: 'io.github.lopution.parfait',
     version: '0.1.0',
     versionCode: 1,
     signingCertificateSha256:

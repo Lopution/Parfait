@@ -196,7 +196,7 @@ void main() {
       expect(service.lastCheck, same(result));
       expect(
         result.release!.manifest.asset.packageName,
-        'io.github.lopution.pixivfunc',
+        'io.github.lopution.parfait',
       );
     });
 
@@ -582,7 +582,7 @@ Map<String, Object?> _manifestValue({
   'channel': 'stable',
   'version': version,
   'versionCode': versionCode,
-  'packageName': 'io.github.lopution.pixivfunc',
+  'packageName': 'io.github.lopution.parfait',
   'signingCertificateSha256':
       'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
   'assets': <Map<String, Object?>>[
@@ -608,7 +608,7 @@ Map<String, Object?> _schema1ManifestValue() => <String, Object?>{
     'size': 4,
     'sha256':
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-    'packageName': 'io.github.lopution.pixivfunc',
+    'packageName': 'io.github.lopution.parfait',
     'signingCertificateSha256':
         'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
   },
@@ -681,7 +681,7 @@ class _FakePlatform implements UpdatePlatform {
 
   @override
   Future<UpdatePlatformInfo> info() async => UpdatePlatformInfo(
-    packageName: 'io.github.lopution.pixivfunc',
+    packageName: 'io.github.lopution.parfait',
     version: version,
     versionCode: versionCode,
     signingCertificateSha256:

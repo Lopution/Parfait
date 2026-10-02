@@ -9,7 +9,7 @@ const int updateManifestMaxBytes = 64 * 1024;
 const int updateSignatureMaxBytes = 4 * 1024;
 const int updateAssetMaxBytes = 200 * 1024 * 1024;
 const String updateRepository = 'Lopution/Pixiv-func';
-const String updatePackageName = 'io.github.lopution.pixivfunc';
+const String updatePackageName = 'io.github.lopution.parfait';
 
 const Set<String> updateReleaseHosts = kUpdateDownloadHosts;
 const Set<String> _updateReleaseAbis = {'arm64-v8a', 'armeabi-v7a'};

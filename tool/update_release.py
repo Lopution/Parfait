@@ -51,7 +51,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 REPOSITORY = "Lopution/Pixiv-func"
-PACKAGE_NAME = "io.github.lopution.pixivfunc"
+PACKAGE_NAME = "io.github.lopution.parfait"
 MANIFEST_NAME = "update-manifest.json"
 SIGNATURE_NAME = "update-manifest.sig"
 KNOWN_ABIS = {
