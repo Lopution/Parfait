@@ -64,6 +64,7 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: flutter pub get --enforce-lockfile
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
@@ -82,6 +83,7 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       # The repo's rust-toolchain.toml already carries the MSVC target;
       # windows-latest ships rustup with the toolchain auto-installed.
       - run: flutter pub get --enforce-lockfile
@@ -103,10 +105,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
@@ -209,10 +213,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
@@ -266,6 +272,7 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: rustup toolchain install
       - run: rustup show active-toolchain
       - uses: Swatinem/rust-cache@v2
@@ -291,10 +298,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: flutter pub get --enforce-lockfile
       - run: flutter build apk --config-only --flavor fdroid
       - run: ./gradlew --no-daemon :app:testGithubDebugUnitTest :app:testFdroidDebugUnitTest
@@ -311,6 +320,7 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: rustup toolchain install
       - name: Collect dependency reports
         run: |
