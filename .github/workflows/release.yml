@@ -27,7 +27,9 @@ jobs:
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: plugins/rhttp/rhttp/rust
+          # Same cargokit target dir as ci.yml; shares its cache.
+          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/rhttp/build
+          shared-key: android
       - run: flutter pub get --enforce-lockfile
 
       - name: Read version from pubspec.yaml (single source of truth)
