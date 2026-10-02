@@ -62,9 +62,25 @@
   fdroid split bytes + 1,000,000: **28,981,038 / 24,805,284** (measured
   **27,981,038 / 23,805,284** after child F). arm64 additionally has a hard cap of
   **32,000,000**; the stricter value wins.
-- `ci.yml` `android-size` is the secrets-free gate (fdroid flavor, every PR).
-  `android-release` and `release.yml` run the same script on the github flavor and
-  stay red until the keystore secrets exist — do not bypass that.
+- `ci.yml` `android-release` runs the script on the github flavor with the real
+  keystore for pushes to `main` and same-repo PRs, as does `release.yml`; they
+  fail without the secrets — do not bypass that. `android-size` is the
+  secrets-free gate (fdroid flavor) and runs only for PRs from forks, which cannot
+  read secrets. `--analyze-size` archives run only on `main` pushes.
+
+## CI caches
+
+- Flutter SDK: `subosito/flutter-action` with `cache: true`. Gradle: `actions/setup-java`
+  with `cache: gradle` (not `gradle/actions`, whose cache is a closed component).
+- **cargokit does not build into `rust/target`.** It passes `cargo --target-dir`:
+  Android uses `<repo>/build/rhttp/build` (the rhttp Gradle project's `buildDir` +
+  `/build`), Windows `<repo>/build/windows/x64/plugins/rhttp/cargokit_build`. The
+  `Swatinem/rust-cache` `workspaces` entry must name that directory
+  (`plugins/rhttp/rhttp/rust -> ../../../../build/...`), otherwise the cache hits but
+  rhttp is rebuilt from scratch. `ci.yml` and `release.yml` share `shared-key: android`.
+  Only the `plugin` job (`cargo test`) uses the default `rust/target`.
+- A PR reads caches from `main` only; caches are written on `main` pushes, so a
+  cache change shows its full effect after it merges.
 
 ## Updater manifest (schema 2)
 

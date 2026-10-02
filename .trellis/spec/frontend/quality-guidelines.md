@@ -30,10 +30,14 @@ the repository rules on top of it:
 - analyzer `strict-casts` / `strict-raw-types` / `strict-inference`, linter
   `unawaited_futures` / `avoid_dynamic_calls` — the second E batch.
 
-The CI `analyze-and-test` job runs
+The CI `analyze` job runs
 `dart format --output=none --set-exit-if-changed lib test` before
-`flutter analyze`, so an unformatted change fails the job even when the code
-analyzes. `flutter analyze --no-pub` must stay at zero issues; do not silence a
+`flutter analyze`, so an unformatted change fails the required
+`analyze-and-test` check (it aggregates `analyze` and the two `flutter test`
+shards) even when the code analyzes. `flutter test --total-shards` splits
+individual test cases, not files, so every test must set up its own state
+(for example `SharedPreferencesAsyncPlatform.instance`) instead of relying on
+an earlier test in the same file. `flutter analyze --no-pub` must stay at zero issues; do not silence a
 rule with `// ignore:` without a one-line reason on the same line.
 
 ---
@@ -57,7 +61,7 @@ rule with `// ignore:` without a one-line reason on the same line.
 - **Coupled upgrades are one step.** `archive` ↔ `image`, and `flutter_secure_storage` ↔ `compileSdk` / AGP / `androidx.core`, are bumped together, with the relevant tests plus a device check, and after reading the changelogs for storage-format or cipher changes.
 - **`material_ui`-family majors ride the app migration.** `cached_network_image` 4 and `go_router` 18 are deferred to child F; do not bump them piecemeal.
 - **Every upgrade commit carries its verification.** `flutter analyze`, `flutter test`, plugin tests, `cargo test --locked`, Kotlin JVM tests, a release build, and the APK size delta recorded in `research/apk-size-breakdown.md`. The CI `deps-report` artifact (`pub outdated`, `cargo update --dry-run`) is the periodic signal; `flutter pub outdated` exits 0 even when majors are available, so read the artifact rather than trusting the exit code.
-- **Generated code is exempt from formatting gates.** `rust/src/lib.rs` marks `mod frb_generated;` with `#[rustfmt::skip]`; hand-written Rust must stay `cargo fmt` clean. The Dart side runs `dart format --output=none --set-exit-if-changed lib test` in the CI `analyze-and-test` job.
+- **Generated code is exempt from formatting gates.** `rust/src/lib.rs` marks `mod frb_generated;` with `#[rustfmt::skip]`; hand-written Rust must stay `cargo fmt` clean. The Dart side runs `dart format --output=none --set-exit-if-changed lib test` in the CI `analyze` job (aggregated by the required `analyze-and-test` check).
 
 ## Forbidden Patterns
 

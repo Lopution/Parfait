@@ -56,7 +56,7 @@ jobs:
               - 'plugins/**/Cargo.lock'
               - 'rust-toolchain.toml'
 
-  analyze-and-test:
+  analyze:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -64,10 +64,49 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: flutter pub get --enforce-lockfile
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
-      - run: flutter test
+
+  test:
+    name: test (shard ${{ matrix.shard }} of 2)
+    runs-on: ubuntu-latest
+    strategy:
+      # Let both shards finish so one failure does not hide the other's.
+      fail-fast: false
+      matrix:
+        # Keep in step with --total-shards below.
+        shard: [0, 1]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: "stable"
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter test --total-shards 2 --shard-index ${{ matrix.shard }}
+
+  analyze-and-test:
+    # The single check the ruleset requires. It aggregates analyze and every
+    # test shard, so keep the name and let it run even when they fail:
+    # a skipped required check would count as passing.
+    needs: [analyze, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require analyze and all test shards to succeed
+        env:
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          echo "analyze: $ANALYZE_RESULT"
+          echo "test:    $TEST_RESULT"
+          if [ "$ANALYZE_RESULT" != success ] || [ "$TEST_RESULT" != success ]; then
+            echo "::error::analyze or a test shard did not succeed"
+            exit 1
+          fi
 
   windows-build:
     # Compile-only guard for the desktop port: proves the Windows runner,
@@ -82,8 +121,13 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       # The repo's rust-toolchain.toml already carries the MSVC target;
       # windows-latest ships rustup with the toolchain auto-installed.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # cargokit.cmake builds into <plugin build dir>/cargokit_build.
+          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/windows/x64/plugins/rhttp/cargokit_build
       - run: flutter pub get --enforce-lockfile
       - run: flutter build windows --release
       - uses: actions/upload-artifact@v4
@@ -93,9 +137,14 @@ jobs:
 
   android-release:
     # Release-side safety: the release workflow must never publish a debug
-    # signed APK, so the release-signing check runs on the main branch.
+    # signed APK, so the release-signing check runs on main and on PRs from
+    # this repository. PRs from forks cannot read secrets; android-size
+    # covers them.
     needs: changes
-    if: needs.changes.outputs.build == 'true'
+    if: >-
+      needs.changes.outputs.build == 'true' &&
+      (github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -103,14 +152,19 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: plugins/rhttp/rhttp/rust
+          # cargokit builds into the rhttp Gradle project's buildDir/build
+          # (cargo --target-dir), not rust/target.
+          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/rhttp/build
+          shared-key: android
       - run: flutter pub get --enforce-lockfile
       - name: Decode release keystore
         env:
@@ -172,7 +226,10 @@ jobs:
 
       - name: Analyze arm64 code size
         # Non-blocking archive; Flutter refuses --analyze-size on multi-ABI
-        # builds, so this is a separate single-ABI build (not a release artifact).
+        # builds, so this is a separate single-ABI build (not a release
+        # artifact). Archive only from main: on PRs it would repeat a ~2 min
+        # build nobody reads.
+        if: github.event_name == 'push'
         continue-on-error: true
         env:
           PIXIV_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.PIXIV_RELEASE_KEYSTORE_PASSWORD }}
@@ -187,6 +244,7 @@ jobs:
             -PPIXIV_RELEASE_KEY_ALIAS="$PIXIV_RELEASE_KEY_ALIAS" \
             -PPIXIV_RELEASE_KEY_PASSWORD="$PIXIV_RELEASE_KEY_PASSWORD"
       - uses: actions/upload-artifact@v7
+        if: github.event_name == 'push'
         continue-on-error: true
         with:
           name: github-analyze-size
@@ -198,10 +256,16 @@ jobs:
           path: build/symbols/github
 
   android-size:
-    # Secrets-free size gate. android-release stays red until keystore
-    # secrets exist; this job still sees per-ABI volume regressions.
+    # Secrets-free size gate, only for PRs from forks: they cannot read the
+    # keystore secrets, so android-release would fail there. Everywhere else
+    # android-release runs the same per-ABI size report. The fdroid flavor
+    # differs from github only in flavor config and its own source set
+    # (unit-tested in android-unit), and runs ~12 KB under github.
     needs: changes
-    if: needs.changes.outputs.build == 'true'
+    if: >-
+      needs.changes.outputs.build == 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -209,14 +273,19 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: plugins/rhttp/rhttp/rust
+          # cargokit builds into the rhttp Gradle project's buildDir/build
+          # (cargo --target-dir), not rust/target.
+          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/rhttp/build
+          shared-key: android
       - run: flutter pub get --enforce-lockfile
       - name: Build fdroid split release
         run: |
@@ -237,17 +306,6 @@ jobs:
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-fdroid-release.apk \
             build/app/outputs/flutter-apk/app-armeabi-v7a-fdroid-release.apk
-      - name: Analyze arm64 code size
-        continue-on-error: true
-        run: |
-          flutter build apk --release --flavor fdroid \
-            --target-platform android-arm64 \
-            --analyze-size --code-size-directory=build/analyze-size/fdroid
-      - uses: actions/upload-artifact@v7
-        continue-on-error: true
-        with:
-          name: fdroid-analyze-size
-          path: build/analyze-size/fdroid
       - uses: actions/upload-artifact@v7
         with:
           name: fdroid-split-apks
@@ -266,6 +324,7 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: rustup toolchain install
       - run: rustup show active-toolchain
       - uses: Swatinem/rust-cache@v2
@@ -291,10 +350,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: flutter pub get --enforce-lockfile
       - run: flutter build apk --config-only --flavor fdroid
       - run: ./gradlew --no-daemon :app:testGithubDebugUnitTest :app:testFdroidDebugUnitTest
@@ -311,6 +372,7 @@ jobs:
         with:
           flutter-version: "3.47.2"
           channel: "stable"
+          cache: true
       - run: rustup toolchain install
       - name: Collect dependency reports
         run: |
