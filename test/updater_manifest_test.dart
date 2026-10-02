@@ -135,7 +135,7 @@ void main() {
     test('parses a strict stable release and semver prerelease', () {
       final manifest = UpdateManifest.parse(jsonEncode(_manifestValue()));
 
-      expect(manifest.repository, 'Lopution/Pixiv-func');
+      expect(manifest.repository, 'Lopution/Parfait');
       expect(manifest.version.toString(), '0.1.1');
       expect(manifest.channel, UpdateChannel.stable);
       expect(manifest.assets, hasLength(2));
@@ -542,7 +542,7 @@ void main() {
 const Object _missingAbis = Object();
 
 String _assetUrl(String version, String abi) =>
-    'https://github.com/Lopution/Pixiv-func/releases/download/v$version/pixiv-func-v$version-github-$abi.apk';
+    'https://github.com/Lopution/Parfait/releases/download/v$version/parfait-v$version-github-$abi.apk';
 
 Map<String, Object?> _asset({
   required String version,
@@ -577,7 +577,7 @@ Map<String, Object?> _manifestValue({
   int versionCode = 2,
 }) => <String, Object?>{
   'schema': 2,
-  'repository': 'Lopution/Pixiv-func',
+  'repository': 'Lopution/Parfait',
   'tag': 'v$version',
   'channel': 'stable',
   'version': version,
@@ -597,14 +597,14 @@ Map<String, Object?> _manifestValue({
 
 Map<String, Object?> _schema1ManifestValue() => <String, Object?>{
   'schema': 1,
-  'repository': 'Lopution/Pixiv-func',
+  'repository': 'Lopution/Parfait',
   'tag': 'v0.1.1',
   'channel': 'stable',
   'version': '0.1.1',
   'versionCode': 2,
   'asset': <String, Object?>{
     'url':
-        'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+        'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
     'size': 4,
     'sha256':
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',

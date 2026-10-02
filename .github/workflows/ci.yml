@@ -132,7 +132,7 @@ jobs:
       - run: flutter build windows --release
       - uses: actions/upload-artifact@v4
         with:
-          name: pixiv-func-windows-x64
+          name: parfait-windows-x64
           path: build/windows/x64/runner/Release
 
   android-release:

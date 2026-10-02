@@ -93,11 +93,11 @@ the `fdroid` flavor keeps it empty because the updater is disabled there).
    Top-level `versionCode` is the unshifted base `n`. Each asset stores the
    Flutter offset (`arm64-v8a` = `2000+n`, `armeabi-v7a` = `1000+n`).
 4. Upload to the GitHub draft release exactly these four files (no fat APK):
-   `pixiv-func-v<ver>-github-arm64-v8a.apk`,
-   `pixiv-func-v<ver>-github-armeabi-v7a.apk`,
+   `parfait-v<ver>-github-arm64-v8a.apk`,
+   `parfait-v<ver>-github-armeabi-v7a.apk`,
    `update-manifest.json`, and `update-manifest.sig`.
    The derived asset URL is
-   `https://github.com/Lopution/Pixiv-func/releases/download/v<ver>/pixiv-func-v<ver>-github-<abi>.apk`
+   `https://github.com/Lopution/Parfait/releases/download/v<ver>/parfait-v<ver>-github-<abi>.apk`
    (repository-name case is significant). See
    `.github/workflows/release.yml` for the automated path. Obfuscation
    symbols stay on the Actions artifact, not the public release.

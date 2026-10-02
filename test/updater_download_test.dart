@@ -203,7 +203,7 @@ void main() {
       'version': '0.1.1',
       'versionCode': 2,
       'assetUrl':
-          'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+          'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
       'exactSize': 4,
       'sha256':
           '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
@@ -224,8 +224,7 @@ void main() {
     final transport = _ScriptedUpdaterTransport([
       _ScriptedHop(
         statusCode: 302,
-        location:
-            'https://github.com/Lopution/Pixiv-func/releases/latest/notes',
+        location: 'https://github.com/Lopution/Parfait/releases/latest/notes',
       ),
     ]);
     addTearDown(transport.dispose);
@@ -233,7 +232,7 @@ void main() {
     expect(
       transport.open(
         Uri.parse(
-          'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+          'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
         ),
         headers: const {},
         cancelToken: DownloadCancelToken(),
@@ -257,7 +256,7 @@ void main() {
 
       final response = await transport.open(
         Uri.parse(
-          'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+          'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
         ),
         headers: const {},
         cancelToken: DownloadCancelToken(),
@@ -284,7 +283,7 @@ void main() {
 
       final response = await transport.open(
         Uri.parse(
-          'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+          'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
         ),
         headers: const {},
         cancelToken: DownloadCancelToken(),
@@ -299,7 +298,7 @@ void main() {
       _ScriptedHop(
         statusCode: 302,
         location:
-            'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+            'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
       ),
       _ScriptedHop(statusCode: 200),
     ]);
@@ -307,7 +306,7 @@ void main() {
 
     final response = await transport.open(
       Uri.parse(
-        'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/app.apk',
+        'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
       ),
       headers: const {},
       cancelToken: DownloadCancelToken(),
@@ -333,7 +332,7 @@ UpdateRelease _release(List<int> bytes, {String? expectedHash}) {
       <String, Object?>{
         'abi': 'arm64-v8a',
         'url':
-            'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/pixiv-func-v0.1.1-github-arm64-v8a.apk',
+            'https://github.com/Lopution/Parfait/releases/download/v0.1.1/parfait-v0.1.1-github-arm64-v8a.apk',
         'size': bytes.length,
         'sha256': hash,
         'versionCode': 2002,
@@ -341,7 +340,7 @@ UpdateRelease _release(List<int> bytes, {String? expectedHash}) {
       <String, Object?>{
         'abi': 'armeabi-v7a',
         'url':
-            'https://github.com/Lopution/Pixiv-func/releases/download/v0.1.1/pixiv-func-v0.1.1-github-armeabi-v7a.apk',
+            'https://github.com/Lopution/Parfait/releases/download/v0.1.1/parfait-v0.1.1-github-armeabi-v7a.apk',
         'size': bytes.length,
         'sha256': hash,
         'versionCode': 1002,

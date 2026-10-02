@@ -50,7 +50,7 @@ from urllib.parse import urlparse
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-REPOSITORY = "Lopution/Pixiv-func"
+REPOSITORY = "Lopution/Parfait"
 PACKAGE_NAME = "io.github.lopution.parfait"
 MANIFEST_NAME = "update-manifest.json"
 SIGNATURE_NAME = "update-manifest.sig"
@@ -122,8 +122,8 @@ def generate_key(out_path: str, pubkey_out: str | None = None) -> None:
 def asset_url_for(version: str, abi: str) -> str:
     # GitHub does not normalise repository-name case before redirecting.
     url = (
-        f"https://github.com/Lopution/Pixiv-func/releases/download/"
-        f"v{version}/pixiv-func-v{version}-github-{abi}.apk"
+        f"https://github.com/Lopution/Parfait/releases/download/"
+        f"v{version}/parfait-v{version}-github-{abi}.apk"
     )
     parsed = urlparse(url)
     if (
@@ -131,7 +131,7 @@ def asset_url_for(version: str, abi: str) -> str:
         or parsed.hostname != "github.com"
         or parsed.username
         or parsed.fragment
-        or not parsed.path.startswith("/Lopution/Pixiv-func/releases/download/")
+        or not parsed.path.startswith("/Lopution/Parfait/releases/download/")
         or not parsed.path.lower().endswith(".apk")
     ):
         raise ReleaseError("asset URL must be the GitHub repository release APK URL")
@@ -245,7 +245,7 @@ def generate(
 
 def self_test() -> None:
     """Run a disposable sign/verify/tamper round-trip without repo writes."""
-    with tempfile.TemporaryDirectory(prefix="pixivfunc-release-test-") as root:
+    with tempfile.TemporaryDirectory(prefix="parfait-release-test-") as root:
         root_path = Path(root)
         key_path = root_path / "test-key.pem"
         arm64 = root_path / "arm64.apk"
@@ -259,8 +259,8 @@ def self_test() -> None:
                 serialization.NoEncryption(),
             )
         )
-        arm64.write_bytes(b"pixiv-func-release-self-test-arm64")
-        armv7.write_bytes(b"pixiv-func-release-self-test-armv7")
+        arm64.write_bytes(b"parfait-release-self-test-arm64")
+        armv7.write_bytes(b"parfait-release-self-test-armv7")
         cert = "a" * 64
         generate(
             [("arm64-v8a", arm64), ("armeabi-v7a", armv7)],

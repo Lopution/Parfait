@@ -99,7 +99,7 @@ void main() {
     await tester.tap(find.text('项目源码'));
     await tester.pumpAndSettle();
 
-    expect(launched, ['https://github.com/Lopution/Pixiv-func']);
+    expect(launched, ['https://github.com/Lopution/Parfait']);
   });
 
   testWidgets('source tile trailing action copies the repository URL', (
@@ -111,7 +111,7 @@ void main() {
     await tester.tap(find.byTooltip('复制'));
     await tester.pumpAndSettle();
 
-    expect(written, ['https://github.com/Lopution/Pixiv-func']);
+    expect(written, ['https://github.com/Lopution/Parfait']);
     expect(find.text('链接已复制'), findsOneWidget);
   });
 
@@ -326,7 +326,7 @@ class _FakeUpdateManifest implements UpdateManifestLike {
   const _FakeUpdateManifest();
 
   @override
-  String get repository => 'Lopution/Pixiv-func';
+  String get repository => 'Lopution/Parfait';
   @override
   String get tag => 'v9.9.9';
   @override
