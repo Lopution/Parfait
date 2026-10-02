@@ -1,7 +1,7 @@
 # Android MethodChannel Contracts
 
 > Executable contracts for the 10 Android channels registered from
-> `android/app/src/main/kotlin/io/github/lopution/pixivfunc/`. This document
+> `android/app/src/main/kotlin/io/github/lopution/parfait/`. This document
 > records the shipped state so a check agent can diff the channel code against
 > the tables.
 >
@@ -13,7 +13,7 @@
 
 ## Conventions (target state after D2–D5)
 
-- Payload: `Map<String, Any?>` (or a scalar for `pixivfunc/widget`
+- Payload: `Map<String, Any?>` (or a scalar for `parfait/widget`
   `notifySnapshotChanged`). Bytes are `ByteArray` / Dart `Uint8List`. No JSON
   strings on the channel.
 - Registration (D3): IO channels register with a **serial** background
@@ -26,20 +26,20 @@
   any-thread). Activity-bound methods are posted back to the main looper
   through `MainThreadPoster` (`AndroidMainThreadPoster` in `configure`;
   `ImmediateMainThreadPoster` in JVM `handle(...)` tests).
-  Channels on a background TaskQueue: `pixivfunc/mediastore` (all methods),
-  `pixivfunc/saf_tree` (`pickTree` posted to main),
-  `pixivfunc/reverse_image_input` (`pickImage` / `openExternal` posted to
-  main), github `pixivfunc/updater` (`installApk` `startActivity` posted to
-  main). Staying on main: fdroid `pixivfunc/updater` (no archive IO),
-  `pixivfunc/webprofile` (`CookieManager.getCookie` / `flush` are **not**
+  Channels on a background TaskQueue: `parfait/mediastore` (all methods),
+  `parfait/saf_tree` (`pickTree` posted to main),
+  `parfait/reverse_image_input` (`pickImage` / `openExternal` posted to
+  main), github `parfait/updater` (`installApk` `startActivity` posted to
+  main). Staying on main: fdroid `parfait/updater` (no archive IO),
+  `parfait/webprofile` (`CookieManager.getCookie` / `flush` are **not**
   documented as thread-safe — official docs only say a null callback on
   `setCookie` / `removeAllCookies` is safe from a thread without a Looper;
   see https://developer.android.com/reference/android/webkit/CookieManager),
   clipboard, intents, widget, `widget_background`.
 - Bindings: 9 MethodChannels + 1 EventChannel
-  (`pixivfunc/android_intents/events`). No `pixivfunc/notification*`. Share and
+  (`parfait/android_intents/events`). No `parfait/notification*`. Share and
   deeplink are not independent channels (`ACTION_SEND` / VIEW go through
-  intents). `getPlatformInfo` belongs to `pixivfunc/updater`.
+  intents). `getPlatformInfo` belongs to `parfait/updater`.
 - `login_webview_intercept` / `LoginWebViewPlatformView`: **gone** (0 hits).
 - Error styles are explicit and remain part of each channel's contract:
   1. Channel-prefixed `result.error("<channel>_<reason>", …)` codes for
@@ -65,22 +65,22 @@
 
 | # | Channel | Kind | Kotlin handler | Dart caller | Thread |
 |---|---------|------|----------------|-------------|--------|
-| 1 | `pixivfunc/mediastore` | Method | `MediaStoreChannel.kt` | `lib/core/platform/media_store_channel.dart` | background TaskQueue |
-| 2 | `pixivfunc/saf_tree` | Method | `SafTreeChannel.kt` | `lib/core/platform/saf_tree.dart` | background TaskQueue; `pickTree` → main |
-| 3 | `pixivfunc/reverse_image_input` | Method | `ReverseImageInputChannel.kt` | `lib/core/reverse_image/reverse_image_platform.dart`, `reverse_image_external.dart` | background TaskQueue; `pickImage` / `openExternal` → main |
-| 4 | `pixivfunc/account_transfer_clipboard` | Method | `AccountTransferClipboardChannel.kt` | `lib/core/platform/account_transfer_clipboard.dart` | main |
-| 5 | `pixivfunc/android_intents` | Method | `AndroidIntentChannel.kt` | `lib/core/platform/android_intent_channel.dart` | main |
-| 6 | `pixivfunc/android_intents/events` | Event | `AndroidIntentChannel.kt` | `android_intent_channel.dart` (`onNewIntent`) | main |
-| 7 | `pixivfunc/webprofile` | Method | `WebProfileChannel.kt` | `lib/core/profile/web_profile_session.dart` | main (`CookieManager` not documented thread-safe) |
-| 8 | `pixivfunc/widget` | Method | `WidgetForegroundChannel.kt` | `lib/core/widget/widget_channel.dart` | main |
-| 9 | `pixivfunc/widget_background` | Method (**direction reversed**) | `appwidget/WidgetHeadlessRunner.kt` | `lib/core/widget/widget_background.dart` | main (engine setup) |
-| 10 | `pixivfunc/updater` | Method | `android/app/src/{github,fdroid}/…/DistributionUpdaterChannel.kt` | `lib/core/updater/update_platform.dart` | github: background TaskQueue (`installApk` → main); fdroid: main |
+| 1 | `parfait/mediastore` | Method | `MediaStoreChannel.kt` | `lib/core/platform/media_store_channel.dart` | background TaskQueue |
+| 2 | `parfait/saf_tree` | Method | `SafTreeChannel.kt` | `lib/core/platform/saf_tree.dart` | background TaskQueue; `pickTree` → main |
+| 3 | `parfait/reverse_image_input` | Method | `ReverseImageInputChannel.kt` | `lib/core/reverse_image/reverse_image_platform.dart`, `reverse_image_external.dart` | background TaskQueue; `pickImage` / `openExternal` → main |
+| 4 | `parfait/account_transfer_clipboard` | Method | `AccountTransferClipboardChannel.kt` | `lib/core/platform/account_transfer_clipboard.dart` | main |
+| 5 | `parfait/android_intents` | Method | `AndroidIntentChannel.kt` | `lib/core/platform/android_intent_channel.dart` | main |
+| 6 | `parfait/android_intents/events` | Event | `AndroidIntentChannel.kt` | `android_intent_channel.dart` (`onNewIntent`) | main |
+| 7 | `parfait/webprofile` | Method | `WebProfileChannel.kt` | `lib/core/profile/web_profile_session.dart` | main (`CookieManager` not documented thread-safe) |
+| 8 | `parfait/widget` | Method | `WidgetForegroundChannel.kt` | `lib/core/widget/widget_channel.dart` | main |
+| 9 | `parfait/widget_background` | Method (**direction reversed**) | `appwidget/WidgetHeadlessRunner.kt` | `lib/core/widget/widget_background.dart` | main (engine setup) |
+| 10 | `parfait/updater` | Method | `android/app/src/{github,fdroid}/…/DistributionUpdaterChannel.kt` | `lib/core/updater/update_platform.dart` | github: background TaskQueue (`installApk` → main); fdroid: main |
 
 Unknown method on every MethodChannel: `result.notImplemented()`.
 
 ---
 
-## 1. `pixivfunc/mediastore`
+## 1. `parfait/mediastore`
 
 - **Handler:** `MediaStoreChannel.kt` (`configure` registers the channel).
 - **Dart:** `MediaStoreMethods` / `MethodChannelMediaStoreSession` in
@@ -96,7 +96,7 @@ Unknown method on every MethodChannel: `result.notImplemented()`.
 
 | Method | Arguments | Required | Return | Notes |
 |--------|-----------|----------|--------|-------|
-| `begin` | `displayName: String`, `mimeType: String`, `ownerId: String?`, `relativePath: String?` | `displayName`, `mimeType` | `Int` (MediaStore row id) | `ownerId` written into `TITLE` as `pixivfunc-owner:<id>` when present. `relativePath` default `Pictures/PixivFunc`; custom path must start with `Pictures/`, length ≤ 128, no `..` / empty / `.` segments. `displayName` 1–255, no `/` `\`. `ownerId` if present must match `[A-Za-z0-9_.-]{1,128}`. |
+| `begin` | `displayName: String`, `mimeType: String`, `ownerId: String?`, `relativePath: String?` | `displayName`, `mimeType` | `Int` (MediaStore row id) | `ownerId` written into `TITLE` as `parfait-owner:<id>` when present. `relativePath` default `Pictures/Parfait`; custom path must start with `Pictures/`, length ≤ 128, no `..` / empty / `.` segments. `displayName` 1–255, no `/` `\`. `ownerId` if present must match `[A-Za-z0-9_.-]{1,128}`. |
 | `write` | `id: Int`, `bytes: ByteArray` | both | `null` | Appends to the pending stream. |
 | `finalize` | `id: Int` | `id` | `String` content URI | Clears `IS_PENDING`. |
 | `abort` | `id: Int` | `id` | `null` | Best-effort delete of the pending row. |
@@ -121,7 +121,7 @@ All codes match `^[a-z_]+$` and start with `mediastore_`.
 
 ---
 
-## 2. `pixivfunc/saf_tree`
+## 2. `parfait/saf_tree`
 
 - **Handler:** `SafTreeChannel.kt`.
 - **Dart:** `MethodChannelSafTree` in `lib/core/platform/saf_tree.dart`.
@@ -169,7 +169,7 @@ All newly emitted codes match `^[a-z_]+$` and start with `saf_`.
 
 ---
 
-## 3. `pixivfunc/reverse_image_input`
+## 3. `parfait/reverse_image_input`
 
 - **Handler:** `ReverseImageInputChannel.kt`.
 - **Dart:** `lib/core/reverse_image/reverse_image_platform.dart`,
@@ -210,7 +210,7 @@ no userInfo / port / fragment.
 
 ---
 
-## 4. `pixivfunc/account_transfer_clipboard`
+## 4. `parfait/account_transfer_clipboard`
 
 - **Handler:** `AccountTransferClipboardChannel.kt`.
 - **Dart:** `lib/core/platform/account_transfer_clipboard.dart`.
@@ -236,7 +236,7 @@ The two `TIRAMISU` sites (`capabilities`, sensitive `ClipData` extras) stay.
 
 ---
 
-## 5. `pixivfunc/android_intents`
+## 5. `parfait/android_intents`
 
 - **Handler:** `AndroidIntentChannel.kt`.
 - **Dart:** `lib/core/platform/android_intent_channel.dart`.
@@ -258,7 +258,7 @@ The two `TIRAMISU` sites (`capabilities`, sensitive `ClipData` extras) stay.
 
 ---
 
-## 6. `pixivfunc/android_intents/events` (EventChannel)
+## 6. `parfait/android_intents/events` (EventChannel)
 
 - **Handler:** same `AndroidIntentChannel.kt` (`EventChannel.StreamHandler`).
 - **Dart:** `MethodChannelAndroidIntentSource.onNewIntent`.
@@ -280,7 +280,7 @@ No `result.error` on the event stream.
 
 ---
 
-## 7. `pixivfunc/webprofile`
+## 7. `parfait/webprofile`
 
 - **Handler:** `WebProfileChannel.kt`.
 - **Dart:** `lib/core/profile/web_profile_session.dart`.
@@ -316,7 +316,7 @@ All codes match `^[a-z_]+$` and start with `webprofile_`.
 
 ---
 
-## 8. `pixivfunc/widget`
+## 8. `parfait/widget`
 
 - **Handler:** `WidgetForegroundChannel.kt`.
 - **Dart:** `lib/core/widget/widget_channel.dart`.
@@ -335,7 +335,7 @@ All codes match `^[a-z_]+$` and start with `webprofile_`.
 
 ---
 
-## 9. `pixivfunc/widget_background` — direction reversed
+## 9. `parfait/widget_background` — direction reversed
 
 Typical channels are Dart → native. This one is still a MethodChannel
 **invoked by Dart**, but the **native worker is the receiver**:
@@ -363,13 +363,13 @@ thread (`FlutterJNI` `@UiThread`).
 
 ---
 
-## 10. `pixivfunc/updater`
+## 10. `parfait/updater`
 
 - **Handlers:** flavor source sets
   `android/app/src/github/kotlin/…/DistributionUpdaterChannel.kt` and
   `android/app/src/fdroid/kotlin/…/DistributionUpdaterChannel.kt`.
   Shared `platformInfo` / `packageInfo` / `signerSha256` live in
-  `android/app/src/main/kotlin/io/github/lopution/pixivfunc/updater/UpdaterPlatformInfo.kt`.
+  `android/app/src/main/kotlin/io/github/lopution/parfait/updater/UpdaterPlatformInfo.kt`.
   `packageInfoFromArchive` stays on the github flavor (`verifyApk` only).
 - **Dart:** `lib/core/updater/update_platform.dart`.
   `PlatformException.code` is copied onto `UpdatePlatformException`.
@@ -502,7 +502,7 @@ The tables above are the authoritative channel contracts after D2–D5:
   Activity work (`pickTree`, `pickImage`, `openExternal`, github
   `installApk`) is posted to main; picker `pendingResult` state is
   synchronized. fdroid updater stays on main (no archive IO).
-  `pixivfunc/webprofile` stays on main — `CookieManager.getCookie`/`flush`
+  `parfait/webprofile` stays on main — `CookieManager.getCookie`/`flush`
   are not documented thread-safe. The **Thread** column above is the
   current fact.
 - **D4 (done):** 12 dead `SDK_INT < Q/P/O` branches are gone; 3× `TIRAMISU`

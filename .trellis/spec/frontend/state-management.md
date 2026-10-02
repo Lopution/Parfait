@@ -932,8 +932,8 @@ Every submission captures an immutable `(accountId, DownloadDestination,
 illust/page/frame, format)` snapshot. The recovery owner is
 `accountId + DownloadDestination.identity` (C4); it does not include a
 process-local `credentialRevision`. A product submission must have a usable
-account. The built-in destination identity is `album:pixivfunc`; a persisted
-legacy `'Pictures/PixivFunc'` path migrates to `DownloadDestination.builtin`
+account. The built-in destination identity is `album:parfait`; a persisted
+legacy `'Pictures/Parfait'` path migrates to `DownloadDestination.builtin`
 and matches that same owner. Legacy in-memory test submissions may remain
 unowned only when the manager is explicitly configured for that test boundary.
 
@@ -1005,7 +1005,7 @@ Feeds use generation + cancel. Mutations use `accountId` + operation identity.
 Download/Ugoira use `accountId + DownloadDestination.identity`. Profile drafts
 are account-id scoped.
 
-**C5 bootstrap**: `PixivFuncApp.initState` reads `downloadManagerProvider`
+**C5 bootstrap**: `ParfaitApp.initState` reads `downloadManagerProvider`
 (`app.dart`). That constructs the manager and fires a one-time recovery scan.
 Recovery never auto-resends a download; the user retries from Settings →
 Downloader.
@@ -1193,7 +1193,7 @@ or TLS client.
   retry count remain bounded; no resident timer/service is introduced.
 - Pending intents are explicit, immutable, non-exported and data-unique per
   widget slot. The accepted deep-link shape is exactly
-  `pixivfunc://illusts/<positive-id>`; extra query/fragment/authority forms
+  `parfait://illusts/<positive-id>`; extra query/fragment/authority forms
   are rejected before navigation.
 
 #### 4. Validation & Error Matrix
@@ -1280,7 +1280,7 @@ UpdateManifest UpdateManifest.parse(String raw);
 ```kotlin
 // Both product flavors expose this channel; only the GitHub source set
 // implements verification, APK validation and installer intents.
-pixivfunc/updater:
+parfait/updater:
   getCapability -> { flavor, enabled, storeManaged }
   getPlatformInfo -> { packageName, version, versionCode,
                        signingCertificateSha256 }
@@ -1290,7 +1290,7 @@ pixivfunc/updater:
 
 - A manifest is bounded to 64 KiB and must contain exactly `schema`,
   `repository`, `tag`, `channel`, `version`, `versionCode`, and `asset`.
-  The repository is `Lopution/Pixiv-func`, the tag is `v<version>`, and the
+  The repository is `Lopution/Parfait`, the tag is `v<version>`, and the
   asset contains an exact positive `size`, lowercase 64-character `sha256`,
   the fixed package name and lowercase installed-certificate digest.
 - Manifest and detached signature are fetched only from exact HTTPS GitHub

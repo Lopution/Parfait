@@ -13,7 +13,7 @@
 - Flutter 3.47.2 names them `app-<abi>-<flavor>-release.apk` with `<abi>` in
   `arm64-v8a`, `armeabi-v7a`. No universal APK and no x86_64 are published
   (emulators use debug builds).
-- Public release asset names: `pixiv-func-v<version>-github-<abi>.apk`, plus
+- Public release asset names: `parfait-v<version>-github-<abi>.apk`, plus
   `update-manifest.json` and `update-manifest.sig`. Symbols (`build/symbols/<flavor>`)
   are Actions artifacts only, never release assets.
 - `libsqlite3.so` is excluded on Android (`android/app/build.gradle.kts`
