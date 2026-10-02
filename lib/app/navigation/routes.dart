@@ -832,7 +832,7 @@ List<RouteBase> _settingsSubRoutes(
             state,
             observer,
             const LicensePage(
-              applicationName: 'Pixiv Func',
+              applicationName: 'Parfait',
               applicationVersion: '0.1.0',
             ),
           ),

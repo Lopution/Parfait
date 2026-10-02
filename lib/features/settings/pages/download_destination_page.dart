@@ -15,7 +15,7 @@ import '../saf_tree_name.dart';
 import '../settings_helpers.dart';
 
 /// Single-entry save location chooser (D5): album vs SAF folder. Album
-/// defaults to the built-in PixivFunc album with an optional custom name;
+/// defaults to the built-in Parfait album with an optional custom name;
 /// folder mode only accepts the system SAF tree URI.
 class DownloadDestinationPage extends ConsumerStatefulWidget {
   const DownloadDestinationPage({super.key});

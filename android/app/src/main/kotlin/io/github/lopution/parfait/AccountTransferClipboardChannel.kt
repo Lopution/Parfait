@@ -75,7 +75,7 @@ object AccountTransferClipboardChannel {
             return
         }
 
-        val clip = ClipData.newPlainText("Pixiv Func account transfer", text)
+        val clip = ClipData.newPlainText("Parfait account transfer", text)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             clip.description.setExtras(PersistableBundle().apply {
                 putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)

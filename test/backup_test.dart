@@ -349,7 +349,7 @@ void main() {
     test('fileName carries a timestamped json suffix', () {
       expect(
         BackupEnvelope.fileName(DateTime.utc(2026, 9, 20, 10, 5)),
-        'pixiv-func-backup-20260920-1005.json',
+        'parfait-backup-20260920-1005.json',
       );
     });
   });
@@ -374,13 +374,10 @@ void main() {
       final result = await world.service.export();
 
       expect(result?.uri, 'content://backup/1');
-      expect(result?.fileName, 'pixiv-func-backup-20260920-1030.json');
+      expect(result?.fileName, 'parfait-backup-20260920-1030.json');
       expect(world.picker.picks, 1);
       expect(world.sinks.lastTreeUri, 'tree-1');
-      expect(
-        world.sinks.lastDisplayName,
-        'pixiv-func-backup-20260920-1030.json',
-      );
+      expect(world.sinks.lastDisplayName, 'parfait-backup-20260920-1030.json');
       expect(world.sinks.lastMimeType, 'application/json');
 
       final parsed = BackupEnvelope.parse(world.sinks.last!.bytes);

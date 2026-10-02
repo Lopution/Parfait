@@ -224,7 +224,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     bool settingsPending = false,
   }) {
     return MaterialApp.router(
-      title: 'Pixiv Func',
+      title: 'Parfait',
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _messengerKey,
       locale: settings.locale,

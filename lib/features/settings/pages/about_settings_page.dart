@@ -75,7 +75,7 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final appName = 'Pixiv Func';
+    final appName = 'Parfait';
     final updateService = ref.watch(updateServiceProvider);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.aboutSettings)),
@@ -90,7 +90,7 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
               children: [
                 const SettingsActionTile(
                   icon: Icons.apps,
-                  title: Text('Pixiv Func'),
+                  title: Text('Parfait'),
                 ),
                 // Version comes from the platform package, not a literal —
                 // the pubspec `version:` line is the single source of truth
@@ -204,7 +204,7 @@ Future<void> _exportCrashLog(BuildContext context) async {
     return;
   }
   await SharePlus.instance.share(
-    ShareParams(files: [XFile(file.path)], subject: 'pixiv-func-crash.log'),
+    ShareParams(files: [XFile(file.path)], subject: 'parfait-crash.log'),
   );
 }
 

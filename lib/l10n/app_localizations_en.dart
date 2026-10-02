@@ -12,7 +12,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkDohEndpointsInvalid => 'Invalid DoH endpoint list';
 
   @override
-  String get welcome1 => 'Thank you for using Pixiv Func';
+  String get welcome1 => 'Thank you for using Parfait';
 
   @override
   String get welcome2 => 'Initial setup will begin now';
@@ -49,7 +49,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginProxyNoticeBody =>
-      'Because of network restrictions, turn on a system or external proxy before logging in or registering. Pixiv Func does not include a built-in proxy.';
+      'Because of network restrictions, turn on a system or external proxy before logging in or registering. Parfait does not include a built-in proxy.';
 
   @override
   String get loginProxyNoticeCancel => 'Cancel';
@@ -157,14 +157,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginAgree => 'By logging in you agree';
 
   @override
-  String get userAgreement => '《Pixiv Func User Agreement》';
+  String get userAgreement => '《Parfait User Agreement》';
 
   @override
-  String get agreementTitle => 'Pixiv Func User Agreement';
+  String get agreementTitle => 'Parfait User Agreement';
 
   @override
   String get agreementIntro =>
-      'Thank you for using Pixiv Func. By using this app, you confirm that you have read and agree to these terms. Stop using the app if you do not agree.';
+      'Thank you for using Parfait. By using this app, you confirm that you have read and agree to these terms. Stop using the app if you do not agree.';
 
   @override
   String get agreementAccountTitle => 'Account and authorization';
@@ -669,7 +669,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupExportHint =>
-      'Writes pixiv-func-backup-*.json into a directory you choose';
+      'Writes parfait-backup-*.json into a directory you choose';
 
   @override
   String backupExported(String name) {
@@ -922,7 +922,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveLocationAlbum => 'Album';
 
   @override
-  String get saveLocationPixivAlbum => 'PixivFunc album (default)';
+  String get saveLocationPixivAlbum => 'Parfait album (default)';
 
   @override
   String get saveLocationCustomAlbum => 'Custom album name';

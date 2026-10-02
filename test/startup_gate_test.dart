@@ -130,7 +130,7 @@ void main() {
     );
 
     expect(find.byType(WelcomePage), findsOneWidget);
-    expect(find.text('感谢使用Pixiv Func'), findsOneWidget);
+    expect(find.text('感谢使用Parfait'), findsOneWidget);
     expect(find.text('开始'), findsOneWidget);
   });
 
@@ -381,7 +381,7 @@ void main() {
 
     final mark = find.byType(Image);
     final image = tester.widget<Image>(mark).image as AssetImage;
-    expect(image.assetName, 'assets/branding/pixiv_func_icon.png');
+    expect(image.assetName, 'assets/branding/parfait_icon.png');
     // 160dp is where the system splash draws the 72dp visible icon area, so
     // the mark does not jump when the system splash hands over.
     expect(tester.getSize(mark), const Size(160, 160));

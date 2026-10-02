@@ -244,7 +244,7 @@ void main() {
   );
 
   test(
-    'legacy Pictures/PixivFunc destination migrates to the builtin owner',
+    'legacy Pictures/Parfait destination migrates to the builtin owner',
     () async {
       SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final preferences = SharedPreferencesAsync();
@@ -261,7 +261,7 @@ void main() {
           'target': 'illustPage',
           'displayName': '900_p0.jpg',
           'format': 'image/jpeg',
-          'destination': 'Pictures/PixivFunc',
+          'destination': 'Pictures/Parfait',
           'accountId': 'account-a',
           'submittedAt': '2026-09-01T00:00:00.000Z',
         },

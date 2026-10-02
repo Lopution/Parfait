@@ -111,7 +111,7 @@ abstract class AppLocalizations {
   /// No description provided for @welcome1.
   ///
   /// In zh, this message translates to:
-  /// **'感谢使用Pixiv Func'**
+  /// **'感谢使用Parfait'**
   String get welcome1;
 
   /// No description provided for @welcome2.
@@ -183,7 +183,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginProxyNoticeBody.
   ///
   /// In zh, this message translates to:
-  /// **'由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Pixiv Func 不提供内置代理。'**
+  /// **'由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Parfait 不提供内置代理。'**
   String get loginProxyNoticeBody;
 
   /// No description provided for @loginProxyNoticeCancel.
@@ -369,19 +369,19 @@ abstract class AppLocalizations {
   /// No description provided for @userAgreement.
   ///
   /// In zh, this message translates to:
-  /// **'《Pixiv Func用户使用协议》'**
+  /// **'《Parfait用户使用协议》'**
   String get userAgreement;
 
   /// No description provided for @agreementTitle.
   ///
   /// In zh, this message translates to:
-  /// **'Pixiv Func用户使用协议'**
+  /// **'Parfait用户使用协议'**
   String get agreementTitle;
 
   /// No description provided for @agreementIntro.
   ///
   /// In zh, this message translates to:
-  /// **'感谢使用 Pixiv Func。使用本应用即表示你已阅读并同意以下条款；如不同意，请停止使用本应用。'**
+  /// **'感谢使用 Parfait。使用本应用即表示你已阅读并同意以下条款；如不同意，请停止使用本应用。'**
   String get agreementIntro;
 
   /// No description provided for @agreementAccountTitle.
@@ -1311,7 +1311,7 @@ abstract class AppLocalizations {
   /// No description provided for @backupExportHint.
   ///
   /// In zh, this message translates to:
-  /// **'选择目录后写入 pixiv-func-backup-*.json'**
+  /// **'选择目录后写入 parfait-backup-*.json'**
   String get backupExportHint;
 
   /// No description provided for @backupExported.
@@ -1760,7 +1760,7 @@ abstract class AppLocalizations {
   /// No description provided for @saveLocationPixivAlbum.
   ///
   /// In zh, this message translates to:
-  /// **'PixivFunc 相册（默认）'**
+  /// **'Parfait 相册（默认）'**
   String get saveLocationPixivAlbum;
 
   /// No description provided for @saveLocationCustomAlbum.

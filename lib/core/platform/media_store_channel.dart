@@ -5,7 +5,7 @@ import '../download/download_recovery.dart';
 import '../download/resume_anchor.dart';
 
 /// MethodChannel contract for MediaStore pending writes
-/// (Pictures/PixivFunc).
+/// (Pictures/Parfait).
 abstract final class _MediaStoreMethods {
   static const channel = 'parfait/mediastore';
   static const begin = 'begin';

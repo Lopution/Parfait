@@ -1216,7 +1216,7 @@ void main() {
 
   testWidgets('settings home shows current-value summaries', (tester) async {
     PackageInfo.setMockInitialValues(
-      appName: 'Pixiv Func',
+      appName: 'Parfait',
       packageName: 'io.github.lopution.parfait',
       version: '9.9.9',
       buildNumber: '99',
@@ -1257,7 +1257,7 @@ void main() {
       '暂无屏蔽条目',
       '本地 开 · Pixiv 开',
       '自动',
-      '作品 ID（默认） · PixivFunc 相册（默认）',
+      '作品 ID（默认） · Parfait 相册（默认）',
       '0 个活动任务',
       '导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。',
       '9.9.9+99',

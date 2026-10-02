@@ -210,7 +210,7 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
             Uri.parse(_host),
             headers: const {
               'Content-Type': 'application/x-www-form-urlencoded',
-              'User-Agent': 'pixiv-func/1.0',
+              'User-Agent': 'Parfait/1.0',
             },
             body: {
               'q': source,
@@ -429,7 +429,7 @@ class LlmCommentTranslationService implements CommentTranslationTransport {
     final request = http.Request('POST', endpoint)
       ..headers['Content-Type'] = 'application/json'
       ..headers['Authorization'] = 'Bearer ${credentials.apiKey}'
-      ..headers['User-Agent'] = 'pixiv-func/1.0'
+      ..headers['User-Agent'] = 'Parfait/1.0'
       ..body = jsonEncode({
         'model': (credentials.model?.isEmpty ?? true)
             ? 'gpt-4o-mini'

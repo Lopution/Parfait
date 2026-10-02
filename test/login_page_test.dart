@@ -223,7 +223,7 @@ void main() {
     ) async {
       await pumpLogin(tester);
       expect(find.text('登录即表示您同意'), findsOneWidget);
-      final link = find.text('《Pixiv Func用户使用协议》');
+      final link = find.text('《Parfait用户使用协议》');
       expect(link, findsOneWidget);
       await tester.ensureVisible(link);
       await tester.pumpAndSettle();

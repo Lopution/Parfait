@@ -167,14 +167,14 @@ void main() {
       },
     );
 
-    test('default album lands under <base>/PixivFunc', () async {
+    test('default album lands under <base>/Parfait', () async {
       final handle = await mediaStore.begin(
         displayName: 'd.png',
         mimeType: 'image/png',
       );
       await handle.write([1]);
       await handle.finalize();
-      expect(File('${dir.path}/PixivFunc/d.png').existsSync(), isTrue);
+      expect(File('${dir.path}/Parfait/d.png').existsSync(), isTrue);
     });
 
     test('abort removes the staged file', () async {
@@ -184,8 +184,8 @@ void main() {
       );
       await handle.write([1]);
       await handle.abort();
-      expect(File('${dir.path}/PixivFunc/e.png.part').existsSync(), isFalse);
-      expect(File('${dir.path}/PixivFunc/e.png').existsSync(), isFalse);
+      expect(File('${dir.path}/Parfait/e.png.part').existsSync(), isFalse);
+      expect(File('${dir.path}/Parfait/e.png').existsSync(), isFalse);
     });
 
     test('unsafe characters in the display name are sanitized', () async {
@@ -280,7 +280,7 @@ void main() {
         expect((resumed! as ResumableDownloadSink).storedBytes, 2);
         await resumed.write([9]);
         await resumed.finalize();
-        expect(await File('${dir.path}/PixivFunc/album.png').readAsBytes(), [
+        expect(await File('${dir.path}/Parfait/album.png').readAsBytes(), [
           7,
           8,
           9,

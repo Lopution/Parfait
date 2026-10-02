@@ -554,10 +554,10 @@ ResumeAnchor? _anchorFromJson(Object? raw) {
 }
 
 /// Parses the durable destination identity (D5). Legacy records stored the
-/// raw 'Pictures/PixivFunc' path; both map to the built-in album.
+/// raw 'Pictures/Parfait' path; both map to the built-in album.
 DownloadDestination _destinationFromIdentity(String? identity) {
   if (identity == null || identity.isEmpty) return DownloadDestination.builtin;
-  if (identity == 'Pictures/PixivFunc') return DownloadDestination.builtin;
+  if (identity == 'Pictures/Parfait') return DownloadDestination.builtin;
   if (identity == 'album:parfait') {
     return DownloadDestination.builtin;
   }

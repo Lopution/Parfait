@@ -380,7 +380,7 @@ def outputs() -> dict[Path, Image.Image | str]:
         out[RES / f"mipmap-{density}/ic_launcher_foreground.png"] = to_image(render_mark(px, ADAPTIVE))
     out[RES / "drawable/ic_launcher_monochrome.xml"] = vector_drawable(monochrome_shape())
     big = to_image(render_mark(1024, DESIGN))
-    out[ROOT / "assets/branding/pixiv_func_icon.png"] = to_image(render_mark(SPLASH_PX, DESIGN))
+    out[ROOT / "assets/branding/parfait_icon.png"] = to_image(render_mark(SPLASH_PX, DESIGN))
     out[ROOT / "windows/runner/resources/app_icon.ico"] = big
     out[ROOT / ".github/branding/mark-1024.png"] = big
     out[ROOT / ".github/branding/icon-512.png"] = tile_icon(512)
