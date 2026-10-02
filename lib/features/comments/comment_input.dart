@@ -2,9 +2,12 @@ import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/pixiv_image.dart';
 import '../../core/comments/comment_assets.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+
+const double _panelCellSpacing = 8;
 
 /// The composer's input surface — four mutually exclusive states. [keyboard]
 /// is mirrored one-way from the framework focus node; [emoji] and [stamp] are
@@ -268,6 +271,11 @@ class CommentComposerState extends State<CommentComposer> {
         final crossAxisCount = isEmoji
             ? (constraints.maxWidth / 48).floor().clamp(3, 10).toInt()
             : (constraints.maxWidth / 96).floor().clamp(2, 5).toInt();
+        final cellWidth =
+            (constraints.maxWidth -
+                2 * FuncSpacing.sm -
+                _panelCellSpacing * (crossAxisCount - 1)) /
+            crossAxisCount;
         // One labelled button per cell — the images stay decorative-only.
         return Semantics(
           container: true,
@@ -276,8 +284,8 @@ class CommentComposerState extends State<CommentComposer> {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
+              crossAxisSpacing: _panelCellSpacing,
+              mainAxisSpacing: _panelCellSpacing,
             ),
             itemCount: isEmoji
                 ? commentEmojiNames.length
@@ -306,7 +314,11 @@ class CommentComposerState extends State<CommentComposer> {
                 child: InkResponse(
                   onTap: () => _sendStamp(id),
                   child: ExcludeSemantics(
-                    child: Image.asset(commentStampAsset(id)),
+                    child: PixivImage.feed(
+                      commentStampUrl(id),
+                      layoutWidth: cellWidth,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               );
