@@ -159,7 +159,7 @@ Parfait 源自 git-xiaocao 的 Pixiv Func，基于其开源代码重写，并非
 
 ## 参与开发
 
-欢迎通过 [Issues](https://github.com/Lopution/Parfait/issues) 反馈问题或提出建议。
+欢迎通过 [Issues](https://github.com/Lopution/Parfait/issues) 反馈问题或提出建议。安全问题请不要公开提交，按 [SECURITY.md](SECURITY.md) 私下报告。
 
 本地构建需要 Flutter 3.47.2 和 Rust 工具链（网络层的原生部分由 Rust 编译）。
 
