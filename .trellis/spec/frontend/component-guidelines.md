@@ -817,8 +817,8 @@ const PullToRefresh({
   sliver. Theme colors are passed through; pages do not create a second header
   or refresh controller for the same scrollable.
 - A `NestedScrollView` is kept as the outer scroll coordinator and each active
-  tab body owns one nested `PullToRefresh` wrapper, following PixEz's
-  `EasyRefresh` locator pattern. Do not add another wrapper around the whole
+  tab body owns one nested `PullToRefresh` wrapper (the `EasyRefresh`
+  locator pattern). Do not add another wrapper around the whole
   `NestedScrollView`. Ordinary lists use the default `isNested: false` path.
 - Touch scroll physics are unified app-wide through `FuncScrollBehavior`:
   `BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())` plus no

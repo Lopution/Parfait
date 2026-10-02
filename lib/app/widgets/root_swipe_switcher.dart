@@ -6,8 +6,8 @@ import 'branch_slide_stack.dart';
 
 /// Sideways drag on a branch-root page: the page's own top tabs follow the
 /// finger first; at the tab strip's edge a committed same-direction drag
-/// carries over to the next bottom-nav branch — the inner→outer ViewPager
-/// chaining Shaft gets for free from nested pagers.
+/// carries over to the next bottom-nav branch — the inner→outer chaining
+/// that nested Android ViewPagers provide for free.
 ///
 /// The drag is live: `TabController.offset` keeps `controller.animation`
 /// tracking the finger, so [TabSlideStack] slides the tab bodies under the

@@ -232,8 +232,8 @@ class PixivImage extends ConsumerStatefulWidget {
   final BlendMode? filterBlendMode;
 
   /// Sampling quality for the decoded image. `low` matches the
-  /// CachedNetworkImage default and every comparable client (pixez,
-  /// immich render grids at `low`/`none`); `medium` costs real raster time
+  /// CachedNetworkImage default, and image-grid apps commonly render at
+  /// `low`/`none`; `medium` costs real raster time
   /// per image during scroll.
   final FilterQuality filterQuality;
 
@@ -598,7 +598,7 @@ class _PixivImageState extends ConsumerState<PixivImage> {
     // A tier/width hand-off swaps onto an already-decoded frame. Fading the
     // new frame in leaves a half-transparent composite over the dissolving
     // old frame and the page background — the "contrast dip" flash.
-    // Glide/PixEz replace the drawable instantly in that case; the crossfade
+    // Glide replaces the drawable instantly in that case; the crossfade
     // is only for a real cold load (placeholder colour → image). OctoImage
     // separately skips fades entirely when the first frame is synchronous
     // (wasSynchronouslyLoaded).

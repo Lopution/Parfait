@@ -7,7 +7,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('SharePayload', () {
-    test('illust payload follows the Shaft text contract', () {
+    test('illust payload follows the share text contract', () {
       final payload = SharePayload.illust(
         id: 1234,
         title: 'A piece',

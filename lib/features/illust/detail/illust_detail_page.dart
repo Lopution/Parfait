@@ -324,8 +324,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         async.value is! IllustDetailRestricted &&
         async.value is! IllustDetailNotFound;
     return AppBar(
-      // The work title lives in the body (Shaft's hero_title / official
-      // client layout): a single-line AppBar slot ellipsises anything
+      // The work title lives in the body (official client layout): a
+      // single-line AppBar slot ellipsises anything
       // beyond a handful of characters, so the bar keeps a generic label
       // and the real title wraps freely in InfoBlock.
       title: Text(context.l10n.illustDetailTitle),

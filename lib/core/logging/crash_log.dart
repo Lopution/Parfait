@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-/// Local crash log (R3 — the pixes/Shaft convention: capture to a file on
-/// disk; no remote telemetry SDK).
+/// Local crash log (R3: capture to a file on disk; no remote telemetry
+/// SDK).
 ///
 /// Two kinds of entries land here. Uncaught errors: [install] hooks
 /// [FlutterError.onError] and is paired with `runZonedGuarded(record, ...)`

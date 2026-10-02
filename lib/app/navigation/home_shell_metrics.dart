@@ -72,8 +72,8 @@ class _HomeShellBarVisibleNotifier extends Notifier<bool> {
 
 /// Branches whose root route is currently covered by a pushed route inside
 /// the branch Navigator. The shell-level bottom bar subscribes to this and
-/// slides away while the current branch is covered — the same layering
-/// Shaft gets by pushing a whole Activity over the home ViewPager.
+/// slides away while the current branch is covered, as if a whole new
+/// screen had been pushed over the home pager.
 ///
 /// Reported by [BranchRootScaffold], which subscribes to its branch's
 /// RouteObserver: `didPushNext`/`didPopNext` fire at push/pop start, so the

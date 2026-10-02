@@ -60,7 +60,7 @@ class IllustDetailRepository {
   ) async {
     try {
       // A session-channel failure must not skip the request: SFW pages
-      // respond without a cookie too (same degradation Shaft relies on).
+      // respond without a cookie too.
       String? cookie;
       try {
         cookie = await _session.readSessionCookie();

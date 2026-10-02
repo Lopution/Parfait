@@ -143,7 +143,7 @@ class BranchSlidePager extends ChangeNotifier {
   /// NavigationRail share. A same-destination tap is the re-tap gesture:
   /// the branch stack returns to its root and [reTapEvents] fires so the
   /// revealed root page can scroll to top. Other slots slide over like
-  /// Shaft's `viewPager.setCurrentItem` (smooth scroll).
+  /// `ViewPager.setCurrentItem` (smooth scroll).
   void selectIndex(int index) {
     final shell = _shell;
     if (shell == null) return;
@@ -238,8 +238,8 @@ class BranchSlidePager extends ChangeNotifier {
 }
 
 /// Broadcast signal for branch-level re-taps — a tap on the bottom bar's
-/// already-selected destination (Shaft/iOS "return to root, scroll to
-/// top" parity; PixEz `topStore` is the same shape).
+/// already-selected destination (the iOS "return to root, scroll to top"
+/// convention).
 ///
 /// Frozen contract — W3 pages consume this channel, do not fork it or
 /// change the payload semantics:
@@ -286,9 +286,8 @@ void reTapScrollToTop(BuildContext context, ScrollController controller) {
   }
 }
 
-/// Drop-in for `StatefulShellRoute.indexedStack`'s container, rebuilt as
-/// Shaft's `activity_cover.xml`: the branch Navigators are the ViewPager
-/// pages laid out side by side, and the navigation chrome is their
+/// Drop-in for `StatefulShellRoute.indexedStack`'s container, rebuilt as a
+/// pager: the branch Navigators are the pages laid out side by side, and the navigation chrome is their
 /// **sibling** — the bottom bar floats over the strip and never moves
 /// with the page underneath; on wide surfaces a NavigationRail sits to
 /// the side instead. Both controls are the same gesture source: taps
@@ -378,8 +377,8 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     // `scrollDelta`: a single drag can cross an edge (real content scroll
     // for the first leg, overscroll for the rest) and `outOfRange` only
     // describes the landing state — the real leg must still count, while
-    // spring-back replays must not. RecyclerView's `dy` in Shaft's
-    // BottomBarAutoHide has exactly this semantics.
+    // spring-back replays must not. RecyclerView's scroll `dy` has exactly
+    // this semantics.
     final metrics = notification.metrics;
     if (!metrics.hasContentDimensions) return false;
     if (!identical(notification.context, _lastScrollable)) {
@@ -401,7 +400,7 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     // Same sign keeps accumulating; a reversal restarts from the fresh
     // delta so a short reverse flick does not have to pay off a long run.
     _scrollAccum = (_scrollAccum * delta < 0) ? delta : _scrollAccum + delta;
-    // Shaft's BottomBarAutoHide gates on ViewConfiguration.scaledTouchSlop —
+    // Gate on the equivalent of ViewConfiguration.scaledTouchSlop —
     // the platform's real slop (~8dp), not kTouchSlop (18). Anything higher
     // makes the bar feel unresponsive to short flicks.
     final slop = MediaQuery.maybeGestureSettingsOf(context)?.touchSlop ?? 8.0;

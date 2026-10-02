@@ -1,4 +1,4 @@
-/// Local TXT novel decoding — Shaft's chain: BOM detection first, strict
+/// Local TXT novel decoding: BOM detection first, strict
 /// UTF-8 next, GBK fallback for legacy Simplified-Chinese files, and a
 /// visibly-tagged UTF-8 lossy last resort so mojibake is never silent.
 library;
@@ -16,7 +16,7 @@ enum LocalNovelEncoding { utf8, utf16, gbk, utf8Lossy }
 typedef DecodedLocalNovel = (String text, LocalNovelEncoding encoding);
 
 /// Decodes raw TXT bytes. Order matters: a BOM is authoritative, UTF-8 is
-/// the common case, GBK covers the legacy files Shaft targets, and the
+/// the common case, GBK covers legacy Simplified-Chinese files, and the
 /// final lossy pass guarantees some text over an import failure.
 DecodedLocalNovel decodeLocalNovelText(Uint8List bytes) {
   if (bytes.isEmpty) return ('', LocalNovelEncoding.utf8);

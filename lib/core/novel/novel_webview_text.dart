@@ -7,8 +7,7 @@ import '../network/api_error.dart';
 ///
 /// The app-API `/v2/novel/detail` endpoint never returns a body: the novel
 /// text only exists in this page's bootstrap script
-/// (`Object.defineProperty(window, 'pixiv', {value: {…}})`). Every working
-/// third-party client (PixEz, Shaft, pixes, skana_pix) sources text here.
+/// (`Object.defineProperty(window, 'pixiv', {value: {…}})`).
 class NovelWebPayload {
   const NovelWebPayload({
     required this.text,
@@ -110,7 +109,7 @@ String _stripTrailingCommas(String object) =>
 /// literal into strict JSON: unquoted keys get quoted ("sessionUserId:" is
 /// what the real page ships), '…' strings become "…", and the JS-only
 /// literals `undefined`/`NaN`/`Infinity` fold to null. Gson's lenient mode
-/// — what Shaft's parser rides on — accepts all three; dart:convert does
+/// accepts all three; dart:convert does
 /// not, which is why the strict decode died on the first unquoted key.
 String _jsLiteralToJson(String source) {
   final out = StringBuffer();

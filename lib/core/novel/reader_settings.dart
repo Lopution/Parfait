@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../settings/shared_preferences.dart';
 
-/// Reader surface preset, legado-style. `system` follows the app theme; the
+/// Reader surface preset. `system` follows the app theme; the
 /// others pin a paper/eye-care/night palette inside the reader only.
 enum NovelReaderTheme {
   system,
@@ -40,7 +40,7 @@ NovelReaderPalette novelReaderPalette(NovelReaderTheme theme) {
       foreground: Color(0xFF2B2620),
       brightness: Brightness.light,
     ),
-    // Classic 绿豆沙 eye-care green used by legado/reading apps.
+    // Classic 绿豆沙 eye-care green used by reading apps.
     NovelReaderTheme.sepia => const NovelReaderPalette(
       background: Color(0xFFC7E5C8),
       foreground: Color(0xFF22331F),

@@ -145,8 +145,8 @@ void main() {
         illustDetailControllerProvider(50).future,
       );
       expect(state, isA<IllustDetailReady>());
-      // The dims seed lands asynchronously behind Ready (Shaft's
-      // seedPageDimensions pattern) — wait for the merge instead of racing.
+      // The dims seed lands asynchronously behind Ready — wait for the
+      // merge instead of racing.
       await untilStore(
         () =>
             container.read(illustStoreProvider).get(50)!.metaPages[1].width ==

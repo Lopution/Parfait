@@ -270,9 +270,7 @@ void main() {
     expect(indicator, findsNothing);
   });
 
-  testWidgets('the shared wrapper uses the PixEz-style material header', (
-    tester,
-  ) async {
+  testWidgets('the shared wrapper uses the material header', (tester) async {
     await tester.pumpWidget(buildSubject(onRefresh: () async {}));
     await tester.pumpAndSettle();
 

@@ -19,7 +19,7 @@ import 'helpers/test_preferences.dart';
 const _account = Account(id: '100', userId: 100, name: 'tester');
 
 /// Pumps the real home shell — the bottom bar now lives one layer up in
-/// [BranchSlideStack] (Shaft's sibling-of-ViewPager layout), so scroll-hide
+/// [BranchSlideStack] (a sibling of the branch pager), so scroll-hide
 /// behaviour can only be exercised through a real branch Navigator.
 Future<GoRouter> _pumpHome(
   WidgetTester tester, {

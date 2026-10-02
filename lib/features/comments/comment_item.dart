@@ -297,9 +297,8 @@ class _Actions extends StatelessWidget {
 }
 
 /// One comment action: a pill with icon + label, identical geometry for
-/// every entry so the row's baselines and left edges always agree. Shaft's
-/// cell_comment uses the same contract (v3_action_pill_bg + 12sp bold
-/// label); mixing IconButton and TextButton primitives was what produced
+/// every entry so the row's baselines and left edges always agree (pill
+/// background + 12sp bold label); mixing IconButton and TextButton primitives was what produced
 /// the misaligned reply/translate row.
 class _ActionPill extends StatelessWidget {
   const _ActionPill({

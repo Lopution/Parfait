@@ -38,7 +38,7 @@ class HistoryPage extends ConsumerStatefulWidget {
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   int _clearGeneration = 0;
 
-  /// Selection mode is page-local state (design.md §二): nothing outside
+  /// Selection mode is page-local state: nothing outside
   /// this page consumes it, so it never leaves the widget tree.
   bool _managing = false;
   final Set<int> _selected = <int>{};
@@ -384,7 +384,7 @@ class _HistoryEntry extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     // Known-illust cells render the shared IllustCard; its own long-press
     // would open the card action sheet, but in history the gesture is the
-    // selection-mode entry/toggle (prd.md history matrix), so the page
+    // selection-mode entry/toggle, so the page
     // supplies the callback.
     final longPress = managing
         ? () => onToggle(recordKey)

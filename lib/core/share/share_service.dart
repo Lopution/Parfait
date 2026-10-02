@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart' as share_plus;
 
 /// Typed share payload for one Pixiv destination. `text` follows the format
-/// proven by Shaft's `ACTION_SEND` body: `"{title} | {author} #Pixiv {url}"`.
+/// `"{title} | {author} #Pixiv {url}"`.
 class SharePayload {
   const SharePayload({
     required this.title,
