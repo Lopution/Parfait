@@ -161,6 +161,11 @@ class NetworkAccessPolicy {
   /// the persisted address remains available for a later network change.
   final Map<String, DateTime> _fastRouteCooldownUntil = {};
 
+  /// Consecutive ECH failures per pixiv image host, and the time until which
+  /// ECH steps back for that host (see `_recordEchImageFailure`).
+  final Map<String, int> _echImageFailures = {};
+  final Map<String, DateTime> _echImageCooldownUntil = {};
+
   /// A successful strict route is also remembered for its destination group.
   /// The value changes candidate order only; target addresses remain per-host.
   final Map<_RouteGroup, _RouteGroupMemory> _groupMemory = {};
@@ -398,10 +403,7 @@ class NetworkAccessPolicy {
   void setMode(NetworkMode mode) {
     if (_mode == mode) return;
     _mode = mode;
-    _closeClients();
-    _routeMemory.clear();
-    _groupMemory.clear();
-    _fastRouteCooldownUntil.clear();
+    _forgetRoutes();
   }
 
   NetworkRevision advanceNetworkRevision({String? networkIdentity}) {
@@ -409,10 +411,7 @@ class NetworkAccessPolicy {
       _revision.value + 1,
       networkIdentity: networkIdentity ?? _revision.networkIdentity,
     );
-    _closeClients();
-    _routeMemory.clear();
-    _groupMemory.clear();
-    _fastRouteCooldownUntil.clear();
+    _forgetRoutes();
     // Re-seed group preferences for the *new* identity — the same store
     // that accelerates a cold restart accelerates a Wi-Fi↔cellular flip.
     unawaited(_seedPersistedGroupKinds());
@@ -451,7 +450,9 @@ class NetworkAccessPolicy {
       final memory = _routeMemory[host];
       NetworkRoute? route;
       PixivDestination? destination;
-      if (memory != null && memory.isUsable(now, _revision.networkIdentity)) {
+      if (memory != null &&
+          memory.isUsable(now, _revision.networkIdentity) &&
+          !_isSupersededByEch(purpose, host, memory.kind, now)) {
         route = memory.routeFor(_revision);
       } else {
         final group = _routeGroupFor(purpose, host);
@@ -501,7 +502,9 @@ class NetworkAccessPolicy {
       final kind = NetworkRouteKind.values
           .where((k) => k.name == entry.value)
           .firstOrNull;
-      if (kind == null || !_isGroupPreferenceKind(kind)) continue;
+      // Older versions persisted origin-tier image preferences; those are
+      // ignored here and overwritten by the next ECH success.
+      if (kind == null || !_isGroupPreference(group, kind)) continue;
       _groupMemory[group] = _RouteGroupMemory(
         kind: kind,
         ttl: _kRouteMemoryTtl,
@@ -525,10 +528,19 @@ class NetworkAccessPolicy {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _forgetRoutes();
+    await _resolver.dispose();
+  }
+
+  /// Closes the route pools and drops everything learned about routes on
+  /// the current network: what won, and what is cooling down.
+  void _forgetRoutes() {
     _closeClients();
+    _routeMemory.clear();
     _groupMemory.clear();
     _fastRouteCooldownUntil.clear();
-    await _resolver.dispose();
+    _echImageFailures.clear();
+    _echImageCooldownUntil.clear();
   }
 
   void _closeClients() {
