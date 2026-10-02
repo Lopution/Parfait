@@ -73,7 +73,7 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       final repository = ref.read(_illustDetailRepositoryProvider);
       // When the snapshot already proves the work is multi-page (the
       // feed→detail path), the pages call races the app detail instead of
-      // queueing behind it — Shaft's fetchIllustPageDimensions pattern.
+      // queueing behind it.
       final dimsFuture = (snapshot?.pageCount ?? 0) > 1
           ? repository.fetchPageDimensions(id)
           : null;
@@ -89,7 +89,7 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       }
       if (merged.pageCount > 1 && merged.metaPages.isNotEmpty) {
         // Never block Ready on the dims: the slots re-layout to true ratios
-        // whenever the web call lands, like Shaft's seedPageDimensions.
+        // whenever the web call lands.
         unawaited(
           _seedPageDimensions(
             id,

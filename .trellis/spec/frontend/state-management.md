@@ -537,7 +537,7 @@ consumers.
   `ech → dohRealSni → direct → insecureNoSni`; image hosts (`i.pximg.net` /
   `s.pximg.net`) use `ech → noSni → dohRealSni → direct → insecureNoSni`.
   Host/group memory promotes the last successful kind. `insecureNoSni`
-  (empty SNI, no certificate verification, persisted/bundled PixEz
+  (empty SNI, no certificate verification, persisted/bundled
   bootstrap 210.140.139.155/133) is always the last fallback. Production
   forces `insecureNoSniEnabled: true` with no user switch
   (`network_providers.dart:29`). A failed fast address is cooled for 30
@@ -554,7 +554,7 @@ consumers.
   verification and the HTTP `Host` header.
 - `PixivFastRouteStore` (`network_fast_route_store.dart`) accepts only the
   allowlisted Pixiv hosts and public IP literals. It persists the last
-  successful address, falls back to the bundled PixEz bootstrap map after
+  successful address, falls back to the bundled bootstrap map after
   restart, and refreshes each host from DoH in the background. Its address
   is a last-fallback connection bootstrap, never a URL rewrite.
 - `PixivHttpClient` shares an uncancelled GET in flight only when the URI and
@@ -562,8 +562,8 @@ consumers.
   response is not retained after completion, so pull-to-refresh never receives
   stale business data from this optimization.
 - Only DNS, connect, timeout, reset and handshake-class failures may move a
-  request to the next route tier. The business request is the route attempt
-  (PixEz-style): no separate probe is paid. Each tier is attempted at most
+  request to the next route tier. The business request is the route
+  attempt: no separate probe is paid. Each tier is attempted at most
   once; GET/HEAD may also retry on timeout, while POST, the token exchange
   and every request with a possible body advance only when the failure
   proves the request never reached the server (DNS, connect, reset, TLS
@@ -666,10 +666,10 @@ cooldown.
 
 **Correct**: allowlist the exact Pixiv destination and purpose, retain the
 original hostname for the HTTP `Host` value, reuse the bounded fast route only
-for the known PixEz host map as the last Automatic fallback, and walk the
+for the known bootstrap host map as the last Automatic fallback, and walk the
 remaining undelivered kinds after a transport failure.
 
-The internal PixEz-compatible `insecureNoSni` tier intentionally omits SNI
+The internal compatibility `insecureNoSni` tier intentionally omits SNI
 and certificate verification. It is the last Automatic fallback for the
 allowlisted Pixiv hosts in `PixivFastRouteStore`, forced on in production
 (`network_providers.dart:29`) with no user-facing switch, and does not

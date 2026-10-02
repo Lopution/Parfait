@@ -49,8 +49,8 @@ class CancelToken implements NetworkCancelSignal {
 /// Response bodies from this size up decode off the UI isolate. On device a
 /// 97KB feed page held the UI thread 4.3ms and a 290KB related-works page
 /// 9.5ms — landing mid-swipe or mid-fling, that is one or two dropped
-/// 120Hz frames. PixEz and Pixes get the same split from Dio's default
-/// `BackgroundTransformer` (50KB); measured 66KB already costs 1.9ms here.
+/// 120Hz frames. Dio's default `BackgroundTransformer` splits at 50KB;
+/// measured 66KB already costs 1.9ms here.
 const backgroundJsonThreshold = 32 * 1024;
 
 /// Decodes a UTF-8 JSON response body: inline below
@@ -79,7 +79,7 @@ Object? _decodeJson(Uint8List bytes) => jsonDecode(utf8.decode(bytes));
 ///   the per-account single-flight [TokenRefreshGate]; each request retries
 ///   at most once. Invalid refreshes mark the account re-auth-required.
 /// - Transport selection stays centralized in [NetworkAccessPolicy]. The
-///   production fast tier is an internal PixEz-compatible route; strict
+///   production fast tier is an internal compatibility route; strict
 ///   routes remain available as the policy fallback. Transport errors surface
 ///   as [ApiNetworkError] and are never hidden.
 class PixivHttpClient {

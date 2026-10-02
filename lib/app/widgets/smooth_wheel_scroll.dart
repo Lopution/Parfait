@@ -22,7 +22,7 @@ import '../motion/motion_tokens.dart';
 /// )
 /// ```
 ///
-/// How it works (adapted from venera):
+/// How it works:
 ///
 /// * `Listener.onPointerSignal` is delivered to *every* Listener on the hit
 ///   path, while `Scrollable` only registers its own wheel handler with the

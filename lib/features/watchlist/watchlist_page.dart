@@ -22,7 +22,7 @@ import '../../core/watchlist/watchlist_store.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
-/// 追更列表: manga and novel series segments (PixEz `/v1/watchlist/*`).
+/// 追更列表: manga and novel series segments (`/v1/watchlist/*`).
 /// A tile shows a "new content" badge while its `latest_content_id` is
 /// ahead of the locally stored read cursor.
 class WatchlistPage extends StatelessWidget {

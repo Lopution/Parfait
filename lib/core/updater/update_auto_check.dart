@@ -6,8 +6,8 @@ import '../settings/shared_preferences.dart';
 import 'update_providers.dart';
 import 'update_service.dart';
 
-/// One-shot background update check (R2 — the pixes/skana convention: a
-/// delayed single check after launch, silent on failure).
+/// One-shot background update check (R2: a delayed single check after
+/// launch, silent on failure).
 ///
 /// Throttled by [minInterval]: the timestamp is written *before* the
 /// request so a failed check also consumes the window — retries never

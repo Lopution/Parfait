@@ -224,7 +224,7 @@ class AppSettings {
   /// Built-in DoH endpoints. Used when [dohEndpointOverride] is null; an
   /// override replaces the whole list.
   ///
-  /// Cloudflare DoH over anycast IPs (PixEz-proven bootstrap): anycast
+  /// Cloudflare DoH over anycast IPs (a proven bootstrap): anycast
   /// serves these endpoints on any Cloudflare IP, so the first query needs
   /// no system DNS round trip and no resolver recursion. Mainland DoH
   /// (AliDNSPod) poisons `*.pixiv.net` answers, so they are not defaults;

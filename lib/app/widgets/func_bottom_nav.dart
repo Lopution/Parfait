@@ -38,8 +38,7 @@ class FuncBottomNav extends StatefulWidget {
   /// Continuous strip position for the indicator to track — the branch
   /// pager's `tab.animation`. The shell-level bar passes it so the
   /// underline slides with the finger through a drag exactly like the
-  /// TabBar's indicator follows `controller.animation` (Shaft's
-  /// BottomNavigationView tracks `onPageScrolled` the same way). Null
+  /// TabBar's indicator follows `controller.animation`. Null
   /// keeps the discrete elastic replay used by per-branch bars.
   final Animation<double>? indicatorAnimation;
 
@@ -567,13 +566,13 @@ class _FuncBottomNavItem extends StatelessWidget {
   }
 }
 
-/// The single bottom bar at the home-shell layer — Shaft's
-/// BottomNavigationView: a **sibling** of the branch ViewPager, floating
+/// The single bottom bar at the home-shell layer: a **sibling** of the
+/// branch pager, floating
 /// over the strip instead of riding inside a page. It never translates
 /// with a branch slide; while the current branch's root route is covered
 /// by a pushed route (reported by [BranchRootScaffold] into
-/// [branchStackCoveredProvider]) it slides away — the same layering Shaft
-/// gets by pushing a whole Activity over the home ViewPager.
+/// [branchStackCoveredProvider]) it slides away, as if a whole new screen
+/// had been pushed over the home pager.
 ///
 /// It also publishes its presence to [homeShellBarVisibleProvider] so the
 /// app-level update prompt — presented by a messenger above the shell —
@@ -673,8 +672,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
   void didUpdateWidget(covariant FuncShellBottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedIndex != widget.selectedIndex) {
-      // A hidden bar must return on a branch switch — Shaft's
-      // BottomBarAutoHide.reveal() on ViewPager's onPageSelected.
+      // A hidden bar must return on a branch switch.
       if (MotionTokens.enabled(context)) {
         widget.scrollVisibility.forward();
       } else {
@@ -761,7 +759,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
       context.l10n.searchTitle,
       context.l10n.settingsTitle,
     ];
-    // Shaft parity: the bar is an overlay that *slides* out of the screen —
+    // The bar is an overlay that *slides* out of the screen —
     // the strip uses a full-height layout so nothing reflows under the
     // finger. Two stacked transitions: covered (pushed route) over scroll
     // (auto-hide), either one wins the hide.
@@ -807,8 +805,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
 
 /// Trailing spacer for branch-root scrollables. The navigation bar floats
 /// over the body ([Scaffold.extendBody]), so lists pad their tail by the
-/// shell's computed bar extent — the same inset redistribution Shaft
-/// applies to its overlay bar, available from the first frame. Reports
+/// shell's computed bar extent, available from the first frame. Reports
 /// zero on rail layouts, where no bar exists.
 class FuncNavBarSpacer extends StatelessWidget {
   const FuncNavBarSpacer({super.key});

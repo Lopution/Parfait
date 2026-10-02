@@ -47,7 +47,7 @@ class InfoBlock extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Shaft's hero_title / official client order: the work title
+          // Official client order: the work title
           // leads the meta block, wraps without a line cap, and stays
           // selectable — a one-line AppBar title could only ellipsise.
           SelectableText(
@@ -67,8 +67,8 @@ class InfoBlock extends ConsumerWidget {
           const SizedBox(height: FuncSpacing.lg),
           // 日期行与统计行的排版（U2 一并整理）：日期占左侧，视线/收藏
           // 统计右侧成组，避免数字被日期挤压后换行错位。Meta 信息统一走
-          // caption 级（12sp 次色）——PixEz/Shaft 都把日期/统计/ID 收敛到
-          // 同一小字层级，此前 bodyMedium/numeric 混排造成三档字号割裂。
+          // caption 级（12sp 次色），日期/统计/ID 收敛到同一小字层级；
+          // 此前 bodyMedium/numeric 混排造成三档字号割裂。
           Row(
             children: [
               Expanded(
@@ -102,7 +102,7 @@ class InfoBlock extends ConsumerWidget {
                 style: tokens.caption,
               ),
               const SizedBox(width: FuncSpacing.xs),
-              // ID stays selectable (PixEz parity): users quote artwork IDs.
+              // ID stays selectable: users quote artwork IDs.
               // SelectableText, not SelectionArea — SelectionArea pulls in
               // the whole SelectableRegion/context-menu machinery (~180KB
               // AOT) that nothing else in the app uses, while SelectableText

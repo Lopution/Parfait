@@ -66,7 +66,7 @@ abstract final class MotionTokens {
   static const shimmer = Duration(milliseconds: 1400);
 
   /// Image fade-in inside PixivImage. 500ms matches CachedNetworkImage's
-  /// default and PixEz; PixShaft's Glide crossfade is 300ms.
+  /// default; Glide's crossfade is 300ms.
   static const imageFade = Duration(milliseconds: 500);
 
   /// Feed-card fade-in — shorter than [imageFade] so a settling grid does
@@ -76,8 +76,7 @@ abstract final class MotionTokens {
   /// Placeholder fade-out under the incoming frame. This must outlive
   /// [imageFade]: the disappearing layer finishing first leaves the
   /// half-transparent new frame over the page background for the rest of
-  /// the fade — the white flash on a quality-tier swap. PixEz uses 1000ms
-  /// for exactly this reason.
+  /// the fade — the white flash on a quality-tier swap.
   static const imageFadeOut = Duration(milliseconds: 1000);
 
   /// Whether motion should play. Three sources, one gate: the platform's

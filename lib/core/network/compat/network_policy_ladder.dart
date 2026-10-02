@@ -24,7 +24,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// The single route ladder shared by the API, OAuth, image and download
   /// exits.
   ///
-  /// PixEz-style attempt-first: the business request itself is the route
+  /// Attempt-first: the business request itself is the route
   /// attempt, so no credential-free probe round trip is paid before data. If
   /// the attempt fails with a transport-level error that proves the request
   /// was never delivered, the ladder walks the remaining unused kinds (ECH
@@ -158,7 +158,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   }
 
   /// Finds the first candidate route for the operation. The route is *not*
-  /// verified here: the business request itself is the attempt (PixEz-style),
+  /// verified here: the business request itself is the attempt,
   /// so a candidate only needs a usable connect address (fast tier: known
   /// address; direct: no address; ECH: config+front address; DoH tiers: a
   /// resolved address).
@@ -223,7 +223,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // Verified-fast-first ordering, driven by real-device probe data:
     // Cloudflare hosts (API/OAuth) reach the ECH tier inside the wall while
     // plain SNI is RST; image hosts reach the empty-SNI tier on their origin
-    // addresses. The PixEz bootstrap (insecureNoSni) stays as the very last
+    // addresses. The bootstrap tier (insecureNoSni) stays as the very last
     // fallback: if it happens to work on this network it is remembered and
     // promoted by route/group memory after one success, but an unverified
     // address can never again cost the first N requests of a screen.
@@ -290,7 +290,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         if (cancelSignal?.isCancelled ?? false) {
           throw const NetworkFailureException(NetworkFailureKind.cancelled);
         }
-        // PixEz-style: the candidate is not pre-verified. The business
+        // The candidate is not pre-verified. The business
         // request itself is the attempt; a failure falls through to the
         // re-selection in the caller. Only cancellations abort here.
         _rememberRoute(host, route, purpose: destination.purpose);
@@ -628,7 +628,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// SNI is RST) and ECH gives HTTP/2 multiplexing on one connection; image
   /// hosts answer on the ECH front too (real-device probes return reachable
   /// 403/404), and the plain empty-SNI tier on their origin addresses is the
-  /// second choice. The PixEz bootstrap (insecureNoSni) is always last: it
+  /// second choice. The bootstrap tier (insecureNoSni) is always last: it
   /// is unverified on a cold network and costs a connect timeout when its
   /// address cannot be reached.
   List<NetworkRouteKind> _fallbackTiersFor(PixivDestination destination) {

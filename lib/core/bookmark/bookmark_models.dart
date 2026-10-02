@@ -122,7 +122,7 @@ class BookmarkOp {
   final BookmarkRestrict restrict;
 
   /// Full target tag set for an add. Bookmark add is an overwrite on the
-  /// server (Shaft `API.kt`: same endpoint, non-additive), so this always
+  /// server (same endpoint, non-additive), so this always
   /// carries the complete selection, never a diff.
   final List<String> tags;
 

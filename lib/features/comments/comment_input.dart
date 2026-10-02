@@ -37,8 +37,8 @@ class CommentComposer extends StatefulWidget {
 }
 
 class CommentComposerState extends State<CommentComposer> {
-  /// Panel height before any real keyboard height is sampled — between
-  /// Shaft's 270dp and chat_bottom_container's 300dp fallbacks.
+  /// Panel height before any real keyboard height is sampled — close to a
+  /// typical soft-keyboard height.
   static const _fallbackPanelHeight = 280.0;
 
   final _controller = TextEditingController();
@@ -102,7 +102,7 @@ class CommentComposerState extends State<CommentComposer> {
     final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
     // Sample the peak only while the field owns focus: some OEM IMEs fold
     // the nav-bar inset into viewInsets when nothing is focused, which
-    // would poison the cache (Shaft BottomPanelCoordinator note).
+    // would poison the cache.
     if (_focusNode.hasFocus && viewInsetsBottom > _cachedKeyboardHeight) {
       _cachedKeyboardHeight = viewInsetsBottom;
     }
@@ -115,8 +115,7 @@ class CommentComposerState extends State<CommentComposer> {
     return PopScope(
       // An open picker panel is a transient layer on this route: system back
       // collapses it instead of leaving (§5.4). The keyboard leg is never
-      // vetoed — the IME/system consumes that back first (Shaft's
-      // backCallback is enabled for PANEL only).
+      // vetoed — the IME/system consumes that back first.
       canPop: !_panelVisible,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || !mounted) return;

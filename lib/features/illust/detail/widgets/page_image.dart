@@ -142,8 +142,8 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
       // ratio at full width. The app API's meta_pages never carries
       // per-page width/height, so a fixed AspectRatio always resolved to the
       // work-level (= first page) ratio and letterboxed every non-matching
-      // page. PixEz does the same: the slot only holds an estimated box
-      // until the decode lands, then the real dimensions take over.
+      // page. Now the slot only holds an estimated box until the decode
+      // lands, then the real dimensions take over.
       child: Stack(
         children: [
           // Keep download controls out of the Hero flight. The matching

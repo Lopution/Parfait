@@ -7,8 +7,7 @@ import '../core/settings/app_settings.dart';
 /// lower-tier request can be upgraded to an already-cached higher tier
 /// instead of re-fetching a blurrier image.
 ///
-/// Equivalent of pixez-flutter's `IllustCacher.targetUrl`: requesting the
-/// medium URL after the large tier was fetched serves the large URL
+/// Requesting the medium URL after the large tier was fetched serves the large URL
 /// directly — no second download, no tier-regression blur.
 ///
 /// Upgrades only ever go *up* (requested -> higher cached tier). Serving a

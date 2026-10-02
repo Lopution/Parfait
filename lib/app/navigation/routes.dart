@@ -92,7 +92,7 @@ class IllustRouteExtra {
   final int? heroImageDecodeWidth;
 
   /// The feed's ordered work list. Present ⇒ the route mounts the
-  /// work-to-work pager (Shaft's VActivity) instead of a single detail
+  /// work-to-work pager instead of a single detail
   /// page. The object is in-memory only — never serialized into the URL.
   final IllustPagerSource? pagerSource;
 }
@@ -446,8 +446,7 @@ List<RouteBase> _commonBranchRoutes(
         final illustId = _pathId(state, 'illustId');
         if (extra is IllustRouteExtra) {
           // A card inside a paged feed hands over the feed's work list:
-          // the detail becomes a horizontal pager across it (Shaft's
-          // VActivity). Ids missing from the list — deep links, restored
+          // the detail becomes a horizontal pager across it. Ids missing from the list — deep links, restored
           // routes — fall back to the single-work page.
           final source = extra.pagerSource;
           if (source != null && source.ids.contains(illustId)) {

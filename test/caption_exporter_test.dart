@@ -74,7 +74,7 @@ void main() {
   setUp(installMemoryPreferences);
 
   group('CaptionExporter', () {
-    test('writes <stem>.txt with the Shaft info header', () async {
+    test('writes <stem>.txt with the info header', () async {
       final sinks = MemorySinkFactory();
       final illust = parseIllust(
         illustJson(7, caption: 'first<br>second<br/>third<br />fourth'),

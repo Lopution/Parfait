@@ -48,8 +48,8 @@ class NetworkAccessPolicy {
     @visibleForTesting Duration? imageHeadersTimeout,
     @visibleForTesting Duration? imageIdleTimeout,
     List<String> dohEndpoints = const [
-      // Cloudflare DoH over its well-known anycast IPs (PixEz-proven
-      // bootstrap: `1dot1dot1dot1.cloudflare-dns.com` + static IP map).
+      // Cloudflare DoH over its well-known anycast IPs (proven bootstrap:
+      // `1dot1dot1dot1.cloudflare-dns.com` + static IP map).
       // Anycast serves these endpoints on any Cloudflare IP, so no system
       // DNS round trip and no resolver recursion is needed before the first
       // query; the endpoint certificate still carries the real hostname so
@@ -63,7 +63,7 @@ class NetworkAccessPolicy {
     ],
     Map<String, List<InternetAddress>>? dohHostOverrides,
     List<String> echDoHEndpoints = const [
-      // PixEz queries the ECH config through Alibaba DNS
+      // Query the ECH config through Alibaba DNS
       // (`lookup_alidns_https_ech`): reachable inside the wall, and
       // `cloudflare-ech.com` HTTPS RR answers are not poisoned there (only
       // *.pixiv.net A records are). Cloudflare anycast stays as fallback.
@@ -96,11 +96,11 @@ class NetworkAccessPolicy {
 
   /// Whether the user explicitly enabled the `insecureNoSni` fallback tier
   /// (PRD R6). In production this is enabled only together with
-  /// [fastRouteStore], which makes it PixEz's persisted compatibility tier;
+  /// [fastRouteStore], which makes it the persisted compatibility tier;
   /// tests and standalone callers retain the old opt-in fallback behavior.
   final bool insecureNoSniEnabled;
 
-  /// Persisted PixEz-compatible host addresses. When present, the
+  /// Persisted compatibility-tier host addresses. When present, the
   /// compatibility tier is attempted before the cold direct probe and does
   /// not need a DNS lookup or a HEAD request.
   final PixivFastRouteStore? fastRouteStore;
@@ -110,7 +110,7 @@ class NetworkAccessPolicy {
   /// paying the discovery walk again.
   final RouteKindStore? routeKindStore;
 
-  /// Cloudflare DoH endpoints' anycast IPs (same values PixEz pins; the
+  /// Cloudflare DoH endpoints' anycast IPs (the
   /// DNS names themselves are only used for SNI/Host — the TCP peer is
   /// always one of these). `InternetAddress` has no const constructor, so
   /// the map is built lazily.
@@ -179,7 +179,7 @@ class NetworkAccessPolicy {
   bool get _fastCompatibilityEnabled =>
       insecureNoSniEnabled && fastRouteStore != null;
 
-  /// Loads the persisted PixEz-compatible addresses and eagerly creates the
+  /// Loads the persisted compatibility-tier addresses and eagerly creates the
   /// corresponding pooled clients. This work is intentionally asynchronous so
   /// the first screen is not held up by preference I/O.
   Future<void> warmUp() {
@@ -229,7 +229,7 @@ class NetworkAccessPolicy {
         ),
         target.host,
       );
-      // Match PixEz's startup Hoster refresh: keep the bundled/persisted
+      // Startup refresh: keep the bundled/persisted
       // address available immediately, then update it without delaying the
       // first screen or first business request.
       unawaited(
