@@ -209,7 +209,7 @@ class NamingRule {
   }
 
   /// `{created}` carries the same source date as `{date}` but keeps the
-  /// time component (Shaft parity: `yyyyMMdd_HHmmss`).
+  /// time component (`yyyyMMdd_HHmmss`).
   static String _formatCreated(DateTime? date) {
     if (date == null) return '';
     final y = date.year.toString().padLeft(4, '0');

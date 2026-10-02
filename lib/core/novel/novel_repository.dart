@@ -55,7 +55,7 @@ class NovelSeriesPage {
 /// embedded pixiv bootstrap object (the same source every working client
 /// uses), so [fetchDetail] always merges both responses. A missing or
 /// malformed webview payload is an error, never a silent empty body.
-/// `/v1/novel/ranking` modes (PixEz's 9-mode list, same values Shaft uses).
+/// `/v1/novel/ranking` modes (9 modes).
 /// The fixed order is part of the visible contract; API values are explicit
 /// so an enum reorder cannot silently change a request.
 enum NovelRankingMode {
@@ -210,8 +210,7 @@ class _PixivNovelRepository implements _NovelRepository {
   }) async {
     final request = _pageRequest(
       path: _recommendedPath,
-      // Same first-page shape Shaft/PixEz send: the include_* flags are
-      // response-shaping hints, not feed identity.
+      // The include_* flags are response-shaping hints, not feed identity.
       query: const {
         'filter': 'for_android',
         'include_privacy_policy': 'true',

@@ -244,7 +244,7 @@ class _PipelineWarmupState extends State<PipelineWarmup> {
 /// and the account store hydrate — the first frame before that used to be
 /// the WelcomePage, which is the flash a signed-in user saw on cold start.
 /// The splash is neutral content that hands off seamlessly once the gate
-/// resolves; same role as pixez's SplashPage.
+/// resolves.
 class SplashPage extends StatelessWidget {
   const SplashPage({super.key});
 

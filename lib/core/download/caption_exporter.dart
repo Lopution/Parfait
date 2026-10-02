@@ -6,9 +6,8 @@ import '../entity/illust_entity.dart';
 import 'download_recovery.dart';
 import 'download_sink.dart';
 
-/// Writes the work caption next to the downloaded image as `<stem>.txt`.
-/// Shaft parity: the info-header layout and the
-/// `<br>` → newline cleanup mirror `IllustCaptionExporter.buildContent`.
+/// Writes the work caption next to the downloaded image as `<stem>.txt`:
+/// an info header followed by the caption with `<br>` turned into newlines.
 ///
 /// Export is triggered at submit time by the coordinator; dedupe is per
 /// (account, illust, destination) so repeated submissions write once.
@@ -71,7 +70,7 @@ class CaptionExporter {
     await _preferences.setBool(key, true);
   }
 
-  /// Shaft `buildContent` layout: 标题/作者/作者ID/作品ID/链接/标签/简介.
+  /// Layout: 标题/作者/作者ID/作品ID/链接/标签/简介.
   static String _buildContent(IllustEntity illust) {
     final buffer = StringBuffer()
       ..write('标题：${illust.title}\n\n')
@@ -93,8 +92,7 @@ class CaptionExporter {
     return buffer.toString();
   }
 
-  /// Pixiv captions carry `<br>` markup; the sidecar is plain text (Shaft
-  /// `replaceBrWithNewLine`).
+  /// Pixiv captions carry `<br>` markup; the sidecar is plain text.
   static String _captionText(String caption) =>
       caption.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
 }

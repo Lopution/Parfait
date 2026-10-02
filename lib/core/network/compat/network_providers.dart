@@ -27,7 +27,7 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   final echFrontHost = ref.watch(echFrontHostProvider);
   final mode = ref.watch(networkModeProvider);
   final imageMirrorHosts = ref.watch(imageMirrorAllowlistProvider);
-  // PixEz's compatibility transport is an internal performance tier, not a
+  // The compatibility transport is an internal performance tier, not a
   // user-facing security switch. It uses persisted/bootstrap host addresses
   // and remains behind the explicit directOnly escape hatch.
   final policy = NetworkAccessPolicy(

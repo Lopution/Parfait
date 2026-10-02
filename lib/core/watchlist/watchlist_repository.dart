@@ -9,7 +9,7 @@ import 'watchlist_models.dart';
 
 /// `/v1/watchlist/{manga,novel}` boundary. The watchlist always tracks a
 /// *series* — manga entries are illust series, novel entries are novel
-/// series (PixEz `api_client.dart` contract):
+/// series:
 /// - GET  /v1/watchlist/{manga,novel}          → {series:[...], next_url}
 /// - POST /v1/watchlist/{manga,novel}/add      form: series_id
 /// - POST /v1/watchlist/{manga,novel}/delete   form: series_id

@@ -1,6 +1,6 @@
 /// Watchlist (追更) domain models. A watchlist entry is always a *series*:
-/// the manga list tracks illust series, the novel list tracks novel series —
-/// matching PixEz's `/v1/watchlist/{manga,novel}` contract.
+/// the manga list tracks illust series, the novel list tracks novel series
+/// (`/v1/watchlist/{manga,novel}`).
 library;
 
 import 'package:flutter/foundation.dart';

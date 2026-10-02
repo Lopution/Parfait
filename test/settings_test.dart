@@ -1097,7 +1097,7 @@ void main() {
     expect(find.text('账号'), findsOneWidget);
     expect(find.text('主题'), findsOneWidget);
     expect(find.text('浏览设置'), findsOneWidget);
-    // Shaft-style hub: intent groups carry labeled section headers.
+    // Hub layout: intent groups carry labeled section headers.
     expect(find.text('外观'), findsOneWidget);
     expect(find.text('浏览'), findsOneWidget);
     await tester.scrollUntilVisible(

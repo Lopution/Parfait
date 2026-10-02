@@ -34,7 +34,7 @@ class _SearchFeedController extends PagedFeedController {
 
   /// Client-side enforcement for filters the server does not honor:
   /// `bookmark_num_min/max` are Premium-only (free accounts are silently
-  /// ignored, per Shaft's verification) and "only AI" has no wire value at
+  /// ignored) and "only AI" has no wire value at
   /// all. Both predicates re-run against the returned entities so the
   /// filter holds on every account tier — idempotent when the server did
   /// apply them.

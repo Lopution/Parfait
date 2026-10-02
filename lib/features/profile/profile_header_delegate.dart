@@ -72,8 +72,7 @@ class ReplicaProfileHeaderGeometry {
 
 /// Project-owned profile header. It avoids the old extended_sliver delegate.
 ///
-/// The expanded profile follows the same separation used by PixEz's
-/// [SliverAppBar]: artwork and identity content live in the flexible area,
+/// The expanded profile follows the [SliverAppBar] separation: artwork and identity content live in the flexible area,
 /// while the pinned toolbar has its own controls. The avatar therefore scrolls
 /// out with the name instead of travelling into the toolbar.
 class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {

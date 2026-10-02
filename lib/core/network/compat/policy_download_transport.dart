@@ -20,8 +20,7 @@ class PolicyDownloadTransport
 
   final NetworkAccessPolicy policy;
 
-  /// Downloads follow the same image-source mirror as on-screen loading
-  /// (Shaft: both the Glide choke point and the download request rewrite).
+  /// Downloads follow the same image-source mirror as on-screen loading.
   final ImageMirror imageMirror;
   final Map<String, HttpDownloadTransport> _transports = {};
 

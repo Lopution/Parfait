@@ -40,7 +40,7 @@ class AutoImageSource {
   static const minMeasuredBytes = 8 * 1024;
 
   /// The thumbnail every candidate fetches. It is the same well-known pximg
-  /// image PixEz uses for its mirror check — stable for years and served by
+  /// image commonly used for mirror checks — stable for years and served by
   /// every mirror host, so the measurement compares hosts, not objects.
   static const probePath =
       '/c/360x360_70/img-master/img/2016/04/29/03/33/27/'

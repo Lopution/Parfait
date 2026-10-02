@@ -397,25 +397,24 @@ void main() {
     },
   );
 
-  testWidgets(
-    'share action hands the Shaft-format payload to the share service',
-    (tester) async {
-      final share = _RecordingShareService();
-      final (container, _, _) = await _makeWorld(shareService: share);
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
-        );
-        await _openSheet(tester);
-        await _tapEntry(tester, '分享');
-      });
-
-      expect(
-        share.lastPayload?.text,
-        'illust 15 | author #Pixiv https://www.pixiv.net/artworks/15',
+  testWidgets('share action hands the formatted payload to the share service', (
+    tester,
+  ) async {
+    final share = _RecordingShareService();
+    final (container, _, _) = await _makeWorld(shareService: share);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
       );
-    },
-  );
+      await _openSheet(tester);
+      await _tapEntry(tester, '分享');
+    });
+
+    expect(
+      share.lastPayload?.text,
+      'illust 15 | author #Pixiv https://www.pixiv.net/artworks/15',
+    );
+  });
 
   testWidgets('share fallback to clipboard shows the copy confirmation', (
     tester,

@@ -1901,7 +1901,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 350));
       });
       // The related section is a feed grid, so the tile opens the
-      // work-to-work pager across the related list (Shaft parity) — the
+      // work-to-work pager across the related list — the
       // pushed route is a pager whose landing work is 901.
       // (skipOffstage: the freshly pushed route is still in transition.)
       expect(find.byType(IllustDetailPagerPage), findsOneWidget);

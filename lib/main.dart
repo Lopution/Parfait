@@ -29,7 +29,7 @@ import 'package:path_provider/path_provider.dart';
 /// [PaintingBinding.handleMemoryPressure] answers it with
 /// `imageCache.clear()`. Every decoded artwork is then evicted, so
 /// returning to the app re-loads and re-fades every image. Glide-based
-/// clients (PixShaft) only trim on genuinely high pressure; matching them
+/// Android clients only trim on genuinely high pressure; matching them
 /// means keeping the decoded cache and letting the OS reclaim the process
 /// before the 256MB cap matters. The chain's `didHaveMemoryPressure`
 /// observer fan-out is dropped with it — the observer list is private to
@@ -87,7 +87,7 @@ class _PixivFuncBinding extends WidgetsFlutterBinding {
 Future<void> main() async {
   _PixivFuncBinding.ensureInitialized();
   // R3: local crash capture before anything else can throw — file logging
-  // only, no remote telemetry (the pixes/Shaft convention).
+  // only, no remote telemetry.
   CrashLog.install(await getApplicationSupportDirectory());
   runZonedGuarded(() {
     unawaited(_run());

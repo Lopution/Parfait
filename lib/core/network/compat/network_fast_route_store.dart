@@ -10,8 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'network_contracts.dart';
 import 'secure_resolver.dart';
 
-/// Persists the last known public address for the Pixiv hosts that PixEz uses
-/// for its compatibility transport.
+/// Persists the last known public address for the Pixiv hosts used by the
+/// compatibility transport.
 ///
 /// The address map is only a connection bootstrap. The request still carries
 /// the canonical Pixiv hostname as Host, and a successful request refreshes
@@ -21,7 +21,7 @@ import 'secure_resolver.dart';
 class PixivFastRouteStore {
   static const storageKey = PreferenceKeys.fastRoutes;
 
-  /// PixEz's compatibility bootstrap addresses. They are fallback values only
+  /// Compatibility bootstrap addresses. They are fallback values only
   /// and are replaced by a successful DoH refresh when the network permits it.
   static final Map<String, InternetAddress> _bootstrap = {
     PixivClientIdentity.appApiBase.host: InternetAddress('210.140.139.155'),
@@ -117,7 +117,7 @@ class PixivFastRouteStore {
       return result;
     } on Object {
       // A damaged or unavailable non-secret cache falls back to the bundled
-      // PixEz bootstrap addresses and is rewritten after the next success.
+      // bootstrap addresses and is rewritten after the next success.
       return <String, InternetAddress>{};
     }
   }

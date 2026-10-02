@@ -443,7 +443,7 @@ void main() {
   });
   test('policy default DoH endpoints map Cloudflare anycast IPs', () {
     // The bootstrap contract: default DoH endpoints are domain URLs whose
-    // hostnames have static anycast IP mappings (PixEz DnsSettings.static).
+    // hostnames have static anycast IP mappings.
     // Asserting the wiring here catches a regression where the policy stops
     // pinning DC IPs and silently re-enters polluted system-DNS resolution.
     final policy = NetworkAccessPolicy();

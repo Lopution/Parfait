@@ -31,8 +31,7 @@ class ServerDisplaySettings {
 
 /// `/v1/user/ai-show-settings`(+edit) and `/v1/user/restricted-mode-settings`.
 ///
-/// Wire contract verified against PixEz (`api_client.dart` +
-/// `show_ai_response.dart`) and pixivpy: GETs answer a top-level
+/// Wire contract: GETs answer a top-level
 /// `{show_ai}` / `{is_restricted_mode_enabled}` boolean; edits are
 /// form-encoded POSTs carrying the same field and echo the stored flag.
 class ServerDisplaySettingsRepository {

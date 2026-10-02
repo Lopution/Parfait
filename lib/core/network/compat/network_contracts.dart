@@ -123,7 +123,7 @@ enum NetworkMode {
 /// - [noSni]: DoH/fallback addresses + empty SNI + full verification
 ///   (origin hosts only: nginx routes by Host without SNI)
 /// - [insecureNoSni]: same as [noSni] but certificate verification OFF. The
-///   production provider uses this only as its internal PixEz-compatible fast
+///   production provider uses this only as its internal compatibility fast
 ///   tier; standalone policies may still opt into it as a fallback.
 ///
 /// `certificateMismatch` stays terminal on strict tiers. The production fast
@@ -224,7 +224,7 @@ class NetworkRoute {
     ttl: ttl,
   );
 
-  /// PixEz-compatible fast route: empty SNI + NO certificate verification.
+  /// Compatibility fast route: empty SNI + NO certificate verification.
   factory NetworkRoute.insecureNoSni(
     NetworkRevision revision,
     InternetAddress address, {

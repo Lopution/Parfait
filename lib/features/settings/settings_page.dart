@@ -127,7 +127,7 @@ class _SettingsList extends ConsumerWidget {
             : context.l10n.imageSourceCustomUnset,
       final mode => imageSourceLabel(context, mode),
     };
-    // Shaft-style hub: tiles are grouped by intent under labeled section
+    // Hub layout: tiles are grouped by intent under labeled section
     // headers instead of a flat list with bare dividers. Destructive/
     // transfer actions (backup) sit in their own "data" group.
     return settingsNarrowBody(
@@ -227,8 +227,7 @@ class _SettingsList extends ConsumerWidget {
             ],
           ),
           // Content destinations (not preferences) sit in their own group so
-          // the preference sections stay unmixed — the split Shaft draws
-          // between its drawer entries and the settings catalog.
+          // the preference sections stay unmixed.
           SettingsGroup(
             title: Text(context.l10n.settingsGroupLibrary),
             children: [

@@ -108,8 +108,8 @@ class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
     // drains the current account's queued mutations once at startup; the
     // resumed hook below repeats it whenever the app returns foreground.
     ref.read(actionQueuePumpProvider);
-    // R2: one delayed background update check per throttle window (the
-    // pixes/skana launch convention). Failure and no-update stay silent.
+    // R2: one delayed background update check per throttle window.
+    // Failure and no-update stay silent.
     unawaited(
       Future<void>.delayed(const Duration(seconds: 3), _runAutoUpdateCheck),
     );
