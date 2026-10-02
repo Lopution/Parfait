@@ -6,8 +6,8 @@ import '../entity/illust_entity.dart';
 import 'download_recovery.dart';
 import 'download_sink.dart';
 
-/// Writes the work caption next to the downloaded image as `<stem>.txt`
-/// (implement.md step 5). Shaft parity: the info-header layout and the
+/// Writes the work caption next to the downloaded image as `<stem>.txt`.
+/// Shaft parity: the info-header layout and the
 /// `<br>` → newline cleanup mirror `IllustCaptionExporter.buildContent`.
 ///
 /// Export is triggered at submit time by the coordinator; dedupe is per

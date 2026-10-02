@@ -1,10 +1,7 @@
 # Android Release Artifacts and Size Budget
 
-> Executable contracts introduced by task `09-07-release-size-per-abi` (child B of
-> `09-02-performance-size-maintainability-refactor`). The current defaults are exact
-> bytes measured after child F on 2026-09-10; the historical B7 measurement is in
-> the research record at
-> `.trellis/tasks/09-02-performance-size-maintainability-refactor/research/apk-size-breakdown.md` §6.
+> Executable contracts for the per-ABI release split. The current defaults are
+> exact bytes measured on 2026-09-10.
 
 ---
 
@@ -32,7 +29,7 @@
   (`git worktree add --detach <dir> main`) — a plain `main` checkout makes
   the cherry-pick land on the local `main` branch.
 
-## Signing (task 09-01-release-blockers)
+## Signing
 
 - The `github` flavor signs release builds only with material injected as Gradle
   properties (`PIXIV_RELEASE_KEYSTORE`, `..._KEYSTORE_PASSWORD`, `..._KEY_ALIAS`,
@@ -50,8 +47,7 @@
   `*.jks / *.keystore / *.p12 / *.pem` and `release.yml` scans its outputs for
   private-key markers before publishing.
 - Update downloads follow the measured redirect chain `github.com` 302 →
-  `release-assets.githubusercontent.com` 200 (one hop, CDN path without `.apk`;
-  `.trellis/tasks/09-01-release-blockers/research/github-redirect.md`). Only the
+  `release-assets.githubusercontent.com` 200 (one hop, CDN path without `.apk`). Only the
   manifest URL and a `github.com` hop must end in `.apk`; CDN hops are exact-host
   HTTPS only (`lib/core/download/download_request.dart`). Adding a host means adding
   it to `kUpdateDownloadHosts` (and `kUpdateCdnHosts`) with a transport test.

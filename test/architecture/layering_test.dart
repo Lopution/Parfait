@@ -10,9 +10,8 @@
 //   R5  lib/features/** must not define shared-component widgets
 //       (class _*Tail / _*Error / _*Empty / _*Card / _*Status / _*Placeholder)
 //
-// Violations found today are allow-listed below; every item must be removed as
-// the corresponding refactor lands (child C, .trellis/tasks/09-07-dart-architecture-convergence).
-// At the end of child C the allow-list must be empty.
+// The allow-lists below are empty and must stay empty: fix a violation instead
+// of allow-listing it.
 
 import 'dart:io';
 

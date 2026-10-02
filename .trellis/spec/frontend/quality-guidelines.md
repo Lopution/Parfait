@@ -192,7 +192,7 @@ When a threshold splits behavior in two, name which side the test is on.
 
 ### dart:io Loopback Flakiness (WSL environment gotcha)
 
-**Problem**: this WSL/flutter-test VM drops ~20% of `dart:io` loopback connections under full-suite parallel load (verified with a raw HttpClient repro; see 08-26-download-manager-mediastore research). Any test that binds `127.0.0.1:0` or opens real sockets to loopback will intermittently fail or hang the whole-suite run even though single-file runs pass.
+**Problem**: this WSL/flutter-test VM drops ~20% of `dart:io` loopback connections under full-suite parallel load (verified with a raw HttpClient repro). Any test that binds `127.0.0.1:0` or opens real sockets to loopback will intermittently fail or hang the whole-suite run even though single-file runs pass.
 
 **Required pattern**: wrap socket-dependent test bodies in a 3-attempt retry helper (`tolerant()`), reset per-attempt state between attempts, and raise the per-test timeout above worst-case retries:
 

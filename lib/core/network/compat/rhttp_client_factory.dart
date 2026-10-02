@@ -7,7 +7,7 @@ import 'network_contracts.dart';
 
 /// Maps a [NetworkRoute] to an rhttp (Rust reqwest + rustls) client.
 ///
-/// This is the transport replacement point (design.md §接缝): one factory
+/// This is the transport replacement point: one factory
 /// takes the only functional decision — which DNS source, which TLS
 /// presentation, whether certificate verification stays on, and how long the
 /// tier may spend before the ladder moves on — for a given tier. rhttp

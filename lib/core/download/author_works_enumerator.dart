@@ -3,7 +3,7 @@ import '../network/pixiv_http_client.dart';
 import '../user/user_repository.dart';
 
 /// Result of walking every author-work page for a bulk download
-/// (implement.md step 4 — ugoira excluded, hard cap enforced).
+/// (ugoira excluded, hard cap enforced).
 class AuthorWorksResult {
   const AuthorWorksResult({required this.works, required this.truncated});
 

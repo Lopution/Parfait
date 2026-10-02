@@ -25,7 +25,7 @@ import '../../app/theme/func_semantic_tokens.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 ///
-/// Restoration tiers (design.md §二 matrix): the trending kind is
+/// Restoration tiers: the trending kind is
 /// session memory — `trendingKindProvider` resets to illust after process
 /// death, and `trendingTagsProvider` stays non-autoDispose on purpose so
 /// leaving the branch does not re-request. Scroll offset rides

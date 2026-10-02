@@ -77,8 +77,8 @@ class ReverseImageSearchWebView extends ReverseImageSearchOutcome {
 /// Cloudflare-fronted engine outcome (Ascii2D, TinEye): the engine's upload
 /// page is opened in a controlled WebView and the still-owned input image is
 /// armed to the first file chooser. The browser itself submits the form, so
-/// JavaScript challenges run with a real cookie/JS context — see design.md
-/// for why headless multipart is not attempted here.
+/// JavaScript challenges run with a real cookie/JS context, which headless
+/// multipart cannot provide.
 class ReverseImageSearchWebUpload extends ReverseImageSearchOutcome {
   const ReverseImageSearchWebUpload({
     required this.engine,
@@ -357,8 +357,7 @@ abstract final class ReverseImageResultMapper {
 /// Shared detection for Cloudflare/CAPTCHA challenge pages returned with a
 /// 200 status by service-rendered engines. Only challenge-specific markers
 /// match: a genuine SauceNAO result page embeds the Cloudflare Web Analytics
-/// beacon, so the bare word "cloudflare" must not qualify (see
-/// `09-01-reverse-image-saucenao/research/anonymous-policy.md`).
+/// beacon, so the bare word "cloudflare" must not qualify.
 abstract final class ReverseImageChallengeDetector {
   static bool isChallengeHtml(String html) {
     final normalized = html.toLowerCase();

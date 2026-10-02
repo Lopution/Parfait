@@ -17,8 +17,7 @@ import 'reverse_image_provider.dart';
 /// never extracts image bytes into long-lived memory and never sends Pixiv
 /// credentials, account ids or device identifiers.
 ///
-/// External facts (re-verified 2026-09-07, see the task's
-/// `research/anonymous-policy.md`): the public `search.php` form still
+/// External facts (re-verified 2026-09-07): the public `search.php` form still
 /// accepts anonymous multipart uploads and renders a result page; the JSON
 /// API (`output_type=2`) refuses anonymous callers ("The anonymous account
 /// type does not permit API usage"), which is why this provider is the HTML
@@ -254,8 +253,7 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
       );
     }
     // "Search Rate Too High." is SauceNAO's documented 30-second
-    // anonymous window (4 searches / 30 s). See
-    // research/anonymous-policy.md.
+    // anonymous window (4 searches / 30 s).
     if (normalized.contains('too many requests') ||
         normalized.contains('rate limit') ||
         normalized.contains('search rate too high')) {
