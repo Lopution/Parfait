@@ -56,7 +56,7 @@ jobs:
               - 'plugins/**/Cargo.lock'
               - 'rust-toolchain.toml'
 
-  analyze-and-test:
+  analyze:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -68,7 +68,45 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
-      - run: flutter test
+
+  test:
+    name: test (shard ${{ matrix.shard }} of 2)
+    runs-on: ubuntu-latest
+    strategy:
+      # Let both shards finish so one failure does not hide the other's.
+      fail-fast: false
+      matrix:
+        # Keep in step with --total-shards below.
+        shard: [0, 1]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: "stable"
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter test --total-shards 2 --shard-index ${{ matrix.shard }}
+
+  analyze-and-test:
+    # The single check the ruleset requires. It aggregates analyze and every
+    # test shard, so keep the name and let it run even when they fail:
+    # a skipped required check would count as passing.
+    needs: [analyze, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require analyze and all test shards to succeed
+        env:
+          ANALYZE_RESULT: ${{ needs.analyze.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          echo "analyze: $ANALYZE_RESULT"
+          echo "test:    $TEST_RESULT"
+          if [ "$ANALYZE_RESULT" != success ] || [ "$TEST_RESULT" != success ]; then
+            echo "::error::analyze or a test shard did not succeed"
+            exit 1
+          fi
 
   windows-build:
     # Compile-only guard for the desktop port: proves the Windows runner,
