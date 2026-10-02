@@ -183,7 +183,10 @@ jobs:
 
       - name: Analyze arm64 code size
         # Non-blocking archive; Flutter refuses --analyze-size on multi-ABI
-        # builds, so this is a separate single-ABI build (not a release artifact).
+        # builds, so this is a separate single-ABI build (not a release
+        # artifact). Archive only from main: on PRs it would repeat a ~2 min
+        # build nobody reads.
+        if: github.event_name == 'push'
         continue-on-error: true
         env:
           PIXIV_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.PIXIV_RELEASE_KEYSTORE_PASSWORD }}
@@ -198,6 +201,7 @@ jobs:
             -PPIXIV_RELEASE_KEY_ALIAS="$PIXIV_RELEASE_KEY_ALIAS" \
             -PPIXIV_RELEASE_KEY_PASSWORD="$PIXIV_RELEASE_KEY_PASSWORD"
       - uses: actions/upload-artifact@v7
+        if: github.event_name == 'push'
         continue-on-error: true
         with:
           name: github-analyze-size
