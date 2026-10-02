@@ -1,0 +1,79 @@
+name: 问题报告 Bug report
+description: 应用出错、崩溃或行为不符合预期
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先看 README 的[常见问题](https://github.com/Lopution/Parfait#常见问题)。安全问题请不要开公开 Issue，按 [SECURITY.md](https://github.com/Lopution/Parfait/blob/main/SECURITY.md) 私下报告。
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本 Version
+      placeholder: 在「设置 → 关于」中查看，例如 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: 安装来源 Install source
+      options:
+        - GitHub Release
+        - Obtainium
+        - 自行构建 Self-built
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 设备型号 Device
+      placeholder: 例如 Pixel 7、小米 14
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android 版本 Android version
+      placeholder: 例如 14
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述 Description
+      description: 发生了什么。截图或录屏可以直接拖进这里。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果 Expected behavior
+  - type: textarea
+    id: network
+    attributes:
+      label: 网络环境 Network
+      description: 是否开了代理，「设置 → 网络」中选的是哪种模式。
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 Logs
+      description: 在「设置 → 关于 → 导出日志」导出后拖进这里。提交前请先打开看一遍，确认没有你不想公开的内容。
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认 Checklist
+      options:
+        - label: 我已搜索过现有 Issue，没有重复。I searched the existing issues.
+          required: true
+        - label: 我已更新到最新版本，问题仍然存在。I am on the latest version.
+          required: true

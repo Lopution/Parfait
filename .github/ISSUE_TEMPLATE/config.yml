@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 常见问题 FAQ
+    url: https://github.com/Lopution/Parfait#常见问题
+    about: 连接、图片加载、登录等常见问题的解答。
+  - name: 安全问题 Security report
+    url: https://github.com/Lopution/Parfait/security/advisories/new
+    about: 请通过私密漏洞报告提交，不要开公开 Issue。
