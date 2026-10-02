@@ -2,12 +2,12 @@
 
 <img src=".github/readme/banner.webp" width="100%" alt="Pixiv Func：第三方 pixiv 客户端，支持中国大陆直连">
 
-[![最新版本](https://img.shields.io/github/v/release/Lopution/pixiv-func?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC)](https://github.com/Lopution/pixiv-func/releases/latest)
+[![最新版本](https://img.shields.io/github/v/release/Lopution/Parfait?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC)](https://github.com/Lopution/Parfait/releases/latest)
 [![Android 10+](https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white)](#下载与安装)
-[![License](https://img.shields.io/github/license/Lopution/pixiv-func)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/Lopution/pixiv-func/ci.yml?branch=main&label=CI)](https://github.com/Lopution/pixiv-func/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/Lopution/Parfait)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Lopution/Parfait/ci.yml?branch=main&label=CI)](https://github.com/Lopution/Parfait/actions/workflows/ci.yml)
 
-**[下载最新版](https://github.com/Lopution/pixiv-func/releases/latest)**
+**[下载最新版](https://github.com/Lopution/Parfait/releases/latest)**
 
 </div>
 
@@ -79,7 +79,7 @@ Pixiv Func 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏�
 
 ## 下载与安装
 
-在 [Releases](https://github.com/Lopution/pixiv-func/releases/latest) 页面下载 APK：
+在 [Releases](https://github.com/Lopution/Parfait/releases/latest) 页面下载 APK：
 
 | 文件 | 适用设备 |
 |---|---|
@@ -143,7 +143,7 @@ Signer #1 certificate SHA-256 digest: d0b41afc87b7d207511a52bd8ccca6563c673c2df1
 <details>
 <summary>遇到问题怎么反馈？</summary>
 
-请在 [Issues](https://github.com/Lopution/pixiv-func/issues) 中描述问题和复现步骤。在「设置 → 关于 → 导出日志」中可以导出本机日志，附在 Issue 里能帮助定位问题；提交前请确认日志里没有你不想公开的内容。
+请在 [Issues](https://github.com/Lopution/Parfait/issues) 中描述问题和复现步骤。在「设置 → 关于 → 导出日志」中可以导出本机日志，附在 Issue 里能帮助定位问题；提交前请确认日志里没有你不想公开的内容。
 
 </details>
 
@@ -159,7 +159,7 @@ Signer #1 certificate SHA-256 digest: d0b41afc87b7d207511a52bd8ccca6563c673c2df1
 
 ## 参与开发
 
-欢迎通过 [Issues](https://github.com/Lopution/pixiv-func/issues) 反馈问题或提出建议。
+欢迎通过 [Issues](https://github.com/Lopution/Parfait/issues) 反馈问题或提出建议。
 
 本地构建需要 Flutter 3.47.2 和 Rust 工具链（网络层的原生部分由 Rust 编译）。
 
