@@ -32,8 +32,8 @@ lockfiles and does not treat a local-only build as release evidence.
 
 ### Secrets stay out of every serialized surface
 
-Established by task `09-01-comment-translation` (translation credentials) and the
-account credential store; apply the same shape to any new secret.
+Established by the comment-translation credentials and the account credential
+store; apply the same shape to any new secret.
 
 - Each secret family gets its own secure-storage namespace and store class:
   account tokens `replica.credentials.v1.` (`lib/core/auth/credential_store.dart`),

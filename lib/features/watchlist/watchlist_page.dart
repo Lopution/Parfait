@@ -225,7 +225,7 @@ class _WatchlistEntryTile extends ConsumerWidget {
 
   /// Primary action — "view updates": open the newest tracked content and
   /// advance the read cursor. The cursor is an update marker only — it
-  /// never backs a "continue reading" affordance (prd.md R6).
+  /// never backs a "continue reading" affordance.
   Future<void> _viewLatest(BuildContext context, WidgetRef ref) async {
     final latest = entry.latestContentId;
     final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;

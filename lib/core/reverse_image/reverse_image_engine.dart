@@ -5,7 +5,7 @@ import 'reverse_image_navigation_policy.dart';
 
 /// How an engine receives the image. A property of the engine, not a user
 /// choice: Cloudflare-fronted engines only work when a real browser submits
-/// the form (see `design.md`).
+/// the form.
 enum ReverseImageTransport { headlessUpload, webViewUpload }
 
 enum ReverseImageEngine {

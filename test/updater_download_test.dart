@@ -270,8 +270,7 @@ void main() {
   test(
     'strict updater transport accepts the measured release-assets CDN hop',
     () async {
-      // The chain measured on 2026-09-07 (task 09-01-release-blockers,
-      // research/github-redirect.md): github.com 302 -> one hop to
+      // The chain measured on 2026-09-07: github.com 302 -> one hop to
       // release-assets.githubusercontent.com whose path has no .apk suffix.
       final transport = _ScriptedUpdaterTransport([
         _ScriptedHop(

@@ -233,7 +233,7 @@ final downloadDestinationProvider = Provider<DownloadDestination>((ref) {
   );
 });
 
-/// Caption sidecar export toggle (implement.md step 5).
+/// Caption sidecar export toggle.
 final downloadCaptionProvider = Provider<bool>((ref) {
   return ref.watch(
     settingsProvider.select((async) => async.value?.downloadCaption ?? false),

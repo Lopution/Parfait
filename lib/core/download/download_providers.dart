@@ -47,7 +47,7 @@ final downloadSinkFactoryProvider = Provider<DownloadSinkFactory>((ref) {
   );
 });
 
-/// Caption sidecar exporter (implement.md step 5) — null while the
+/// Caption sidecar exporter — null while the
 /// `downloadCaption` toggle is off or the sink factory cannot take raw
 /// outputs. Rebuilt on toggle; the manager is unaffected.
 final captionExporterProvider = Provider<CaptionExporter?>((ref) {

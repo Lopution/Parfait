@@ -22,8 +22,8 @@
 //     motion_tokens.dart plus the pinned non-motion census (per-file counts
 //     are asserted so additions get flagged for review)
 //   - no merge-conflict markers (`<<<<<<<` / `>>>>>>>`) in lib/, test/ or
-//     .trellis/ — a stray marker once escaped `git diff --check` on
-//     .trellis/workspace index files
+//     .trellis/spec/ — `git diff --check` does not catch markers in files
+//     that were committed with them
 
 import 'dart:io';
 
@@ -226,10 +226,10 @@ void main() {
     );
   });
 
-  test('no merge-conflict markers in lib/, test/ or .trellis/', () {
+  test('no merge-conflict markers in lib/, test/ or .trellis/spec/', () {
     final marker = RegExp(r'^(<{7}|>{7})', multiLine: true);
     final violations = <String>[];
-    for (final root in ['lib', 'test', '.trellis']) {
+    for (final root in ['lib', 'test', '.trellis/spec']) {
       for (final entity in Directory(root).listSync(recursive: true)) {
         if (entity is! File) continue;
         if (!entity.path.endsWith('.dart') && !entity.path.endsWith('.md')) {
