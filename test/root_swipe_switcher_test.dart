@@ -104,7 +104,7 @@ void main() {
     }
 
     // At the last top tab the same gesture carries over to the branch —
-    // the nested-pager chain Shaft gets from its inner/outer ViewPagers.
+    // the inner/outer nested-pager chain.
     await _flingLeft(tester, page);
     await tester.pumpAndSettle();
     expect(_path(router), '/ranking');
@@ -307,7 +307,7 @@ void main() {
     await gesture.moveBy(const Offset(-140, 0));
     await tester.pump();
     expect(pager.position, greaterThan(3.0));
-    // The bar is the strip's sibling (Shaft's BottomNavigationView), not a
+    // The bar is the strip's sibling, not a
     // child of the sliding page — its edge must not have moved a pixel.
     expect(tester.getTopLeft(bar).dy, barTop);
     await gesture.up();
@@ -333,8 +333,8 @@ void main() {
   testWidgets('the bar indicator tracks the strip continuously', (
     tester,
   ) async {
-    // Shaft parity: BottomNavigationView's selection follows
-    // onPageScrolled, not onPageSelected — the underline must sit
+    // The selection follows the scroll position, not the settled page —
+    // the underline must sit
     // between slots mid-drag, not jump after the warp.
     await _pumpHome(tester, location: '/search');
     final pager = BranchSlideStack.maybeOf(

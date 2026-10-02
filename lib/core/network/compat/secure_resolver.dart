@@ -153,7 +153,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   /// → `104.16.248.249`). Cloudflare Anycast serves every domain on any of
   /// its IPs, so the DoH request's real SNI is still `cloudflare-dns.com`
   /// while the TCP peer is the static IP — no polluted system-DNS round trip
-  /// and no resolver recursion (PixEz `DnsSettings.static` equivalent).
+  /// and no resolver recursion.
   final Map<String, List<InternetAddress>> hostOverrides;
 
   /// Maximum accepted response body size (hard cap against amplification).
@@ -177,7 +177,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   final bool _ownsClient;
   final List<String> _endpoints;
 
-  /// ECH HTTPS-RR endpoints. PixEz queries the ECH config through Alibaba
+  /// ECH HTTPS-RR endpoints. The ECH config is queried through Alibaba
   /// DNS (`lookup_alidns_https_ech`), which is reachable inside the wall
   /// while the Cloudflare anycast endpoints are not; `cloudflare-ech.com`
   /// answers are not poisoned there (only *.pixiv.net A records are).

@@ -22,8 +22,8 @@ class MuteListResult {
   final int limit;
 }
 
-/// Thin client over the official mute endpoints (shape verified against
-/// pixes `network.dart`: `key[]=value` repeated form fields).
+/// Thin client over the official mute endpoints (`key[]=value` repeated
+/// form fields).
 class MuteRepository {
   MuteRepository(this._client);
 

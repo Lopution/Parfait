@@ -107,7 +107,7 @@ class NovelStatusScaffold extends StatelessWidget {
   }
 }
 
-/// Immersive reader stage (Shaft/legado model): the paginated body fills
+/// Immersive reader stage: the paginated body fills
 /// the screen; a center tap toggles the top/bottom chrome, which slides in
 /// together and stays interactive until the hide animation finishes.
 /// System back closes the chrome first, then leaves the page.
@@ -800,8 +800,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   }
 }
 
-/// One labelled slider row inside the reader settings sheet — legado's
-/// settings panel maps each typography knob to a continuous slider.
+/// One labelled slider row inside the reader settings sheet: each
+/// typography knob maps to a continuous slider.
 class _SettingsSliderRow extends StatelessWidget {
   const _SettingsSliderRow({
     required this.label,

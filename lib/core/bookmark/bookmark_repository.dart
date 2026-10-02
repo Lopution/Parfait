@@ -21,9 +21,8 @@ import 'bookmark_models.dart';
 /// - GET  /v2/{illust,novel}/bookmark/detail
 /// - GET  /v1/user/bookmark-tags/{illust,novel}
 ///
-/// `tags[]` is sent as a single space-joined field value (PixEz wire form;
-/// Shaft repeats the field — both encodings are accepted, and our form body
-/// is a `Map<String, String>`).
+/// `tags[]` is sent as a single space-joined field value (the server also
+/// accepts the field repeated; our form body is a `Map<String, String>`).
 class BookmarkRepository {
   BookmarkRepository(this._client);
 

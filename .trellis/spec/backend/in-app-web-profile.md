@@ -64,7 +64,7 @@ Host for cookies: `https://www.pixiv.net`.
   page's true original `width`/`height` — the App API's `meta_pages` carries
   `image_urls` alone. `IllustDetailRepository.fetchPageDimensions` feeds
   `IllustEntity.withPageDimensions`; the controller seeds it *unawaited*
-  behind Ready (Shaft's `seedPageDimensions` pattern) so detail render never
+  behind Ready so detail render never
   waits for the extra round trip. Cookie absent → send anyway (SFW pages
   respond cookieless); any failure → `null`, the first-page-ratio fallback.
 - After a successful update envelope (`error != true`), refresh via

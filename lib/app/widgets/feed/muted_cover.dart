@@ -18,7 +18,7 @@ final revealedMuteIdsProvider = NotifierProvider<RevealedMuteIds, Set<int>>(
   RevealedMuteIds.new,
 );
 
-/// The blur+reveal card variant (Shaft-style muted object): the artwork is
+/// The blur+reveal card variant for a muted object: the artwork is
 /// blurred under a labelled cover; tapping reveals it in place. Rendered
 /// instead of the normal preview when `muteHitFor` reports a hit and the
 /// user keeps the default blur display mode.

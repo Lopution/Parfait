@@ -1,8 +1,8 @@
 /// Persistent offline action queue. Mutations that fail on connectivity
 /// are enqueued per account and replayed serially once the app is back
-/// online — see `design.md` (§3) and the Shaft `actionqueue` reference.
+/// online.
 ///
-/// Failure taxonomy (mirrors Shaft's RetryScope split):
+/// Failure taxonomy:
 /// - [RetryScope.queueCooldown] — network/timeout/429/5xx: the row returns
 ///   to pending untouched and the whole owner queue sleeps for a cooldown
 ///   (a 429 `retryAfter` hint overrides the default).

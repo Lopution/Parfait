@@ -58,3 +58,16 @@ plugins/**/build/
 *.p12
 *.pem
 test/failures/
+
+# Private development files: task records, journals and AI tool settings are
+# kept in a separate private repository. Only the coding specs are public.
+/.trellis/*
+!/.trellis/spec/
+/.agents/
+/.claude/
+/.codex/
+/.cursor/
+/.devin/
+/AGENTS.md
+/CLAUDE.md
+/check-*-report.md

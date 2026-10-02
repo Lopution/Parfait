@@ -13,7 +13,7 @@ import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
 /// Enumerating → confirming flow behind the author page's "download all"
-/// action (implement.md step 4). Pops with the submitted group size on
+/// action. Pops with the submitted group size on
 /// confirm, null on cancel/failure.
 class AuthorWorksDownloadDialog extends ConsumerStatefulWidget {
   const AuthorWorksDownloadDialog({

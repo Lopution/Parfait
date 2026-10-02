@@ -1,8 +1,7 @@
 /// Centralized, immutable Pixiv client identity.
 ///
-/// Every time-sensitive constant lives here with its provenance
-/// (`.trellis/tasks/08-26-pixiv-network-token-refresh/research/`).
-/// Feature code must never keep copies of these values.
+/// Every time-sensitive constant lives here. Feature code must never keep
+/// copies of these values.
 abstract final class PixivClientIdentity {
   /// Public OAuth client id embedded in all OSS Pixiv clients.
   static const String clientId = 'MOBrBDS8blbauoSck0ZfDbtuzpyT';

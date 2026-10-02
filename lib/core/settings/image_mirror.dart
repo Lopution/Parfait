@@ -1,6 +1,6 @@
 /// Image-source mirror selection → pximg URL rewrite.
 ///
-/// Semantics follow Shaft `ImageHostManager` (issue #865): presets mirror
+/// Semantics: presets mirror
 /// both the `i.` and `s.` pximg subdomains; a custom source is a full URL
 /// prefix (`https://host[/path]`) that replaces the pximg origin wholesale
 /// while preserving the original path tail and query.

@@ -7,7 +7,7 @@ import 'spotlight_models.dart';
 /// Parses a www.pixivision.net article page into typed blocks for in-app
 /// rendering (no webview).
 ///
-/// Structure (verified against PixEz `soup_store` and Shaft):
+/// Structure:
 /// - `article .am__body` holds the content; the `_feature` layout nests the
 ///   real blocks one wrapper deeper.
 /// - `.illust` cards carry an `/artworks/<id>` link, an `h3` title, a

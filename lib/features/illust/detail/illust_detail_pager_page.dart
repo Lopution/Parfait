@@ -8,8 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'illust_detail_page.dart';
 
-/// Detail host paged horizontally across a feed's work list — Shaft's
-/// `VActivity`: a work opened from a grid keeps the feed's ordering, and
+/// Detail host paged horizontally across a feed's work list: a work
+/// opened from a grid keeps the feed's ordering, and
 /// swiping sideways moves to the previous/next work without returning to
 /// the grid.
 ///

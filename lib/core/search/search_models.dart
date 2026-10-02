@@ -50,7 +50,7 @@ enum SearchSort {
 
   /// The novel endpoint does not recognize the gendered popularity sorts
   /// (400 Invalid value) — normalize to the closest semantic value before
-  /// serializing, like Shaft's `SortType.novelSafe`.
+  /// serializing.
   SearchSort get novelSafe => isPopular ? popularDesc : this;
 }
 
@@ -75,7 +75,7 @@ enum SearchAiFilter {
 }
 
 /// Aspect-ratio buckets on the official `ratio_pattern` parameter
-/// (illust/manga only; confirmed against Shaft `RatioPattern`).
+/// (illust/manga only).
 enum SearchRatioPattern {
   landscape('landscape', 'searchRatioLandscape'),
   portrait('portrait', 'searchRatioPortrait'),
@@ -88,7 +88,7 @@ enum SearchRatioPattern {
 }
 
 /// Content buckets on the official `content_type` parameter (illust/manga
-/// only; confirmed against Shaft `IllustContentType`). The default is the
+/// only). The default is the
 /// server behavior and is never sent.
 enum SearchContentType {
   illustAndMangaAndUgoira('illust_and_manga_and_ugoira', 'searchContentAll'),
@@ -146,7 +146,7 @@ class SearchFilters {
 
   /// Bookmark-count range. `bookmark_num_min/max` are Premium-only
   /// server-side — the params are still sent (free accounts are silently
-  /// ignored per Shaft's verification) and the search feed re-applies the
+  /// ignored) and the search feed re-applies the
   /// range client-side so the filter always takes effect.
   final int? bookmarkMin;
   final int? bookmarkMax;
@@ -278,8 +278,8 @@ class SearchFilters {
   ///
   /// `duration` is never sent: Pixiv's honoring of `within_last_*` on the
   /// app API is unreliable, so a preset is resolved client-side into
-  /// `start_date`/`end_date` (today−N .. today, local time) like every
-  /// other client (PixEz/Shaft/pxview). A duration also overrides any
+  /// `start_date`/`end_date` (today−N .. today, local time). A duration
+  /// also overrides any
   /// custom date bounds: the two are mutually exclusive in the sheet UI,
   /// and this keeps the wire shape sane for stale states.
   Map<String, String> toQuery({

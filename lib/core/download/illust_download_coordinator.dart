@@ -8,7 +8,7 @@ import 'download_request.dart';
 import 'download_task.dart';
 import 'naming_rule.dart';
 
-/// Detail-page download facade (implement.md step 4): single page and
+/// Detail-page download facade: single page and
 /// Download All submit typed requests; toasts remain at the call site.
 class IllustDownloadCoordinator {
   IllustDownloadCoordinator(this._manager, {CaptionExporter? captionExporter})
@@ -83,7 +83,7 @@ class IllustDownloadCoordinator {
     ];
   }
 
-  /// Bulk author download (implement.md step 4): one group containing every
+  /// Bulk author download: one group containing every
   /// downloadable page of every enumerated work. An empty request set is a
   /// caller-visible error, never a silent no-op.
   Future<DownloadGroupSnapshot> downloadAuthorWorks({
@@ -147,7 +147,7 @@ class IllustDownloadCoordinator {
     );
   }
 
-  /// Submit-time caption trigger (implement.md step 5). Only illust-page
+  /// Submit-time caption trigger. Only illust-page
   /// downloads participate; unowned submissions have no account identity to
   /// dedupe against and skip silently.
   Future<void> _exportCaption(

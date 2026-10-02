@@ -287,7 +287,7 @@ class _ShareAction extends CardAction {
   String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
       l10n.cardActionShare;
 
-  /// Opens the platform share sheet (Shaft-parity payload); on platforms
+  /// Opens the platform share sheet; on platforms
   /// without one the service falls back to the clipboard and we confirm the
   /// copy with a snackbar so the action is never silent.
   @override

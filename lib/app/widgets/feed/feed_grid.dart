@@ -33,7 +33,7 @@ const ScrollCacheExtent kFeedCacheExtent = ScrollCacheExtent.viewport(0.5);
 
 /// Ordered work ids a pushed detail route can page through — the same
 /// list the grid shows, handed over via `IllustRouteExtra.pagerSource`.
-/// This is Shaft's `PageData`: opening a work from a feed keeps the
+/// Opening a work from a feed keeps the
 /// feed's ordering, so swiping sideways moves to the previous/next work
 /// without returning to the grid.
 ///
@@ -323,8 +323,8 @@ class IllustFeedGrid extends StatefulWidget {
   final List<int>? itemIds;
 
   /// Feed's next-page hook for the work-to-work detail pager: swiping
-  /// near the list end calls it, so the paged detail grows like Shaft's
-  /// VActivity instead of stopping at the loaded edge. Finite lists
+  /// near the list end calls it, so the paged detail keeps growing instead
+  /// of stopping at the loaded edge. Finite lists
   /// leave it null.
   final VoidCallback? pagerLoadMore;
 

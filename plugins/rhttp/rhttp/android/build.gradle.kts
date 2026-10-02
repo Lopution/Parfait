@@ -38,7 +38,7 @@ plugins {
 // AGP 9 built-in Kotlin: do NOT apply org.jetbrains.kotlin.android here.
 // Kotlin sources are compiled by AGP's built-in support; jvmTarget is
 // configured via the `kotlin` extension below. (Upstream 0.18.0 predates
-// this; PixEz's fork also targets AGP 8.x.)
+// this.)
 
 android {
     namespace = "com.flutter_rust_bridge.rhttp"

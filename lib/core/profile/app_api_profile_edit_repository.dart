@@ -11,8 +11,8 @@ import '../user/user_repository.dart';
 import 'profile_edit_models.dart';
 
 /// Profile editor over the official App API — `POST v1/user/profile/edit`
-/// (multipart) — the same OAuth transport every other request uses. This is
-/// the channel PixShaft uses; it does not depend on a same-origin
+/// (multipart) — the same OAuth transport every other request uses. It
+/// does not depend on a same-origin
 /// www.pixiv.net cookie, which the OAuth WebView login does not reliably
 /// leave behind and which made the editor permanently unavailable.
 ///
@@ -33,8 +33,7 @@ class PixivAppApiProfileEditRepository implements ProfileEditRepository {
     ProfileField.avatar,
   };
 
-  /// App API wire names per the proven client contract (PixShaft's
-  /// `FragmentEditFile` sends these exact multipart part names).
+  /// App API multipart part names.
   static const _textWireNames = {
     ProfileField.displayName: 'user_name',
     ProfileField.comment: 'comment',
@@ -43,8 +42,8 @@ class PixivAppApiProfileEditRepository implements ProfileEditRepository {
 
   static const _editPath = '/v1/user/profile/edit';
 
-  /// Shaft rejects avatars past 5 MB before upload; the server enforces a
-  /// similar ceiling, so the same guard applies here.
+  /// Avatars past 5 MB are rejected before upload; the server enforces a
+  /// similar ceiling.
   static const _maxAvatarBytes = 5 * 1024 * 1024;
 
   final PixivHttpClient _client;

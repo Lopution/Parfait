@@ -2,8 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Single probe point for platform capability branching
-/// (09-11-windows-desktop design §1).
+/// Single probe point for platform capability branching.
 ///
 /// Business code never scatters `Platform.isWindows`; every selection site
 /// reads this record and every provider can override it in tests — a Linux

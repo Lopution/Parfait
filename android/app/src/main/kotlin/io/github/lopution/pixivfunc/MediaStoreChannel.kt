@@ -12,8 +12,7 @@ import java.io.FileNotFoundException
 import java.io.OutputStream
 
 /**
- * MediaStore pending-write bridge for the download pipeline
- * (task 08-26-download-manager-mediastore).
+ * MediaStore pending-write bridge for the download pipeline.
  *
  * Requires API 29+ (scoped MediaStore with IS_PENDING/RELATIVE_PATH).
  * minSdk is 29, so the pre-Q unsupported path is gone.

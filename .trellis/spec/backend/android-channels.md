@@ -1,10 +1,9 @@
 # Android MethodChannel Contracts
 
 > Executable contracts for the 10 Android channels registered from
-> `android/app/src/main/kotlin/io/github/lopution/pixivfunc/`. Fact source:
-> `.trellis/tasks/09-07-native-rust-hygiene/research/native-audit-recount.md`
-> A.2. This document records the target/shipped state after D2–D5 so a check
-> agent can diff the channel code against the tables.
+> `android/app/src/main/kotlin/io/github/lopution/pixivfunc/`. This document
+> records the shipped state so a check agent can diff the channel code against
+> the tables.
 >
 > Do not change channel names, method names, or payload keys without a design
 > decision. Do not change the updater signing/verifier contract in

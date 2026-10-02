@@ -5,9 +5,7 @@ import '../download/download_recovery.dart';
 import '../download/resume_anchor.dart';
 
 /// MethodChannel contract for MediaStore pending writes
-/// (Pictures/PixivFunc). See
-/// .trellis/tasks/08-26-download-manager-mediastore/research/download-pipeline.md
-/// for the API-level behavior matrix.
+/// (Pictures/PixivFunc).
 abstract final class _MediaStoreMethods {
   static const channel = 'pixivfunc/mediastore';
   static const begin = 'begin';
