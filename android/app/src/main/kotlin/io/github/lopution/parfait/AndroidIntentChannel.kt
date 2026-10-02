@@ -16,8 +16,8 @@ import java.io.FileNotFoundException
  * granted content URI can actually be opened.
  */
 object AndroidIntentChannel {
-    private const val METHOD_CHANNEL = "pixivfunc/android_intents"
-    private const val EVENT_CHANNEL = "pixivfunc/android_intents/events"
+    private const val METHOD_CHANNEL = "parfait/android_intents"
+    private const val EVENT_CHANNEL = "parfait/android_intents/events"
 
     private var eventSink: EventChannel.EventSink? = null
 

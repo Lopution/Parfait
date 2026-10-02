@@ -106,13 +106,13 @@ void main() {
     expect(result.router.state.uri.path, '/recommended/illust/456');
   });
 
-  testWidgets('cold-start Pixiv Func links use the recommended branch', (
+  testWidgets('cold-start Parfait links use the recommended branch', (
     tester,
   ) async {
     final result = await _pump(
       tester,
       initial: RoutedAndroidIntent(
-        IntentRouter.route(Uri.parse('pixivfunc://users/123')),
+        IntentRouter.route(Uri.parse('parfait://users/123')),
       ),
     );
     await tester.pump(const Duration(milliseconds: 350));

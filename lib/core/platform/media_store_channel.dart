@@ -7,7 +7,7 @@ import '../download/resume_anchor.dart';
 /// MethodChannel contract for MediaStore pending writes
 /// (Pictures/PixivFunc).
 abstract final class _MediaStoreMethods {
-  static const channel = 'pixivfunc/mediastore';
+  static const channel = 'parfait/mediastore';
   static const begin = 'begin';
   static const write = 'write';
   static const finalize = 'finalize';

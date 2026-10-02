@@ -21,7 +21,7 @@ import java.security.spec.X509EncodedKeySpec
  * verifier and installer operation; the manifest/asset transport stays in
  * Dart so the signed-manifest policy is shared and testable. */
 object DistributionUpdaterChannel {
-    private const val CHANNEL = "pixivfunc/updater"
+    private const val CHANNEL = "parfait/updater"
     private const val UPDATE_DIRECTORY = "updates"
     private const val APK_MIME = "application/vnd.android.package-archive"
 

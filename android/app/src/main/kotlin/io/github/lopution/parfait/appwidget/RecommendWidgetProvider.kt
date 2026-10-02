@@ -6,7 +6,7 @@ import android.content.Context
 
 /**
  * The recommend widget (beta56 RecommendAppWidget): one bounded cover per
- * instance, click routes to the illust detail via the pixivfunc deep link.
+ * instance, click routes to the illust detail via the parfait deep link.
  *
  * onUpdate renders only from the local snapshot — never from the network —
  * so resize storms cannot start work or repeat IPC-heavy fetches (PRD R9).

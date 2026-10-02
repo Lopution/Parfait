@@ -825,7 +825,7 @@ void main() {
     // must flip dark for as long as the sheet covers that edge.
     final container = await _apiContainer(
       preferences: {
-        'pixivfunc.novel.reader_settings.v1': jsonEncode(
+        'parfait.novel.reader_settings.v1': jsonEncode(
           const NovelReaderSettings(theme: NovelReaderTheme.night).toJson(),
         ),
       },
@@ -1218,7 +1218,7 @@ void main() {
     // route returns the bars to the app-level default without a reset.
     final container = await _apiContainer(
       preferences: {
-        'pixivfunc.novel.reader_settings.v1': jsonEncode(
+        'parfait.novel.reader_settings.v1': jsonEncode(
           const NovelReaderSettings(theme: NovelReaderTheme.night).toJson(),
         ),
       },

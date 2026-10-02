@@ -7,7 +7,7 @@ import '../platform/android_platform_interfaces.dart';
 /// Separate durable namespace for Ugoira post-process records. Ugoira output
 /// is not a normal URL download, so its records must never be consumed by the
 /// ordinary DownloadManager retry path.
-const kUgoiraRecoveryStorageKey = 'pixivfunc.ugoira.recovery.v1';
+const kUgoiraRecoveryStorageKey = 'parfait.ugoira.recovery.v1';
 const kUgoiraOutputOwnerPrefix = 'ugoira-output-';
 
 @immutable

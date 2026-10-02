@@ -35,7 +35,7 @@ class ReverseImagePlatformException implements Exception {
 }
 
 abstract final class _ReverseImageInputMethods {
-  static const channel = 'pixivfunc/reverse_image_input';
+  static const channel = 'parfait/reverse_image_input';
   static const pickImage = 'pickImage';
   static const copyToTemp = 'copyToTemp';
   static const deleteTemp = 'deleteTemp';

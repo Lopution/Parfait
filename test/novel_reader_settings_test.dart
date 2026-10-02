@@ -95,7 +95,7 @@ void main() {
     test('corrupt blob falls back to defaults', () async {
       installMemoryPreferences();
       final prefs = SharedPreferencesAsync();
-      await prefs.setString('pixivfunc.novel.reader_settings.v1', '{broken');
+      await prefs.setString('parfait.novel.reader_settings.v1', '{broken');
 
       final loaded = await NovelReaderSettingsStore(prefs).load();
       expect(loaded, const NovelReaderSettings());

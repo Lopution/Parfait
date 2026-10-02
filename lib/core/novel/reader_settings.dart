@@ -117,7 +117,7 @@ class NovelReaderSettings {
 class NovelReaderSettingsStore {
   NovelReaderSettingsStore(this._preferences);
 
-  static const _key = 'pixivfunc.novel.reader_settings.v1';
+  static const _key = 'parfait.novel.reader_settings.v1';
 
   final SharedPreferencesAsync _preferences;
 
@@ -146,7 +146,7 @@ class NovelReaderSettingsStore {
 class NovelProgressStore {
   NovelProgressStore(this._preferences);
 
-  static const _key = 'pixivfunc.novel.progress.v1';
+  static const _key = 'parfait.novel.progress.v1';
 
   /// Entries beyond this cap are evicted oldest-first — a novel library is
   /// unbounded, the resume map must not be.

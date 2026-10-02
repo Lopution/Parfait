@@ -36,7 +36,7 @@ class DownloadDestination {
   /// Stable identity used by recovery records. Never contains a tree URI
   /// permission lease; only the opaque, canonical selection.
   String get identity => switch (kind) {
-    DownloadDestinationKind.pixivAlbum => 'album:pixivfunc',
+    DownloadDestinationKind.pixivAlbum => 'album:parfait',
     DownloadDestinationKind.customAlbum =>
       'album:${customAlbumName ?? 'unnamed'}',
     DownloadDestinationKind.safFolder => 'saf:${safTreeUri ?? ''}',

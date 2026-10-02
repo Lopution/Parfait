@@ -558,7 +558,7 @@ ResumeAnchor? _anchorFromJson(Object? raw) {
 DownloadDestination _destinationFromIdentity(String? identity) {
   if (identity == null || identity.isEmpty) return DownloadDestination.builtin;
   if (identity == 'Pictures/PixivFunc') return DownloadDestination.builtin;
-  if (identity == 'album:pixivfunc') {
+  if (identity == 'album:parfait') {
     return DownloadDestination.builtin;
   }
   if (identity.startsWith('album:')) {

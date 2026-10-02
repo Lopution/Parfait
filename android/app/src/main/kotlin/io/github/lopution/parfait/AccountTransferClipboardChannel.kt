@@ -21,7 +21,7 @@ import java.security.MessageDigest
  * is not overwritten by our cleanup task.
  */
 object AccountTransferClipboardChannel {
-    private const val CHANNEL = "pixivfunc/account_transfer_clipboard"
+    private const val CHANNEL = "parfait/account_transfer_clipboard"
     private const val MAX_TEXT_LENGTH = 32 * 1024
     private const val MIN_CLEAR_DELAY_MS = 1L
     private const val MAX_CLEAR_DELAY_MS = 10L * 60L * 1000L

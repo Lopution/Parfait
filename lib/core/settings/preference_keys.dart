@@ -4,17 +4,17 @@
 /// versioned (`.v1` suffix style).
 abstract final class PreferenceKeys {
   /// Download recovery queue (`DownloadRecoveryStore`).
-  static const String downloadRecovery = 'pixivfunc.download.recovery.v1';
+  static const String downloadRecovery = 'parfait.download.recovery.v1';
 
   /// Updater download state (`UpdateDownloadStateStore`).
-  static const String updateDownload = 'pixivfunc.update.download.v1';
+  static const String updateDownload = 'parfait.update.download.v1';
 
   /// Updater manager recovery queue (shares the recovery schema).
   static const String updateManagerRecovery =
-      'pixivfunc.update.manager.recovery.v1';
+      'parfait.update.manager.recovery.v1';
 
   /// Epoch-ms of the last background update check (throttle window).
-  static const String updateAutoCheckAt = 'pixivfunc.update.auto_check.v1';
+  static const String updateAutoCheckAt = 'parfait.update.auto_check.v1';
 
   /// Versioned JSON settings blob (`PreferencesSettingsRepository`).
   static const String settings = 'replica.settings.v2';
@@ -44,5 +44,5 @@ abstract final class PreferenceKeys {
   /// Whether the user unlocked the developer entries (about-page tap
   /// gesture). Device-local by design — a UI affordance, not a synced
   /// preference.
-  static const String developerOptions = 'pixivfunc.developer_options.v1';
+  static const String developerOptions = 'parfait.developer_options.v1';
 }

@@ -42,7 +42,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        const MethodChannel('pixivfunc/widget'),
+        const MethodChannel('parfait/widget'),
         (call) async => false,
       );
 

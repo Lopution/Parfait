@@ -37,7 +37,7 @@ internal fun interface SafTreeLauncher {
 
 object SafTreeChannel {
 
-    private const val CHANNEL = "pixivfunc/saf_tree"
+    private const val CHANNEL = "parfait/saf_tree"
     private const val PREFIX = "saf_"
     private const val REQUEST_OPEN_TREE = 0x53AF
 

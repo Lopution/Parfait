@@ -238,7 +238,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
       theme: replicaTheme(Brightness.light),
       darkTheme: replicaTheme(Brightness.dark),
       themeMode: themeMode,
-      restorationScopeId: 'pixiv-func',
+      restorationScopeId: 'parfait',
       routerConfig: _router,
       // Desktop affordance: mouse and trackpad drag like touch. Wheel
       // smoothing stays per-scrollable — see SmoothWheelScroll.

@@ -343,7 +343,7 @@ void main() {
         illustId: 43,
         metadata: metadata,
         index: index,
-        file: File('/tmp/pixiv-func-test-ugoira-cancel.zip'),
+        file: File('/tmp/parfait-test-ugoira-cancel.zip'),
       );
       final sinks = MemorySinkFactory();
       final job = UgoiraExportJob(
@@ -377,7 +377,7 @@ void main() {
         illustId: 44,
         metadata: metadata,
         index: index,
-        file: File('/tmp/pixiv-func-test-ugoira-owner.zip'),
+        file: File('/tmp/parfait-test-ugoira-owner.zip'),
       );
       final sinks = MemorySinkFactory();
       final job = UgoiraExportJob(
@@ -420,7 +420,7 @@ void main() {
           illustId: 42,
           metadata: metadata,
           index: index,
-          file: File('/tmp/pixiv-func-test-ugoira.zip'),
+          file: File('/tmp/parfait-test-ugoira.zip'),
         );
         final sinks = MemorySinkFactory();
         final recoveryStore = MemoryDownloadRecoveryStore();

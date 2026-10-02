@@ -340,7 +340,7 @@ class _FakeUpdateManifest implements UpdateManifestLike {
     url: Uri.parse('https://example.invalid/app.apk'),
     exactSize: 1,
     sha256: '',
-    packageName: 'com.example.pixiv_func',
+    packageName: 'com.example.parfait',
     signingCertificateSha256: '',
   );
 }

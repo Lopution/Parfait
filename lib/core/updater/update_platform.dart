@@ -24,7 +24,7 @@ abstract interface class UpdatePlatform {
 
 class MethodChannelUpdatePlatform implements UpdatePlatform {
   MethodChannelUpdatePlatform([
-    MethodChannel channel = const MethodChannel('pixivfunc/updater'),
+    MethodChannel channel = const MethodChannel('parfait/updater'),
   ]) : _channel = channel;
 
   final MethodChannel _channel;

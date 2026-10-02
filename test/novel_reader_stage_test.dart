@@ -280,7 +280,7 @@ void main() {
       // SharedPreferencesAsync lazily, so it binds to the platform
       // instance installed here.
       installMemoryPreferences({
-        'pixivfunc.novel.reader_settings.v1': jsonEncode(
+        'parfait.novel.reader_settings.v1': jsonEncode(
           NovelReaderSettings(theme: readerTheme).toJson(),
         ),
       });

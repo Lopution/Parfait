@@ -89,7 +89,7 @@ class MethodChannelSafTree
         SafDocumentSinkFactory,
         ResumableSafDocumentFactory {
   const MethodChannelSafTree([
-    this._channel = const MethodChannel('pixivfunc/saf_tree'),
+    this._channel = const MethodChannel('parfait/saf_tree'),
   ]);
 
   final MethodChannel _channel;

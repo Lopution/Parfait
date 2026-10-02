@@ -12,14 +12,14 @@ import io.github.lopution.parfait.appwidget.WidgetSnapshotReader
 import io.github.lopution.parfait.appwidget.WidgetUpdateCoordinator
 
 /**
- * Foreground widget maintenance channel (`pixivfunc/widget`).
+ * Foreground widget maintenance channel (`parfait/widget`).
  *
  * Dart reports render-state changes and account revisions; this side only
  * re-renders from the secret-free snapshot store and keys WorkManager
  * schedules. It never receives or stores account ids, tokens or images.
  */
 object WidgetForegroundChannel {
-    private const val CHANNEL = "pixivfunc/widget"
+    private const val CHANNEL = "parfait/widget"
 
     fun configure(context: Context, engine: FlutterEngine) {
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)

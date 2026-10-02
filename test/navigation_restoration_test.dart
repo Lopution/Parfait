@@ -122,7 +122,7 @@ Widget _routerApp(
         ),
     ],
     child: MaterialApp.router(
-      restorationScopeId: 'pixiv-func',
+      restorationScopeId: 'parfait',
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('zh', 'CN'),

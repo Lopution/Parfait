@@ -190,7 +190,7 @@ object WidgetRenderer {
      * per illust/slot so different widget instances can never collide
      * (PRD R9).
      *
-     * Illust clicks launch the `pixivfunc://illusts/<id>` deep link through
+     * Illust clicks launch the `parfait://illusts/<id>` deep link through
      * [PendingIntent.getActivity]: the widget host (a foreground system app)
      * starts the activity, which keeps working after process death. A
      * broadcast intermediary would be blocked by background-activity-launch
@@ -198,7 +198,7 @@ object WidgetRenderer {
      */
     fun clickPendingIntent(context: Context, illustId: Int, requestCode: Int): PendingIntent {
         val deepLink = if (illustId > 0) {
-            Uri.parse("pixivfunc://illusts/$illustId")
+            Uri.parse("parfait://illusts/$illustId")
         } else {
             // No renderable entry: use a normal explicit launch. An invalid
             // deep link would show an error snackbar instead of opening the
@@ -224,7 +224,7 @@ object WidgetRenderer {
         val intent = Intent(WidgetClickReceiver.ACTION_REFRESH_CLICK)
             .setPackage(context.packageName)
             .setClass(context, WidgetClickReceiver::class.java)
-            .setData(Uri.parse("pixivfunc-widget://refresh/$appWidgetId"))
+            .setData(Uri.parse("parfait-widget://refresh/$appWidgetId"))
         return PendingIntent.getBroadcast(
             context,
             (appWidgetId + 1_000_000) and 0x7fffffff,

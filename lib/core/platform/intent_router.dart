@@ -5,7 +5,7 @@ sealed class DeepLinkRoute {
   const DeepLinkRoute();
 }
 
-/// Open a user page: `pixiv://users/<id>`, `pixivfunc://users/<id>`,
+/// Open a user page: `pixiv://users/<id>`, `parfait://users/<id>`,
 /// `https://www.pixiv.net/u/<id>`, `/users/<id>`, `/en/users/<id>`,
 /// `member.php?id=<id>`, or `?id=<id>` on a user page.
 class UserRoute extends DeepLinkRoute {
@@ -14,7 +14,7 @@ class UserRoute extends DeepLinkRoute {
   final int userId;
 }
 
-/// Open an illust page: `pixiv://illusts/<id>`, `pixivfunc://illusts/<id>`,
+/// Open an illust page: `pixiv://illusts/<id>`, `parfait://illusts/<id>`,
 /// `https://www.pixiv.net/i/<id>`, `/artworks/<id>`, `/en/artworks/<id>`,
 /// `member_illust.php?illust_id=<id>` (optional `mode=`), or
 /// `?illust_id=<id>`.
@@ -134,7 +134,7 @@ class RejectedAndroidIntent extends AndroidIntentResult {
 abstract final class IntentRouter {
   static const Set<String> _webHosts = {'pixiv.net', 'www.pixiv.net'};
   static const Set<String> _pixivHosts = {'users', 'illusts', 'account'};
-  static const Set<String> _pixivfuncHosts = {'users', 'illusts'};
+  static const Set<String> _parfaitHosts = {'users', 'illusts'};
 
   static DeepLinkRoute route(Uri uri) {
     switch (uri.scheme) {
@@ -144,9 +144,9 @@ abstract final class IntentRouter {
         }
         if (uri.host == 'account') return _accountCallback(uri);
         return _typedIdFromExactPath(uri, uri.host);
-      case 'pixivfunc':
-        if (!_pixivfuncHosts.contains(uri.host)) {
-          return const UnknownRoute('unknown pixivfunc host');
+      case 'parfait':
+        if (!_parfaitHosts.contains(uri.host)) {
+          return const UnknownRoute('unknown parfait host');
         }
         return _typedIdFromExactPath(uri, uri.host);
       case 'http':

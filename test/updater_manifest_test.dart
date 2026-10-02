@@ -489,7 +489,7 @@ void main() {
   });
 
   group('MethodChannelUpdatePlatform.info', () {
-    const channel = MethodChannel('pixivfunc/updater');
+    const channel = MethodChannel('parfait/updater');
 
     setUp(() {
       TestWidgetsFlutterBinding.ensureInitialized();

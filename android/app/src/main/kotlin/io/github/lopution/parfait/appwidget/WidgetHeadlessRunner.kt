@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * The engine executes the same Dart entrypoint graph as the app — shared
  * AccountStore, PixivHttpClient, TokenRefreshGate and NetworkAccessPolicy —
- * and reports only a classified outcome over `pixivfunc/widget_background`.
+ * and reports only a classified outcome over `parfait/widget_background`.
  * No credential, token or account data is read or stored on the native side.
  *
  * Engine creation, channel wiring and teardown must run on the main thread
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object WidgetHeadlessRunner {
     private const val TAG = "WidgetHeadless"
-    private const val CHANNEL = "pixivfunc/widget_background"
+    private const val CHANNEL = "parfait/widget_background"
     private const val ENTRYPOINT = "widgetBackgroundMain"
 
     /** Hard wall-clock bound; stays well inside the WorkManager 10 min cap. */

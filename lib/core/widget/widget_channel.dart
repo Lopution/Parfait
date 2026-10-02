@@ -9,7 +9,7 @@ import '../log.dart';
 /// only the fact that render state changed, plus the account revision used
 /// to key scheduled work.
 abstract final class WidgetChannel {
-  static const MethodChannel _channel = MethodChannel('pixivfunc/widget');
+  static const MethodChannel _channel = MethodChannel('parfait/widget');
 
   /// A new snapshot is active (or the store was cleared); native re-renders
   /// every widget from the store and re-keys scheduled work.
@@ -44,12 +44,12 @@ abstract interface class WidgetInstanceGate {
   Future<bool> hasAnyInstances();
 }
 
-/// Platform implementation querying `pixivfunc/widget` `hasAnyWidget`.
+/// Platform implementation querying `parfait/widget` `hasAnyWidget`.
 /// Non-Android hosts have no widget surface and report false.
 class MethodChannelWidgetInstanceGate implements WidgetInstanceGate {
   const MethodChannelWidgetInstanceGate();
 
-  static const MethodChannel _channel = MethodChannel('pixivfunc/widget');
+  static const MethodChannel _channel = MethodChannel('parfait/widget');
 
   @override
   Future<bool> hasAnyInstances() async {

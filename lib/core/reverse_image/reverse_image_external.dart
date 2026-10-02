@@ -37,7 +37,7 @@ class OutboundReverseImageExternalLauncher
 class MethodChannelReverseImageExternalLauncher
     implements ReverseImageExternalLauncher {
   MethodChannelReverseImageExternalLauncher([
-    this._channel = const MethodChannel('pixivfunc/reverse_image_input'),
+    this._channel = const MethodChannel('parfait/reverse_image_input'),
   ]);
 
   final MethodChannel _channel;

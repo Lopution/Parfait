@@ -46,7 +46,7 @@ class MethodChannelWebProfileSession implements WebProfileSession {
 }
 
 abstract final class _WebProfileMethods {
-  static const channel = 'pixivfunc/webprofile';
+  static const channel = 'parfait/webprofile';
   static const readSession = 'readSession';
   static const clearSession = 'clearSession';
 }

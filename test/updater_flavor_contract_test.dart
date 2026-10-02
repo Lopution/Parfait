@@ -41,7 +41,7 @@ void main() {
 
     expect(github, contains('object DistributionUpdaterChannel'));
     expect(github, contains('UPDATE_SELF_UPDATER_ENABLED'));
-    expect(github, contains('pixivfunc/updater'));
+    expect(github, contains('parfait/updater'));
     expect(github, contains('UpdaterPlatformInfo.platformInfo'));
     // API 29-safe verifier: SHA256withECDSA over the raw manifest bytes, and
     // every failure is one of the five diagnosable codes the Dart side maps.

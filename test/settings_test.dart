@@ -1217,7 +1217,7 @@ void main() {
   testWidgets('settings home shows current-value summaries', (tester) async {
     PackageInfo.setMockInitialValues(
       appName: 'Pixiv Func',
-      packageName: 'works.lopution.pixiv_func',
+      packageName: 'io.github.lopution.parfait',
       version: '9.9.9',
       buildNumber: '99',
       buildSignature: '',

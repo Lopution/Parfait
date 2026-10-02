@@ -24,7 +24,7 @@ internal interface WebProfileCookies {
 
 object WebProfileChannel {
 
-    private const val CHANNEL = "pixivfunc/webprofile"
+    private const val CHANNEL = "parfait/webprofile"
     internal const val PIXIV_WEB = "https://www.pixiv.net"
 
     fun configure(context: Context, engine: FlutterEngine) {

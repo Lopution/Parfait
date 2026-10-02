@@ -8,7 +8,7 @@ import io.github.lopution.parfait.updater.UpdaterPlatformInfo
 /** F-Droid has store-managed updates. It intentionally exposes no updater
  * transport, signature verifier or installer implementation. */
 object DistributionUpdaterChannel {
-    private const val CHANNEL = "pixivfunc/updater"
+    private const val CHANNEL = "parfait/updater"
 
     fun configure(context: Context, engine: FlutterEngine) {
         // No archive IO on this flavor; stay on the platform thread.

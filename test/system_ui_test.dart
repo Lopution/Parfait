@@ -275,7 +275,7 @@ void main() {
     );
     // Widget coordinator gate — keeps startup quiet without a native side.
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('pixivfunc/widget'),
+      const MethodChannel('parfait/widget'),
       (call) async => false,
     );
 

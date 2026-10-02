@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit
  *   this class never builds its own credential, DNS, proxy or TLS logic.
  */
 object WidgetUpdateCoordinator {
-    private const val WORK_TAG = "pixivfunc_widget_maintenance"
+    private const val WORK_TAG = "parfait_widget_maintenance"
     private const val PERIODIC_PREFIX = "widget_recommend_periodic_r"
     private const val ONE_SHOT_PREFIX = "widget_recommend_refresh_now_r"
 
@@ -33,7 +33,7 @@ object WidgetUpdateCoordinator {
     private const val PERIOD_MINUTES = 30L
 
     /** Holds only the last scheduled unique-work name (no secrets, R2). */
-    private const val STATE_PREFS = "pixivfunc_widget_state"
+    private const val STATE_PREFS = "parfait_widget_state"
     private const val KEY_SCHEDULED_NAME = "periodic_unique_name"
 
     private fun constraints(): Constraints = Constraints.Builder()

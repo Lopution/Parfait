@@ -61,7 +61,7 @@ class _CountingLoader extends WidgetFeedLoader {
   }
 }
 
-const _widgetChannel = MethodChannel('pixivfunc/widget');
+const _widgetChannel = MethodChannel('parfait/widget');
 
 Future<void> _flushPasses() async {
   for (var i = 0; i < 8; i++) {

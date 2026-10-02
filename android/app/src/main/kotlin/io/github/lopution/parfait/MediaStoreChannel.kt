@@ -42,10 +42,10 @@ internal interface MediaStoreOperations {
 
 object MediaStoreChannel {
 
-    private const val CHANNEL = "pixivfunc/mediastore"
+    private const val CHANNEL = "parfait/mediastore"
     private const val PREFIX = "mediastore_"
     private const val RELATIVE_PATH = "Pictures/PixivFunc"
-    private const val OWNER_PREFIX = "pixivfunc-owner:"
+    private const val OWNER_PREFIX = "parfait-owner:"
 
     // Handler-only: the channel TaskQueue is serial, so these caches are
     // never touched from onActivityResult or another thread.
