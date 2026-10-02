@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/updater/update_manifest.dart';
-import 'package:pixiv_func/core/updater/update_service.dart';
+import 'package:parfait/core/updater/update_manifest.dart';
+import 'package:parfait/core/updater/update_service.dart';
 
 void main() {
   group('UpdateManifest', () {

@@ -28,15 +28,15 @@ import 'widgets/app_snack_bar.dart';
 import 'widgets/func_bottom_nav.dart';
 import 'widgets/settings_load_error.dart';
 import '../l10n/context.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
-class PixivFuncApp extends ConsumerStatefulWidget {
-  const PixivFuncApp({super.key, this.intentSource});
+class ParfaitApp extends ConsumerStatefulWidget {
+  const ParfaitApp({super.key, this.intentSource});
 
   final AndroidIntentSource? intentSource;
 
   @override
-  ConsumerState<PixivFuncApp> createState() => _PixivFuncAppState();
+  ConsumerState<ParfaitApp> createState() => _ParfaitAppState();
 }
 
 /// Dwell time of the auto-update prompt (D2): long enough to read and act
@@ -78,7 +78,7 @@ void showUpdatePrompt(
   );
 }
 
-class _PixivFuncAppState extends ConsumerState<PixivFuncApp>
+class _ParfaitAppState extends ConsumerState<ParfaitApp>
     with WidgetsBindingObserver {
   late final GoRouter _router = createPixivRouter();
 

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/reverse_image/reverse_image_engine.dart';
-import 'package:pixiv_func/core/reverse_image/reverse_image_navigation_policy.dart';
+import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
+import 'package:parfait/core/reverse_image/reverse_image_navigation_policy.dart';
 
 void main() {
   final policy = ReverseImageNavigationPolicy(

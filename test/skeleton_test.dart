@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/motion/motion_tokens.dart';
-import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
-import 'package:pixiv_func/app/widgets/feed/feed_grid.dart';
-import 'package:pixiv_func/app/widgets/skeleton/func_skeleton.dart';
-import 'package:pixiv_func/app/widgets/skeleton/illust_grid_skeleton.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
+import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 
 Widget _host(Widget child, {bool reduce = false}) {
   return MotionScope(

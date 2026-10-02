@@ -4,13 +4,13 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/download/download_manager.dart';
-import 'package:pixiv_func/core/download/download_request.dart';
-import 'package:pixiv_func/core/download/download_transport.dart';
-import 'package:pixiv_func/core/download/pixiv_download_transport.dart';
-import 'package:pixiv_func/core/updater/update_download.dart';
-import 'package:pixiv_func/core/updater/update_manifest.dart';
-import 'package:pixiv_func/core/updater/update_service.dart';
+import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_request.dart';
+import 'package:parfait/core/download/download_transport.dart';
+import 'package:parfait/core/download/pixiv_download_transport.dart';
+import 'package:parfait/core/updater/update_download.dart';
+import 'package:parfait/core/updater/update_manifest.dart';
+import 'package:parfait/core/updater/update_service.dart';
 
 void main() {
   late Directory directory;

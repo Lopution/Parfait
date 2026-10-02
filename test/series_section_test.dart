@@ -4,12 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:pixiv_func/core/profile/profile_models.dart';
-import 'package:pixiv_func/features/illust/detail/widgets/illust_series_section.dart';
-import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
-import 'package:pixiv_func/features/profile/profile_work_type_switch.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/core/profile/profile_models.dart';
+import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
+import 'package:parfait/features/profile/profile_header_delegate.dart';
+import 'package:parfait/features/profile/profile_work_type_switch.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/series_world.dart';

@@ -2,14 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/entity/illust_entity.dart';
-import 'package:pixiv_func/core/mute/mute_store.dart';
-import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
-import 'package:pixiv_func/core/settings/settings_controller.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/mute/mute_store.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/paging/paged_feed_controller.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';

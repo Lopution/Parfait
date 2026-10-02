@@ -4,10 +4,10 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:pixiv_func/core/network/compat/dns_message.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
-import 'package:pixiv_func/core/network/compat/network_policy.dart';
-import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
+import 'package:parfait/core/network/compat/dns_message.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/compat/network_policy.dart';
+import 'package:parfait/core/network/compat/secure_resolver.dart';
 
 /// Scripted DoH server standing in for `https://1.1.1.1/dns-query`.
 class _FakeDohServer {

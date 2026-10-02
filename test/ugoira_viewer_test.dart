@@ -3,16 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
-import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
+import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_providers.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_repository.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_zip.dart';
-import 'package:pixiv_func/features/illust/detail/ugoira_viewer.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/ugoira/ugoira_providers.dart';
+import 'package:parfait/core/ugoira/ugoira_repository.dart';
+import 'package:parfait/core/ugoira/ugoira_zip.dart';
+import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 void main() {
   installMemoryPreferences();

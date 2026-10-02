@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/entity/illust_entity.dart';
-import 'package:pixiv_func/core/entity/illust_store.dart';
-import 'package:pixiv_func/core/network/next_page_parser.dart';
+import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/network/next_page_parser.dart';
 
 IllustEntity entity(
   int id, {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/localnovel/read_offset_anchor.dart';
+import 'package:parfait/core/localnovel/read_offset_anchor.dart';
 
 /// The forward direction: mirrors `_persistCursor` in
 /// local_novel_reader_page.dart — a paragraph anchor is a character offset

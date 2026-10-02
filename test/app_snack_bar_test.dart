@@ -2,12 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/motion/motion_tokens.dart';
-import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
-import 'package:pixiv_func/app/widgets/app_snack_bar.dart';
-import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/navigation/home_shell_metrics.dart';
+import 'package:parfait/app/widgets/app_snack_bar.dart';
+import 'package:parfait/app/widgets/func_bottom_nav.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 Widget _host(Widget child) {
   return ProviderScope(

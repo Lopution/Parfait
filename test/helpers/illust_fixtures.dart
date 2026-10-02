@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:pixiv_func/core/entity/illust_entity.dart';
+import 'package:parfait/core/entity/illust_entity.dart';
 
 /// Canonical single-illust JSON for detail/store/viewer tests.
 Map<String, dynamic> illustJson(

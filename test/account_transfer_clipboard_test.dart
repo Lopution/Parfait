@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/auth/account_transfer.dart';
-import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
+import 'package:parfait/core/auth/account_transfer.dart';
+import 'package:parfait/core/platform/account_transfer_clipboard.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

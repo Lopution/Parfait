@@ -3,11 +3,11 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/auth/oauth_service.dart';
-import 'package:pixiv_func/features/login/login_webview_desktop_page.dart';
-import 'package:pixiv_func/features/login/login_webview_error_card.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/features/login/login_webview_desktop_page.dart';
+import 'package:parfait/features/login/login_webview_error_card.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';

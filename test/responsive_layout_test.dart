@@ -2,9 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/layout/app_breakpoints.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/app/layout/app_breakpoints.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/feed/feed_grid.dart';
 
 void main() {
   test('illustColumnsFor derives columns from the available extent', () {

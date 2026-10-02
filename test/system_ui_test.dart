@@ -7,23 +7,23 @@ import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'package:pixiv_func/app/app.dart';
-import 'package:pixiv_func/app/system_ui.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/download/download_manager.dart';
-import 'package:pixiv_func/core/download/download_providers.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/network/compat/network_policy.dart';
-import 'package:pixiv_func/core/network/compat/network_providers.dart';
-import 'package:pixiv_func/core/network/compat/pixiv_network_factory.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
-import 'package:pixiv_func/core/settings/settings_controller.dart';
-import 'package:pixiv_func/core/settings/settings_repository.dart';
-import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/app/app.dart';
+import 'package:parfait/app/system_ui.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_providers.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/network/compat/network_policy.dart';
+import 'package:parfait/core/network/compat/network_providers.dart';
+import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/core/settings/settings_repository.dart';
+import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 import 'download_manager_test.dart';
 import 'helpers/fake_account.dart';
@@ -318,7 +318,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const PixivFuncApp(),
+        child: const ParfaitApp(),
       ),
     );
     // The delayed auto-update check (3s) must fire before the test ends —

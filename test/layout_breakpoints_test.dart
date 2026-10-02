@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 
-import 'package:pixiv_func/app/layout/app_breakpoints.dart';
-import 'package:pixiv_func/app/layout/two_pane.dart';
+import 'package:parfait/app/layout/app_breakpoints.dart';
+import 'package:parfait/app/layout/two_pane.dart';
 
 void main() {
   group('AppBreakpoints', () {

@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/widget/widget_snapshot.dart';
-import 'package:pixiv_func/core/widget/widget_snapshot_store.dart';
+import 'package:parfait/core/widget/widget_snapshot.dart';
+import 'package:parfait/core/widget/widget_snapshot_store.dart';
 
 void main() {
   late Directory tempDir;

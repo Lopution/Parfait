@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/platform/shared_image.dart';
+import 'package:parfait/core/platform/shared_image.dart';
 
 void main() {
   group('SharedImageValidator', () {

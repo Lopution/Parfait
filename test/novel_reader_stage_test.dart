@@ -6,15 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/core/novel/novel_entity.dart';
-import 'package:pixiv_func/core/novel/reader_settings.dart';
-import 'package:pixiv_func/core/settings/shared_preferences.dart';
-import 'package:pixiv_func/core/user/user_entity.dart';
-import 'package:pixiv_func/features/novel/novel_layout.dart';
-import 'package:pixiv_func/features/novel/novel_reader_stage.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/novel/reader_settings.dart';
+import 'package:parfait/core/settings/shared_preferences.dart';
+import 'package:parfait/core/user/user_entity.dart';
+import 'package:parfait/features/novel/novel_layout.dart';
+import 'package:parfait/features/novel/novel_reader_stage.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/test_preferences.dart';
 

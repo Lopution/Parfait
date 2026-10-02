@@ -1,4 +1,4 @@
-import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
+import 'package:parfait/core/paging/feed_snapshot_store.dart';
 
 /// In-memory stand-in for [FeedSnapshotStore]: each world gets a fresh
 /// instance so a snapshot committed by one test cannot leak into the next

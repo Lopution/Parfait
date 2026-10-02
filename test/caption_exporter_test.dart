@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:pixiv_func/core/download/caption_exporter.dart';
-import 'package:pixiv_func/core/download/download_destination.dart';
-import 'package:pixiv_func/core/download/download_recovery.dart';
-import 'package:pixiv_func/core/download/download_request.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/download/download_task.dart';
-import 'package:pixiv_func/core/download/naming_rule.dart';
+import 'package:parfait/core/download/caption_exporter.dart';
+import 'package:parfait/core/download/download_destination.dart';
+import 'package:parfait/core/download/download_recovery.dart';
+import 'package:parfait/core/download/download_request.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/core/download/naming_rule.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';

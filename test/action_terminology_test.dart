@@ -7,7 +7,7 @@
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 void main() {
   final zh = lookupAppLocalizations(const Locale('zh'));

@@ -7,17 +7,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/illust_fixtures.dart';
 import 'package:http/io_client.dart';
-import 'package:pixiv_func/core/download/download_manager.dart';
-import 'package:pixiv_func/core/download/download_request.dart';
-import 'package:pixiv_func/core/download/download_destination.dart';
-import 'package:pixiv_func/core/download/naming_rule.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/download/download_task.dart';
-import 'package:pixiv_func/core/download/download_transport.dart';
-import 'package:pixiv_func/core/download/illust_download_coordinator.dart';
-import 'package:pixiv_func/core/download/pixiv_download_transport.dart';
-import 'package:pixiv_func/core/platform/android_platform_interfaces.dart';
-import 'package:pixiv_func/core/platform/saf_tree.dart';
+import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_request.dart';
+import 'package:parfait/core/download/download_destination.dart';
+import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/core/download/download_transport.dart';
+import 'package:parfait/core/download/illust_download_coordinator.dart';
+import 'package:parfait/core/download/pixiv_download_transport.dart';
+import 'package:parfait/core/platform/android_platform_interfaces.dart';
+import 'package:parfait/core/platform/saf_tree.dart';
 
 DownloadRequest request({
   int illustId = 42,

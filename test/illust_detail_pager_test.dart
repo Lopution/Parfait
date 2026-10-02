@@ -5,13 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
-import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/app/widgets/feed/feed_grid.dart';
-import 'package:pixiv_func/core/entity/illust_store.dart';
-import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
-import 'package:pixiv_func/features/illust/detail/illust_detail_pager_page.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/features/illust/detail/illust_detail_page.dart';
+import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';

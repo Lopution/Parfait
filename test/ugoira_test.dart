@@ -7,16 +7,16 @@ import 'dart:ui' as ui;
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:pixiv_func/core/download/download_recovery.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_cache.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_decoder.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_export.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_limits.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_metadata.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_repository.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_scheduler.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_zip.dart';
+import 'package:parfait/core/download/download_recovery.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/ugoira/ugoira_cache.dart';
+import 'package:parfait/core/ugoira/ugoira_decoder.dart';
+import 'package:parfait/core/ugoira/ugoira_export.dart';
+import 'package:parfait/core/ugoira/ugoira_limits.dart';
+import 'package:parfait/core/ugoira/ugoira_metadata.dart';
+import 'package:parfait/core/ugoira/ugoira_repository.dart';
+import 'package:parfait/core/ugoira/ugoira_scheduler.dart';
+import 'package:parfait/core/ugoira/ugoira_zip.dart';
 
 void main() {
   group('UgoiraMetadata', () {

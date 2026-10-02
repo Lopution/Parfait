@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
+import 'package:parfait/core/platform/intent_router.dart';
 
 void main() {
   group('IntentRouter allow table', () {

@@ -5,15 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/account_transfer.dart';
-import 'package:pixiv_func/core/auth/account_transfer_service.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/oauth_service.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_repository.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/account_transfer.dart';
+import 'package:parfait/core/auth/account_transfer_service.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/platform/account_transfer_clipboard.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';

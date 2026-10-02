@@ -3,13 +3,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/app/widgets/novel_entry.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/novel/novel_entity.dart';
-import 'package:pixiv_func/core/user/user_entity.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/widgets/novel_entry.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/user/user_entity.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';

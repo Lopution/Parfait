@@ -2,14 +2,14 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
-import 'package:pixiv_func/core/network/compat/network_probe.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
-import 'package:pixiv_func/core/settings/settings_controller.dart';
-import 'package:pixiv_func/core/settings/settings_repository.dart';
-import 'package:pixiv_func/features/settings/network_probe_page.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/compat/network_probe.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/core/settings/settings_repository.dart';
+import 'package:parfait/features/settings/network_probe_page.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 class _FakeRepository implements SettingsRepository {
   AppSettings value = const AppSettings(

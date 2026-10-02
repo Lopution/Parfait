@@ -2,12 +2,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pixiv_func/core/settings/shared_preferences.dart';
-import 'package:pixiv_func/core/updater/update_providers.dart';
-import 'package:pixiv_func/core/updater/update_service.dart';
-import 'package:pixiv_func/features/settings/settings_page.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/core/settings/shared_preferences.dart';
+import 'package:parfait/core/updater/update_providers.dart';
+import 'package:parfait/core/updater/update_service.dart';
+import 'package:parfait/features/settings/settings_page.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/test_preferences.dart';
 

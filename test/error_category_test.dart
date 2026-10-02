@@ -3,11 +3,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/download/download_recovery.dart';
-import 'package:pixiv_func/core/errors/error_category.dart';
-import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
-import 'package:pixiv_func/core/network/next_page_parser.dart';
+import 'package:parfait/core/download/download_recovery.dart';
+import 'package:parfait/core/errors/error_category.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/next_page_parser.dart';
 
 void main() {
   group('categorizeError', () {

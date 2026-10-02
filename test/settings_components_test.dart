@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_action_tile.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_choice_tile.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_control.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_group.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_group_content.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_tile.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/settings/settings_action_tile.dart';
+import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
+import 'package:parfait/app/widgets/settings/settings_control.dart';
+import 'package:parfait/app/widgets/settings/settings_group.dart';
+import 'package:parfait/app/widgets/settings/settings_group_content.dart';
+import 'package:parfait/app/widgets/settings/settings_tile.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(

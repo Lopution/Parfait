@@ -1,11 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/novel/novel_entity.dart';
-import 'package:pixiv_func/features/novel/novel_layout.dart';
-import 'package:pixiv_func/features/novel/novel_reader.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/features/novel/novel_layout.dart';
+import 'package:parfait/features/novel/novel_reader.dart';
 
 void main() {
   test('novel markup produces typed tokens and visible fallbacks', () {

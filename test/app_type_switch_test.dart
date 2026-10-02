@@ -1,11 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/pull_to_refresh.dart';
-import 'package:pixiv_func/app/scroll_behavior.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/app/widgets/app_type_switch.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/pull_to_refresh.dart';
+import 'package:parfait/app/scroll_behavior.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/app_type_switch.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 const _two = [(value: 'illust', label: '插画'), (value: 'novel', label: '小说')];
 

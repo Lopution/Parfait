@@ -4,9 +4,9 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:pixiv_func/core/comments/comment_translation.dart';
-import 'package:pixiv_func/core/comments/translation_credentials.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
+import 'package:parfait/core/comments/comment_translation.dart';
+import 'package:parfait/core/comments/translation_credentials.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 
 class _FakeCredentials implements TranslationCredentialStore {
   BaiduTranslationCredentials? baidu;

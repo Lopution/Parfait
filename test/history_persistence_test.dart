@@ -5,10 +5,10 @@ import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:pixiv_func/core/history/history_database.dart';
-import 'package:pixiv_func/core/history/history_models.dart';
-import 'package:pixiv_func/core/history/history_repository.dart';
-import 'package:pixiv_func/core/history/history_tracker.dart';
+import 'package:parfait/core/history/history_database.dart';
+import 'package:parfait/core/history/history_models.dart';
+import 'package:parfait/core/history/history_repository.dart';
+import 'package:parfait/core/history/history_tracker.dart';
 
 void main() {
   setUpAll(sqfliteFfiInit);

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/settings/local_block_filter.dart';
+import 'package:parfait/core/settings/local_block_filter.dart';
 
 import 'helpers/illust_fixtures.dart';
 

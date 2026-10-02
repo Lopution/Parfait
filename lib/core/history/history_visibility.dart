@@ -163,7 +163,7 @@ class _HistoryVisibilityState extends State<HistoryVisibility>
             FlutterErrorDetails(
               exception: error,
               stack: stack,
-              library: 'pixiv_func.history',
+              library: 'parfait.history',
               context: ErrorDescription('while persisting browsing history'),
             ),
           );

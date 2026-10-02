@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/features/profile/profile_statistics.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/features/profile/profile_statistics.dart';
 
 ProfileStatisticData _stat(String id, String label, {VoidCallback? onTap}) =>
     ProfileStatisticData(

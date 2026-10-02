@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/app/image_tier_cache.dart';
-import 'package:pixiv_func/core/entity/illust_entity.dart';
+import 'package:parfait/app/image_tier_cache.dart';
+import 'package:parfait/core/entity/illust_entity.dart';
 
 void main() {
   test('upgrade serves a cached higher tier for a lower request', () {

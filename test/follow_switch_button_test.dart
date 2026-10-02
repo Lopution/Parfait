@@ -4,16 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/widgets/follow_switch_button.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/user/follow_store.dart';
-import 'package:pixiv_func/core/user/user_entity.dart';
-import 'package:pixiv_func/core/user/user_repository.dart';
-import 'package:pixiv_func/features/profile/profile_header_delegate.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/widgets/follow_switch_button.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/user/follow_store.dart';
+import 'package:parfait/core/user/user_entity.dart';
+import 'package:parfait/core/user/user_repository.dart';
+import 'package:parfait/features/profile/profile_header_delegate.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';

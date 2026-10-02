@@ -6,24 +6,24 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'helpers/test_preferences.dart';
-import 'package:pixiv_func/app/icons/app_icons.dart';
-import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/core/platform/platform_caps.dart';
-import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
-import 'package:pixiv_func/core/user/user_repository.dart';
-import 'package:pixiv_func/features/bookmark/bookmark_tags_page.dart';
-import 'package:pixiv_func/features/home/recommended/recommended_home_page.dart';
-import 'package:pixiv_func/features/ranking/ranking_page.dart';
-import 'package:pixiv_func/features/new/new_page.dart';
-import 'package:pixiv_func/features/profile/user_page.dart';
-import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
-import 'package:pixiv_func/features/search/search_page.dart';
-import 'package:pixiv_func/features/search/tag_search_page.dart';
-import 'package:pixiv_func/features/settings/settings_page.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/core/bookmark/bookmark_models.dart';
+import 'package:parfait/core/user/user_repository.dart';
+import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
+import 'package:parfait/features/home/recommended/recommended_home_page.dart';
+import 'package:parfait/features/ranking/ranking_page.dart';
+import 'package:parfait/features/new/new_page.dart';
+import 'package:parfait/features/profile/user_page.dart';
+import 'package:parfait/features/search/reverse_image_search_page.dart';
+import 'package:parfait/features/search/search_page.dart';
+import 'package:parfait/features/search/tag_search_page.dart';
+import 'package:parfait/features/settings/settings_page.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
+import 'package:parfait/app/widgets/func_bottom_nav.dart';
 
 void main() {
   setUp(() {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/app/widgets/feed/feed_grid.dart';
 
 void main() {
   const ahead = 12;

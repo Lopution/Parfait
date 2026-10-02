@@ -4,12 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/widgets/errors/error_details.dart';
-import 'package:pixiv_func/core/errors/error_category.dart';
-import 'package:pixiv_func/core/logging/crash_log.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/context.dart';
+import 'package:parfait/app/widgets/errors/error_details.dart';
+import 'package:parfait/core/errors/error_category.dart';
+import 'package:parfait/core/logging/crash_log.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/context.dart';
 
 Widget _host(Widget child) {
   return MaterialApp(

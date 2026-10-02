@@ -2,15 +2,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/download/author_works_enumerator.dart';
-import 'package:pixiv_func/core/download/download_manager.dart';
-import 'package:pixiv_func/core/download/download_providers.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/entity/illust_entity.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/user/user_repository.dart';
-import 'package:pixiv_func/features/profile/author_works_download_dialog.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/core/download/author_works_enumerator.dart';
+import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_providers.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/user/user_repository.dart';
+import 'package:parfait/features/profile/author_works_download_dialog.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'download_manager_test.dart';
 import 'helpers/illust_fixtures.dart';

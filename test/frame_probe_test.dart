@@ -2,10 +2,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart' show FrameTiming;
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/debug/frame_probe.dart';
-import 'package:pixiv_func/features/settings/pages/frame_probe_page.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/core/debug/frame_probe.dart';
+import 'package:parfait/features/settings/pages/frame_probe_page.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 FrameTiming _frame(int spanMicros) => FrameTiming(
   vsyncStart: 0,
