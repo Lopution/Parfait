@@ -34,7 +34,10 @@ The CI `analyze` job runs
 `dart format --output=none --set-exit-if-changed lib test` before
 `flutter analyze`, so an unformatted change fails the required
 `analyze-and-test` check (it aggregates `analyze` and the two `flutter test`
-shards) even when the code analyzes. `flutter analyze --no-pub` must stay at zero issues; do not silence a
+shards) even when the code analyzes. `flutter test --total-shards` splits
+individual test cases, not files, so every test must set up its own state
+(for example `SharedPreferencesAsyncPlatform.instance`) instead of relying on
+an earlier test in the same file. `flutter analyze --no-pub` must stay at zero issues; do not silence a
 rule with `// ignore:` without a one-line reason on the same line.
 
 ---
