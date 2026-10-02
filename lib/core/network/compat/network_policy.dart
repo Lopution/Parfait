@@ -425,7 +425,9 @@ class NetworkAccessPolicy {
 
   /// Sends one cheap HEAD on the remembered winning route for [host] so the
   /// first real image GET after feed data lands reuses an established
-  /// connection instead of paying a TLS/HTTP-2 handshake. Throttled to once
+  /// connection instead of paying a TLS handshake. Image exits run over
+  /// HTTP/1.1, so this warms one pooled connection, not the whole feed's
+  /// concurrency — the rest still connect on demand. Throttled to once
   /// per (host, revision); a no-op while no winner is known — the cold-start
   /// race owns discovery, and warming a guessed route would just burn a
   /// socket on the tier that is about to lose anyway.

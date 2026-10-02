@@ -58,8 +58,9 @@ abstract final class RhttpClientFactory {
   /// Pixiv host from the registry; it is what the request URL carries (and
   /// therefore what SNI / Host / certificate hostname verification use).
   ///
-  /// [purpose] selects the time budget shape: image and download exits stream
-  /// their body, so they get a connect budget only.
+  /// [purpose] selects the time budget shape and the HTTP version: image and
+  /// download exits stream their body, so they get a connect budget only,
+  /// and they run over HTTP/1.1 ([httpVersionFor]).
   static http.Client create(
     NetworkRoute route,
     String canonicalHost,
@@ -99,17 +100,34 @@ abstract final class RhttpClientFactory {
             },
           );
     return rhttp.ClientSettings(
-      // Let rustls/reqwest negotiate HTTP/2 or HTTP/1.1 via ALPN.  Forcing
-      // `prior_knowledge` HTTP/2 breaks perfectly valid Pixiv edges that do
-      // not advertise h2; HTTP/3 remains disabled because `all` in this
-      // fork means the TLS ALPN pair only.
-      httpVersionPref: rhttp.HttpVersionPref.all,
+      httpVersionPref: httpVersionFor(purpose),
       redirectSettings: const rhttp.RedirectSettings.none(),
       timeoutSettings: timeoutsFor(route, purpose: purpose),
       tlsSettings: tls,
       dnsSettings: dns,
     );
   }
+
+  /// The HTTP version for a [purpose] exit.
+  ///
+  /// Images and downloads use HTTP/1.1: every concurrent transfer gets its
+  /// own connection. Over HTTP/2 the whole image pipeline shared one
+  /// connection, so a single lossy or throttled flow stalled every image at
+  /// once — measured on a mainland network (2026-10-03, 30 feed thumbnails,
+  /// 8 in flight), one h2 connection gave a 605 KB/s median and dropped to
+  /// 81 KB/s, while the HTTP/1.1 pool held a 1.2 MB/s median and never fell
+  /// below 832 KB/s. Abandoning an HTTP/1.1 body also closes its connection,
+  /// so a throttled connection is never handed to the next request.
+  ///
+  /// Every other exit lets rustls/reqwest negotiate HTTP/2 or HTTP/1.1 via
+  /// ALPN. Forcing `prior_knowledge` HTTP/2 breaks perfectly valid Pixiv
+  /// edges that do not advertise h2; HTTP/3 remains disabled because `all`
+  /// in this fork means the TLS ALPN pair only.
+  static rhttp.HttpVersionPref httpVersionFor(
+    PixivDestinationPurpose purpose,
+  ) => purpose == PixivDestinationPurpose.image
+      ? rhttp.HttpVersionPref.http1_1
+      : rhttp.HttpVersionPref.all;
 
   /// The time budget for [route] on a [purpose] exit.
   ///
