@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/app/motion/page_transitions.dart';
+import 'package:parfait/app/motion/page_transitions.dart';
 
 class _PaintCounter extends LeafRenderObjectWidget {
   const _PaintCounter({required this.counter});

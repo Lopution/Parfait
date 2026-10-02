@@ -4,11 +4,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/comments/comment_translation.dart';
-import 'package:pixiv_func/core/comments/translation_credentials.dart';
-import 'package:pixiv_func/features/settings/pages/translation_credentials_page.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/core/comments/comment_translation.dart';
+import 'package:parfait/core/comments/translation_credentials.dart';
+import 'package:parfait/features/settings/pages/translation_credentials_page.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 class _FakeStore implements TranslationCredentialStore {
   BaiduTranslationCredentials? baidu;

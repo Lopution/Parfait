@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/auth/token_refresh_gate.dart';
+import 'package:parfait/core/auth/token_refresh_gate.dart';
 
 void main() {
   test('20 concurrent callers share exactly one refresh per account', () async {

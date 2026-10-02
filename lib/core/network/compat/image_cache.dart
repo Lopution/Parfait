@@ -13,7 +13,7 @@ class PixivImageCache {
   CacheManager get manager {
     return _manager ??= CacheManager(
       Config(
-        'pixiv_func_images',
+        'parfait_images',
         // The default 200-entry cap evicts a scrolled-past waterfall long
         // before its disk footprint matters; ~1500 previews stay around a
         // hundred MB, which is the point of having a disk cache.
@@ -30,7 +30,7 @@ class PixivImageCache {
       // flutter_cache_manager 3.4.x cannot close an as-yet-unopened JSON
       // repository. Opening it explicitly also makes provider-container
       // teardown deterministic in widget tests and during app shutdown.
-      await cache.store.retrieveCacheData('pixiv_func_lifecycle_probe');
+      await cache.store.retrieveCacheData('parfait_lifecycle_probe');
       await cache.dispose();
     }
   }
@@ -59,7 +59,7 @@ class PriorityFileService extends FileService {
 
   /// Header marking a fetch as prefetch traffic. Stripped in [get], so it
   /// is a scheduling hint only and never leaves the device.
-  static const prefetchMarker = 'x-pixiv-func-prefetch';
+  static const prefetchMarker = 'x-parfait-prefetch';
 
   static const foregroundSlots = 8;
   static const backgroundSlots = 4;

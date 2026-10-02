@@ -118,7 +118,7 @@ class UgoiraRepository {
     final file = File(
       p.join(
         directory.path,
-        '.pixivfunc-ugoira-$illustId-${DateTime.now().microsecondsSinceEpoch}.zip',
+        '.parfait-ugoira-$illustId-${DateTime.now().microsecondsSinceEpoch}.zip',
       ),
     );
     final transferCancel = DownloadCancelToken();

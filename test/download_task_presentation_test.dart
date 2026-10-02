@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/core/download/download_request.dart';
-import 'package:pixiv_func/core/download/download_task.dart';
-import 'package:pixiv_func/features/settings/pages/download_task_presentation.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/core/download/download_request.dart';
+import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/features/settings/pages/download_task_presentation.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'support/contrast.dart';
 
 DownloadTaskSnapshot _task({

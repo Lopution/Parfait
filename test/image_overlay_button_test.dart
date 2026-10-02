@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/theme/func_tokens.dart';
-import 'package:pixiv_func/app/widgets/image_overlay_button.dart';
+import 'package:parfait/app/theme/func_tokens.dart';
+import 'package:parfait/app/widgets/image_overlay_button.dart';
 
 Widget _host(Widget child) => MaterialApp(
   home: Scaffold(body: Center(child: child)),

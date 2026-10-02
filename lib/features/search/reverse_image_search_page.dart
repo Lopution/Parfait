@@ -27,7 +27,7 @@ import '../../core/settings/settings_controller.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
-import 'package:pixiv_func/core/network/http_client_providers.dart';
+import 'package:parfait/core/network/http_client_providers.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 

@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/reverse_image/image_input.dart';
-import 'package:pixiv_func/core/reverse_image/reverse_image_provider.dart';
-import 'package:pixiv_func/core/reverse_image/sauce_nao_provider.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/reverse_image/image_input.dart';
+import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
+import 'package:parfait/core/reverse_image/sauce_nao_provider.dart';
 
 void main() {
   late Directory tempDirectory;

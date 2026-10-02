@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/layout/content_widths.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/app/widgets/scrollable_form_shell.dart';
+import 'package:parfait/app/layout/content_widths.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/scrollable_form_shell.dart';
 
 /// The acceptance matrix from the ui-consistency gate: narrowest realistic
 /// portrait, a common phone, both breakpoints, an expanded desktop window

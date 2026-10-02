@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_transfer.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_transfer.dart';
+import 'package:parfait/core/auth/credential.dart';
 
 Account _account() => const Account(
   id: '42',

@@ -12,7 +12,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkDohEndpointsInvalid => 'Недопустимый список DoH-адресов';
 
   @override
-  String get welcome1 => 'Спасибо за использование Pixiv Func';
+  String get welcome1 => 'Спасибо за использование Parfait';
 
   @override
   String get welcome2 => 'Начнется первоначальная настройка';
@@ -49,7 +49,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get loginProxyNoticeBody =>
-      'Из-за ограничений сети перед входом или регистрацией включите системный или внешний прокси. Pixiv Func не содержит встроенного прокси.';
+      'Из-за ограничений сети перед входом или регистрацией включите системный или внешний прокси. Parfait не содержит встроенного прокси.';
 
   @override
   String get loginProxyNoticeCancel => 'Отмена';
@@ -157,14 +157,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get loginAgree => 'Входя в систему, вы принимаете';
 
   @override
-  String get userAgreement => '《Пользовательское соглашение Pixiv Func》';
+  String get userAgreement => '《Пользовательское соглашение Parfait》';
 
   @override
-  String get agreementTitle => 'Пользовательское соглашение Pixiv Func';
+  String get agreementTitle => 'Пользовательское соглашение Parfait';
 
   @override
   String get agreementIntro =>
-      'Спасибо за использование Pixiv Func. Используя приложение, вы подтверждаете, что прочитали и приняли эти условия. Если вы не согласны, прекратите использование.';
+      'Спасибо за использование Parfait. Используя приложение, вы подтверждаете, что прочитали и приняли эти условия. Если вы не согласны, прекратите использование.';
 
   @override
   String get agreementAccountTitle => 'Аккаунт и авторизация';
@@ -671,7 +671,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get backupExportHint =>
-      'Сохраняет pixiv-func-backup-*.json в выбранную папку';
+      'Сохраняет parfait-backup-*.json в выбранную папку';
 
   @override
   String backupExported(String name) {
@@ -924,7 +924,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get saveLocationAlbum => 'Альбом';
 
   @override
-  String get saveLocationPixivAlbum => 'Альбом PixivFunc (по умолчанию)';
+  String get saveLocationPixivAlbum => 'Альбом Parfait (по умолчанию)';
 
   @override
   String get saveLocationCustomAlbum => 'Имя пользовательского альбома';

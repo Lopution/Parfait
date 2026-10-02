@@ -29,7 +29,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // Phone-adjacent default: the content-first client reads best in a tall
   // window, and the 600dp rail breakpoint is exercised by resizing.
   Win32Window::Size size(460, 860);
-  if (!window.Create(L"Pixiv Func", origin, size)) {
+  if (!window.Create(L"Parfait", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

@@ -9,49 +9,49 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
-import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/account_transfer.dart';
-import 'package:pixiv_func/core/auth/account_transfer_service.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/comments/comment_translation.dart';
-import 'package:pixiv_func/core/comments/translation_credentials.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart'
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_repository.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/account_transfer.dart';
+import 'package:parfait/core/auth/account_transfer_service.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/comments/comment_translation.dart';
+import 'package:parfait/core/comments/translation_credentials.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart'
     show
         DnsSource,
         NetworkCancelSignal,
         NetworkRevision,
         PixivDestinationRegistry;
-import 'package:pixiv_func/core/network/compat/network_policy.dart';
-import 'package:pixiv_func/core/network/compat/network_providers.dart';
-import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
-import 'package:pixiv_func/core/download/download_destination.dart';
-import 'package:pixiv_func/core/download/naming_rule.dart';
-import 'package:pixiv_func/core/reverse_image/reverse_image_engine.dart';
-import 'package:pixiv_func/core/search/search_models.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
-import 'package:pixiv_func/core/settings/settings_controller.dart';
-import 'package:pixiv_func/core/settings/settings_repository.dart';
-import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
-import 'package:pixiv_func/core/user/user_entity.dart';
-import 'package:pixiv_func/core/user/user_repository.dart';
-import 'package:pixiv_func/features/history/history_page.dart' as history;
-import 'package:pixiv_func/features/settings/network_settings_page.dart';
-import 'package:pixiv_func/features/settings/saf_tree_name.dart';
-import 'package:pixiv_func/features/settings/settings_page.dart';
-import 'package:pixiv_func/features/profile/user_page.dart' as profile;
-import 'package:pixiv_func/app/widgets/settings/settings_control.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_group.dart';
-import 'package:pixiv_func/app/widgets/settings/settings_tile.dart';
+import 'package:parfait/core/network/compat/network_policy.dart';
+import 'package:parfait/core/network/compat/network_providers.dart';
+import 'package:parfait/core/network/compat/secure_resolver.dart';
+import 'package:parfait/core/download/download_destination.dart';
+import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
+import 'package:parfait/core/search/search_models.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/core/settings/settings_repository.dart';
+import 'package:parfait/core/platform/account_transfer_clipboard.dart';
+import 'package:parfait/core/user/user_entity.dart';
+import 'package:parfait/core/user/user_repository.dart';
+import 'package:parfait/features/history/history_page.dart' as history;
+import 'package:parfait/features/settings/network_settings_page.dart';
+import 'package:parfait/features/settings/saf_tree_name.dart';
+import 'package:parfait/features/settings/settings_page.dart';
+import 'package:parfait/features/profile/user_page.dart' as profile;
+import 'package:parfait/app/widgets/settings/settings_control.dart';
+import 'package:parfait/app/widgets/settings/settings_group.dart';
+import 'package:parfait/app/widgets/settings/settings_tile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/lookup.dart';
-import 'package:pixiv_func/l10n/app_localizations_zh.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/lookup.dart';
+import 'package:parfait/l10n/app_localizations_zh.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
@@ -1216,8 +1216,8 @@ void main() {
 
   testWidgets('settings home shows current-value summaries', (tester) async {
     PackageInfo.setMockInitialValues(
-      appName: 'Pixiv Func',
-      packageName: 'works.lopution.pixiv_func',
+      appName: 'Parfait',
+      packageName: 'io.github.lopution.parfait',
       version: '9.9.9',
       buildNumber: '99',
       buildSignature: '',
@@ -1257,7 +1257,7 @@ void main() {
       '暂无屏蔽条目',
       '本地 开 · Pixiv 开',
       '自动',
-      '作品 ID（默认） · PixivFunc 相册（默认）',
+      '作品 ID（默认） · Parfait 相册（默认）',
       '0 个活动任务',
       '导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。',
       '9.9.9+99',

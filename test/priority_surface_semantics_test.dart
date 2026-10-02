@@ -7,10 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
-import 'package:pixiv_func/features/comments/comment_input.dart';
-import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
-import 'package:pixiv_func/features/profile/profile_statistics.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/features/comments/comment_input.dart';
+import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
+import 'package:parfait/features/profile/profile_statistics.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 Widget _host(Widget child) {
   return MaterialApp(

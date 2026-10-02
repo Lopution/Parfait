@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/logging/crash_log.dart';
+import 'package:parfait/core/logging/crash_log.dart';
 
 void main() {
   late Directory dir;

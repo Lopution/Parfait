@@ -6,15 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers/test_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:pixiv_func/core/download/download_manager.dart';
-import 'package:pixiv_func/core/download/download_request.dart';
-import 'package:pixiv_func/core/download/download_destination.dart';
-import 'package:pixiv_func/core/download/naming_rule.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/download/download_task.dart';
-import 'package:pixiv_func/core/download/download_transport.dart';
-import 'package:pixiv_func/core/download/pixiv_download_transport.dart';
-import 'package:pixiv_func/core/platform/android_platform_interfaces.dart';
+import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_request.dart';
+import 'package:parfait/core/download/download_destination.dart';
+import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/core/download/download_transport.dart';
+import 'package:parfait/core/download/pixiv_download_transport.dart';
+import 'package:parfait/core/platform/android_platform_interfaces.dart';
 
 DownloadRequest _request({int pageIndex = 0}) => DownloadRequest(
   illustId: 900,
@@ -244,7 +244,7 @@ void main() {
   );
 
   test(
-    'legacy Pictures/PixivFunc destination migrates to the builtin owner',
+    'legacy Pictures/Parfait destination migrates to the builtin owner',
     () async {
       SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final preferences = SharedPreferencesAsync();
@@ -261,7 +261,7 @@ void main() {
           'target': 'illustPage',
           'displayName': '900_p0.jpg',
           'format': 'image/jpeg',
-          'destination': 'Pictures/PixivFunc',
+          'destination': 'Pictures/Parfait',
           'accountId': 'account-a',
           'submittedAt': '2026-09-01T00:00:00.000Z',
         },

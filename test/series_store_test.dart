@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/series/series_models.dart';
-import 'package:pixiv_func/core/series/series_store.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/series/series_models.dart';
+import 'package:parfait/core/series/series_store.dart';
 
 class _StubAccountStore extends AccountStore {
   @override

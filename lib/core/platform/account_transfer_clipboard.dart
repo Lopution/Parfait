@@ -48,7 +48,7 @@ abstract interface class TransferClipboard {
 }
 
 abstract final class TransferClipboardMethods {
-  static const channel = 'pixivfunc/account_transfer_clipboard';
+  static const channel = 'parfait/account_transfer_clipboard';
   static const write = 'write';
   static const read = 'read';
   static const clearIfCurrent = 'clearIfCurrent';

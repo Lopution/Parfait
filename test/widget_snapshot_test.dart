@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/widget/widget_snapshot.dart';
+import 'package:parfait/core/widget/widget_snapshot.dart';
 
 void main() {
   WidgetSnapshot snapshot() => WidgetSnapshot.create(

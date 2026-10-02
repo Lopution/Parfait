@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
-import 'package:pixiv_func/app/theme/func_tokens.dart';
-import 'package:pixiv_func/features/illust/detail/widgets/detail_page_counter.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/theme/func_tokens.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/test_preferences.dart';

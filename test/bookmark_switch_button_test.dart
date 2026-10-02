@@ -6,15 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
-import 'package:pixiv_func/core/bookmark/bookmark_repository.dart';
-import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/app/widgets/bookmark_switch_button.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/bookmark/bookmark_models.dart';
+import 'package:parfait/core/bookmark/bookmark_repository.dart';
+import 'package:parfait/core/bookmark/bookmark_store.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 class _StubAccountStore extends AccountStore {
   @override

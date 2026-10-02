@@ -150,7 +150,7 @@ abstract interface class RecoverableDownloadSinkFactory {
   Future<bool> cleanupPending(int id, {required DownloadOutputOwner owner});
 }
 
-/// MediaStore-backed sink factory writing into Pictures/PixivFunc via the
+/// MediaStore-backed sink factory writing into Pictures/Parfait via the
 /// platform session (android-platform-parity contract).
 class MediaStoreSinkFactory
     implements
@@ -234,7 +234,7 @@ class MediaStoreSinkFactory
     return switch (destination.kind) {
       DownloadDestinationKind.pixivAlbum => null,
       DownloadDestinationKind.customAlbum =>
-        'Pictures/${destination.customAlbumName ?? 'PixivFunc'}',
+        'Pictures/${destination.customAlbumName ?? 'Parfait'}',
       DownloadDestinationKind.safFolder => null,
     };
   }

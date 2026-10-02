@@ -6,10 +6,10 @@ import 'package:charset/charset.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/localnovel/local_novel_database.dart';
-import 'package:pixiv_func/core/localnovel/local_novel_decoder.dart';
-import 'package:pixiv_func/core/localnovel/local_novel_repository.dart';
-import 'package:pixiv_func/core/localnovel/local_novel_store.dart';
+import 'package:parfait/core/localnovel/local_novel_database.dart';
+import 'package:parfait/core/localnovel/local_novel_decoder.dart';
+import 'package:parfait/core/localnovel/local_novel_repository.dart';
+import 'package:parfait/core/localnovel/local_novel_store.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {

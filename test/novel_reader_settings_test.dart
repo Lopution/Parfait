@@ -4,13 +4,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/novel/novel_entity.dart';
-import 'package:pixiv_func/core/novel/reader_settings.dart';
-import 'package:pixiv_func/core/user/user_entity.dart';
-import 'package:pixiv_func/features/novel/novel_layout.dart';
-import 'package:pixiv_func/features/novel/novel_reader.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/novel/reader_settings.dart';
+import 'package:parfait/core/user/user_entity.dart';
+import 'package:parfait/features/novel/novel_layout.dart';
+import 'package:parfait/features/novel/novel_reader.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/test_preferences.dart';
 
@@ -95,7 +95,7 @@ void main() {
     test('corrupt blob falls back to defaults', () async {
       installMemoryPreferences();
       final prefs = SharedPreferencesAsync();
-      await prefs.setString('pixivfunc.novel.reader_settings.v1', '{broken');
+      await prefs.setString('parfait.novel.reader_settings.v1', '{broken');
 
       final loaded = await NovelReaderSettingsStore(prefs).load();
       expect(loaded, const NovelReaderSettings());

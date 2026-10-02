@@ -33,15 +33,15 @@ void main() {
 
   test('each flavor owns the same updater channel with different capability', () {
     final github = read(
-      'android/app/src/github/kotlin/io/github/lopution/pixivfunc/DistributionUpdaterChannel.kt',
+      'android/app/src/github/kotlin/io/github/lopution/parfait/DistributionUpdaterChannel.kt',
     );
     final fdroid = read(
-      'android/app/src/fdroid/kotlin/io/github/lopution/pixivfunc/DistributionUpdaterChannel.kt',
+      'android/app/src/fdroid/kotlin/io/github/lopution/parfait/DistributionUpdaterChannel.kt',
     );
 
     expect(github, contains('object DistributionUpdaterChannel'));
     expect(github, contains('UPDATE_SELF_UPDATER_ENABLED'));
-    expect(github, contains('pixivfunc/updater'));
+    expect(github, contains('parfait/updater'));
     expect(github, contains('UpdaterPlatformInfo.platformInfo'));
     // API 29-safe verifier: SHA256withECDSA over the raw manifest bytes, and
     // every failure is one of the five diagnosable codes the Dart side maps.
@@ -62,7 +62,7 @@ void main() {
     expect(fdroid, isNot(contains('github.com')));
 
     final shared = read(
-      'android/app/src/main/kotlin/io/github/lopution/pixivfunc/updater/UpdaterPlatformInfo.kt',
+      'android/app/src/main/kotlin/io/github/lopution/parfait/updater/UpdaterPlatformInfo.kt',
     );
     expect(
       shared,
@@ -73,7 +73,7 @@ void main() {
   test('the installer is limited to the app-private updates path', () {
     final paths = read('android/app/src/main/res/xml/file_provider_paths.xml');
     final activity = read(
-      'android/app/src/main/kotlin/io/github/lopution/pixivfunc/MainActivity.kt',
+      'android/app/src/main/kotlin/io/github/lopution/parfait/MainActivity.kt',
     );
 
     expect(paths, contains('name="updates"'));

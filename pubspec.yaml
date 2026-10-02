@@ -1,6 +1,6 @@
-name: pixiv_func
+name: parfait
 
-description: Pixiv Func 的现代化复刻项目
+description: Parfait：第三方 pixiv 客户端
 
 publish_to: 'none'
 

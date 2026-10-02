@@ -7,16 +7,16 @@ import 'dart:ui' as ui;
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:pixiv_func/core/download/download_recovery.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_cache.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_decoder.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_export.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_limits.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_metadata.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_repository.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_scheduler.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_zip.dart';
+import 'package:parfait/core/download/download_recovery.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/ugoira/ugoira_cache.dart';
+import 'package:parfait/core/ugoira/ugoira_decoder.dart';
+import 'package:parfait/core/ugoira/ugoira_export.dart';
+import 'package:parfait/core/ugoira/ugoira_limits.dart';
+import 'package:parfait/core/ugoira/ugoira_metadata.dart';
+import 'package:parfait/core/ugoira/ugoira_repository.dart';
+import 'package:parfait/core/ugoira/ugoira_scheduler.dart';
+import 'package:parfait/core/ugoira/ugoira_zip.dart';
 
 void main() {
   group('UgoiraMetadata', () {
@@ -343,7 +343,7 @@ void main() {
         illustId: 43,
         metadata: metadata,
         index: index,
-        file: File('/tmp/pixiv-func-test-ugoira-cancel.zip'),
+        file: File('/tmp/parfait-test-ugoira-cancel.zip'),
       );
       final sinks = MemorySinkFactory();
       final job = UgoiraExportJob(
@@ -377,7 +377,7 @@ void main() {
         illustId: 44,
         metadata: metadata,
         index: index,
-        file: File('/tmp/pixiv-func-test-ugoira-owner.zip'),
+        file: File('/tmp/parfait-test-ugoira-owner.zip'),
       );
       final sinks = MemorySinkFactory();
       final job = UgoiraExportJob(
@@ -420,7 +420,7 @@ void main() {
           illustId: 42,
           metadata: metadata,
           index: index,
-          file: File('/tmp/pixiv-func-test-ugoira.zip'),
+          file: File('/tmp/parfait-test-ugoira.zip'),
         );
         final sinks = MemorySinkFactory();
         final recoveryStore = MemoryDownloadRecoveryStore();

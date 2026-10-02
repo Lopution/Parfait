@@ -9,24 +9,24 @@ import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/oauth_service.dart';
-import 'package:pixiv_func/core/backup/backup_envelope.dart';
-import 'package:pixiv_func/core/backup/backup_service.dart';
-import 'package:pixiv_func/core/history/history_database.dart';
-import 'package:pixiv_func/core/history/history_models.dart';
-import 'package:pixiv_func/core/history/history_repository.dart';
-import 'package:pixiv_func/core/mute/mute_models.dart';
-import 'package:pixiv_func/core/mute/mute_store.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/platform/saf_tree.dart';
-import 'package:pixiv_func/core/settings/preference_keys.dart';
-import 'package:pixiv_func/core/settings/settings_controller.dart';
-import 'package:pixiv_func/features/settings/pages/backup_settings_page.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/core/backup/backup_envelope.dart';
+import 'package:parfait/core/backup/backup_service.dart';
+import 'package:parfait/core/history/history_database.dart';
+import 'package:parfait/core/history/history_models.dart';
+import 'package:parfait/core/history/history_repository.dart';
+import 'package:parfait/core/mute/mute_models.dart';
+import 'package:parfait/core/mute/mute_store.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/platform/saf_tree.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/features/settings/pages/backup_settings_page.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -349,7 +349,7 @@ void main() {
     test('fileName carries a timestamped json suffix', () {
       expect(
         BackupEnvelope.fileName(DateTime.utc(2026, 9, 20, 10, 5)),
-        'pixiv-func-backup-20260920-1005.json',
+        'parfait-backup-20260920-1005.json',
       );
     });
   });
@@ -374,13 +374,10 @@ void main() {
       final result = await world.service.export();
 
       expect(result?.uri, 'content://backup/1');
-      expect(result?.fileName, 'pixiv-func-backup-20260920-1030.json');
+      expect(result?.fileName, 'parfait-backup-20260920-1030.json');
       expect(world.picker.picks, 1);
       expect(world.sinks.lastTreeUri, 'tree-1');
-      expect(
-        world.sinks.lastDisplayName,
-        'pixiv-func-backup-20260920-1030.json',
-      );
+      expect(world.sinks.lastDisplayName, 'parfait-backup-20260920-1030.json');
       expect(world.sinks.lastMimeType, 'application/json');
 
       final parsed = BackupEnvelope.parse(world.sinks.last!.bytes);

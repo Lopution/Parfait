@@ -236,7 +236,7 @@ bool isStrictUpdateAssetUrl(Uri url) {
 bool isStrictUpdateManifestAssetUrl(Uri url) {
   return isStrictUpdateAssetUrl(url) &&
       url.host.toLowerCase() == 'github.com' &&
-      url.path.startsWith('/Lopution/Pixiv-func/releases/download/');
+      url.path.startsWith('/Lopution/Parfait/releases/download/');
 }
 
 /// Validates a GitHub release redirect hop. GitHub's CDN uses an opaque

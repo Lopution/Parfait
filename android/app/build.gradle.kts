@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "io.github.lopution.pixivfunc"
+    namespace = "io.github.lopution.parfait"
     // Flutter 3.47.2 defaults compileSdkVersion to 36; 37 is required by
     // androidx.core 1.19 and flutter_secure_storage 11. Revisit when flutter.compileSdkVersion reaches 37.
     compileSdk = 37
@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "io.github.lopution.pixivfunc"
+        applicationId = "io.github.lopution.parfait"
         // minSdk = 29 (Android 10): MediaStoreChannel throws on <29 so the
         // download feature never worked there; exposing Android 7-9 devices
         // to an app whose downloads always fail is worse than excluding

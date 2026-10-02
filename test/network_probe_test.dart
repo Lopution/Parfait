@@ -2,9 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
-import 'package:pixiv_func/core/network/compat/network_probe.dart';
-import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/compat/network_probe.dart';
+import 'package:parfait/core/network/compat/secure_resolver.dart';
 
 /// Deterministic offline harness: every injected layer is scripted, so the
 /// classification matrix (design §探测页) is pinned without any network.

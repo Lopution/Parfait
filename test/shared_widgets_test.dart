@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/motion/motion_tokens.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/app/widgets/author_summary.dart';
-import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
-import 'package:pixiv_func/app/widgets/replica_scaffold.dart';
-import 'package:pixiv_func/app/widgets/tag_chips.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/author_summary.dart';
+import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/app/widgets/replica_scaffold.dart';
+import 'package:parfait/app/widgets/tag_chips.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(theme: replicaTheme(Brightness.light), home: child);

@@ -5,11 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:pixiv_func/core/actionqueue/action_models.dart';
-import 'package:pixiv_func/core/actionqueue/action_queue.dart';
-import 'package:pixiv_func/core/actionqueue/action_store.dart';
-import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/paging/feed_database.dart';
+import 'package:parfait/core/actionqueue/action_models.dart';
+import 'package:parfait/core/actionqueue/action_queue.dart';
+import 'package:parfait/core/actionqueue/action_store.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/paging/feed_database.dart';
 
 class _Clock {
   DateTime now = DateTime.utc(2026, 9, 16, 12);

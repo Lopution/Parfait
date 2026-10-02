@@ -176,7 +176,7 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
       }
       final profile = _mergeProfile(currentProfile, patch);
 
-      final boundary = '----pixivfunc${DateTime.now().microsecondsSinceEpoch}';
+      final boundary = '----parfait${DateTime.now().microsecondsSinceEpoch}';
       final body = await _buildMultipartBody(
         boundary: boundary,
         profile: profile,

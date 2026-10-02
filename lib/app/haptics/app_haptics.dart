@@ -11,7 +11,7 @@ import 'package:flutter/services.dart';
 /// `HapticFeedback` level plus the per-level throttle lives only here, so
 /// W6/W7-class consumers cannot fork their own intensity vocabulary.
 ///
-/// The enabled reader is injected once per app build by `PixivFuncApp` via
+/// The enabled reader is injected once per app build by `ParfaitApp` via
 /// [configure]; keeping this class free of Riverpod lets non-widget layers
 /// trigger haptics too.
 abstract final class AppHaptics {
@@ -31,7 +31,7 @@ abstract final class AppHaptics {
   static const Duration heavyInterval = Duration(milliseconds: 120);
 
   /// Installs the enabled reader (bound to the persisted haptics setting).
-  /// Called from `PixivFuncApp.build`; idempotent.
+  /// Called from `ParfaitApp.build`; idempotent.
   static void configure({required bool Function() isEnabled}) {
     _isEnabled = isEnabled;
   }

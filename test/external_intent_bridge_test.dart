@@ -5,17 +5,17 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:pixiv_func/app/external_intent_bridge.dart';
-import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
-import 'package:pixiv_func/features/login/login_page.dart';
-import 'package:pixiv_func/features/search/reverse_image_search_page.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/external_intent_bridge.dart';
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_repository.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/platform/android_intent_channel.dart';
+import 'package:parfait/core/platform/intent_router.dart';
+import 'package:parfait/features/login/login_page.dart';
+import 'package:parfait/features/search/reverse_image_search_page.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -106,13 +106,13 @@ void main() {
     expect(result.router.state.uri.path, '/recommended/illust/456');
   });
 
-  testWidgets('cold-start Pixiv Func links use the recommended branch', (
+  testWidgets('cold-start Parfait links use the recommended branch', (
     tester,
   ) async {
     final result = await _pump(
       tester,
       initial: RoutedAndroidIntent(
-        IntentRouter.route(Uri.parse('pixivfunc://users/123')),
+        IntentRouter.route(Uri.parse('parfait://users/123')),
       ),
     );
     await tester.pump(const Duration(milliseconds: 350));

@@ -196,7 +196,7 @@ class PixivHttpClient {
     CancelToken? cancelToken,
     bool allowAuthReplay = false,
   }) {
-    final boundary = '----pixivfunc${DateTime.now().microsecondsSinceEpoch}';
+    final boundary = '----parfait${DateTime.now().microsecondsSinceEpoch}';
     final body = _buildMultipartBody(boundary, fields, files);
     return _send(
       uri,

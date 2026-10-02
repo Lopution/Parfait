@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/bookmark/bookmark_models.dart';
-import 'package:pixiv_func/core/bookmark/bookmark_store.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/bookmark/bookmark_models.dart';
+import 'package:parfait/core/bookmark/bookmark_store.dart';
 
 class _StubAccountStore extends AccountStore {
   _StubAccountStore();

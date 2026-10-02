@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/download/download_recovery.dart';
-import 'package:pixiv_func/core/download/download_request.dart';
-import 'package:pixiv_func/core/download/download_destination.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/download/download_task.dart';
-import 'package:pixiv_func/core/platform/android_platform_interfaces.dart';
-import 'package:pixiv_func/core/ugoira/ugoira_recovery.dart';
+import 'package:parfait/core/download/download_recovery.dart';
+import 'package:parfait/core/download/download_request.dart';
+import 'package:parfait/core/download/download_destination.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/download/download_task.dart';
+import 'package:parfait/core/platform/android_platform_interfaces.dart';
+import 'package:parfait/core/ugoira/ugoira_recovery.dart';
 
 void main() {
   test(

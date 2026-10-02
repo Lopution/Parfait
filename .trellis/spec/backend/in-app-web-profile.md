@@ -34,7 +34,7 @@ GET  https://www.pixiv.net/ajax/my_profile?lang=zh
 POST https://www.pixiv.net/ajax/my_profile/update
 ```
 
-Android channel: `pixivfunc/webprofile` (`readSession`, `clearSession`).
+Android channel: `parfait/webprofile` (`readSession`, `clearSession`).
 Host for cookies: `https://www.pixiv.net`.
 
 ### 3. Contracts

@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/network/compat/dns_message.dart';
+import 'package:parfait/core/network/compat/dns_message.dart';
 
 /// Regression: real DoH (223.5.5.5) response for `cloudflare-ech.com` HTTPS
 /// RR captured in mainland China without proxy (see task 08-29 research).

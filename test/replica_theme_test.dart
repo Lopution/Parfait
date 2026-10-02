@@ -2,10 +2,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
-import 'package:pixiv_func/app/theme/func_tokens.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/app/widgets/replica_switch_tile.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/theme/func_tokens.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'support/contrast.dart';
 
 List<Color> _surfaces(ColorScheme scheme) => [

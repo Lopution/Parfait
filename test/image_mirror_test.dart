@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 
 void main() {
   group('ImageMirror.of', () {

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src=".github/readme/banner.webp" width="100%" alt="Pixiv Func：第三方 pixiv 客户端，支持中国大陆直连">
+<img src=".github/readme/banner.webp" width="100%" alt="Parfait：第三方 pixiv 客户端，支持中国大陆直连">
 
 [![最新版本](https://img.shields.io/github/v/release/Lopution/Parfait?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC)](https://github.com/Lopution/Parfait/releases/latest)
 [![Android 10+](https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white)](#下载与安装)
@@ -14,7 +14,7 @@
 > [!NOTE]
 > 本项目是非官方的第三方客户端，与 pixiv Inc. 无关。作品版权归各自的创作者所有。
 
-Pixiv Func 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和下载插画、漫画与小说。在中国大陆网络下，浏览和下载可以直接连接 pixiv，不需要一直开着代理（首次登录除外，见[登录](#登录)）。
+Parfait 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和下载插画、漫画与小说。在中国大陆网络下，浏览和下载可以直接连接 pixiv，不需要一直开着代理（首次登录除外，见[登录](#登录)）。
 
 ## 截图
 
@@ -83,8 +83,8 @@ Pixiv Func 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏�
 
 | 文件 | 适用设备 |
 |---|---|
-| `pixiv-func-v版本号-github-arm64-v8a.apk` | 绝大多数手机，不确定就选它 |
-| `pixiv-func-v版本号-github-armeabi-v7a.apk` | 较旧的 32 位设备 |
+| `parfait-v版本号-github-arm64-v8a.apk` | 绝大多数手机，不确定就选它 |
+| `parfait-v版本号-github-armeabi-v7a.apk` | 较旧的 32 位设备 |
 
 需要 Android 10 或更高版本。
 
@@ -100,14 +100,14 @@ Windows 版还在准备中，之后会以预览版发布。
 正式发布的 APK 都使用同一个证书签名。在手机上可以用 [AppVerifier](https://github.com/soupslurpr/AppVerifier) 核对，包名和指纹应为：
 
 ```text
-io.github.lopution.pixivfunc
+io.github.lopution.parfait
 D0:B4:1A:FC:87:B7:D2:07:51:1A:52:BD:8C:CC:A6:56:3C:67:3C:2D:F1:0A:67:71:D1:C3:38:4A:B6:5C:B1:12
 ```
 
 在电脑上可以用 Android SDK 的 `apksigner` 核对：
 
 ```bash
-apksigner verify --print-certs pixiv-func-v版本号-github-arm64-v8a.apk
+apksigner verify --print-certs parfait-v版本号-github-arm64-v8a.apk
 ```
 
 输出中应包含：
@@ -120,7 +120,7 @@ Signer #1 certificate SHA-256 digest: d0b41afc87b7d207511a52bd8ccca6563c673c2df1
 
 ## 登录
 
-登录使用 pixiv 官方网页。由于网络环境限制，**登录和注册需要先在系统或其他应用中开启代理**，Pixiv Func 不提供内置代理；登录完成后，浏览和下载都可以直连。
+登录使用 pixiv 官方网页。由于网络环境限制，**登录和注册需要先在系统或其他应用中开启代理**，Parfait 不提供内置代理；登录完成后，浏览和下载都可以直连。
 
 如果你已经在另一台设备上登录过，可以在那台设备的「设置」中选择「导出账号凭据」，再在新设备登录页选择「使用剪贴板数据登录」。
 
@@ -134,9 +134,9 @@ Signer #1 certificate SHA-256 digest: d0b41afc87b7d207511a52bd8ccca6563c673c2df1
 </details>
 
 <details>
-<summary>和原版 Pixiv Func 是什么关系？</summary>
+<summary>和 Pixiv Func 是什么关系？为什么叫 Parfait？</summary>
 
-本项目基于 git-xiaocao 的 Pixiv Func 开源代码重写，并非原作者发布。两者包名不同，可以同时安装。
+Parfait 源自 git-xiaocao 的 Pixiv Func，基于其开源代码重写，并非原作者发布。pixiv 的商标指南不允许其他产品的名称包含「pixiv」，所以本项目改名为 Parfait。两者包名不同，可以同时安装。
 
 </details>
 

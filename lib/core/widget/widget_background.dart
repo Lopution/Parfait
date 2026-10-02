@@ -16,7 +16,7 @@ import '../log.dart';
 /// Method channel the headless entrypoint reports through. The native worker
 /// listens for exactly one result message per run.
 const MethodChannel _widgetBackgroundChannel = MethodChannel(
-  'pixivfunc/widget_background',
+  'parfait/widget_background',
 );
 
 /// Runs the headless widget generation pass. Called from `main.dart`'s

@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/entity/illust_entity.dart';
-import 'package:pixiv_func/core/watchlater/watch_later_database.dart';
-import 'package:pixiv_func/core/watchlater/watch_later_repository.dart';
-import 'package:pixiv_func/core/watchlater/watch_later_store.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/watchlater/watch_later_database.dart';
+import 'package:parfait/core/watchlater/watch_later_repository.dart';
+import 'package:parfait/core/watchlater/watch_later_store.dart';
 
 IllustEntity _illust(int id, {String title = 'work'}) => IllustEntity(
   id: id,

@@ -8,26 +8,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:pixiv_func/app/pixiv_image.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/oauth_service.dart';
-import 'package:pixiv_func/core/entity/illust_store.dart';
-import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
-import 'package:pixiv_func/features/home/recommended/recommended_illust_page.dart';
+import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/features/home/recommended/recommended_illust_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'package:pixiv_func/core/illust/recommended_feed_controller.dart';
-import 'package:pixiv_func/core/illust/recommended_illust_controller.dart';
-import 'package:pixiv_func/core/illust/recommended_repository.dart'
+import 'package:parfait/core/illust/recommended_feed_controller.dart';
+import 'package:parfait/core/illust/recommended_illust_controller.dart';
+import 'package:parfait/core/illust/recommended_repository.dart'
     show RecommendedContentType;
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
-import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';

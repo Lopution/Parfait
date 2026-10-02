@@ -57,7 +57,7 @@ lib/
   一律派生自 owner，不新建第二份声明（见 `frontend/` 各契约文档）。
 - **应用图标是生成产物**：`tool/gen_app_icon.py` 是唯一来源，生成并入库以下文件，不要手改：
   `android/app/src/main/res/mipmap-*/ic_launcher_foreground.png`、
-  `res/drawable/ic_launcher_monochrome.xml`、`assets/branding/pixiv_func_icon.png`（启动页标志，
+  `res/drawable/ic_launcher_monochrome.xml`、`assets/branding/parfait_icon.png`（启动页标志，
   `SplashPage` 按 160dp 显示，与 Android 12+ 系统启动画面的图标对齐）、
   `windows/runner/resources/app_icon.ico`、`.github/branding/*.png`（仓库主页与宣传用，不进 APK，
   所以不能放在按目录打包的 `assets/` 下）。改图标就改生成器常量后重跑，改完用

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pixiv_func/core/network/compat/network_providers.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
-import 'package:pixiv_func/core/settings/settings_controller.dart';
+import 'package:parfait/core/network/compat/network_providers.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/test_preferences.dart';
 
 void main() {

@@ -12,7 +12,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkDohEndpointsInvalid => 'DoH 地址列表无效';
 
   @override
-  String get welcome1 => '感谢使用Pixiv Func';
+  String get welcome1 => '感谢使用Parfait';
 
   @override
   String get welcome2 => '下面将进行首次启动设置';
@@ -49,7 +49,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get loginProxyNoticeBody =>
-      '由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Pixiv Func 不提供内置代理。';
+      '由于网络环境限制，登录和注册需要你先在系统或其他应用中开启代理（梯子）。Parfait 不提供内置代理。';
 
   @override
   String get loginProxyNoticeCancel => '取消';
@@ -147,14 +147,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get loginAgree => '登录即表示您同意';
 
   @override
-  String get userAgreement => '《Pixiv Func用户使用协议》';
+  String get userAgreement => '《Parfait用户使用协议》';
 
   @override
-  String get agreementTitle => 'Pixiv Func用户使用协议';
+  String get agreementTitle => 'Parfait用户使用协议';
 
   @override
   String get agreementIntro =>
-      '感谢使用 Pixiv Func。使用本应用即表示你已阅读并同意以下条款；如不同意，请停止使用本应用。';
+      '感谢使用 Parfait。使用本应用即表示你已阅读并同意以下条款；如不同意，请停止使用本应用。';
 
   @override
   String get agreementAccountTitle => '账号与授权';
@@ -629,7 +629,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backupExport => '导出备份';
 
   @override
-  String get backupExportHint => '选择目录后写入 pixiv-func-backup-*.json';
+  String get backupExportHint => '选择目录后写入 parfait-backup-*.json';
 
   @override
   String backupExported(String name) {
@@ -873,7 +873,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveLocationAlbum => '相册';
 
   @override
-  String get saveLocationPixivAlbum => 'PixivFunc 相册（默认）';
+  String get saveLocationPixivAlbum => 'Parfait 相册（默认）';
 
   @override
   String get saveLocationCustomAlbum => '自定义相册名称';

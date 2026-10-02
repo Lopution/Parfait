@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/misc.dart';
 
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_repository.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/auth/credential_store.dart';
 
 /// Simple in-memory credential store for tests whose account behavior is not
 /// itself the subject of the test.

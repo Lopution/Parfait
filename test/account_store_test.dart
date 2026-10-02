@@ -2,13 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
-import 'package:pixiv_func/core/history/history_database.dart';
-import 'package:pixiv_func/core/history/history_repository.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_repository.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/auth/credential_store.dart';
+import 'package:parfait/core/history/history_database.dart';
+import 'package:parfait/core/history/history_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class InMemoryCredentialStore implements CredentialStore {

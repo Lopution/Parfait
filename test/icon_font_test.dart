@@ -5,11 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/icons/app_icons.dart';
-import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/app/widgets/func_bottom_nav.dart';
+import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/app/widgets/func_bottom_nav.dart';
 
 void main() {
   group('iconFont asset registration', () {

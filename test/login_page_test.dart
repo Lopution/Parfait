@@ -3,19 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/widgets/replica_button.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
-import 'package:pixiv_func/core/settings/settings_controller.dart';
-import 'package:pixiv_func/core/settings/settings_repository.dart';
-import 'package:pixiv_func/features/login/login_page.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/app/widgets/replica_button.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/core/settings/settings_repository.dart';
+import 'package:parfait/features/login/login_page.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'dart:async';
 
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_transfer_service.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_transfer_service.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
@@ -223,7 +223,7 @@ void main() {
     ) async {
       await pumpLogin(tester);
       expect(find.text('登录即表示您同意'), findsOneWidget);
-      final link = find.text('《Pixiv Func用户使用协议》');
+      final link = find.text('《Parfait用户使用协议》');
       expect(link, findsOneWidget);
       await tester.ensureVisible(link);
       await tester.pumpAndSettle();

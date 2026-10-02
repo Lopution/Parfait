@@ -18,7 +18,7 @@ Outputs in .github/readme/:
   social-preview.jpg   the same banner at 1280x640, uploaded by hand in the
                        repository settings
 
-Usage: python tool/build_readme_assets.py --raw ~/pixiv-func-readme-work/raw
+Usage: python tool/build_readme_assets.py --raw ~/parfait-readme-work/raw
 Requirements: tool/requirements-app-icon.txt (numpy, pillow, scipy).
 """
 
@@ -143,7 +143,7 @@ CARD_SIZE, CARD_RADIUS = (600, 336), 28
 CARD_BLUR, CARD_TINT = 22, 0.72
 # Offsets from the card's top edge; text positions are baselines.
 CARD_ICON_TOP, CARD_ICON_SIZE, CARD_ICON_GAP = 40, 84, 20
-NAME = "Pixiv Func"
+NAME = "Parfait"
 NAME_PX = 52
 HEADLINE = ("第三方 pixiv 客户端", "支持中国大陆直连")
 HEADLINE_TOP, HEADLINE_PX, HEADLINE_LEADING = 186, 28, 42
@@ -393,7 +393,7 @@ def main() -> int:
     parser.add_argument("--raw", type=Path, required=True)
     parser.add_argument("--cache", type=Path,
                         default=Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-                        / "pixiv-func-readme")
+                        / "parfait-readme")
     parser.add_argument("--flutter-root", type=Path)
     args = parser.parse_args()
 

@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/app_haptics.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

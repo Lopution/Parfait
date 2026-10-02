@@ -2,12 +2,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pixiv_func/core/settings/shared_preferences.dart';
-import 'package:pixiv_func/core/updater/update_providers.dart';
-import 'package:pixiv_func/core/updater/update_service.dart';
-import 'package:pixiv_func/features/settings/settings_page.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/core/settings/shared_preferences.dart';
+import 'package:parfait/core/updater/update_providers.dart';
+import 'package:parfait/core/updater/update_service.dart';
+import 'package:parfait/features/settings/settings_page.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/test_preferences.dart';
 
@@ -99,7 +99,7 @@ void main() {
     await tester.tap(find.text('项目源码'));
     await tester.pumpAndSettle();
 
-    expect(launched, ['https://github.com/Lopution/Pixiv-func']);
+    expect(launched, ['https://github.com/Lopution/Parfait']);
   });
 
   testWidgets('source tile trailing action copies the repository URL', (
@@ -111,7 +111,7 @@ void main() {
     await tester.tap(find.byTooltip('复制'));
     await tester.pumpAndSettle();
 
-    expect(written, ['https://github.com/Lopution/Pixiv-func']);
+    expect(written, ['https://github.com/Lopution/Parfait']);
     expect(find.text('链接已复制'), findsOneWidget);
   });
 
@@ -326,7 +326,7 @@ class _FakeUpdateManifest implements UpdateManifestLike {
   const _FakeUpdateManifest();
 
   @override
-  String get repository => 'Lopution/Pixiv-func';
+  String get repository => 'Lopution/Parfait';
   @override
   String get tag => 'v9.9.9';
   @override
@@ -340,7 +340,7 @@ class _FakeUpdateManifest implements UpdateManifestLike {
     url: Uri.parse('https://example.invalid/app.apk'),
     exactSize: 1,
     sha256: '',
-    packageName: 'com.example.pixiv_func',
+    packageName: 'com.example.parfait',
     signingCertificateSha256: '',
   );
 }

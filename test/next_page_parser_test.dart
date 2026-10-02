@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/network/next_page_parser.dart';
+import 'package:parfait/core/network/next_page_parser.dart';
 
 void main() {
   group('NextPageParser', () {

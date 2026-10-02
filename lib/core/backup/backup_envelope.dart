@@ -79,7 +79,7 @@ class BackupEnvelope {
 
   static String fileName(DateTime now) {
     String two(int value) => value.toString().padLeft(2, '0');
-    return 'pixiv-func-backup-'
+    return 'parfait-backup-'
         '${now.year}${two(now.month)}${two(now.day)}-'
         '${two(now.hour)}${two(now.minute)}.json';
   }
@@ -111,7 +111,7 @@ class BackupEnvelope {
     if (bytes.isEmpty || bytes.length > maxEncodedLength) {
       throw const BackupImportException(
         BackupImportErrorCode.notJson,
-        'not a pixiv-func backup file',
+        'not a Parfait backup file',
       );
     }
     final Object? decoded;

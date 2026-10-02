@@ -2,9 +2,9 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart' as legacy_material;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/app/pull_to_refresh.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/app/pull_to_refresh.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 void main() {
   Widget buildSubject({

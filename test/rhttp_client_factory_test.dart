@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
-import 'package:pixiv_func/core/network/compat/rhttp_client_factory.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/compat/rhttp_client_factory.dart';
 import 'package:rhttp/rhttp.dart' as rhttp;
 
 const _revision = NetworkRevision(0);

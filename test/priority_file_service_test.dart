@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:pixiv_func/core/network/compat/image_cache.dart';
+import 'package:parfait/core/network/compat/image_cache.dart';
 
 /// Sends return immediately; each response body stays open until the test
 /// closes its controller, so a lane permit is observably held for the whole

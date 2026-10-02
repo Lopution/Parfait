@@ -73,7 +73,7 @@ public class InAppWebViewChromeClient extends WebChromeClient implements PluginR
   protected static final String LOG_TAG = "IABWebChromeClient";
 
   /**
-   * Optional one-shot file chooser result (vendored patch, Pixiv-func reverse
+   * Optional one-shot file chooser result (vendored patch, Parfait reverse
    * image search). When non-null the next {@link #onShowFileChooser} consumes
    * and clears it instead of launching the system picker. The Chromium file
    * chooser can only be opened by a real user gesture, so a site the user
@@ -844,7 +844,7 @@ public class InAppWebViewChromeClient extends WebChromeClient implements PluginR
   @TargetApi(Build.VERSION_CODES.LOLLIPOP)
   @Override
   public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-    // Vendored patch (Pixiv-func): a pre-armed file is consumed exactly once —
+    // Vendored patch (Parfait): a pre-armed file is consumed exactly once —
     // the site's own upload button performs the submission so Cloudflare
     // challenges run in a real browser context.
     final Uri[] armed = armedFileChooserUris;

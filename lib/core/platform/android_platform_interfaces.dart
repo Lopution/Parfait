@@ -16,7 +16,7 @@ import '../download/resume_anchor.dart';
 /// becomes visible after [MediaStoreSession.finalize]; [abort] removes it.
 abstract class MediaStoreSession {
   /// Opens a pending item under [relativePath] (defaults to the built-in
-  /// `Pictures/PixivFunc`) with the given display name and MIME type.
+  /// `Pictures/Parfait`) with the given display name and MIME type.
   Future<MediaStoreHandle> begin({
     required String displayName,
     required String mimeType,

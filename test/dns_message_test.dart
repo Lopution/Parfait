@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/network/compat/dns_message.dart';
+import 'package:parfait/core/network/compat/dns_message.dart';
 
 Uint8List _hex(String hex) {
   final cleaned = hex.replaceAll(RegExp(r'\s+'), '');

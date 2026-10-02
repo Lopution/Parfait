@@ -8,18 +8,18 @@ import 'update_models.dart';
 const int updateManifestMaxBytes = 64 * 1024;
 const int updateSignatureMaxBytes = 4 * 1024;
 const int updateAssetMaxBytes = 200 * 1024 * 1024;
-const String updateRepository = 'Lopution/Pixiv-func';
-const String updatePackageName = 'io.github.lopution.pixivfunc';
+const String updateRepository = 'Lopution/Parfait';
+const String updatePackageName = 'io.github.lopution.parfait';
 
 const Set<String> updateReleaseHosts = kUpdateDownloadHosts;
 const Set<String> _updateReleaseAbis = {'arm64-v8a', 'armeabi-v7a'};
 
 final Uri defaultUpdateManifestUri = Uri.parse(
-  'https://github.com/Lopution/Pixiv-func/releases/latest/download/update-manifest.json',
+  'https://github.com/Lopution/Parfait/releases/latest/download/update-manifest.json',
 );
 
 final Uri defaultUpdateSignatureUri = Uri.parse(
-  'https://github.com/Lopution/Pixiv-func/releases/latest/download/update-manifest.sig',
+  'https://github.com/Lopution/Parfait/releases/latest/download/update-manifest.sig',
 );
 
 @immutable

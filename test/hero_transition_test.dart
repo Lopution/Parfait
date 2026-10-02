@@ -5,26 +5,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:pixiv_func/app/navigation/home_shell_metrics.dart';
-import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/app/motion/hero_transition.dart';
-import 'package:pixiv_func/core/entity/illust_store.dart';
-import 'package:pixiv_func/features/illust/detail/illust_detail_page.dart';
-import 'package:pixiv_func/features/illust/detail/widgets/page_image.dart';
-import 'package:pixiv_func/features/illust/viewer/image_viewer_page.dart';
+import 'package:parfait/app/navigation/home_shell_metrics.dart';
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/motion/hero_transition.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/features/illust/detail/illust_detail_page.dart';
+import 'package:parfait/features/illust/detail/widgets/page_image.dart';
+import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'illust_detail_page_test.dart';
-import 'package:pixiv_func/app/motion/hero_rect_clip.dart';
-import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
-import 'package:pixiv_func/app/motion/motion_tokens.dart';
-import 'package:pixiv_func/app/theme/func_semantic_tokens.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/app/widgets/app_type_switch.dart';
-import 'package:pixiv_func/app/widgets/feed/illust_card.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/app/motion/hero_rect_clip.dart';
+import 'package:parfait/app/motion/drag_to_dismiss.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/app_type_switch.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 void main() {
   testWidgets('drag-to-dismiss returns to origin when canceled', (

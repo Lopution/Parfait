@@ -4,17 +4,17 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
-import 'package:pixiv_func/app/pixiv_image.dart';
-import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
-import 'package:pixiv_func/core/search/search_repository.dart' show TrendingTag;
-import 'package:pixiv_func/core/search/search_trending_controller.dart';
-import 'package:pixiv_func/core/spotlight/spotlight_feed_controller.dart';
-import 'package:pixiv_func/core/spotlight/spotlight_models.dart';
-import 'package:pixiv_func/core/spotlight/spotlight_store.dart';
-import 'package:pixiv_func/features/search/search_page.dart';
-import 'package:pixiv_func/features/spotlight/spotlight_feed_page.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/core/paging/paged_feed_controller.dart';
+import 'package:parfait/core/search/search_repository.dart' show TrendingTag;
+import 'package:parfait/core/search/search_trending_controller.dart';
+import 'package:parfait/core/spotlight/spotlight_feed_controller.dart';
+import 'package:parfait/core/spotlight/spotlight_models.dart';
+import 'package:parfait/core/spotlight/spotlight_store.dart';
+import 'package:parfait/features/search/search_page.dart';
+import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/spotlight_world.dart';

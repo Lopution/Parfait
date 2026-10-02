@@ -34,12 +34,12 @@ import 'package:path_provider/path_provider.dart';
 /// before the 256MB cap matters. The chain's `didHaveMemoryPressure`
 /// observer fan-out is dropped with it — the observer list is private to
 /// [WidgetsBinding] and nothing in the app or its plugins registers one.
-class _PixivFuncBinding extends WidgetsFlutterBinding {
+class _ParfaitBinding extends WidgetsFlutterBinding {
   /// Replaces `WidgetsFlutterBinding.ensureInitialized` so the app runs on
   /// this binding. Call once, in main(), before anything touches binding
   /// state — the constructor registers itself as the singleton.
   static void ensureInitialized() {
-    _PixivFuncBinding();
+    _ParfaitBinding();
   }
 
   // Replicates the stock chain with one distinction: decoded frames are
@@ -85,7 +85,7 @@ class _PixivFuncBinding extends WidgetsFlutterBinding {
 }
 
 Future<void> main() async {
-  _PixivFuncBinding.ensureInitialized();
+  _ParfaitBinding.ensureInitialized();
   // R3: local crash capture before anything else can throw — file logging
   // only, no remote telemetry.
   CrashLog.install(await getApplicationSupportDirectory());
@@ -114,7 +114,7 @@ Future<void> _run() async {
   // original behaviour propagated init failure by throwing here; the gate
   // now surfaces it as a network error on the first request instead.
   RhttpGate.ready = rhttp.Rhttp.init();
-  runApp(const ProviderScope(child: PixivFuncApp()));
+  runApp(const ProviderScope(child: ParfaitApp()));
 }
 
 /// Headless entrypoint for the Android widget worker.

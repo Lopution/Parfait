@@ -2,12 +2,12 @@ import 'package:flutter/gestures.dart' show kPressTimeout;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/motion/drag_to_dismiss.dart';
-import 'package:pixiv_func/app/motion/feed_entrance.dart';
-import 'package:pixiv_func/app/motion/motion_tokens.dart';
-import 'package:pixiv_func/app/motion/press_scale.dart';
-import 'package:pixiv_func/app/theme/replica_theme.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
+import 'package:parfait/app/motion/drag_to_dismiss.dart';
+import 'package:parfait/app/motion/feed_entrance.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/motion/press_scale.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 
 Widget _wrap(
   Widget child, {

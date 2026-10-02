@@ -8,15 +8,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/app/haptics/app_haptics.dart';
-import 'package:pixiv_func/app/widgets/entity_row.dart';
-import 'package:pixiv_func/core/localnovel/local_novel_database.dart';
-import 'package:pixiv_func/core/localnovel/local_novel_repository.dart';
-import 'package:pixiv_func/core/localnovel/local_novel_store.dart';
-import 'package:pixiv_func/features/novel/local_novel_reader_page.dart';
-import 'package:pixiv_func/features/localnovel/local_novels_page.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/widgets/entity_row.dart';
+import 'package:parfait/core/localnovel/local_novel_database.dart';
+import 'package:parfait/core/localnovel/local_novel_repository.dart';
+import 'package:parfait/core/localnovel/local_novel_store.dart';
+import 'package:parfait/features/novel/local_novel_reader_page.dart';
+import 'package:parfait/features/localnovel/local_novels_page.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'helpers/test_preferences.dart';

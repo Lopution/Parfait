@@ -3,16 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:pixiv_func/app/widgets/replica_button.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
-import 'package:pixiv_func/core/settings/settings_controller.dart';
-import 'package:pixiv_func/core/settings/settings_repository.dart';
-import 'package:pixiv_func/features/onboarding/language_page.dart';
-import 'package:pixiv_func/features/onboarding/theme_page.dart';
-import 'package:pixiv_func/features/onboarding/user_agreement_page.dart';
-import 'package:pixiv_func/features/onboarding/welcome_page.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/app/widgets/replica_button.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/core/settings/settings_repository.dart';
+import 'package:parfait/features/onboarding/language_page.dart';
+import 'package:parfait/features/onboarding/theme_page.dart';
+import 'package:parfait/features/onboarding/user_agreement_page.dart';
+import 'package:parfait/features/onboarding/welcome_page.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/test_preferences.dart';

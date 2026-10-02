@@ -214,7 +214,7 @@ class DesktopFileMediaStoreSession
   /// Injectable for tests; defaults to the OS Downloads directory.
   final Future<Directory> Function()? baseDirectory;
 
-  static const _defaultAlbum = 'PixivFunc';
+  static const _defaultAlbum = 'Parfait';
 
   Future<Directory> _base() async {
     if (baseDirectory != null) return baseDirectory!();

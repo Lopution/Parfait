@@ -5,12 +5,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/network/pixiv_http_client.dart';
-import 'package:pixiv_func/core/illust/related_illust_repository.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/illust/related_illust_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';

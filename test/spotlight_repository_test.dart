@@ -4,9 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/spotlight/spotlight_models.dart';
-import 'package:pixiv_func/core/spotlight/spotlight_repository.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/spotlight/spotlight_models.dart';
+import 'package:parfait/core/spotlight/spotlight_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/spotlight_world.dart';

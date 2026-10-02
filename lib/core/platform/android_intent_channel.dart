@@ -9,8 +9,8 @@ import 'platform_caps.dart';
 /// opaque URI metadata, MIME, permission and size; it never carries cookies,
 /// credentials or file contents.
 abstract final class _AndroidIntentMethods {
-  static const channel = 'pixivfunc/android_intents';
-  static const events = 'pixivfunc/android_intents/events';
+  static const channel = 'parfait/android_intents';
+  static const events = 'parfait/android_intents/events';
   static const getInitialIntent = 'getInitialIntent';
 
   /// Outbound open-url (U6): captions may link outside Pixiv; the app opens

@@ -226,7 +226,7 @@ one owner. Feature code uses the three seams below.
   status and navigation bars, icon brightness inverted from the brightness
   painted *under* the bars, `statusBarBrightness` (iOS) equal to the
   background brightness, transparent nav divider.
-- **Root default.** `PixivFuncApp`'s `MaterialApp.router` builder wraps the
+- **Root default.** `ParfaitApp`'s `MaterialApp.router` builder wraps the
   whole app in `FuncSystemBars(background: Theme.of(context).brightness)` —
   inside `AnimatedTheme`, so theme switches re-resolve it. Pages without an
   AppBar still get correct bar icons because the root region covers both
@@ -239,7 +239,7 @@ one owner. Feature code uses the three seams below.
   next frame — no imperative reset.
 - **Immersive mode.** `setSystemUiMode(SystemUiMode)` is the only caller of
   `SystemChrome.setEnabledSystemUIMode`; a platform `Exception` is logged,
-  never thrown or silently dropped. `PixivFuncApp.initState` enters
+  never thrown or silently dropped. `ParfaitApp.initState` enters
   `edgeToEdge` once at startup; the image viewer and the novel reader
   toggle `immersiveSticky`/`edgeToEdge` with chrome visibility through the
   same helper.
@@ -914,7 +914,7 @@ tolerance stay in one place.
   (the attempted action failed). The role→`HapticFeedback` level mapping
   and per-level throttling live inside `AppHaptics`; adding a role needs
   a real consumer.
-- The enabled reader is injected by `PixivFuncApp.build` via
+- The enabled reader is injected by `ParfaitApp.build` via
   `AppHaptics.configure`; feature code never reads settings itself.
 - Haptics are a redundant feedback channel: with the toggle off or on a
   platform without haptics support, all visual feedback must still be

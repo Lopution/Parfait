@@ -2,22 +2,22 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/auth/account.dart';
-import 'package:pixiv_func/core/auth/account_repository.dart';
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/auth/credential.dart';
-import 'package:pixiv_func/core/auth/credential_store.dart';
-import 'package:pixiv_func/core/settings/app_settings.dart';
-import 'package:pixiv_func/features/home/home_page.dart';
-import 'package:pixiv_func/features/login/login_page.dart';
-import 'package:pixiv_func/app/navigation/routes.dart';
-import 'package:pixiv_func/app/startup_gate.dart';
-import 'package:pixiv_func/features/onboarding/user_agreement_page.dart';
-import 'package:pixiv_func/features/onboarding/welcome_page.dart';
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_repository.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/auth/credential_store.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/features/home/home_page.dart';
+import 'package:parfait/features/login/login_page.dart';
+import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/startup_gate.dart';
+import 'package:parfait/features/onboarding/user_agreement_page.dart';
+import 'package:parfait/features/onboarding/welcome_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'dart:async';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
@@ -130,7 +130,7 @@ void main() {
     );
 
     expect(find.byType(WelcomePage), findsOneWidget);
-    expect(find.text('感谢使用Pixiv Func'), findsOneWidget);
+    expect(find.text('感谢使用Parfait'), findsOneWidget);
     expect(find.text('开始'), findsOneWidget);
   });
 
@@ -381,7 +381,7 @@ void main() {
 
     final mark = find.byType(Image);
     final image = tester.widget<Image>(mark).image as AssetImage;
-    expect(image.assetName, 'assets/branding/pixiv_func_icon.png');
+    expect(image.assetName, 'assets/branding/parfait_icon.png');
     // 160dp is where the system splash draws the 72dp visible icon area, so
     // the mark does not jump when the system splash hands over.
     expect(tester.getSize(mark), const Size(160, 160));

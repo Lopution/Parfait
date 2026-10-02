@@ -3,12 +3,12 @@ import 'dart:ui' as ui;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:pixiv_func/app/widgets/app_snack_bar.dart';
-import 'package:pixiv_func/app/widgets/feed/feed_states.dart';
-import 'package:pixiv_func/core/network/api_error.dart';
-import 'package:pixiv_func/core/paging/paged_feed_controller.dart';
-import 'package:pixiv_func/l10n/app_localizations.dart';
-import 'package:pixiv_func/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/widgets/app_snack_bar.dart';
+import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/paging/paged_feed_controller.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 Widget _host(Widget child) {
   return MaterialApp(

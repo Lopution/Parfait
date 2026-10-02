@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/format/byte_size.dart';
+import 'package:parfait/core/format/byte_size.dart';
 
 void main() {
   test('byte size renders B below 1 KiB', () {

@@ -12,18 +12,18 @@ import 'helpers/test_preferences.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
-import 'package:pixiv_func/core/auth/account_store.dart';
-import 'package:pixiv_func/core/download/download_transport.dart';
-import 'package:pixiv_func/core/network/compat/auto_image_source.dart';
-import 'package:pixiv_func/core/network/compat/network_contracts.dart';
-import 'package:pixiv_func/core/network/compat/network_fast_route_store.dart';
-import 'package:pixiv_func/core/network/compat/pixiv_network_factory.dart';
-import 'package:pixiv_func/core/network/compat/network_policy.dart';
-import 'package:pixiv_func/core/network/compat/network_providers.dart';
-import 'package:pixiv_func/core/network/compat/policy_download_transport.dart';
-import 'package:pixiv_func/core/network/compat/route_kind_store.dart';
-import 'package:pixiv_func/core/network/compat/secure_resolver.dart';
-import 'package:pixiv_func/core/settings/image_mirror.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/download/download_transport.dart';
+import 'package:parfait/core/network/compat/auto_image_source.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/compat/network_fast_route_store.dart';
+import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
+import 'package:parfait/core/network/compat/network_policy.dart';
+import 'package:parfait/core/network/compat/network_providers.dart';
+import 'package:parfait/core/network/compat/policy_download_transport.dart';
+import 'package:parfait/core/network/compat/route_kind_store.dart';
+import 'package:parfait/core/network/compat/secure_resolver.dart';
+import 'package:parfait/core/settings/image_mirror.dart';
 
 class _FakeClient extends http.BaseClient {
   _FakeClient({this.failure, this.statusCode = 200, this.body = '{}'});

@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:pixiv_func/core/paging/feed_database.dart';
-import 'package:pixiv_func/core/paging/feed_snapshot_store.dart';
+import 'package:parfait/core/paging/feed_database.dart';
+import 'package:parfait/core/paging/feed_snapshot_store.dart';
 
 void main() {
   setUpAll(sqfliteFfiInit);

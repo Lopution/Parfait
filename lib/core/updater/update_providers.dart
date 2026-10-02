@@ -18,7 +18,7 @@ import '../network/http_client_providers.dart';
 import '../platform/platform_caps.dart';
 
 const _updaterSubmissionContext = DownloadSubmissionContext(
-  accountId: 'pixivfunc-updater',
+  accountId: 'parfait-updater',
   // The updater never renders in user album lists; the custom identity keeps
   // its recovery namespace disjoint from product downloads while staying a
   // valid D5 destination value.

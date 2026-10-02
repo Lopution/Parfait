@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pixiv_func/core/auth/oauth_service.dart';
-import 'package:pixiv_func/features/login/login_navigation_decision.dart';
+import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/features/login/login_navigation_decision.dart';
 
 OAuthService _service() => OAuthService();
 

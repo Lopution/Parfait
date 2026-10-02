@@ -12,7 +12,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkDohEndpointsInvalid => 'DoHエンドポイントリストが無効です';
 
   @override
-  String get welcome1 => 'Pixiv Funcをご利用ありがとうございます';
+  String get welcome1 => 'Parfaitをご利用ありがとうございます';
 
   @override
   String get welcome2 => '初期設定を開始します';
@@ -49,7 +49,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get loginProxyNoticeBody =>
-      'ネットワーク環境の制限により、ログインまたは登録の前にシステムまたは外部プロキシを有効にしてください。Pixiv Funcに内蔵プロキシはありません。';
+      'ネットワーク環境の制限により、ログインまたは登録の前にシステムまたは外部プロキシを有効にしてください。Parfaitに内蔵プロキシはありません。';
 
   @override
   String get loginProxyNoticeCancel => 'キャンセル';
@@ -152,14 +152,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginAgree => 'ログインすると利用規約に同意したものとみなします';
 
   @override
-  String get userAgreement => '《Pixiv Func利用規約》';
+  String get userAgreement => '《Parfait利用規約》';
 
   @override
-  String get agreementTitle => 'Pixiv Func利用規約';
+  String get agreementTitle => 'Parfait利用規約';
 
   @override
   String get agreementIntro =>
-      'Pixiv Funcをご利用いただきありがとうございます。本アプリを利用した時点で、以下の条項に同意したものとします。同意できない場合は利用を中止してください。';
+      'Parfaitをご利用いただきありがとうございます。本アプリを利用した時点で、以下の条項に同意したものとします。同意できない場合は利用を中止してください。';
 
   @override
   String get agreementAccountTitle => 'アカウントと認証';
@@ -645,7 +645,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get backupExport => 'バックアップを書き出す';
 
   @override
-  String get backupExportHint => '選択したフォルダに pixiv-func-backup-*.json を保存';
+  String get backupExportHint => '選択したフォルダに parfait-backup-*.json を保存';
 
   @override
   String backupExported(String name) {
@@ -891,7 +891,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get saveLocationAlbum => 'アルバム';
 
   @override
-  String get saveLocationPixivAlbum => 'PixivFunc アルバム（デフォルト）';
+  String get saveLocationPixivAlbum => 'Parfait アルバム（デフォルト）';
 
   @override
   String get saveLocationCustomAlbum => 'カスタムアルバム名';

@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pixiv_func/core/platform/root_back_coordinator.dart';
+import 'package:parfait/core/platform/root_back_coordinator.dart';
 
 void main() {
   group('RootBackCoordinator', () {

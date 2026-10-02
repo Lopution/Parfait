@@ -4,21 +4,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:pixiv_func/core/auth/account_transfer_service.dart';
-import 'package:pixiv_func/core/download/download_destination.dart';
-import 'package:pixiv_func/core/download/download_recovery.dart';
-import 'package:pixiv_func/core/download/download_request.dart';
-import 'package:pixiv_func/core/download/download_sink.dart';
-import 'package:pixiv_func/core/download/resume_anchor.dart';
-import 'package:pixiv_func/core/platform/account_transfer_clipboard.dart';
-import 'package:pixiv_func/core/platform/android_intent_channel.dart';
-import 'package:pixiv_func/core/platform/desktop_clipboard.dart';
-import 'package:pixiv_func/core/platform/desktop_file_sink.dart';
-import 'package:pixiv_func/core/platform/intent_router.dart';
-import 'package:pixiv_func/core/platform/platform_caps.dart';
-import 'package:pixiv_func/core/platform/saf_tree.dart';
-import 'package:pixiv_func/core/reverse_image/reverse_image_external.dart';
-import 'package:pixiv_func/core/updater/update_platform.dart';
+import 'package:parfait/core/auth/account_transfer_service.dart';
+import 'package:parfait/core/download/download_destination.dart';
+import 'package:parfait/core/download/download_recovery.dart';
+import 'package:parfait/core/download/download_request.dart';
+import 'package:parfait/core/download/download_sink.dart';
+import 'package:parfait/core/download/resume_anchor.dart';
+import 'package:parfait/core/platform/account_transfer_clipboard.dart';
+import 'package:parfait/core/platform/android_intent_channel.dart';
+import 'package:parfait/core/platform/desktop_clipboard.dart';
+import 'package:parfait/core/platform/desktop_file_sink.dart';
+import 'package:parfait/core/platform/intent_router.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/core/platform/saf_tree.dart';
+import 'package:parfait/core/reverse_image/reverse_image_external.dart';
+import 'package:parfait/core/updater/update_platform.dart';
 
 const _windows = PlatformCaps(isWindows: true);
 const _android = PlatformCaps(isAndroid: true);
@@ -167,14 +167,14 @@ void main() {
       },
     );
 
-    test('default album lands under <base>/PixivFunc', () async {
+    test('default album lands under <base>/Parfait', () async {
       final handle = await mediaStore.begin(
         displayName: 'd.png',
         mimeType: 'image/png',
       );
       await handle.write([1]);
       await handle.finalize();
-      expect(File('${dir.path}/PixivFunc/d.png').existsSync(), isTrue);
+      expect(File('${dir.path}/Parfait/d.png').existsSync(), isTrue);
     });
 
     test('abort removes the staged file', () async {
@@ -184,8 +184,8 @@ void main() {
       );
       await handle.write([1]);
       await handle.abort();
-      expect(File('${dir.path}/PixivFunc/e.png.part').existsSync(), isFalse);
-      expect(File('${dir.path}/PixivFunc/e.png').existsSync(), isFalse);
+      expect(File('${dir.path}/Parfait/e.png.part').existsSync(), isFalse);
+      expect(File('${dir.path}/Parfait/e.png').existsSync(), isFalse);
     });
 
     test('unsafe characters in the display name are sanitized', () async {
@@ -280,7 +280,7 @@ void main() {
         expect((resumed! as ResumableDownloadSink).storedBytes, 2);
         await resumed.write([9]);
         await resumed.finalize();
-        expect(await File('${dir.path}/PixivFunc/album.png').readAsBytes(), [
+        expect(await File('${dir.path}/Parfait/album.png').readAsBytes(), [
           7,
           8,
           9,

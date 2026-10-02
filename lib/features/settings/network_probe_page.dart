@@ -12,7 +12,7 @@ import '../../core/network/compat/network_probe.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/network/compat/secure_resolver.dart';
 import '../../app/theme/func_tokens.dart';
-import 'package:pixiv_func/core/network/pixiv_client_identity.dart';
+import 'package:parfait/core/network/pixiv_client_identity.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../core/log.dart';

@@ -17,7 +17,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-const _package = 'pixiv_func';
+const _package = 'parfait';
 
 final _finalRegExp = RegExp(
   r'''^\s*(?:import|export)\s+['"]([^'"]+)['"]''',

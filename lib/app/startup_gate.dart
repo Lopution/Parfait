@@ -258,7 +258,7 @@ class SplashPage extends StatelessWidget {
     return Scaffold(
       body: Center(
         child: Image.asset(
-          'assets/branding/pixiv_func_icon.png',
+          'assets/branding/parfait_icon.png',
           width: markSize,
           height: markSize,
         ),

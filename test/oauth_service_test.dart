@@ -5,8 +5,8 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/test_preferences.dart';
-import 'package:pixiv_func/core/auth/oauth_service.dart';
-import 'package:pixiv_func/core/auth/pkce.dart';
+import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/core/auth/pkce.dart';
 
 void main() {
   installMemoryPreferences();

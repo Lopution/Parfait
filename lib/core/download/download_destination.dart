@@ -5,7 +5,7 @@ import 'package:meta/meta.dart';
 /// This is the single contract shared by settings (persisted selection),
 /// download request normalization and recovery owner definition (C4/C5/C22).
 /// There is intentionally no free-text path: a destination is either the
-/// built-in PixivFunc album, a user-named MediaStore album, or a SAF tree
+/// built-in Parfait album, a user-named MediaStore album, or a SAF tree
 /// URI granted through the system directory picker.
 @immutable
 class DownloadDestination {
@@ -36,7 +36,7 @@ class DownloadDestination {
   /// Stable identity used by recovery records. Never contains a tree URI
   /// permission lease; only the opaque, canonical selection.
   String get identity => switch (kind) {
-    DownloadDestinationKind.pixivAlbum => 'album:pixivfunc',
+    DownloadDestinationKind.pixivAlbum => 'album:parfait',
     DownloadDestinationKind.customAlbum =>
       'album:${customAlbumName ?? 'unnamed'}',
     DownloadDestinationKind.safFolder => 'saf:${safTreeUri ?? ''}',
