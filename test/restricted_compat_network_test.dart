@@ -117,13 +117,17 @@ class _NeverSendClient extends http.BaseClient {
       Completer<http.StreamedResponse>().future;
 }
 
-/// Emits one body chunk then stalls forever — a mid-body connection stall.
+/// Emits [bytes] of body then stalls forever — a mid-body connection stall.
 class _StallClient extends http.BaseClient {
+  _StallClient([this.bytes = 1]);
+
+  final int bytes;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     return http.StreamedResponse(
       Stream<List<int>>.multi((controller) {
-        controller.add(const [1]);
+        controller.add(List.filled(bytes, 1));
       }),
       200,
       request: request,
@@ -2039,6 +2043,44 @@ void main() {
       addTearDown(policy.dispose);
 
       expect(await AutoImageSource.race(policy), isNull);
+    });
+
+    test('a body cut off by the deadline ranks on what it delivered', () async {
+      final policy = autoPolicy(
+        (host) => switch (host) {
+          // Throttled: 40 KB arrive, the rest not before the deadline.
+          'i.pximg.net' => _StallClient(40 * 1024),
+          // Answered, but too little data to measure.
+          'i.pixiv.re' => _StallClient(1024),
+          _ => _FakeClient(failure: const SocketException('refused')),
+        },
+      );
+      addTearDown(policy.dispose);
+
+      final result = await AutoImageSource.race(
+        policy,
+        timeout: const Duration(milliseconds: 300),
+      );
+      expect(result?.host, 'i.pximg.net');
+      expect(result?.bps, isNotNull);
+    });
+
+    test('a probe cut off below the measurable minimum loses', () async {
+      final policy = autoPolicy(
+        (host) => host == 'i.pixiv.re'
+            ? _StallClient(1024)
+            : _FakeClient(failure: const SocketException('refused')),
+      );
+      addTearDown(policy.dispose);
+
+      expect(
+        await AutoImageSource.race(
+          policy,
+          timeout: const Duration(milliseconds: 300),
+        ),
+        isNull,
+        reason: 'headers alone do not make a usable source',
+      );
     });
 
     test(
