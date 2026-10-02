@@ -192,6 +192,13 @@ http.Response _json(Map<String, dynamic> value) => http.Response(
 );
 
 void main() {
+  // Widget tests below build PixivImage, which reads SharedPreferencesAsync.
+  // Without this they only passed when an earlier test in the file had set the
+  // platform, and failed once `flutter test --total-shards` split the file.
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+  });
+
   test('typed search filters serialize only allowlisted values', () {
     final filters = SearchFilters(
       target: SearchTarget.titleAndCaption,
