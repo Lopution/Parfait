@@ -99,9 +99,14 @@ jobs:
 
   android-release:
     # Release-side safety: the release workflow must never publish a debug
-    # signed APK, so the release-signing check runs on the main branch.
+    # signed APK, so the release-signing check runs on main and on PRs from
+    # this repository. PRs from forks cannot read secrets; android-size
+    # covers them.
     needs: changes
-    if: needs.changes.outputs.build == 'true'
+    if: >-
+      needs.changes.outputs.build == 'true' &&
+      (github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -213,10 +218,16 @@ jobs:
           path: build/symbols/github
 
   android-size:
-    # Secrets-free size gate. android-release stays red until keystore
-    # secrets exist; this job still sees per-ABI volume regressions.
+    # Secrets-free size gate, only for PRs from forks: they cannot read the
+    # keystore secrets, so android-release would fail there. Everywhere else
+    # android-release runs the same per-ABI size report. The fdroid flavor
+    # differs from github only in flavor config and its own source set
+    # (unit-tested in android-unit), and runs ~12 KB under github.
     needs: changes
-    if: needs.changes.outputs.build == 'true'
+    if: >-
+      needs.changes.outputs.build == 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -257,17 +268,6 @@ jobs:
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-fdroid-release.apk \
             build/app/outputs/flutter-apk/app-armeabi-v7a-fdroid-release.apk
-      - name: Analyze arm64 code size
-        continue-on-error: true
-        run: |
-          flutter build apk --release --flavor fdroid \
-            --target-platform android-arm64 \
-            --analyze-size --code-size-directory=build/analyze-size/fdroid
-      - uses: actions/upload-artifact@v7
-        continue-on-error: true
-        with:
-          name: fdroid-analyze-size
-          path: build/analyze-size/fdroid
       - uses: actions/upload-artifact@v7
         with:
           name: fdroid-split-apks
