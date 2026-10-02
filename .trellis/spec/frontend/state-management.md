@@ -536,14 +536,41 @@ consumers.
   (`lib/core/network/compat/network_policy.dart`): Cloudflare hosts
   (appApi/oauth/accountsWeb/pixivWeb) use
   `ech → dohRealSni → direct → insecureNoSni`; image hosts (`i.pximg.net` /
-  `s.pximg.net`) use `ech → noSni → dohRealSni → direct → insecureNoSni`.
-  Host/group memory promotes the last successful kind. `insecureNoSni`
+  `s.pximg.net`) use `ech → noSni → dohRealSni → direct → insecureNoSni`;
+  third-party image mirrors use `noSni → dohRealSni → direct` and never
+  enter the ECH or insecure tiers.
+  Host/group memory promotes the last successful kind, except on pixiv
+  image hosts (next bullet). `insecureNoSni`
   (empty SNI, no certificate verification, persisted/bundled
   bootstrap 210.140.139.155/133) is always the last fallback. Production
   forces `insecureNoSniEnabled: true` with no user switch
   (`network_providers.dart:29`). A failed fast address is cooled for 30
   seconds (`_kFastRouteCooldown`). `NetworkMode.directOnly` closes
   compatibility route pools and prevents resolver fallback.
+- Pixiv image hosts stay on ECH (`_prefersEch`, `network_policy_ladder.dart`).
+  Their origin addresses (noSni) answer faster but are throttled to tens of
+  KB/s inside the wall, so: no cold race; a remembered non-ECH route is used
+  only while ECH is cooling down and is dropped otherwise; the image group
+  preference records only `ech`. Two consecutive ECH failures (a
+  fallback-eligible transport error or an unbuildable ECH tier) cool ECH
+  for 1 minute, doubling after every failed retry up to 10 minutes;
+  failures during a cooldown do not escalate it, one ECH success clears it,
+  and mode/revision changes forget it. A cooling ECH tier moves to the end
+  of the walk instead of being skipped.
+- Cold image GET/HEAD on a mirror host with no host/group memory races the
+  top two tiers (`_raceColdTiers`); the first response wins and the loser
+  is drained. API/OAuth and pixiv image hosts stay serial.
+- Image and download exits run over HTTP/1.1
+  (`RhttpClientFactory.httpVersionFor`), one connection per concurrent
+  transfer: a single shared HTTP/2 connection let one throttled flow stall
+  every image. Other exits negotiate h2/http1.1 via ALPN. Image exits carry
+  a connect budget and the stream guard (15 s headers, 15 s body idle)
+  instead of a total timeout.
+- Auto image source (`AutoImageSource.race`) fetches the same 1200px
+  master from every candidate in parallel and ranks by bytes/second over
+  up to 256 KB, timed from the request (first byte included), within a
+  10 s total budget. A body cut off by the deadline ranks on what arrived
+  if it reached 32 KB, and otherwise loses.
 - `PixivDestinationRegistry` matches exact ASCII HTTPS hosts by purpose:
   `app-api.pixiv.net`, `oauth.secure.pixiv.net`, `accounts.pixiv.net`,
   `www.pixiv.net`, `i.pximg.net` and `s.pximg.net` as applicable. Userinfo,
@@ -578,9 +605,13 @@ consumers.
   the cache. ECH config is queried via Alibaba DoH
   (`https://dns.alidns.com/dns-query`, 223.5.5.5/223.6.6.6) then Cloudflare.
 - After a verified `ech`, `dohRealSni` or `noSni` success, the policy may put
-  that route kind first for the matching destination group. Group memory is
-  runtime-only, uses each target host's own addresses, and is cleared on
-  transport failure, expiry, mode changes and revision changes.
+  that route kind first for the matching destination group (`cloudflare`,
+  `image`, `imageMirror`; the `image` group accepts only `ech`). Group
+  memory uses each target host's own addresses and is cleared on transport
+  failure, expiry, mode changes and revision changes. The kind (never an
+  address) is also persisted per network identity through `RouteKindStore`
+  and seeded at warm-up and on revision change, filtered by the same
+  per-group rule.
   `insecureNoSni` is never a cold-start first choice; after one success it
   may be promoted by host/group memory like any other kind. The bootstrap
   address map is allowlisted in `network_fast_route_store.dart`.
@@ -606,6 +637,9 @@ consumers.
 | Account/network/mode boundary | Advance/replace revision and close pools |
 | ECH config TTL or revision expires | Drop the config and query again; never reuse stale bytes |
 | ECH/no-SNI transport succeeds while DNS sets differ | Report the route as usable and retain DNS disagreement as an extra field |
+| One ECH failure on a pixiv image host | Only that request falls back; the next request starts on ECH again |
+| Second consecutive ECH failure on a pixiv image host | Cool ECH (1 → 2 → 4 → 8 → 10 min); use the remembered stand-in tier meanwhile, ECH last |
+| Persisted non-ECH `image` group kind from an older version | Ignore it at seeding; the next ECH success overwrites it |
 
 #### 5. Good / Base / Bad Cases
 
@@ -643,6 +677,12 @@ consumers.
   uncancelled in-flight sharing, and cancellation that cannot poison the
   shared cache. Policy tests cover group preference, cross-host address
   isolation, insecure-tier non-promotion, and failure invalidation.
+- Pixiv image-host tests cover the serial ECH-only cold start, single-failure
+  fallback, the cooldown schedule and its cap, reset on ECH success and on
+  revision change, ECH as the last resort while cooling, and that origin
+  successes are neither shared nor persisted. Mirror tests cover the cold
+  race. Factory tests pin HTTP/1.1 for image exits and ALPN elsewhere.
+  Auto-source tests cover throughput ranking and partial measurements.
 - Probe tests cover DNS disagreement as secondary evidence, ECH HTTP 403/404,
   empty-SNI 421, and the all-paths-failed conclusion.
 - Protocol parser tests use repository-owned deterministic bytes (or a

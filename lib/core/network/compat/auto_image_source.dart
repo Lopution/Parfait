@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,35 +17,38 @@ import 'network_policy.dart';
 /// pipeline uses — and persists the winner scoped to the current network
 /// identity.
 ///
-/// The race measures sustained transfer, not just TTFB: every candidate
-/// fetches the same thumbnail and downloads up to [_probeBytes] of its body,
-/// and the host with the highest bytes/second wins. A candidate that only
-/// answers quickly but transfers poorly (fast TLS, starved pipe) no longer
-/// takes the win over a genuinely fast one.
+/// The race measures how long one feed-sized image takes, not TTFB: every
+/// candidate fetches the same image and downloads up to [probeBytes] of its
+/// body, and the host with the highest bytes/second — timed from the request,
+/// first byte included — wins. A candidate that only answers quickly but
+/// transfers poorly (fast TLS, throttled pipe) no longer takes the win over
+/// a genuinely fast one.
 class AutoImageSource {
   AutoImageSource({required SharedPreferencesAsync preferences})
     : _preferences = preferences;
 
   static const storageKey = PreferenceKeys.autoImageSource;
 
-  /// A probe that gets no response inside this window loses the race.
-  static const probeTimeout = Duration(seconds: 8);
+  /// Total budget of one probe, headers and body. A candidate without a
+  /// response inside it loses; one still mid-body is ranked on what it
+  /// delivered. At 32 KB/s a throttled host still fills [minMeasuredBytes].
+  static const probeTimeout = Duration(seconds: 10);
 
-  /// Upper bound of body bytes a probe reads — enough to average out the
-  /// handshake tail, small enough that racing four candidates stays cheap
-  /// (~64KB each worst case).
-  static const probeBytes = 64 * 1024;
+  /// Upper bound of body bytes a probe reads — the size of a typical feed
+  /// thumbnail (~240 KB measured), so the ranking reflects what loading one
+  /// image costs. Racing four candidates reads at most ~1 MB.
+  static const probeBytes = 256 * 1024;
 
   /// Minimum body bytes before a measurement counts toward the throughput
   /// ranking; below it the elapsed is dominated by latency, not bandwidth.
-  static const minMeasuredBytes = 8 * 1024;
+  static const minMeasuredBytes = 32 * 1024;
 
-  /// The thumbnail every candidate fetches. It is the same well-known pximg
-  /// image commonly used for mirror checks — stable for years and served by
-  /// every mirror host, so the measurement compares hosts, not objects.
+  /// The image every candidate fetches: a 1200px master (480,607 bytes) of a
+  /// well-known pximg work commonly used for mirror checks — stable since
+  /// 2016 and served by every mirror host, so the measurement compares
+  /// hosts, not objects. It is larger than [probeBytes] on purpose.
   static const probePath =
-      '/c/360x360_70/img-master/img/2016/04/29/03/33/27/'
-      '56585648_p0_square1200.jpg';
+      '/img-master/img/2016/04/29/03/33/27/56585648_p0_master1200.jpg';
 
   final SharedPreferencesAsync _preferences;
   Future<void> _writeTail = Future<void>.value();
@@ -102,10 +106,11 @@ class AutoImageSource {
   static Future<({String host, double? bps})?> race(
     NetworkAccessPolicy policy, {
     NetworkCancelSignal? cancelSignal,
+    @visibleForTesting Duration timeout = probeTimeout,
   }) async {
     final samples = await Future.wait(
       ImageMirror.autoCandidates.map(
-        (host) => _probe(policy, host, cancelSignal),
+        (host) => _probe(policy, host, cancelSignal, timeout),
       ),
     );
     _ProbeSample? best;
@@ -129,6 +134,7 @@ class AutoImageSource {
     NetworkAccessPolicy policy,
     String host,
     NetworkCancelSignal? cancelSignal,
+    Duration timeout,
   ) async {
     final stopwatch = Stopwatch()..start();
     try {
@@ -150,10 +156,10 @@ class AutoImageSource {
               );
               final request = http.Request('GET', routeUrl)
                 ..headers.addAll(PixivHeaders.image());
-              return client.send(request).timeout(probeTimeout);
+              return client.send(request).timeout(timeout);
             },
           )
-          .timeout(probeTimeout);
+          .timeout(timeout);
       try {
         // A non-200 answer (mirror offline, auth wall, captive portal) is
         // not a reachable source — drain-and-rank treated it as one and a
@@ -164,9 +170,10 @@ class AutoImageSource {
         }
         // One total deadline for the body, not a per-chunk one: a host
         // dribbling a byte at a time previously kept every timeout promise
-        // while Future.wait held the race open. Cancelling the subscription
-        // on expiry closes the connection instead of leaking the read.
-        final remaining = probeTimeout - stopwatch.elapsed;
+        // while Future.wait held the race open. On expiry the subscription
+        // is cancelled (closing the connection) and the bytes received so
+        // far are the measurement — a slow host still ranks, just low.
+        final remaining = timeout - stopwatch.elapsed;
         if (remaining <= Duration.zero) return null;
         final done = Completer<void>();
         late final StreamSubscription<List<int>> sub;
@@ -188,6 +195,9 @@ class AutoImageSource {
         );
         try {
           await done.future.timeout(remaining);
+        } on TimeoutException {
+          // Too little data to measure: as good as no answer at all.
+          if (bytes < minMeasuredBytes) return null;
         } finally {
           await sub.cancel();
         }

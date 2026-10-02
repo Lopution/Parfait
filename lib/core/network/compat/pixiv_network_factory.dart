@@ -48,8 +48,9 @@ class PixivPolicyHttpClient extends http.BaseClient {
       canReplay: request.method == 'GET' || request.method == 'HEAD',
       // A cold image host pays each candidate tier's timeout in series;
       // racing the top two turns that into one round trip for the waterfall's
-      // first paint. API/OAuth stays serial — duplicate reads are free for
-      // the CDN, not for the app backend.
+      // first paint. The policy still keeps pixiv's own image hosts serial on
+      // ECH (`_prefersEch`). API/OAuth stays serial — duplicate reads are
+      // free for the CDN, not for the app backend.
       raceWhenCold:
           purpose == PixivDestinationPurpose.image &&
           (request.method == 'GET' || request.method == 'HEAD'),

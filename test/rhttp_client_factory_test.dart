@@ -115,6 +115,43 @@ void main() {
       );
     });
 
+    test('image exits use HTTP/1.1, every other exit negotiates', () {
+      // One h2 connection carried every image, so one throttled flow stalled
+      // the whole feed; HTTP/1.1 gives each transfer its own connection.
+      final imageRoutes = [
+        NetworkRoute.ech(_revision, InternetAddress('104.18.10.118'), [
+          0xfe,
+          0x0d,
+        ]),
+        NetworkRoute.noSni(_revision, InternetAddress('210.140.139.129')),
+        NetworkRoute.secureDns(_revision, InternetAddress('104.21.26.66')),
+      ];
+      for (final route in imageRoutes) {
+        final settings = RhttpClientFactory.settingsFor(
+          route,
+          destinationHost: 'i.pximg.net',
+          purpose: PixivDestinationPurpose.image,
+        );
+        expect(
+          settings.httpVersionPref,
+          rhttp.HttpVersionPref.http1_1,
+          reason: route.kind.name,
+        );
+      }
+      for (final purpose in [
+        PixivDestinationPurpose.appApi,
+        PixivDestinationPurpose.oauth,
+        PixivDestinationPurpose.accountsWeb,
+        PixivDestinationPurpose.pixivWeb,
+      ]) {
+        expect(
+          RhttpClientFactory.httpVersionFor(purpose),
+          rhttp.HttpVersionPref.all,
+          reason: purpose.name,
+        );
+      }
+    });
+
     test('redirects are disabled (manual policy owns redirect semantics)', () {
       final settings = RhttpClientFactory.settingsFor(
         NetworkRoute.direct(_revision),

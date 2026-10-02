@@ -139,7 +139,7 @@ Future<void> _prefetchFeedWindow(
       .imageCacheManager;
   final previewQuality = container.read(previewQualityProvider);
   // Feed data just landed: warm the remembered winning route's connection
-  // so the first visible image GET skips the TLS/HTTP-2 handshake. The
+  // so the first visible image GET skips the TLS handshake. The
   // effective host is the *rewritten* one — the mirror is what the sockets
   // actually connect to. Throttled inside the policy to once per revision.
   final warmEntity = entities.cast<IllustEntity?>().firstWhere(
