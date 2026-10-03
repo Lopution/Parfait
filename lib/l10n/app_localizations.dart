@@ -4744,6 +4744,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'打开目录'**
   String get watchlistOpenContents;
+
+  /// Tooltip of the retry button on an image that failed to load
+  ///
+  /// In zh, this message translates to:
+  /// **'重新加载图片'**
+  String get imageRetry;
 }
 
 class _AppLocalizationsDelegate

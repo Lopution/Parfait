@@ -1181,5 +1181,9 @@
   "watchlistOpenContents": "目次を開く",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"
+  },
+  "imageRetry": "画像を再読み込み",
+  "@imageRetry": {
+    "description": "Tooltip of the retry button on an image that failed to load"
   }
 }

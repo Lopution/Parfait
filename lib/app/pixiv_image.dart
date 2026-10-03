@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:ui';
 
@@ -14,6 +15,7 @@ import '../core/network/pixiv_headers.dart';
 import '../core/network/compat/image_cache.dart';
 import '../core/network/compat/image_demand.dart';
 import '../core/network/compat/network_providers.dart';
+import '../l10n/app_localizations.dart';
 
 export '../core/network/compat/image_cache.dart' show ImageFetchPriority;
 
@@ -584,10 +586,123 @@ class _PixivImageState extends ConsumerState<PixivImage> {
     _heldUrl = null;
   }
 
+  /// Waits before each automatic retry of a transient failure.
+  static const _retryBackoff = [
+    Duration(seconds: 1),
+    Duration(seconds: 3),
+    Duration(seconds: 8),
+  ];
+
+  /// HTTP statuses that a retry cannot fix.
+  static const _permanentStatuses = {403, 404, 410};
+
+  /// Smallest image box that shows a manual retry button; smaller slots
+  /// (avatars, chips) keep the broken-image icon.
+  static const _retryButtonMinSize = 48.0;
+
+  /// Automatic retries used for the current URL.
+  int _attempt = 0;
+
+  /// Key of the network image; each bump is a fresh resolve.
+  int _load = 0;
+  Timer? _retryTimer;
+  var _retryScheduled = false;
+
+  void _resetRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryScheduled = false;
+    _attempt = 0;
+  }
+
+  @override
+  void didUpdateWidget(covariant PixivImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) _resetRetry();
+  }
+
   @override
   void dispose() {
+    _retryTimer?.cancel();
     _release();
     super.dispose();
+  }
+
+  /// A transient failure retries on its own up to [_retryBackoff].length
+  /// times; a permanent or exhausted one offers a manual retry when the box
+  /// is large enough for a button.
+  Widget _errorView(
+    Object error,
+    String url,
+    int? decodeWidth,
+    BaseCacheManager? cacheManager,
+  ) {
+    const broken = Icon(Icons.broken_image);
+    final permanent =
+        error is HttpExceptionWithStatus &&
+        _permanentStatuses.contains(error.statusCode);
+    if (!permanent && _attempt < _retryBackoff.length) {
+      if (!_retryScheduled) {
+        _retryScheduled = true;
+        final delay = _retryBackoff[_attempt];
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // A URL change in the meantime reset the schedule.
+          if (!mounted || !_retryScheduled) return;
+          _retryTimer = Timer(delay, () {
+            _retryTimer = null;
+            _reload(url, decodeWidth, cacheManager, automatic: true);
+          });
+        });
+      }
+      return broken;
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < _retryButtonMinSize ||
+            constraints.maxHeight < _retryButtonMinSize) {
+          return broken;
+        }
+        return Center(
+          child: IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: Localizations.of<AppLocalizations>(
+              context,
+              AppLocalizations,
+            )?.imageRetry,
+            onPressed: () =>
+                _reload(url, decodeWidth, cacheManager, automatic: false),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Drops the failed entry from the image cache — the same
+  /// `ResizeImage`-wrapped key the visible widget resolves, which the
+  /// loader's own eviction does not reach — then resolves again.
+  void _reload(
+    String url,
+    int? decodeWidth,
+    BaseCacheManager? cacheManager, {
+    required bool automatic,
+  }) {
+    ImageProvider provider = PixivImage.provider(
+      url,
+      cacheManager: cacheManager,
+    );
+    if (decodeWidth != null) {
+      provider = ResizeImage.resizeIfNeeded(decodeWidth, null, provider);
+    }
+    unawaited(
+      provider.evict().then((_) {
+        if (!mounted) return;
+        setState(() {
+          _attempt = automatic ? _attempt + 1 : 0;
+          _retryScheduled = false;
+          _load++;
+        });
+      }),
+    );
   }
 
   @override
@@ -711,6 +826,8 @@ class _PixivImageState extends ConsumerState<PixivImage> {
         Theme.of(context).colorScheme.surfaceContainer;
     final image = LayoutBuilder(
       builder: (context, constraints) => CachedNetworkImage(
+        // A new key is a fresh resolve: how a retry reloads.
+        key: ValueKey(_load),
         imageUrl: imageUrl,
         httpHeaders: PixivImage.headers,
         cacheManager: cacheManager,
@@ -743,9 +860,9 @@ class _PixivImageState extends ConsumerState<PixivImage> {
         fadeOutDuration: crossfade ? MotionTokens.imageFadeOut : Duration.zero,
         placeholder: (_, _) =>
             transitionPlaceholder ?? ColoredBox(color: placeholderColor),
-        errorWidget: (_, _, _) => ColoredBox(
+        errorWidget: (_, _, error) => ColoredBox(
           color: placeholderColor,
-          child: const Icon(Icons.broken_image),
+          child: _errorView(error, imageUrl, effectiveWidth, cacheManager),
         ),
       ),
     );

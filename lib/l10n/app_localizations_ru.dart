@@ -2540,4 +2540,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchlistOpenContents => 'Открыть содержание';
+
+  @override
+  String get imageRetry => 'Загрузить изображение снова';
 }
