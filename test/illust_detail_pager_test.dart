@@ -466,4 +466,67 @@ void main() {
     await tester.pump();
     expect(seen?.ids, [1, 2]);
   });
+
+  group('related works on demand', () {
+    const ids = [42, 43, 44];
+
+    /// Short single-page landscape works: the related section sits inside
+    /// the first screen of every page, so only the activity gate keeps a
+    /// neighbour from requesting.
+    Future<(ProviderContainer, List<int>)> shortWorld() async {
+      final log = <int>[];
+      final (container, _, _) = await makeWorld(
+        relatedLog: log,
+        detailOverrides: {
+          for (final id in ids) id: illustJson(id, width: 1200, height: 600),
+        },
+        relatedOverrides: {
+          for (final id in ids) id: [illustJson(900 + id)],
+        },
+      );
+      container.read(illustStoreProvider).mergeAll([
+        for (final id in ids) parseIllust(illustJson(id)),
+      ]);
+      return (container, log);
+    }
+
+    testWidgets('only the current page requests its related works', (
+      tester,
+    ) async {
+      final (container, log) = await shortWorld();
+      final source = IllustPagerSource()..update(ids);
+      await _pumpPager(tester, container, source: source, initialId: 43);
+      expect(_detail(42), findsOneWidget);
+      expect(_detail(44), findsOneWidget);
+      expect(log, [43], reason: 'prebuilt neighbours stay quiet');
+    });
+
+    testWidgets('a neighbour requests once the swipe commits to it', (
+      tester,
+    ) async {
+      final (container, log) = await shortWorld();
+      final source = IllustPagerSource()..update(ids);
+      await _pumpPager(tester, container, source: source, initialId: 42);
+      expect(log, [42]);
+
+      await mockNetworkImagesFor(() async {
+        // Half a swipe brings the neighbour's section on screen while the
+        // page is still not current.
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(PageView)),
+        );
+        await gesture.moveBy(const Offset(-40, 0));
+        await gesture.moveBy(const Offset(-80, 0));
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump();
+        expect(log, [42]);
+
+        await gesture.moveBy(const Offset(-200, 0));
+        await gesture.up();
+        await tester.pumpAndSettle();
+      });
+      expect(_page(tester), 1);
+      expect(log, [42, 43]);
+    });
+  });
 }

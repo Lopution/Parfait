@@ -26,7 +26,9 @@ import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/illust_detail_controller.dart';
+import 'package:parfait/core/illust/related_illust_controller.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
@@ -49,6 +51,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'download_manager_test.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -64,6 +67,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Set<String> mutedTags = const {},
   List<Override> extraOverrides = const [],
   Completer<void>? detailGate,
+  List<int>? relatedLog,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
@@ -114,6 +118,11 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       illustDetailWebClientProvider.overrideWithValue(
         MockClient((request) async => http.Response('unavailable', 403)),
       ),
+      // A fresh in-memory snapshot store per world: the default sqflite
+      // store shares feeds.db across the whole file, so a related list
+      // committed by one test would be restored (and refreshed) in the
+      // next.
+      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
       ...extraOverrides,
     ],
   );
@@ -136,6 +145,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       }
       if (request.url.path == '/v2/illust/related') {
         final id = int.parse(request.url.queryParameters['illust_id']!);
+        relatedLog?.add(id);
         return okJson({
           'illusts': relatedOverrides?[id] ?? [],
           'next_url': null,
@@ -188,6 +198,20 @@ class _RecordingShareService implements ShareService {
     payloads.add(payload);
     return outcome;
   }
+}
+
+/// Scrolls the detail page down until the related section is on screen,
+/// then lets the on-demand request start and land: visibility is reported
+/// after a frame, the request starts on the next one, and the result needs
+/// one more.
+Future<void> scrollToRelated(WidgetTester tester) async {
+  for (var i = 0; i < 2; i++) {
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1400));
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
+  await tester.pump(const Duration(milliseconds: 200));
 }
 
 /// Opens the detail AppBar's ⋮ menu. The tooltip comes from
@@ -1841,20 +1865,8 @@ void main() {
         },
       );
       await pumpDetail(tester, container, useRouter: true);
-      // The section is a lazy sliver below the info block: scroll down so
-      // it builds, then let the related page resolve.
-      await mockNetworkImagesFor(() async {
-        await tester.drag(
-          find.byType(CustomScrollView),
-          const Offset(0, -1400),
-        );
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.drag(
-          find.byType(CustomScrollView),
-          const Offset(0, -1400),
-        );
-        await tester.pump(const Duration(milliseconds: 200));
-      });
+      // The section requests its first page only once it is on screen.
+      await mockNetworkImagesFor(() => scrollToRelated(tester));
 
       // Section appears below the caption/tags with the official title.
       expect(find.text('Related works'), findsOneWidget);
@@ -1872,16 +1884,7 @@ void main() {
       );
       await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
-        await tester.drag(
-          find.byType(CustomScrollView),
-          const Offset(0, -1400),
-        );
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.drag(
-          find.byType(CustomScrollView),
-          const Offset(0, -1400),
-        );
-        await tester.pump(const Duration(milliseconds: 200));
+        await scrollToRelated(tester);
         // Ensure the tile is visible before tapping (it may sit below the
         // fold after the second drag).
         await tester.scrollUntilVisible(
@@ -1914,16 +1917,70 @@ void main() {
       );
     });
 
+    testWidgets('requests related works only once the section is on screen', (
+      tester,
+    ) async {
+      final log = <int>[];
+      final (container, _, _) = await makeWorld(
+        relatedLog: log,
+        relatedOverrides: {
+          42: [illustJson(901, pageCount: 1)],
+        },
+      );
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        await tester.pump(const Duration(milliseconds: 300));
+        // A short scroll that keeps the section below the fold.
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -80));
+        await tester.pump(const Duration(milliseconds: 300));
+      });
+      expect(log, isEmpty, reason: 'opening the page sends no request');
+
+      await mockNetworkImagesFor(() => scrollToRelated(tester));
+      expect(log, [42]);
+      expect(find.text('illust 901'), findsOneWidget);
+
+      // Scrolling away and back, and the bottom-of-page paging check, do
+      // not send the first request again.
+      await mockNetworkImagesFor(() async {
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, 900));
+        await tester.pump(const Duration(milliseconds: 200));
+        await scrollToRelated(tester);
+      });
+      expect(log, [42]);
+    });
+
+    testWidgets('an already loaded related list shows without waiting', (
+      tester,
+    ) async {
+      final log = <int>[];
+      final (container, _, _) = await makeWorld(
+        relatedLog: log,
+        relatedOverrides: {
+          42: [illustJson(901, pageCount: 1)],
+        },
+      );
+      await container.read(relatedIllustControllerProvider(42).future);
+      expect(log, [42]);
+
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        final position = tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position;
+        position.jumpTo(position.maxScrollExtent);
+        // One frame: no visibility round trip before the list appears.
+        await tester.pump();
+      });
+      expect(find.text('Related works'), findsOneWidget);
+      expect(find.byKey(const ValueKey('related-trigger-42')), findsNothing);
+      expect(log, [42]);
+    });
+
     testWidgets('empty related list hides the whole section', (tester) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
-      await mockNetworkImagesFor(() async {
-        await tester.drag(
-          find.byType(CustomScrollView),
-          const Offset(0, -1400),
-        );
-        await tester.pump(const Duration(milliseconds: 200));
-      });
+      await mockNetworkImagesFor(() => scrollToRelated(tester));
       expect(find.text('Related works'), findsNothing);
     });
   });
@@ -2010,18 +2067,18 @@ void main() {
         );
 
         // Scrolling past the artwork to the bottom leaves no page
-        // visible — the pill leaves with it.
-        tester
-            .state<ScrollableState>(find.byType(Scrollable).first)
-            .position
-            .jumpTo(
-              tester
-                  .state<ScrollableState>(find.byType(Scrollable).first)
-                  .position
-                  .maxScrollExtent,
-            );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        // visible — the pill leaves with it. The first jump brings the
+        // related section on screen, which loads it on demand; the second
+        // lands on the bottom of the now taller page.
+        for (var i = 0; i < 2; i++) {
+          final position = tester
+              .state<ScrollableState>(find.byType(Scrollable).first)
+              .position;
+          position.jumpTo(position.maxScrollExtent);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.pump(const Duration(milliseconds: 300));
+        }
         expect(find.text('作品说明文字'), findsOneWidget);
         expect(find.byType(DetailPageCounter), findsNothing);
       },

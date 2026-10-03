@@ -131,20 +131,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   StreamSubscription<DownloadEvent>? _downloadEvents;
 
   @override
-  void initState() {
-    super.initState();
-    // Start fetching related works as soon as the detail page opens (the
-    // official client does too). The section further down is a lazy sliver:
-    // without this prefetch the request only began once the user scrolled
-    // to the bottom, which read as an endless spinner.
-    unawaited(
-      ref
-          .read(relatedIllustControllerProvider(widget.illustId).future)
-          .then((_) {}, onError: (Object _) {}),
-    );
-  }
-
-  @override
   void dispose() {
     _downloadEvents?.cancel();
     _narrowScroll.dispose();
@@ -581,16 +567,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       final metrics = notification.metrics;
       if (metrics.maxScrollExtent > 0 &&
           metrics.pixels >= metrics.maxScrollExtent - 500) {
-        // loadMore asserts an AsyncData state (it calls requireValue),
-        // so only hand the scroll event over once the first page
-        // actually loaded.
-        final relatedState = ref.read(
-          relatedIllustControllerProvider(widget.illustId),
-        );
-        if (relatedState.hasValue) {
-          ref
-              .read(relatedIllustControllerProvider(widget.illustId).notifier)
-              .loadMore();
+        // The first page is requested by the related section once it is
+        // on screen; this check must never be the first request, so it
+        // only looks at a list that already exists. loadMore asserts an
+        // AsyncData state (it calls requireValue), so it also waits for
+        // the first page to land.
+        final related = relatedIllustControllerProvider(widget.illustId);
+        if (ref.exists(related) && ref.read(related).hasValue) {
+          ref.read(related.notifier).loadMore();
         }
       }
       return false;
