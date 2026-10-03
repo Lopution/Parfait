@@ -76,6 +76,8 @@ const _durationCensus = <String, int>{
   'lib/app/motion/motion_tokens.dart': 20,
   'lib/app/haptics/app_haptics.dart': 3,
   'lib/app/widgets/smooth_wheel_scroll.dart': 2,
+  // Show delay of the image progress ring: a debounce, not an animation.
+  'lib/app/widgets/image_load_progress.dart': 1,
   'lib/features/illust/detail/ugoira_viewer.dart': 1,
   'lib/features/settings/pages/frame_probe_page.dart': 1,
 };

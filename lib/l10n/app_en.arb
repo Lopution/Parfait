@@ -1185,5 +1185,9 @@
   "imageRetry": "Reload image",
   "@imageRetry": {
     "description": "Tooltip of the retry button on an image that failed to load"
+  },
+  "imageLoading": "Loading image",
+  "@imageLoading": {
+    "description": "Screen-reader label of the progress ring over a loading detail or viewer image"
   }
 }

@@ -2542,4 +2542,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageRetry => 'Reload image';
+
+  @override
+  String get imageLoading => 'Loading image';
 }

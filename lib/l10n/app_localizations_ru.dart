@@ -2543,4 +2543,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get imageRetry => 'Загрузить изображение снова';
+
+  @override
+  String get imageLoading => 'Загрузка изображения';
 }

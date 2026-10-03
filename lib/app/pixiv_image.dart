@@ -16,8 +16,10 @@ import '../core/network/compat/image_cache.dart';
 import '../core/network/compat/image_demand.dart';
 import '../core/network/compat/network_providers.dart';
 import '../l10n/app_localizations.dart';
+import 'widgets/image_load_progress.dart';
 
 export '../core/network/compat/image_cache.dart' show ImageFetchPriority;
+export 'widgets/image_load_progress.dart';
 
 /// Decode policy of a [PixivImage] variant (R8 performance boundary).
 enum PixivImageSize {
@@ -67,6 +69,7 @@ class PixivImage extends ConsumerStatefulWidget {
     this.tierKey,
     this.tier,
     this.tierUpgrade = true,
+    this.progress,
   });
 
   /// Feed/row card variant: decode width derives from [layoutWidth] (the
@@ -134,6 +137,7 @@ class PixivImage extends ConsumerStatefulWidget {
     IllustImageTier? tier,
     bool tierUpgrade = true,
     Widget? placeholderWidget,
+    ValueNotifier<ImageLoadProgress>? progress,
     // Hero hand-off phase: decode at the source card's width so the first
     // frame is the exact cache entry the feed already decoded — without
     // this, the detail page re-decodes the same file at screen width and
@@ -152,6 +156,7 @@ class PixivImage extends ConsumerStatefulWidget {
          tier: tier,
          tierUpgrade: tierUpgrade,
          placeholderWidget: placeholderWidget,
+         progress: progress,
        );
 
   /// Hero hand-off variant: keeps the transition history keyed by [tag] so a
@@ -269,6 +274,11 @@ class PixivImage extends ConsumerStatefulWidget {
   /// since an upgraded file decodes to the same output size anyway and only
   /// adds file-read cost.
   final bool tierUpgrade;
+
+  /// Receives the download progress of the image this widget resolves, for
+  /// an [ImageLoadProgressOverlay] placed outside any Hero. The owner keeps
+  /// the notifier at least as long as this widget.
+  final ValueNotifier<ImageLoadProgress>? progress;
 
   @override
   ConsumerState<PixivImage> createState() => _PixivImageState();
@@ -624,8 +634,82 @@ class _PixivImageState extends ConsumerState<PixivImage> {
   @override
   void dispose() {
     _retryTimer?.cancel();
+    _detachProgress();
     _release();
     super.dispose();
+  }
+
+  /// What [_trackProgress] last attached for: notifier, URL, decode width,
+  /// cache manager and load generation.
+  Object? _progressKey;
+  ValueNotifier<ImageLoadProgress>? _progressNotifier;
+  ImageStream? _progressStream;
+  ImageStreamListener? _progressListener;
+
+  /// Follows the stream the visible image resolves — the same key, so no
+  /// second decode. Attaches after the frame: a cache hit reports at once,
+  /// and notifying the overlay (a sibling) mid-build is not allowed.
+  void _trackProgress(
+    String url,
+    int? decodeWidth,
+    BaseCacheManager? cacheManager,
+  ) {
+    final notifier = widget.progress;
+    final key = (notifier, url, decodeWidth, cacheManager, _load);
+    if (key == _progressKey) return;
+    _progressKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _progressKey != key) return;
+      // The old stream's last report must not linger on the new image.
+      _progressNotifier?.value = const ImageLoadProgress.idle();
+      _detachProgress();
+      if (notifier != null) {
+        _attachProgress(notifier, url, decodeWidth, cacheManager);
+      }
+    });
+  }
+
+  void _attachProgress(
+    ValueNotifier<ImageLoadProgress> notifier,
+    String url,
+    int? decodeWidth,
+    BaseCacheManager? cacheManager,
+  ) {
+    ImageProvider provider = PixivImage.provider(
+      url,
+      cacheManager: cacheManager,
+    );
+    if (decodeWidth != null) {
+      provider = ResizeImage.resizeIfNeeded(decodeWidth, null, provider);
+    }
+    final stream = provider.resolve(ImageConfiguration.empty);
+    void idle() => notifier.value = const ImageLoadProgress.idle();
+    // Loading starts with the first bytes, not with the request: a fetch
+    // still connecting or queued reports nothing.
+    final listener = ImageStreamListener(
+      (_, _) => idle(),
+      onChunk: (event) {
+        final total = event.expectedTotalBytes;
+        notifier.value = ImageLoadProgress.loading(
+          total == null || total <= 0
+              ? null
+              : (event.cumulativeBytesLoaded / total).clamp(0.0, 1.0),
+        );
+      },
+      onError: (_, _) => idle(),
+    );
+    stream.addListener(listener);
+    _progressNotifier = notifier;
+    _progressStream = stream;
+    _progressListener = listener;
+  }
+
+  void _detachProgress() {
+    final listener = _progressListener;
+    if (listener != null) _progressStream?.removeListener(listener);
+    _progressNotifier = null;
+    _progressStream = null;
+    _progressListener = null;
   }
 
   /// A transient failure retries on its own up to [_retryBackoff].length
@@ -749,6 +833,7 @@ class _PixivImageState extends ConsumerState<PixivImage> {
       demand = network.imageDemand;
     }
     _hold(demand, imageUrl);
+    _trackProgress(imageUrl, effectiveWidth, cacheManager);
     PixivImage._recordWhenDecoded(
       imageUrl,
       widget.tierKey,

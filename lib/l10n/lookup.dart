@@ -238,6 +238,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'illustDetailOpenLinkFailed' => l10n.illustDetailOpenLinkFailed,
   'illustDetailTitle' => l10n.illustDetailTitle,
   'illustInfoJump' => l10n.illustInfoJump,
+  'imageLoading' => l10n.imageLoading,
   'imageRetry' => l10n.imageRetry,
   'imageSource' => l10n.imageSource,
   'imageSourceApplyAndTest' => l10n.imageSourceApplyAndTest,

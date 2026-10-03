@@ -2481,4 +2481,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageRetry => '画像を再読み込み';
+
+  @override
+  String get imageLoading => '画像を読み込み中';
 }
