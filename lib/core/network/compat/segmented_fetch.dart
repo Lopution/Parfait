@@ -206,17 +206,24 @@ class SegmentedFetch {
       onResume: _deliver,
       onCancel: _shutdown,
     );
-    cancel?.whenCancel.then((_) {
-      if (_closed) return;
-      _output
-        ..addError(const SegmentedFetchCancelled())
-        ..close();
-      _shutdown();
-    });
+    cancel?.whenCancel.then((_) => close());
     return _output.stream;
   }
 
+  /// Ends the transfer early: every connection closes and the output ends
+  /// with [SegmentedFetchCancelled]. Safe to call twice and before the
+  /// output is listened to.
+  void close() {
+    if (!_started || _closed) return;
+    _output
+      ..addError(const SegmentedFetchCancelled())
+      ..close();
+    _shutdown();
+  }
+
   void _start() {
+    // Closed before anyone listened.
+    if (_closed) return;
     _ticker = Timer.periodic(_tick, (_) => _check());
     final first = _segments.first..claimed = true;
     _workers++;
@@ -560,8 +567,10 @@ class _Attempt {
     final done = reading;
     if (done != null && !done.isCompleted) done.completeError(const _Restart());
     // Cancelling takes effect at once; its future may only settle on a later
-    // turn of the root zone, which nothing here needs to wait for.
-    unawaited(subscription?.cancel());
+    // turn of the root zone, which nothing here needs to wait for. A body
+    // torn down mid-transfer may complete it with an error: the connection
+    // is gone either way.
+    subscription?.cancel().ignore();
     try {
       await response?.close();
     } on Object {

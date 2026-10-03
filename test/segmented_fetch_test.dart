@@ -354,6 +354,34 @@ void main() {
     });
   });
 
+  test('closing before anyone listens leaves nothing running', () {
+    fakeAsync((async) {
+      final server = _Server(4 * _mib);
+      final budget = SegmentBudget();
+      final fetch = SegmentedFetch(open: server.open, budget: budget);
+      late Stream<List<int>> output;
+      server
+          .open(0, SegmentedFetch.defaultSegmentBytes - 1, cancel: _Cancel())
+          .then((first) => output = fetch.continueFrom(first));
+      async.flushMicrotasks();
+      fetch.close();
+      Object? error;
+      var done = false;
+      output.listen(
+        null,
+        onError: (Object e) => error = e,
+        onDone: () => done = true,
+      );
+      async.elapse(const Duration(seconds: 10));
+      expect(error, isA<SegmentedFetchCancelled>());
+      expect(done, isTrue);
+      expect(server.requests, hasLength(1));
+      expect(server.openConnections, 0);
+      expect(budget.inUse, 0);
+      expect(async.periodicTimerCount, 0);
+    });
+  });
+
   test('a paused reader stops new segments; resuming finishes', () {
     fakeAsync((async) {
       final server = _Server(10 * _mib);
