@@ -17,28 +17,19 @@ class WelcomePage extends StatelessWidget {
       header: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Single-line scaleDown: long translations shrink to fit instead
-          // of wrapping to a second line, so the brand lockup's layout
-          // anchor is identical in every locale.
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              l10nLookupFor(parseAppLocale(languageTag), 'welcome1'),
+          // Long translations wrap rather than shrink: the brand lockup
+          // stays at its full size in every locale.
+          for (final (index, key) in const [
+            'welcome1',
+            'welcome2',
+          ].indexed) ...[
+            if (index > 0) const SizedBox(height: FuncSpacing.xs),
+            Text(
+              l10nLookupFor(parseAppLocale(languageTag), key),
               textAlign: TextAlign.center,
-              maxLines: 1,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-          ),
-          const SizedBox(height: FuncSpacing.xs),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              l10nLookupFor(parseAppLocale(languageTag), 'welcome2'),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-          ),
+          ],
         ],
       ),
       content: const SizedBox.shrink(),

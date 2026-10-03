@@ -115,8 +115,14 @@ void expectLocaleLayoutIntact(
     final text = paragraph.text.toPlainText(includeSemanticsLabels: false);
     final key = messages.keyOf(text);
     if (key == null) continue;
-    if (profile == LayoutProfile.compact && _insideFitLabel(element)) continue;
-    final defect = paragraphDefect(paragraph);
+    if (profile == LayoutProfile.compact && _inside<FitLabel>(element)) {
+      continue;
+    }
+    // A text field's floating label shrinks to 0.75 by the Material spec.
+    final defect = paragraphDefect(
+      paragraph,
+      checkScale: !_inside<InputDecorator>(element),
+    );
     if (defect == null) continue;
     problems.add(
       '"$text" ($key): $defect\n    in ${_ancestry(element).join(' < ')}',
@@ -131,8 +137,36 @@ void expectLocaleLayoutIntact(
   );
 }
 
+/// [expectLocaleLayoutIntact] down the whole page: lazy lists only build
+/// what is on screen, so the page's main vertical scrollable (the first in
+/// tree order) is stepped by most of a viewport until its end, checking at
+/// every stop.
+Future<void> expectPageLayoutIntact(
+  WidgetTester tester, {
+  required Locale locale,
+  required LayoutProfile profile,
+}) async {
+  expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
+  final scrollables = find.byWidgetPredicate(
+    (widget) =>
+        widget is Scrollable && widget.axisDirection == AxisDirection.down,
+  );
+  if (scrollables.evaluate().isEmpty) return;
+  final position = tester.state<ScrollableState>(scrollables.first).position;
+  while (position.pixels < position.maxScrollExtent) {
+    position.jumpTo(
+      math.min(
+        position.pixels + position.viewportDimension * 0.8,
+        position.maxScrollExtent,
+      ),
+    );
+    await settleLayout(tester);
+    expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
+  }
+}
+
 /// What is wrong with a laid-out UI text paragraph, or null.
-String? paragraphDefect(RenderParagraph paragraph) {
+String? paragraphDefect(RenderParagraph paragraph, {bool checkScale = true}) {
   const slack = 0.5;
   if (paragraph.didExceedMaxLines) return 'cut by maxLines';
   final size = paragraph.size;
@@ -148,6 +182,7 @@ String? paragraphDefect(RenderParagraph paragraph) {
         '${paragraph.getMaxIntrinsicWidth(double.infinity).toStringAsFixed(1)}'
         'px, has ${size.width.toStringAsFixed(1)}px';
   }
+  if (!checkScale) return null;
   final scale = _scaleToRoot(paragraph);
   if (scale < LabelFit.minScale - 1e-3) {
     return 'shrunk to ${scale.toStringAsFixed(2)} by a transform';
@@ -164,10 +199,10 @@ double _scaleToRoot(RenderObject paragraph) {
   return math.sqrt(dx.dx * dx.dx + dx.dy * dx.dy);
 }
 
-bool _insideFitLabel(Element element) {
+bool _inside<T extends Widget>(Element element) {
   var found = false;
   element.visitAncestorElements((ancestor) {
-    found = ancestor.widget is FitLabel;
+    found = ancestor.widget is T;
     return !found;
   });
   return found;

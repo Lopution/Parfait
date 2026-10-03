@@ -330,6 +330,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'networkCompatibilityHint' => l10n.networkCompatibilityHint,
   'networkDoh' => l10n.networkDoh,
   'networkDohEndpoints' => l10n.networkDohEndpoints,
+  'networkDohEndpointsHint' => l10n.networkDohEndpointsHint,
   'networkDohEndpointsInvalid' => l10n.networkDohEndpointsInvalid,
   'networkDohHint' => l10n.networkDohHint,
   'networkEchFrontHost' => l10n.networkEchFrontHost,

@@ -122,49 +122,6 @@ void main() {
     }
   });
 
-  group('long translations', () {
-    // ru strings are the longest bundled translations; the acceptance gate
-    // asks for a non-CJK long-translation pass on top of the zh matrix.
-    SettingsRepository ruRepository() => _StubSettingsRepository(
-      const AppSettings(
-        guideCompleted: false,
-        languageTag: 'ru-RU',
-        themeCode: AppSettings.systemTheme,
-      ),
-    );
-    final pages = <String, Widget>{
-      'welcome': const WelcomePage(),
-      'language': const LanguagePage(),
-      'theme': const ThemePage(),
-    };
-    for (final size in const [Size(320, 568), Size(640, 320)]) {
-      for (final entry in pages.entries) {
-        testWidgets('${entry.key} keeps the CTA reachable in ru at '
-            '${size.width}x${size.height} @1.3x', (tester) async {
-          addTearDown(tester.view.reset);
-          // Welcome reads the app locale; language/theme read the persisted
-          // settings tag — set both so every page renders ru strings.
-          await pumpPage(
-            tester,
-            size,
-            entry.value,
-            textScale: 1.3,
-            repository: ruRepository(),
-            locale: const Locale('ru'),
-          );
-          expect(tester.takeException(), isNull, reason: 'no overflow');
-
-          final cta = find.byType(ReplicaButton);
-          expect(cta, findsOneWidget);
-          await tester.ensureVisible(cta);
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-          expect(tester.getRect(cta).bottom, lessThanOrEqualTo(size.height));
-        });
-      }
-    }
-  });
-
   group('navigation', () {
     GoRouter router(String initialLocation) {
       return GoRouter(
@@ -315,12 +272,17 @@ void main() {
       expect(find.text('选择喜欢的主题'), findsOneWidget);
     });
 
-    testWidgets('welcome keeps its two-line brand lockup', (tester) async {
+    testWidgets('welcome lockup lines wrap instead of shrinking', (
+      tester,
+    ) async {
       addTearDown(tester.view.reset);
-      await pumpPage(tester, const Size(390, 844), const WelcomePage());
-      // The brand lockup is intentionally scaleDown-anchored (per-page
-      // design decision documented in welcome_page.dart).
-      expect(find.byType(FittedBox), findsNWidgets(2));
+      await pumpPage(tester, const Size(320, 568), const WelcomePage());
+      // Shrinking long translations below 0.8 is not allowed; the full-size
+      // lines wrap (real-width coverage lives in the locale layout matrix).
+      expect(find.byType(FittedBox), findsNothing);
+      final line = tester.widget<Text>(find.text('感谢使用Parfait'));
+      expect(line.maxLines, isNull);
+      expect(line.style!.fontSize, 24);
     });
   });
   group('user agreement', () {

@@ -183,6 +183,26 @@ void main() {
       );
     });
 
+    testWidgets("lets a text field's floating label shrink by the spec", (
+      tester,
+    ) async {
+      await _pumpText(
+        tester,
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: TextEditingController(text: 'value'),
+            decoration: const InputDecoration(labelText: _short),
+          ),
+        ),
+      );
+      expectLocaleLayoutIntact(
+        tester,
+        locale: _en,
+        profile: LayoutProfile.regular,
+      );
+    });
+
     testWidgets('lets a FitLabel ellipsize in the compact profile only', (
       tester,
     ) async {

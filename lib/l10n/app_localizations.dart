@@ -717,8 +717,14 @@ abstract class AppLocalizations {
   /// No description provided for @networkDohEndpoints.
   ///
   /// In zh, this message translates to:
-  /// **'DoH 端点（逗号分隔，https URL）'**
+  /// **'DoH 端点'**
   String get networkDohEndpoints;
+
+  /// No description provided for @networkDohEndpointsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'逗号分隔的 https URL'**
+  String get networkDohEndpointsHint;
 
   /// No description provided for @networkEchFrontHost.
   ///

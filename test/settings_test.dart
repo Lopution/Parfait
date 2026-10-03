@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
@@ -21,14 +20,9 @@ import 'package:parfait/core/comments/comment_translation.dart';
 import 'package:parfait/core/comments/translation_credentials.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart'
-    show
-        DnsSource,
-        NetworkCancelSignal,
-        NetworkRevision,
-        PixivDestinationRegistry;
+    show PixivDestinationRegistry;
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
-import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
@@ -56,74 +50,9 @@ import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/settings_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
-
-class _FakeRepository implements SettingsRepository {
-  _FakeRepository(this.value, {this.failLoad = false});
-
-  AppSettings value;
-  bool failLoad;
-  bool failWrites = false;
-  final saved = <AppSettings>[];
-  Duration writeDelay = Duration.zero;
-
-  @override
-  Future<AppSettings> load() async {
-    if (failLoad) throw StateError('settings unavailable');
-    return value;
-  }
-
-  @override
-  Future<void> save(AppSettings settings) async {
-    if (writeDelay != Duration.zero) await Future<void>.delayed(writeDelay);
-    if (failWrites) throw StateError('settings disk full');
-    value = settings;
-    saved.add(settings);
-  }
-}
-
-/// In-memory credential store — the root-page summary only exercises the
-/// `hasX()` existence probes, but the full surface is implemented so the
-/// fake stays usable if more assertions appear.
-class _FakeTranslationStore implements TranslationCredentialStore {
-  BaiduTranslationCredentials? baidu;
-  LlmTranslationCredentials? llm;
-
-  @override
-  Future<BaiduTranslationCredentials?> readBaidu() async => baidu;
-
-  @override
-  Future<void> writeBaidu(BaiduTranslationCredentials credentials) async {
-    baidu = credentials;
-  }
-
-  @override
-  Future<LlmTranslationCredentials?> readLlm() async => llm;
-
-  @override
-  Future<void> writeLlm(LlmTranslationCredentials credentials) async {
-    llm = credentials;
-  }
-
-  @override
-  Future<bool> hasBaidu() async => baidu != null;
-
-  @override
-  Future<bool> hasLlm() async => llm != null;
-
-  @override
-  Future<void> deleteBaidu() async => baidu = null;
-
-  @override
-  Future<void> deleteLlm() async => llm = null;
-
-  @override
-  Future<void> deleteAll() async {
-    baidu = null;
-    llm = null;
-  }
-}
 
 class _AccountRepository implements AccountMetadataRepository {
   _AccountRepository([this.initial = const [], this.failLoad = false]);
@@ -257,52 +186,6 @@ class _UnusedTransferVerifier implements TransferCredentialVerifier {
   }
 }
 
-class _StubResolver implements SecureResolver {
-  _StubResolver(this.addresses);
-
-  final List<InternetAddress> addresses;
-
-  @override
-  Future<ResolvedHost> resolve(
-    String host, {
-    required NetworkRevision revision,
-    NetworkCancelSignal? cancelSignal,
-  }) async => ResolvedHost(
-    host: host,
-    addresses: addresses,
-    dnsSource: DnsSource.system,
-    revision: revision,
-    ttl: const Duration(seconds: 30),
-  );
-
-  @override
-  Future<void> dispose() async {}
-}
-
-class _RecordingClient extends http.BaseClient {
-  final requests = <http.BaseRequest>[];
-  Object? failure;
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    requests.add(request);
-    final failure = this.failure;
-    if (failure != null) throw failure;
-    return http.StreamedResponse(
-      Stream<List<int>>.value(utf8.encode('{}')),
-      200,
-      request: request,
-    );
-  }
-}
-
-AppSettings _baseSettings() => const AppSettings(
-  guideCompleted: true,
-  languageTag: 'en-US',
-  themeCode: AppSettings.lightTheme,
-  imageSource: AppSettings.normalImageSource,
-);
-
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -335,7 +218,7 @@ void main() {
       'maxDownloadCount': 100,
       'namingRule': 'artist_{id}',
       'translateIndex': 99,
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
 
     expect(settings.guideCompleted, isTrue);
     expect(settings.languageTag, 'ja-JP');
@@ -407,7 +290,7 @@ void main() {
   test(
     'controller serializes writes and exposes the old value on failure',
     () async {
-      final repository = _FakeRepository(_baseSettings())
+      final repository = FakeSettingsRepository(baseTestSettings())
         ..writeDelay = const Duration(milliseconds: 2);
       final container = ProviderContainer(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -442,7 +325,7 @@ void main() {
   );
 
   test('setSearchFilters persists and the provider re-exposes it', () async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     final container = ProviderContainer(
       overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
     );
@@ -460,77 +343,92 @@ void main() {
   });
 
   test('networkModeCode round-trips and missing key defaults to automatic', () {
-    final stored = _baseSettings().copyWith(
+    final stored = baseTestSettings().copyWith(
       networkMode: NetworkMode.directOnly,
     );
     final encoded = stored.toJson();
     expect(encoded['networkModeCode'], NetworkMode.directOnly.code);
-    final restored = AppSettings.fromJson(encoded, fallback: _baseSettings());
+    final restored = AppSettings.fromJson(
+      encoded,
+      fallback: baseTestSettings(),
+    );
     expect(restored.networkMode, NetworkMode.directOnly);
 
     final missing = AppSettings.fromJson({
       'guideCompleted': true,
       'languageTag': 'en-US',
       'themeCode': AppSettings.lightTheme,
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
     expect(missing.networkMode, NetworkMode.automatic);
   });
 
   test('reverseImageEngine round-trips and unknown values fall back', () {
-    final stored = _baseSettings().copyWith(
+    final stored = baseTestSettings().copyWith(
       reverseImageEngine: ReverseImageEngine.ascii2d,
     );
     final encoded = stored.toJson();
     expect(encoded['reverseImageEngine'], 'ascii2d');
-    final restored = AppSettings.fromJson(encoded, fallback: _baseSettings());
+    final restored = AppSettings.fromJson(
+      encoded,
+      fallback: baseTestSettings(),
+    );
     expect(restored.reverseImageEngine, ReverseImageEngine.ascii2d);
 
     final unknown = AppSettings.fromJson({
       'reverseImageEngine': 'goggles',
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
     expect(unknown.reverseImageEngine, ReverseImageEngine.sauceNao);
     // A missing key keeps the explicit default for existing users.
-    final missing = AppSettings.fromJson(const {}, fallback: _baseSettings());
+    final missing = AppSettings.fromJson(
+      const {},
+      fallback: baseTestSettings(),
+    );
     expect(missing.reverseImageEngine, ReverseImageEngine.sauceNao);
   });
 
   test('animationSpeed round-trips under the legacy key', () {
-    final stored = _baseSettings().copyWith(
+    final stored = baseTestSettings().copyWith(
       animationSpeed: AnimationSpeed.fast,
     );
     final encoded = stored.toJson();
     // The persisted key and codes predate the rename: no migration.
     expect(encoded['pageTransitionSpeedCode'], 250);
-    final restored = AppSettings.fromJson(encoded, fallback: _baseSettings());
+    final restored = AppSettings.fromJson(
+      encoded,
+      fallback: baseTestSettings(),
+    );
     expect(restored.animationSpeed, AnimationSpeed.fast);
     final legacySlow = AppSettings.fromJson({
       'pageTransitionSpeedCode': 450,
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
     expect(legacySlow.animationSpeed, AnimationSpeed.slow);
 
     final unknown = AppSettings.fromJson({
       'pageTransitionSpeedCode': 999,
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
     expect(unknown.animationSpeed, AnimationSpeed.normal);
     // Missing key keeps the fallback's value; the explicit default is
     // normal for existing installs.
-    final missing = AppSettings.fromJson(const {}, fallback: _baseSettings());
+    final missing = AppSettings.fromJson(
+      const {},
+      fallback: baseTestSettings(),
+    );
     expect(missing.animationSpeed, AnimationSpeed.normal);
     expect(AppSettings.defaults().animationSpeed, AnimationSpeed.normal);
   });
 
   test('pressFeedback defaults on and round-trips', () {
     expect(AppSettings.defaults().pressFeedback, isTrue);
-    final stored = _baseSettings().copyWith(pressFeedback: false);
+    final stored = baseTestSettings().copyWith(pressFeedback: false);
     final encoded = stored.toJson();
     expect(encoded['pressFeedback'], isFalse);
     expect(
-      AppSettings.fromJson(encoded, fallback: _baseSettings()).pressFeedback,
+      AppSettings.fromJson(encoded, fallback: baseTestSettings()).pressFeedback,
       isFalse,
     );
     final corrupt = AppSettings.fromJson({
       'pressFeedback': 'yes',
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
     expect(corrupt.pressFeedback, isTrue);
   });
 
@@ -540,21 +438,21 @@ void main() {
       PageTransitionStyle.system,
     );
     for (final style in PageTransitionStyle.values) {
-      final encoded = _baseSettings()
+      final encoded = baseTestSettings()
           .copyWith(pageTransitionStyle: style)
           .toJson();
       expect(encoded['pageTransitionStyle'], style.name);
       expect(
         AppSettings.fromJson(
           encoded,
-          fallback: _baseSettings(),
+          fallback: baseTestSettings(),
         ).pageTransitionStyle,
         style,
       );
     }
     final unknown = AppSettings.fromJson({
       'pageTransitionStyle': 'fadeThrough',
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
     expect(unknown.pageTransitionStyle, PageTransitionStyle.system);
   });
 
@@ -577,15 +475,15 @@ void main() {
       widthMin: 800,
       heightMin: 600,
     );
-    final stored = _baseSettings().copyWith(searchFilters: filters);
+    final stored = baseTestSettings().copyWith(searchFilters: filters);
     final restored = AppSettings.fromJson(
       stored.toJson(),
-      fallback: _baseSettings(),
+      fallback: baseTestSettings(),
     );
     expect(restored.searchFilters, filters);
 
     // Custom date bounds also survive.
-    final dated = _baseSettings().copyWith(
+    final dated = baseTestSettings().copyWith(
       searchFilters: SearchFilters(
         startDate: DateTime(2024, 1, 10),
         endDate: DateTime(2024, 2, 10),
@@ -593,7 +491,7 @@ void main() {
     );
     final datedRestored = AppSettings.fromJson(
       dated.toJson(),
-      fallback: _baseSettings(),
+      fallback: baseTestSettings(),
     );
     expect(datedRestored.searchFilters.startDate, DateTime(2024, 1, 10));
     expect(datedRestored.searchFilters.endDate, DateTime(2024, 2, 10));
@@ -606,7 +504,7 @@ void main() {
         'bookmarkMin': 'not-a-number',
         'aiFilter': 'exclude',
       },
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
     expect(damaged.searchFilters.target, SearchTarget.partialMatchForTags);
     expect(damaged.searchFilters.sort, SearchSort.dateAsc);
     expect(damaged.searchFilters.bookmarkMin, isNull);
@@ -614,13 +512,16 @@ void main() {
 
     // A missing/non-map value keeps the defaults.
     expect(
-      AppSettings.fromJson(const {}, fallback: _baseSettings()).searchFilters,
+      AppSettings.fromJson(
+        const {},
+        fallback: baseTestSettings(),
+      ).searchFilters,
       SearchFilters.defaults,
     );
     expect(
       AppSettings.fromJson(const {
         'searchFilters': 42,
-      }, fallback: _baseSettings()).searchFilters,
+      }, fallback: baseTestSettings()).searchFilters,
       SearchFilters.defaults,
     );
   });
@@ -628,7 +529,7 @@ void main() {
   test('legacy previewQuality true migrates to PreviewQuality.large', () {
     final settings = AppSettings.fromJson({
       'previewQuality': true,
-    }, fallback: _baseSettings());
+    }, fallback: baseTestSettings());
     expect(settings.previewQuality, PreviewQuality.large);
   });
 
@@ -640,18 +541,18 @@ void main() {
       // key were ignored.
       final fromFalse = AppSettings.fromJson({
         'scaleQuality': false,
-      }, fallback: _baseSettings());
+      }, fallback: baseTestSettings());
       expect(fromFalse.viewQuality, ViewQuality.large);
 
       final fromTrue = AppSettings.fromJson({
         'scaleQuality': true,
-      }, fallback: _baseSettings());
+      }, fallback: baseTestSettings());
       expect(fromTrue.viewQuality, ViewQuality.original);
     },
   );
 
   test('plain settings JSON never contains translation credentials', () {
-    final json = _baseSettings().toJson();
+    final json = baseTestSettings().toJson();
     expect(json.keys, isNot(contains('translateAuthData')));
     expect(json.values, isNot(contains('access-token')));
     expect(AppSettings.translationCredentialRef.credentialKey, isNotEmpty);
@@ -801,7 +702,7 @@ void main() {
   testWidgets('browse quality choices use typed segmented buttons', (
     tester,
   ) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -862,7 +763,7 @@ void main() {
 
   Future<void> pumpBrowse(
     WidgetTester tester,
-    _FakeRepository repository,
+    FakeSettingsRepository repository,
   ) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -890,7 +791,7 @@ void main() {
     testWidgets('animation speed is a three-way picker on ${platform.name}', (
       tester,
     ) async {
-      final repository = _FakeRepository(_baseSettings());
+      final repository = FakeSettingsRepository(baseTestSettings());
       debugDefaultTargetPlatformOverride = platform;
       try {
         await pumpBrowse(tester, repository);
@@ -922,7 +823,7 @@ void main() {
     testWidgets('the page transition picker persists on ${platform.name}', (
       tester,
     ) async {
-      final repository = _FakeRepository(_baseSettings());
+      final repository = FakeSettingsRepository(baseTestSettings());
       debugDefaultTargetPlatformOverride = platform;
       try {
         await pumpBrowse(tester, repository);
@@ -950,7 +851,7 @@ void main() {
   }
 
   testWidgets('the press feedback switch persists', (tester) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     await pumpBrowse(tester, repository);
     final row = find.text('按压反馈', skipOffstage: false);
     await _scrollCentered(tester, row);
@@ -963,8 +864,8 @@ void main() {
   testWidgets('reduce motion greys the speed picker and explains why', (
     tester,
   ) async {
-    final repository = _FakeRepository(
-      _baseSettings().copyWith(reduceMotion: true),
+    final repository = FakeSettingsRepository(
+      baseTestSettings().copyWith(reduceMotion: true),
     );
     await pumpBrowse(tester, repository);
 
@@ -1022,7 +923,10 @@ void main() {
   });
 
   testWidgets('settings read failures expose a retryable UI', (tester) async {
-    final repository = _FakeRepository(_baseSettings(), failLoad: true);
+    final repository = FakeSettingsRepository(
+      baseTestSettings(),
+      failLoad: true,
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -1046,7 +950,7 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings()),
+            FakeSettingsRepository(baseTestSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             _AccountRepository(const [], true),
@@ -1083,7 +987,7 @@ void main() {
         ProviderScope(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
-              _FakeRepository(_baseSettings()),
+              FakeSettingsRepository(baseTestSettings()),
             ),
             accountMetadataRepositoryProvider.overrideWithValue(repository),
             credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
@@ -1158,7 +1062,7 @@ void main() {
   );
 
   testWidgets('settings home shows the beta56 route order', (tester) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1209,7 +1113,7 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings()),
+            FakeSettingsRepository(baseTestSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(),
@@ -1263,7 +1167,7 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings()),
+            FakeSettingsRepository(baseTestSettings()),
           ),
         ],
         child: const MaterialApp(
@@ -1311,7 +1215,7 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings()),
+            FakeSettingsRepository(baseTestSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(),
@@ -1360,13 +1264,15 @@ void main() {
   testWidgets('translation entry reports the credential configured state', (
     tester,
   ) async {
-    final store = _FakeTranslationStore()
+    final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+            FakeSettingsRepository(
+              baseTestSettings().copyWith(translateIndex: 2),
+            ),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(),
@@ -1392,7 +1298,9 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+            FakeSettingsRepository(
+              baseTestSettings().copyWith(translateIndex: 2),
+            ),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(),
@@ -1415,13 +1323,15 @@ void main() {
   testWidgets('translation summary re-probes when the provider switches', (
     tester,
   ) async {
-    final store = _FakeTranslationStore()
+    final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+            FakeSettingsRepository(
+              baseTestSettings().copyWith(translateIndex: 2),
+            ),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(),
@@ -1456,7 +1366,7 @@ void main() {
   testWidgets('translation summary re-probes when the root resurfaces', (
     tester,
   ) async {
-    final store = _FakeTranslationStore()
+    final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
     final router = createPixivRouter(initialLocation: '/settings');
     addTearDown(router.dispose);
@@ -1464,7 +1374,9 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+            FakeSettingsRepository(
+              baseTestSettings().copyWith(translateIndex: 2),
+            ),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(),
@@ -1498,7 +1410,7 @@ void main() {
   testWidgets(
     'translate page credential entry shows and refreshes configured state',
     (tester) async {
-      final store = _FakeTranslationStore()
+      final store = FakeTranslationStore()
         ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
       final router = createPixivRouter(initialLocation: '/settings/translate');
       addTearDown(router.dispose);
@@ -1506,7 +1418,9 @@ void main() {
         ProviderScope(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
-              _FakeRepository(_baseSettings().copyWith(translateIndex: 2)),
+              FakeSettingsRepository(
+                baseTestSettings().copyWith(translateIndex: 2),
+              ),
             ),
             accountMetadataRepositoryProvider.overrideWithValue(
               FakeAccountMetadataRepository(),
@@ -1542,8 +1456,8 @@ void main() {
   testWidgets(
     'download custom template disables save while invalid and guards drafts',
     (tester) async {
-      final repository = _FakeRepository(
-        _baseSettings().copyWith(
+      final repository = FakeSettingsRepository(
+        baseTestSettings().copyWith(
           namingRule: const NamingRule(
             preset: NamingPreset.custom,
             template: '{id}',
@@ -1624,7 +1538,7 @@ void main() {
   testWidgets('save location album name draft asks before leaving', (
     tester,
   ) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -1723,8 +1637,8 @@ void main() {
   ) async {
     const uri =
         'content://com.android.externalstorage.documents/tree/primary%3ADownload%2Fpixiv';
-    final repository = _FakeRepository(
-      _baseSettings().copyWith(
+    final repository = FakeSettingsRepository(
+      baseTestSettings().copyWith(
         downloadDestination: const DownloadDestination.safFolder(uri),
       ),
     );
@@ -1759,8 +1673,8 @@ void main() {
   ) async {
     const uri =
         'content://com.android.externalstorage.documents/tree/1234-5678%3ADCIM';
-    final repository = _FakeRepository(
-      _baseSettings().copyWith(
+    final repository = FakeSettingsRepository(
+      baseTestSettings().copyWith(
         downloadDestination: const DownloadDestination.safFolder(uri),
       ),
     );
@@ -1791,7 +1705,7 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings()),
+            FakeSettingsRepository(baseTestSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(),
@@ -1845,7 +1759,7 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings()),
+            FakeSettingsRepository(baseTestSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(
             FakeAccountMetadataRepository(
@@ -1894,7 +1808,7 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
-            _FakeRepository(_baseSettings()),
+            FakeSettingsRepository(baseTestSettings()),
           ),
           accountMetadataRepositoryProvider.overrideWithValue(repository),
           credentialStoreProvider.overrideWithValue(
@@ -1950,7 +1864,7 @@ void main() {
         ProviderScope(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
-              _FakeRepository(_baseSettings()),
+              FakeSettingsRepository(baseTestSettings()),
             ),
             accountMetadataRepositoryProvider.overrideWithValue(repository),
             credentialStoreProvider.overrideWithValue(
@@ -2016,7 +1930,7 @@ void main() {
     // (1dot1dot1dot1.cloudflare-dns.com) as soon as the user touched the
     // field. Domain endpoints are the production default now. DoH editing
     // lives on the advanced page (D3).
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     final router = createPixivRouter(initialLocation: '/settings/network');
     addTearDown(router.dispose);
     await tester.pumpWidget(
@@ -2066,7 +1980,7 @@ void main() {
   testWidgets('network advanced saves both fields with one button', (
     tester,
   ) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     final router = createPixivRouter(initialLocation: '/settings/network');
     addTearDown(router.dispose);
     await tester.pumpWidget(
@@ -2120,8 +2034,8 @@ void main() {
   testWidgets('network advanced reset asks before restoring defaults', (
     tester,
   ) async {
-    final repository = _FakeRepository(
-      _baseSettings().copyWith(
+    final repository = FakeSettingsRepository(
+      baseTestSettings().copyWith(
         dohEndpointOverride: 'https://9.9.9.9/dns-query',
         echFrontHost: 'custom-ech.example.com',
       ),
@@ -2184,7 +2098,7 @@ void main() {
   testWidgets('network advanced dirty draft asks before leaving', (
     tester,
   ) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -2242,7 +2156,7 @@ void main() {
   testWidgets('browse image source selects a preset and a custom proxy', (
     tester,
   ) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -2309,7 +2223,7 @@ void main() {
   testWidgets('browse image source rejects an invalid custom input', (
     tester,
   ) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -2342,7 +2256,7 @@ void main() {
   testWidgets('browse page groups preferences first and source last', (
     tester,
   ) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     // Tall surface so every lazily-built row exists for position asserts.
     tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
@@ -2370,7 +2284,7 @@ void main() {
   });
 
   testWidgets('browse custom input draft asks before leaving', (tester) async {
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -2432,13 +2346,13 @@ void main() {
   testWidgets(
     'browse image source apply-and-test applies then probes the live pipeline',
     (tester) async {
-      final repository = _FakeRepository(_baseSettings());
-      final backend = _RecordingClient();
+      final repository = FakeSettingsRepository(baseTestSettings());
+      final backend = RecordingClient();
       final policy = NetworkAccessPolicy(
         registry: PixivDestinationRegistry(
           extraImageHosts: {'proxy.example.com'},
         ),
-        resolver: _StubResolver([InternetAddress('93.184.216.34')]),
+        resolver: StubResolver([InternetAddress('93.184.216.34')]),
         clientFactory: (route, canonicalHost, _) => backend,
       );
       await tester.pumpWidget(
@@ -2490,7 +2404,7 @@ void main() {
   ) async {
     // R3: the check icon is the visual channel; Semantics(selected) is the
     // assistive one — both must move together.
-    final repository = _FakeRepository(_baseSettings());
+    final repository = FakeSettingsRepository(baseTestSettings());
     Widget host(Widget home) => ProviderScope(
       overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
       child: MaterialApp(
@@ -2531,12 +2445,12 @@ void main() {
   ) async {
     // R1: every single-choice row — not only theme and language — carries
     // the Semantics(selected) channel next to the check icon.
-    final repository = _FakeRepository(_baseSettings());
-    final translationStore = _FakeTranslationStore();
+    final repository = FakeSettingsRepository(baseTestSettings());
+    final translationStore = FakeTranslationStore();
     final policy = NetworkAccessPolicy(
       registry: PixivDestinationRegistry(),
-      resolver: _StubResolver([InternetAddress('93.184.216.34')]),
-      clientFactory: (route, canonicalHost, _) => _RecordingClient(),
+      resolver: StubResolver([InternetAddress('93.184.216.34')]),
+      clientFactory: (route, canonicalHost, _) => RecordingClient(),
     );
     Widget host(Widget home) => ProviderScope(
       overrides: [
@@ -2583,14 +2497,14 @@ void main() {
   });
 
   test('hapticStrength defaults to standard and round-trips through JSON', () {
-    final base = _baseSettings();
+    final base = baseTestSettings();
     expect(base.hapticStrength, HapticStrength.standard);
     for (final strength in HapticStrength.values) {
       final json = base.copyWith(hapticStrength: strength).toJson();
       expect(json['hapticStrength'], strength.name);
       expect(json.containsKey('enableHaptics'), isFalse);
       expect(
-        AppSettings.fromJson(json, fallback: _baseSettings()).hapticStrength,
+        AppSettings.fromJson(json, fallback: baseTestSettings()).hapticStrength,
         strength,
       );
     }
@@ -2599,9 +2513,11 @@ void main() {
   test('the legacy haptics switch migrates to a strength', () {
     HapticStrength read(Map<String, dynamic> json) => AppSettings.fromJson(
       json,
-      fallback: _baseSettings().copyWith(hapticStrength: HapticStrength.light),
+      fallback: baseTestSettings().copyWith(
+        hapticStrength: HapticStrength.light,
+      ),
     ).hapticStrength;
-    final legacy = _baseSettings().toJson()..remove('hapticStrength');
+    final legacy = baseTestSettings().toJson()..remove('hapticStrength');
     expect(read({...legacy, 'enableHaptics': false}), HapticStrength.off);
     expect(read({...legacy, 'enableHaptics': true}), HapticStrength.standard);
     // Neither key: the fallback wins.
@@ -2616,11 +2532,11 @@ void main() {
   });
 
   group('haptic strength settings group', () {
-    Future<_FakeRepository> pumpPage(
+    Future<FakeSettingsRepository> pumpPage(
       WidgetTester tester,
       RecordingHapticsDriver driver,
     ) async {
-      final repository = _FakeRepository(_baseSettings());
+      final repository = FakeSettingsRepository(baseTestSettings());
       tester.view.physicalSize = const Size(800, 3200);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(

@@ -333,7 +333,10 @@ class AppLocalizationsZh extends AppLocalizations {
       '启用后，回退阶梯使用 DoH 解析（默认 Cloudflare DoH：域名端点 + 静态 Anycast IP，免系统 DNS 投毒；自定义端点解析域名）；关闭则仅用系统 DNS。';
 
   @override
-  String get networkDohEndpoints => 'DoH 端点（逗号分隔，https URL）';
+  String get networkDohEndpoints => 'DoH 端点';
+
+  @override
+  String get networkDohEndpointsHint => '逗号分隔的 https URL';
 
   @override
   String get networkEchFrontHost => 'ECH 前置主机';
