@@ -293,6 +293,9 @@ class ImageFetchDropped implements Exception {}
 enum ImagePreloadResult { decoded, dropped, failed }
 static Future<ImagePreloadResult> PixivImage.preload(…, {ImageDemand? demand,
     ImageFetchPriority priority = ImageFetchPriority.background});
+class ImageLoadProgress { const .idle(); const .loading([double? fraction]); }
+PixivImage(…, {ValueNotifier<ImageLoadProgress>? progress}); // also .detail
+class ImageLoadProgressOverlay { ImageLoadProgressOverlay({required progress}); }
 ```
 
 `PixivNetworkFactory.imageDemand` is the app's single demand, shared with
@@ -328,16 +331,36 @@ static Future<ImagePreloadResult> PixivImage.preload(…, {ImageDemand? demand,
   is the visible widget's job.
 - `preload` never reports through `FlutterError.onError`; a non-drop failure
   is a `debugPrint`, and a failed image is never recorded as decoded.
+- Retry belongs to the visible `PixivImage`. A transient failure (anything but
+  `HttpExceptionWithStatus` 403/404/410) retries by itself after 1 s, 3 s and
+  8 s; a permanent or exhausted one shows a refresh `IconButton` (tooltip
+  `imageRetry`) when the box is at least 48×48, else the broken-image icon. A
+  retry evicts the `ResizeImage`-wrapped key the widget resolves (the
+  loader's own eviction misses it) and bumps the `CachedNetworkImage` key.
+  A manual retry restores the three automatic ones; a URL change resets them;
+  dispose cancels a pending one.
+- Progress: `PixivImage.progress` follows the same stream the widget
+  resolves (no second decode), attached after the frame. `loading` starts at
+  the first byte chunk, so connecting or queued fetches report nothing; an
+  image or error goes back to `idle`, and a new key resets to `idle` first.
+  The overlay shows after 300 ms of `loading`, is `IgnorePointer`, and sits
+  outside any Hero (and outside the viewer's zoom). The detail page passes
+  its notifier only after the Hero phase; flight `popChild`s never get one.
+  The notifier's owner outlives the image.
 
 #### 4. Tests Required
 
 `priority_file_service_test.dart` (lanes, promotion, drop at turn, no leak,
 grace, no interruption, `WebHelper` admits all), `image_demand_test.dart`,
-`pixiv_image_preload_test.dart`, the hold test in
+`pixiv_image_preload_test.dart`, `pixiv_image_retry_test.dart`,
+`image_load_progress_test.dart`, the hold test in
 `pixiv_image_variants_test.dart`, the window test in
 `illust_card_badges_test.dart`, `feed_prefetch_cursor_test.dart`. The image
 chain is real (`test/helpers/image_network.dart`); only the HTTP client and the
-path_provider channel are fakes, and disk work runs inside `runAsync`.
+path_provider channel are fakes, and disk work runs inside `runAsync`. Retry
+and progress tests script the cache manager's `getFileStream` instead
+(`ScriptedCacheManager`) and clear `imageCache` in `setUp` — a cached error or
+image for the same URL answers without asking the manager.
 
 #### 5. Wrong vs Correct
 
