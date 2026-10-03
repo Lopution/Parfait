@@ -315,6 +315,16 @@ cannot reach the scope is the root-messenger update prompt; it reads the
 it on mount/deactivate) and recomputes the same formula from its own
 context's padding.
 
+The five labels share one `LabelFit` (see the Multi-Locale Layout
+Contract): the widest translation sets one scale for all of them against
+the slot `itemWidth − 2 × 6`, floor 0.8, and past the floor every label
+ellipsizes with a tooltip. The labels are measured and painted in one
+style — the ambient `DefaultTextStyle` merged with the bar's 12sp label
+style — and the selection indicator's width is the same measurement taken
+through `fit.scaler`, so it spans exactly the painted label.
+`func_bottom_nav_test.dart` pins the shared scale, the tooltip and the
+indicator width.
+
 ## Top Tab Contract
 
 `AppTabBar` is the single entry point for top-of-page tab rows; feature
@@ -385,6 +395,176 @@ first so the shell can find it — while loading, error, and empty states
 render the switch through `aboveState` so it stays reachable. The profile
 tab delegate (`ReplicaProfileTabsDelegate`) no longer hosts the switch:
 it is a constant 56dp `AppTabBar`; the old 64dp `ChoiceChip` row is gone.
+
+## Multi-Locale Layout Contract
+
+### 1. Scope / Trigger
+
+Every screen ships in zh, en, ja and ru on phones down to 320dp with large
+system text. Russian and English labels run up to twice as wide as Chinese,
+so a layout that fits in the template language can still cut, clip or
+overflow. This contract applies to any change that adds or edits l10n copy,
+a row of controls, or a page.
+
+### 2. What must hold
+
+- **UI text** is a paragraph whose text equals one of the current locale's
+  l10n messages (messages with placeholders match by pattern). UI text is
+  never cut by `maxLines`, clipped in height, wider than its box on a
+  single line, or shrunk below `LabelFit.minScale` (0.8) by a transform
+  such as `FittedBox`.
+- The one exception: in the compact profile (below), a `FitLabel` that
+  reached the 0.8 floor may ellipsize; it then carries the full text in a
+  tooltip.
+- **User content** — titles, user names, tags, captions, comments — may
+  ellipsize as before.
+- No layout errors (overflow) in any locale or profile.
+- A widget that measures its own text (the bottom bar, `AppSegmentedButton`)
+  measures with the exact style and text scaler it paints with, so the
+  measured width equals the painted width.
+
+### 3. Fix order
+
+When a cell fails, fix it in this order, never with a per-language branch:
+
+1. **Wrap**: body copy, explanations, settings titles and subtitles,
+   dialog text, status lines, rows of buttons (`Wrap`, `OverflowBar`).
+   Remove `maxLines`/`ellipsis` from UI text; give text-field helpers
+   `helperMaxLines`.
+2. **Scroll**: tab rows (`AppTabBar`) and `AppTypeSwitch`, per their
+   contracts.
+3. **Uniform scale**: groups of compact labels share one `LabelFit`
+   (bottom bar, segmented buttons), floor 0.8.
+4. **Shorten the translation**, keeping its meaning; review all four
+   languages together. Chinese is the template and changes only when its
+   own layout needs it. Every change is listed in the PR as key, language,
+   old → new.
+5. Only when 1–4 cannot work: ellipsize in the compact profile through
+   `FitLabel`.
+
+Single-line slots that cannot wrap — `AppBar` titles, `SearchBar` hints,
+chip labels — go straight to step 4, or carry less text: the search bars
+use the short `searchBarHint` and keep the descriptive `searchHint` in the
+input page body; the selection bar title is the bare count
+(`selectionAppBar`).
+
+### 4. Signatures
+
+```dart
+// lib/app/widgets/fit_label.dart
+final class LabelFit {
+  static const none;                 // scale 1, no truncation
+  static const double minScale = 0.8;
+  static LabelFit group({required Iterable<String> labels,
+      required TextStyle style, required TextScaler textScaler,
+      required TextDirection textDirection, required double slotWidth});
+  static double measureLabel(String label, TextStyle style,
+      TextScaler textScaler, TextDirection textDirection);
+  final double scale;
+  final bool truncates;              // the widest label ellipsizes at the floor
+  TextScaler scaler(TextScaler base); // base × scale, what FitLabel draws with
+}
+class FitLabel extends StatelessWidget {
+  const FitLabel(String text, {required LabelFit fit, TextStyle? style,
+      TextAlign textAlign = TextAlign.center});
+}
+
+// lib/app/widgets/app_segmented_button.dart
+final class AppSegment<T> { const AppSegment({required T value, required String label}); }
+class AppSegmentedButton<T> extends StatelessWidget {
+  const AppSegmentedButton({required List<AppSegment<T>> segments,
+      required T selected, required ValueChanged<T>? onSelected,
+      VoidCallback? onReselected, bool haptics = true});
+}
+
+// lib/app/widgets/selection_app_bar.dart
+AppBar selectionAppBar(BuildContext context, {required int count,
+    required VoidCallback onClose, required List<Widget> actions});
+```
+
+- `LabelFit.group` fits the widest label in `slotWidth`; an unbounded slot
+  never scales. One pixel of slack keeps rounding at the scaled size from
+  ellipsizing the widest label. `FitLabel` never measures (it works under
+  intrinsic-size queries); the host computes the fit from the slot it lays
+  out.
+- `AppSegmentedButton` is the only place that builds a `SegmentedButton`
+  (`test/architecture` enforces it). Single choice, equal-width segments,
+  no check icon — the selected fill marks the choice, so labels never shift
+  when the selection moves. Padding is explicit (`FuncSpacing.md` per side)
+  and the label style is `labelLarge`, so the slot it measures against,
+  `maxWidth / n − 2 × (padding + density dx)`, is the slot it paints in.
+  A different pick plays the select haptic unless `haptics: false`;
+  `onReselected` makes a re-tap on the selected segment reach the host.
+- `selectionAppBar` is the top bar of every list in selection mode
+  (history, download tasks): close, the count, batch actions on
+  `primaryContainer`. Its title is the bare number with
+  `selectedCount(n)` as the semantics label — next to three actions a
+  sentence does not fit 320dp at large text in every language, and an
+  ellipsis would cut the number off the Russian copy.
+
+### 5. The matrix
+
+- `test/locale_layout/` runs every covered page in each supported locale ×
+  `LayoutProfile`: `regular` (360×780, text 1.0) and `compact` (320×568,
+  text 1.3). Its `flutter_test_config.dart` loads real glyph widths:
+  Montserrat for Latin, Roboto (the SDK's material fonts) for Cyrillic,
+  and a generated CJK box font (full-width 1em, half-width 0.5em, Noto
+  Sans CJK line metrics). A missing font fails the run; other test
+  directories keep the default test font.
+- Register a page with `localeLayoutMatrix(name, body)`, build it with
+  `localeLayoutApp(locale:, home:, overrides: | container:)`, settle with
+  `settleLayout` (not `pumpAndSettle` — skeleton shimmer never settles),
+  then check with `expectPageLayoutIntact`, which steps the first vertical
+  scrollable down by 0.8 viewport and runs `expectLocaleLayoutIntact` at
+  every stop. Open sheets and dialogs the way the app does, then check.
+- Page setups (fakes, provider overrides, worlds) live in `test/helpers/`
+  and are shared with the page's own tests — move them there, never copy
+  them into the matrix.
+- Detector exemptions are structural, never per language: a `FitLabel` in
+  the compact profile; the scale check inside an `InputDecorator` (the
+  floating label shrinks to 0.75 by the Material spec — truncation is still
+  checked). A layout error's report lists every `Row`/`Column` whose
+  children run past their box, with its ancestors.
+- The matrix cannot see misalignment or unbalanced spacing. After fixing a
+  page family, render temporary goldens of it and look at them; do not
+  commit them.
+
+### 6. Tests required
+
+- `harness_test.dart`: glyph widths per script; the detector catches cut,
+  clipped, overflowing and over-shrunk UI text and ignores user content.
+- `fit_label_test.dart`, `app_segmented_button_test.dart`,
+  `func_bottom_nav_test.dart`: measured width equals painted width; the
+  scale never drops below 0.8; truncation brings the tooltip.
+- `compact_controls_test.dart`, `settings_layout_test.dart`,
+  `entry_layout_test.dart`, `content_layout_test.dart`,
+  `lists_layout_test.dart`, `sheets_layout_test.dart`: every cell green, no
+  skipped cells.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```dart
+Row(children: [
+  Expanded(child: Text(l10n.searchTrending)),
+  AppSegmentedButton(...),            // unbounded in a Row: overflows in ru
+]);
+FittedBox(child: Text(l10n.follow));  // shrinks to 0.5 in long locales
+Text(l10n.illustDetailCreateDate(date), overflow: TextOverflow.ellipsis);
+```
+
+#### Correct
+
+```dart
+Wrap(                                 // the switch drops under the title
+  alignment: WrapAlignment.spaceBetween,
+  crossAxisAlignment: WrapCrossAlignment.center,
+  children: [Text(l10n.searchTrending), AppSegmentedButton(...)],
+);
+FitLabel(l10n.follow, fit: fit);      // one shared scale, floor 0.8
+Text(l10n.illustDetailCreateDate(date)); // wraps
+```
 
 ## Profile Header Contract
 
@@ -1218,6 +1398,13 @@ these rules:
   at display size through `PixivImage` (shared cache + Referer); a
   missing URL falls back to a neutral placeholder, never to a metadata
   fetch.
+- **Text wraps; content titles stop at two lines.** Status lines and
+  failure reasons are UI text and wrap in full. A work title is user
+  content: two lines on phones, one on wide rows. A group header title is
+  mostly app copy ("Batch download · N items") and wraps in full
+  (`titleWraps`).
+- **Selection mode uses `selectionAppBar`.** The title is the bare count
+  (see the Multi-Locale Layout Contract).
 
 ## Settings Rows and Groups
 

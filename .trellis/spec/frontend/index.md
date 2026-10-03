@@ -15,7 +15,7 @@ This directory contains guidelines for frontend development. Fill in each file w
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [Directory Structure](./directory-structure.md) | Module organization and file layout | ✅ Active (layering rules, 2026-09) |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | ✅ Active (Hero/Tab/Pull-to-Refresh contracts) |
+| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | ✅ Active (Hero/Tab/Pull-to-Refresh, multi-locale layout contracts) |
 | [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
 | [State Management](./state-management.md) | Local state, global state, server state | ✅ Active (PagedFeedController, Profile Edit, History contracts) |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | ✅ Active |
