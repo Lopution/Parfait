@@ -667,6 +667,18 @@ Future<void> PixivImage.preload(
   overflow menu with text labels; no action may depend solely on a long
   press. Artwork-info navigation must reach the lazily built InfoBlock in
   long works.
+- Related works load on demand. Opening a detail page sends no
+  `/v2/illust/related` request. `RelatedIllustsSlivers` asks for the first
+  page only once its section is on screen (`VisibilityDetector`) **and**
+  the page is current (`DetailPageActivity`). The detail pager prebuilds
+  its neighbours and sets that scope to inactive on every page except the
+  committed one. A route outside the pager has no scope and counts as
+  active. Before the request, the section shows a **static** box the size
+  of the loading spinner: a spinner below the fold keeps producing frames.
+  A related list whose provider already exists (`ref.exists`) renders
+  straight away. The detail page's scroll-to-bottom paging check may call
+  `loadMore` only on an existing, loaded provider. It must never send the
+  first request.
 
 ### 4. Validation & Error Matrix
 
