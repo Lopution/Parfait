@@ -280,6 +280,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
             reduce: settings.reduceMotion,
             speed: settings.animationSpeed,
             pressFeedback: settings.pressFeedback,
+            transitionStyle: settings.pageTransitionStyle,
             // ignore: deprecated_member_use
             child: MaterialUiCompatibilityBridge(
               child: ExternalIntentBridge(

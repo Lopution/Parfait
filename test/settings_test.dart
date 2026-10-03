@@ -534,6 +534,30 @@ void main() {
     expect(corrupt.pressFeedback, isTrue);
   });
 
+  test('pageTransitionStyle defaults to system and round-trips by name', () {
+    expect(
+      AppSettings.defaults().pageTransitionStyle,
+      PageTransitionStyle.system,
+    );
+    for (final style in PageTransitionStyle.values) {
+      final encoded = _baseSettings()
+          .copyWith(pageTransitionStyle: style)
+          .toJson();
+      expect(encoded['pageTransitionStyle'], style.name);
+      expect(
+        AppSettings.fromJson(
+          encoded,
+          fallback: _baseSettings(),
+        ).pageTransitionStyle,
+        style,
+      );
+    }
+    final unknown = AppSettings.fromJson({
+      'pageTransitionStyle': 'fadeThrough',
+    }, fallback: _baseSettings());
+    expect(unknown.pageTransitionStyle, PageTransitionStyle.system);
+  });
+
   test('animation speed factors scale from the normal tier', () {
     expect(AnimationSpeed.normal.factor, 1);
     expect(AnimationSpeed.fast.factor, closeTo(250 / 350, 1e-9));
@@ -791,7 +815,7 @@ void main() {
     );
     // Tall surface: the source list above grew a row, and unmounted
     // off-viewport selectors must not shrink the segment assertions.
-    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.physicalSize = const Size(800, 3200);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
     await tester.pump();
@@ -851,7 +875,7 @@ void main() {
         ),
       ),
     );
-    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.physicalSize = const Size(800, 3200);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
     await tester.pump();
@@ -873,6 +897,7 @@ void main() {
 
         final selector = speedSelector();
         expect(selector, findsOneWidget);
+        await _scrollCentered(tester, selector);
         expect(find.text('动画速度'), findsOneWidget);
         expect(find.text('作用于应用内全部动画；水波纹等系统控件动画不受影响'), findsOneWidget);
         final segments = tester
@@ -882,12 +907,42 @@ void main() {
             .toList();
         expect(segments, AnimationSpeed.values);
 
-        await _scrollCentered(tester, selector);
         await tester.tap(
           find.descendant(of: selector, matching: find.text('慢')),
         );
         await tester.pumpAndSettle();
         expect(repository.value.animationSpeed, AnimationSpeed.slow);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  }
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    testWidgets('the page transition picker persists on ${platform.name}', (
+      tester,
+    ) async {
+      final repository = _FakeRepository(_baseSettings());
+      debugDefaultTargetPlatformOverride = platform;
+      try {
+        await pumpBrowse(tester, repository);
+        expect(find.text('页面转场', skipOffstage: false), findsOneWidget);
+        for (final label in ['系统默认', '共享轴', '缩放', '侧滑']) {
+          expect(find.text(label, skipOffstage: false), findsOneWidget);
+        }
+        expect(
+          find.text(
+            platform == TargetPlatform.android ? '安卓系统转场，支持预测性返回' : '平台默认',
+            skipOffstage: false,
+          ),
+          findsOneWidget,
+        );
+
+        final slide = find.text('侧滑', skipOffstage: false);
+        await _scrollCentered(tester, slide);
+        await tester.tap(slide);
+        await tester.pumpAndSettle();
+        expect(repository.value.pageTransitionStyle, PageTransitionStyle.slide);
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -913,6 +968,7 @@ void main() {
     );
     await pumpBrowse(tester, repository);
 
+    await _scrollCentered(tester, speedSelector());
     final button = tester.widget<SegmentedButton<AnimationSpeed>>(
       speedSelector(),
     );
@@ -2202,7 +2258,7 @@ void main() {
     // The custom input sits at the bottom after the R4
     // regroup — a tall surface builds every lazy row so
     // ensureVisible-based scrolling below stays legal.
-    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
 
@@ -2269,7 +2325,7 @@ void main() {
     // The custom input sits at the bottom after the R4
     // regroup — a tall surface builds every lazy row so
     // ensureVisible-based scrolling below stays legal.
-    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
 
@@ -2288,7 +2344,7 @@ void main() {
   ) async {
     final repository = _FakeRepository(_baseSettings());
     // Tall surface so every lazily-built row exists for position asserts.
-    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
       ProviderScope(
@@ -2403,7 +2459,7 @@ void main() {
       // The custom input sits at the bottom after the R4
       // regroup — a tall surface builds every lazy row so
       // ensureVisible-based scrolling below stays legal.
-      tester.view.physicalSize = const Size(800, 4000);
+      tester.view.physicalSize = const Size(800, 4800);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pump();
 
@@ -2498,7 +2554,7 @@ void main() {
 
     // Browse's image-source group sits at the bottom; a tall surface
     // builds every lazy row so the semantics checks below stay legal.
-    tester.view.physicalSize = const Size(800, 4000);
+    tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
 
     Future<void> check(Widget page, String selected, String idle) async {
@@ -2565,7 +2621,7 @@ void main() {
       RecordingHapticsDriver driver,
     ) async {
       final repository = _FakeRepository(_baseSettings());
-      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.physicalSize = const Size(800, 3200);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(
         ProviderScope(

@@ -528,21 +528,47 @@ window.
 `FuncPage<T>` (`lib/app/navigation/func_page.dart`) is the page behind every
 `_page` route. It is a hand-rolled `Page` because the predictive-back builder's
 `buildTransitions` needs the `PageRoute` itself — a `CustomTransitionPage`
-`transitionsBuilder` closure never receives it. Platform split inside
-`_FuncPageRoute.buildTransitions`: Android runs
-`PredictiveBackPageTransitionsBuilder` (FadeForwards for button pops, the
-shared-element predictive transition while `popGestureInProgress`), every
-other platform keeps the `FuncRouteTransition` trailing-edge slide.
+`transitionsBuilder` closure never receives it. `_page` passes the scoped
+`MotionScope.transitionStyleOf(context)` into `FuncPage.transitionStyle`
+(Settings → Browse → Page transition, persisted as `pageTransitionStyle`),
+and `_FuncPageRoute.buildTransitions` switches on it:
+
+| Style | Android | Other platforms |
+|---|---|---|
+| `system` (default) | `PredictiveBackPageTransitionsBuilder` (FadeForwards for button pops, the shared-element predictive transition while `popGestureInProgress`) | `FuncRouteTransition` trailing-edge slide |
+| `sharedAxis` | `animations` `SharedAxisPageTransitionsBuilder` (horizontal, `fillColor` = `colorScheme.surface`) + back-gesture driver | same, no driver |
+| `zoom` | `ZoomPageTransitionsBuilder` + back-gesture driver | same, no driver |
+| `slide` | `CupertinoPageTransition` (`linearTransition: popGestureInProgress`) + back-gesture driver | same, no driver |
+
+Every style uses an official transition; none is hand-written. The slide
+uses the `CupertinoPageTransition` widget, never
+`CupertinoPageTransitionsBuilder`: the builder adds an iOS edge-swipe back
+detector that steals horizontal drags from in-page pagers (the detail
+pager). Under the slide the route's `barrierColor` is `CupertinoPageRoute`'s
+`0x18000000`, dimming the page below; other styles keep the page's own
+(null). Fade-through is not offered: it is the transition between unrelated
+destinations, not for pushing a page.
+
+The back-gesture driver (`_BackGestureDriver`) is a
+`WidgetsBindingObserver` that forwards the Android predictive back events
+to the route's `handleStartBackGesture(progress: 1 - event.progress)` /
+update / cancel / commit, so the non-system styles follow the finger. It
+claims the gesture only for a non-button event while `route.isCurrent &&
+route.popGestureEnabled`; the binding then sends the rest of that gesture
+to it alone. It mirrors Material's private predictive-back detector
+without its visuals — a framework change there shows up in
+`func_page_test.dart`'s gesture tests.
 `transitionDuration` is `MotionTokens.pageTransitionAndroid` (350 ms — the
 builder's own 800 ms dragged) on Android and `MotionTokens.pageTransition`
 elsewhere, both through `MotionTokens.resolve`, so the animation speed
 setting scales them and reduced motion collapses them to zero (see the
 Motion Contract). FadeForwards scales its phases to whatever duration the
-route carries; Hero flights follow the route duration. Both paths are wrapped by
+route carries; every style shares the route duration and brings its own
+curve, and Hero flights follow the route duration. Every path is wrapped by
 `FuncTransitionGuard` — the shared `TickerMode` + `RoutePopSnapshot` pair that
 freezes an outgoing page's tickers and snapshots it for the reverse flight;
-`FuncRouteTransition` already carries the guard internally, so the Android
-path adds it around the platform builder. `_modalPage` stays on
+`FuncRouteTransition` already carries the guard internally, so the other
+paths add it around the official transition. `_modalPage` stays on
 `CustomTransitionPage`; `maintainState`/`opaque`/`barrierColor` keep
 `CustomTransitionPage`'s defaults.
 
@@ -1148,6 +1174,9 @@ inserted on that frame, and cap how many: a growing row starts at zero
 height, so a lazy list would build every one of them.
 
 ### 5. Overlays
+
+Page transition styles and the back-gesture driver are part of the
+Predictive Back Contract.
 
 `showAppBottomSheet` opens on the spatialDefault spring curve and closes
 over `MotionTokens.medium` (Material's 200 ms exit), with

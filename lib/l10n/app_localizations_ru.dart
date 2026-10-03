@@ -940,6 +940,40 @@ class AppLocalizationsRu extends AppLocalizations {
       'Пока включено «Меньше анимаций», анимации не воспроизводятся и скорость не действует';
 
   @override
+  String get motionPageTransition => 'Переход между страницами';
+
+  @override
+  String get pageTransitionStyleSystem => 'Системный';
+
+  @override
+  String get pageTransitionStyleSystemHint =>
+      'Системный переход Android с предиктивным «Назад»';
+
+  @override
+  String get pageTransitionStyleSystemHintOther => 'По умолчанию для платформы';
+
+  @override
+  String get pageTransitionStyleSharedAxis => 'Общая ось';
+
+  @override
+  String get pageTransitionStyleSharedAxisHint =>
+      'Рекомендация Material: обе страницы сдвигаются в одну сторону с наплывом';
+
+  @override
+  String get pageTransitionStyleZoom => 'Масштаб';
+
+  @override
+  String get pageTransitionStyleZoomHint =>
+      'Увеличение при открытии (как в Android 10)';
+
+  @override
+  String get pageTransitionStyleSlide => 'Сдвиг';
+
+  @override
+  String get pageTransitionStyleSlideHint =>
+      'Страница выезжает справа, предыдущая смещается и затемняется (как в iOS)';
+
+  @override
   String get maxDownloadCount => 'Максимум параллельных загрузок';
 
   @override

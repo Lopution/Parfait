@@ -1781,6 +1781,66 @@ abstract class AppLocalizations {
   /// **'开启「减少动态效果」时不播放动画，速度不生效'**
   String get animationSpeedReduceHint;
 
+  /// No description provided for @motionPageTransition.
+  ///
+  /// In zh, this message translates to:
+  /// **'页面转场'**
+  String get motionPageTransition;
+
+  /// No description provided for @pageTransitionStyleSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统默认'**
+  String get pageTransitionStyleSystem;
+
+  /// No description provided for @pageTransitionStyleSystemHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'安卓系统转场，支持预测性返回'**
+  String get pageTransitionStyleSystemHint;
+
+  /// No description provided for @pageTransitionStyleSystemHintOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'平台默认'**
+  String get pageTransitionStyleSystemHintOther;
+
+  /// No description provided for @pageTransitionStyleSharedAxis.
+  ///
+  /// In zh, this message translates to:
+  /// **'共享轴'**
+  String get pageTransitionStyleSharedAxis;
+
+  /// No description provided for @pageTransitionStyleSharedAxisHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'Material 推荐：新旧页面同向滑动并交叉淡化'**
+  String get pageTransitionStyleSharedAxisHint;
+
+  /// No description provided for @pageTransitionStyleZoom.
+  ///
+  /// In zh, this message translates to:
+  /// **'缩放'**
+  String get pageTransitionStyleZoom;
+
+  /// No description provided for @pageTransitionStyleZoomHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'放大进入（Android 10 风格）'**
+  String get pageTransitionStyleZoomHint;
+
+  /// No description provided for @pageTransitionStyleSlide.
+  ///
+  /// In zh, this message translates to:
+  /// **'侧滑'**
+  String get pageTransitionStyleSlide;
+
+  /// No description provided for @pageTransitionStyleSlideHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'从右侧推入，上一页错开并变暗（iOS 风格）'**
+  String get pageTransitionStyleSlideHint;
+
   /// No description provided for @maxDownloadCount.
   ///
   /// In zh, this message translates to:

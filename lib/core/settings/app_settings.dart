@@ -140,6 +140,25 @@ enum AnimationSpeed {
   }
 }
 
+/// Page route transition style. [system] is the platform's own transition
+/// (Android predictive back, the slide elsewhere); the others are the
+/// official shared-axis, zoom and Cupertino slide transitions. Persisted
+/// by [name].
+enum PageTransitionStyle {
+  system,
+  sharedAxis,
+  zoom,
+  slide;
+
+  static PageTransitionStyle? tryFromName(Object? value) {
+    if (value is! String) return null;
+    for (final style in values) {
+      if (style.name == value) return style;
+    }
+    return null;
+  }
+}
+
 /// App haptic strength. [off] plays nothing; on Android the other tiers pick
 /// per-device effects (primitive amplitude, predefined effect, or the
 /// strength-less system constant). Persisted by [name].
@@ -219,6 +238,7 @@ class AppSettings {
     this.reduceMotion = false,
     this.animationSpeed = AnimationSpeed.normal,
     this.pressFeedback = true,
+    this.pageTransitionStyle = PageTransitionStyle.system,
     this.hapticStrength = HapticStrength.standard,
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
@@ -310,6 +330,11 @@ class AppSettings {
   /// Cards scale down slightly while pressed. Consumed through
   /// `MotionScope`; reduce motion still snaps the scale.
   final bool pressFeedback;
+
+  /// Route transition for pushed pages. Consumed through `MotionScope` by
+  /// the router's `FuncPage`; the search input's modal transition keeps
+  /// its own.
+  final PageTransitionStyle pageTransitionStyle;
 
   /// Haptic strength, consumed by `AppHaptics` (§5.6 single owner).
   /// Haptics are a redundant channel — visual feedback stays complete
@@ -427,6 +452,9 @@ class AppSettings {
           ? AnimationSpeed.fromCode(json['pageTransitionSpeedCode'])
           : base.animationSpeed,
       pressFeedback: _bool(json['pressFeedback'], base.pressFeedback),
+      pageTransitionStyle:
+          PageTransitionStyle.tryFromName(json['pageTransitionStyle']) ??
+          base.pageTransitionStyle,
       hapticStrength: _readHapticStrength(json, base.hapticStrength),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
@@ -466,6 +494,7 @@ class AppSettings {
       'reduceMotion': reduceMotion,
       'pageTransitionSpeedCode': animationSpeed.code,
       'pressFeedback': pressFeedback,
+      'pageTransitionStyle': pageTransitionStyle.name,
       'hapticStrength': hapticStrength.name,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
@@ -601,6 +630,7 @@ class AppSettings {
     bool? reduceMotion,
     AnimationSpeed? animationSpeed,
     bool? pressFeedback,
+    PageTransitionStyle? pageTransitionStyle,
     HapticStrength? hapticStrength,
     int? translateIndex,
     int? maxDownloadCount,
@@ -646,6 +676,7 @@ class AppSettings {
       reduceMotion: reduceMotion ?? this.reduceMotion,
       animationSpeed: animationSpeed ?? this.animationSpeed,
       pressFeedback: pressFeedback ?? this.pressFeedback,
+      pageTransitionStyle: pageTransitionStyle ?? this.pageTransitionStyle,
       hapticStrength: hapticStrength ?? this.hapticStrength,
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??

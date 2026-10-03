@@ -125,6 +125,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setPressFeedback(bool enabled) =>
       _update((settings) => settings.copyWith(pressFeedback: enabled));
 
+  Future<void> setPageTransitionStyle(PageTransitionStyle style) =>
+      _update((settings) => settings.copyWith(pageTransitionStyle: style));
+
   Future<void> setHapticStrength(HapticStrength strength) =>
       _update((settings) => settings.copyWith(hapticStrength: strength));
 
