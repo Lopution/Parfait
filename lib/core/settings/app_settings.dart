@@ -112,29 +112,31 @@ enum DetailQuality {
   }
 }
 
-/// Android page-transition speed (R1): the user-facing tier whose duration
-/// replaces the system FadeForwards length as the route transition — the
-/// Hero flight follows it. Persisted by [code] (the millisecond length);
-/// unknown codes fall back to [normal]. Reduce-motion collapses the
-/// resolved duration to zero regardless of the tier.
-enum PageTransitionSpeed {
+/// Animation speed: every UI animation length is scaled by [factor] (read
+/// through `MotionTokens.resolve`). Persisted by [code], the Android page
+/// transition length in milliseconds at this tier — the setting started
+/// out as a page-transition speed, and keeping the code avoids a
+/// migration. Unknown codes fall back to [normal]. Reduce-motion collapses
+/// the resolved duration to zero regardless of the tier.
+enum AnimationSpeed {
   fast(250),
   normal(350),
   slow(450);
 
-  const PageTransitionSpeed(this.code);
+  const AnimationSpeed(this.code);
 
   final int code;
 
-  Duration get duration => Duration(milliseconds: code);
+  /// Multiplier on every base duration; [normal] is 1.
+  double get factor => code / normal.code;
 
-  static PageTransitionSpeed fromCode(Object? value) {
+  static AnimationSpeed fromCode(Object? value) {
     if (value is int) {
       for (final speed in values) {
         if (speed.code == value) return speed;
       }
     }
-    return PageTransitionSpeed.normal;
+    return AnimationSpeed.normal;
   }
 }
 
@@ -215,7 +217,7 @@ class AppSettings {
     this.enableLocalBlockAI = false,
     this.hideMuted = false,
     this.reduceMotion = false,
-    this.pageTransitionSpeed = PageTransitionSpeed.normal,
+    this.animationSpeed = AnimationSpeed.normal,
     this.hapticStrength = HapticStrength.standard,
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
@@ -300,9 +302,9 @@ class AppSettings {
   /// with the platform `disableAnimations` flag inside `MotionTokens`.
   final bool reduceMotion;
 
-  /// Picked Android route transition length; also the Hero flight length.
-  /// Consumed through `MotionScope` — see design §1.
-  final PageTransitionSpeed pageTransitionSpeed;
+  /// Speed multiplier for every UI animation, the route transition and
+  /// Hero flight included. Consumed through `MotionScope`.
+  final AnimationSpeed animationSpeed;
 
   /// Haptic strength, consumed by `AppHaptics` (§5.6 single owner).
   /// Haptics are a redundant channel — visual feedback stays complete
@@ -415,9 +417,10 @@ class AppSettings {
       ),
       hideMuted: _bool(json['hideMuted'], base.hideMuted),
       reduceMotion: _bool(json['reduceMotion'], base.reduceMotion),
-      pageTransitionSpeed: json['pageTransitionSpeedCode'] is int
-          ? PageTransitionSpeed.fromCode(json['pageTransitionSpeedCode'])
-          : base.pageTransitionSpeed,
+      // The key keeps its page-transition name; see [AnimationSpeed].
+      animationSpeed: json['pageTransitionSpeedCode'] is int
+          ? AnimationSpeed.fromCode(json['pageTransitionSpeedCode'])
+          : base.animationSpeed,
       hapticStrength: _readHapticStrength(json, base.hapticStrength),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
@@ -455,7 +458,7 @@ class AppSettings {
       'enableLocalBlockAI': enableLocalBlockAI,
       'hideMuted': hideMuted,
       'reduceMotion': reduceMotion,
-      'pageTransitionSpeedCode': pageTransitionSpeed.code,
+      'pageTransitionSpeedCode': animationSpeed.code,
       'hapticStrength': hapticStrength.name,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
@@ -589,7 +592,7 @@ class AppSettings {
     bool? enableLocalBlockAI,
     bool? hideMuted,
     bool? reduceMotion,
-    PageTransitionSpeed? pageTransitionSpeed,
+    AnimationSpeed? animationSpeed,
     HapticStrength? hapticStrength,
     int? translateIndex,
     int? maxDownloadCount,
@@ -633,7 +636,7 @@ class AppSettings {
       enableLocalBlockAI: enableLocalBlockAI ?? this.enableLocalBlockAI,
       hideMuted: hideMuted ?? this.hideMuted,
       reduceMotion: reduceMotion ?? this.reduceMotion,
-      pageTransitionSpeed: pageTransitionSpeed ?? this.pageTransitionSpeed,
+      animationSpeed: animationSpeed ?? this.animationSpeed,
       hapticStrength: hapticStrength ?? this.hapticStrength,
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??

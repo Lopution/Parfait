@@ -127,10 +127,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   /// One controller drives both bars and the passive hint: the hint
   /// tracks the *rendered* chrome state, not the user's intent — it
   /// reappears only once the bottom bar is fully dismissed (R4).
-  late final AnimationController _chrome = AnimationController(
-    vsync: this,
-    duration: MotionTokens.fast,
-  )..addStatusListener(_onChromeStatus);
+  late final AnimationController _chrome = AnimationController(vsync: this)
+    ..addStatusListener(_onChromeStatus);
   bool _chromeVisible = false;
   bool _chromeHidden = true; // == _chrome.isDismissed, cached for build
   final NovelReaderHandle _readerHandle = NovelReaderHandle();
@@ -162,6 +160,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _chrome.duration = MotionTokens.resolve(context, MotionTokens.fast);
     final size = MediaQuery.sizeOf(context);
     final live = MediaQuery.of(context).viewPadding;
     final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;

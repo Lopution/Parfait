@@ -27,9 +27,9 @@ class BranchSlidePager extends ChangeNotifier {
     required TickerProvider vsync,
     required int count,
     required int initialIndex,
-    required bool Function() motionEnabled,
+    required Duration Function(Duration base) resolve,
   }) : _vsync = vsync,
-       _motionEnabled = motionEnabled,
+       _resolve = resolve,
        _lastIndex = initialIndex,
        tab = TabController(
          length: count,
@@ -48,7 +48,10 @@ class BranchSlidePager extends ChangeNotifier {
   final ReTapChannel reTapEvents = ReTapChannel();
 
   final TickerProvider _vsync;
-  final bool Function() _motionEnabled;
+
+  /// Maps a base duration through the motion gate and speed
+  /// (`MotionTokens.resolve` on the host's context).
+  final Duration Function(Duration base) _resolve;
   StatefulNavigationShell? _shell;
   int _lastIndex;
   bool _suppressGoBranch = false;
@@ -136,7 +139,7 @@ class BranchSlidePager extends ChangeNotifier {
       _settleTo(target);
       return;
     }
-    tab.animateTo(target, duration: _motionEnabled() ? null : Duration.zero);
+    tab.animateTo(target, duration: _resolve(MotionTokens.navIndicator));
   }
 
   /// Chrome tap — the single action entry the bottom bar and the
@@ -172,7 +175,7 @@ class BranchSlidePager extends ChangeNotifier {
     // whose offset ticks would fight the animateTo flight.
     _dragging = false;
     _settle?.stop();
-    tab.animateTo(index, duration: _motionEnabled() ? null : Duration.zero);
+    tab.animateTo(index, duration: _resolve(MotionTokens.navIndicator));
   }
 
   /// The shell's index moved outside a drag (deep link, restoration):
@@ -187,7 +190,7 @@ class BranchSlidePager extends ChangeNotifier {
     _suppressGoBranch = true;
     try {
       if (tab.index != index) {
-        tab.animateTo(index, duration: _motionEnabled() ? null : Duration.zero);
+        tab.animateTo(index, duration: _resolve(MotionTokens.navIndicator));
       } else {
         _settleTo(index);
       }
@@ -201,7 +204,8 @@ class BranchSlidePager extends ChangeNotifier {
   void _settleTo(int target) {
     _settleTarget = target;
     final from = position;
-    if (!_motionEnabled() || (from - target).abs() < 1e-4) {
+    final duration = _resolve(MotionTokens.fast);
+    if (duration == Duration.zero || (from - target).abs() < 1e-4) {
       tab.index = target;
       tab.offset = 0;
       return;
@@ -209,7 +213,7 @@ class BranchSlidePager extends ChangeNotifier {
     final controller = _settle ??= AnimationController(vsync: _vsync)
       ..addListener(_applySettle)
       ..addStatusListener(_finishSettle);
-    controller.duration = MotionTokens.fast;
+    controller.duration = duration;
     _settleAnim = Tween<double>(begin: from, end: target.toDouble()).animate(
       CurvedAnimation(parent: controller, curve: MotionTokens.fastCurve),
     );
@@ -328,7 +332,8 @@ class _BranchSlideStackState extends State<BranchSlideStack>
     vsync: this,
     count: widget.children.length,
     initialIndex: widget.shell.currentIndex,
-    motionEnabled: () => mounted && MotionTokens.enabled(context),
+    resolve: (base) =>
+        mounted ? MotionTokens.resolve(context, base) : Duration.zero,
   );
   late final AnimationController _navVisibility;
   // The bar's live covered height at the screen bottom, published by
@@ -344,12 +349,18 @@ class _BranchSlideStackState extends State<BranchSlideStack>
   void initState() {
     super.initState();
     _pager.attach(widget.shell);
-    _navVisibility = AnimationController(
-      vsync: this,
-      duration: MotionTokens.navBarShow,
-      reverseDuration: MotionTokens.navBarHide,
-      value: 1,
-    );
+    _navVisibility = AnimationController(vsync: this, value: 1);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _navVisibility
+      ..duration = MotionTokens.resolve(context, MotionTokens.navBarShow)
+      ..reverseDuration = MotionTokens.resolve(
+        context,
+        MotionTokens.navBarHide,
+      );
   }
 
   @override

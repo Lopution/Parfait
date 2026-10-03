@@ -169,13 +169,12 @@ Page<dynamic> _page(
   Widget child,
 ) {
   // Reduced-motion collapses the transition without dropping the state it
-  // communicates: the route still changes on the same frame. Android takes
-  // the user-picked speed tier from MotionScope (250/350/450ms, default
-  // 350); other platforms keep the app slide.
+  // communicates: the route still changes on the same frame. The animation
+  // speed scales both platform bases (Android 250/350/450ms).
   final duration = MotionTokens.resolve(
     context,
     defaultTargetPlatform == TargetPlatform.android
-        ? MotionScope.pageTransitionOf(context)
+        ? MotionTokens.pageTransitionAndroid
         : MotionTokens.pageTransition,
   );
   return FuncPage<dynamic>(

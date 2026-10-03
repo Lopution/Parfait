@@ -86,9 +86,12 @@ class SliverAppTypeSwitch<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final animationStyle = MotionTokens.enabled(context)
         ? AnimationStyle(
-            duration: MotionTokens.navBarShow,
+            duration: MotionTokens.resolve(context, MotionTokens.navBarShow),
             curve: MotionTokens.navBarShowCurve,
-            reverseDuration: MotionTokens.navBarHide,
+            reverseDuration: MotionTokens.resolve(
+              context,
+              MotionTokens.navBarHide,
+            ),
             reverseCurve: MotionTokens.navBarHideCurve,
           )
         : AnimationStyle.noAnimation;

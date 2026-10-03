@@ -493,27 +493,35 @@ void main() {
     expect(missing.reverseImageEngine, ReverseImageEngine.sauceNao);
   });
 
-  test('pageTransitionSpeed round-trips and unknown codes fall back', () {
+  test('animationSpeed round-trips under the legacy key', () {
     final stored = _baseSettings().copyWith(
-      pageTransitionSpeed: PageTransitionSpeed.fast,
+      animationSpeed: AnimationSpeed.fast,
     );
     final encoded = stored.toJson();
+    // The persisted key and codes predate the rename: no migration.
     expect(encoded['pageTransitionSpeedCode'], 250);
     final restored = AppSettings.fromJson(encoded, fallback: _baseSettings());
-    expect(restored.pageTransitionSpeed, PageTransitionSpeed.fast);
+    expect(restored.animationSpeed, AnimationSpeed.fast);
+    final legacySlow = AppSettings.fromJson({
+      'pageTransitionSpeedCode': 450,
+    }, fallback: _baseSettings());
+    expect(legacySlow.animationSpeed, AnimationSpeed.slow);
 
     final unknown = AppSettings.fromJson({
       'pageTransitionSpeedCode': 999,
     }, fallback: _baseSettings());
-    expect(unknown.pageTransitionSpeed, PageTransitionSpeed.normal);
+    expect(unknown.animationSpeed, AnimationSpeed.normal);
     // Missing key keeps the fallback's value; the explicit default is
     // normal for existing installs.
     final missing = AppSettings.fromJson(const {}, fallback: _baseSettings());
-    expect(missing.pageTransitionSpeed, PageTransitionSpeed.normal);
-    expect(
-      AppSettings.defaults().pageTransitionSpeed,
-      PageTransitionSpeed.normal,
-    );
+    expect(missing.animationSpeed, AnimationSpeed.normal);
+    expect(AppSettings.defaults().animationSpeed, AnimationSpeed.normal);
+  });
+
+  test('animation speed factors scale from the normal tier', () {
+    expect(AnimationSpeed.normal.factor, 1);
+    expect(AnimationSpeed.fast.factor, closeTo(250 / 350, 1e-9));
+    expect(AnimationSpeed.slow.factor, closeTo(450 / 350, 1e-9));
   });
 
   test('searchFilters round-trips and damaged fields fall back', () {
@@ -833,53 +841,42 @@ void main() {
     await tester.pump();
   }
 
-  Finder transitionSelector() => find.byWidgetPredicate(
-    (widget) => widget is SegmentedButton<PageTransitionSpeed>,
+  Finder speedSelector() => find.byWidgetPredicate(
+    (widget) => widget is SegmentedButton<AnimationSpeed>,
     skipOffstage: false,
   );
 
-  testWidgets('page transition speed is an Android-only three-way picker', (
-    tester,
-  ) async {
-    final repository = _FakeRepository(_baseSettings());
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    try {
-      await pumpBrowse(tester, repository);
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    testWidgets('animation speed is a three-way picker on ${platform.name}', (
+      tester,
+    ) async {
+      final repository = _FakeRepository(_baseSettings());
+      debugDefaultTargetPlatformOverride = platform;
+      try {
+        await pumpBrowse(tester, repository);
 
-      final selector = transitionSelector();
-      expect(selector, findsOneWidget);
-      final segments = tester
-          .widget<SegmentedButton<PageTransitionSpeed>>(selector)
-          .segments
-          .map((segment) => segment.value)
-          .toList();
-      expect(segments, PageTransitionSpeed.values);
-      expect(find.text('快 · 250ms'), findsOneWidget);
-      expect(find.text('标准 · 350ms'), findsOneWidget);
-      expect(find.text('慢 · 450ms'), findsOneWidget);
+        final selector = speedSelector();
+        expect(selector, findsOneWidget);
+        expect(find.text('动画速度'), findsOneWidget);
+        expect(find.text('作用于应用内全部动画；水波纹等系统控件动画不受影响'), findsOneWidget);
+        final segments = tester
+            .widget<SegmentedButton<AnimationSpeed>>(selector)
+            .segments
+            .map((segment) => segment.value)
+            .toList();
+        expect(segments, AnimationSpeed.values);
 
-      await _scrollCentered(tester, selector);
-      await tester.tap(
-        find.descendant(of: selector, matching: find.text('慢 · 450ms')),
-      );
-      await tester.pumpAndSettle();
-      expect(repository.value.pageTransitionSpeed, PageTransitionSpeed.slow);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
-
-  testWidgets('the speed picker is absent off Android', (tester) async {
-    final repository = _FakeRepository(_baseSettings());
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
-      await pumpBrowse(tester, repository);
-      expect(transitionSelector(), findsNothing);
-      expect(find.text('页面转场速度'), findsNothing);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+        await _scrollCentered(tester, selector);
+        await tester.tap(
+          find.descendant(of: selector, matching: find.text('慢')),
+        );
+        await tester.pumpAndSettle();
+        expect(repository.value.animationSpeed, AnimationSpeed.slow);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  }
 
   testWidgets('reduce motion greys the speed picker and explains why', (
     tester,
@@ -887,18 +884,13 @@ void main() {
     final repository = _FakeRepository(
       _baseSettings().copyWith(reduceMotion: true),
     );
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    try {
-      await pumpBrowse(tester, repository);
+    await pumpBrowse(tester, repository);
 
-      final button = tester.widget<SegmentedButton<PageTransitionSpeed>>(
-        transitionSelector(),
-      );
-      expect(button.onSelectionChanged, isNull);
-      expect(find.text('开启「减少动态效果」时不播放页面转场'), findsOneWidget);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
+    final button = tester.widget<SegmentedButton<AnimationSpeed>>(
+      speedSelector(),
+    );
+    expect(button.onSelectionChanged, isNull);
+    expect(find.text('开启「减少动态效果」时不播放动画，速度不生效'), findsOneWidget);
   });
 
   testWidgets('settings primitives expose headings, values and actions', (

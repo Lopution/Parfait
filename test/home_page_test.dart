@@ -7,6 +7,7 @@ import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/external_intent_bridge.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
@@ -191,6 +192,7 @@ void main() {
         version: '9.9.9',
         shellBarVisible: true,
         reduceMotion: false,
+        animationSpeed: AnimationSpeed.normal,
         onOpen: () {},
       );
       await tester.pump();

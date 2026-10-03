@@ -4,9 +4,13 @@ import '../../core/settings/app_settings.dart';
 
 /// Single source for every UI animation duration and curve. Data-level
 /// durations (debounce, frame scheduling, download throttling) do not belong
-/// here. Predictive-back / M3 motion hook into these constants in child F.
+/// here. Read every duration through [resolve] so the animation speed and
+/// the reduced-motion gate apply.
 abstract final class MotionTokens {
-  /// Page route transition used by the router page builder.
+  /// Page route transition used by the router page builder on Android.
+  static const pageTransitionAndroid = Duration(milliseconds: 350);
+
+  /// Page route transition on the other platforms.
   static const pageTransition = Duration(milliseconds: 300);
   static const pageCurve = Curves.easeInOutCubic;
 
@@ -83,61 +87,83 @@ abstract final class MotionTokens {
   /// (iOS "Reduce Motion" does NOT raise `disableAnimations` — reading only
   /// MediaQuery misses it) OR the in-app reduce-motion setting. Any one
   /// collapses decorative motion; none drops the state it communicates.
-  static bool enabled(BuildContext context) {
+  static bool enabled(BuildContext context) =>
+      _enabled(context, reduce: MotionScope.maybeOf(context) ?? false);
+
+  static bool _enabled(BuildContext context, {required bool reduce}) {
     final disabled = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final reduced = MotionScope.maybeOf(context) ?? false;
     final platformReduce =
         View.maybeOf(
           context,
         )?.platformDispatcher.accessibilityFeatures.reduceMotion ??
         false;
-    return !disabled && !reduced && !platformReduce;
+    return !disabled && !reduce && !platformReduce;
   }
 
-  /// Reduced-motion gate: collapses [base] to zero when either source asks
-  /// for disabled animations. Reduced motion must remove the flight, never
-  /// the state it communicates.
-  static Duration resolve(BuildContext context, Duration base) {
-    return enabled(context) ? base : Duration.zero;
+  /// Every UI animation length goes through here: [base] scaled by the
+  /// animation speed, or zero when the reduced-motion gate is closed.
+  /// Reduced motion must remove the flight, never the state it
+  /// communicates.
+  static Duration resolve(BuildContext context, Duration base) => resolveWith(
+    context,
+    base,
+    reduce: MotionScope.maybeOf(context) ?? false,
+    speed: MotionScope.speedOf(context),
+  );
+
+  /// [resolve] for the few callers above [MotionScope] (the MaterialApp
+  /// theme animation, the root messenger), which pass the settings in.
+  static Duration resolveWith(
+    BuildContext context,
+    Duration base, {
+    required bool reduce,
+    required AnimationSpeed speed,
+  }) => _enabled(context, reduce: reduce) ? base * speed.factor : Duration.zero;
+}
+
+/// Programmatic page turn (keyboard, tap zones): slides over the resolved
+/// [MotionTokens.fast], or jumps when the motion gate is closed — a scroll
+/// animation asserts a non-zero duration.
+void turnPage(BuildContext context, PageController controller, int page) {
+  final duration = MotionTokens.resolve(context, MotionTokens.fast);
+  if (duration > Duration.zero) {
+    controller.animateToPage(
+      page,
+      duration: duration,
+      curve: MotionTokens.fastCurve,
+    );
+  } else {
+    controller.jumpToPage(page);
   }
 }
 
-/// Publishes the in-app reduce-motion setting to the widget subtree. Mounted
-/// once at the app root (MaterialApp.builder); tests can wrap any subtree
-/// directly. The platform half of the gate stays on
-/// `MediaQuery.disableAnimations`.
+/// Publishes the in-app motion settings (reduce motion, animation speed) to
+/// the widget subtree. Mounted once at the app root (MaterialApp.builder);
+/// tests can wrap any subtree directly. The platform half of the gate stays
+/// on `MediaQuery.disableAnimations`.
 class MotionScope extends InheritedWidget {
   const MotionScope({
     super.key,
     required this.reduce,
-    this.pageTransition = _defaultPageTransition,
+    this.speed = AnimationSpeed.normal,
     required super.child,
   });
 
   final bool reduce;
 
-  /// The Android route transition length picked in settings (R1). Read by
-  /// `_page` through [pageTransitionOf]; other platforms keep
-  /// [MotionTokens.pageTransition]. The reduce-motion gate still applies on
-  /// top via [MotionTokens.resolve].
-  final Duration pageTransition;
-
-  /// Field defaults are const-only, so the enum's `.duration` getter cannot
-  /// sit here — keep it equal to `PageTransitionSpeed.normal`.
-  static const _defaultPageTransition = Duration(milliseconds: 350);
+  /// Multiplier applied by [MotionTokens.resolve].
+  final AnimationSpeed speed;
 
   static bool? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MotionScope>()?.reduce;
 
-  /// The scoped page-transition duration; outside a scope (a bare
-  /// MaterialApp in tests) the default tier applies.
-  static Duration pageTransitionOf(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<MotionScope>()
-          ?.pageTransition ??
-      PageTransitionSpeed.normal.duration;
+  /// The scoped animation speed; outside a scope (a bare MaterialApp in
+  /// tests) the normal tier applies.
+  static AnimationSpeed speedOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MotionScope>()?.speed ??
+      AnimationSpeed.normal;
 
   @override
   bool updateShouldNotify(MotionScope oldWidget) =>
-      reduce != oldWidget.reduce || pageTransition != oldWidget.pageTransition;
+      reduce != oldWidget.reduce || speed != oldWidget.speed;
 }

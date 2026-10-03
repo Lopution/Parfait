@@ -104,12 +104,8 @@ class _FuncBottomNavState extends State<FuncBottomNav>
     // Seeded by the tap that triggered this branch switch — recorded at
     // press time so the ordering cannot race against rebuilds.
     _indicatorFrom = _lastSelectedIndex ?? widget.selectedIndex;
-    // Matches the TabBar's kTabScrollDuration sweep above.
-    _indicatorController = AnimationController(
-      vsync: this,
-      duration: MotionTokens.navIndicator,
-      value: 1.0,
-    );
+    // Duration set in didChangeDependencies.
+    _indicatorController = AnimationController(vsync: this, value: 1.0);
     if (_indicatorFrom != widget.selectedIndex &&
         widget.indicatorAnimation == null) {
       // This bar mounted because the user switched branches: play the
@@ -214,14 +210,17 @@ class _FuncBottomNavState extends State<FuncBottomNav>
       },
       textDirection: textDirection,
       // InkResponse's pressed-highlight fade duration.
-      fadeDuration: MotionTokens.inkFade,
+      fadeDuration: MotionTokens.resolve(context, MotionTokens.inkFade),
     );
     _landingInk = splash;
     _landingHighlight = highlight;
-    _landingInkTimer = Timer(MotionTokens.inkHold, () {
-      splash?.confirm();
-      highlight?.deactivate();
-    });
+    _landingInkTimer = Timer(
+      MotionTokens.resolve(context, MotionTokens.inkHold),
+      () {
+        splash?.confirm();
+        highlight?.deactivate();
+      },
+    );
   }
 
   void _releaseLandingInk() {
@@ -251,6 +250,11 @@ class _FuncBottomNavState extends State<FuncBottomNav>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Matches the TabBar's kTabScrollDuration sweep above.
+    _indicatorController.duration = MotionTokens.resolve(
+      context,
+      MotionTokens.navIndicator,
+    );
     // The labels are localized. A locale switch rebuilds this stateful bar,
     // so widths measured under the previous language must not drive the new
     // indicator geometry.
@@ -629,10 +633,9 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
   @override
   void initState() {
     super.initState();
+    // Durations set in didChangeDependencies.
     _coveredVisibility = AnimationController(
       vsync: this,
-      duration: MotionTokens.navBarShow,
-      reverseDuration: MotionTokens.navBarHide,
       value: ref.read(branchStackCoveredProvider).contains(widget.selectedIndex)
           ? 0
           : 1,
@@ -649,6 +652,17 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _setBarVisible(true);
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _coveredVisibility
+      ..duration = MotionTokens.resolve(context, MotionTokens.navBarShow)
+      ..reverseDuration = MotionTokens.resolve(
+        context,
+        MotionTokens.navBarHide,
+      );
   }
 
   void _attachScrollCurve(AnimationController controller) {

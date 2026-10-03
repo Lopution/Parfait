@@ -40,14 +40,13 @@ class _DragToDismissState extends State<DragToDismiss>
   @override
   void initState() {
     super.initState();
-    _returnAnimation =
-        AnimationController(vsync: this, duration: MotionTokens.fast)
-          ..addListener(() => setState(() {}))
-          ..addStatusListener((status) {
-            if (status == AnimationStatus.completed) {
-              _dragOffset = 0;
-            }
-          });
+    _returnAnimation = AnimationController(vsync: this)
+      ..addListener(() => setState(() {}))
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _dragOffset = 0;
+        }
+      });
   }
 
   @override
@@ -94,12 +93,16 @@ class _DragToDismissState extends State<DragToDismiss>
 
   /// The canceled-drag return flight is the only decorative motion here.
   /// The controller is created in initState (no context), so the
-  /// [MotionTokens] gate lives at the call site: reduced motion lands the
-  /// end state — `_dragOffset` back to zero via the completed-status
-  /// listener — without the flight.
+  /// [MotionTokens] gate and speed apply at the call site: reduced motion
+  /// lands the end state — `_dragOffset` back to zero via the
+  /// completed-status listener — without the flight.
   void _settleReturn() {
     _returnFrom = _dragOffset;
     if (MotionTokens.enabled(context)) {
+      _returnAnimation.duration = MotionTokens.resolve(
+        context,
+        MotionTokens.fast,
+      );
       _returnAnimation.forward(from: 0);
     } else {
       _returnAnimation.value = 1;

@@ -40,7 +40,7 @@ Future<T?> showAppBottomSheet<T>({
       useSafeArea: useSafeArea,
       sheetAnimationStyle: MotionTokens.enabled(context)
           ? AnimationStyle(
-              duration: MotionTokens.sheet,
+              duration: MotionTokens.resolve(context, MotionTokens.sheet),
               curve: MotionTokens.sheetCurve,
             )
           : AnimationStyle.noAnimation,
@@ -75,7 +75,9 @@ Future<T?> showAppDialog<T>({
       barrierLabel: barrierLabel,
       traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
       animationStyle: MotionTokens.enabled(context)
-          ? AnimationStyle(duration: MotionTokens.dialog)
+          ? AnimationStyle(
+              duration: MotionTokens.resolve(context, MotionTokens.dialog),
+            )
           : AnimationStyle.noAnimation,
     ),
   );

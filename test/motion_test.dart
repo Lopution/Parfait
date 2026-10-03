@@ -1,14 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart' show kPressTimeout;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/feed_entrance.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/app_snack_bar.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 
 import 'helpers/recording_haptics.dart';
@@ -17,11 +21,13 @@ Widget _wrap(
   Widget child, {
   bool reduce = false,
   bool platformDisable = false,
+  AnimationSpeed speed = AnimationSpeed.normal,
 }) {
   final app = MaterialApp(
     theme: replicaTheme(Brightness.light),
     home: MotionScope(
       reduce: reduce,
+      speed: speed,
       child: Scaffold(body: child),
     ),
   );
@@ -74,6 +80,7 @@ void main() {
       WidgetTester tester, {
       bool reduce = false,
       bool platformDisable = false,
+      AnimationSpeed speed = AnimationSpeed.normal,
     }) async {
       Duration? resolved;
       await tester.pumpWidget(
@@ -86,10 +93,87 @@ void main() {
           ),
           reduce: reduce,
           platformDisable: platformDisable,
+          speed: speed,
         ),
       );
       return resolved!;
     }
+
+    testWidgets('scales by the animation speed', (tester) async {
+      expect(
+        await resolve(tester, speed: AnimationSpeed.slow),
+        MotionTokens.medium * (450 / 350),
+      );
+      expect(
+        await resolve(tester, speed: AnimationSpeed.fast),
+        MotionTokens.medium * (250 / 350),
+      );
+    });
+
+    testWidgets('the gate wins over the speed', (tester) async {
+      expect(
+        await resolve(tester, reduce: true, speed: AnimationSpeed.slow),
+        Duration.zero,
+      );
+    });
+
+    testWidgets('sheets, dialogs and snackbars follow the speed', (
+      tester,
+    ) async {
+      late BuildContext host;
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) {
+              host = context;
+              return const SizedBox.shrink();
+            },
+          ),
+          speed: AnimationSpeed.slow,
+        ),
+      );
+      const factor = 450 / 350;
+
+      late BuildContext sheet;
+      unawaited(
+        showAppBottomSheet<void>(
+          context: host,
+          builder: (context) {
+            sheet = context;
+            return const SizedBox(height: 100);
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        ModalRoute.of(sheet)!.transitionDuration,
+        MotionTokens.sheet * factor,
+      );
+      Navigator.of(sheet).pop();
+      await tester.pumpAndSettle();
+
+      late BuildContext dialog;
+      unawaited(
+        showAppDialog<void>(
+          context: host,
+          builder: (context) {
+            dialog = context;
+            return const SizedBox(height: 100);
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        ModalRoute.of(dialog)!.transitionDuration,
+        MotionTokens.dialog * factor,
+      );
+      Navigator.of(dialog).pop();
+      await tester.pumpAndSettle();
+
+      final style = snackBarAnimationStyleFor(host);
+      expect(style.duration, MotionTokens.medium * factor);
+      expect(style.reverseDuration, MotionTokens.fast * factor);
+    });
 
     testWidgets('plays when neither source asks for reduction', (tester) async {
       expect(await resolve(tester), MotionTokens.medium);

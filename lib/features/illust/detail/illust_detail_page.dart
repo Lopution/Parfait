@@ -125,7 +125,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     }
     final anchor = _infoAnchorKey.currentContext;
     if (anchor == null || !anchor.mounted) return;
-    await Scrollable.ensureVisible(anchor, duration: MotionTokens.medium);
+    await Scrollable.ensureVisible(
+      anchor,
+      duration: MotionTokens.resolve(anchor, MotionTokens.medium),
+    );
   }
 
   bool _blockMode = false;
@@ -233,7 +236,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       child: Scaffold(
         appBar: _buildAppBar(context, ref, async),
         bottomNavigationBar: AnimatedSwitcher(
-          duration: MotionTokens.fast,
+          duration: MotionTokens.resolve(context, MotionTokens.fast),
           child: _downloadMode && entity != null && !entity.isUgoira
               ? _DownloadSelectionBar(
                   selected: _selectedPages?.length ?? 0,

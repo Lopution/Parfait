@@ -9,19 +9,25 @@ import 'func_bottom_nav.dart';
 /// floating SnackBar's opacity in the 0.4–1.0 interval, so the ~120ms
 /// default paints ~72ms of fade — it reads as "no animation" on device.
 /// medium/fast keeps the whole cycle perceptible without lingering.
-const appSnackBarAnimationStyle = AnimationStyle(
-  duration: MotionTokens.medium,
-  reverseDuration: MotionTokens.fast,
-);
+///
+/// [resolve] maps each base duration through the motion gate and speed; a
+/// closed gate collapses to [AnimationStyle.noAnimation], the same collapse
+/// the overlays use. The message, dwell duration and action are the
+/// feedback and always land; only the slide/fade flight is decoration.
+AnimationStyle appSnackBarAnimationStyle(
+  Duration Function(Duration base) resolve,
+) {
+  final duration = resolve(MotionTokens.medium);
+  if (duration == Duration.zero) return AnimationStyle.noAnimation;
+  return AnimationStyle(
+    duration: duration,
+    reverseDuration: resolve(MotionTokens.fast),
+  );
+}
 
-/// The snackbar's in/out flight resolved through the reduced-motion gate —
-/// the same [AnimationStyle.noAnimation] collapse the overlays use. The
-/// message, dwell duration and action are the feedback and always land;
-/// only the slide/fade flight is decoration.
+/// [appSnackBarAnimationStyle] resolved from [context]'s motion scope.
 AnimationStyle snackBarAnimationStyleFor(BuildContext context) =>
-    MotionTokens.enabled(context)
-    ? appSnackBarAnimationStyle
-    : AnimationStyle.noAnimation;
+    appSnackBarAnimationStyle((base) => MotionTokens.resolve(context, base));
 
 /// The margin every in-app SnackBar starts from; presenters grow its
 /// bottom edge when the floating shell bar occupies the same space.

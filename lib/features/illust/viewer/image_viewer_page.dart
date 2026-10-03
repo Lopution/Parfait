@@ -136,10 +136,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         ? 0
         : widget.initialPage.clamp(0, _pageCount - 1);
     _pageController = PageController(initialPage: _activePage);
-    _zoomController = AnimationController(
-      vsync: this,
-      duration: MotionTokens.fast,
-    )..addListener(_applyZoomFrame);
+    _zoomController = AnimationController(vsync: this)
+      ..addListener(_applyZoomFrame);
     _zoomCurve = CurvedAnimation(
       parent: _zoomController,
       curve: MotionTokens.fastCurve,
@@ -282,7 +280,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   void _animateZoom(TransformationController target, Matrix4 end) {
     _zoomTarget = target;
     _zoomTween = Matrix4Tween(begin: target.value, end: end);
-    _zoomController.forward(from: 0);
+    _zoomController
+      ..duration = MotionTokens.resolve(context, MotionTokens.fast)
+      ..forward(from: 0);
   }
 
   void _applyZoomFrame() {
@@ -594,18 +594,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   void _pageForward() {
     if (_activePage + 1 >= _pageCount) return;
-    _pageController.nextPage(
-      duration: MotionTokens.fast,
-      curve: MotionTokens.fastCurve,
-    );
+    turnPage(context, _pageController, _activePage + 1);
   }
 
   void _pageBackward() {
     if (_activePage <= 0) return;
-    _pageController.previousPage(
-      duration: MotionTokens.fast,
-      curve: MotionTokens.fastCurve,
-    );
+    turnPage(context, _pageController, _activePage - 1);
   }
 
   void _zoomIn() => _zoomBy(1.25);
@@ -925,9 +919,14 @@ class _ChromeEdgeBarState extends State<_ChromeEdgeBar>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: MotionTokens.fast,
       value: widget.visible ? 1 : 0,
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.duration = MotionTokens.resolve(context, MotionTokens.fast);
   }
 
   @override
