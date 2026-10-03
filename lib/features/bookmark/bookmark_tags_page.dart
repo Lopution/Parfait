@@ -57,18 +57,17 @@ class _BookmarkTagsPageState extends ConsumerState<BookmarkTagsPage> {
             padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
             child: AppSegmentedButton<BookmarkRestrict>(
               segments: [
-                ButtonSegment(
+                AppSegment(
                   value: BookmarkRestrict.public,
-                  label: Text(l10n.restrictPublic),
+                  label: l10n.restrictPublic,
                 ),
-                ButtonSegment(
+                AppSegment(
                   value: BookmarkRestrict.private,
-                  label: Text(l10n.restrictPrivate),
+                  label: l10n.restrictPrivate,
                 ),
               ],
-              selected: {_restrict},
-              onSelectionChanged: (selection) =>
-                  setState(() => _restrict = selection.first),
+              selected: _restrict,
+              onSelected: (restrict) => setState(() => _restrict = restrict),
             ),
           ),
           Expanded(

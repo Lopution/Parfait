@@ -15,6 +15,7 @@ import 'errors/error_details.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
 import 'app_segmented_button.dart';
+import 'fit_label.dart';
 
 /// Toggles the follow of [userId] and plays the haptic of the settled
 /// outcome: select when the change lands either way, error on failure. A
@@ -41,6 +42,9 @@ void _playFollowOutcome(FollowEntry? after, {required bool? before}) {
 ///
 /// The confirmed icon/text is deliberately unchanged while the request is in
 /// flight. The canonical [FollowStore] owns rollback and cross-page updates.
+/// Horizontal padding around the follow button's label.
+const _labelPadding = FuncSpacing.md;
+
 class FollowSwitchButton extends ConsumerWidget {
   const FollowSwitchButton({
     super.key,
@@ -94,7 +98,8 @@ class FollowSwitchButton extends ConsumerWidget {
     // Minimum size, not fixed: a long translation (e.g. ru at a large text
     // scale) widens the button instead of truncating the label. Slots that
     // still cannot fit the grown button bound it (e.g. a ListTile trailing
-    // capped at half the row); only then does the label scale down to fit.
+    // capped at half the row); only then does the label scale down, to
+    // LabelFit.minScale, and past that ellipsize.
     final minSize = compact ? const Size(96, 36) : const Size(116, 42);
     if (pending) {
       // The spinner stays at the minimum size instead of tracking the
@@ -111,48 +116,60 @@ class FollowSwitchButton extends ConsumerWidget {
         ),
       );
     }
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        minWidth: minSize.width,
-        minHeight: minSize.height,
-      ),
-      child: IntrinsicWidth(
-        child: Semantics(
-          container: true,
-          button: true,
-          toggled: followed,
-          label: semanticLabel,
-          onTap: () => toggleFollow(ref, userId),
-          onLongPress: followed ? null : () => _showRestrictSheet(context, ref),
-          child: ExcludeSemantics(
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: followed ? colors.onSurface : colors.onPrimary,
-                backgroundColor: followed ? colors.surface : colors.primary,
-                side: BorderSide(
-                  color: followed ? colors.onSurface : colors.primary,
+    final labelStyle = Theme.of(
+      context,
+    ).textTheme.labelLarge!.copyWith(fontWeight: FontWeight.w600);
+    return LayoutBuilder(
+      builder: (context, constraints) => ConstrainedBox(
+        constraints: BoxConstraints(
+          minWidth: minSize.width,
+          minHeight: minSize.height,
+        ),
+        child: IntrinsicWidth(
+          child: Semantics(
+            container: true,
+            button: true,
+            toggled: followed,
+            label: semanticLabel,
+            onTap: () => toggleFollow(ref, userId),
+            onLongPress: followed
+                ? null
+                : () => _showRestrictSheet(context, ref),
+            child: ExcludeSemantics(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: followed
+                      ? colors.onSurface
+                      : colors.onPrimary,
+                  backgroundColor: followed ? colors.surface : colors.primary,
+                  side: BorderSide(
+                    color: followed ? colors.onSurface : colors.primary,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _labelPadding,
+                  ),
+                  textStyle: labelStyle,
+                  minimumSize: minSize,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  // The long-press haptic is AppHaptics.longPress; the
+                  // framework's own would double it (this also drops the tap
+                  // click sound).
+                  enableFeedback: false,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
-                minimumSize: minSize,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                // The long-press haptic is AppHaptics.longPress; the
-                // framework's own would double it (this also drops the tap
-                // click sound).
-                enableFeedback: false,
-              ),
-              onPressed: () => toggleFollow(ref, userId),
-              onLongPress: followed
-                  ? null
-                  : () => _showRestrictSheet(context, ref),
-              // The label never truncates or wraps: it paints at full size
-              // while the slot offers room and scales down past it.
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
+                onPressed: () => toggleFollow(ref, userId),
+                onLongPress: followed
+                    ? null
+                    : () => _showRestrictSheet(context, ref),
+                // Drawn in the button's text style, measured in the same.
+                child: FitLabel(
                   semanticLabel,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  fit: LabelFit.group(
+                    labels: [semanticLabel],
+                    style: labelStyle,
+                    textScaler: MediaQuery.textScalerOf(context),
+                    textDirection: Directionality.of(context),
+                    slotWidth: constraints.maxWidth - 2 * _labelPadding,
+                  ),
                 ),
               ),
             ),
@@ -226,22 +243,17 @@ Future<void> showFollowRestrictSheet(
                     const SizedBox(height: FuncSpacing.lg),
                     AppSegmentedButton<FollowRestrict>(
                       segments: [
-                        ButtonSegment(
+                        AppSegment(
                           value: FollowRestrict.public,
-                          label: Text(
-                            _followText(sheetContext, 'restrictPublic'),
-                          ),
+                          label: _followText(sheetContext, 'restrictPublic'),
                         ),
-                        ButtonSegment(
+                        AppSegment(
                           value: FollowRestrict.private,
-                          label: Text(
-                            _followText(sheetContext, 'restrictPrivate'),
-                          ),
+                          label: _followText(sheetContext, 'restrictPrivate'),
                         ),
                       ],
-                      selected: {restrict},
-                      onSelectionChanged: (value) =>
-                          setState(() => restrict = value.first),
+                      selected: restrict,
+                      onSelected: (value) => setState(() => restrict = value),
                     ),
                     const SizedBox(height: FuncSpacing.lg),
                     Row(

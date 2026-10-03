@@ -514,16 +514,16 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                         const SizedBox(height: FuncSpacing.lg),
                         AppSegmentedButton<BookmarkRestrict>(
                           segments: [
-                            ButtonSegment(
+                            AppSegment(
                               value: BookmarkRestrict.public,
-                              label: Text(l10n.restrictPublic),
+                              label: l10n.restrictPublic,
                             ),
-                            ButtonSegment(
+                            AppSegment(
                               value: BookmarkRestrict.private,
-                              label: Text(l10n.restrictPrivate),
+                              label: l10n.restrictPrivate,
                             ),
                           ],
-                          selected: {_restrict},
+                          selected: _restrict,
                           // The whole edit area is inert while an existing
                           // bookmark's detail is still in flight: the tag
                           // editor is replaced by the spinner and the
@@ -531,11 +531,10 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                           // would dirty the draft so the arriving prefill
                           // kept the empty tag list and overwrote the
                           // persisted tags.
-                          onSelectionChanged:
-                              (awaitingPrefill && !prefillFailed)
+                          onSelected: (awaitingPrefill && !prefillFailed)
                               ? null
-                              : (selection) =>
-                                    setState(() => _restrict = selection.first),
+                              : (restrict) =>
+                                    setState(() => _restrict = restrict),
                         ),
                       ],
                     ),

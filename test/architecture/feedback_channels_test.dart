@@ -44,7 +44,8 @@ const _hapticsOwnerDir = 'lib/app/haptics/';
 
 /// Raw selection control → the wrapper files allowed to build it. The
 /// wrappers own the control's haptic, so a raw control elsewhere would be
-/// a silent one.
+/// a silent one (and a raw segmented button would also skip the shared
+/// label fitting).
 final _selectionControlOwners = <RegExp, Set<String>>{
   RegExp(r'(?<![A-Za-z])SegmentedButton<'): {
     'lib/app/widgets/app_segmented_button.dart',

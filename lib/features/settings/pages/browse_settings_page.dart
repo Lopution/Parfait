@@ -198,17 +198,17 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                     child: AppSegmentedButton<PreviewQuality>(
                       segments: [
                         for (final quality in PreviewQuality.values)
-                          ButtonSegment<PreviewQuality>(
+                          AppSegment<PreviewQuality>(
                             value: quality,
-                            label: Text(_qualityText(context, quality)),
+                            label: _qualityText(context, quality),
                           ),
                       ],
-                      selected: {settings.previewQuality},
-                      onSelectionChanged: (selected) => persistSettings(
+                      selected: settings.previewQuality,
+                      onSelected: (quality) => persistSettings(
                         context,
                         () => ref
                             .read(settingsProvider.notifier)
-                            .setPreviewQuality(selected.first),
+                            .setPreviewQuality(quality),
                       ),
                     ),
                   ),
@@ -224,17 +224,17 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                           DetailQuality.large,
                           DetailQuality.original,
                         ])
-                          ButtonSegment<DetailQuality>(
+                          AppSegment<DetailQuality>(
                             value: quality,
-                            label: Text(_qualityText(context, quality)),
+                            label: _qualityText(context, quality),
                           ),
                       ],
-                      selected: {settings.detailQuality},
-                      onSelectionChanged: (selected) => persistSettings(
+                      selected: settings.detailQuality,
+                      onSelected: (quality) => persistSettings(
                         context,
                         () => ref
                             .read(settingsProvider.notifier)
-                            .setDetailQuality(selected.first),
+                            .setDetailQuality(quality),
                       ),
                     ),
                   ),
@@ -250,17 +250,17 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                           ViewQuality.large,
                           ViewQuality.original,
                         ])
-                          ButtonSegment<ViewQuality>(
+                          AppSegment<ViewQuality>(
                             value: quality,
-                            label: Text(_qualityText(context, quality)),
+                            label: _qualityText(context, quality),
                           ),
                       ],
-                      selected: {settings.viewQuality},
-                      onSelectionChanged: (selected) => persistSettings(
+                      selected: settings.viewQuality,
+                      onSelected: (quality) => persistSettings(
                         context,
                         () => ref
                             .read(settingsProvider.notifier)
-                            .setViewQuality(selected.first),
+                            .setViewQuality(quality),
                       ),
                     ),
                   ),
@@ -295,22 +295,22 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                     child: AppSegmentedButton<AnimationSpeed>(
                       segments: [
                         for (final speed in AnimationSpeed.values)
-                          ButtonSegment<AnimationSpeed>(
+                          AppSegment<AnimationSpeed>(
                             value: speed,
-                            label: Text(_animationSpeedText(context, speed)),
+                            label: _animationSpeedText(context, speed),
                           ),
                       ],
-                      selected: {settings.animationSpeed},
+                      selected: settings.animationSpeed,
                       // Greyed out while reduce motion is on: the gate
                       // collapses every animation to zero, so the speed
                       // has nothing to drive (footnote explains why).
-                      onSelectionChanged: settings.reduceMotion
+                      onSelected: settings.reduceMotion
                           ? null
-                          : (selected) => persistSettings(
+                          : (speed) => persistSettings(
                               context,
                               () => ref
                                   .read(settingsProvider.notifier)
-                                  .setAnimationSpeed(selected.first),
+                                  .setAnimationSpeed(speed),
                             ),
                     ),
                   ),
@@ -460,24 +460,21 @@ class _HapticStrengthGroup extends ConsumerWidget {
           child: AppSegmentedButton<HapticStrength>(
             segments: [
               for (final strength in HapticStrength.values)
-                ButtonSegment<HapticStrength>(
+                AppSegment<HapticStrength>(
                   value: strength,
-                  label: Text(_hapticStrengthText(context, strength)),
+                  label: _hapticStrengthText(context, strength),
                 ),
             ],
-            selected: {selected},
-            // Four segments on a phone-width row: the check icon would
-            // squeeze the labels, and the fill already marks the level.
-            showSelectedIcon: false,
+            selected: selected,
             // The preview below is this picker's haptic.
             haptics: false,
-            onSelectionChanged: (picked) {
-              AppHaptics.preview(picked.first);
+            onSelected: (strength) {
+              AppHaptics.preview(strength);
               persistSettings(
                 context,
                 () => ref
                     .read(settingsProvider.notifier)
-                    .setHapticStrength(picked.first),
+                    .setHapticStrength(strength),
               );
             },
           ),

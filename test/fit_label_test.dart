@@ -56,7 +56,8 @@ void main() {
 
   test('the widest label sets one scale for the group', () {
     final fit = _fit(['abcde', 'abcdefghij'], 90);
-    expect(fit.scale, moreOrLessEquals(0.9));
+    // One pixel of slack against rounding at the scaled size.
+    expect(fit.scale, moreOrLessEquals(89 / 100));
     expect(fit.truncates, isFalse);
   });
 
@@ -78,10 +79,12 @@ void main() {
     final measured = LabelFit.measureLabel(
       'abcdefghij',
       _style,
-      TextScaler.noScaling,
+      fit.scaler(TextScaler.noScaling),
       TextDirection.ltr,
     );
-    expect(paragraph.size.width, moreOrLessEquals(measured * fit.scale));
+    expect(paragraph.size.width, measured);
+    // Within the slot, a hair under the linear estimate.
+    expect(paragraph.size.width, lessThanOrEqualTo(90));
     expect(find.byType(Tooltip), findsNothing);
   });
 
@@ -90,15 +93,16 @@ void main() {
   ) async {
     const scaler = _NonLinearScaler();
     final fit = _fit(['abcdefghij'], 150, textScaler: scaler);
-    // 10px scales to 17px: 170px natural, 150 / 170 of it painted.
-    expect(fit.scale, moreOrLessEquals(150 / 170));
+    // 10px scales to 17px: 170px natural, about 149 / 170 of it painted.
+    expect(fit.scale, moreOrLessEquals(149 / 170));
     final paragraph = await _pump(
       tester,
       'abcdefghij',
       fit,
       textScaler: scaler,
     );
-    expect(paragraph.size.width, moreOrLessEquals(150, epsilon: 0.01));
+    expect(paragraph.size.width, lessThanOrEqualTo(150));
+    expect(paragraph.size.width, greaterThan(148));
   });
 
   testWidgets('an ellipsized label carries its full text in a tooltip', (

@@ -115,17 +115,16 @@ void main() {
       int value,
       ValueChanged<int> set, {
       bool haptics = true,
-      bool emptySelectionAllowed = false,
+      VoidCallback? onReselected,
     }) => AppSegmentedButton<int>(
       segments: const [
-        ButtonSegment(value: 0, label: Text('zero')),
-        ButtonSegment(value: 1, label: Text('one')),
+        AppSegment(value: 0, label: 'zero'),
+        AppSegment(value: 1, label: 'one'),
       ],
-      selected: {value},
+      selected: value,
       haptics: haptics,
-      emptySelectionAllowed: emptySelectionAllowed,
-      onSelectionChanged: (selection) =>
-          set(selection.isEmpty ? value : selection.single),
+      onSelected: set,
+      onReselected: onReselected,
     );
 
     testWidgets('picking another segment selects', (tester) async {
@@ -136,20 +135,24 @@ void main() {
       expect(haptics.roles, [HapticRole.select]);
     });
 
-    testWidgets('a re-tap (empty selection) stays silent', (tester) async {
+    testWidgets('a re-tap reaches onReselected and stays silent', (
+      tester,
+    ) async {
       final haptics = recordHaptics();
-      var reported = 0;
+      var picked = 0;
+      var reselected = 0;
       await _pump<int>(
         tester,
         0,
         (value, set) => picker(value, (next) {
-          reported++;
+          picked++;
           set(next);
-        }, emptySelectionAllowed: true),
+        }, onReselected: () => reselected++),
       );
       await tester.tap(find.text('zero'));
       await tester.pump();
-      expect(reported, 1);
+      expect(reselected, 1);
+      expect(picked, 0);
       expect(haptics.played, isEmpty);
     });
 

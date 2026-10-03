@@ -45,18 +45,13 @@ class AppTypeSwitch<T> extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
               child: AppSegmentedButton<T>(
-                selected: {selected},
-                emptySelectionAllowed: true,
-                // Tapping the selected segment reports an empty set; turn it
-                // back into the current value so the host sees a re-tap.
-                onSelectionChanged: (selection) =>
-                    onSelected(selection.isEmpty ? selected : selection.single),
+                selected: selected,
+                onSelected: onSelected,
+                // The host sees a re-tap as the current value again.
+                onReselected: () => onSelected(selected),
                 segments: [
                   for (final option in options)
-                    ButtonSegment<T>(
-                      value: option.value,
-                      label: Text(option.label),
-                    ),
+                    AppSegment<T>(value: option.value, label: option.label),
                 ],
               ),
             ),

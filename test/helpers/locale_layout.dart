@@ -58,14 +58,16 @@ void localeLayoutMatrix(
   }
 }
 
-/// The app theme with the harness fallback fonts, in [locale].
+/// The app theme with the harness fallback fonts, in [locale]. Providers
+/// come from [container] when the test drives state through it, otherwise
+/// from a fresh scope with [overrides].
 Widget localeLayoutApp({
   required Locale locale,
   required Widget home,
   List<Override> overrides = const [],
-}) => ProviderScope(
-  overrides: overrides,
-  child: MaterialApp(
+  ProviderContainer? container,
+}) {
+  final app = MaterialApp(
     theme: replicaTheme(
       Brightness.light,
       fontFamilyFallback: layoutFontFallback,
@@ -74,8 +76,11 @@ Widget localeLayoutApp({
     supportedLocales: AppLocalizations.supportedLocales,
     localizationsDelegates: appLocalizationsDelegates,
     home: home,
-  ),
-);
+  );
+  return container == null
+      ? ProviderScope(overrides: overrides, child: app)
+      : UncontrolledProviderScope(container: container, child: app);
+}
 
 /// Lets entrances and fades finish. Not `pumpAndSettle`: skeleton shimmer
 /// loops forever.

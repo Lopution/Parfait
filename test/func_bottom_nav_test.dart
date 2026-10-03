@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/widgets/fit_label.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -180,21 +181,11 @@ void main() {
     expect(midSecond, isNot(settledTwo));
   });
 
-  testWidgets('long labels shrink uniformly instead of truncating', (
-    tester,
-  ) async {
-    // 'Рекомендации' at 12pt is wider than a fifth of a 390px bar; every
-    // label must render at one shared reduced size, fully readable.
-    const ruDestinations = [
-      FuncBottomNavDestination(
-        icon: Icons.home_outlined,
-        label: 'Рекомендации',
-      ),
-      FuncBottomNavDestination(icon: Icons.bar_chart, label: 'Рейтинг'),
-      FuncBottomNavDestination(icon: Icons.new_releases, label: 'Новинки'),
-      FuncBottomNavDestination(icon: Icons.search, label: 'Поиск'),
-      FuncBottomNavDestination(icon: Icons.person_outline, label: 'Профиль'),
-    ];
+  Future<void> pumpBar(
+    WidgetTester tester,
+    List<FuncBottomNavDestination> bar, {
+    int selected = 0,
+  }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -202,28 +193,96 @@ void main() {
       MaterialApp(
         home: Scaffold(
           bottomNavigationBar: FuncBottomNav(
-            destinations: ruDestinations,
-            selectedIndex: 0,
+            destinations: bar,
+            selectedIndex: selected,
             onSelected: (_) {},
           ),
         ),
       ),
     );
+  }
 
-    final texts = tester
-        .widgetList<Text>(
-          find.descendant(
-            of: find.byType(FuncBottomNav),
-            matching: find.byType(Text),
-          ),
-        )
-        .toList();
-    expect(texts, hasLength(ruDestinations.length));
-    final sizes = texts.map((t) => t.style!.fontSize).toSet();
-    // One shared size below the 12pt base — scaled, never ellipsized.
-    expect(sizes, hasLength(1));
-    expect(sizes.single, lessThan(12));
+  List<FitLabel> fitLabels(WidgetTester tester) => tester
+      .widgetList<FitLabel>(
+        find.descendant(
+          of: find.byType(FuncBottomNav),
+          matching: find.byType(FitLabel),
+        ),
+      )
+      .toList();
+
+  // 'Рекомендации' at 12pt is far wider than a fifth of a 390px bar in
+  // FlutterTest's square glyphs.
+  const ruDestinations = [
+    FuncBottomNavDestination(icon: Icons.home_outlined, label: 'Рекомендации'),
+    FuncBottomNavDestination(icon: Icons.bar_chart, label: 'Рейтинг'),
+    FuncBottomNavDestination(icon: Icons.new_releases, label: 'Новинки'),
+    FuncBottomNavDestination(icon: Icons.search, label: 'Поиск'),
+    FuncBottomNavDestination(icon: Icons.person_outline, label: 'Профиль'),
+  ];
+
+  testWidgets('long labels share one scale, floored at 0.8, then ellipsize '
+      'with the full text in a tooltip', (tester) async {
+    await pumpBar(tester, ruDestinations);
+    final labels = fitLabels(tester);
+    expect(labels, hasLength(ruDestinations.length));
+    final fits = labels.map((label) => label.fit).toSet();
+    expect(fits, hasLength(1));
+    expect(fits.single.scale, LabelFit.minScale);
+    expect(fits.single.truncates, isTrue);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Tooltip && widget.message == 'Рекомендации',
+      ),
+      findsOneWidget,
+    );
   });
+
+  testWidgets('labels that fit keep their size', (tester) async {
+    await pumpBar(tester, destinations);
+    expect(fitLabels(tester).map((label) => label.fit).toSet(), {
+      LabelFit.none,
+    });
+  });
+
+  // The indicator is measured, the label drawn: a style mismatch between
+  // the two (the bar used to measure without the inherited font) shows as
+  // an underline narrower or wider than the text.
+  for (final (name, bar) in [
+    ('zh', destinations),
+    (
+      'mid-scale',
+      const [
+        FuncBottomNavDestination(icon: Icons.home_outlined, label: 'abcdefgh'),
+        FuncBottomNavDestination(icon: Icons.bar_chart, label: 'b'),
+        FuncBottomNavDestination(icon: Icons.new_releases, label: 'c'),
+        FuncBottomNavDestination(icon: Icons.search, label: 'd'),
+        FuncBottomNavDestination(icon: Icons.person_outline, label: 'e'),
+      ],
+    ),
+    ('ellipsized', ruDestinations),
+  ]) {
+    testWidgets('the indicator spans the painted label ($name)', (
+      tester,
+    ) async {
+      await pumpBar(tester, bar);
+      await tester.pumpAndSettle();
+      final indicator = tester.getRect(
+        find.descendant(
+          of: find.byType(FuncBottomNav),
+          matching: find.byType(Positioned),
+        ),
+      );
+      final label = tester.getRect(
+        find.descendant(
+          of: find.byType(FuncBottomNav),
+          matching: find.text(bar.first.label),
+        ),
+      );
+      expect(indicator.width, moreOrLessEquals(label.width, epsilon: 0.01));
+      expect(indicator.center.dx, moreOrLessEquals(label.center.dx));
+    });
+  }
 
   testWidgets('labels stay legible at 1.3x platform text scale', (
     tester,

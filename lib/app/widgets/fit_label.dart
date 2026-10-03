@@ -35,9 +35,14 @@ final class LabelFit {
       ),
     );
     if (widest <= slotWidth) return none;
-    final scale = math.max(slotWidth / widest, minScale);
-    return LabelFit(scale: scale, truncates: widest * minScale > slotWidth);
+    // Glyph advances at the scaled font size round a hair wider than the
+    // linear estimate; the slack keeps the widest label from ellipsizing.
+    final room = slotWidth - _scaleSlack;
+    final scale = math.max(room / widest, minScale);
+    return LabelFit(scale: scale, truncates: widest * minScale > room);
   }
+
+  static const _scaleSlack = 1.0;
 
   /// The single-line width [FitLabel] draws [label] at before scaling.
   static double measureLabel(
@@ -60,6 +65,11 @@ final class LabelFit {
   final double scale;
   final bool truncates;
 
+  /// [base] times [scale]: what [FitLabel] draws with. Measure through it
+  /// for the exact painted width.
+  TextScaler scaler(TextScaler base) =>
+      scale == 1 ? base : _ScaledTextScaler(base, scale);
+
   @override
   bool operator ==(Object other) =>
       other is LabelFit && other.scale == scale && other.truncates == truncates;
@@ -71,19 +81,21 @@ final class LabelFit {
 /// A single-line label drawn at its group's [LabelFit]: the ambient text
 /// scaler times [LabelFit.scale] (keeping Android's non-linear font
 /// scaling), ellipsized past the floor with a tooltip carrying the full
-/// text. Measure with [LabelFit.group] using the same [style].
+/// text. Measure with [LabelFit.group] using the style the label is drawn
+/// in: [style] merged over the ambient default text style, or the ambient
+/// style alone when [style] is null (a button supplying its own).
 class FitLabel extends StatelessWidget {
   const FitLabel(
     this.text, {
     super.key,
     required this.fit,
-    required this.style,
+    this.style,
     this.textAlign = TextAlign.center,
   });
 
   final String text;
   final LabelFit fit;
-  final TextStyle style;
+  final TextStyle? style;
   final TextAlign textAlign;
 
   @override
@@ -94,10 +106,7 @@ class FitLabel extends StatelessWidget {
       textAlign: textAlign,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      textScaler: _ScaledTextScaler(
-        MediaQuery.textScalerOf(context),
-        fit.scale,
-      ),
+      textScaler: fit.scaler(MediaQuery.textScalerOf(context)),
     );
     // Screen readers already read the paragraph's full text.
     return fit.truncates
