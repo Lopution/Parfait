@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/haptics/app_haptics.dart';
 import '../../../../app/motion/app_overlays.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
-import '../../../../app/widgets/app_snack_bar.dart';
 import '../../../../app/widgets/errors/error_details.dart';
 import '../../../../app/widgets/author_summary.dart';
 import '../../../../app/widgets/tag_chips.dart';
@@ -16,6 +14,7 @@ import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/mute/mute_store.dart';
 import '../../../../l10n/context.dart';
 import '../../../../app/widgets/caption_rich_text.dart';
+import '../../../../app/clipboard.dart';
 
 class InfoBlock extends ConsumerWidget {
   const InfoBlock({
@@ -179,7 +178,7 @@ class InfoBlock extends ConsumerWidget {
     IllustTag tag, {
     required bool muted,
   }) {
-    AppHaptics.confirm();
+    AppHaptics.longPress();
     final l10n = context.l10n;
     unawaited(
       showAppBottomSheet<void>(
@@ -203,11 +202,13 @@ class InfoBlock extends ConsumerWidget {
                   title: Text(l10n.tagActionCopy),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    unawaited(Clipboard.setData(ClipboardData(text: tag.name)));
-                    AppHaptics.select();
-                    if (context.mounted) {
-                      showAppSnackBar(context, l10n.tagCopied);
-                    }
+                    unawaited(
+                      copyToClipboard(
+                        context,
+                        tag.name,
+                        message: l10n.tagCopied,
+                      ),
+                    );
                   },
                 ),
                 ListTile(

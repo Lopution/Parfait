@@ -5,7 +5,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
+import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
@@ -197,6 +200,31 @@ void main() {
     );
   });
 
+  testWidgets('haptics follow the settled outcome', (tester) async {
+    final haptics = recordHaptics();
+    final (_, repository) = await _pump(tester);
+
+    await tester.tap(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+    expect(haptics.roles, [HapticRole.success]);
+
+    await tester.tap(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+    expect(repository.deletes, [1]);
+    expect(haptics.roles, [HapticRole.success, HapticRole.select]);
+
+    // The throttle reads the wall clock; let the heavy lane re-arm too.
+    await tester.runAsync(() => Future<void>.delayed(AppHaptics.heavyInterval));
+    repository.addError = StateError('boom');
+    await tester.tap(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+    expect(haptics.roles, [
+      HapticRole.success,
+      HapticRole.select,
+      HapticRole.error,
+    ]);
+  });
+
   testWidgets('pending phase shows a CupertinoActivityIndicator (R4)', (
     tester,
   ) async {
@@ -371,6 +399,7 @@ void main() {
 
   testWidgets('unbookmarked long press opens the restrict sheet; confirm '
       'sends the chosen restrict (R3)', (tester) async {
+    final haptics = recordHaptics();
     final (_, repository) = await _pump(tester);
 
     await tester.longPress(find.byType(BookmarkSwitchButton));
@@ -397,6 +426,12 @@ void main() {
 
     expect(repository.adds, hasLength(1));
     expect(repository.adds.single.$2, 'private');
+    // Sheet opened, segment picked, submit landed.
+    expect(haptics.roles, [
+      HapticRole.longPress,
+      HapticRole.select,
+      HapticRole.success,
+    ]);
   });
 
   testWidgets('edit sheet caps content width at ContentWidths.form on '

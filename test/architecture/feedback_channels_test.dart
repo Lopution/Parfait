@@ -11,6 +11,10 @@
 //   - raw selection controls (SegmentedButton, ChoiceChip/FilterChip,
 //     Slider, Switch/SwitchListTile, Radio) only inside the wrapper that
 //     builds their haptic in
+//   - navigation chrome (tab bar, bottom nav, root swipe) plays no haptic:
+//     switching destinations is navigation, not a state change
+//   - `Clipboard.setData` inside lib/app + lib/features: only in
+//     lib/app/clipboard.dart (copyToClipboard: write, success haptic, toast)
 //   - raw overlay entries (showDialog / showModalBottomSheet / Cupertino
 //     variants / showMenu / framework pickers) outside
 //     lib/app/motion/app_overlays.dart: zero beyond the pinned
@@ -59,6 +63,19 @@ final _selectionControlOwners = <RegExp, Set<String>>{
     'lib/app/widgets/settings/settings_choice_tile.dart',
   },
 };
+
+/// Navigation chrome: switching is navigation, not a state change, so these
+/// stay silent (Compose Material 3, Flutter Material and Now in Android do
+/// not vibrate on tab or destination switches either).
+const _silentNavigationFiles = <String>{
+  'lib/app/widgets/app_tab_bar.dart',
+  'lib/app/widgets/func_bottom_nav.dart',
+  'lib/app/widgets/root_swipe_switcher.dart',
+};
+
+/// Owner file for UI clipboard writes. core/ keeps its own platform uses
+/// (share fallback, desktop transfer clipboard), which have no UI.
+const _clipboardOwner = 'lib/app/clipboard.dart';
 
 /// Owner file for app modal overlays.
 const _overlaysOwner = 'lib/app/motion/app_overlays.dart';
@@ -197,6 +214,27 @@ void main() {
           'raw selection controls outside their wrappers (use '
           'AppSegmentedButton / AppChoiceChip / AppSlider / SettingsControl / '
           'SettingsChoiceTile):\n${violations.join('\n')}',
+    );
+  });
+
+  test('navigation chrome stays silent', () {
+    final noisy = [
+      for (final file in _silentNavigationFiles)
+        if (File(file).readAsStringSync().contains('AppHaptics')) file,
+    ];
+    expect(noisy, isEmpty, reason: 'navigation must not play haptics');
+  });
+
+  test('UI clipboard writes go through copyToClipboard', () {
+    final files = _matches([
+      'lib/app',
+      'lib/features',
+    ], RegExp(r'Clipboard\.setData')).keys.toSet();
+    expect(
+      files.difference({_clipboardOwner}),
+      isEmpty,
+      reason:
+          'Clipboard.setData outside $_clipboardOwner — use copyToClipboard',
     );
   });
 

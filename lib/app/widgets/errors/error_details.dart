@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/errors/error_category.dart';
@@ -7,6 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../app_snack_bar.dart';
+import '../../clipboard.dart';
 
 /// Maps an [ErrorCategory] to its localized sentence — the single owner of
 /// the category→copy mapping (C8/D1). Every error surface uses this instead
@@ -100,12 +100,11 @@ class _ErrorDetailsState extends State<ErrorDetails> {
             ),
           ),
           TextButton.icon(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: text));
-              if (context.mounted) {
-                showAppSnackBar(context, l10n.errorDetailsCopied);
-              }
-            },
+            onPressed: () => copyToClipboard(
+              context,
+              text,
+              message: l10n.errorDetailsCopied,
+            ),
             icon: const Icon(Icons.copy_outlined, size: 16),
             label: Text(l10n.errorDetailsCopy),
           ),

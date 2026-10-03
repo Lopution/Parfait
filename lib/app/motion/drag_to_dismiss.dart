@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../haptics/app_haptics.dart';
 import 'motion_tokens.dart';
 
 /// A vertical pull-to-dismiss surface used by full-screen artwork surfaces.
@@ -62,11 +63,17 @@ class _DragToDismissState extends State<DragToDismiss>
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {
+    final wasPast = _dragOffset >= widget.dismissDistance;
     setState(() {
       _dragOffset = (_dragOffset + details.delta.dy)
           .clamp(0.0, double.infinity)
           .toDouble();
     });
+    // Crossing the distance threshold is felt both ways: releasing past it
+    // dismisses, pulling back under it cancels.
+    final isPast = _dragOffset >= widget.dismissDistance;
+    if (isPast && !wasPast) AppHaptics.thresholdOn();
+    if (wasPast && !isPast) AppHaptics.thresholdOff();
   }
 
   void _onVerticalDragEnd(DragEndDetails details) {

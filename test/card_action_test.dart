@@ -319,8 +319,10 @@ void main() {
     expect(find.text('撤销'), findsOneWidget);
     expect(await repository.list('100'), isEmpty);
 
+    // Opening the sheet by long-press played longPress.
+    expect(haptics.roles, [HapticRole.longPress]);
     await tester.tap(find.text('撤销'));
-    expect(haptics.roles, [HapticRole.select]);
+    expect(haptics.roles, [HapticRole.longPress, HapticRole.select]);
     await mockNetworkImagesFor(() async {
       await tester.pump();
       await tester.pump();
@@ -332,6 +334,7 @@ void main() {
   });
 
   testWidgets('bookmark action sends a real add request', (tester) async {
+    final haptics = recordHaptics();
     final (container, fixture, _) = await _makeWorld();
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
@@ -343,6 +346,8 @@ void main() {
 
     expect(fixture.posts, hasLength(1));
     expect(fixture.posts.single.path, '/v2/illust/bookmark/add');
+    // The sheet opened on long-press; the landed add is the success role.
+    expect(haptics.roles, [HapticRole.longPress, HapticRole.success]);
     expect(
       container.read(
         bookmarkStoreProvider.select(

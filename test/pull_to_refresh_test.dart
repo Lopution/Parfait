@@ -2,9 +2,13 @@ import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart' as legacy_material;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/pull_to_refresh.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
+
+import 'helpers/recording_haptics.dart';
 
 void main() {
   Widget buildSubject({
@@ -84,6 +88,46 @@ void main() {
       await tester.pump();
     }
   }
+
+  testWidgets('crossing the refresh trigger is felt both ways', (tester) async {
+    final haptics = recordHaptics();
+    await tester.pumpWidget(buildSubject(onRefresh: () async {}));
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+    );
+    await pullBy(tester, gesture, 2, 30);
+    expect(haptics.played, isEmpty, reason: 'below the trigger');
+    await pullBy(tester, gesture, 10, 30);
+    expect(haptics.roles, [HapticRole.thresholdOn]);
+
+    // The throttle reads the wall clock; let the light lane re-arm.
+    await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
+    await pullBy(tester, gesture, 12, -30);
+    expect(haptics.roles, [HapticRole.thresholdOn, HapticRole.thresholdOff]);
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(haptics.roles, [HapticRole.thresholdOn, HapticRole.thresholdOff]);
+  });
+
+  testWidgets('releasing past the trigger refreshes without a second haptic', (
+    tester,
+  ) async {
+    final haptics = recordHaptics();
+    var refreshCount = 0;
+    await tester.pumpWidget(
+      buildSubject(onRefresh: () async => refreshCount++),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(ListView)),
+    );
+    await pullBy(tester, gesture, 12, 30);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(refreshCount, 1);
+    expect(haptics.roles, [HapticRole.thresholdOn]);
+  });
 
   testWidgets('an outward pull follows the finger, then cancels below the '
       'threshold', (tester) async {
