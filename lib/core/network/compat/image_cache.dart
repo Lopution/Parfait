@@ -4,10 +4,16 @@ import 'dart:collection';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 
+import 'image_demand.dart';
+
 class PixivImageCache {
   PixivImageCache({required this.httpClient});
 
   final http.Client httpClient;
+
+  /// Who waits for which image: image widgets and prefetchers register
+  /// here, the file service reads it.
+  final demand = ImageDemand();
   CacheManager? _manager;
 
   CacheManager get manager {
@@ -18,9 +24,15 @@ class PixivImageCache {
         // before its disk footprint matters; ~1500 previews stay around a
         // hundred MB, which is the point of having a disk cache.
         maxNrOfCacheObjects: 1500,
-        fileService: PriorityFileService(httpClient: httpClient),
+        fileService: _fileService(),
       ),
     );
+  }
+
+  PriorityFileService _fileService() {
+    final service = PriorityFileService(httpClient: httpClient, demand: demand);
+    demand.onHeld = service.promote;
+    return service;
   }
 
   Future<void> dispose() async {
@@ -64,14 +76,22 @@ const _kWebHelperAdmitAll = 1 << 20;
 /// URL is already queued as prefetch never reaches this service on its own.
 /// [promote] moves that queued prefetch onto the foreground lane.
 ///
+/// When a queued fetch reaches its turn and [ImageDemand] says nobody wants
+/// its URL any more, it fails with [ImageFetchDropped] instead of taking
+/// the slot. A transfer that already started is never interrupted: its
+/// bytes are on the way and the file will serve the next visit.
+///
 /// A permit is held for the whole transfer, not just the header wait, so a
 /// lane's slot count is the number of bodies streaming at once. `WebHelper`
 /// may legitimately never listen to `content` (304/error paths), so a
 /// generous [_holdLimit] releases a permit that the response stream did
 /// not — bounded over-admission beats a lane leak.
 class PriorityFileService extends FileService {
-  PriorityFileService({required http.Client httpClient})
-    : _service = HttpFileService(httpClient: httpClient) {
+  /// Without a [demand], queued fetches are never dropped.
+  PriorityFileService({required http.Client httpClient, ImageDemand? demand})
+    : _service = HttpFileService(httpClient: httpClient),
+      _foreground = _PermitGate(foregroundSlots, demand?.wants),
+      _background = _PermitGate(backgroundSlots, demand?.wants) {
     concurrentFetches = _kWebHelperAdmitAll;
   }
 
@@ -91,8 +111,8 @@ class PriorityFileService extends FileService {
   static const _holdLimit = Duration(seconds: 45);
 
   final HttpFileService _service;
-  final _PermitGate _foreground = _PermitGate(foregroundSlots);
-  final _PermitGate _background = _PermitGate(backgroundSlots);
+  final _PermitGate _foreground;
+  final _PermitGate _background;
 
   @override
   Future<FileServiceResponse> get(
@@ -134,9 +154,12 @@ class _Waiter {
 }
 
 class _PermitGate {
-  _PermitGate(this._slots);
+  _PermitGate(this._slots, this._wants);
 
   final int _slots;
+
+  /// Asked when a queued waiter's turn comes; null admits every waiter.
+  final bool Function(String url)? _wants;
   var _inFlight = 0;
   final _waiters = Queue<_Waiter>();
 
@@ -166,13 +189,16 @@ class _PermitGate {
   }
 
   void release() {
-    final next = _waiters.isEmpty ? null : _waiters.removeFirst();
-    if (next == null) {
-      _inFlight--;
-    } else {
-      // The slot passes to the waiter without dipping _inFlight.
-      next.completer.complete(this);
+    while (_waiters.isNotEmpty) {
+      final next = _waiters.removeFirst();
+      if (_wants?.call(next.url) ?? true) {
+        // The slot passes to the waiter without dipping _inFlight.
+        next.completer.complete(this);
+        return;
+      }
+      next.completer.completeError(ImageFetchDropped(next.url));
     }
+    _inFlight--;
   }
 }
 

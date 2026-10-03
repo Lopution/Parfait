@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/network/compat/image_demand.dart';
 import '../../../core/network/compat/network_contracts.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/settings_controller.dart';
@@ -112,15 +113,21 @@ Iterable<String> get debugFeedPrefetchedKeys => _feedPrefetched;
 /// here: a fling admits no new image work. Instead of timers the loop
 /// awaits the scroll position's isScrolling notifier, then gives up to the
 /// next watermark advance if the user is still flinging.
+///
+/// The window is registered through [cursor] as the grid's image demand: a
+/// warm-up still queued when the window has moved on is dropped.
 void scheduleFeedPreviewPrefetch(
   BuildContext context,
   List<IllustEntity> entities,
   int fromIndex,
-  int decodeWidth,
-) {
+  int decodeWidth, {
+  required FeedPrefetchCursor cursor,
+}) {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!context.mounted) return;
-    unawaited(_prefetchFeedWindow(context, entities, fromIndex, decodeWidth));
+    unawaited(
+      _prefetchFeedWindow(context, entities, fromIndex, decodeWidth, cursor),
+    );
   });
 }
 
@@ -129,6 +136,7 @@ Future<void> _prefetchFeedWindow(
   List<IllustEntity> entities,
   int fromIndex,
   int decodeWidth,
+  FeedPrefetchCursor cursor,
 ) async {
   final ProviderContainer container;
   try {
@@ -138,9 +146,7 @@ Future<void> _prefetchFeedWindow(
     // prefetch is best-effort, so skip rather than fail an unawaited path.
     return;
   }
-  final cacheManager = container
-      .read(pixivNetworkFactoryProvider)
-      .imageCacheManager;
+  final network = container.read(pixivNetworkFactoryProvider);
   final previewQuality = container.read(previewQualityProvider);
   // Feed data just landed: warm the remembered winning route's connection
   // so the first visible image GET skips the TLS handshake. The
@@ -160,7 +166,24 @@ Future<void> _prefetchFeedWindow(
         .warmConnection(PixivDestinationPurpose.image, warmHost);
   }
   final end = math.min(entities.length, fromIndex + _kFeedPrefetchAhead);
-  for (var i = fromIndex; i < end; i += _kFeedPrefetchConcurrent) {
+  // The card's own layout rule: tall works prefetch the cropped large or
+  // square thumbnail the card will paint, not the tier preview.
+  final window = [
+    for (final entity in entities.sublist(fromIndex, end))
+      if (entity.visible)
+        (
+          entity,
+          illustCardPreview(
+            entity,
+            quality: previewQuality,
+            cardPhysicalWidth: decodeWidth,
+          ),
+        ),
+  ];
+  cursor.claimWindow(network.imageDemand, {
+    for (final (_, preview) in window) preview.url,
+  });
+  for (var i = 0; i < window.length; i += _kFeedPrefetchConcurrent) {
     if (!context.mounted) return;
     if (_isDeferred(context)) {
       await _waitForScrollIdle(context);
@@ -170,18 +193,11 @@ Future<void> _prefetchFeedWindow(
       }
     }
     final batch = <Future<void>>[];
-    for (var j = i; j < math.min(i + _kFeedPrefetchConcurrent, end); j++) {
-      final entity = entities[j];
-      if (!entity.visible) continue;
-      // The card's own layout rule: tall works prefetch the cropped large
-      // or square thumbnail the card will paint, not the tier preview.
-      final preview = illustCardPreview(
-        entity,
-        quality: previewQuality,
-        cardPhysicalWidth: decodeWidth,
-      );
+    for (final (entity, preview)
+        in window.skip(i).take(_kFeedPrefetchConcurrent)) {
       final url = preview.url;
-      if (!_feedPrefetched.add('$url|$decodeWidth')) continue;
+      final key = '$url|$decodeWidth';
+      if (!_feedPrefetched.add(key)) continue;
       while (_feedPrefetched.length > 512) {
         _feedPrefetched.remove(_feedPrefetched.first);
       }
@@ -190,11 +206,18 @@ Future<void> _prefetchFeedWindow(
         PixivImage.preload(
           context,
           url,
-          cacheManager: cacheManager,
+          cacheManager: network.imageCacheManager,
+          demand: network.imageDemand,
           tierKey: tier == null ? null : entity.imageTierKeyAt(0),
           tier: tier,
           memCacheWidth: decodeWidth,
-        ),
+        ).then((result) {
+          // Never fetched, so a later window may ask again. A failure stays
+          // recorded: retrying is the visible card's job.
+          if (result == ImagePreloadResult.dropped) {
+            _feedPrefetched.remove(key);
+          }
+        }),
       );
     }
     if (batch.isNotEmpty) {
@@ -272,8 +295,11 @@ class FeedItemExtent extends InheritedWidget {
 /// *above* it is warmed instead — the re-decode then happens off the
 /// scroll path rather than flashing placeholders when the scroll settles.
 /// Repeating the same index schedules nothing.
+///
+/// The cursor also owns the grid's prefetch window in [ImageDemand].
 class FeedPrefetchCursor {
   int _last = -1;
+  ImageDemand? _demand;
 
   /// The window start for [index], or null when nothing should be warmed.
   int? advance(int index, {required int ahead}) {
@@ -281,6 +307,18 @@ class FeedPrefetchCursor {
     final from = index > _last ? index + 1 : math.max(0, index - ahead);
     _last = index;
     return from;
+  }
+
+  /// Makes [urls] this grid's prefetch window, replacing the previous one.
+  void claimWindow(ImageDemand demand, Set<String> urls) {
+    if (!identical(demand, _demand)) _demand?.clearPrefetchWindow(this);
+    _demand = demand..setPrefetchWindow(this, urls);
+  }
+
+  /// Gives the window up when the grid goes away.
+  void dispose() {
+    _demand?.clearPrefetchWindow(this);
+    _demand = null;
   }
 }
 
@@ -370,8 +408,20 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
     if (entities == null) return;
     final from = _prefetchCursor.advance(index, ahead: _kFeedPrefetchAhead);
     if (from != null) {
-      scheduleFeedPreviewPrefetch(context, entities, from, decodeWidth);
+      scheduleFeedPreviewPrefetch(
+        context,
+        entities,
+        from,
+        decodeWidth,
+        cursor: _prefetchCursor,
+      );
     }
+  }
+
+  @override
+  void dispose() {
+    _prefetchCursor.dispose();
+    super.dispose();
   }
 
   @override

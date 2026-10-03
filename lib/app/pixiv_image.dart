@@ -12,6 +12,7 @@ import '../core/debug/frame_probe.dart';
 import '../core/entity/illust_entity.dart';
 import '../core/network/pixiv_headers.dart';
 import '../core/network/compat/image_cache.dart';
+import '../core/network/compat/image_demand.dart';
 import '../core/network/compat/network_providers.dart';
 
 export '../core/network/compat/image_cache.dart' show ImageFetchPriority;
@@ -29,6 +30,15 @@ enum PixivImageSize {
 
   /// Avatars: decode at the avatar box size.
   avatar,
+}
+
+/// Outcome of [PixivImage.preload].
+enum ImagePreloadResult {
+  decoded,
+
+  /// Still queued when nobody wanted the URL any more; never fetched.
+  dropped,
+  failed,
 }
 
 /// Shared Pixiv CDN image widget: every i.pximg.net request must carry the
@@ -474,11 +484,18 @@ class PixivImage extends ConsumerStatefulWidget {
   ///
   /// [priority] is background for speculative warm-up. Preloads the user
   /// just asked for (a tapped card's detail image, the viewer page) pass
-  /// foreground so they never queue behind feed prefetch.
-  static Future<void> preload(
+  /// foreground so they never queue behind feed prefetch, and hold the URL
+  /// in [demand] until the target page has had time to mount.
+  ///
+  /// A background preload is only kept while something wants its URL — a
+  /// widget showing it or the caller's prefetch window in [demand].
+  ///
+  /// Completes with the outcome; never with an image error.
+  static Future<ImagePreloadResult> preload(
     BuildContext context,
     String url, {
     BaseCacheManager? cacheManager,
+    ImageDemand? demand,
     String? tierKey,
     IllustImageTier? tier,
     int? memCacheWidth,
@@ -487,6 +504,9 @@ class PixivImage extends ConsumerStatefulWidget {
     final resolved = tierKey != null && tier != null
         ? IllustTierCache.resolve(tierKey, tier, url)
         : (url, tier);
+    if (priority == ImageFetchPriority.foreground) {
+      demand?.holdFor(resolved.$1, _userPreloadHold);
+    }
     ImageProvider imageProvider = provider(
       resolved.$1,
       cacheManager: cacheManager,
@@ -502,7 +522,7 @@ class PixivImage extends ConsumerStatefulWidget {
         imageProvider,
       );
     }
-    var failed = false;
+    ImagePreloadResult? failure;
     await precacheImage(
       imageProvider,
       context,
@@ -510,19 +530,29 @@ class PixivImage extends ConsumerStatefulWidget {
       // FlutterError.onError and lands in the crash log. The visible widget
       // shows (and retries) its own failure; here it is only noise.
       onError: (error, _) {
-        failed = true;
+        // A dropped fetch is the scheduler working as intended.
+        if (error is ImageFetchDropped) {
+          failure = ImagePreloadResult.dropped;
+          return;
+        }
+        failure = ImagePreloadResult.failed;
         debugPrint('PixivImage.preload ${resolved.$1}: $error');
       },
     );
     // A failed image must not be recorded as decoded: the tier cache would
     // then upgrade later requests to a URL that never loaded.
-    if (failed) return;
+    if (failure case final failure?) return failure;
     FrameProbe.instance.mark('img preload');
     _markCompleted(_decodeKey(resolved.$1, memCacheWidth));
     if (tierKey != null && resolved.$2 != null) {
       IllustTierCache.record(tierKey, resolved.$2!, resolved.$1);
     }
+    return ImagePreloadResult.decoded;
   }
+
+  /// How long a user-requested preload stays wanted without a widget; the
+  /// target page normally mounts and takes over well within it.
+  static const _userPreloadHold = Duration(seconds: 10);
 }
 
 class _PixivImageState extends ConsumerState<PixivImage> {
@@ -532,6 +562,33 @@ class _PixivImageState extends ConsumerState<PixivImage> {
   /// — and OctoImage's retained old frame — stays. That is a slot
   /// hand-off, not a cold load.
   String? _lastShownUrl;
+
+  /// The URL this element registered in [_demand], so a queued fetch for
+  /// it is not dropped while it is on screen.
+  String? _heldUrl;
+  ImageDemand? _demand;
+
+  /// Holds the new URL before releasing the old one, so a rebuild with the
+  /// same URL never drops to zero holders.
+  void _hold(ImageDemand? demand, String url) {
+    if (identical(demand, _demand) && url == _heldUrl) return;
+    demand?.hold(url);
+    _release();
+    _demand = demand;
+    _heldUrl = demand == null ? null : url;
+  }
+
+  void _release() {
+    final url = _heldUrl;
+    if (url != null) _demand?.release(url);
+    _heldUrl = null;
+  }
+
+  @override
+  void dispose() {
+    _release();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -570,9 +627,13 @@ class _PixivImageState extends ConsumerState<PixivImage> {
     } on StateError {
       hasProviderScope = false;
     }
+    ImageDemand? demand;
     if (hasProviderScope) {
-      cacheManager = ref.watch(pixivNetworkFactoryProvider).imageCacheManager;
+      final network = ref.watch(pixivNetworkFactoryProvider);
+      cacheManager = network.imageCacheManager;
+      demand = network.imageDemand;
     }
+    _hold(demand, imageUrl);
     PixivImage._recordWhenDecoded(
       imageUrl,
       widget.tierKey,

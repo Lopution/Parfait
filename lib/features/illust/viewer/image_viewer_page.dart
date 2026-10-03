@@ -18,6 +18,7 @@ import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart' show DownloadEvent;
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/share/share_service.dart';
+import '../../../core/network/compat/image_demand.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
@@ -116,6 +117,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// contract as the detail page's `_ensureDownloadListener`).
   StreamSubscription<DownloadEvent>? _downloadEvents;
 
+  /// Where [_prefetchNeighbours] registered its window, cleared on dispose.
+  ImageDemand? _prefetchDemand;
+
   int get _pageCount => widget.urls.length;
 
   bool get _chromeVisible => _viewerSessionChromeVisible;
@@ -160,6 +164,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
 
   @override
   void dispose() {
+    _prefetchDemand?.clearPrefetchWindow(this);
     _downloadEvents?.cancel();
     for (final controller in _transformations.values) {
       controller.dispose();
@@ -196,21 +201,27 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     } on StateError {
       return;
     }
-    final cacheManager = container
-        .read(pixivNetworkFactoryProvider)
-        .imageCacheManager;
-    for (final neighbour in [page - 1, page + 1]) {
-      if (neighbour < 0 || neighbour >= _pageCount) continue;
-      final url = urlFor(neighbour);
-      if (url == null) continue;
+    final network = container.read(pixivNetworkFactoryProvider);
+    final neighbours = <int, String>{
+      for (final neighbour in [page - 1, page + 1])
+        if (neighbour >= 0 && neighbour < _pageCount)
+          neighbour: ?urlFor(neighbour),
+    };
+    // A page turn replaces the window: a still-queued warm-up for a page
+    // the user swiped away from is dropped.
+    final demand = network.imageDemand
+      ..setPrefetchWindow(this, neighbours.values.toSet());
+    _prefetchDemand = demand;
+    for (final MapEntry(key: neighbour, value: url) in neighbours.entries) {
       unawaited(
         PixivImage.preload(
           context,
           url,
-          cacheManager: cacheManager,
+          cacheManager: network.imageCacheManager,
+          demand: demand,
           tierKey: widget.tierKeyForPage?.call(neighbour),
           tier: IllustImageTier.medium,
-        ).catchError((_) {}),
+        ).catchError((_) => ImagePreloadResult.failed),
       );
     }
   }

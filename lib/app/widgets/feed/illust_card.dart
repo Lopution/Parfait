@@ -348,9 +348,8 @@ class _IllustCardBody extends ConsumerWidget {
     IllustCardPreview preview,
     int decodeWidth,
   ) {
-    final cacheManager = ref
-        .read(pixivNetworkFactoryProvider)
-        .imageCacheManager;
+    final network = ref.read(pixivNetworkFactoryProvider);
+    final cacheManager = network.imageCacheManager;
     final previewUrl = preview.url;
     final previewTier = preview.tier;
     // Warm the exact decoded entry the feed card displays AND the detail
@@ -389,6 +388,7 @@ class _IllustCardBody extends ConsumerWidget {
             cacheManager: cacheManager,
             tierKey: entity.imageTierKeyAt(0),
             tier: detailQuality.tier,
+            demand: network.imageDemand,
             priority: ImageFetchPriority.foreground,
           ),
         );

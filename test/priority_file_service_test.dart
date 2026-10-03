@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/network/compat/image_cache.dart';
+import 'package:parfait/core/network/compat/image_demand.dart';
 
 import 'helpers/image_network.dart';
 
@@ -12,8 +13,8 @@ Map<String, String> _prefetch() => {PriorityFileService.prefetchMarker: '1'};
 /// response it hands out, so a test can release all lane permits at the end
 /// instead of leaving them to the 45 s hold limit.
 class _Lanes {
-  _Lanes() {
-    service = PriorityFileService(httpClient: client);
+  _Lanes({ImageDemand? demand}) {
+    service = PriorityFileService(httpClient: client, demand: demand);
   }
 
   final client = HeldBodyClient();
@@ -209,6 +210,130 @@ void main() {
     while (client.bodies.any((b) => !b.isClosed)) {
       await client.closeAll();
       await settleIo();
+    }
+    for (final subscription in subscriptions) {
+      await subscription.cancel();
+    }
+  });
+
+  group('with demand', () {
+    late DateTime now;
+    late ImageDemand demand;
+    final window = Object();
+    setUp(() async {
+      await lanes.dispose();
+      now = DateTime(2026, 10, 3);
+      demand = ImageDemand(clock: () => now);
+      lanes = _Lanes(demand: demand);
+    });
+
+    test('a queued prefetch whose window moved on is dropped at its turn '
+        'and never reaches the network', () async {
+      const stale = 'https://i.pximg.net/stale.jpg';
+      const fresh = 'https://i.pximg.net/fresh.jpg';
+      demand.setPrefetchWindow(window, {stale, fresh});
+      await lanes.saturateBackground();
+      final dropped = expectLater(
+        lanes.get(stale),
+        throwsA(isA<ImageFetchDropped>()),
+      );
+      final admitted = lanes.get(fresh);
+      await settleIo();
+
+      demand.setPrefetchWindow(window, {fresh});
+      await lanes.finish(lanes._responses.first);
+      await dropped;
+      await admitted;
+      expect(lanes.client.urls, isNot(contains(stale)));
+      expect(lanes.client.urls.last, fresh);
+    });
+
+    test('a dropped waiter does not leak its slot', () async {
+      const stale = 'https://i.pximg.net/stale.jpg';
+      await lanes.saturateBackground();
+      final dropped = expectLater(
+        lanes.get(stale),
+        throwsA(isA<ImageFetchDropped>()),
+      );
+      await settleIo();
+      await lanes.finish(lanes._responses.first);
+      await dropped;
+
+      // The freed slot is open again: the next prefetch starts at once.
+      await lanes.get('https://i.pximg.net/next.jpg');
+    });
+
+    test('a transfer already streaming is never interrupted', () async {
+      const url = 'https://i.pximg.net/streaming.jpg';
+      demand.setPrefetchWindow(window, {url});
+      final response = await lanes.get(url);
+      final received = <int>[];
+      final done = response.content.listen(received.addAll).asFuture<void>();
+      lanes.client.bodies.single.add([1, 2]);
+      await settleIo();
+
+      demand.clearPrefetchWindow(window);
+      lanes.client.bodies.single.add([3]);
+      await lanes.client.bodies.single.close();
+      await done;
+      lanes._settled.add(response);
+      expect(received, [1, 2, 3]);
+    });
+
+    test('a URL released moments ago is still fetched; after the grace '
+        'period it is dropped', () async {
+      const recent = 'https://i.pximg.net/recent.jpg';
+      const old = 'https://i.pximg.net/old.jpg';
+      await lanes.saturateBackground();
+      demand
+        ..hold(old)
+        ..release(old);
+      now = now.add(const Duration(milliseconds: 200));
+      demand
+        ..hold(recent)
+        ..release(recent);
+      final dropped = expectLater(
+        lanes.get(old),
+        throwsA(isA<ImageFetchDropped>()),
+      );
+      final admitted = lanes.get(recent);
+      await settleIo();
+
+      // 600 ms after the first release, 400 ms after the second.
+      now = now.add(const Duration(milliseconds: 400));
+      await lanes.finish(lanes._responses.first);
+      await dropped;
+      await admitted;
+      expect(lanes.client.urls.last, recent);
+    });
+  });
+
+  test('a widget starting to show a queued prefetch promotes it', () async {
+    mockPathProvider();
+    final client = HeldBodyClient();
+    final cache = PixivImageCache(httpClient: client);
+    addTearDown(cache.dispose);
+    final subscriptions = [
+      for (var i = 0; i < PriorityFileService.backgroundSlots + 2; i++)
+        cache.manager
+            .getFileStream('https://i.pximg.net/w$i.jpg', headers: _prefetch())
+            .listen((_) {}, onError: (_) {}),
+    ];
+    const seen =
+        'https://i.pximg.net/w${PriorityFileService.backgroundSlots + 1}.jpg';
+    await pollUntil(
+      () => client.urls.length == PriorityFileService.backgroundSlots,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(client.urls, isNot(contains(seen)));
+
+    cache.demand.hold(seen);
+    await pollUntil(() => client.urls.contains(seen));
+    expect(client.urls, hasLength(PriorityFileService.backgroundSlots + 1));
+
+    while (client.bodies.any((b) => !b.isClosed)) {
+      await client.closeAll();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     for (final subscription in subscriptions) {
       await subscription.cancel();

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
@@ -215,5 +216,36 @@ void main() {
     );
     expect(image.fadeInDuration, MotionTokens.imageFade);
     expect(image.fadeOutDuration, MotionTokens.imageFadeOut);
+  });
+
+  testWidgets('an image on screen holds its URL in the image demand', (
+    tester,
+  ) async {
+    const a = 'https://i.pximg.net/hold-a.jpg';
+    const b = 'https://i.pximg.net/hold-b.jpg';
+    Widget images(List<String> urls) => _host(
+      Column(
+        children: [
+          for (final url in urls)
+            SizedBox(height: 50, child: PixivImage(url: url)),
+        ],
+      ),
+    );
+    await tester.pumpWidget(images([a, a]));
+    final demand = ProviderScope.containerOf(
+      tester.element(find.byType(PixivImage).first),
+    ).read(pixivNetworkFactoryProvider).imageDemand;
+    expect(demand.debugHolds(a), 2);
+
+    // The second slot switches work: its hold moves with it.
+    await tester.pumpWidget(images([a, b]));
+    expect(demand.debugHolds(a), 1);
+    expect(demand.debugHolds(b), 1);
+
+    await tester.pumpWidget(images([]));
+    expect(demand.debugHolds(a), 0);
+    expect(demand.debugHolds(b), 0);
+    // Just released: still wanted for the grace period.
+    expect(demand.wants(b), isTrue);
   });
 }

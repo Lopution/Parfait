@@ -39,15 +39,25 @@ class HeldBodyClient extends http.BaseClient {
 
 var _managerSerial = 0;
 
-/// A real [CacheManager] over [fileService], storing files under a fresh
-/// temp directory with no persisted index. The path_provider channel is an
-/// external boundary, so it is answered here.
-CacheManager testImageCacheManager(FileService fileService) {
+/// Answers the path_provider channel (an external boundary) with a fresh
+/// temp directory, removed after the test.
+Directory mockPathProvider() {
   final dir = Directory.systemTemp.createTempSync('parfait-img-');
   const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   messenger.setMockMethodCallHandler(pathChannel, (_) async => dir.path);
+  addTearDown(() async {
+    messenger.setMockMethodCallHandler(pathChannel, null);
+    await dir.delete(recursive: true);
+  });
+  return dir;
+}
+
+/// A real [CacheManager] over [fileService], storing files under a fresh
+/// temp directory with no persisted index.
+CacheManager testImageCacheManager(FileService fileService) {
+  mockPathProvider();
   final manager = CacheManager(
     Config(
       'parfait_images_test_${_managerSerial++}',
@@ -55,11 +65,7 @@ CacheManager testImageCacheManager(FileService fileService) {
       fileService: fileService,
     ),
   );
-  addTearDown(() async {
-    await manager.dispose();
-    messenger.setMockMethodCallHandler(pathChannel, null);
-    await dir.delete(recursive: true);
-  });
+  addTearDown(manager.dispose);
   return manager;
 }
 

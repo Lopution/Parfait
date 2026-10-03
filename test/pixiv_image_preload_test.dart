@@ -7,6 +7,7 @@ import 'package:parfait/app/image_tier_cache.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/network/compat/image_cache.dart';
+import 'package:parfait/core/network/compat/image_demand.dart';
 
 import 'helpers/image_network.dart';
 
@@ -72,27 +73,33 @@ void main() {
     final context = await _context(tester);
     const asked = 'https://i.pximg.net/img-master/asked.jpg';
 
+    var now = DateTime(2026, 10, 3);
+    final demand = ImageDemand(clock: () => now);
+
     await tester.runAsync(() async {
       final manager = testImageCacheManager(
         PriorityFileService(httpClient: client),
       );
-      for (var i = 0; i <= PriorityFileService.backgroundSlots; i++) {
-        unawaited(
+      final preloads = [
+        for (var i = 0; i <= PriorityFileService.backgroundSlots; i++)
           PixivImage.preload(
             context,
             'https://i.pximg.net/img-master/warm$i.jpg',
             cacheManager: manager,
           ),
-        );
-      }
-      unawaited(
         PixivImage.preload(
           context,
           asked,
           cacheManager: manager,
+          demand: demand,
           priority: ImageFetchPriority.foreground,
         ),
-      );
+      ];
+      // Wanted until the page it was preloaded for mounts and takes over.
+      now = now.add(const Duration(seconds: 9));
+      expect(demand.wants(asked), isTrue);
+      now = now.add(const Duration(seconds: 2));
+      expect(demand.wants(asked), isFalse);
       await pollUntil(() => client.urls.contains(asked));
       await Future<void>.delayed(const Duration(milliseconds: 100));
       // Both background slots are busy and the third warm-up still waits.
@@ -103,6 +110,53 @@ void main() {
         () => client.urls.length == PriorityFileService.backgroundSlots + 2,
       );
       await client.closeAll();
+      // No cache write may outlive the test's temp directory.
+      await Future.wait(preloads);
     });
+  });
+
+  testWidgets('a warm-up nobody wants any more ends as dropped, without a '
+      'log line or a request', (tester) async {
+    final client = HeldBodyClient();
+    final context = await _context(tester);
+    final demand = ImageDemand();
+    final window = Object();
+    const stale = 'https://i.pximg.net/img-master/stale.jpg';
+    final warm = [
+      for (var i = 0; i < PriorityFileService.backgroundSlots; i++)
+        'https://i.pximg.net/img-master/busy$i.jpg',
+      stale,
+    ];
+    final logs = <String?>[];
+    final previousPrint = debugPrint;
+    debugPrint = (message, {wrapWidth}) => logs.add(message);
+    try {
+      await tester.runAsync(() async {
+        final manager = testImageCacheManager(
+          PriorityFileService(httpClient: client, demand: demand),
+        );
+        demand.setPrefetchWindow(window, warm.toSet());
+        final results = [
+          for (final url in warm)
+            PixivImage.preload(
+              context,
+              url,
+              cacheManager: manager,
+              demand: demand,
+            ),
+        ];
+        await pollUntil(
+          () => client.urls.length == PriorityFileService.backgroundSlots,
+        );
+        demand.clearPrefetchWindow(window);
+        await client.closeAll();
+        expect(await results.last, ImagePreloadResult.dropped);
+        await Future.wait(results);
+      });
+    } finally {
+      debugPrint = previousPrint;
+    }
+    expect(client.urls, isNot(contains(stale)));
+    expect(logs.where((m) => m!.contains('stale')), isEmpty);
   });
 }
