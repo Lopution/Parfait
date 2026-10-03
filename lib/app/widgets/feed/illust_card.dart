@@ -22,6 +22,7 @@ import '../entity_row.dart';
 import 'feed_grid.dart';
 import 'illust_card_layout.dart';
 import 'muted_cover.dart';
+import '../../haptics/app_haptics.dart';
 
 /// Illust preview card replicating beta56 IllustPreviewer semantics:
 /// R-18 top-left, ugoira gif bottom-left, page count top-right, AI
@@ -178,7 +179,12 @@ class _IllustCardBody extends ConsumerWidget {
       ref.read(revealedMuteIdsProvider.notifier).reveal(entity.id);
     }
 
-    final longPress = onLongPress ?? () => showCardActionSheet(context, entity);
+    final longPress =
+        onLongPress ??
+        () {
+          AppHaptics.longPress();
+          showCardActionSheet(context, entity);
+        };
     return PressScale(
       child: Semantics(
         container: true,

@@ -22,6 +22,7 @@ class MainActivity : FlutterActivity() {
         DistributionUpdaterChannel.configure(this, flutterEngine)
         SafTreeChannel.configure(this, flutterEngine)
         WebProfileChannel.configure(this, flutterEngine)
+        HapticsChannel.configure(this, flutterEngine)
     }
 
     // On this device class, vsync delivery to the app drops to ~60Hz a few

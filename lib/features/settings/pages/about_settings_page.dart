@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -23,6 +22,7 @@ import '../../../core/updater/update_providers.dart';
 import '../../../core/updater/update_service.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../../../app/clipboard.dart';
 
 class AboutSettingsPage extends ConsumerStatefulWidget {
   const AboutSettingsPage({super.key});
@@ -66,12 +66,11 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
     );
   }
 
-  Future<void> _copySourceUrl() async {
-    await Clipboard.setData(const ClipboardData(text: _sourceRepositoryUrl));
-    if (mounted) {
-      showAppSnackBar(context, context.l10n.linkCopied);
-    }
-  }
+  Future<void> _copySourceUrl() => copyToClipboard(
+    context,
+    _sourceRepositoryUrl,
+    message: context.l10n.linkCopied,
+  );
 
   @override
   Widget build(BuildContext context) {

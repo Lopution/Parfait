@@ -5,11 +5,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 
-import '../../../app/widgets/app_snack_bar.dart';
 import '../../../core/debug/frame_probe.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/clipboard.dart';
 
 /// Dev-only frame probe page: record timings while scrolling a feed, then
 /// copy the build/raster percentile report for offline analysis. Only
@@ -160,10 +160,11 @@ class _FrameProbePageState extends State<FrameProbePage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: _report!));
-                    showAppSnackBar(context, context.l10n.networkProbeCopied);
-                  },
+                  onPressed: () => copyToClipboard(
+                    context,
+                    _report!,
+                    message: context.l10n.networkProbeCopied,
+                  ),
                   icon: const Icon(Icons.copy, size: 16),
                   label: Text(context.l10n.copy),
                 ),

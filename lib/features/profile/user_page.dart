@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/app_overlays.dart';
@@ -17,7 +16,6 @@ import '../../core/auth/account_store.dart';
 import '../../core/download/author_works_enumerator.dart';
 import '../../core/network/api_error.dart';
 import '../../core/platform/android_intent_channel.dart';
-import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_store.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
@@ -35,6 +33,7 @@ import '../../core/share/share_service.dart';
 import '../../core/user/user_detail_controller.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/clipboard.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
@@ -531,7 +530,7 @@ class _UserPageState extends ConsumerState<UserPage>
                   isFollowed: followed,
                   onToggleFollow: widget.isMe
                       ? null
-                      : () => ref.read(followActionsProvider).toggle(user.id),
+                      : () => toggleFollow(ref, user.id),
                   onFollowPrivately: widget.isMe
                       ? null
                       : () => unawaited(
@@ -853,11 +852,8 @@ Future<void> _openProfileSocialLink(
   }
 }
 
-Future<void> _copyProfileSocialLink(BuildContext context, String url) async {
-  await Clipboard.setData(ClipboardData(text: url));
-  if (!context.mounted) return;
-  showAppSnackBar(context, context.l10n.linkCopied);
-}
+Future<void> _copyProfileSocialLink(BuildContext context, String url) =>
+    copyToClipboard(context, url, message: context.l10n.linkCopied);
 
 class _ProfileStatusPage extends StatelessWidget {
   const _ProfileStatusPage({
@@ -910,7 +906,9 @@ Future<void> _shareProfile(
 
 Future<void> _copyProfileLink(BuildContext context, UserEntity user) async {
   final payload = SharePayload.user(id: user.id, name: user.name);
-  await Clipboard.setData(ClipboardData(text: payload.text));
-  if (!context.mounted) return;
-  showAppSnackBar(context, context.l10n.linkCopied);
+  await copyToClipboard(
+    context,
+    payload.text,
+    message: context.l10n.linkCopied,
+  );
 }

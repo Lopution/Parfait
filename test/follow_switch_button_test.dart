@@ -4,7 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/user/follow_models.dart';
+import 'package:parfait/core/user/follow_repository.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -16,22 +21,51 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 
-Future<ProviderContainer> _world() async {
+/// Network boundary stand-in; [error] makes the next mutation fail.
+class _FakeFollowRepository implements FollowRepository {
+  final calls = <String>[];
+  Object? error;
+
+  @override
+  Future<void> add(
+    int userId, {
+    FollowRestrict restrict = FollowRestrict.public,
+    CancelToken? cancelToken,
+  }) async {
+    if (error case final error?) throw error;
+    calls.add('add $userId ${restrict.name}');
+  }
+
+  @override
+  Future<void> delete(int userId, {CancelToken? cancelToken}) async {
+    if (error case final error?) throw error;
+    calls.add('delete $userId');
+  }
+}
+
+Future<ProviderContainer> _world({FollowRepository? follows}) async {
   installMemoryPreferences();
   final container = ProviderContainer(
-    overrides: accountProviderOverrides(
-      credentialStore: FakeCredentialStore(
-        values: const {
-          '100': Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-        },
+    overrides: [
+      if (follows != null) followRepositoryProvider.overrideWithValue(follows),
+      ...accountProviderOverrides(
+        credentialStore: FakeCredentialStore(
+          values: const {
+            '100': Credential(
+              accessToken: 'access-1',
+              refreshToken: 'refresh-1',
+            ),
+          },
+        ),
+        metadataRepository: FakeAccountMetadataRepository(
+          accounts: const [Account(id: '100', userId: 100, name: 'me')],
+          currentId: '100',
+        ),
       ),
-      metadataRepository: FakeAccountMetadataRepository(
-        accounts: const [Account(id: '100', userId: 100, name: 'me')],
-        currentId: '100',
-      ),
-    ),
+    ],
   );
   await container.read(accountStoreProvider.future);
   addTearDown(container.dispose);
@@ -105,6 +139,65 @@ class _MeasuredHeaderState extends State<_MeasuredHeader> {
 }
 
 void main() {
+  testWidgets('haptics follow the settled outcome', (tester) async {
+    final haptics = recordHaptics();
+    final follows = _FakeFollowRepository();
+    final container = await _world(follows: follows);
+    await _pump(
+      tester,
+      container,
+      home: const Scaffold(
+        body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
+      ),
+    );
+
+    await tester.tap(find.byType(FollowSwitchButton));
+    await tester.pumpAndSettle();
+    expect(follows.calls, ['add 7 public']);
+    expect(haptics.roles, [HapticRole.select]);
+
+    // The throttle reads the wall clock; let the light lane re-arm.
+    await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
+    await tester.tap(find.byType(FollowSwitchButton));
+    await tester.pumpAndSettle();
+    expect(follows.calls, ['add 7 public', 'delete 7']);
+    expect(haptics.roles, [HapticRole.select, HapticRole.select]);
+
+    follows.error = StateError('boom');
+    await tester.tap(find.byType(FollowSwitchButton));
+    await tester.pumpAndSettle();
+    expect(haptics.roles, [
+      HapticRole.select,
+      HapticRole.select,
+      HapticRole.error,
+    ]);
+  });
+
+  testWidgets('long press opens the private-follow sheet once', (tester) async {
+    final haptics = recordHaptics();
+    final follows = _FakeFollowRepository();
+    final container = await _world(follows: follows);
+    await _pump(
+      tester,
+      container,
+      home: const Scaffold(
+        body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
+      ),
+    );
+
+    await tester.longPress(find.byType(FollowSwitchButton));
+    await tester.pumpAndSettle();
+    expect(haptics.roles, [HapticRole.longPress]);
+    // The framework's own long-press vibration is off.
+    final button = tester.widget<OutlinedButton>(
+      find.descendant(
+        of: find.byType(FollowSwitchButton),
+        matching: find.byType(OutlinedButton),
+      ),
+    );
+    expect(button.style?.enableFeedback, isFalse);
+  });
+
   testWidgets('a long label widens the button instead of truncating', (
     tester,
   ) async {

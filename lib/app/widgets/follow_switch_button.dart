@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/user/follow_actions.dart';
 import '../../core/user/follow_models.dart';
 import '../../core/user/follow_store.dart';
+import '../haptics/app_haptics.dart';
 import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
@@ -13,6 +14,28 @@ import '../theme/func_tokens.dart';
 import 'errors/error_details.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
+import 'app_segmented_button.dart';
+
+/// Toggles the follow of [userId] and plays the haptic of the settled
+/// outcome: select when the change lands either way, error on failure. A
+/// queued (offline) or cancelled toggle stays silent — its replay lands
+/// out of context.
+Future<void> toggleFollow(WidgetRef ref, int userId) async {
+  // Read up front: the toggle may outlive the widget that started it.
+  final store = ref.read(followStoreProvider.notifier);
+  final before = store.entryOf(userId)?.followed ?? false;
+  await ref.read(followActionsProvider).toggle(userId);
+  _playFollowOutcome(store.entryOf(userId), before: before);
+}
+
+void _playFollowOutcome(FollowEntry? after, {required bool? before}) {
+  if (after == null || after.isPending) return;
+  if (after.error != null) {
+    AppHaptics.error();
+  } else if (before == null || after.followed != before) {
+    AppHaptics.select();
+  }
+}
 
 /// Shared beta56-style follow button for profile/user-preview surfaces.
 ///
@@ -36,6 +59,7 @@ class FollowSwitchButton extends ConsumerWidget {
       l10nLookup(context.l10n, key);
 
   Future<void> _showRestrictSheet(BuildContext context, WidgetRef ref) async {
+    AppHaptics.longPress();
     await showFollowRestrictSheet(
       context,
       ref,
@@ -98,7 +122,7 @@ class FollowSwitchButton extends ConsumerWidget {
           button: true,
           toggled: followed,
           label: semanticLabel,
-          onTap: () => ref.read(followActionsProvider).toggle(userId),
+          onTap: () => toggleFollow(ref, userId),
           onLongPress: followed ? null : () => _showRestrictSheet(context, ref),
           child: ExcludeSemantics(
             child: OutlinedButton(
@@ -111,8 +135,12 @@ class FollowSwitchButton extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
                 minimumSize: minSize,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                // The long-press haptic is AppHaptics.longPress; the
+                // framework's own would double it (this also drops the tap
+                // click sound).
+                enableFeedback: false,
               ),
-              onPressed: () => ref.read(followActionsProvider).toggle(userId),
+              onPressed: () => toggleFollow(ref, userId),
               onLongPress: followed
                   ? null
                   : () => _showRestrictSheet(context, ref),
@@ -196,7 +224,7 @@ Future<void> showFollowRestrictSheet(
                         style: FuncSemanticTokens.of(sheetContext).caption,
                       ),
                     const SizedBox(height: FuncSpacing.lg),
-                    SegmentedButton<FollowRestrict>(
+                    AppSegmentedButton<FollowRestrict>(
                       segments: [
                         ButtonSegment(
                           value: FollowRestrict.public,
@@ -244,7 +272,11 @@ Future<void> showFollowRestrictSheet(
     ),
   );
   if (selected != null && context.mounted) {
+    final store = ref.read(followStoreProvider.notifier);
     await ref.read(followActionsProvider).addWithRestrict(userId, selected);
+    // A restrict change on an existing follow lands without flipping it,
+    // so any settled success counts.
+    _playFollowOutcome(store.entryOf(userId), before: null);
   }
 }
 

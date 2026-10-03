@@ -1,5 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../haptics/app_haptics.dart';
+
+/// Settings switch row. Owns the toggle haptic: only a user flip is felt,
+/// never an external value change.
 class SettingsControl extends StatelessWidget {
   const SettingsControl({
     super.key,
@@ -20,7 +24,10 @@ class SettingsControl extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       value: value,
-      onChanged: onChanged,
+      onChanged: (value) {
+        value ? AppHaptics.toggleOn() : AppHaptics.toggleOff();
+        onChanged(value);
+      },
     );
   }
 }

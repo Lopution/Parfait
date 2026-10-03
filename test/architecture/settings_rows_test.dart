@@ -4,8 +4,8 @@
 //   - `ListTile(` under lib/features/settings: exactly the per-file counts
 //     below — every remaining hand-written row is a data/status row, not a
 //     settings row (diagnostic entries, muted items, the SAF current-folder
-//     display, the backup dialog option, the account summary and account
-//     list). Adding a hand-written row must update this map with a reason.
+//     display, the account summary and account list). Adding a
+//     hand-written row must update this map with a reason.
 //   - `SettingsSection` anywhere under lib/: zero — the widget was removed;
 //     groups are rendered by SettingsGroup.
 
@@ -22,9 +22,6 @@ const _listTileAllowList = <String, int>{
   'lib/features/settings/pages/muted_items_page.dart': 3,
   // The picked SAF folder: read-only display, long-press copies the URI.
   'lib/features/settings/pages/download_destination_page.dart': 1,
-  // The conflict-policy options inside the restore dialog — not a
-  // settings-list row.
-  'lib/features/settings/pages/backup_settings_page.dart': 1,
   // AccountSummaryTile's 58dp avatar headline row, and the account list
   // rows with avatar/switch-spinner/delete affordances.
   'lib/features/settings/pages/account_settings_page.dart': 2,

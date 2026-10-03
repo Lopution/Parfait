@@ -2448,10 +2448,42 @@ class AppLocalizationsRu extends AppLocalizations {
   String get spotlightEmpty => 'Нет статей спотлайта';
 
   @override
-  String get enableHaptics => 'Тактильный отклик';
+  String get hapticStrength => 'Сила тактильного отклика';
 
   @override
-  String get enableHapticsHint => 'Вибрация при выборе, сохранении и ошибках';
+  String get hapticStrengthOff => 'Выкл.';
+
+  @override
+  String get hapticStrengthLight => 'Слабая';
+
+  @override
+  String get hapticStrengthStandard => 'Обычная';
+
+  @override
+  String get hapticStrengthStrong => 'Сильная';
+
+  @override
+  String get hapticTierComposition =>
+      'Устройство поддерживает точную вибрацию, каждый уровень различим';
+
+  @override
+  String get hapticTierPredefined =>
+      'Устройство использует системные эффекты вибрации, уровень выбирает эффект';
+
+  @override
+  String get hapticTierSystem =>
+      'Устройство поддерживает только системный отклик, сила не регулируется';
+
+  @override
+  String get hapticTierNone => 'На устройстве нет вибромотора';
+
+  @override
+  String get hapticTierUnknown =>
+      'Не удалось определить возможности вибрации устройства';
+
+  @override
+  String get hapticSystemOff =>
+      'Вибрация при касании выключена в настройках системы, отклик приложения не сработает';
 
   @override
   String get downloadSelectPages => 'Выберите страницы для скачивания';

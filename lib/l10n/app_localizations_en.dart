@@ -2446,11 +2446,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get spotlightEmpty => 'No spotlight articles';
 
   @override
-  String get enableHaptics => 'Haptic feedback';
+  String get hapticStrength => 'Haptic strength';
 
   @override
-  String get enableHapticsHint =>
-      'Vibrate on selections, saved actions and failures';
+  String get hapticStrengthOff => 'Off';
+
+  @override
+  String get hapticStrengthLight => 'Light';
+
+  @override
+  String get hapticStrengthStandard => 'Standard';
+
+  @override
+  String get hapticStrengthStrong => 'Strong';
+
+  @override
+  String get hapticTierComposition =>
+      'This device supports fine-grained vibration; every level is distinct';
+
+  @override
+  String get hapticTierPredefined =>
+      'This device uses preset vibration effects; each level picks a different effect';
+
+  @override
+  String get hapticTierSystem =>
+      'This device only supports system haptics; strength cannot be adjusted';
+
+  @override
+  String get hapticTierNone => 'This device has no vibrator';
+
+  @override
+  String get hapticTierUnknown =>
+      'Could not read this device\'s vibration capability';
+
+  @override
+  String get hapticSystemOff =>
+      'Touch vibration is off in system settings, so app haptics will not play';
 
   @override
   String get downloadSelectPages => 'Select pages to download';

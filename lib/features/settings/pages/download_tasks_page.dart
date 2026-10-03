@@ -725,6 +725,9 @@ class _DownloadTaskRow extends StatelessWidget {
       child: InkWell(
         onTap: managing ? onToggle : null,
         onLongPress: managing ? null : onEnterManaging,
+        // Entering management plays AppHaptics.confirm and toggles play
+        // select; the ink response's own vibration would double them.
+        enableFeedback: false,
         child: _DownloadRowLayout(
           thumbnailUrl: task.submission?.request.thumbnailUrl,
           thumbnailSize: dense ? 40 : 56,

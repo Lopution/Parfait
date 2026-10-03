@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/bookmark/bookmark_actions.dart';
 import '../../../core/bookmark/bookmark_models.dart';
 import '../../../core/bookmark/bookmark_store.dart';
 import '../../../core/entity/illust_entity.dart';
@@ -18,6 +17,7 @@ import '../../../l10n/context.dart';
 import '../../haptics/app_haptics.dart';
 import '../../navigation/routes.dart';
 import '../app_snack_bar.dart';
+import '../bookmark_switch_button.dart';
 import '../errors/error_details.dart';
 import 'card_action.dart';
 
@@ -66,7 +66,7 @@ class _BookmarkAction extends CardAction {
 
   @override
   Future<void> run(BuildContext context, WidgetRef ref, IllustEntity entity) {
-    return ref.read(bookmarkActionsProvider).toggle(_illustKey(entity));
+    return toggleBookmark(ref, _illustKey(entity));
   }
 }
 

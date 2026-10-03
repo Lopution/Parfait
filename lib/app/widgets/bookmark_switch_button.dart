@@ -10,6 +10,7 @@ import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_store.dart';
 import '../../core/bookmark/bookmark_tag_providers.dart';
 import '../../core/errors/error_category.dart';
+import '../haptics/app_haptics.dart';
 import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
@@ -18,9 +19,29 @@ import '../theme/func_tokens.dart';
 import '../widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import 'app_segmented_button.dart';
+import 'app_choice_chip.dart';
 
 String _bookmarkText(BuildContext context, String key) =>
     l10nLookup(context.l10n, key);
+
+/// Toggles the bookmark of [key] and plays the haptic of the settled
+/// outcome: added → success, removed → select, failed → error. A queued
+/// (offline) or cancelled toggle stays silent — when its replay lands later
+/// the user is elsewhere, and a background haptic would mislead.
+Future<void> toggleBookmark(WidgetRef ref, BookmarkKey key) async {
+  // Read up front: the toggle may outlive the widget that started it.
+  final store = ref.read(bookmarkStoreProvider.notifier);
+  final before = store.entryOf(key)?.bookmarked ?? false;
+  await ref.read(bookmarkActionsProvider).toggle(key);
+  final after = store.entryOf(key);
+  if (after == null || after.isPending) return;
+  if (after.error != null) {
+    AppHaptics.error();
+  } else if (after.bookmarked != before) {
+    after.bookmarked ? AppHaptics.success() : AppHaptics.select();
+  }
+}
 
 /// Beta56 BookmarkSwitchButton replica driven entirely by the shared
 /// BookmarkStore: heart icon (isButton app-bar/row variant), pending
@@ -49,6 +70,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
   );
 
   void _showBookmarkSheet(BuildContext context, {required bool bookmarked}) {
+    AppHaptics.longPress();
     showAppBottomSheet<void>(
       context: context,
       backgroundColor: FuncTokens.transparent,
@@ -119,7 +141,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
         button: true,
         toggled: bookmarked,
         label: semanticLabel,
-        onTap: () => ref.read(bookmarkActionsProvider).toggle(_key),
+        onTap: () => toggleBookmark(ref, _key),
         onLongPress: onLongPress,
         child: GestureDetector(
           excludeFromSemantics: true,
@@ -128,7 +150,7 @@ class BookmarkSwitchButton extends ConsumerWidget {
             child: IconButton(
               splashRadius: 24,
               iconSize: 24,
-              onPressed: () => ref.read(bookmarkActionsProvider).toggle(_key),
+              onPressed: () => toggleBookmark(ref, _key),
               icon: bookmarked
                   ? Icon(Icons.favorite_sharp, color: colorScheme.primary)
                   : const Icon(Icons.favorite_outline_sharp),
@@ -142,12 +164,12 @@ class BookmarkSwitchButton extends ConsumerWidget {
       button: true,
       toggled: bookmarked,
       label: semanticLabel,
-      onTap: () => ref.read(bookmarkActionsProvider).toggle(_key),
+      onTap: () => toggleBookmark(ref, _key),
       onLongPress: onLongPress,
       child: GestureDetector(
         excludeFromSemantics: true,
         onLongPress: onLongPress,
-        onTap: () => ref.read(bookmarkActionsProvider).toggle(_key),
+        onTap: () => toggleBookmark(ref, _key),
         child: Padding(
           padding: const EdgeInsets.all(FuncSpacing.sm),
           child: bookmarked
@@ -261,8 +283,13 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
       }
       return;
     }
+    final entry = ref.read(bookmarkStoreProvider)[widget.bookmarkKey];
+    // Same rule as [toggleBookmark]: a queued submit stays silent.
+    if (entry != null && !entry.isPending) {
+      entry.error != null ? AppHaptics.error() : AppHaptics.success();
+    }
     if (!mounted) return;
-    final error = ref.read(bookmarkStoreProvider)[widget.bookmarkKey]?.error;
+    final error = entry?.error;
     if (error != null) {
       // Non-connectivity failure: keep the sheet open, keep the draft
       // untouched, show the error inline (D6).
@@ -398,7 +425,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                           style: FuncSemanticTokens.of(context).caption,
                         ),
                         const SizedBox(height: FuncSpacing.lg),
-                        SegmentedButton<BookmarkRestrict>(
+                        AppSegmentedButton<BookmarkRestrict>(
                           segments: [
                             ButtonSegment(
                               value: BookmarkRestrict.public,
@@ -523,10 +550,10 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                                       children: [
                                         for (final suggestion in value)
                                           if (!_tags.contains(suggestion.name))
-                                            FilterChip(
+                                            AppChoiceChip.toggle(
                                               label: Text(suggestion.name),
                                               selected: false,
-                                              onSelected: (_) =>
+                                              onChanged: (_) =>
                                                   _addTag(suggestion.name),
                                             ),
                                       ],

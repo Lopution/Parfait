@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 
 import '../motion/motion_tokens.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'app_segmented_button.dart';
 
 /// Compact segmented type switch (R6): a 48dp row at the default scale,
 /// left-aligned, horizontally scrollable when the labels overflow.
@@ -43,7 +44,7 @@ class AppTypeSwitch<T> extends StatelessWidget {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
-              child: SegmentedButton<T>(
+              child: AppSegmentedButton<T>(
                 selected: {selected},
                 emptySelectionAllowed: true,
                 // Tapping the selected segment reports an empty set; turn it

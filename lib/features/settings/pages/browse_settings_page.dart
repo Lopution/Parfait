@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/haptics/app_haptics.dart';
+import '../../../app/haptics/haptics_driver.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
@@ -15,6 +17,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../../../app/widgets/app_segmented_button.dart';
 
 class BrowseSettingsPage extends ConsumerStatefulWidget {
   const BrowseSettingsPage({super.key});
@@ -192,7 +195,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                 title: Text(context.l10n.previewQuality),
                 children: [
                   SettingsGroupContent(
-                    child: SegmentedButton<PreviewQuality>(
+                    child: AppSegmentedButton<PreviewQuality>(
                       segments: [
                         for (final quality in PreviewQuality.values)
                           ButtonSegment<PreviewQuality>(
@@ -215,7 +218,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                 title: Text(context.l10n.detailQuality),
                 children: [
                   SettingsGroupContent(
-                    child: SegmentedButton<DetailQuality>(
+                    child: AppSegmentedButton<DetailQuality>(
                       segments: [
                         for (final quality in const [
                           DetailQuality.large,
@@ -241,7 +244,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                 title: Text(context.l10n.viewQuality),
                 children: [
                   SettingsGroupContent(
-                    child: SegmentedButton<ViewQuality>(
+                    child: AppSegmentedButton<ViewQuality>(
                       segments: [
                         for (final quality in const [
                           ViewQuality.large,
@@ -273,7 +276,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                       : null,
                   children: [
                     SettingsGroupContent(
-                      child: SegmentedButton<PageTransitionSpeed>(
+                      child: AppSegmentedButton<PageTransitionSpeed>(
                         segments: [
                           for (final speed in PageTransitionSpeed.values)
                             ButtonSegment<PageTransitionSpeed>(
@@ -313,19 +316,11 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                           .setReduceMotion(value),
                     ),
                   ),
-                  SettingsControl(
-                    title: Text(context.l10n.enableHaptics),
-                    subtitle: Text(context.l10n.enableHapticsHint),
-                    value: settings.enableHaptics,
-                    onChanged: (value) => persistSettings(
-                      context,
-                      () => ref
-                          .read(settingsProvider.notifier)
-                          .setHapticsEnabled(value),
-                    ),
-                  ),
                 ],
               ),
+              // Android-only: the haptics driver is a no-op elsewhere.
+              if (defaultTargetPlatform == TargetPlatform.android)
+                _HapticStrengthGroup(selected: settings.hapticStrength),
               SettingsGroup(
                 title: Text(context.l10n.imageSource),
                 children: [
@@ -411,6 +406,79 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
       ),
     );
   }
+}
+
+/// Strength picker with a device-capability footer. Picking a level plays
+/// it at once, so the user feels the choice before leaving the page.
+class _HapticStrengthGroup extends ConsumerWidget {
+  const _HapticStrengthGroup({required this.selected});
+
+  final HapticStrength selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final capability = ref.watch(hapticsCapabilityProvider);
+    return SettingsGroup(
+      title: Text(l10n.hapticStrength),
+      footer: switch (capability) {
+        AsyncData(:final value) => Text(
+          [
+            _hapticTierText(context, value.tier),
+            if (value.systemOff) l10n.hapticSystemOff,
+          ].join('\n'),
+        ),
+        AsyncError() => Text(l10n.hapticTierUnknown),
+        _ => null,
+      },
+      children: [
+        SettingsGroupContent(
+          child: AppSegmentedButton<HapticStrength>(
+            segments: [
+              for (final strength in HapticStrength.values)
+                ButtonSegment<HapticStrength>(
+                  value: strength,
+                  label: Text(_hapticStrengthText(context, strength)),
+                ),
+            ],
+            selected: {selected},
+            // Four segments on a phone-width row: the check icon would
+            // squeeze the labels, and the fill already marks the level.
+            showSelectedIcon: false,
+            // The preview below is this picker's haptic.
+            haptics: false,
+            onSelectionChanged: (picked) {
+              AppHaptics.preview(picked.first);
+              persistSettings(
+                context,
+                () => ref
+                    .read(settingsProvider.notifier)
+                    .setHapticStrength(picked.first),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _hapticStrengthText(BuildContext context, HapticStrength strength) {
+  return switch (strength) {
+    HapticStrength.off => context.l10n.hapticStrengthOff,
+    HapticStrength.light => context.l10n.hapticStrengthLight,
+    HapticStrength.standard => context.l10n.hapticStrengthStandard,
+    HapticStrength.strong => context.l10n.hapticStrengthStrong,
+  };
+}
+
+String _hapticTierText(BuildContext context, HapticsTier tier) {
+  return switch (tier) {
+    HapticsTier.composition => context.l10n.hapticTierComposition,
+    HapticsTier.predefined => context.l10n.hapticTierPredefined,
+    HapticsTier.system => context.l10n.hapticTierSystem,
+    HapticsTier.none => context.l10n.hapticTierNone,
+  };
 }
 
 String _pageTransitionSpeedText(BuildContext context, PageTransitionSpeed s) {

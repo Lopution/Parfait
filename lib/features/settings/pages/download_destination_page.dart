@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -13,6 +12,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../saf_tree_name.dart';
 import '../settings_helpers.dart';
+import '../../../app/clipboard.dart';
 
 /// Single-entry save location chooser (D5): album vs SAF folder. Album
 /// defaults to the built-in Parfait album with an optional custom name;
@@ -158,6 +158,9 @@ class _DownloadDestinationPageState
                         overflow: TextOverflow.ellipsis,
                       ),
                       onLongPress: () => _copySafUri(destination.safTreeUri),
+                      // The copy's success haptic confirms the long press;
+                      // the tile's own vibration would double it.
+                      enableFeedback: false,
                     ),
                 ],
               ),
@@ -187,9 +190,10 @@ class _DownloadDestinationPageState
   /// the technical identifier reachable for support/debugging.
   Future<void> _copySafUri(String? uri) async {
     if (uri == null || uri.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: uri));
-    if (mounted) {
-      showAppSnackBar(context, context.l10n.saveLocationUriCopied);
-    }
+    await copyToClipboard(
+      context,
+      uri,
+      message: context.l10n.saveLocationUriCopied,
+    );
   }
 }

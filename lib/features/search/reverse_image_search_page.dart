@@ -31,6 +31,7 @@ import '../../app/widgets/errors/error_details.dart';
 import 'package:parfait/core/network/http_client_providers.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_choice_chip.dart';
 
 class ReverseImageSearchPage extends ConsumerStatefulWidget {
   const ReverseImageSearchPage({
@@ -161,7 +162,7 @@ class _ReverseImageSearchPageState
       alignment: WrapAlignment.center,
       children: [
         for (final spec in ReverseImageEngineSpecs.all.values)
-          ChoiceChip(
+          AppChoiceChip(
             label: Text(spec.displayName),
             selected: state.engine == spec.engine,
             avatar: state.engineFailures.containsKey(spec.engine)
@@ -172,7 +173,7 @@ class _ReverseImageSearchPageState
                 : null,
             onSelected: input != null && !spec.supportsInput(input)
                 ? null
-                : (_) => _selectEngine(spec.engine),
+                : () => _selectEngine(spec.engine),
           ),
       ],
     );

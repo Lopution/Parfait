@@ -138,6 +138,24 @@ enum PageTransitionSpeed {
   }
 }
 
+/// App haptic strength. [off] plays nothing; on Android the other tiers pick
+/// per-device effects (primitive amplitude, predefined effect, or the
+/// strength-less system constant). Persisted by [name].
+enum HapticStrength {
+  off,
+  light,
+  standard,
+  strong;
+
+  static HapticStrength? tryFromName(Object? value) {
+    if (value is! String) return null;
+    for (final strength in values) {
+      if (strength.name == value) return strength;
+    }
+    return null;
+  }
+}
+
 /// How the normal network stack routes traffic (D3). Only the user choice is
 /// persisted; route memory and probe results are never saved.
 enum NetworkMode {
@@ -198,7 +216,7 @@ class AppSettings {
     this.hideMuted = false,
     this.reduceMotion = false,
     this.pageTransitionSpeed = PageTransitionSpeed.normal,
-    this.enableHaptics = true,
+    this.hapticStrength = HapticStrength.standard,
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
     this.downloadDestination = DownloadDestination.builtin,
@@ -286,10 +304,10 @@ class AppSettings {
   /// Consumed through `MotionScope` — see design §1.
   final PageTransitionSpeed pageTransitionSpeed;
 
-  /// Haptic feedback master switch, consumed by `AppHaptics` (§5.6 single
-  /// owner). Haptics are a redundant channel — visual feedback stays
-  /// complete either way.
-  final bool enableHaptics;
+  /// Haptic strength, consumed by `AppHaptics` (§5.6 single owner).
+  /// Haptics are a redundant channel — visual feedback stays complete
+  /// either way.
+  final HapticStrength hapticStrength;
   final int translateIndex;
   final int maxDownloadCount;
   final DownloadDestination downloadDestination;
@@ -400,7 +418,7 @@ class AppSettings {
       pageTransitionSpeed: json['pageTransitionSpeedCode'] is int
           ? PageTransitionSpeed.fromCode(json['pageTransitionSpeedCode'])
           : base.pageTransitionSpeed,
-      enableHaptics: _bool(json['enableHaptics'], base.enableHaptics),
+      hapticStrength: _readHapticStrength(json, base.hapticStrength),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
       downloadDestination: _readDestination(json, base.downloadDestination),
@@ -438,7 +456,7 @@ class AppSettings {
       'hideMuted': hideMuted,
       'reduceMotion': reduceMotion,
       'pageTransitionSpeedCode': pageTransitionSpeed.code,
-      'enableHaptics': enableHaptics,
+      'hapticStrength': hapticStrength.name,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
       ...downloadDestination.toJson(),
@@ -448,6 +466,21 @@ class AppSettings {
         'namingTemplate': namingRule.template,
       'reverseImageEngine': reverseImageEngine.name,
       'searchFilters': searchFilters.toJson(),
+    };
+  }
+
+  /// Payloads from before the strength setting carry the old on/off
+  /// switch: off stays off, on becomes [HapticStrength.standard].
+  static HapticStrength _readHapticStrength(
+    Map<String, dynamic> json,
+    HapticStrength fallback,
+  ) {
+    final strength = HapticStrength.tryFromName(json['hapticStrength']);
+    if (strength != null) return strength;
+    return switch (json['enableHaptics']) {
+      false => HapticStrength.off,
+      true => HapticStrength.standard,
+      _ => fallback,
     };
   }
 
@@ -557,7 +590,7 @@ class AppSettings {
     bool? hideMuted,
     bool? reduceMotion,
     PageTransitionSpeed? pageTransitionSpeed,
-    bool? enableHaptics,
+    HapticStrength? hapticStrength,
     int? translateIndex,
     int? maxDownloadCount,
     Object? downloadDestination = _unset,
@@ -601,7 +634,7 @@ class AppSettings {
       hideMuted: hideMuted ?? this.hideMuted,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       pageTransitionSpeed: pageTransitionSpeed ?? this.pageTransitionSpeed,
-      enableHaptics: enableHaptics ?? this.enableHaptics,
+      hapticStrength: hapticStrength ?? this.hapticStrength,
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??
           this.translateIndex,

@@ -22,6 +22,8 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_segmented_button.dart';
+import '../../app/haptics/app_haptics.dart';
 
 /// Search guide shown by the Home bottom-navigation entry.
 ///
@@ -158,7 +160,7 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                      SegmentedButton<SearchResultType>(
+                      AppSegmentedButton<SearchResultType>(
                         segments: [
                           for (final type in const [
                             SearchResultType.illust,
@@ -299,6 +301,7 @@ class _TrendingTagTile extends StatelessWidget {
   final double tileWidth;
 
   void _openRepresentative(BuildContext context) {
+    AppHaptics.longPress();
     final representative = tag.representative;
     if (representative == null) {
       showAppSnackBar(context, context.l10n.searchNoRepresentative);

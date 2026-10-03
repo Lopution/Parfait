@@ -6,8 +6,15 @@
 //     lib/app/widgets/app_snack_bar.dart: zero — callers go through
 //     showAppSnackBar / showAppSnackBarOn (the latter's callsites are
 //     pinned below)
-//   - `HapticFeedback.` callsites outside lib/app/haptics/app_haptics.dart:
-//     zero — AppHaptics is the only owner
+//   - `HapticFeedback.` callsites outside lib/app/haptics/: zero —
+//     AppHaptics and its platform driver are the only owners
+//   - raw selection controls (SegmentedButton, ChoiceChip/FilterChip,
+//     Slider, Switch/SwitchListTile, Radio) only inside the wrapper that
+//     builds their haptic in
+//   - navigation chrome (tab bar, bottom nav, root swipe) plays no haptic:
+//     switching destinations is navigation, not a state change
+//   - `Clipboard.setData` inside lib/app + lib/features: only in
+//     lib/app/clipboard.dart (copyToClipboard: write, success haptic, toast)
 //   - raw overlay entries (showDialog / showModalBottomSheet / Cupertino
 //     variants / showMenu / framework pickers) outside
 //     lib/app/motion/app_overlays.dart: zero beyond the pinned
@@ -32,8 +39,43 @@ import 'package:flutter_test/flutter_test.dart';
 /// Owner file for the SnackBar channel.
 const _snackBarOwner = 'lib/app/widgets/app_snack_bar.dart';
 
-/// Owner file for haptic feedback.
-const _hapticsOwner = 'lib/app/haptics/app_haptics.dart';
+/// Owner directory for haptic feedback (AppHaptics + its platform driver).
+const _hapticsOwnerDir = 'lib/app/haptics/';
+
+/// Raw selection control → the wrapper files allowed to build it. The
+/// wrappers own the control's haptic, so a raw control elsewhere would be
+/// a silent one.
+final _selectionControlOwners = <RegExp, Set<String>>{
+  RegExp(r'(?<![A-Za-z])SegmentedButton<'): {
+    'lib/app/widgets/app_segmented_button.dart',
+  },
+  RegExp(r'(?<![A-Za-z])(?:ChoiceChip|FilterChip)\('): {
+    'lib/app/widgets/app_choice_chip.dart',
+  },
+  RegExp(r'(?<![A-Za-z])Slider(?:\.adaptive)?\('): {
+    'lib/app/widgets/app_slider.dart',
+  },
+  RegExp(r'(?<![A-Za-z])(?:Switch|SwitchListTile)(?:\.adaptive)?\('): {
+    'lib/app/widgets/settings/settings_control.dart',
+    'lib/app/widgets/replica_switch_tile.dart',
+  },
+  RegExp(r'(?<![A-Za-z])(?:RadioListTile|Radio)\s*[<(]'): {
+    'lib/app/widgets/settings/settings_choice_tile.dart',
+  },
+};
+
+/// Navigation chrome: switching is navigation, not a state change, so these
+/// stay silent (Compose Material 3, Flutter Material and Now in Android do
+/// not vibrate on tab or destination switches either).
+const _silentNavigationFiles = <String>{
+  'lib/app/widgets/app_tab_bar.dart',
+  'lib/app/widgets/func_bottom_nav.dart',
+  'lib/app/widgets/root_swipe_switcher.dart',
+};
+
+/// Owner file for UI clipboard writes. core/ keeps its own platform uses
+/// (share fallback, desktop transfer clipboard), which have no UI.
+const _clipboardOwner = 'lib/app/clipboard.dart';
 
 /// Owner file for app modal overlays.
 const _overlaysOwner = 'lib/app/motion/app_overlays.dart';
@@ -143,14 +185,56 @@ void main() {
     );
   });
 
-  test('HapticFeedback has exactly one owner', () {
-    final files = _matches(['lib'], RegExp(r'HapticFeedback\.')).keys.toSet();
+  test('haptics have exactly one owner', () {
+    final files = _matches(
+      ['lib'],
+      RegExp(r"HapticFeedback\.|MethodChannel\('parfait/haptics'\)"),
+    ).keys.where((f) => !f.startsWith(_hapticsOwnerDir));
     expect(
-      files.difference({_hapticsOwner}),
+      files,
       isEmpty,
       reason:
-          'raw HapticFeedback. outside $_hapticsOwner — '
-          'use AppHaptics select/confirm/success/error roles',
+          'raw haptics outside $_hapticsOwnerDir — '
+          'use an AppHaptics role',
+    );
+  });
+
+  test('selection controls live only in their haptic wrappers', () {
+    final violations = <String>[];
+    _selectionControlOwners.forEach((pattern, owners) {
+      final files = _matches(['lib'], pattern).keys.toSet();
+      for (final file in files.difference(owners)) {
+        violations.add('$file: ${pattern.pattern}');
+      }
+    });
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'raw selection controls outside their wrappers (use '
+          'AppSegmentedButton / AppChoiceChip / AppSlider / SettingsControl / '
+          'SettingsChoiceTile):\n${violations.join('\n')}',
+    );
+  });
+
+  test('navigation chrome stays silent', () {
+    final noisy = [
+      for (final file in _silentNavigationFiles)
+        if (File(file).readAsStringSync().contains('AppHaptics')) file,
+    ];
+    expect(noisy, isEmpty, reason: 'navigation must not play haptics');
+  });
+
+  test('UI clipboard writes go through copyToClipboard', () {
+    final files = _matches([
+      'lib/app',
+      'lib/features',
+    ], RegExp(r'Clipboard\.setData')).keys.toSet();
+    expect(
+      files.difference({_clipboardOwner}),
+      isEmpty,
+      reason:
+          'Clipboard.setData outside $_clipboardOwner — use copyToClipboard',
     );
   });
 

@@ -8,6 +8,7 @@ import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_tags_controller.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_segmented_button.dart';
 
 /// The signed-in user's bookmark tag collection (`/v1/user/bookmark-tags/`),
 /// public/private switchable. Tapping a tag opens the filtered bookmarks
@@ -54,7 +55,7 @@ class _BookmarkTagsPageState extends ConsumerState<BookmarkTagsPage> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-            child: SegmentedButton<BookmarkRestrict>(
+            child: AppSegmentedButton<BookmarkRestrict>(
               segments: [
                 ButtonSegment(
                   value: BookmarkRestrict.public,

@@ -125,6 +125,9 @@ class EntityRow extends StatelessWidget {
             excludeFromSemantics: true,
             onTap: onTap,
             onLongPress: onLongPress,
+            // A long-press host plays its own AppHaptics role; the ink
+            // response's vibration would double it.
+            enableFeedback: onLongPress == null,
             borderRadius: radius,
             child: Padding(
               padding: padding,

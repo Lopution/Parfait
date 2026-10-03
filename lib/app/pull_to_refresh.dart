@@ -1,6 +1,8 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'haptics/app_haptics.dart';
+
 /// The shared pull-to-refresh wrapper used by feed pages.
 ///
 /// EasyRefresh owns the complete scroll/refresh lifecycle. [MaterialHeader]
@@ -51,18 +53,21 @@ class PullToRefresh extends StatelessWidget {
             IndicatorMode.armed => 1.0,
             _ => pullOpacity,
           };
-          return Opacity(
-            opacity: terminal,
-            child: MaterialHeader(
-              triggerOffset: 100,
-              clamping: false,
-              position: isNested
-                  ? IndicatorPosition.locator
-                  : IndicatorPosition.above,
-              safeArea: !isNested,
-              color: colors.primary,
-              backgroundColor: colors.surface,
-            ).build(context, state),
+          return _ArmHaptics(
+            mode: state.mode,
+            child: Opacity(
+              opacity: terminal,
+              child: MaterialHeader(
+                triggerOffset: 100,
+                clamping: false,
+                position: isNested
+                    ? IndicatorPosition.locator
+                    : IndicatorPosition.above,
+                safeArea: !isNested,
+                color: colors.primary,
+                backgroundColor: colors.surface,
+              ).build(context, state),
+            ),
           );
         },
       ),
@@ -71,4 +76,35 @@ class PullToRefresh extends StatelessWidget {
       child: child,
     );
   }
+}
+
+/// Plays the threshold haptics as the pull crosses the refresh trigger:
+/// thresholdOn when it arms (releasing now refreshes), thresholdOff when
+/// the user pulls back under it. Settling into the refresh after release
+/// is silent — the arm haptic already told the user it will happen.
+class _ArmHaptics extends StatefulWidget {
+  const _ArmHaptics({required this.mode, required this.child});
+
+  final IndicatorMode mode;
+  final Widget child;
+
+  @override
+  State<_ArmHaptics> createState() => _ArmHapticsState();
+}
+
+class _ArmHapticsState extends State<_ArmHaptics> {
+  @override
+  void didUpdateWidget(_ArmHaptics oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final from = oldWidget.mode;
+    final to = widget.mode;
+    if (from != IndicatorMode.armed && to == IndicatorMode.armed) {
+      AppHaptics.thresholdOn();
+    } else if (from == IndicatorMode.armed && to == IndicatorMode.drag) {
+      AppHaptics.thresholdOff();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

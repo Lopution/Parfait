@@ -1,6 +1,6 @@
 # Android MethodChannel Contracts
 
-> Executable contracts for the 10 Android channels registered from
+> Executable contracts for the 11 Android channels registered from
 > `android/app/src/main/kotlin/io/github/lopution/parfait/`. This document
 > records the shipped state so a check agent can diff the channel code against
 > the tables.
@@ -35,15 +35,16 @@
   documented as thread-safe — official docs only say a null callback on
   `setCookie` / `removeAllCookies` is safe from a thread without a Looper;
   see https://developer.android.com/reference/android/webkit/CookieManager),
-  clipboard, intents, widget, `widget_background`.
-- Bindings: 9 MethodChannels + 1 EventChannel
+  clipboard, intents, widget, `widget_background`, haptics.
+- Bindings: 10 MethodChannels + 1 EventChannel
   (`parfait/android_intents/events`). No `parfait/notification*`. Share and
   deeplink are not independent channels (`ACTION_SEND` / VIEW go through
   intents). `getPlatformInfo` belongs to `parfait/updater`.
 - `login_webview_intercept` / `LoginWebViewPlatformView`: **gone** (0 hits).
 - Error styles are explicit and remain part of each channel's contract:
   1. Channel-prefixed `result.error("<channel>_<reason>", …)` codes for
-     MediaStore, SAF, and web profile, including early argument validation.
+     MediaStore, SAF, web profile, and haptics, including early argument
+     validation.
   2. Specific unprefixed `result.error("<code>", …)` codes for reverse-image,
      intents, clipboard, and other pre-existing contracts.
   3. **Updater exception (keep):** github methods return
@@ -75,6 +76,7 @@
 | 8 | `parfait/widget` | Method | `WidgetForegroundChannel.kt` | `lib/core/widget/widget_channel.dart` | main |
 | 9 | `parfait/widget_background` | Method (**direction reversed**) | `appwidget/WidgetHeadlessRunner.kt` | `lib/core/widget/widget_background.dart` | main (engine setup) |
 | 10 | `parfait/updater` | Method | `android/app/src/{github,fdroid}/…/DistributionUpdaterChannel.kt` | `lib/core/updater/update_platform.dart` | github: background TaskQueue (`installApk` → main); fdroid: main |
+| 11 | `parfait/haptics` | Method | `HapticsChannel.kt` (+ `HapticPlanner.kt`) | `lib/app/haptics/haptics_driver.dart` | main |
 
 Unknown method on every MethodChannel: `result.notImplemented()`.
 
@@ -411,6 +413,41 @@ change these codes (see [release-artifacts.md](./release-artifacts.md)).
 is reachable **only** on the fdroid flavor, and only for methods other than
 `getCapability` / `getPlatformInfo`. Keep this code. It does not use an
 `updater_` prefix; Dart already consumes `UpdatePlatformException('disabled')`.
+
+---
+
+## 11. `parfait/haptics`
+
+- **Handler:** `HapticsChannel.kt` (`HapticsController` + `AndroidHapticsDevice`);
+  the role → effect table is `HapticPlanner.kt`.
+- **Dart:** `lib/app/haptics/haptics_driver.dart` (`AndroidHapticsDriver`),
+  reached only through `AppHaptics`.
+- **Thread:** main (`performHapticFeedback` needs the window's decor view).
+- **Permission:** `android.permission.VIBRATE` (normal, no prompt).
+
+| Method | Arguments | Return |
+|--------|-----------|--------|
+| `play` | `{role: String, strength: String}` | `null` |
+| `capabilities` | _(none)_ | `{tier: String, systemOff: Boolean}` |
+
+- `role`: `select`, `toggleOn`, `toggleOff`, `tick`, `thresholdOn`,
+  `thresholdOff`, `longPress`, `confirm`, `success`, `error` (the Dart
+  `HapticRole` names). `strength`: `light`, `standard`, `strong` (`off`
+  never reaches the channel).
+- `tier`: `composition` (API 30+, amplitude control, CLICK and TICK
+  primitives), `predefined`, `system`, `none`. Probed once per engine;
+  `systemOff` mirrors `HAPTIC_FEEDBACK_ENABLED == 0` and is read on every
+  call.
+- Fallback: composition and predefined plans go to the `Vibrator`
+  (`USAGE_TOUCH` on 33+) and are skipped while `systemOff`; a
+  `SecurityException` from the ROM demotes the tier to `system` for the
+  rest of the process and replays the role as a `View` haptic constant.
+  `system` plays `performHapticFeedback`, which applies the system switch
+  itself. `none` is silent.
+- Errors: `haptics_invalid_argument` (missing argument, unknown role or
+  strength), `haptics_failed` (anything the device threw). Dart's `play`
+  logs both and never throws; `capabilities` surfaces them to the settings
+  footer as "unknown".
 
 ---
 

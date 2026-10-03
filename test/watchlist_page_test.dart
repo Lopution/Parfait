@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/core/actionqueue/action_bootstrap.dart';
 import 'package:parfait/core/actionqueue/action_store.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -25,12 +27,14 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 
 class _Fixture {
   final requests = <http.Request>[];
   List<Map<String, Object?>> mangaSeries = const [];
   List<Map<String, Object?>> novelSeries = const [];
+  int mutationStatus = 200;
 
   http.Client build() => MockClient((request) async {
     requests.add(request);
@@ -42,6 +46,15 @@ class _Fixture {
           'next_url': null,
         }),
         200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
+    if (mutationStatus != 200) {
+      return http.Response(
+        jsonEncode({
+          'error': {'message': 'rejected'},
+        }),
+        mutationStatus,
         headers: {'content-type': 'application/json'},
       );
     }
@@ -235,6 +248,46 @@ void main() {
     expect(find.text('Unfollow series'), findsOneWidget);
     expect(fixture.requests.single.url.path, '/v1/watchlist/manga/add');
     expect(container.read(watchlistStoreProvider)[key]!.added, isTrue);
+  });
+
+  testWidgets('toggle haptics follow the settled outcome', (tester) async {
+    final haptics = recordHaptics();
+    final (container, fixture) = await _makeWorld();
+    addTearDown(container.dispose);
+    const key = WatchlistKey(WatchlistType.manga, 9);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: _app(
+          const Scaffold(
+            body: Center(child: WatchlistToggle(seriesKey: key)),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(haptics.played, isEmpty);
+
+    await tester.tap(find.text('Follow series'));
+    await tester.pumpAndSettle();
+    expect(haptics.roles, [HapticRole.toggleOn]);
+
+    // The throttle reads the wall clock; let the light lane re-arm.
+    await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
+    await tester.tap(find.text('Unfollow series'));
+    await tester.pumpAndSettle();
+    expect(haptics.roles, [HapticRole.toggleOn, HapticRole.toggleOff]);
+
+    fixture.mutationStatus = 400;
+    await tester.tap(find.text('Follow series'));
+    await tester.pumpAndSettle();
+    expect(container.read(watchlistStoreProvider)[key]!.added, isFalse);
+    expect(haptics.roles, [
+      HapticRole.toggleOn,
+      HapticRole.toggleOff,
+      HapticRole.error,
+    ]);
   });
 
   testWidgets('icon toggle renders the compact variant', (tester) async {

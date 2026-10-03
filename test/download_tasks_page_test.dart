@@ -2,12 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
-import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/naming_rule.dart';
@@ -21,6 +20,7 @@ import 'package:parfait/features/settings/pages/download_tasks_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'download_manager_test.dart';
+import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 
 Future<(ProviderContainer, DownloadManager, FakeTransport)> _world({
@@ -992,24 +992,7 @@ void main() {
   testWidgets(
     'selection mode batch-removes terminal and batch-cancels active',
     (tester) async {
-      final haptics = <String>[];
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        (call) async {
-          if (call.method == 'HapticFeedback.vibrate') {
-            haptics.add(call.arguments as String);
-          }
-          return null;
-        },
-      );
-      AppHaptics.debugReset();
-      addTearDown(() {
-        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          SystemChannels.platform,
-          null,
-        );
-        AppHaptics.debugReset();
-      });
+      var haptics = recordHaptics();
 
       final gate = Completer<void>();
       final (container, manager, _) = await _world(
@@ -1049,14 +1032,14 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, '管理'));
       await tester.pump();
       expect(find.text('已选 0 项'), findsOneWidget);
-      expect(haptics, ['HapticFeedbackType.heavyImpact']);
+      expect(haptics.roles, [HapticRole.confirm]);
 
       // Select-all is the light tick; selected rows drop their nested
       // action row for the check affordance.
       await tester.tap(find.byIcon(Icons.select_all));
       await tester.pump();
       expect(find.text('已选 2 项'), findsOneWidget);
-      expect(haptics.last, 'HapticFeedbackType.selectionClick');
+      expect(haptics.roles.last, HapticRole.select);
       for (final task in manager.tasks) {
         final mark = tester.widget<Icon>(
           find.byKey(ValueKey('download-select-${task.id}')),
@@ -1067,12 +1050,11 @@ void main() {
 
       // Batch remove qualifies only the terminal task — the confirm
       // dialog opening fires the explicit vibration.
-      AppHaptics.debugReset();
-      haptics.clear();
+      haptics = recordHaptics();
       await tester.tap(find.byIcon(Icons.remove_circle_outline));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(haptics, ['HapticFeedbackType.heavyImpact']);
+      expect(haptics.roles, [HapticRole.confirm]);
       expect(find.byType(AlertDialog), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, '移除'));
       await tester.pump();

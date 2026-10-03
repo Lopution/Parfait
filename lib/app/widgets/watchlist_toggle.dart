@@ -5,6 +5,7 @@ import '../../core/watchlist/watchlist_actions.dart';
 import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
 import '../../l10n/context.dart';
+import '../haptics/app_haptics.dart';
 
 /// Shared 追更/取消追更 toggle for series surfaces (illust series header and
 /// the novel series bar). The watchlist store shadows the series payload's
@@ -49,9 +50,7 @@ class WatchlistToggle extends ConsumerWidget {
         tooltip: added
             ? context.l10n.watchlistRemove
             : context.l10n.watchlistAdd,
-        onPressed: pending
-            ? null
-            : () => ref.read(watchlistActionsProvider).toggle(key),
+        onPressed: pending ? null : () => _toggle(ref, key),
         icon: pending
             ? const SizedBox(
                 width: 18,
@@ -65,9 +64,7 @@ class WatchlistToggle extends ConsumerWidget {
       );
     }
     return OutlinedButton.icon(
-      onPressed: pending
-          ? null
-          : () => ref.read(watchlistActionsProvider).toggle(key),
+      onPressed: pending ? null : () => _toggle(ref, key),
       icon: pending
           ? const SizedBox(
               width: 16,
@@ -86,5 +83,22 @@ class WatchlistToggle extends ConsumerWidget {
             : context.l10n.watchlistAdd,
       ),
     );
+  }
+
+  /// Haptics follow the settled outcome: the store never flips `added`
+  /// before the server confirms, so a queued (offline) or cancelled toggle
+  /// stays silent and only a landed change or a failure is felt.
+  Future<void> _toggle(WidgetRef ref, WatchlistKey key) async {
+    // Read the notifier up front: the toggle may outlive this widget.
+    final store = ref.read(watchlistStoreProvider.notifier);
+    final before = store.entryOf(key)?.added ?? detailAdded ?? false;
+    await ref.read(watchlistActionsProvider).toggle(key);
+    final after = store.entryOf(key);
+    if (after == null || after.isPending) return;
+    if (after.error != null) {
+      AppHaptics.error();
+    } else if (after.added != before) {
+      after.added ? AppHaptics.toggleOn() : AppHaptics.toggleOff();
+    }
   }
 }

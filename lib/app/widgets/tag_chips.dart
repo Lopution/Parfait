@@ -42,6 +42,9 @@ class TagChip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
+        // A long-press host plays its own AppHaptics role; the ink
+        // response's vibration would double it.
+        enableFeedback: onLongPress == null,
         borderRadius: FuncShape.control,
         child: Padding(
           padding: const EdgeInsets.symmetric(

@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Normal permission (granted at install, no prompt): app haptics play
+         through Vibrator so strength can be scaled per device capability. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:label="Parfait"
         android:name="${applicationName}"

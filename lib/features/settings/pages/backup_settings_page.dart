@@ -7,6 +7,7 @@ import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
+import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/backup/backup_envelope.dart';
 import '../../../core/backup/backup_service.dart';
@@ -211,8 +212,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 /// Step 1 of the import flow: file summary plus the two equal-weight
 /// strategy options. The same [showAppDialog] presentation serves mobile
 /// and desktop, so the action order is identical on both.
-/// ListTile+check follows the project selection pattern — RadioListTile is
-/// deprecated on this Flutter version.
+/// The options are [SettingsChoiceTile]s, the project's single-choice row.
 class _BackupStrategyChoiceDialog extends StatefulWidget {
   const _BackupStrategyChoiceDialog({required this.summary});
 
@@ -232,15 +232,11 @@ class _BackupStrategyChoiceDialogState
     required String title,
     required String hint,
   }) {
-    final selected = _selected == value;
-    return ListTile(
+    return SettingsChoiceTile(
       contentPadding: EdgeInsets.zero,
-      selected: selected,
+      selected: _selected == value,
       title: Text(title),
       subtitle: Text(hint),
-      trailing: selected
-          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
-          : null,
       onTap: () => setState(() => _selected = value),
     );
   }
