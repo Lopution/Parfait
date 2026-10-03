@@ -4,8 +4,8 @@
 //   - `ListTile(` under lib/features/settings: exactly the per-file counts
 //     below — every remaining hand-written row is a data/status row, not a
 //     settings row (diagnostic entries, muted items, the SAF current-folder
-//     display, the backup dialog option, the account summary and account
-//     list). Adding a hand-written row must update this map with a reason.
+//     display, the account summary and account list). Adding a
+//     hand-written row must update this map with a reason.
 //   - `SettingsSection` anywhere under lib/: zero — the widget was removed;
 //     groups are rendered by SettingsGroup.
 

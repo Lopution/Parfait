@@ -974,23 +974,95 @@ framework's state".
 ## Haptics Contract
 
 `AppHaptics` (`lib/app/haptics/app_haptics.dart`) is the single haptic
-entry point for the app. Feature code must never call
-`HapticFeedback` directly — every trigger goes through the owner so the
-persisted `enableHaptics` setting, per-level throttling, and platform
-tolerance stay in one place.
+entry point. Feature code never calls `HapticFeedback` or the
+`parfait/haptics` channel — the architecture test only allows them inside
+`lib/app/haptics/`.
 
-- Consumers name a **role**, never a level: `select()` (selection
-  toggles, mode exits, copy), `confirm()` (entering a management/
-  selection mode, opening a batched or destructive action surface),
-  `success()` (a save/download/share submission landed) and `error()`
-  (the attempted action failed). The role→`HapticFeedback` level mapping
-  and per-level throttling live inside `AppHaptics`; adding a role needs
-  a real consumer.
-- The enabled reader is injected by `ParfaitApp.build` via
-  `AppHaptics.configure`; feature code never reads settings itself.
-- Haptics are a redundant feedback channel: with the toggle off or on a
-  platform without haptics support, all visual feedback must still be
-  complete and distinguishable.
+### 1. Principle
+
+Vibrate to confirm a **state change the user caused**. Navigation (tab
+bar, bottom nav, root swipe, opening a page, back) and high-frequency
+events (scrolling to an edge, zoom limits, every drag frame) stay silent.
+A test pins the navigation chrome files as haptic-free. Background events
+(a download finishing, an offline-queued action replaying later) never
+vibrate: the user is elsewhere and would read it as feedback for whatever
+they are doing.
+
+### 2. Roles
+
+Callers name a role, never an effect or a level:
+
+| Role | Use |
+|---|---|
+| `select` | picking one option (segment, radio row, single chip), toggling an item in selection mode, removing a bookmark, a follow landing |
+| `toggleOn` / `toggleOff` | a switch or toggle chip by its new value; a watchlist change landing |
+| `tick` | a stepped slider crossing one division |
+| `thresholdOn` / `thresholdOff` | a drag crossing the point where releasing acts (pull-to-refresh arm, drag-to-dismiss distance) and pulling back under it |
+| `longPress` | an app long-press opening a sheet or menu |
+| `confirm` | entering a management/selection mode, opening a batched or destructive surface |
+| `success` | a submitted action landed (bookmark added, download queued, copy) |
+| `error` | the action the user just attempted failed |
+
+The role → effect mapping lives only in the Android `HapticPlanner.kt`
+(see the `parfait/haptics` channel contract). Adding a role needs a real
+consumer and a planner row.
+
+### 3. Strength, throttling, capability
+
+- The persisted `hapticStrength` (`off` / `light` / `standard` / `strong`,
+  default `standard`) is read through the reader `ParfaitApp.build` injects
+  via `AppHaptics.configure`. An unreadable setting is silent; before
+  `configure` everything is silent. Legacy `enableHaptics: false` migrates
+  to `off`, `true` to `standard`.
+- Throttling is per lane, not per role: light (select, toggles, tick,
+  thresholds) 50 ms, medium (success) 80 ms, heavy (longPress, confirm,
+  error) 120 ms. A long-press that enters selection mode vibrates once.
+- `AppHaptics.preview(strength)` plays `confirm` at the given strength
+  unthrottled — only the strength picker uses it, and that picker turns
+  off its own segment haptic (`AppSegmentedButton(haptics: false)`).
+- The settings footer shows the device tier from `capabilities`; the
+  vibrator tiers degrade to `View` haptics on ROMs that refuse them.
+- Haptics are redundant: with strength `off` or no vibrator, every visual
+  feedback must still be complete.
+
+### 4. Ownership
+
+- **Components own their haptic.** `SettingsControl` and
+  `ReplicaSwitchTile` (toggleOn/Off), `SettingsChoiceTile` (select on a
+  different entry), `AppSegmentedButton` (select on a different non-empty
+  selection), `AppChoiceChip` (single: select, and `onSelected` runs only
+  for an unselected chip; `.toggle`: toggleOn/Off), `AppSlider` (tick per
+  division; continuous sliders are silent). External value changes never
+  vibrate. The architecture test confines raw `SegmentedButton`,
+  `ChoiceChip`/`FilterChip`, `Slider`, `Switch`/`SwitchListTile` and
+  `Radio`/`RadioListTile` to these wrappers.
+- **Store mutations vibrate on the settled outcome, at the call site.**
+  `toggleBookmark`, `toggleFollow` and `WatchlistToggle` read the entry
+  before, await the action, then read it again: a pending (queued) or
+  cancelled entry is silent, an error plays `error`, a landed change plays
+  its role. Do not `ref.listen` the store for haptics — a replay landing
+  later, or several buttons for the same key, would vibrate out of
+  context.
+- **Clipboard writes** go through `copyToClipboard(context, text, message:)`
+  (`lib/app/clipboard.dart`): write, then `success`, then the toast. A
+  failed write throws before either. The architecture test allows
+  `Clipboard.setData` in `lib/app` / `lib/features` only there.
+- **Long press.** The handler calls `longPress()` (or `confirm()` when it
+  enters a mode). `InkWell` / `ListTile` / Material buttons vibrate on
+  long press themselves, so a carrier with an app long-press sets
+  `enableFeedback: false` (`EntityRow` and `TagChip` use
+  `onLongPress == null`). That also drops the Android tap click sound on
+  those carriers; accept it. `GestureDetector` has no built-in feedback.
+
+### 5. Tests
+
+Configure haptics with `recordHaptics()` (`test/helpers/recording_haptics.dart`)
+and assert `driver.roles` / `driver.played`; do not mock
+`SystemChannels.platform`. The throttle reads the wall clock, so a test
+that expects two haptics in the same lane waits
+`AppHaptics.lightInterval` (or the lane's interval) inside
+`tester.runAsync` between them.
+
 ## Management List Rows
 
 Management-style lists (Settings → Download Tasks and any future
@@ -1040,12 +1112,15 @@ reintroduce it or hand-build group containers.
   `find.widgetWithText(ListTile, …)` tests keep working:
   - `SettingsTile` navigates to a subpage: optional `icon`, chevron
     trailing.
-  - `SettingsControl` is the `SwitchListTile` toggle.
+  - `SettingsControl` is the `SwitchListTile` toggle; it plays the
+    toggle haptic (see Haptics Contract).
   - `SettingsChoiceTile` is one option in a single-choice list. It always
     sets `ListTile.selected` and, when selected, shows a `primary`
     `Icons.check` trailing. `RadioListTile` is deprecated in this Flutter
     version; the check is the single-choice marker, and `selected` is
-    what lets screen readers announce the chosen row.
+    what lets screen readers announce the chosen row. It plays `select`
+    when a different entry is picked, and takes `contentPadding` so dialog
+    options (backup import strategy) use it too.
   - `SettingsActionTile` shows a current value, runs an action, or
     presents read-only info; `onTap: null`/`enabled: false` disables the
     row and its ink.
@@ -1054,7 +1129,7 @@ reintroduce it or hand-build group containers.
     `horizontal: lg, vertical: sm` padding.
 - Hand-written `ListTile`s are allowed only for content rows — entries
   that are data rather than settings (muted items, the account list,
-  diagnostic results, the read-only download path, dialog options, the
+  diagnostic results, the read-only download path, the
   `AccountSummaryTile` identity block).
   `test/architecture/settings_rows_test.dart` pins the exact per-file
   `ListTile(` count; adding a hand-written row means extending that
