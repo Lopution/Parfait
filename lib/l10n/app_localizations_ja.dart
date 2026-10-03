@@ -1910,10 +1910,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get newMyPixiv => 'マイピク';
 
   @override
-  String get newIllust => 'イラスト';
-
-  @override
-  String get newNovel => '小説';
+  String get newNovels => '小説の新着';
 
   @override
   String get recommendedIllust => 'イラスト';

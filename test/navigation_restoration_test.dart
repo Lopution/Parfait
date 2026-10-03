@@ -328,9 +328,9 @@ void main() {
     );
   });
 
-  testWidgets('replaces and restores the new feed scope and type', (
-    tester,
-  ) async {
+  testWidgets('replaces and restores the new feed scope', (tester) async {
+    // An old `type=novel` link lands on the illust feed: the type is no
+    // longer part of the route.
     final router = createPixivRouter(
       initialLocation: '/new?scope=everyone&type=novel',
     );
@@ -340,36 +340,73 @@ void main() {
       _routerApp(
         router,
         httpHandler: (_) async =>
-            _json({'novels': <Object?>[], 'next_url': null}),
+            _json({'illusts': <Object?>[], 'next_url': null}),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
     var page = tester.widget<NewPage>(find.byType(NewPage));
+    expect(page.type, NewFeedType.illust);
     expect(page.initialScope, NewFeedScope.everyone);
-    expect(page.initialType, NewFeedType.novel);
 
-    // A scope tap writes scope+type back through context.replace — the
-    // pair stays one durable unit.
+    // A scope tap writes the scope back through context.replace.
     await tester.tap(find.text('关注'));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/new');
-    expect(router.state.uri.queryParameters['scope'], 'following');
-    expect(router.state.uri.queryParameters['type'], 'novel');
+    expect(router.state.uri.queryParameters, {'scope': 'following'});
     page = tester.widget<NewPage>(find.byType(NewPage));
     expect(page.initialScope, NewFeedScope.following);
-    expect(page.initialType, NewFeedType.novel);
 
     await tester.restartAndRestore();
     await tester.pump();
 
     expect(router.state.uri.path, '/new');
-    expect(router.state.uri.queryParameters['scope'], 'following');
-    expect(router.state.uri.queryParameters['type'], 'novel');
+    expect(router.state.uri.queryParameters, {'scope': 'following'});
     page = tester.widget<NewPage>(find.byType(NewPage));
+    expect(page.type, NewFeedType.illust);
     expect(page.initialScope, NewFeedScope.following);
-    expect(page.initialType, NewFeedType.novel);
+  });
+
+  testWidgets('replaces and restores the new novels scope', (tester) async {
+    final router = createPixivRouter(
+      initialLocation: '/new/new-novels?scope=everyone',
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _routerApp(
+        router,
+        httpHandler: (_) async => _json({
+          'illusts': <Object?>[],
+          'novels': <Object?>[],
+          'next_url': null,
+        }),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // The pushed novel page sits over the branch's illust page.
+    NewPage novelPage() => tester.widget<NewPage>(
+      find.byWidgetPredicate(
+        (w) => w is NewPage && w.type == NewFeedType.novel,
+      ),
+    );
+    expect(novelPage().initialScope, NewFeedScope.everyone);
+
+    await tester.tap(find.text('关注'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/new/new-novels');
+    expect(router.state.uri.queryParameters, {'scope': 'following'});
+    expect(novelPage().initialScope, NewFeedScope.following);
+
+    await tester.restartAndRestore();
+    await tester.pump();
+
+    expect(router.state.uri.path, '/new/new-novels');
+    expect(router.state.uri.queryParameters, {'scope': 'following'});
+    expect(novelPage().initialScope, NewFeedScope.following);
   });
 
   testWidgets('restores the bookmark tag feed tag and restrict', (

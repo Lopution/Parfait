@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/novel_entry.dart';
 import '../../core/entity/illust_store.dart';
@@ -13,7 +14,6 @@ import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/app_tab_bar.dart';
-import '../../app/widgets/app_type_switch.dart';
 import '../../app/widgets/branch_slide_stack.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/root_swipe_switcher.dart';
@@ -24,24 +24,24 @@ import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
-/// Beta56 New page: scope tabs + a floating content-type row inside each
-/// feed. Both are route-durable (`/new?scope=&type=`):
-/// [initialScope]/[initialType] seed the controller and tab/segment
-/// changes echo back through [onFeedChanged]. Each (scope, type) pair
-/// keeps its own feed state, scroll offset and cursor — switching back
-/// does not refetch. The type row travels with its feed: it scrolls away
-/// with the content and floats back in on a reverse drag (D1).
+/// Beta56 New page for one content [type]: scope tabs over that type's
+/// feeds, the same shape as the ranking pages. The illust page is the
+/// branch root and opens the novel page from its app bar, as the ranking
+/// page opens the novel ranking. The scope is route-durable
+/// (`?scope=`): [initialScope] seeds the tabs and tab changes echo back
+/// through [onScopeChanged]. Each scope keeps its own feed state, scroll
+/// offset and cursor — switching back does not refetch.
 class NewPage extends StatefulWidget {
   const NewPage({
     super.key,
+    this.type = NewFeedType.illust,
     this.initialScope = NewFeedScope.following,
-    this.initialType = NewFeedType.illust,
-    this.onFeedChanged,
+    this.onScopeChanged,
   });
 
+  final NewFeedType type;
   final NewFeedScope initialScope;
-  final NewFeedType initialType;
-  final void Function(NewFeedScope scope, NewFeedType type)? onFeedChanged;
+  final ValueChanged<NewFeedScope>? onScopeChanged;
 
   @override
   State<NewPage> createState() => _NewPageState();
@@ -59,7 +59,6 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   /// swipe frame.
   final _bodies = <NewFeedKey, Widget>{};
   late int _selectedIndex;
-  late NewFeedType _type;
   bool _suppressRouteEcho = false;
   ReTapChannel? _reTapChannel;
 
@@ -69,7 +68,6 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     _selectedIndex = _scopes.indexOf(widget.initialScope);
-    _type = widget.initialType;
     _loadedKeys.add(_activeKey);
     _tabController = TabController(
       length: _scopes.length,
@@ -92,17 +90,11 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   void didUpdateWidget(NewPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     // context.replace keeps the page key, so a route write lands here as a
-    // widget update. Self-echoes carry the current values and no-op; only
+    // widget update. Self-echoes carry the current scope and no-op; only
     // an externally changed param moves the strip — the controller is
     // never reset.
-    if (widget.initialScope == _scopes[_selectedIndex] &&
-        widget.initialType == _type) {
-      return;
-    }
-    setState(() {
-      _type = widget.initialType;
-      _loadedKeys.add(NewFeedKey(scope: widget.initialScope, type: _type));
-    });
+    if (widget.initialScope == _scopes[_selectedIndex]) return;
+    setState(() => _loadedKeys.add(_keyFor(widget.initialScope)));
     final index = _scopes.indexOf(widget.initialScope);
     if (index != _tabController.index) {
       _suppressRouteEcho = true;
@@ -126,8 +118,10 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  NewFeedKey get _activeKey =>
-      NewFeedKey(scope: _scopes[_selectedIndex], type: _type);
+  NewFeedKey _keyFor(NewFeedScope scope) =>
+      NewFeedKey(scope: scope, type: widget.type);
+
+  NewFeedKey get _activeKey => _keyFor(_scopes[_selectedIndex]);
 
   ScrollController _scrollControllerFor(NewFeedKey key) =>
       _scrollControllers.putIfAbsent(key, ScrollController.new);
@@ -137,8 +131,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   void _prepareAdjacent(int index) {
     final neighbours = {
       for (final i in [index - 1, index + 1])
-        if (i >= 0 && i < _scopes.length)
-          NewFeedKey(scope: _scopes[i], type: _type),
+        if (i >= 0 && i < _scopes.length) _keyFor(_scopes[i]),
     };
     if (_loadedKeys.containsAll(neighbours)) return;
     setState(() => _loadedKeys.addAll(neighbours));
@@ -151,29 +144,16 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       _loadedKeys.add(_activeKey);
     });
     if (!_suppressRouteEcho) {
-      widget.onFeedChanged?.call(_scopes[_selectedIndex], _type);
+      widget.onScopeChanged?.call(_scopes[_selectedIndex]);
     }
   }
 
   void _onTabTap(int index) {
     // A same-index scope tap scrolls the visible feed to top — it never
-    // toggles the type selector, refreshes, or changes selection.
+    // refreshes or changes selection.
     if (index == _selectedIndex && !_tabController.indexIsChanging) {
       reTapScrollToTop(context, _scrollControllerFor(_activeKey));
     }
-  }
-
-  void _onTypeSelected(NewFeedType type) {
-    if (type == _type) {
-      // Same-index type tap: pure scroll-to-top, same as a scope re-tap.
-      reTapScrollToTop(context, _scrollControllerFor(_activeKey));
-      return;
-    }
-    setState(() {
-      _type = type;
-      _loadedKeys.add(_activeKey);
-    });
-    widget.onFeedChanged?.call(_scopes[_selectedIndex], type);
   }
 
   /// Branch-level re-tap (bottom bar same-destination tap): the channel
@@ -209,9 +189,17 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
               _newText(context, _scopeLabelKey(scope)),
           ],
         ),
-        // Feature entries (watchlist, local novels) live in settings'
-        // content group — the three home feeds keep identical chrome:
-        // AppBar + embedded TabBar, no stray action icons.
+        // Same entry as the ranking page's novel ranking. Other feature
+        // entries (watchlist, local novels) live in settings' content
+        // group.
+        actions: [
+          if (widget.type == NewFeedType.illust)
+            IconButton(
+              tooltip: context.l10n.newNovels,
+              onPressed: () => openNewNovels(context),
+              icon: const Icon(Icons.menu_book_outlined),
+            ),
+        ],
       ),
       body: RootSwipeSwitcher(
         tabController: _tabController,
@@ -221,31 +209,20 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
         child: TabSlideStack(
           controller: _tabController,
           children: [
-            for (final scope in _scopes)
-              // Each scope slot keeps its own loaded type bodies — same
-              // per-key state preservation as the old flat Offstage
-              // stack, now arranged along the strip axis. The type row
-              // floats inside every feed, so each feed keeps its own
-              // float state.
-              Stack(
-                fit: StackFit.expand,
-                children: [
-                  for (final key in _loadedKeys)
-                    if (key.scope == scope)
-                      Offstage(
-                        offstage: key.type != _type,
-                        child: _bodies.putIfAbsent(
-                          key,
-                          () => _NewFeedBody(
-                            key: ValueKey(key),
-                            feedKey: key,
-                            scrollController: _scrollControllerFor(key),
-                            onTypeSelected: _onTypeSelected,
-                          ),
-                        ),
-                      ),
-                ],
-              ),
+            for (final key in _scopes.map(_keyFor))
+              // A scope slot builds its feed on first visit (or swipe
+              // warm-up) and keeps it from then on.
+              if (_loadedKeys.contains(key))
+                _bodies.putIfAbsent(
+                  key,
+                  () => _NewFeedBody(
+                    key: ValueKey(key),
+                    feedKey: key,
+                    scrollController: _scrollControllerFor(key),
+                  ),
+                )
+              else
+                const SizedBox.shrink(),
           ],
         ),
       ),
@@ -259,8 +236,8 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   };
 }
 
-/// One keyed feed body. The state is kept alive by [NewPage]'s Offstage stack
-/// so scroll/cursor/error state is not shared with another scope or type.
+/// One keyed feed body. The state is kept alive by [NewPage]'s scope stack
+/// so scroll/cursor/error state is not shared with another scope.
 /// [scrollController] is owned by the page (one per [NewFeedKey]) so re-tap
 /// gestures can address the visible feed.
 class _NewFeedBody extends ConsumerWidget {
@@ -268,86 +245,44 @@ class _NewFeedBody extends ConsumerWidget {
     super.key,
     required this.feedKey,
     required this.scrollController,
-    required this.onTypeSelected,
   });
 
   final NewFeedKey feedKey;
   final ScrollController scrollController;
-  final ValueChanged<NewFeedType> onTypeSelected;
 
-  List<({NewFeedType value, String label})> _typeOptions(
-    BuildContext context,
-  ) => [
-    (value: NewFeedType.illust, label: _newText(context, 'newIllust')),
-    (value: NewFeedType.novel, label: _newText(context, 'newNovel')),
-  ];
-
-  /// Loading/error/empty states keep the switch row as a fixed header so
-  /// the type stays switchable — and the row sits at the same spot the
-  /// floating version occupies once data arrives (no jump on load).
-  Widget _withTypeSwitch(BuildContext context, Widget state) {
-    return Column(
-      children: [
-        AppTypeSwitch<NewFeedType>(
-          options: _typeOptions(context),
-          selected: feedKey.type,
-          onSelected: onTypeSelected,
-        ),
-        Expanded(child: state),
-      ],
-    );
-  }
+  Widget _loading(BuildContext context) => feedKey.type == NewFeedType.illust
+      ? IllustGridSkeleton(label: context.l10n.newLoading)
+      : FeedLoading(label: context.l10n.newLoading);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feedAsync = ref.watch(newFeedProvider(feedKey));
     return feedAsync.when(
-      loading: () => _withTypeSwitch(
-        context,
-        feedKey.type == NewFeedType.illust
-            ? IllustGridSkeleton(label: context.l10n.newLoading)
-            : FeedLoading(label: context.l10n.newLoading),
-      ),
-      error: (error, _) => _withTypeSwitch(
-        context,
-        FeedError(
-          title: context.l10n.newLoadFailed,
-          error: error,
-          retryLabel: context.l10n.newRetry,
-          onRetry: () => ref.invalidate(newFeedProvider(feedKey)),
-        ),
+      loading: () => _loading(context),
+      error: (error, _) => FeedError(
+        title: context.l10n.newLoadFailed,
+        error: error,
+        retryLabel: context.l10n.newRetry,
+        onRetry: () => ref.invalidate(newFeedProvider(feedKey)),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return _withTypeSwitch(
-            context,
-            FeedError(
-              title: context.l10n.newLoadFailed,
-              error: feed.initialError ?? const ApiParseError('unknown error'),
-              retryLabel: context.l10n.newRetry,
-              onRetry: () =>
-                  ref.read(newFeedProvider(feedKey).notifier).retryInitial(),
-            ),
+          return FeedError(
+            title: context.l10n.newLoadFailed,
+            error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: context.l10n.newRetry,
+            onRetry: () =>
+                ref.read(newFeedProvider(feedKey).notifier).retryInitial(),
           );
         }
-        if (feed.showInitialSpinner) {
-          return _withTypeSwitch(
-            context,
-            feedKey.type == NewFeedType.illust
-                ? IllustGridSkeleton(label: context.l10n.newLoading)
-                : FeedLoading(label: context.l10n.newLoading),
-          );
-        }
+        if (feed.showInitialSpinner) return _loading(context);
         if (feed.isEmptyAndReady) {
-          return _withTypeSwitch(
-            context,
-            FeedEmpty(
-              icon: Icons.inbox_outlined,
-              title: context.l10n.newEmpty,
-              retryLabel: context.l10n.newRetry,
-              onRefresh: () =>
-                  ref.read(newFeedProvider(feedKey).notifier).refresh(),
-            ),
+          return FeedEmpty(
+            icon: Icons.inbox_outlined,
+            title: context.l10n.newEmpty,
+            retryLabel: context.l10n.newRetry,
+            onRefresh: () =>
+                ref.read(newFeedProvider(feedKey).notifier).refresh(),
           );
         }
 
@@ -375,14 +310,7 @@ class _NewFeedBody extends ConsumerWidget {
                 physics: physics,
                 scrollCacheExtent: kFeedCacheExtent,
                 restorationId: 'new-${feedKey.scope.name}-${feedKey.type.name}',
-                slivers: [
-                  SliverAppTypeSwitch<NewFeedType>(
-                    options: _typeOptions(context),
-                    selected: feedKey.type,
-                    onSelected: onTypeSelected,
-                  ),
-                  ...slivers,
-                ],
+                slivers: slivers,
               ),
             ),
           ),

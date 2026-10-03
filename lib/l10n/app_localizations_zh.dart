@@ -1885,10 +1885,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get newMyPixiv => '好P友';
 
   @override
-  String get newIllust => '插画';
-
-  @override
-  String get newNovel => '小说';
+  String get newNovels => '小说新作';
 
   @override
   String get recommendedIllust => '插画';

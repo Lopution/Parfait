@@ -31,6 +31,7 @@ import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_type_switch.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 import 'package:parfait/features/profile/profile_illust_feed.dart';
@@ -2057,6 +2058,85 @@ void main() {
         reason: 'the top pull must still reach the feed refresh',
       );
       expect(outer.pixels, 0);
+    });
+  });
+
+  /// The work type row is the first sliver of a feed inside
+  /// PullToRefresh: the shared row contract re-checked on a real feed.
+  group('the work type row on a real feed', () {
+    Future<_FakeUserRepository> pumpProfile(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = _FakeUserRepository(
+        works: List.generate(30, (index) => _illust(index + 1)),
+      );
+      final container = await _makeWorld(users: repository);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            scrollBehavior: const FuncScrollBehavior(),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return repository;
+    }
+
+    int firstLoads(_FakeUserRepository repository) => repository.requests
+        .where((request) => request == 'works:42:illust:first')
+        .length;
+
+    testWidgets('a sideways swipe on the row never pulls to refresh', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        final repository = await pumpProfile(tester);
+        final segments = find.byType(SegmentedButton<ProfileWorkSection>);
+        expect(segments.hitTestable(), findsOneWidget);
+        final before = firstLoads(repository);
+
+        await tester.drag(segments, const Offset(300, 0));
+        await tester.pumpAndSettle();
+        expect(firstLoads(repository), before);
+      });
+    });
+
+    testWidgets('a pull under the threshold carries the row with the list', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        final repository = await pumpProfile(tester);
+        final row = find.byType(AppTypeSwitch<ProfileWorkSection>);
+        // The tall header leaves the cards just below the fold; they are
+        // laid out all the same.
+        final card = find.byType(IllustCard).first;
+        final before = firstLoads(repository);
+        final rowTop = tester.getRect(row).top;
+        final cardTop = tester.getRect(card).top;
+
+        // 60px < the 100px trigger — the gesture stays a drag.
+        final gesture = await tester.startGesture(tester.getCenter(row));
+        for (var i = 0; i < 6; i++) {
+          await gesture.moveBy(const Offset(0, 10));
+          await tester.pump();
+        }
+        final cardDelta = tester.getRect(card).top - cardTop;
+        expect(cardDelta, greaterThan(0));
+        expect(
+          tester.getRect(row).top - rowTop,
+          moreOrLessEquals(cardDelta, epsilon: 0.01),
+        );
+
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(firstLoads(repository), before);
+      });
     });
   });
 
