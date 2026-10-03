@@ -5,43 +5,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        提交前请先看 README 的[常见问题](https://github.com/Lopution/Parfait#常见问题)。安全问题请不要开公开 Issue，按 [SECURITY.md](https://github.com/Lopution/Parfait/blob/main/SECURITY.md) 私下报告。
-  - type: input
-    id: version
-    attributes:
-      label: 应用版本 Version
-      placeholder: 在「设置 → 关于」中查看，例如 0.1.0
-    validations:
-      required: true
-  - type: dropdown
-    id: source
-    attributes:
-      label: 安装来源 Install source
-      options:
-        - GitHub Release
-        - Obtainium
-        - 自行构建 Self-built
-    validations:
-      required: true
-  - type: input
-    id: device
-    attributes:
-      label: 设备型号 Device
-      placeholder: 例如 Pixel 7、小米 14
-    validations:
-      required: true
-  - type: input
-    id: android
-    attributes:
-      label: Android 版本 Android version
-      placeholder: 例如 14
-    validations:
-      required: true
+        Parfait 是非官方客户端。账号被限制、作品被删除或不可见这类 pixiv 方面的问题，应用无法修复。
+        安全问题请不要开公开 Issue，按 [SECURITY.md](https://github.com/Lopution/Parfait/blob/main/SECURITY.md) 私下报告。
   - type: textarea
     id: description
     attributes:
       label: 问题描述 Description
       description: 发生了什么。截图或录屏可以直接拖进这里。
+      placeholder: 例如：打开收藏页后一直转圈，没有作品出来。
     validations:
       required: true
   - type: textarea
@@ -58,11 +29,46 @@ body:
     id: expected
     attributes:
       label: 期望结果 Expected behavior
+      placeholder: 例如：显示收藏的作品。
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本 Version
+      description: 在「设置 → 关于」中查看。
+      placeholder: 例如 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: 安装来源 Install source
+      options:
+        - GitHub Release
+        - Obtainium
+        - 自行构建 Self-built
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 设备型号 Device
+      description: 在系统设置的「关于手机」中查看。
+      placeholder: 例如 Pixel 7、小米 14
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: 系统版本 OS version
+      description: Android 版本；厂商系统（HyperOS、ColorOS、One UI 等）请一并写上它的版本。
+      placeholder: 例如 Android 14 / HyperOS 2.0
+    validations:
+      required: true
   - type: textarea
     id: network
     attributes:
       label: 网络环境 Network
-      description: 是否开了代理，「设置 → 网络」中选的是哪种模式。
+      description: 是否开了代理或 VPN，「设置 → 网络 → 网络模式」选的是哪一种。
   - type: textarea
     id: logs
     attributes:
@@ -73,7 +79,9 @@ body:
     attributes:
       label: 提交前确认 Checklist
       options:
-        - label: 我已搜索过现有 Issue，没有重复。I searched the existing issues.
+        - label: 我已搜索过现有 Issue（包括已关闭的），没有重复。I searched the open and closed issues.
           required: true
-        - label: 我已更新到最新版本，问题仍然存在。I am on the latest version.
+        - label: 我已看过 README 的[常见问题](https://github.com/Lopution/Parfait#常见问题)。I read the FAQ.
+          required: true
+        - label: 我已更新到[最新版本](https://github.com/Lopution/Parfait/releases/latest)，问题仍然存在。I am on the latest version.
           required: true
