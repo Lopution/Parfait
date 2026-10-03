@@ -264,6 +264,89 @@ normal media scan. Since a restart cannot reconstruct the in-memory
 records remain observable. A pending row is cleaned only through the exact
 owner marker; unknown ordinary-download rows are left untouched.
 
+### Image Scheduling Contract (`PriorityFileService`, `ImageDemand`, `lib/core/network/compat/`)
+
+#### 1. Scope / Trigger
+
+Every Pixiv image byte goes through the shared image `CacheManager`, whose
+file service is `PriorityFileService`. This contract applies when adding an
+image entry point, a prefetcher or a preload, or when touching lane sizes.
+
+#### 2. Signatures
+
+```dart
+enum ImageFetchPriority { foreground, background }
+class PriorityFileService extends FileService {
+  PriorityFileService({required http.Client httpClient, ImageDemand? demand});
+  static const foregroundSlots = 8, backgroundSlots = 2;
+  void promote(String url);
+}
+class ImageDemand {
+  void Function(String url)? onHeld; // wired to promote
+  void hold(String url); void release(String url);
+  void holdFor(String url, Duration ttl);
+  void setPrefetchWindow(Object owner, Set<String> urls);
+  void clearPrefetchWindow(Object owner);
+  bool wants(String url);
+}
+class ImageFetchDropped implements Exception {}
+enum ImagePreloadResult { decoded, dropped, failed }
+static Future<ImagePreloadResult> PixivImage.preload(…, {ImageDemand? demand,
+    ImageFetchPriority priority = ImageFetchPriority.background});
+```
+
+`PixivNetworkFactory.imageDemand` is the app's single demand, shared with
+`imageCacheManager`'s file service.
+
+#### 3. Contracts
+
+- `WebHelper` never queues (`concurrentFetches` admits everything); its FIFO
+  would put a visible image behind every queued prefetch. Real concurrency is
+  the two gates: foreground 8, background 2. A permit is held until the body
+  ends, is cancelled, or the 45 s hold limit fires; handlers set later through
+  `onDone`/`onError`/`asFuture` keep the release.
+- Background = requests carrying the prefetch marker (`PixivImage.preload`
+  with background priority). Everything else is foreground.
+- `WebHelper` merges requests for one URL, so a visible image whose URL is
+  queued as prefetch never reaches the service by itself. `ImageDemand.onHeld`
+  (first `hold`, every `holdFor`) calls `promote`: the queued waiter moves to
+  the foreground gate and gives its slot back there.
+- A queued waiter whose turn comes while `wants(url)` is false completes with
+  `ImageFetchDropped`: no request, no file. `wants` is true while held, inside
+  a `holdFor` ttl, inside any prefetch window, or within 500 ms of the last
+  release (Hero flights, re-layout). Immediate admissions and transfers
+  already streaming are never checked or interrupted.
+- Holders: every `PixivImage` holds its effective URL while mounted (hold new
+  before releasing old); the feed grid's `FeedPrefetchCursor` owns its window
+  and clears it on dispose; the viewer owns its neighbour window. User-asked
+  preloads (card tap → detail tier, `openImageViewer`) are foreground and
+  `holdFor` 10 s. Without a `ProviderScope` nothing registers and nothing is
+  dropped.
+- Feed prefetch window = columns × 3 rows past the built edge, batches of
+  `backgroundSlots`; a newer window stops the older run. A `dropped` preload
+  is forgotten so a later window may retry; a `failed` one is not — retrying
+  is the visible widget's job.
+- `preload` never reports through `FlutterError.onError`; a non-drop failure
+  is a `debugPrint`, and a failed image is never recorded as decoded.
+
+#### 4. Tests Required
+
+`priority_file_service_test.dart` (lanes, promotion, drop at turn, no leak,
+grace, no interruption, `WebHelper` admits all), `image_demand_test.dart`,
+`pixiv_image_preload_test.dart`, the hold test in
+`pixiv_image_variants_test.dart`, the window test in
+`illust_card_badges_test.dart`, `feed_prefetch_cursor_test.dart`. The image
+chain is real (`test/helpers/image_network.dart`); only the HTTP client and the
+path_provider channel are fakes, and disk work runs inside `runAsync`.
+
+#### 5. Wrong vs Correct
+
+**Wrong**: a new image surface paints `Image(CachedNetworkImageProvider(url))`
+directly — nothing holds the URL, so a queued fetch for it can be dropped.
+
+**Correct**: paint through `PixivImage` (or warm through `PixivImage.preload`
+with a registered window or a foreground `holdFor`).
+
 ### Comments and Replies Contract (`CommentStore`, `lib/core/comments/`)
 
 #### 1. Scope / Trigger
@@ -1421,3 +1504,6 @@ content URI with an observable Android permission result.
   transition.
 - Publishing a stale account response after the provider or route has been
   disposed.
+- Loading a Pixiv image outside `PixivImage`/`PixivImage.preload`, or
+  prefetching without registering a window in `ImageDemand`: the scheduler
+  cannot promote it and may drop it.
