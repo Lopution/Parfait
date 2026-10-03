@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/core/localnovel/local_novel_database.dart';
 import 'package:parfait/core/localnovel/local_novel_repository.dart';
@@ -19,6 +19,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 
 Widget _app(Widget child) => MaterialApp(
@@ -234,20 +235,8 @@ void main() {
     tester,
   ) async {
     // The destructive confirm surface opening is the explicit-vibration
-    // role — capture HapticFeedback.vibrate on the platform channel.
-    final haptics = <String>[];
-    final messenger = tester.binding.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'HapticFeedback.vibrate') {
-        haptics.add(call.arguments as String);
-      }
-      return null;
-    });
-    AppHaptics.debugReset();
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
-      AppHaptics.debugReset();
-    });
+    // role.
+    final haptics = recordHaptics();
     await warmDatabase(tester);
     await tester.runAsync(
       () => container.read(localNovelStoreProvider.notifier).importPicked(),
@@ -271,7 +260,7 @@ void main() {
     // the neutral overflow menu itself stayed silent.
     expect(find.byType(BottomSheet), findsNothing);
     expect(find.byType(AlertDialog), findsOneWidget);
-    expect(haptics, ['HapticFeedbackType.heavyImpact']);
+    expect(haptics.roles, [HapticRole.confirm]);
     expect(
       find.text('Delete "My Story"? The local file will be removed too.'),
       findsOneWidget,

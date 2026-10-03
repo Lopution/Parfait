@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
@@ -33,6 +32,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/context.dart';
 
+import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 
@@ -1642,26 +1642,6 @@ void main() {
     );
   });
 
-  /// Captures `HapticFeedback.vibrate` calls landing on the platform channel
-  /// — the observable seam of the static [AppHaptics] owner.
-  List<String> mockHaptics() {
-    final calls = <String>[];
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'HapticFeedback.vibrate') {
-        calls.add(call.arguments as String);
-      }
-      return null;
-    });
-    AppHaptics.debugReset();
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
-      AppHaptics.debugReset();
-    });
-    return calls;
-  }
-
   Future<void> typeAndSend(WidgetTester tester) async {
     await tester.enterText(find.byType(TextField), 'hi');
     await tester.pump();
@@ -1669,20 +1649,18 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('send success fires one mediumImpact via AppHaptics', (
-    tester,
-  ) async {
-    final haptics = mockHaptics();
+  testWidgets('send success fires one success haptic', (tester) async {
+    final haptics = recordHaptics();
     await pumpCommentsPage(tester, _FakeCommentRepository());
 
     await typeAndSend(tester);
-    expect(haptics, ['HapticFeedbackType.mediumImpact']);
+    expect(haptics.roles, [HapticRole.success]);
   });
 
   testWidgets('stamp send success fires the same success level', (
     tester,
   ) async {
-    final haptics = mockHaptics();
+    final haptics = recordHaptics();
     await pumpCommentsPage(tester, _FakeCommentRepository());
 
     await tester.tap(find.byTooltip('Stamp'));
@@ -1696,27 +1674,27 @@ void main() {
           .first,
     );
     await tester.pumpAndSettle();
-    expect(haptics, ['HapticFeedbackType.mediumImpact']);
+    expect(haptics.roles, [HapticRole.success]);
   });
 
   testWidgets('replies send success fires the same success level', (
     tester,
   ) async {
-    final haptics = mockHaptics();
+    final haptics = recordHaptics();
     await pumpRepliesPage(tester, _FakeCommentRepository());
 
     await typeAndSend(tester);
-    expect(haptics, ['HapticFeedbackType.mediumImpact']);
+    expect(haptics.roles, [HapticRole.success]);
   });
 
   testWidgets('send failure fires no haptic', (tester) async {
-    final haptics = mockHaptics();
+    final haptics = recordHaptics();
     await pumpCommentsPage(
       tester,
       _FakeCommentRepository()..addError = StateError('offline'),
     );
 
     await typeAndSend(tester);
-    expect(haptics, isEmpty);
+    expect(haptics.played, isEmpty);
   });
 }

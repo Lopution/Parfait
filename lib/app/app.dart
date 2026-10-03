@@ -17,6 +17,7 @@ import '../core/network/compat/network_providers.dart';
 import '../core/platform/android_intent_channel.dart';
 import 'external_intent_bridge.dart';
 import 'haptics/app_haptics.dart';
+import 'haptics/haptics_driver.dart';
 import 'motion/motion_tokens.dart';
 import 'navigation/home_shell_metrics.dart';
 import 'scroll_behavior.dart';
@@ -175,7 +176,10 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     // latest persisted setting on each trigger, so the settings toggle
     // applies immediately without a restart.
     AppHaptics.configure(
-      isEnabled: () => ref.read(settingsProvider).value?.enableHaptics ?? true,
+      strength: () => (ref.read(settingsProvider).value?.enableHaptics ?? true)
+          ? HapticStrength.standard
+          : HapticStrength.off,
+      driver: ref.watch(hapticsDriverProvider),
     );
     return settings.when(
       loading: () => _materialApp(

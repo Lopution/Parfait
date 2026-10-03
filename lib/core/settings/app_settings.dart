@@ -138,6 +138,11 @@ enum PageTransitionSpeed {
   }
 }
 
+/// App haptic strength. [off] plays nothing; on Android the other tiers pick
+/// per-device effects (primitive amplitude, predefined effect, or the
+/// strength-less system constant).
+enum HapticStrength { off, light, standard, strong }
+
 /// How the normal network stack routes traffic (D3). Only the user choice is
 /// persisted; route memory and probe results are never saved.
 enum NetworkMode {

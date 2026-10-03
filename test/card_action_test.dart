@@ -2,14 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:parfait/app/haptics/app_haptics.dart';
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/muted_cover.dart';
@@ -33,6 +32,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
@@ -299,26 +299,8 @@ void main() {
   testWidgets('watch-later removal offers undo restoring the entry', (
     tester,
   ) async {
-    // Undo is the light-tick role — capture HapticFeedback.vibrate on the
-    // platform channel, the AppHaptics static owner's observable seam.
-    final haptics = <String>[];
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'HapticFeedback.vibrate') {
-          haptics.add(call.arguments as String);
-        }
-        return null;
-      },
-    );
-    AppHaptics.debugReset();
-    addTearDown(() {
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      );
-      AppHaptics.debugReset();
-    });
+    // Undo is the light-tick role.
+    final haptics = recordHaptics();
     final (container, _, repository) = await _makeWorld();
     final entity = parseIllust(illustJson(9));
     const originalAddedAt = 1726800000000;
@@ -338,7 +320,7 @@ void main() {
     expect(await repository.list('100'), isEmpty);
 
     await tester.tap(find.text('撤销'));
-    expect(haptics, ['HapticFeedbackType.selectionClick']);
+    expect(haptics.roles, [HapticRole.select]);
     await mockNetworkImagesFor(() async {
       await tester.pump();
       await tester.pump();

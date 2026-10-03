@@ -6,8 +6,8 @@
 //     lib/app/widgets/app_snack_bar.dart: zero — callers go through
 //     showAppSnackBar / showAppSnackBarOn (the latter's callsites are
 //     pinned below)
-//   - `HapticFeedback.` callsites outside lib/app/haptics/app_haptics.dart:
-//     zero — AppHaptics is the only owner
+//   - `HapticFeedback.` callsites outside lib/app/haptics/: zero —
+//     AppHaptics and its platform driver are the only owners
 //   - raw overlay entries (showDialog / showModalBottomSheet / Cupertino
 //     variants / showMenu / framework pickers) outside
 //     lib/app/motion/app_overlays.dart: zero beyond the pinned
@@ -32,8 +32,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Owner file for the SnackBar channel.
 const _snackBarOwner = 'lib/app/widgets/app_snack_bar.dart';
 
-/// Owner file for haptic feedback.
-const _hapticsOwner = 'lib/app/haptics/app_haptics.dart';
+/// Owner directory for haptic feedback (AppHaptics + its platform driver).
+const _hapticsOwnerDir = 'lib/app/haptics/';
 
 /// Owner file for app modal overlays.
 const _overlaysOwner = 'lib/app/motion/app_overlays.dart';
@@ -143,14 +143,17 @@ void main() {
     );
   });
 
-  test('HapticFeedback has exactly one owner', () {
-    final files = _matches(['lib'], RegExp(r'HapticFeedback\.')).keys.toSet();
+  test('haptics have exactly one owner', () {
+    final files = _matches(
+      ['lib'],
+      RegExp(r"HapticFeedback\.|MethodChannel\('parfait/haptics'\)"),
+    ).keys.where((f) => !f.startsWith(_hapticsOwnerDir));
     expect(
-      files.difference({_hapticsOwner}),
+      files,
       isEmpty,
       reason:
-          'raw HapticFeedback. outside $_hapticsOwner — '
-          'use AppHaptics select/confirm/success/error roles',
+          'raw haptics outside $_hapticsOwnerDir — '
+          'use an AppHaptics role',
     );
   });
 
