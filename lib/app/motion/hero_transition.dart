@@ -37,14 +37,52 @@ class IllustHeroFlightChild extends StatelessWidget {
 /// Feed-card end of the artwork Hero: the rounded clip, no outline. The
 /// shared shuttle recognises it on the card side.
 class IllustHeroCardFrame extends StatelessWidget {
-  const IllustHeroCardFrame({super.key, required this.child});
+  const IllustHeroCardFrame({super.key, this.cropAspect, required this.child});
 
   final Widget child;
+
+  /// Set when the card shows only the top of a taller image: the image's
+  /// width / height. The shuttle then grows the cropped top into the whole
+  /// image instead of starting from a shrunken full frame.
+  final double? cropAspect;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(borderRadius: FuncShape.card, child: child);
   }
+}
+
+/// Lays the shuttle image out between the card's top crop and the detail's
+/// contained frame. Both rects keep the image's own [aspect], so the
+/// detail's `BoxFit.contain` image fills the rect exactly; the shuttle clip
+/// cuts off what the card did not show.
+class _CropLerpDelegate extends SingleChildLayoutDelegate {
+  const _CropLerpDelegate({required this.progress, required this.aspect});
+
+  /// 0 at the card, 1 at the detail page, in both directions.
+  final double progress;
+  final double aspect;
+
+  Rect _rect(Size size) {
+    final coverTop = Offset.zero & Size(size.width, size.width / aspect);
+    final fitted = applyBoxFit(BoxFit.contain, Size(aspect, 1), size);
+    final containCenter = Alignment.center.inscribe(
+      fitted.destination,
+      Offset.zero & size,
+    );
+    return Rect.lerp(coverTop, containCenter, progress)!;
+  }
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints.tight(_rect(constraints.biggest).size);
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) => _rect(size).topLeft;
+
+  @override
+  bool shouldRelayout(_CropLerpDelegate oldDelegate) =>
+      progress != oldDelegate.progress || aspect != oldDelegate.aspect;
 }
 
 /// Conservative fallback for the home shell bottom navigation when the
@@ -87,6 +125,14 @@ Widget illustHeroFlightShuttleBuilder(
       ? heroChild.popChild!
       : heroChild;
   final child = RepaintBoundary(child: shuttleChild);
+  // The card endpoint is the source on push and the destination on pop.
+  final cardHero =
+      (direction == HeroFlightDirection.push ? fromHeroContext : toHeroContext)
+          .widget;
+  final cardFrame = cardHero is Hero ? cardHero.child : null;
+  final cropAspect = cardFrame is IllustHeroCardFrame
+      ? cardFrame.cropAspect
+      : null;
   // Resolve all geometry before the animation starts. The old implementation
   // performed RenderObject walks and NestedScrollView header discovery from
   // AnimatedBuilder; the first return therefore paid that cost on a frame
@@ -154,7 +200,18 @@ Widget illustHeroFlightShuttleBuilder(
           toHome: toHome,
           visibleExtent: visibleExtent,
         ),
-        child: ClipRRect(borderRadius: radius, child: child),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: cropAspect == null
+              ? child
+              : CustomSingleChildLayout(
+                  delegate: _CropLerpDelegate(
+                    progress: progress,
+                    aspect: cropAspect,
+                  ),
+                  child: child,
+                ),
+        ),
       );
     },
   );

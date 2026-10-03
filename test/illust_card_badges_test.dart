@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
@@ -247,6 +248,12 @@ void main() {
     // 300-wide column, 800×1200 work → 450-tall preview, never cropped.
     final size = tester.getSize(find.byType(PixivImage).first);
     expect(size.height, 450);
+    expect(
+      tester
+          .widget<IllustHeroCardFrame>(find.byType(IllustHeroCardFrame))
+          .cropAspect,
+      isNull,
+    );
   });
 
   group('tall works', () {
@@ -281,6 +288,13 @@ void main() {
         const Size(cardWidth, cardWidth * 2),
       );
       expect(heroFor(5), findsOneWidget);
+      // The shuttle grows this top crop into the whole 1:3 image.
+      expect(
+        tester
+            .widget<IllustHeroCardFrame>(find.byType(IllustHeroCardFrame))
+            .cropAspect,
+        closeTo(1 / 3, 1e-9),
+      );
     });
 
     testWidgets('a narrow 1:5 work shows the square thumbnail, no Hero', (

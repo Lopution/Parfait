@@ -223,6 +223,9 @@ class _IllustCardBody extends ConsumerWidget {
   Widget _buildImage(IllustCardPreview preview, String heroTag, double width) {
     final tier = preview.tier;
     final framed = IllustHeroCardFrame(
+      cropAspect: preview.crop == IllustCardCrop.top
+          ? entity.pageAspectRatioAt(0)
+          : null,
       child: PixivImage.feed(
         preview.url,
         layoutWidth: width,

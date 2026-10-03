@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -849,6 +850,135 @@ void main() {
     expect(popSamples.length, greaterThan(2));
     expect(popSamples, everyElement(isNull));
     await tester.pumpAndSettle();
+  });
+
+  group('a cropped tall card', () {
+    // The card shows the top of a 1:3 image in a 1:2 box.
+    const aspect = 1 / 3;
+    const tag = 'crop-hero';
+    const shuttleKey = ValueKey('crop-shuttle');
+
+    Future<GlobalKey<NavigatorState>> pumpCard(WidgetTester tester) async {
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SizedBox(
+                  width: 100,
+                  height: 200,
+                  child: Hero(
+                    tag: tag,
+                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                    child: const IllustHeroCardFrame(
+                      cropAspect: aspect,
+                      child: ColoredBox(color: Colors.red),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return navigatorKey;
+    }
+
+    /// The detail end: a [detailSize] box whose image is contained, like
+    /// the detail page's `BoxFit.contain` artwork.
+    PageRoute<void> detailRoute(Size detailSize) => _testPageRoute<void>(
+      builder: (_) => Scaffold(
+        body: Center(
+          child: SizedBox.fromSize(
+            size: detailSize,
+            child: Hero(
+              tag: tag,
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+              child: const KeyedSubtree(
+                key: shuttleKey,
+                child: ColoredBox(color: Colors.blue),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    /// The shuttle's clip box and the image rect inside it, once per frame.
+    Future<List<(Rect, Rect)>> sampleFlight(WidgetTester tester) async {
+      final clip = find.descendant(
+        of: find.byType(HeroRectClip),
+        matching: find.byType(ClipRRect),
+      );
+      final image = find.descendant(
+        of: find.byType(HeroRectClip),
+        matching: find.byKey(shuttleKey),
+      );
+      final samples = <(Rect, Rect)>[];
+      for (var i = 0; i < 60; i++) {
+        if (image.evaluate().isNotEmpty) {
+          samples.add((tester.getRect(clip.first), tester.getRect(image)));
+        } else if (samples.isNotEmpty) {
+          break;
+        }
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      return samples;
+    }
+
+    Matcher near(double value) => closeTo(value, 4);
+
+    /// Card look: full width, top-aligned, the rest of the image below.
+    void expectCoverTop((Rect, Rect) sample) {
+      final (box, image) = sample;
+      expect(image.left, near(box.left));
+      expect(image.top, near(box.top));
+      expect(image.width, near(box.width));
+      expect(image.height, near(box.width / aspect));
+    }
+
+    /// Detail look: the whole image contained and centred in the box.
+    void expectContained((Rect, Rect) sample) {
+      final (box, image) = sample;
+      final height = math.min(box.height, box.width / aspect);
+      expect(image.height, near(height));
+      expect(image.width, near(height * aspect));
+      expect(image.center.dx, near(box.center.dx));
+      expect(image.center.dy, near(box.center.dy));
+    }
+
+    for (final (name, detailSize) in [
+      ('phone', const Size(200, 600)),
+      ('two-pane stage', const Size(600, 400)),
+    ]) {
+      testWidgets('flies from the top crop to the whole image ($name)', (
+        tester,
+      ) async {
+        final navigatorKey = await pumpCard(tester);
+        navigatorKey.currentState!.push(detailRoute(detailSize));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 1));
+        final push = await sampleFlight(tester);
+        expect(push.length, greaterThan(2));
+        expectCoverTop(push.first);
+        expectContained(push.last);
+        await tester.pumpAndSettle();
+
+        navigatorKey.currentState!.pop();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 1));
+        final pop = await sampleFlight(tester);
+        expect(pop.length, greaterThan(2));
+        expectContained(pop.first);
+        expectCoverTop(pop.last);
+        await tester.pumpAndSettle();
+      });
+    }
   });
 
   testWidgets('a detail-to-viewer-style flight grows no border', (
